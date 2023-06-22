@@ -1,12 +1,24 @@
 package com.vis.core.facade;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import java.util.logging.Level;
+
+import javax.swing.JOptionPane;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.configuration.StartingUpConfigurations;
-import com.vis.core.log.LogWindow;
+import com.vis.core.log.Log;
 import com.vis.core.plugin.PluginShelf;
+import com.vis.core.util.PropertiesUtil;
+import com.vis.core.util.Utils;
+import com.vis.db.DatabaseHandler;
 
 /**
  * Manage starting-up process.
@@ -21,34 +33,31 @@ import com.vis.core.plugin.PluginShelf;
  */
 public class ApplicationFacade{
 	
-	private GraphySplashScreen splash;
-	
-	public static LogWindow logWin;
-	
-	public PluginShelf pluginShelf;
+	private static GraphySplashScreen splash;
+	public static Locale locale;
+	private static PluginShelf pluginShelf;
+	public static DatabaseHandler db; 
 	
 	public ApplicationFacade(HashMap<StartingUpConfigurations, String[]> args) {
-		goodMorning(args);
-	}
-	
-	private void goodMorning(HashMap<StartingUpConfigurations, String[]> args) {
-
+		if(Utils.isDebug) {
+			Log.logger.info("Running in debug mode.");
+		}
 		readyToStart(args.get(StartingUpConfigurations.no_splash) != null);
 		//add more process to starting up.
 	}
 	
+	/**
+	 * Prepare to start ;
+	 * - configurations (if not exists, load default)
+	 * - load locale
+	 * - load plugins
+	 * - show main screen
+	 * @param no_splash
+	 */
 	private void readyToStart(boolean no_splash) {
 		
-		logWin = new LogWindow();
-		
-		/*
-		 * check exist subfolders before loading plugins
-		 */
-		for(String name : new String[] {ConfigInfo.ConfDirName.toString(), ConfigInfo.LogDirName.toString(), ConfigInfo.PluginDirName.toString(), ConfigInfo.TemporalDirName.toString()}) {
-			if(!new File("./"+name).exists()) {
-				new File("./"+name).mkdirs();
-			}
-		}
+		initConfigurationFolders();
+		loadLocale();//before show splash
 		
 		if(!no_splash) {
 			splash = new GraphySplashScreen();
@@ -59,16 +68,66 @@ public class ApplicationFacade{
 		if(splash != null) {
 			if(pluginShelf.getLoadedPluginNames() != null) {
 				int numOfPlugin = pluginShelf.getLoadedPluginNames().size();
-				splash.startProgressAndClose("Loading Plugins", numOfPlugin);
+				splash.startProgressAndClose(ResourceBundle.getBundle("i18n.i18n").getString("ApplicationFacade.loadingPlugin"), numOfPlugin);
 			}else {
-				splash.startProgressAndClose("Loading Plugins", 0);
+				splash.startProgressAndClose(ResourceBundle.getBundle("i18n.i18n").getString("ApplicationFacade.loadingPlugin"), 0);
 			}
 		}
-		
-		//internationalization
-		//locale
-//		loadDBLocationFromProperties();
-//		mediator.loadQRRefreshOn();
+	}
+	
+	private void initConfigurationFolders() {
+		for(ConfigInfo name : new ConfigInfo[] {ConfigInfo.ConfDirName, ConfigInfo.LogDirName, ConfigInfo.PluginDirName, ConfigInfo.TemporalDirName}) {
+			if(!new File("./"+name.toString()).exists()) {
+				switch (name) {
+				case LogDirName:
+				case PluginDirName:
+				case TemporalDirName:
+					new File("./"+name.toString()).mkdirs();
+					break;
+				case ConfDirName:
+					new File("./"+name.toString()).mkdirs();
+					try {
+						Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
+					} catch (IOException e) {
+						Log.logger.severe(e.getMessage());
+						Log.logger.severe("Cannot copy default graphy properties file.");
+					}
+					break;
+				default:
+					break;
+				}
+			}else {
+				if(name == ConfigInfo.ConfDirName) {
+					if(!new File("./"+name.toString()+"/graphy.properties").exists()) {
+						try {
+							Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
+						} catch (IOException e) {
+							Log.logger.severe(e.getMessage());
+							Log.logger.severe("Cannot copy default graphy properties file.");
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * load locale from graphy.properties.
+	 * if null, set default locale.
+	 */
+	private void loadLocale() {
+		String locale_str = PropertiesUtil.getPropValueFrom(PropertiesUtil.GRAPHY_Props, GraphyProp.Locale.name());
+		if(locale_str != null && !locale_str.isBlank()) {
+			for(Locale l:Locale.getAvailableLocales()) {
+				if (l.getLanguage().equals(new Locale(locale_str).getLanguage())) {
+					this.locale = l;
+					Locale.setDefault(this.locale);
+					return;
+				}
+			}
+		}
+		this.locale = Locale.getDefault();
+		Locale.setDefault(this.locale);
 	}
 	
 	private void initPlugInShelf() {
@@ -116,49 +175,27 @@ public class ApplicationFacade{
 //		viewer2DWin.setDatabase(mediator.getDatabaseRef());
 	}
 
-//	private void setSystemProperties() {
-//		String currentDir = System.getProperty("user.dir");//apps working dir
-//		//TODO, OS by OS
-//		System.setProperty("java.library.path", System.getProperty("user.dir") + File.separator + "lib");
-//		if(new File(currentDir+"/lib/dcm4che-5.15.1/lib/linux-x86_64").exists()) {
-//			setEnv(currentDir+"/lib/dcm4che-5.15.1/lib/linux-x86_64");
-////			System.setProperty("java.library.path", System.getProperty("user.dir") + File.separator + "lib/dcm4che-5.15.1/lib/linux-x86_64");//can not
-//		}
-//		Field fieldSysPath;
-//		try {
-//			fieldSysPath = ClassLoader.class.getDeclaredField("sys_paths");
-//			fieldSysPath.setAccessible(true);
-//			fieldSysPath.set(null, null);
-//		} catch (Exception ex) {
-//			ApplicationContext.logger.log(Level.SEVERE, "Unable to set Library Path.", ex);
-//		}
-//
-//		if (SystemUtils.IS_OS_MAC) {
-//			System.setProperty("apple.laf.useScreenMenuBar", "true");
-//			System.setProperty("com.apple.mrj.application.apple.menu.about.name", ApplicationContext.applicationName);
-//			System.setProperty("apple.awt.antialiasing", "true");
-//			System.setProperty("apple.awt.textantialiasing", "true");
-//		}
-//		if (SystemUtils.IS_OS_LINUX) {
-//			System.setProperty("sun.java2d.pmoffscreen", "false");
-//		}
-//		ImageIO.scanForPlugins();
-//		System.setProperty("java.util.Arrays.useLegacyMergeSort", "true"); // Need to avoid the exceptions occured when
-//																			// using jdk 1.7
-//	}
-
-//	public static void exitApp(String exitString) throws Throwable {
-////		if (splash != null) {
-////			splash.setVisible(false);
-////		}
-//		ApplicationContext.logger.severe(exitString);
-//		JOptionPane.showMessageDialog(null, exitString, "ERROR", JOptionPane.ERROR_MESSAGE);
-//		ApplicationContext.databaseRef.shutdownDB();
-//		System.exit(0);
-//	}
-
-//	private static void loadStudiesBasedOnInputParameter(InputArgumentValues inputArgumentValues) {
-//		DirectLaunch directLauncher = new DirectLaunch(inputArgumentValues);
-//		directLauncher.execute();
-//	}
+	public static void exitApp(Level level, String exitString) throws Throwable {
+		if (splash != null) {
+			splash.dispose();
+		}
+		Log.logger.log(level, exitString);
+		if(level == Level.INFO) {
+			int res = JOptionPane.showConfirmDialog(null, "Close the window ? (application will close)");
+			if(res == JOptionPane.OK_OPTION || res == JOptionPane.YES_OPTION) {
+				/*
+				 * TODO safeClose()
+				 */
+				//		ApplicationContext.databaseRef.shutdownDB();
+				// application will close without any errors.
+				System.exit(0);
+			}else if(res == JOptionPane.CANCEL_OPTION) {
+				//to be continue
+				return;
+			}
+		}else {
+			//TODO safeClose()
+			System.exit(Level.SEVERE.intValue());
+		}
+	}
 }

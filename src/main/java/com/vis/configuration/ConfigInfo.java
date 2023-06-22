@@ -10,6 +10,9 @@ public enum ConfigInfo {
 	// log files
 	LogFileName("graphy.log"),
 	LogFilePath("./" + LogDirName.toString() + "/" + LogFileName.toString()),
+	
+	// db
+	//DefaultDBLocation("") // changeable location. basically, application located dir.
 	;
 	
 	private final String v;

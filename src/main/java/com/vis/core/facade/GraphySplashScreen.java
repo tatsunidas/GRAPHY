@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ResourceBundle;
 import java.util.logging.Level;
 
 import javax.imageio.ImageIO;
@@ -17,6 +18,7 @@ import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 
 /**
@@ -46,7 +48,7 @@ public class GraphySplashScreen extends JFrame {
 		setUndecorated(true);// title bar no visible
 		BufferedImage splash = null;
 		try {
-			splash = ImageIO.read(getClass().getResource("/icon/splash.png"));
+			splash = ImageIO.read(Resources.Splash.toURL());
 		} catch (IOException e) {
 			// skip showing splash
 			dispose();
@@ -80,7 +82,7 @@ public class GraphySplashScreen extends JFrame {
 		new Thread(){
 	        public void run(){
 	        	progress.setMaximum(max);
-				progress.setString("[" + progressPrefix + "]:" + "Ready to start GRAPHY");
+				progress.setString("[" + progressPrefix + "]:" + ResourceBundle.getBundle("i18n.i18n").getString("GraphySplashScreen.readyToStart"));
 				progress.repaint();
 				for (int i = 0; i < max; i++) {
 					progress.setValue(i++);

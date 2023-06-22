@@ -9,12 +9,33 @@
 		<maven.compiler.target>1.11</maven.compiler.target>
 		<maven.compiler.source>1.11</maven.compiler.source>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		
+		<imagej-version>1.54e</imagej-version>
+		<dcm4che-version>5.23.2</dcm4che-version>
+		<derby-version>10.14.2.0</derby-version>
+		<commons-version>1.5.0</commons-version>
+		<pdfbox-version>2.0.12</pdfbox-version>
+		
 	</properties>
+	
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<includes>
+					<include>**/*</include>
+				</includes>
+				<excludes>
+					<exclude>**/*test*.*</exclude>
+				</excludes>
+			</resource>
+		</resources>
+	</build>
 	
 	<repositories>
 		<!-- pixelmed.jar -->
 		<repository>
-			<id>GAZELLE Repository</id>
+			<id>GAZELLE</id>
 			<name>GAZELLE Repository</name>
 			<url>https://gazelle.ihe.net/nexus/content/repositories/releases/</url>
 		</repository>
@@ -24,21 +45,23 @@
 			<name>ImageJ Releases Repository</name>
 			<url>https://maven.imagej.net/content/repositories/releases/</url>
 		</repository>
+		<!-- dcm4che -->
+		<repository>
+			<id>SciJava Public</id>
+			<name>SciJava Public Repository</name>
+			<url>https://maven.scijava.org/content/repositories/public/</url>
+		</repository>
 	</repositories>
 	
 	<dependencies>
-		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
-		<dependency>
-		    <groupId>commons-cli</groupId>
-		    <artifactId>commons-cli</artifactId>
-		    <version>1.5.0</version>
-		</dependency>
-
+		
+		<!-- IMAGES LIBRARIES -->
+		
 		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
 		<dependency>
 			<groupId>net.imagej</groupId>
 			<artifactId>ij</artifactId>
-			<version>1.54e</version>
+			<version>${imagej-version}</version>
 		</dependency>
 		<!--
 		https://mvnrepository.com/artifact/net.ihe.gazelle.pixelmed.validator/Pixelmed-jar -->
@@ -63,7 +86,141 @@
 			<artifactId>3D_Viewer</artifactId>
 			<version>4.0.5</version>
 		</dependency>
-
+		
+		<!-- DB LIBRARIES -->
+		
+		<!-- https://mvnrepository.com/artifact/org.apache.derby/derby -->
+		<dependency>
+			<groupId>org.apache.derby</groupId>
+			<artifactId>derby</artifactId>
+			<version>${derby-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.derby/derbyclient -->
+		<dependency>
+			<groupId>org.apache.derby</groupId>
+			<artifactId>derbyclient</artifactId>
+			<version>${derby-version}</version>
+		</dependency>
+		
+		<!-- DICOM LIBRARIES -->
+		
+		<dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-core</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio-rle -->
+		<dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-imageio-rle</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio -->
+		<dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-imageio</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.sun.media</groupId>
+			<artifactId>jai_imageio</artifactId>
+			<version>1.2-pre-dr-b04</version>
+		</dependency>
+		<!-- when use open-cv, set run comfigration -Djava.library.path="E:/Dropbox/Graphy-WorkSpace2/graphy-parent/graphy-imageio/image-io-nativelib/windows-x86-64/" -->
+		<!-- dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-imageio-opencv</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency -->
+		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-emf -->
+		<dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-emf</artifactId>
+			<version>5.23.1</version><!-- keep this version -->
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-common -->
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-common</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-storescu -->
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-storescu</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-dcmqrscp -->
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-dcmqrscp</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-net -->
+		<dependency>
+			<groupId>org.dcm4che</groupId>
+			<artifactId>dcm4che-net</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-dcm2xml -->
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-dcm2xml</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-dcmdir</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-movescu</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dcm4che.tool</groupId>
+			<artifactId>dcm4che-tool-getscu</artifactId>
+			<version>${dcm4che-version}</version>
+		</dependency>
+		<dependency>
+            <groupId>org.dcm4che</groupId>
+            <artifactId>dcm4che-dcmr</artifactId>
+            <version>${dcm4che-version}</version>
+        </dependency>
+		
+		<!-- MISC LIBRARIES -->
+		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>27.0.1-jre</version>
+		</dependency>
+		<dependency>
+		    <groupId>commons-cli</groupId>
+		    <artifactId>commons-cli</artifactId>
+		    <version>1.5.0</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.8.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>${pdfbox-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox-tools</artifactId>
+			<version>${pdfbox-version}</version>
+		</dependency>
 	</dependencies>
 
 </project>

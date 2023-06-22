@@ -17,6 +17,9 @@ import com.vis.core.log.Log;
 
 /**
  * GRAPHY launcher
+ * 
+ * without i18n.
+ * 
  * @author tatsunidas
  *
  */
@@ -37,7 +40,6 @@ public class Launcher {
 	}
 	
 	public Launcher(String[] args) {
-		Log.logger.info("Starting GRAPHY...");;//set logger
 		new ApplicationFacade(parseArgs(args));
 	}
 	
@@ -73,7 +75,7 @@ public class Launcher {
 				.longOpt(StartingUpConfigurations.no_splash.name())//long name of the option
 				.required(false)
 				.hasArg(false)
-				.desc("Starting up without show splash window.")
+				.desc("Starting up without show splash window.")//no_i18n
 				.build();
 		
 		options.addOption(splash_opt);
@@ -92,7 +94,7 @@ public class Launcher {
 		
 		//cmd.hasOption::check both short name and long name 
 		if(cmd.hasOption(StartingUpConfigurations.no_splash.name())){
-			Log.logger.info("option : "+StartingUpConfigurations.no_splash.name());
+			Log.logger.info("graphy option : "+StartingUpConfigurations.no_splash.name());
 			map.put(StartingUpConfigurations.no_splash, new String[]{"true"});//cmd.getOptionValues("i")
 		}
 		//to be continue...
