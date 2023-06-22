@@ -20,18 +20,17 @@ import com.vis.core.log.Log;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
+import com.vis.dicom.DicomCommunicationNode;
+import com.vis.dicom.DicomUtilities;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 
 /**
  * 
- * GRAPHY DB Components
- * - derby : local db used to any tables.
- * 
- * if you want to change derby.log file location
- * > java -Dderby.stream.error.file=C:/temp/derby.log your.main.class
- * 
- * - dcmqrscp : dimse services.
+ * DatabaseHandler is a GRAPHY DB.
+ * DatabaseHandler has main two servers.
+ * - derby : local db used to any tables and communicate with dcmqrscp.
+ * - DicomServer : dcmqrscp.
  *  
  * @author tatsunidas
  */
@@ -43,14 +42,14 @@ public class DatabaseHandler {
 	//location
 	private String dbdir = "";//keep blank. db folder, without databasename.
 
-	private EmbeddedDataSource ds;
+	// derby
+	private EmbeddedDataSource derby;
 	private final String	databasename = "graphydb";//will become db folder name
 	private final String username = "graphy";
 	private final String password = "graphy-mtfbwy";
 	
-	/*
-	 * dcmqrscp configs.
-	 */
+	// dcmqrscp
+	private DicomServer dcmqrscp;
 	private final String defaultAET = "GRAPHY";
 	private final String defaultHost = "localhost";
 	private final String defaultPort = "4891";//for dimse, 
@@ -66,15 +65,16 @@ public class DatabaseHandler {
 	private DateFormat timeFormat1 = new SimpleDateFormat("kkmmss");//use kk instead HH for represent 24 hour.
 //	private DateFormat timeFormat2 = new SimpleDateFormat("kkmmss.SSS");//use kk instead HH for represent 24 hour.
 	
+	private boolean saveAsLink = false;
+	
 	private java.util.logging.Logger logger = Log.logger;
 	
 	/*
-	 * derby unit test
+	 * unit test
 	 */
 	public static void main(String[] args) {
 		
 		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
-		
 		DatabaseHandler db = new DatabaseHandlerBuilder().build();
 		db.setDatabaseFolderPath(testDir);
 		db.startingUp();
@@ -110,6 +110,10 @@ public class DatabaseHandler {
 		return datbaseRef;
 	}
 	
+	public void setSaveAsLinkState(boolean bool) {
+		this.saveAsLink = bool;
+	}
+	
 	public String getDriverName() {
 		return "org.apache.derby.jdbc.EmbeddedDriver";
 	}
@@ -135,14 +139,14 @@ public class DatabaseHandler {
 	}
 	
 	private EmbeddedDataSource makeDataSource(String graphydir, boolean create) throws Throwable {
-		ds = new EmbeddedDataSource();
-		ds.setDatabaseName(graphydir + File.separator + databasename);
-		ds.setUser(username);
-		ds.setPassword(password);
+		derby = new EmbeddedDataSource();
+		derby.setDatabaseName(graphydir + File.separator + databasename);
+		derby.setUser(username);
+		derby.setPassword(password);
 		if (create) {
-			ds.setCreateDatabase("create");
+			derby.setCreateDatabase("create");
 		}
-		return ds;
+		return derby;
 	}
 	
 	/**
@@ -151,7 +155,7 @@ public class DatabaseHandler {
 	 * @return exist or not
 	 */
 	public boolean checkDBExists(String dbdir) {
-		if(ds == null) {
+		if(derby == null) {
 			try {
 				makeDataSource(dbdir, true);
 			} catch (Throwable e) {
@@ -209,7 +213,7 @@ public class DatabaseHandler {
 	}
 	
 	private boolean patientTableAlreadyExists() {
-		if(ds == null) {
+		if(derby == null) {
 			checkDBExists(dbdir);
 		}
 		try {
@@ -261,13 +265,13 @@ public class DatabaseHandler {
 	 * @return Connection
 	 */
 	private Connection openConnection() {
-		if(ds == null) {
+		if(derby == null) {
 			logger.warning("Should be makeDataSource() first before open Connection.");
 			return null;
 		}
 		/* Open connection */
 		try {
-			Connection conn = ds.getConnection();
+			Connection conn = derby.getConnection();
 			conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 			conn.setAutoCommit(true);//auto commit basis handling
 			return conn;
@@ -312,12 +316,12 @@ public class DatabaseHandler {
 	}
 	
 	public void shutdownDB() {
-		if(ds == null) {
+		if(derby == null) {
 			return;
 		}
 		try {
-			ds.setShutdownDatabase("shutdown");
-			ds.getConnection();
+			derby.setShutdownDatabase("shutdown");
+			derby.getConnection();
 		} catch (SQLException e) {
 			boolean gotSQLExc = false;
 			if (e.getSQLState().equals("XJ015") || "08006".equals(e.getSQLState())) {
@@ -328,7 +332,7 @@ public class DatabaseHandler {
 			} else {
 				logger.info(getClass().getName() + ": shutdown correctly, " + databasename);
 			}
-			ds = null;
+			derby = null;
 		}
 	}
 
@@ -536,7 +540,6 @@ public class DatabaseHandler {
 			}
 			safeClose(conn);
 		}
-		
 	}
 
 	private void insertModalities() throws SQLException {
@@ -923,7 +926,7 @@ public class DatabaseHandler {
 		return overWrite;
 	}
 
-	public synchronized void writeDatasetInfo(Attributes dataset, boolean saveAsLink, String filePath) {
+	public synchronized void writeDatasetInfo(Attributes dataset, String filePath) {
 		boolean overWrite = overWriteSavedAsLinkRecord(dataset,saveAsLink);
 		if(!checkCanImport(dataset) && !overWrite) {
 			return;
@@ -1507,19 +1510,18 @@ public class DatabaseHandler {
 		}
 		return serverMaterialsList;
 	}
-	/*
-	 * TODO 202306
-	 */
-//	public ArrayList<DicomCommunicationNode> loadServerList() {
-//		// get server materials
-//		ArrayList<HashMap<String,Object>>  serverMaterials= getCommunicationServerList();
-//		ArrayList<DicomCommunicationNode> serverList = new ArrayList<DicomCommunicationNode>();
-//		for(HashMap<String,Object> nodeMaterials:serverMaterials) {
-//			System.out.println((String)nodeMaterials.get("logicalname"));
-//			serverList.add(new DicomCommunicationNode(nodeMaterials));
-//		}
-//		return serverList;
-//	}
+	
+	
+	public ArrayList<DicomCommunicationNode> loadServerList() {
+		// get server materials
+		ArrayList<HashMap<String,Object>>  serverMaterials= getCommunicationServerList();
+		ArrayList<DicomCommunicationNode> serverList = new ArrayList<DicomCommunicationNode>();
+		for(HashMap<String,Object> nodeMaterials:serverMaterials) {
+			System.out.println((String)nodeMaterials.get("logicalname"));
+			serverList.add(new DicomCommunicationNode(nodeMaterials));
+		}
+		return serverList;
+	}
 	
 	//move to another class
 //	public ArrayList<DicomCommunicationNode> getCommunicationableServers() {
@@ -3640,31 +3642,28 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	/*
-	 * TODO 202306
-	 */
-//	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(Attributes keys){
-//		ArrayList<HashMap<String,String>> patCandidate = new ArrayList<>();
-//		/* PatientID is primary key */
-//		String[] patIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.PatientID));
-//		if(patIDs.length != 0) {
-//			/* search pid && othersPatientRelatedInfo */
-//			for(int i=0;i<patIDs.length;i++) {
-//				HashMap<String,String> patInfo = findPatientRecordWithPatIDAnd(patIDs[i],keys);
-//				if(patInfo != null) {
-//					patCandidate.add(patInfo);
-//				}
-//			}
-//		}else {
-//			/* search without pid */
-//			/* if can not find candidate, get null */
-//			patCandidate = findPatientRecordWithoutPatID(keys);
-//		}
-//		if(patCandidate != null && !patCandidate.isEmpty()) {
-//			return patCandidate;
-//		}
-//		return null;
-//	}
+	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(Attributes keys){
+		ArrayList<HashMap<String,String>> patCandidate = new ArrayList<>();
+		/* PatientID is primary key */
+		String[] patIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.PatientID));
+		if(patIDs.length != 0) {
+			/* search pid && othersPatientRelatedInfo */
+			for(int i=0;i<patIDs.length;i++) {
+				HashMap<String,String> patInfo = findPatientRecordWithPatIDAnd(patIDs[i],keys);
+				if(patInfo != null) {
+					patCandidate.add(patInfo);
+				}
+			}
+		}else {
+			/* search without pid */
+			/* if can not find candidate, get null */
+			patCandidate = findPatientRecordWithoutPatID(keys);
+		}
+		if(patCandidate != null && !patCandidate.isEmpty()) {
+			return patCandidate;
+		}
+		return null;
+	}
 	
 	/*
 	 * return following info
@@ -3886,35 +3885,32 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	/*
-	 * TODO 202306
-	 */
-//	public ArrayList<HashMap<String,String>> getAllCandidate4StudyQuery(Attributes patRec, Attributes keys){
-//		String patID = null;
-//		if(patRec != null) {
-//			patID = patRec.getString(Tag.PatientID);
-//		}
-//		ArrayList<HashMap<String,String>> studyCandidate = new ArrayList<>();
-//		/* StudyIUID is primary key */
-//		String[] studyIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.StudyInstanceUID));
-//		if(studyIUIDs.length != 0) {
-//			/* search by studyIUID && othersStudyRelatedInfo */
-//			for(int i=0;i<studyIUIDs.length;i++) {
-//				HashMap<String,String> studyInfo = findStudyRecordWithStudyIUIDAnd(patID,studyIUIDs[i],keys);
-//				if(studyInfo != null) {
-//					studyCandidate.add(studyInfo);
-//				}
-//			}
-//		}else {
-//			/* search without pid */
-//			/* if can not find candidate, get null */
-//			studyCandidate = findStudyRecordWithoutStudyIUID(patID, keys);
-//		}
-//		if(studyCandidate != null && !studyCandidate.isEmpty()) {
-//			return studyCandidate;
-//		}
-//		return null;
-//	}
+	public ArrayList<HashMap<String,String>> getAllCandidate4StudyQuery(Attributes patRec, Attributes keys){
+		String patID = null;
+		if(patRec != null) {
+			patID = patRec.getString(Tag.PatientID);
+		}
+		ArrayList<HashMap<String,String>> studyCandidate = new ArrayList<>();
+		/* StudyIUID is primary key */
+		String[] studyIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.StudyInstanceUID));
+		if(studyIUIDs.length != 0) {
+			/* search by studyIUID && othersStudyRelatedInfo */
+			for(int i=0;i<studyIUIDs.length;i++) {
+				HashMap<String,String> studyInfo = findStudyRecordWithStudyIUIDAnd(patID,studyIUIDs[i],keys);
+				if(studyInfo != null) {
+					studyCandidate.add(studyInfo);
+				}
+			}
+		}else {
+			/* search without pid */
+			/* if can not find candidate, get null */
+			studyCandidate = findStudyRecordWithoutStudyIUID(patID, keys);
+		}
+		if(studyCandidate != null && !studyCandidate.isEmpty()) {
+			return studyCandidate;
+		}
+		return null;
+	}
 	
 	/*
 	 * map.put("StudyInstanceUID", studyIUID); -> primary key of study level.
@@ -4136,41 +4132,38 @@ public class DatabaseHandler {
 	}
 	
 	/*
-	 * TODO 202306
-	 */
-	/*
 	 * input only one patient and one study
 	 */
-//	public ArrayList<HashMap<String,String>> getAllCandidate4SeriesQuery(Attributes patRec,Attributes studyRec, Attributes keys){
-//		String patID = null;
-//		String studyIUID = null;
-//		if(patRec != null) {
-//			patID = patRec.getString(Tag.PatientID);
-//		}
-//		if(studyRec != null) {
-//			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
-//		}
-//		ArrayList<HashMap<String,String>> seriesCandidate = new ArrayList<>();
-//		/* SeriesIUID is primary key */
-//		String[] seriesIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SeriesInstanceUID));
-//		if(seriesIUIDs.length != 0) {
-//			/* search by seriesIUID && othersSeriesRelatedInfo */
-//			for(int i=0;i<seriesIUIDs.length;i++) {
-//				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(patID,studyIUID,seriesIUIDs[i],keys);
-//				if(seriesInfo != null) {
-//					seriesCandidate.add(seriesInfo);
-//				}
-//			}
-//		}else {
-//			/* search without pid */
-//			/* if can not find candidate, get null */
-//			seriesCandidate = findSeriesRecordWithoutSeriesIUID(patID, studyIUID,keys);
-//		}
-//		if(seriesCandidate != null && !seriesCandidate.isEmpty()) {
-//			return seriesCandidate;
-//		}
-//		return null;
-//	}
+	public ArrayList<HashMap<String,String>> getAllCandidate4SeriesQuery(Attributes patRec,Attributes studyRec, Attributes keys){
+		String patID = null;
+		String studyIUID = null;
+		if(patRec != null) {
+			patID = patRec.getString(Tag.PatientID);
+		}
+		if(studyRec != null) {
+			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
+		}
+		ArrayList<HashMap<String,String>> seriesCandidate = new ArrayList<>();
+		/* SeriesIUID is primary key */
+		String[] seriesIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SeriesInstanceUID));
+		if(seriesIUIDs.length != 0) {
+			/* search by seriesIUID && othersSeriesRelatedInfo */
+			for(int i=0;i<seriesIUIDs.length;i++) {
+				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(patID,studyIUID,seriesIUIDs[i],keys);
+				if(seriesInfo != null) {
+					seriesCandidate.add(seriesInfo);
+				}
+			}
+		}else {
+			/* search without pid */
+			/* if can not find candidate, get null */
+			seriesCandidate = findSeriesRecordWithoutSeriesIUID(patID, studyIUID,keys);
+		}
+		if(seriesCandidate != null && !seriesCandidate.isEmpty()) {
+			return seriesCandidate;
+		}
+		return null;
+	}
 	
 	/*
 	 * input only one patient and one study
@@ -4358,320 +4351,311 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	/*
-	 * TODO 202306
-	 */
-//	public ArrayList<HashMap<String,String>> getAllCandidate4InstanceQuery(Attributes patRec,Attributes studyRec,Attributes seriesRec,Attributes keys){
-//		String patID = null;
-//		String studyIUID = null;
-//		String seriesIUID = null;
-//		if(patRec != null) {
-//			patID = patRec.getString(Tag.PatientID);
-//		}
-//		if(studyRec != null) {
-//			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
-//		}
-//		if(seriesRec != null) {
-//			seriesIUID = seriesRec.getString(Tag.SeriesInstanceUID);
-//		}
-//		ArrayList<HashMap<String,String>> instCandidate = new ArrayList<>();
-//		/* sopIUID is primary key */
-//		String[] sopIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SOPInstanceUID));
-//		if(sopIUIDs.length != 0) {
-//			/* search by sopIUID && othersInstanceRelatedInfo */
-//			for(int i=0;i<sopIUIDs.length;i++) {
-//				HashMap<String,String> instInfo = findImageRecordWithSopIUIDAnd(patID,studyIUID,seriesIUID,sopIUIDs[i],keys);
-//				if(instInfo != null) {
-//					instCandidate.add(instInfo);
-//				}
-//			}
-//		}else {
-//			/* search without pid */
-//			/* if can not find candidate, get null */
-//			instCandidate = findImageRecordWithoutSopIUID(patID, studyIUID,seriesIUID,keys);
-//		}
-//		if(instCandidate != null && !instCandidate.isEmpty()) {
-//			return instCandidate;
-//		}
-//		return null;
-//	}
+	public ArrayList<HashMap<String,String>> getAllCandidate4InstanceQuery(Attributes patRec,Attributes studyRec,Attributes seriesRec,Attributes keys){
+		String patID = null;
+		String studyIUID = null;
+		String seriesIUID = null;
+		if(patRec != null) {
+			patID = patRec.getString(Tag.PatientID);
+		}
+		if(studyRec != null) {
+			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
+		}
+		if(seriesRec != null) {
+			seriesIUID = seriesRec.getString(Tag.SeriesInstanceUID);
+		}
+		ArrayList<HashMap<String,String>> instCandidate = new ArrayList<>();
+		/* sopIUID is primary key */
+		String[] sopIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SOPInstanceUID));
+		if(sopIUIDs.length != 0) {
+			/* search by sopIUID && othersInstanceRelatedInfo */
+			for(int i=0;i<sopIUIDs.length;i++) {
+				HashMap<String,String> instInfo = findImageRecordWithSopIUIDAnd(patID,studyIUID,seriesIUID,sopIUIDs[i],keys);
+				if(instInfo != null) {
+					instCandidate.add(instInfo);
+				}
+			}
+		}else {
+			/* search without pid */
+			/* if can not find candidate, get null */
+			instCandidate = findImageRecordWithoutSopIUID(patID, studyIUID,seriesIUID,keys);
+		}
+		if(instCandidate != null && !instCandidate.isEmpty()) {
+			return instCandidate;
+		}
+		return null;
+	}
 	
-	/*
-	 * TODO 202306
-	 */
 //	(0004,1500) CS [DICOM\6EFD8DF8\FF3A35F6\4C11115A] ReferencedFileID
 //	(0004,1510) UI [1.2.840.10008.5.1.4.1.1.4] ReferencedSOPClassUIDInFile//same as SOPClassUID
 //	(0004,1511) UI [1.3.6.1.4.1.14519.5.2.1.3344.2526.3991481572793857949648742095//same as SOP Instance UID
 //	(0004,1512) UI [1.2.840.10008.1.2] ReferencedTransferSyntaxUIDInFile//same as TransferSyntaxUID
 //	(0020,0013) IS [6] InstanceNumber//mandatory for directory record
-//	public HashMap<String, String> findImageRecordWithSopIUIDAnd(String patID,String studyIUID, String seriesIUID, String sopIUID, Attributes keys) {
-//		/* check item in keys */
-//		Connection conn = openConnection();
-//		String statement = "SELECT * FROM IMAGE WHERE";
-//		HashMap<Integer,String> keymap = new HashMap<>();
-//		int pos = 1;
-//		if(patID == null) {
-//			if(studyIUID == null) {
-//				if(seriesIUID == null) {
-//					statement = statement+" SOPInstanceUID=?";
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" SeriesInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}
-//			}else {
-//				if(seriesIUID == null) {
-//					statement = statement+" StudyInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}
-//			}
-//		}else {
-//			if(studyIUID == null) {
-//				if(seriesIUID == null) {
-//					statement = statement+" PatientID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" PatientID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}
-//			}else {
-//				if(seriesIUID == null) {
-//					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//					keymap.put(pos, sopIUID);
-//					pos++;
-//				}
-//			}
-//		}
-//		StringBuilder builder = new StringBuilder();
-//		builder.append(statement);		
-//		if(keys.contains(Tag.TransferSyntaxUID)) {
-//			builder.append(" AND "+"TransferSyntaxUID=?");
-//			keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
-//			pos++;
-//		}
-//		if(keys.contains(Tag.InstanceNumber)) {
-//			builder.append(" AND "+"InstanceNumber=?");
-//			keymap.put(pos,keys.getString(Tag.InstanceNumber));
-//			pos++;
-//		}
-//		if(keys.contains(Tag.SOPClassUID)) {
-//			builder.append(" AND "+"SOPClassUID=?");
-//			keymap.put(pos,keys.getString(Tag.SOPClassUID));
-//			pos++;
-//		}
-//		
-//		HashMap<String, String> map = new HashMap<>();
-//		ResultSet rset = null;
-//		PreparedStatement pstmt = null;
-//		try {
-//			pstmt = conn.prepareStatement(builder.toString());
-//			for(int keypos:keymap.keySet()) {
-//				pstmt.setString(keypos, keymap.get(keypos));
-//			}
-//			rset = pstmt.executeQuery();
-//			rset.setFetchSize(3);
-//			if(rset.next()) { 
-//				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
-//				map.put("SOPInstanceUID", sopIUID);
-//				map.put("SOPClassUID", rset.getString("SOPClassUID"));
-//				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
-//				map.put("InstanceNumber", rset.getString("InstanceNumber"));
-//			}
-//			if(map.isEmpty()) {
-//				return null;
-//			}else {
-//				return map;
-//			}
-//		} catch (SQLException ex) {
-//			logger.severe(ex.getMessage());
-//		}finally {
-//			try {
-//				rset.close();
-//				pstmt.close();
-//				safeClose(conn);
-//			} catch (SQLException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//		}
-//		return null;
-//	}
+	public HashMap<String, String> findImageRecordWithSopIUIDAnd(String patID,String studyIUID, String seriesIUID, String sopIUID, Attributes keys) {
+		/* check item in keys */
+		Connection conn = openConnection();
+		String statement = "SELECT * FROM IMAGE WHERE";
+		HashMap<Integer,String> keymap = new HashMap<>();
+		int pos = 1;
+		if(patID == null) {
+			if(studyIUID == null) {
+				if(seriesIUID == null) {
+					statement = statement+" SOPInstanceUID=?";
+					keymap.put(pos, sopIUID);
+					pos++;
+				}else {
+					statement = statement+" SeriesInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, seriesIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}
+			}else {
+				if(seriesIUID == null) {
+					statement = statement+" StudyInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}else {
+					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}
+			}
+		}else {
+			if(studyIUID == null) {
+				if(seriesIUID == null) {
+					statement = statement+" PatientID=? AND SOPInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}else {
+					statement = statement+" PatientID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}
+			}else {
+				if(seriesIUID == null) {
+					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}else {
+					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+					keymap.put(pos, sopIUID);
+					pos++;
+				}
+			}
+		}
+		StringBuilder builder = new StringBuilder();
+		builder.append(statement);		
+		if(keys.contains(Tag.TransferSyntaxUID)) {
+			builder.append(" AND "+"TransferSyntaxUID=?");
+			keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
+			pos++;
+		}
+		if(keys.contains(Tag.InstanceNumber)) {
+			builder.append(" AND "+"InstanceNumber=?");
+			keymap.put(pos,keys.getString(Tag.InstanceNumber));
+			pos++;
+		}
+		if(keys.contains(Tag.SOPClassUID)) {
+			builder.append(" AND "+"SOPClassUID=?");
+			keymap.put(pos,keys.getString(Tag.SOPClassUID));
+			pos++;
+		}
+		
+		HashMap<String, String> map = new HashMap<>();
+		ResultSet rset = null;
+		PreparedStatement pstmt = null;
+		try {
+			pstmt = conn.prepareStatement(builder.toString());
+			for(int keypos:keymap.keySet()) {
+				pstmt.setString(keypos, keymap.get(keypos));
+			}
+			rset = pstmt.executeQuery();
+			rset.setFetchSize(3);
+			if(rset.next()) { 
+				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
+				map.put("SOPInstanceUID", sopIUID);
+				map.put("SOPClassUID", rset.getString("SOPClassUID"));
+				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
+				map.put("InstanceNumber", rset.getString("InstanceNumber"));
+			}
+			if(map.isEmpty()) {
+				return null;
+			}else {
+				return map;
+			}
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}finally {
+			try {
+				rset.close();
+				pstmt.close();
+				safeClose(conn);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return null;
+	}
 	
-	/*
-	 * TODO 202306
-	 */
-//	public ArrayList<HashMap<String, String>> findImageRecordWithoutSopIUID(String patID, String studyIUID, String seriesIUID, Attributes keys) {
-//		Connection conn = openConnection();
-//		String statement = "SELECT * FROM IMAGE WHERE";
-//		HashMap<Integer,String> keymap = new HashMap<>();
-//		int pos = 1;
-//		if(patID == null) {
-//			if(studyIUID == null) {
-//				if(seriesIUID == null) {
-//					//do nothing
-//				}else {
-//					statement = statement+" SeriesInstanceUID=?";
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//				}
-//			}else {
-//				if(seriesIUID == null) {
-//					statement = statement+" StudyInstanceUID=?";
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=?";
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//				}
-//			}
-//		}else {
-//			if(studyIUID == null) {
-//				if(seriesIUID == null) {
-//					statement = statement+" PatientID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//				}else {
-//					statement = statement+" PatientID=? AND SeriesInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//				}
-//			}else {
-//				if(seriesIUID == null) {
-//					statement = statement+" PatientID=? AND StudyInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//				}else {
-//					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
-//					keymap.put(pos, patID);
-//					pos++;
-//					keymap.put(pos, studyIUID);
-//					pos++;
-//					keymap.put(pos, seriesIUID);
-//					pos++;
-//				}
-//			}
-//		}
-//		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
-//		/* check item in keys */
-//		StringBuilder builder = new StringBuilder();
-//		builder.append(statement);
-//		for(int tag:keys.tags()) {
-//			if(tag == Tag.TransferSyntaxUID){
-//				if(pos != 1) {
-//					builder.append(" AND "+"TransferSyntaxUID=?");
-//				}else {
-//					builder.append(" TransferSyntaxUID=?");
-//				}
-//				keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
-//				pos++;
-//			}
-//			if(tag == Tag.SOPClassUID) {
-//				if(pos != 1) {
-//					builder.append(" AND "+"SOPClassUID=?");
-//				}else {
-//					builder.append(" SOPClassUID=?");
-//				}
-//				keymap.put(pos,keys.getString(Tag.SOPClassUID));
-//				pos++;
-//			}
-//			if(tag == Tag.InstanceNumber) {
-//				if(pos != 1) {
-//					builder.append(" AND "+"InstanceNumber=?");
-//				}else {
-//					builder.append(" InstanceNumber=?");
-//				}
-//				keymap.put(pos,keys.getString(Tag.InstanceNumber));
-//				pos++;
-//			}
-//		}
-//		HashMap<String, String> map = null;
-//		ResultSet rset = null;
-//		PreparedStatement pstmt = null;
-//		try {
-//			pstmt = conn.prepareStatement(builder.toString());
-//			for(int keypos :keymap.keySet()) {
-//				pstmt.setString(keypos, keymap.get(keypos));
-//			}
-//			rset = pstmt.executeQuery();
-//			/* limit 30000 images */
-//			rset.setFetchSize(30000);
-//			while(rset.next()) {
-//				map = new HashMap<>();
-//				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
-//				map.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-//				map.put("SOPClassUID", rset.getString("SOPClassUID"));
-//				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
-//				map.put("InstanceNumber", rset.getString("InstanceNumber"));
-//				/* もし追加したければここに増やす。 */
-//				if(map.isEmpty()) {
-//					continue;
-//				}else {
-//					result.add(map);
-//				}
-//			}
-//			if(result.isEmpty()) {
-//				return null;
-//			}else {
-//				return result;
-//			}
-//		} catch (SQLException ex) {
-//			logger.severe(ex.getMessage());
-//		}finally {
-//			try {
-//				rset.close();
-//				pstmt.close();
-//				safeClose(conn);
-//			} catch (SQLException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//		}
-//		return null;
-//	}
+	public ArrayList<HashMap<String, String>> findImageRecordWithoutSopIUID(String patID, String studyIUID, String seriesIUID, Attributes keys) {
+		Connection conn = openConnection();
+		String statement = "SELECT * FROM IMAGE WHERE";
+		HashMap<Integer,String> keymap = new HashMap<>();
+		int pos = 1;
+		if(patID == null) {
+			if(studyIUID == null) {
+				if(seriesIUID == null) {
+					//do nothing
+				}else {
+					statement = statement+" SeriesInstanceUID=?";
+					keymap.put(pos, seriesIUID);
+					pos++;
+				}
+			}else {
+				if(seriesIUID == null) {
+					statement = statement+" StudyInstanceUID=?";
+					keymap.put(pos, studyIUID);
+					pos++;
+				}else {
+					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=?";
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+				}
+			}
+		}else {
+			if(studyIUID == null) {
+				if(seriesIUID == null) {
+					statement = statement+" PatientID=?";
+					keymap.put(pos, patID);
+					pos++;
+				}else {
+					statement = statement+" PatientID=? AND SeriesInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+				}
+			}else {
+				if(seriesIUID == null) {
+					statement = statement+" PatientID=? AND StudyInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, studyIUID);
+					pos++;
+				}else {
+					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
+					keymap.put(pos, patID);
+					pos++;
+					keymap.put(pos, studyIUID);
+					pos++;
+					keymap.put(pos, seriesIUID);
+					pos++;
+				}
+			}
+		}
+		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
+		/* check item in keys */
+		StringBuilder builder = new StringBuilder();
+		builder.append(statement);
+		for(int tag:keys.tags()) {
+			if(tag == Tag.TransferSyntaxUID){
+				if(pos != 1) {
+					builder.append(" AND "+"TransferSyntaxUID=?");
+				}else {
+					builder.append(" TransferSyntaxUID=?");
+				}
+				keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
+				pos++;
+			}
+			if(tag == Tag.SOPClassUID) {
+				if(pos != 1) {
+					builder.append(" AND "+"SOPClassUID=?");
+				}else {
+					builder.append(" SOPClassUID=?");
+				}
+				keymap.put(pos,keys.getString(Tag.SOPClassUID));
+				pos++;
+			}
+			if(tag == Tag.InstanceNumber) {
+				if(pos != 1) {
+					builder.append(" AND "+"InstanceNumber=?");
+				}else {
+					builder.append(" InstanceNumber=?");
+				}
+				keymap.put(pos,keys.getString(Tag.InstanceNumber));
+				pos++;
+			}
+		}
+		HashMap<String, String> map = null;
+		ResultSet rset = null;
+		PreparedStatement pstmt = null;
+		try {
+			pstmt = conn.prepareStatement(builder.toString());
+			for(int keypos :keymap.keySet()) {
+				pstmt.setString(keypos, keymap.get(keypos));
+			}
+			rset = pstmt.executeQuery();
+			/* limit 30000 images */
+			rset.setFetchSize(30000);
+			while(rset.next()) {
+				map = new HashMap<>();
+				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
+				map.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
+				map.put("SOPClassUID", rset.getString("SOPClassUID"));
+				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
+				map.put("InstanceNumber", rset.getString("InstanceNumber"));
+				/* もし追加したければここに増やす。 */
+				if(map.isEmpty()) {
+					continue;
+				}else {
+					result.add(map);
+				}
+			}
+			if(result.isEmpty()) {
+				return null;
+			}else {
+				return result;
+			}
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}finally {
+			try {
+				rset.close();
+				pstmt.close();
+				safeClose(conn);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return null;
+	}
 	
 	/*
 	 * for study node builder
