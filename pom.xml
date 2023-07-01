@@ -188,6 +188,13 @@
             <artifactId>dcm4che-dcmr</artifactId>
             <version>${dcm4che-version}</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
+		<dependency>
+		    <groupId>org.dcm4che</groupId>
+		    <artifactId>dcm4che-dict</artifactId>
+		    <version>${dcm4che-version}</version>
+		</dependency>
+
 		
 		<!-- MISC LIBRARIES -->
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
@@ -221,6 +228,7 @@
 			<artifactId>pdfbox-tools</artifactId>
 			<version>${pdfbox-version}</version>
 		</dependency>
+		
 	</dependencies>
 
 </project>

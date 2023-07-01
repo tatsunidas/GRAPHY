@@ -20,6 +20,10 @@ public enum Resources {
 	SQL_TEXTANNOTATION("/sql/TEXTANNOTATION.sql"),
 	SQL_THEME("/sql/THEME.sql"),
 	
+	DicomDict("/dicom_dict/dicom_dict.properties"),
+	//default db settings, see also ConfigInfo.
+	RecordFactory("/dcmqrscp/RecordFactory.xml"),
+	
 	; 
 	
 	private String pathInResource;

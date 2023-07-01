@@ -1,293 +1,738 @@
 package com.vis.dicom;
 
+import java.io.IOException;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.TimeZone;
 
-//import com.vis.dicom.dcm4che.DicomObjectDcm4che;
+import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
 /**
  * 
- * Wrapper object for mutiple dicom libraries
- * If you need imageplus, use GImageReader instead.
+ * Wrapper object for mutiple dicom libraries.
  * 
  * @author tatsunidas
  *
  */
-public class DicomObject{// implements AbstractDicomObject{
+public interface DicomObject{
 	
-	String backend = "dcm4che";
-//	DicomObjectDcm4che dcmche = null;
-	Object dcmtk = null;//TODO
+	public enum UpdatePolicy { SUPPLEMENT, MERGE, OVERWRITE, REPLACE, PRESERVE }
 	
-//	public DicomObject() {
-//		if (backend.equals("dcm4che")) {
-////			dcmche = new com.vis.dicom.dcm4che.DicomObjectDcm4che();
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	public DicomObject(String path, boolean withPixel) {
-//		if (backend.equals("dcm4che")) {
-////			dcmche = new com.vis.dicom.dcm4che.DicomObjectDcm4che(path,withPixel);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	public String whatIsBackend() {
-//		return backend;
-//	}
-//	
-//	public Object getCore() {
-//		if(backend.equals("dcm4che")) {
-//			return dcmche;
-//		}else {
-//			return null;
-//		}
-//	}
-//	
-//	public void setCore(Object coreDcmObj) {
-//		if(backend.equals("dcm4che")) {
-//			if(coreDcmObj instanceof DicomObjectDcm4che) {
-//				DicomObjectDcm4che core = (DicomObjectDcm4che) coreDcmObj;
-//				this.dcmche = core;
-//			}
-//		}else {
-//			//TODO
-//		}
-//	}
-//	
-//	public void updateFileMetaInfo() {
-//		if(backend.equals("dcm4che")) {
-//			this.dcmche.updateFileMetaInformation();
-//		}else {
-//			//TODO
-//		}
-//	}
-//
-//	@Override
-//	public String getString(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getString(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	public String getString(int tag, String defaultVal) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getString(tag, defaultVal);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	@Override
-//	public String[] getStrings(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getStrings(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public Integer getInt(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getInt(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	@Override
-//	public Integer getInt(int tag, int padding) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getInt(tag, padding);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	@Override
-//	public double getDouble(int tag, int padding) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getDouble(tag, padding);
-//		}else {
-//			//dcmtk
-//		}
-//		return Double.MAX_VALUE;//error value
-//	}
-//	
-//	@Override
-//	public double[] getDoubles(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getDoubles(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public Date getDate(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getDate(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	@Override
-//	public byte[] getBytes(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getBytes(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public Object getValue(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getValue(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public Object getNestedDataset(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getNestedDataset(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public boolean contains(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.contains(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return false;
-//	}
-//
-//	@Override
-//	public int[] tags() {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.tags();
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//
-//	@Override
-//	public void setString(int tag, String vr_dtype, String val) {
-//		if (backend.equals("dcm4che")) {
-//			dcmche.setString(tag, vr_dtype, val);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	public void setString(int tag, String vr_dtype, String... val) {
-//		if (backend.equals("dcm4che")) {
-//			dcmche.setString(tag, vr_dtype, val);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	public void setDate(int tag, String vr_dtype, java.util.Date date) {
-//		if (backend.equals("dcm4che")) {
-//			dcmche.setDate(tag, vr_dtype, date);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	@Override
-//	public void setBytes(int tag, String vr_dtype, byte[] val) {
-//		if (backend.equals("dcm4che")) {
-//			dcmche.setBytes(tag, vr_dtype, val);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//
-//	@Override
-//	public void setInt(int tag, String vr_dtype, int... val) {
-//		if (backend.equals("dcm4che")) {
-//			dcmche.setInt(tag, vr_dtype, val);
-//		}else {
-//			//dcmtk
-//		}
-//	}
-//	
-//	public String getTransferSyntaxUID() {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.getTransferSyntaxUID();
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	public String privateCreatorOf(int tag) {
-//		if (backend.equals("dcm4che")) {
-//			return dcmche.privateCreatorOf(tag);
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	public boolean isMultiFrame() {
-//		boolean multiframe = false;
-//		if (backend.equals("dcm4che")) {
-//			multiframe = dcmche.isMultiFrame();
-//		}else {
-//			//dcmtk
-//		}
-//		return multiframe;
-//	}
-//
-//	public boolean isPDF() {
-//		boolean isPDF = false;
-//		if (backend.equals("dcm4che")) {
-//			isPDF = dcmche.isPDF();
-//		}else {
-//			//dcmtk
-//		}
-//		return isPDF;
-//	}
-//	
-//	public DicomObject duplicate() {
-//		if (backend.equals("dcm4che")) {
-//			DicomObjectDcm4che dcmche_dup = dcmche.duplicate();
-//			DicomObject dcm = new DicomObject();
-//			dcm.setCore(dcmche_dup);
-//			return dcm;
-//		}else {
-//			//dcmtk
-//		}
-//		return null;
-//	}
-//	
-//	public void write(String dest) {
-//		DicomWriter.write(this, dest, true);
-//	}
+	public static DicomObject newDicomObject(DICOMBackend backend) {
+		if(backend == DICOMBackend.DCM4CHE) {
+			return (DicomObject) new DicomObjectChe(false);
+		}else if(backend == DICOMBackend.DCMTK) {
+			// TODO
+		}
+		return null;
+	}
+	
+	public DICOMBackend whatIsBackend();
+	
+	public void setCore(Object attr);
+	public Object getCore();
+	public void setFileMetaInfo(Object fmi);
+	public Object getFileMetaInfo();
+	public void updateFileMetaInfo();
+	
+	public void clear();
+	
+	public boolean isReadOnly();
+
+    public void setReadOnly();
+
+    public Map<String, Object> getProperties();
+
+    public void setProperties(Map<String, Object> properties);
+
+    public Object getProperty(String key, Object defVal);
+
+    public Object setProperty(String key, Object value);
+
+    public Object clearProperty(String key);
+
+    public String getParentSequencePrivateCreator();
+
+    public int getParentSequenceTag();
+
+    //ItemPointer[] keep be "Object".
+    public Object itemPointers();
+
+    public int itemIndex();
+
+    public int[] tags();
+
+    public void trimToSize();
+
+    public void trimToSize(boolean recursive);
+
+    public void internalizeStringValues(boolean decode);
+
+    public Object getNestedDataset(int sequenceTag);
+
+    public Object getNestedDataset(int sequenceTag, int itemIndex);
+
+    public Object getNestedDataset(String privateCreator, int sequenceTag);
+
+    public Object getNestedDataset(String privateCreator, int sequenceTag, int itemIndex);
+
+    public Object getNestedDataset(ItemPointer... itemPointers);
+
+    // List<ItemPointer>
+    public Object getNestedDataset(Object listedItemPointers);
+
+    public Object getFunctionGroup(int sequenceTag, int frameIndex);
+
+    /**
+     * resolves to the actual private tag,
+     * given a private tag with placeholers (like 0011,xx13)
+     */
+    public int tagOf(String privateCreator, int tag);
+
+    //com.vis.dicom.SpecificCharacterSet
+    public Object getSpecificCharacterSet(Object vr);
+
+    public boolean contains(int tag);
+
+    public boolean contains(String privateCreator, int tag);
+
+    public boolean containsValue(int tag);
+
+    public boolean containsValue(String privateCreator, int tag);
+
+    /**
+     * Test whether at least one tag within the given range is contained.
+     * 
+     * @param firstTag
+     *            first tag (inclusive)
+     * @param lastTag
+     *            last tag (inclusive)
+     * @return whether at least one tag within the given range is contained
+     */
+    public boolean containsTagInRange(int firstTag, int lastTag);
+
+    public String privateCreatorOf(int tag);
+
+    public Object getValue(int tag);
+
+    public Object getValue(int tag, Object vr_holde);
+
+    public Object getValue(String privateCreator, int tag);
+
+    public Object getValue(String privateCreator, int tag, Object vr_holder);
+
+    public Object getVR(int tag);
+
+    public Object getVR(String privateCreator, int tag);
+
+    // retrun Sequence object
+    public Object getSequence(int tag);
+
+    // retrun Sequence object
+    public Object getSequence(String privateCreator, int tag);
+
+    public byte[] getBytes(int tag) throws IOException;
+
+    public byte[] getBytes(String privateCreator, int tag) throws IOException;
+
+    public byte[] getSafeBytes(int tag);
+
+    public byte[] getSafeBytes(String privateCreator, int tag);
+
+    public String getString(int tag);
+
+    public String getString(int tag, String defVal);
+
+    public String getString(int tag, int valueIndex);
+
+    public String getString(int tag, int valueIndex, String defVal);
+
+    public String getString(String privateCreator, int tag);
+
+    public String getString(String privateCreator, int tag, String defVal);
+
+    public String getString(String privateCreator, int tag, VR vr);
+
+    public String getString(String privateCreator, int tag, VR vr, String defVal);
+
+    public String getString(String privateCreator, int tag, int valueIndex);
+
+    public String getString(String privateCreator, int tag, int valueIndex, String defVal);
+
+    public String getString(String privateCreator, int tag, VR vr, int valueIndex);
+
+    public String getString(String privateCreator, int tag, VR vr, int valueIndex, String defVal);
+
+    public String[] getStrings(int tag);
+
+    public String[] getStrings(String privateCreator, int tag);
+
+    public String[] getStrings(String privateCreator, int tag, Object vr);
+
+    public int getInt(int tag, int defVal);
+
+    public int getInt(int tag, int valueIndex, int defVal) ;
+
+    public int getInt(String privateCreator, int tag, int defVal);
+
+    public int getInt(String privateCreator, int tag, Object vr, int defVal);
+
+    public int getInt(String privateCreator, int tag, int valueIndex, int defVal);
+
+    public int getInt(String privateCreator, int tag, Object vr, int valueIndex, int defVal);
+
+    public int[] getInts(int tag);
+
+    public int[] getInts(String privateCreator, int tag);
+
+    public int[] getInts(String privateCreator, int tag, Object vr);
+
+    public long getLong(int tag, long defVal);
+
+    public long getLong(int tag, int valueIndex, long defVal);
+
+    public long getLong(String privateCreator, int tag, long defVal);
+
+    public long getLong(String privateCreator, int tag, Object vr, long defVal);
+
+    public long getLong(String privateCreator, int tag, int valueIndex, long defVal);
+
+    public long getLong(String privateCreator, int tag, Object vr, int valueIndex, long defVal);
+
+    public long[] getLongs(int tag);
+
+    public long[] getLongs(String privateCreator, int tag);
+
+    public long[] getLongs(String privateCreator, int tag, Object vr);
+
+    public float getFloat(int tag, float defVal);
+
+    public float getFloat(int tag, int valueIndex, float defVal);
+
+    public float getFloat(String privateCreator, int tag, float defVal);
+
+    public float getFloat(String privateCreator, int tag, Object vr, float defVal);
+
+    public float getFloat(String privateCreator, int tag, int valueIndex, float defVal);
+
+    public float getFloat(String privateCreator, int tag, Object vr, int valueIndex, float defVal);
+
+    public float[] getFloats(int tag);
+
+    public float[] getFloats(String privateCreator, int tag);
+
+    public float[] getFloats(String privateCreator, int tag, Object vr);
+
+    public double getDouble(int tag, double defVal);
+
+    public double getDouble(int tag, int valueIndex, double defVal);
+
+    public double getDouble(String privateCreator, int tag, double defVal);
+
+    public double getDouble(String privateCreator, int tag, Object vr, double defVal);
+
+    public double getDouble(String privateCreator, int tag, int valueIndex, double defVal);
+
+    public double getDouble(String privateCreator, int tag, Object vr, int valueIndex, double defVal);
+
+    public double[] getDoubles(int tag);
+
+    public double[] getDoubles(String privateCreator, int tag);
+
+    public double[] getDoubles(String privateCreator, int tag, Object vr);
+
+    public Date getDate(int tag);
+
+    // Object is DatePrecision
+    public Date getDate(int tag, Object precision);
+
+    public Date getDate(int tag, Date defVal);
+    
+    // DatePrecision
+    public Date getDate(int tag, Date defVal, Object precision);
+
+    public Date getDate(int tag, int valueIndex);
+
+    // DatePrecision
+    public Date getDate(int tag, int valueIndex, Object precision);
+
+    public Date getDate(int tag, int valueIndex, Date defVal);
+
+    // DatePrecision
+    public Date getDate(int tag, int valueIndex, Date defVal, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, DatePrecision precision);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, Date defVal,DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, VR vr);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, VR vr, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, VR vr, Date defVal);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, VR vr, Date defVal, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, int valueIndex);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, int valueIndex, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, int valueIndex,
+            Date defVal);
+
+    // DatePrecision
+    public Date getDate(String privateCreator, int tag, int valueIndex, Date defVal, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex);
+
+    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, DatePrecision precision);
+
+    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex,
+            Date defVal);
+
+    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, Date defVal, DatePrecision precision);
+
+    public Date getDate(long tag);
+
+    public Date getDate(long tag, DatePrecision precision);
+
+    public Date getDate(long tag, Date defVal);
+
+    public Date getDate(long tag, Date defVal, DatePrecision precision);
+
+    public Date getDate(String privateCreator, long tag);
+
+    public Date getDate(String privateCreator, long tag, DatePrecision precision);
+
+    public Date getDate(String privateCreator, long tag, Date defVal);
+
+    public Date getDate(String privateCreator, long tag, Date defVal,
+    		DatePrecision precision);
+
+    public Date[] getDates(int tag);
+
+    // DatePrecisions
+    public Date[] getDates(int tag, DatePrecisions precisions);
+
+    public Date[] getDates(String privateCreator, int tag);
+
+    public Date[] getDates(String privateCreator, int tag, DatePrecisions precisions);
+
+    public Date[] getDates(String privateCreator, int tag, VR vr);
+
+    public Date[] getDates(String privateCreator, int tag, VR vr, DatePrecisions precisions);
+
+    public Date[] getDates(long tag);
+
+    public Date[] getDates(long tag, DatePrecisions precisions);
+
+    public Date[] getDates(String privateCreator, long tag);
+
+    public Date[] getDates(String privateCreator, long tag, DatePrecisions precisions);
+
+    // return DateRange
+    public Object getDateRange(int tag);
+
+    public Object getDateRange(int tag, DateRange defVal);
+
+    public Object getDateRange(String privateCreator, int tag);
+
+    public Object getDateRange(String privateCreator, int tag, DateRange defVal);
+
+    public Object getDateRange(String privateCreator, int tag, VR vr);
+
+    public Object getDateRange(String privateCreator, int tag, VR vr, DateRange defVal);
+
+    public Object getDateRange(long tag);
+
+    public Object getDateRange(long tag, DateRange defVal);
+
+    public Object getDateRange(String privateCreator, long tag);
+
+    public Object getDateRange(String privateCreator, long tag, DateRange defVal);
+    
+    /**
+     * Set Specific Character Set (0008,0005) to specified code(s) and
+     * re-encode contained LO, LT, PN, SH, ST, UT attributes
+     * accordingly.
+     * 
+     * @param codes new value(s) of Specific Character Set (0008,0005) 
+     */
+    public void setSpecificCharacterSet(String... codes);
+
+    public Object getSpecificCharacterSet();
+
+    public void setDefaultTimeZone(TimeZone tz);
+
+    public TimeZone getDefaultTimeZone();
+
+    public TimeZone getTimeZone();
+
+    /**
+     * Set Timezone Offset From UTC (0008,0201) to specified value and
+     * adjust contained DA, DT and TM attributs accordingly
+     * 
+     * @param utcOffset offset from UTC as (+|-)HHMM 
+     */
+    public void setTimezoneOffsetFromUTC(String utcOffset);
+
+    /**
+     * Set the Default Time Zone to specified value and adjust contained DA, 
+     * DT and TM attributs accordingly. If the Time Zone does not use Daylight
+     * Saving Time, attribute Timezone Offset From UTC (0008,0201) will be also
+     * set accordingly. If the Time zone uses Daylight Saving Time, a previous
+     * existing attribute Timezone Offset From UTC (0008,0201) will be removed.
+     * 
+     * @param tz Time Zone
+     *
+     * @see #setDefaultTimeZone(TimeZone)
+     * @see #setTimezoneOffsetFromUTC(String)
+     */
+    public void setTimezone(TimeZone tz);
+
+    public String getPrivateCreator(int tag);
+
+    public Object remove(int tag);
+
+    public Object remove(String privateCreator, int tag);
+
+    public Object setNull(int tag, VR vr);
+
+    public Object setNull(String privateCreator, int tag, VR vr);
+
+    public Object setBytes(int tag, VR vr, byte[] b);
+
+    public Object setBytes(String privateCreator, int tag, VR vr, byte[] b);
+
+    public Object setString(int tag, VR vr, String s);
+
+    public Object setString(String privateCreator, int tag, VR vr, String s);
+
+    public Object setString(int tag, VR vr, String... ss);
+
+    public Object setString(String privateCreator, int tag, VR vr, String... ss);
+
+    public Object setInt(int tag, VR vr, int... is);
+
+    public Object setInt(String privateCreator, int tag, VR vr, int... is);
+
+    public Object setLong(int tag, VR vr, long... ls);
+
+    public Object setLong(String privateCreator, int tag, VR vr, long... ls);
+
+    public Object setFloat(int tag, VR vr, float... fs);
+
+    public Object setFloat(String privateCreator, int tag, VR vr, float... fs);
+
+    public Object setDouble(int tag, VR vr, double... ds);
+
+    public Object setDouble(String privateCreator, int tag, VR vr, double... ds);
+
+    public Object setDate(int tag, VR vr, Date... ds);
+
+    public Object setDate(int tag, VR vr, DatePrecision precision, Date... ds);
+
+    public Object setDate(String privateCreator, int tag, VR vr,
+            Date... ds);
+
+    public Object setDate(String privateCreator, int tag, VR vr,
+            DatePrecision precision, Date... ds);
+
+    public void setDate(long tag, Date dt);
+
+    public void setDate(long tag, DatePrecision precision, Date dt);
+
+    public void setDate(String privateCreator, long tag, Date dt);
+
+    public void setDate(String privateCreator, long tag, DatePrecision precision, Date dt);
+
+    public Object setDateRange(int tag, VR vr, DateRange range);
+
+    public Object setDateRange(int tag, VR vr, DatePrecision precision, DateRange range);
+
+    public Object setDateRange(String privateCreator, int tag, VR vr, DateRange range);
+
+    public Object setDateRange(String privateCreator, int tag, VR vr, DatePrecision precision, DateRange range);
+
+    public void setDateRange(long tag, DateRange range);
+
+    public void setDateRange(String privateCreator, long tag, DateRange range);
+
+    public Object setValue(int tag, VR vr, Object value);
+
+    public Object setValue(String privateCreator, int tag, VR vr, Object value);
+
+    // return Sequence
+    public Object newSequence(int tag, int initialCapacity);
+
+    public Object newSequence(String privateCreator, int tag, int initialCapacity);
+
+    public Object ensureSequence(int tag, int initialCapacity);
+
+    public Object ensureSequence(String privateCreator, int tag, int initialCapacity);
+
+    // return Fragments
+    public Object newFragments(int tag, VR vr, int initialCapacity);
+
+    // return Fragments
+    public Object newFragments(String privateCreator, int tag, VR vr, int initialCapacity);
+
+    public boolean addAll(DicomObject other);
+
+    public boolean addAll(DicomObject other, boolean mergeOriginalAttributesSequence);
+
+    public boolean addSelected(DicomObject other, DicomObject selection);
+
+    public boolean addSelected(DicomObject other, String privateCreator, int tag);
+
+    /**
+     * Add selected attributes from another Attributes object to this.
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+     * 
+     * @param other the other Attributes object
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attributes were added
+     */
+    public boolean addSelected(DicomObject other, int... selection);
+
+    /**
+     * Add selected attributes from another Attributes object to this.
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[], int, int)} method) prior to making this call.
+     * 
+     * @param other the other Attributes object
+     * @param selection sorted tag values
+     * @param fromIndex the index of the first tag (inclusive)
+     * @param toIndex the index of the last tag (exclusive)
+     * @return <tt>true</tt> if one ore more attributes were added
+     */
+    public boolean addSelected(DicomObject other, int[] selection,
+            int fromIndex, int toIndex);
+
+    /**
+     * Add not selected attributes from another Attributes object to this.
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+     * 
+     * @param other the other Attributes object
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attributes were added
+     */
+    public boolean addNotSelected(DicomObject other, int... selection);
+
+    /**
+     * Add not selected attributes from another Attributes object to this.
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+     * 
+     * @param other the other Attributes object
+     * @param selection sorted tag values
+     * @param fromIndex the index of the first tag (inclusive)
+     * @param toIndex the index of the last tag (exclusive)
+     * @return <tt>true</tt> if one ore more attributes were added
+     */
+    public boolean addNotSelected(DicomObject other, int[] selection,
+            int fromIndex, int toIndex);
+
+    public boolean update(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified);
+
+    public boolean update(UpdatePolicy updatePolicy, boolean mergeOriginalAttributesSequence, DicomObject newAttrs, DicomObject modified);
+
+    public boolean testUpdate(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified);
+
+    /**
+     * Add selected attributes from another Attributes object to this.
+     * Optionally, the original values of overwritten existing non-empty
+     * attributes are preserved in another Attributes object. 
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+     * 
+     * @param newAttrs the other Attributes object
+     * @param modified Attributes object to collect overwritten non-empty
+     *          attributes with original values or <tt>null</tt>
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attribute were added or
+     *          overwritten with a different value
+     */
+    public boolean updateSelected(UpdatePolicy updatePolicy, DicomObject newAttrs,
+                                  DicomObject modified, int... selection);
+
+    /**
+     * Tests if {@link #updateSelected} would modify attributes, without actually
+     * modifying this attributes
+     * 
+     * @param newAttrs the other Attributes object
+     * @param modified Attributes object to collect overwritten non-empty
+     *          attributes with original values or <tt>null</tt>
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attribute would be added or
+     *          overwritten with a different value
+     */
+    public boolean testUpdateSelected(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified,
+                                      int... selection);
+
+    /**
+     * Add not selected attributes from another Attributes object to this.
+     * Optionally, the original values of overwritten existing non-empty
+     * attributes are preserved in another Attributes object.
+     * The specified array of tag values must be sorted (as by the
+     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+     *
+     * @param newAttrs the other Attributes object
+     * @param modified Attributes object to collect overwritten non-empty
+     *          attributes with original values or <tt>null</tt>
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attribute were added or
+     *          overwritten with a different value
+     */
+    public boolean updateNotSelected(UpdatePolicy updatePolicy, DicomObject newAttrs,
+                                     DicomObject modified, int... selection);
+
+    /**
+     * Tests if {@link #updateNotSelected} would modify attributes, without actually
+     * modifying this attributes
+     *
+     * @param newAttrs the other Attributes object
+     * @param modified Attributes object to collect overwritten non-empty
+     *          attributes with original values or <tt>null</tt>
+     * @param selection sorted tag values
+     * @return <tt>true</tt> if one ore more attribute would be added or
+     *          overwritten with a different value
+     */
+    public boolean testUpdateNotSelected(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified,
+                                      int... selection);
+
+    /**
+     * Append item to already existing or new added (0400,0561) Original Attributes Sequence.
+     *
+     * @param sourceOfPreviousValues
+     * @param modificationDateTime
+     * @param reasonForModification
+     * @param modifyingSystem
+     * @param originalAttributes
+     * @return the same Attributes instance
+     */
+    public DicomObject addOriginalAttributes(
+            String sourceOfPreviousValues,
+            Date modificationDateTime,
+            String reasonForModification,
+            String modifyingSystem,
+            DicomObject originalAttributes);
+
+    public boolean equalValues(DicomObject other, int tag);
+
+    public boolean equalValues(DicomObject other, String privateCreator, int tag);
+
+    public String toString(int limit, int maxWidth);
+
+    public StringBuilder toStringBuilder(StringBuilder sb);
+
+    public StringBuilder toStringBuilder(int limit, int maxWidth, StringBuilder sb);
+
+    public int calcLength(Object dicomEncodingOptions , boolean explicitVR);
+
+
+    public void writeTo(Object dicomOutputStream)
+            throws IOException;
+
+    public void writePostPixelDataTo(Object dicomOutputStream)
+            throws IOException;
+
+     public void writeItemTo(Object dicomOutputStream) throws IOException;
+
+
+    /**
+     * Invokes {@link Visitor#visit} for each attribute in this instance. The
+     * operation will be aborted if <code>visitor.visit()</code> returns <code>false</code>.
+     * 
+     * @param visitor
+     * @param visitNestedDatasets controls if <code>visitor.visit()</code>
+     *  is also invoked for attributes in nested datasets
+     * @return <code>true</code> if the operation was not aborted.
+     */
+    public boolean accept(Object visitor, boolean visitNestedDatasets) throws Exception;
+
+    public void writeGroupTo(Object dicomOutputStream, int groupLengthTag);
+
+    /**
+     * Creates DICOM File Meta Information for this <i>Data Set</i> with given <i>Transfer Syntax UID (0002,0010)</i>,
+     * including optional <i>Implementation Version Name (0002,0013)</i>.
+     *
+     * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
+     * @return created DICOM File Meta Information
+     */
+    // DicomObject
+    public Object createFileMetaInformation(String tsuid);
+
+    /**
+     * Creates DICOM File Meta Information for this <i>Data Set</i> with given <i>Transfer Syntax UID (0002,0010)</i>.
+     *
+     * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
+     * @param includeImplementationVersionName <code>true</code> if the optional
+     *                                         <i>Implementation Version Name (0002,0013)</i> is to be included;
+     *                                         <code>false</code> if it is to be omitted.
+     * @return created DICOM File Meta Information
+     */
+    // DicomObject
+    public Object createFileMetaInformation(String tsuid, boolean includeImplementationVersionName);
+
+    public boolean matches(DicomObject keys, boolean ignorePNCase,
+            boolean matchNoValue);
+
+    //return ValidationResult
+    public Object validate(Object iod);
+
+    public void validate(Object dataElement, Object validationResult);
+
+    /**
+     * Add attributes of this data set which were replaced in
+     * the specified other data set into the result data set.
+     * If no result data set is passed, a new result set will be instantiated.
+     * 
+     * @param other data set
+     * @param result data set or {@code null} 
+     *
+     * @return result data set.
+     */
+    public DicomObject getModified(DicomObject other, DicomObject result);
+
+    /**
+     * Returns attributes of this data set which were removed or replaced in
+     * the specified other data set.
+     * 
+     * @param other data set
+     * @return attributes of this data set which were removed or replaced in
+     *         the specified other data set.
+     */
+    public DicomObject getRemovedOrModified(DicomObject other);
+
+    public int diff(DicomObject other, int[] selection, DicomObject diff);
+
+    public int diff(DicomObject other, int[] selection, DicomObject diff, boolean onlyModified);
+
+    public void unifyCharacterSets(DicomObject attrsList);
+
+    public int removeAllBulkData();
+
+    public int removePrivateAttributes(String privateCreator, int groupNumber);
+
+    public int removePrivateAttributes();
+
+    public void removeSelected(int... selection);
+
+    public void replaceSelected(DicomObject others, int... selection);
+
+    public void replaceUIDSelected(int... selection);
+
+    public int removeCurveData();
+
 }

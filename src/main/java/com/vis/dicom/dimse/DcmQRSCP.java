@@ -415,8 +415,7 @@ public class DcmQRSCP implements DicomServer{
 		}
 	}
 
-	public DcmQRSCP(boolean useDicomDir) throws IOException {
-		this.useDicomDir = useDicomDir;
+	public DcmQRSCP() throws IOException {
 		device.addConnection(conn);
 		device.addApplicationEntity(ae);
 		ae.setAssociationAcceptor(true);

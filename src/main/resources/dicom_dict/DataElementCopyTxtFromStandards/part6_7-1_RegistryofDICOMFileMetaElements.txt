@@ -1,0 +1,233 @@
+(0002,0000)
+
+File Meta Information Group Length
+
+File​Meta​Information​Group​Length
+
+UL
+
+1
+
+
+(0002,0001)
+
+File Meta Information Version
+
+File​Meta​Information​Version
+
+OB
+
+1
+
+
+(0002,0002)
+
+Media Storage SOP Class UID
+
+Media​Storage​SOP​Class​UID
+
+UI
+
+1
+
+
+(0002,0003)
+
+Media Storage SOP Instance UID
+
+Media​Storage​SOP​Instance​UID
+
+UI
+
+1
+
+
+(0002,0010)
+
+Transfer Syntax UID
+
+Transfer​Syntax​UID
+
+UI
+
+1
+
+
+(0002,0012)
+
+Implementation Class UID
+
+Implementation​Class​UID
+
+UI
+
+1
+
+
+(0002,0013)
+
+Implementation Version Name
+
+Implementation​Version​Name
+
+SH
+
+1
+
+
+(0002,0016)
+
+Source Application Entity Title
+
+Source​Application​Entity​Title
+
+AE
+
+1
+
+
+(0002,0017)
+
+Sending Application Entity Title
+
+Sending​Application​Entity​Title
+
+AE
+
+1
+
+
+(0002,0018)
+
+Receiving Application Entity Title
+
+Receiving​Application​Entity​Title
+
+AE
+
+1
+
+
+(0002,0026)
+
+Source Presentation Address
+
+Source​Presentation​Address
+
+UR
+
+1
+
+
+(0002,0027)
+
+Sending Presentation Address
+
+Sending​Presentation​Address
+
+UR
+
+1
+
+
+(0002,0028)
+
+Receiving Presentation Address
+
+Receiving​Presentation​Address
+
+UR
+
+1
+
+
+(0002,0031)
+
+RTV Meta Information Version
+
+RTV​Meta​Information​Version
+
+OB
+
+1
+
+(0002,0032)
+
+RTV Communication SOP Class UID
+
+RTV​Communication​SOP​Class​UID
+
+UI
+
+1
+
+(0002,0033)
+
+RTV Communication SOP Instance UID
+
+RTV​Communication​SOP​Instance​UID
+
+UI
+
+1
+
+(0002,0035)
+
+RTV Source Identifier
+
+RTV​Source​Identifier
+
+OB
+
+1
+
+(0002,0036)
+
+RTV Flow Identifier
+
+RTV​Flow​Identifier
+
+OB
+
+1
+
+(0002,0037)
+
+RTV Flow RTP Sampling Rate
+
+RTV​Flow​RTP​Sampling​Rate
+
+UL
+
+1
+
+(0002,0038)
+
+RTV Flow Actual Frame Duration
+
+RTV​Flow​Actual​Frame​Duration
+
+FD
+
+1
+
+(0002,0100)
+
+Private Information Creator UID
+
+Private​Information​Creator​UID
+
+UI
+
+1
+
+
+(0002,0102)
+
+Private Information
+
+Private​Information
+
+OB
+
+1

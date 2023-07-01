@@ -1,5 +1,7 @@
 package com.vis.dicom;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.core.util.PropertiesUtil;
 
 public enum DICOMBackend {
@@ -8,7 +10,7 @@ public enum DICOMBackend {
 	DCMTK,
 	UNKNOWN;
 	
-	public static final String backendKey = "DICOMBackEnd";
+	public static final String backendKey = GraphyProp.DICOMBackEnd.name();
 	
 	private DICOMBackend() {}
 	
@@ -17,7 +19,7 @@ public enum DICOMBackend {
 			return false;
 		}
 		try {
-			java.util.Properties prop = PropertiesUtil.loadProperties(PropertiesUtil.GRAPHY_Props);
+			java.util.Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
 			if (prop != null) {
 				String currentBackend = prop.getProperty(backendKey);
 				if (currentBackend.equals(backend.name())) {
@@ -38,7 +40,7 @@ public enum DICOMBackend {
 	
 	public static DICOMBackend getCurrent() {
 		try {
-			java.util.Properties prop = PropertiesUtil.loadProperties(PropertiesUtil.GRAPHY_Props);
+			java.util.Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
 			if (prop != null) {
 				String currentBackend = prop.getProperty(backendKey);
 				if (currentBackend != null && !currentBackend.isBlank()) {

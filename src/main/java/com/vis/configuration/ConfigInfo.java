@@ -13,6 +13,15 @@ public enum ConfigInfo {
 	
 	// db
 	//DefaultDBLocation("") // changeable location. basically, application located dir.
+	
+	RecordFactory("RecordFactory.xml"),
+	
+	GRAPHY_Props("/conf/graphy.properties"),
+	SERVER_AE_Props("/conf/ae.properties"),
+	SERVER_QRSOPCLASSES_Props("/conf/query-sop-classes.properties"),
+	SERVER_RecordFactory_Props("conf/RecordFactory.xml"),
+	SERVER_RetrieveSOPCLASSES_Props("/conf/retrieve-sop-classes.properties"),
+	GRAPHY_StorageSOPCLASSES_Props("/conf/storage-sop-classes.properties"),
 	;
 	
 	private final String v;
@@ -26,11 +35,13 @@ public enum ConfigInfo {
 		return v;
 	}
 	
-	public static String getPath(ConfigInfo dirName) {
-		if(dirName == LogFileName || dirName == LogFilePath) {
+	public static String getPath(ConfigInfo name) {
+		if(name == LogFileName || name == LogFilePath) {
 			return null;
+		}else if(name == RecordFactory) {
+			return "./conf/" + name.toString();
 		}
-		return "./" + dirName.toString()+"/";
+		return "./" + name.toString()+"/";
 	}
 	
 }

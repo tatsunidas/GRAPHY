@@ -13,9 +13,11 @@ import org.dcm4che3.io.DicomStreamException;
 import org.dcm4che3.tool.dcmdir.DcmDir;
 import org.dcm4che3.util.SafeClose;
 
+import com.vis.core.log.Log;
+
 public class DicomUtilities {
 	
-	private static Logger logger = java.util.logging.Logger.getLogger(DicomUtilities.class.getName());
+	static Logger logger = Log.logger;
 	
 	public static boolean isDicomFile(File file) {
 		if (file.isDirectory()) {
@@ -179,17 +181,6 @@ public class DicomUtilities {
 		}finally {
 			SafeClose.close(dis);
 		}
-	}
-	
-	public static String[] getDatasetIDs(String path) {
-		String[] infoSet = new String[4];
-		//TODO
-//		DicomObject ds = new DicomObject(path, false);
-//		infoSet[0] = ds.getString(Tag.PatientID);
-//		infoSet[1] = ds.getString(Tag.StudyInstanceUID);
-//		infoSet[2] = ds.getString(Tag.SeriesInstanceUID);
-//		infoSet[3] = ds.getString(Tag.SOPInstanceUID);
-		return infoSet;
 	}
 	
 	public static String getPatientID(String path) {

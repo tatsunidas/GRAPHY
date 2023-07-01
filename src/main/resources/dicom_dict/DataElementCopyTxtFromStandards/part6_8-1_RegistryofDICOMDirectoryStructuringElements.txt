@@ -1,0 +1,210 @@
+(0004,1130)
+
+File-set ID
+
+File​Set​ID
+
+CS
+
+1
+
+
+(0004,1141)
+
+File-set Descriptor File ID
+
+File​Set​Descriptor​File​ID
+
+CS
+
+1-8
+
+
+(0004,1142)
+
+Specific Character Set of File-set Descriptor File
+
+Specific​Character​Set​Of​File​Set​Descriptor​File
+
+CS
+
+1
+
+
+(0004,1200)
+
+Offset of the First Directory Record of the Root Directory Entity
+
+Offset​Of​The​First​Directory​Record​Of​The​Root​Directory​Entity
+
+UL
+
+1
+
+
+(0004,1202)
+
+Offset of the Last Directory Record of the Root Directory Entity
+
+Offset​Of​The​Last​Directory​Record​Of​The​Root​Directory​Entity
+
+UL
+
+1
+
+
+(0004,1212)
+
+File-set Consistency Flag
+
+File​Set​Consistency​Flag
+
+US
+
+1
+
+
+(0004,1220)
+
+Directory Record Sequence
+
+Directory​Record​Sequence
+
+SQ
+
+1
+
+
+(0004,1400)
+
+Offset of the Next Directory Record
+
+Offset​Of​The​Next​Directory​Record
+
+UL
+
+1
+
+
+(0004,1410)
+
+Record In-use Flag
+
+Record​In​Use​Flag
+
+US
+
+1
+
+
+(0004,1420)
+
+Offset of Referenced Lower-Level Directory Entity
+
+Offset​Of​Referenced​Lower​Level​Directory​Entity
+
+UL
+
+1
+
+
+(0004,1430)
+
+Directory Record Type
+
+Directory​Record​Type
+
+CS
+
+1
+
+
+(0004,1432)
+
+Private Record UID
+
+Private​Record​UID
+
+UI
+
+1
+
+
+(0004,1500)
+
+Referenced File ID
+
+Referenced​File​ID
+
+CS
+
+1-8
+
+
+(0004,1504)
+
+MRDR Directory Record Offset
+
+MRDR​Directory​Record​Offset
+
+UL
+
+1
+
+RET (2004)
+
+(0004,1510)
+
+Referenced SOP Class UID in File
+
+Referenced​SOP​Class​UID​In​File
+
+UI
+
+1
+
+
+(0004,1511)
+
+Referenced SOP Instance UID in File
+
+Referenced​SOP​Instance​UID​In​File
+
+UI
+
+1
+
+
+(0004,1512)
+
+Referenced Transfer Syntax UID in File
+
+Referenced​Transfer​Syntax​UID​In​File
+
+UI
+
+1
+
+
+(0004,151A)
+
+Referenced Related General SOP Class UID in File
+
+Referenced​Related​General​SOP​Class​UID​In​File
+
+UI
+
+1-n
+
+
+(0004,1600)
+
+Number of References
+
+Number​Of​References
+
+UL
+
+1
+
+RET (2004)

@@ -2,6 +2,8 @@ package com.vis.db;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.text.DateFormat;
@@ -22,6 +24,9 @@ import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.dimse.DcmQRSCP;
+import com.google.common.io.Files;
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 
@@ -78,6 +83,12 @@ public class DatabaseHandler {
 		DatabaseHandler db = new DatabaseHandlerBuilder().build();
 		db.setDatabaseFolderPath(testDir);
 		db.startingUp();
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		db.shutdownDB();
 	}
 	
@@ -180,14 +191,14 @@ public class DatabaseHandler {
 			return;
 		}
 		try {
-			Properties prop = PropertiesUtil.loadProperties(PropertiesUtil.GRAPHY_Props);
+			Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
 			if(prop == null) {
 				throw new Exception("Can not load graphy.properties...");
 			}else {
 				String loc = prop.getProperty(GraphyProp.LocalDBLocation.name());
 				if(loc == null || loc.isBlank()) {
 					loc = Platform.getGraphyDirectory().getAbsolutePath();
-					PropertiesUtil.setPropertyAt(PropertiesUtil.GRAPHY_Props, GraphyProp.LocalDBLocation.name(), loc);
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(), loc);
 				}
 				setDatabaseFolderPath(loc);
 			}
@@ -258,6 +269,52 @@ public class DatabaseHandler {
 			logger.severe("Can not start DB because can not read SQL files ...");
 			// TODO exitApp();
 		}
+		
+		//check configuration file
+		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
+		if(!recFac.exists()) {
+			try {
+				File defRecFac = new File(getClass().getResource(Resources.RecordFactory.path()).toURI());
+				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
+				Files.copy(defRecFac, recFac);
+				recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
+			} catch (URISyntaxException | IOException e1) {
+				e1.printStackTrace();
+				logger.severe(e1.getMessage());
+				shutdownDB();
+				return;
+			}
+		}
+		
+		//start qrscp
+		//get current details
+		String details[] = getListenerDetails();
+    	String currentAet = details[0];
+    	String currentHost = details[1];
+    	String currentPort = details[2];
+    	String currentStorageDirPath = details[3];
+    	/* dicomdir features that do read/write images to debug purpose */
+//    	String dicomDirPath = details[3];
+		try {
+			dcmqrscp = new DcmQRSCP();
+			String args[] = { 
+					"-b", 
+					currentAet+"@"+currentHost+":"+currentPort,
+//					"--all-storage",
+					/* see DcmQRSCP::configureDicomFileSet */
+					"--graphy-storage-dir", 
+					currentStorageDirPath,
+					/* FindSCU response value settings */
+					//https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
+					"--record-config",
+					recFac.getAbsolutePath(),
+					};
+			if(dcmqrscp.start(args)) {
+				logger.info("DicomServer(DcmQRSCP) started.");
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	/**
@@ -316,7 +373,7 @@ public class DatabaseHandler {
 	}
 	
 	public void shutdownDB() {
-		if(derby == null) {
+		if(derby == null && dcmqrscp == null) {
 			return;
 		}
 		try {
@@ -333,6 +390,10 @@ public class DatabaseHandler {
 				logger.info(getClass().getName() + ": shutdown correctly, " + databasename);
 			}
 			derby = null;
+			if(dcmqrscp != null) {
+				dcmqrscp.stop();
+				dcmqrscp = null;
+			}
 		}
 	}
 
@@ -3645,8 +3706,8 @@ public class DatabaseHandler {
 	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(Attributes keys){
 		ArrayList<HashMap<String,String>> patCandidate = new ArrayList<>();
 		/* PatientID is primary key */
-		String[] patIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.PatientID));
-		if(patIDs.length != 0) {
+		String[] patIDs = keys.getStrings(Tag.PatientID);
+		if(patIDs != null && patIDs.length != 0) {
 			/* search pid && othersPatientRelatedInfo */
 			for(int i=0;i<patIDs.length;i++) {
 				HashMap<String,String> patInfo = findPatientRecordWithPatIDAnd(patIDs[i],keys);
@@ -3892,8 +3953,8 @@ public class DatabaseHandler {
 		}
 		ArrayList<HashMap<String,String>> studyCandidate = new ArrayList<>();
 		/* StudyIUID is primary key */
-		String[] studyIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.StudyInstanceUID));
-		if(studyIUIDs.length != 0) {
+		String[] studyIUIDs = keys.getStrings(Tag.StudyInstanceUID);
+		if(studyIUIDs != null && studyIUIDs.length != 0) {
 			/* search by studyIUID && othersStudyRelatedInfo */
 			for(int i=0;i<studyIUIDs.length;i++) {
 				HashMap<String,String> studyInfo = findStudyRecordWithStudyIUIDAnd(patID,studyIUIDs[i],keys);
@@ -4145,8 +4206,8 @@ public class DatabaseHandler {
 		}
 		ArrayList<HashMap<String,String>> seriesCandidate = new ArrayList<>();
 		/* SeriesIUID is primary key */
-		String[] seriesIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SeriesInstanceUID));
-		if(seriesIUIDs.length != 0) {
+		String[] seriesIUIDs = keys.getStrings(Tag.SeriesInstanceUID);
+		if(seriesIUIDs != null && seriesIUIDs.length != 0) {
 			/* search by seriesIUID && othersSeriesRelatedInfo */
 			for(int i=0;i<seriesIUIDs.length;i++) {
 				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(patID,studyIUID,seriesIUIDs[i],keys);
@@ -4366,8 +4427,8 @@ public class DatabaseHandler {
 		}
 		ArrayList<HashMap<String,String>> instCandidate = new ArrayList<>();
 		/* sopIUID is primary key */
-		String[] sopIUIDs = com.vis.dicom.StringUtils.maskNull(keys.getStrings(Tag.SOPInstanceUID));
-		if(sopIUIDs.length != 0) {
+		String[] sopIUIDs = keys.getStrings(Tag.SOPInstanceUID);
+		if(sopIUIDs != null && sopIUIDs.length != 0) {
 			/* search by sopIUID && othersInstanceRelatedInfo */
 			for(int i=0;i<sopIUIDs.length;i++) {
 				HashMap<String,String> instInfo = findImageRecordWithSopIUIDAnd(patID,studyIUID,seriesIUID,sopIUIDs[i],keys);

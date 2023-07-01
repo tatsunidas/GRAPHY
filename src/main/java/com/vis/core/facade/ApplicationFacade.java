@@ -13,6 +13,7 @@ import javax.swing.JOptionPane;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
+import com.vis.configuration.Resources;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.log.Log;
 import com.vis.core.plugin.PluginShelf;
@@ -116,7 +117,7 @@ public class ApplicationFacade{
 	 * if null, set default locale.
 	 */
 	private void loadLocale() {
-		String locale_str = PropertiesUtil.getPropValueFrom(PropertiesUtil.GRAPHY_Props, GraphyProp.Locale.name());
+		String locale_str = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.Locale.name());
 		if(locale_str != null && !locale_str.isBlank()) {
 			for(Locale l:Locale.getAvailableLocales()) {
 				if (l.getLanguage().equals(new Locale(locale_str).getLanguage())) {

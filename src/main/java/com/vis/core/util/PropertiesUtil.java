@@ -5,8 +5,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Properties;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 
 
@@ -16,33 +20,59 @@ import com.vis.configuration.GraphyProp;
  *
  */
 public class PropertiesUtil {
-	
-	// manage following properties
-	public static final String GRAPHY_Props = "conf/graphy.properties";
-	public static final String SERVER_AE_Props = "conf/ae.properties";
-	public static final String SERVER_QRSOPCLASSES_Props = "conf/query-sop-classes.properties";
-	public static final String SERVER_RecordFactory_Props = "conf/RecordFactory.xml";
-	public static final String SERVER_RetrieveSOPCLASSES_Props = "conf/retrieve-sop-classes.properties";
-	public static final String GRAPHY_StorageSOPCLASSES_Props = "conf/storage-sop-classes.properties";
-	
-	public static final String backendKey = "DICOMBackEnd";//key of backend in graphy_prop
 
 	public static Properties loadProperties(String path){
 		if(!new File(path).exists()) {
 			return null;
 		}
-		path = new File(path).getAbsolutePath();
 		Properties prop = new Properties();
-		InputStream in = null;
+		InputStreamReader reader = null;
     	try {
-    		in = new FileInputStream(new File(path));
-			prop.load(in);
+    		reader = new InputStreamReader(new FileInputStream(path), "UTF-8");
+			prop.load(reader);
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}finally {
 			try {
-				in.close();
+				reader.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+    	return prop; 
+	}
+	
+	public static Properties loadProperties(URL url){
+		if(url == null) {
+			return null;
+		}
+		
+		File f = null;
+		try {
+			f = new File(url.toURI());
+		} catch (URISyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		if(!f.exists()) {
+			return null;
+		}
+		
+		String path = f.getAbsolutePath();
+		Properties prop = new Properties();
+		InputStreamReader reader = null;
+    	try {
+    		reader = new InputStreamReader(new FileInputStream(path), "UTF-8");
+			prop.load(reader);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}finally {
+			try {
+				f = null;
+				reader.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -117,7 +147,7 @@ public class PropertiesUtil {
 	 * @param language : get by locale.getLanguage().
 	 */
 	public static void writeLocale(String language) {
-		setPropertyAt(GRAPHY_Props, GraphyProp.Locale.name(), language);
+		setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.Locale.name(), language);
 	}
 	
 }
