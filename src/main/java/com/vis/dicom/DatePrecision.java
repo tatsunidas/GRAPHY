@@ -42,7 +42,6 @@ import java.util.Calendar;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
- * @author tatsunidas
  */
 public class DatePrecision {
 

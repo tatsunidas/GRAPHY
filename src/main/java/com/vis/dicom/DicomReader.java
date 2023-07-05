@@ -18,4 +18,8 @@ public interface DicomReader {
 	DicomObject read(URI path);
 	DicomObject read(String path, boolean withPixel);
 	
+	DicomObject getCore();
+	DicomObject getFileMetaInfomation();
+	String checkTSUID();
+	String checkTSType();
 }

@@ -47,22 +47,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
  * This class supports creation of a dicom_dict.properties.
  * 
- * 1. create copy data element from DICOM Standards (on html pages), then save it as txt. see, resources/DataElementCopyTxtFromStandards/. 
+ * 1. create copy data element from DICOM Standards (on html pages), then save it as txt. see, example : resources/DataElementCopyTxtFromStandards/. 
  * 2. execute txtToProperties(txtPath,propPath) 
  * 3. Last, aggregate all to dicom_dict.properties using aggregate() in this class.
  * 
  * @author tatsunidas
  *
  */
-public class DicomDictTool {
+final class DicomDictTool {
 
 	public static void main(String[] args) {
 		
+		// step 1, create properties files.
 //		txtToProperties("/home/tatsunidas/デスクトップ/DataElementCopyTxtFromStandards/part6_6-1_RegistryofDICOMDataElements_20230628.txt",
 //				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_6_1.properties", false);
 //		
@@ -78,21 +80,24 @@ public class DicomDictTool {
 //		txtToProperties("/home/tatsunidas/デスクトップ/DataElementCopyTxtFromStandards/part7_E2-1_RetiredCommandFields.txt",
 //				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_E2_1.properties", true);
 		
-		aggregate(
-				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_6_1.properties",
-				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_7_1.properties",
-				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_8_1.properties",
-				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_E1_1.properties",
-				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_E2_1.properties",
-				"/home/tatsunidas/デスクトップ/dicom_dict.properties"
-				);
+		// step 2, aggregate properties files
+//		aggregate(
+//				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_6_1.properties",
+//				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_7_1.properties",
+//				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_8_1.properties",
+//				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_E1_1.properties",
+//				"/home/tatsunidas/デスクトップ/dicom_dict_no_validation_E2_1.properties",
+//				"/home/tatsunidas/デスクトップ/dicom_dict.properties"
+//				);
+		
+		// step 3, create Tag.class from properties file.
+		// first, relocate dicom_dict.properties (created above) to in resource:dicom_dict/dicom_dict.properties
+//		createTagClassVariablesString("/home/tatsunidas/デスクトップ/Tags.txt");
 		
 	}
 
 	/**
 	 * Create dicomdic.properties
-	 * 
-	 * 
 	 * 
 	 * @param pathToPart6CopyTxt : {@see DicomDictTool.part6_copy_sample}
 	 * @param saveTo             : save destination of properties file.
@@ -114,6 +119,18 @@ public class DicomDictTool {
 				itr++;
 				str = str.trim();
 				if (str == null || str.length() < 1 || str.isBlank() || str.isEmpty() || str.equals("\n")) {
+					if (total == itr) {
+						// end of txt
+						if (findTag) {
+							if(isE2_1) {
+								v += "RET";
+							}else {
+								// init
+								v = v.substring(0, v.length() - 1);// delete last ","
+							}
+							tagProp.add(v);
+						}
+					}
 					continue;
 				}
 
@@ -155,8 +172,17 @@ public class DicomDictTool {
 					v += tagString + "=";
 					continue;
 				}
+				
+				// description which has multiple names divided by comma.
+				if(comp_cnt == 1) {
+					if(str.contains(",")) {
+						str = str.replace(",", "");
+					}
+				}
+				
 				v += str + ",";
 				comp_cnt++;
+				
 				if (total == itr) {
 					// end of txt
 					if (findTag) {
@@ -170,10 +196,11 @@ public class DicomDictTool {
 					}
 				}
 			}
-
+			
 		} catch (java.io.IOException ioex) {
 			ioex.printStackTrace();
 		}
+		
 		int size = tagProp.size();
 		int itr = 0;
 		for (String s : tagProp) {
@@ -239,8 +266,31 @@ public class DicomDictTool {
 	}
 
 
-	static void createTagClassStrings() {
+	/**
+	 * If you ready to start TagDict,
+	 * then do it for create Tag.class.
+	 * 
+	 * @param saveTo
+	 */
+	static void createTagClassVariablesString(String saveTo) {
+		HashMap<String,String> set = TagDict.getTagAndKeywordSet();
+		StringBuilder sb = new StringBuilder();
+		java.util.Set<String> tags = set.keySet();
+		
+		tags.stream().sorted().forEach((t) -> {
+			// public static final int Keyword = 0xggggeeee;\n
+			sb.append("public static final int " + set.get(t) + " = " + t+";\n");
+		});
+		sb.delete(sb.lastIndexOf("\n"), sb.length());//sb.lastIndexOf("\n")
 
+		try (PrintWriter pw = new PrintWriter(
+				new BufferedWriter(new OutputStreamWriter(new FileOutputStream(saveTo), "UTF-8")));) {
+			pw.println(sb.toString());
+			pw.flush();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 	}
 
 	/**

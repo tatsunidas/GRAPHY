@@ -3,231 +3,349 @@ package com.vis.dicom;
 import java.util.Date;
 import java.util.TimeZone;
 
-public interface VR {
-	
-	public enum Type{
-		/**
-		 * Application Entity
-		 */
-		AE,
+public enum VR {
+    /**
+     * Application Entity
+     */
+    AE(0x4145, 8, ' ', StringValueType.ASCII, false),
 
-		/**
-		 * Age String
-		 */
-		AS,
+    /**
+     * Age String
+     */
+    AS(0x4153, 8, ' ', StringValueType.ASCII, false),
 
-		/**
-		 * Attribute Tag
-		 */
-		AT,
+    /**
+     * Attribute Tag
+     */
+    AT(0x4154, 8, 0, BinaryValueType.TAG, false),
 
-		/**
-		 * Code String
-		 */
-		CS,
+    /**
+     * Code String
+     */
+    CS(0x4353, 8, ' ', StringValueType.ASCII, false),
 
-		/**
-		 * Date
-		 */
-		DA,
+    /**
+     * Date
+     */
+    DA(0x4441, 8, ' ', StringValueType.DA, false),
 
-		/**
-		 * Decimal String
-		 */
-		DS,
+    /**
+     * Decimal String
+     */
+    DS(0x4453, 8, ' ', StringValueType.DS, false),
 
-		/**
-		 * Date Time
-		 */
-		DT,
+    /**
+     * Date Time
+     */
+    DT(0x4454, 8, ' ', StringValueType.DT, false),
 
-		/**
-		 * Floating Point Double
-		 */
-		FD,
+    /**
+     * Floating Point Double
+     */
+    FD(0x4644, 8, 0, BinaryValueType.DOUBLE, false),
 
-		/**
-		 * Floating Point Single
-		 */
-		FL,
+    /**
+     * Floating Point Single
+     */
+    FL(0x464c, 8, 0, BinaryValueType.FLOAT, false),
 
-		/**
-		 * Integer String
-		 */
-		IS,
+    /**
+     * Integer String
+     */
+    IS(0x4953, 8, ' ', StringValueType.IS, false),
 
-		/**
-		 * Long String
-		 */
-		LO,
+    /**
+     * Long String
+     */
+    LO(0x4c4f, 8, ' ', StringValueType.STRING, false),
 
-		/**
-		 * Long Text
-		 */
-		LT,
+    /**
+     * Long Text
+     */
+    LT(0x4c54, 8, ' ', StringValueType.TEXT, false),
 
-		/**
-		 * Other Byte
-		 */
-		OB,
+    /**
+     * Other Byte
+     */
+    OB(0x4f42, 12, 0, BinaryValueType.BYTE, true),
 
-		/**
-		 * Other Double
-		 */
-		OD,
+    /**
+     * Other Double
+     */
+    OD(0x4f44, 12, 0, BinaryValueType.DOUBLE, true),
 
-		/**
-		 * Other Float
-		 */
-		OF,
+    /**
+     * Other Float
+     */
+    OF(0x4f46, 12, 0, BinaryValueType.FLOAT, true),
 
-		/**
-		 * Other Long
-		 */
-		OL,
+    /**
+     * Other Long
+     */
+    OL(0x4f4c, 12, 0, BinaryValueType.INT, true),
 
-		/**
-		 * Other 64-bit Very Long
-		 */
-		OV,
+    /**
+     * Other 64-bit Very Long
+     */
+    OV(0x4f56, 12, 0, BinaryValueType.LONG, true),
 
-		/**
-		 * Other Word
-		 */
-		OW,
+    /**
+     * Other Word
+     */
+    OW(0x4f57, 12, 0, BinaryValueType.SHORT, true),
 
-		/**
-		 * Person Name
-		 */
-		PN,
+    /**
+     * Person Name
+     */
+    PN(0x504e, 8, ' ', StringValueType.PN, false),
 
-		/**
-		 * Short String
-		 */
-		SH,
+    /**
+     * Short String
+     */
+    SH(0x5348, 8, ' ', StringValueType.STRING, false),
 
-		/**
-		 * Signed Long
-		 */
-		SL,
+    /**
+     * Signed Long
+     */
+    SL(0x534c, 8, 0, BinaryValueType.INT, false),
 
-		/**
-		 * Sequence of Items
-		 */
-		SQ,
+    /**
+     * Sequence of Items
+     */
+    SQ(0x5351, 12, 0, SequenceValueType.SQ, false),
 
-		/**
-		 * Signed Short
-		 */
-		SS,
+    /**
+     * Signed Short
+     */
+    SS(0x5353, 8, 0, BinaryValueType.SHORT, false),
 
-		/**
-		 * Short Text
-		 */
-		ST,
+    /**
+     * Short Text
+     */
+    ST(0x5354, 8, ' ', StringValueType.TEXT, false),
 
-		/**
-		 * Signed 64-bit Long
-		 */
-		SV,
+    /**
+     * Signed 64-bit Long
+     */
+    SV(0x5356, 12, 0, BinaryValueType.LONG, false),
 
-		/**
-		 * Time
-		 */
-		TM,
+    /**
+     * Time
+     */
+    TM(0x544d, 8, ' ', StringValueType.TM, false),
 
-		/**
-		 * Unlimited Characters
-		 */
-		UC,
+    /**
+     * Unlimited Characters
+     */
+    UC(0x5543, 12, ' ', StringValueType.STRING, false),
 
-		/**
-		 * Unique Identifier (UID)
-		 */
-		UI,
+    /**
+     * Unique Identifier (UID)
+     */
+    UI(0x5549, 8, 0, StringValueType.ASCII, false),
 
-		/**
-		 * Unsigned Long
-		 */
-		UL,
+    /**
+     * Unsigned Long
+     */
+    UL(0x554c, 8, 0, BinaryValueType.UINT, false),
 
-		/**
-		 * Unknown
-		 */
-		UN,
+    /**
+     * Unknown
+     */
+    UN(0x554e, 12, 0, BinaryValueType.BYTE, true),
 
-		/**
-		 * Universal Resource Identifier or Universal Resource Locator (URI/URL)
-		 */
-		UR,
+    /**
+     * Universal Resource Identifier or Universal Resource Locator (URI/URL)
+     */
+    UR(0x5552, 12, ' ', StringValueType.UR, false),
 
-		/**
-		 * Unsigned Short
-		 */
-		US,
+    /**
+     * Unsigned Short
+     */
+    US(0x5553, 8, 0, BinaryValueType.USHORT, false),
 
-		/**
-		 * Unlimited Text
-		 */
-		UT,
+    /**
+     * Unlimited Text
+     */
+    UT(0x5554, 12, ' ', StringValueType.TEXT, false),
 
-		/**
-		 * Unsigned 64-bit Long
-		 */
-		UV;
-	}
-	
-	public String vrName();
-	
-	public int code();
+    /**
+     * Unsigned 64-bit Long
+     */
+    UV(0x5556, 12, 0, BinaryValueType.ULONG, false);
 
-	public int headerLength();
+    protected final int code;
+    protected final int headerLength;
+    protected final int paddingByte;
+    protected final ValueType valueType;
+    protected final boolean inlineBinary;
 
-	public int paddingByte();
+    VR(int code, int headerLength, int paddingByte, ValueType valueType,
+            boolean inlineBinary) {
+        this.code = code;
+        this.headerLength = headerLength;
+        this.paddingByte = paddingByte;
+        this.valueType = valueType;
+        this.inlineBinary = inlineBinary;
+    }
 
-	public boolean isTemporalType();
+    private static int indexOf(VR vr) {
+        return vr.code - AE.code;
+    }
 
-	public boolean isStringType();
+    private static final VR[] VALUE_OF = new VR[indexOf(UV)+1];
+    static {
+        for (VR vr : VR.values())
+            VALUE_OF[indexOf(vr)] = vr;
+    }
 
-	public boolean useSpecificCharacterSet();
+    public static VR valueOf(int code) {
+        try {
+            VR vr = VALUE_OF[code - AE.code];
+            if (vr != null)
+                return vr;
+        } catch (IndexOutOfBoundsException e) {}
+        return null;
+    }
 
-	public boolean isIntType();
+    public int code() {
+        return code;
+    }
 
-	public boolean isInlineBinary();
+    public int headerLength() {
+        return headerLength;
+    }
 
-	public int numEndianBytes();
+    public int paddingByte() {
+        return paddingByte;
+    }
 
-	public byte[] toggleEndian(byte[] b, boolean preserve);
+    public boolean isTemporalType() {
+        return valueType.isTemporalType();
+    }
 
-	public byte[] toBytes(Object val, SpecificCharacterSet cs);
+    public boolean isStringType() {
+        return valueType.isStringValue();
+    }
 
-	public Object toStrings(Object val, boolean bigEndian, SpecificCharacterSet cs);
+    public boolean useSpecificCharacterSet() {
+        return valueType.useSpecificCharacterSet();
+    }
 
-	public String toString(Object val, boolean bigEndian, int valueIndex, String defVal);
+    public boolean isIntType() {
+        return valueType.isIntValue();
+    }
 
-	public int toInt(Object val, boolean bigEndian, int valueIndex, int defVal);
+    public boolean isInlineBinary() {
+        return inlineBinary;
+    }
 
-	public int[] toInts(Object val, boolean bigEndian);
+    public int numEndianBytes() {
+        return valueType.numEndianBytes();
+    }
 
-	public long toLong(Object val, boolean bigEndian, int valueIndex, long defVal);
+    public byte[] toggleEndian(byte[] b, boolean preserve) {
+        return valueType.toggleEndian(b, preserve);
+    }
 
-	public long[] toLongs(Object val, boolean bigEndian);
+    public byte[] toBytes(Object val, SpecificCharacterSet cs) {
+        return valueType.toBytes(val, cs);
+    }
 
-	public float toFloat(Object val, boolean bigEndian, int valueIndex, float defVal);
+    public Object toStrings(Object val, boolean bigEndian, SpecificCharacterSet cs) {
+        return valueType.toStrings(val, bigEndian, cs);
+    }
 
-	public float[] toFloats(Object val, boolean bigEndian);
+    public String toString(Object val, boolean bigEndian, int valueIndex,
+            String defVal) {
+        return valueType.toString(val, bigEndian, valueIndex, defVal);
+    }
 
-	public double toDouble(Object val, boolean bigEndian, int valueIndex, double defVal);
+    public int toInt(Object val, boolean bigEndian, int valueIndex, int defVal) {
+        return valueType.toInt(val, bigEndian, valueIndex, defVal);
+    }
 
-	public double[] toDoubles(Object val, boolean bigEndian);
+    public int[] toInts(Object val, boolean bigEndian) {
+        return valueType.toInts(val, bigEndian);
+    }
 
-	public Date toDate(Object val, TimeZone tz, int valueIndex, boolean ceil, Date defVal, DatePrecision precision);
+    public long toLong(Object val, boolean bigEndian, int valueIndex, long defVal) {
+        return valueType.toLong(val, bigEndian, valueIndex, defVal);
+    }
 
-	public Date[] toDates(Object val, TimeZone tz, boolean ceil, DatePrecisions precisions);
+    public long[] toLongs(Object val, boolean bigEndian) {
+        return valueType.toLongs(val, bigEndian);
+    }
 
-	public Object toValue(Date[] ds, TimeZone tz, DatePrecision precision);
+    public float toFloat(Object  val, boolean bigEndian, int valueIndex, float defVal) {
+        return valueType.toFloat(val, bigEndian, valueIndex, defVal);
+    }
 
-	public boolean prompt(Object val, boolean bigEndian, SpecificCharacterSet cs, int maxChars, StringBuilder sb);
+    public float[] toFloats(Object val, boolean bigEndian) {
+        return valueType.toFloats(val, bigEndian);
+    }
 
-	public int vmOf(Object val);
+    public double toDouble(Object val, boolean bigEndian, int valueIndex,
+            double defVal) {
+        return valueType.toDouble(val, bigEndian, valueIndex, defVal);
+    }
+
+    public double[] toDoubles(Object val, boolean bigEndian) {
+        return valueType.toDoubles(val, bigEndian);
+    }
+
+    public Date toDate(Object val, TimeZone tz, int valueIndex, boolean ceil,
+            Date defVal, DatePrecision precision) {
+        return valueType.toDate(val, tz, valueIndex, ceil, defVal, precision);
+    }
+
+    public Date[] toDates(Object val, TimeZone tz, boolean ceil,
+            DatePrecisions precisions) {
+        return valueType.toDate(val, tz, ceil, precisions);
+    }
+
+    Object toValue(byte[] b) {
+        return valueType.toValue(b);
+    }
+
+    Object toValue(String s, boolean bigEndian) {
+        return valueType.toValue(s, bigEndian);
+    }
+
+    Object toValue(String[] ss, boolean bigEndian) {
+        return valueType.toValue(ss, bigEndian);
+    }
+
+    Object toValue(int[] is, boolean bigEndian) {
+        return valueType.toValue(is, bigEndian);
+    }
+
+    Object toValue(long[] ls, boolean bigEndian) {
+        return valueType.toValue(ls, bigEndian);
+    }
+
+    Object toValue(float[] fs, boolean bigEndian) {
+        return valueType.toValue(fs, bigEndian);
+    }
+
+    Object toValue(double[] ds, boolean bigEndian) {
+        return valueType.toValue(ds, bigEndian);
+    }
+
+    public Object toValue(Date[] ds, TimeZone tz, DatePrecision precision) {
+        return valueType.toValue(ds, tz, precision);
+    }
+
+    public boolean prompt(Object val, boolean bigEndian,
+            SpecificCharacterSet cs, int maxChars, StringBuilder sb) {
+        return valueType.prompt(val, bigEndian, cs, maxChars, sb);
+    }
+
+    public int vmOf(Object val) {
+        return valueType.vmOf(val);
+    }
+
+    public static class Holder {
+        public VR vr;
+    }
 }

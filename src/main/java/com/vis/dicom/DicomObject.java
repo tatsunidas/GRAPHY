@@ -2,7 +2,6 @@ package com.vis.dicom;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -10,7 +9,7 @@ import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
 /**
  * 
- * Wrapper object for mutiple dicom libraries.
+ * DicomObject API to handle mutiple dicom libraries.
  * 
  * @author tatsunidas
  *
@@ -27,14 +26,6 @@ public interface DicomObject{
 		}
 		return null;
 	}
-	
-	public DICOMBackend whatIsBackend();
-	
-	public void setCore(Object attr);
-	public Object getCore();
-	public void setFileMetaInfo(Object fmi);
-	public Object getFileMetaInfo();
-	public void updateFileMetaInfo();
 	
 	public void clear();
 	
@@ -55,11 +46,6 @@ public interface DicomObject{
     public String getParentSequencePrivateCreator();
 
     public int getParentSequenceTag();
-
-    //ItemPointer[] keep be "Object".
-    public Object itemPointers();
-
-    public int itemIndex();
 
     public int[] tags();
 
@@ -91,7 +77,7 @@ public interface DicomObject{
     public int tagOf(String privateCreator, int tag);
 
     //com.vis.dicom.SpecificCharacterSet
-    public Object getSpecificCharacterSet(Object vr);
+    public Object getSpecificCharacterSet(VR vr);
 
     public boolean contains(int tag);
 
@@ -116,15 +102,20 @@ public interface DicomObject{
 
     public Object getValue(int tag);
 
-    public Object getValue(int tag, Object vr_holde);
+    public Object getValue(int tag, VR.Holder vr_holder);
 
     public Object getValue(String privateCreator, int tag);
 
-    public Object getValue(String privateCreator, int tag, Object vr_holder);
+    public Object getValue(String privateCreator, int tag, VR.Holder vr_holder);
 
-    public Object getVR(int tag);
+    /**
+     * Method name "getVR(tag)" is conflict to Attributes.getVR(tag).
+     * @param tag
+     * @return
+     */
+    public VR getVROn(int tag);
 
-    public Object getVR(String privateCreator, int tag);
+    public VR getVROn(String privateCreator, int tag);
 
     // retrun Sequence object
     public Object getSequence(int tag);
@@ -168,7 +159,7 @@ public interface DicomObject{
 
     public String[] getStrings(String privateCreator, int tag);
 
-    public String[] getStrings(String privateCreator, int tag, Object vr);
+    public String[] getStrings(String privateCreator, int tag, VR vr);
 
     public int getInt(int tag, int defVal);
 
@@ -176,17 +167,17 @@ public interface DicomObject{
 
     public int getInt(String privateCreator, int tag, int defVal);
 
-    public int getInt(String privateCreator, int tag, Object vr, int defVal);
+    public int getInt(String privateCreator, int tag, VR vr, int defVal);
 
     public int getInt(String privateCreator, int tag, int valueIndex, int defVal);
 
-    public int getInt(String privateCreator, int tag, Object vr, int valueIndex, int defVal);
+    public int getInt(String privateCreator, int tag, VR vr, int valueIndex, int defVal);
 
     public int[] getInts(int tag);
 
     public int[] getInts(String privateCreator, int tag);
 
-    public int[] getInts(String privateCreator, int tag, Object vr);
+    public int[] getInts(String privateCreator, int tag, VR vr);
 
     public long getLong(int tag, long defVal);
 
@@ -194,17 +185,17 @@ public interface DicomObject{
 
     public long getLong(String privateCreator, int tag, long defVal);
 
-    public long getLong(String privateCreator, int tag, Object vr, long defVal);
+    public long getLong(String privateCreator, int tag, VR vr, long defVal);
 
     public long getLong(String privateCreator, int tag, int valueIndex, long defVal);
 
-    public long getLong(String privateCreator, int tag, Object vr, int valueIndex, long defVal);
+    public long getLong(String privateCreator, int tag, VR vr, int valueIndex, long defVal);
 
     public long[] getLongs(int tag);
 
     public long[] getLongs(String privateCreator, int tag);
 
-    public long[] getLongs(String privateCreator, int tag, Object vr);
+    public long[] getLongs(String privateCreator, int tag, VR vr);
 
     public float getFloat(int tag, float defVal);
 
@@ -212,17 +203,17 @@ public interface DicomObject{
 
     public float getFloat(String privateCreator, int tag, float defVal);
 
-    public float getFloat(String privateCreator, int tag, Object vr, float defVal);
+    public float getFloat(String privateCreator, int tag, VR vr, float defVal);
 
     public float getFloat(String privateCreator, int tag, int valueIndex, float defVal);
 
-    public float getFloat(String privateCreator, int tag, Object vr, int valueIndex, float defVal);
+    public float getFloat(String privateCreator, int tag, VR vr, int valueIndex, float defVal);
 
     public float[] getFloats(int tag);
 
     public float[] getFloats(String privateCreator, int tag);
 
-    public float[] getFloats(String privateCreator, int tag, Object vr);
+    public float[] getFloats(String privateCreator, int tag, VR vr);
 
     public double getDouble(int tag, double defVal);
 
@@ -230,32 +221,32 @@ public interface DicomObject{
 
     public double getDouble(String privateCreator, int tag, double defVal);
 
-    public double getDouble(String privateCreator, int tag, Object vr, double defVal);
+    public double getDouble(String privateCreator, int tag, VR vr, double defVal);
 
     public double getDouble(String privateCreator, int tag, int valueIndex, double defVal);
 
-    public double getDouble(String privateCreator, int tag, Object vr, int valueIndex, double defVal);
+    public double getDouble(String privateCreator, int tag, VR vr, int valueIndex, double defVal);
 
     public double[] getDoubles(int tag);
 
     public double[] getDoubles(String privateCreator, int tag);
 
-    public double[] getDoubles(String privateCreator, int tag, Object vr);
+    public double[] getDoubles(String privateCreator, int tag, VR vr);
 
     public Date getDate(int tag);
 
     // Object is DatePrecision
-    public Date getDate(int tag, Object precision);
+    public Date getDate(int tag, DatePrecision precision);
 
     public Date getDate(int tag, Date defVal);
     
     // DatePrecision
-    public Date getDate(int tag, Date defVal, Object precision);
+    public Date getDate(int tag, Date defVal, DatePrecision precision);
 
     public Date getDate(int tag, int valueIndex);
 
     // DatePrecision
-    public Date getDate(int tag, int valueIndex, Object precision);
+    public Date getDate(int tag, int valueIndex, DatePrecision precision);
 
     public Date getDate(int tag, int valueIndex, Date defVal);
 
@@ -338,7 +329,7 @@ public interface DicomObject{
 
     public Date[] getDates(String privateCreator, long tag, DatePrecisions precisions);
 
-    // return DateRange
+    // com.vis.dicom.DateRange
     public Object getDateRange(int tag);
 
     public Object getDateRange(int tag, DateRange defVal);
@@ -638,7 +629,7 @@ public interface DicomObject{
 
     public StringBuilder toStringBuilder(int limit, int maxWidth, StringBuilder sb);
 
-    public int calcLength(Object dicomEncodingOptions , boolean explicitVR);
+    public int calcLength(com.vis.dicom.DicomEncodingOptions dicomEncodingOptions , boolean explicitVR);
 
 
     public void writeTo(Object dicomOutputStream)
@@ -661,7 +652,7 @@ public interface DicomObject{
      */
     public boolean accept(Object visitor, boolean visitNestedDatasets) throws Exception;
 
-    public void writeGroupTo(Object dicomOutputStream, int groupLengthTag);
+    public void writeGroupTo(Object dicomOutputStream, int groupLengthTag) throws IOException;
 
     /**
      * Creates DICOM File Meta Information for this <i>Data Set</i> with given <i>Transfer Syntax UID (0002,0010)</i>,
@@ -670,7 +661,6 @@ public interface DicomObject{
      * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
      * @return created DICOM File Meta Information
      */
-    // DicomObject
     public Object createFileMetaInformation(String tsuid);
 
     /**
@@ -682,7 +672,6 @@ public interface DicomObject{
      *                                         <code>false</code> if it is to be omitted.
      * @return created DICOM File Meta Information
      */
-    // DicomObject
     public Object createFileMetaInformation(String tsuid, boolean includeImplementationVersionName);
 
     public boolean matches(DicomObject keys, boolean ignorePNCase,

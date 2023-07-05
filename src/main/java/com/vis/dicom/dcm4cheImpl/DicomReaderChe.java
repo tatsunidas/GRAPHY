@@ -6,7 +6,6 @@ import java.net.URI;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
-import org.dcm4che3.imageio.codec.TransferSyntaxType;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomStreamException;
 import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
@@ -16,6 +15,7 @@ import com.vis.core.log.Log;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.TransferSyntaxType;
 
 import java.util.logging.*;
 
@@ -23,11 +23,10 @@ public class DicomReaderChe implements DicomReader{
 	
 	Logger logger = Log.logger;
 	
-	//dcm4che set
-	Attributes dataset4che = null;
-	Attributes fmi4che = null;
+	DicomObject dataset4che = null;
+	DicomObject fmi4che = null;
 	String tsuid;
-	TransferSyntaxType tstype4che;
+	com.vis.dicom.TransferSyntaxType tstype4che;
 	
 	public DicomReaderChe() {}
 	
@@ -54,14 +53,17 @@ public class DicomReaderChe implements DicomReader{
 		try {
 			dis = new DicomInputStream(new File(path));
 			dis.setIncludeBulkData(IncludeBulkData.URI);
-			fmi4che = dis.readFileMetaInformation();
+			Attributes fmi4che = dis.readFileMetaInformation();
 			tsuid = dis.getTransferSyntax();
 			tstype4che = TransferSyntaxType.forUID(tsuid);
+			Attributes dataset4che = null;
 			if (!withPixel) {
 				dataset4che = dis.readDatasetUntilPixelData();
 			} else {//read full
 				dataset4che = dis.readDataset(-1, o -> false);
 			}
+			this.dataset4che = new DicomObjectChe(dataset4che);
+			this.fmi4che = new DicomObjectChe(fmi4che);
 		}catch(DicomStreamException dse) {
 			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse.getMessage());
 			return null;
@@ -75,16 +77,18 @@ public class DicomReaderChe implements DicomReader{
 		return null;
 	}
 	
-	Object[] getFmiAndAttr() {
-		return new Object[] {getFileMetaInfomation(),getCoreDataset()};
-	}
-	
-	Attributes getCoreDataset() {
+	@Override
+	public DicomObject getCore() {
 		return dataset4che;
 	}
 	
-	Attributes getFileMetaInfomation() {
+	@Override
+	public DicomObject getFileMetaInfomation() {
 		return fmi4che;
+	}
+	
+	public Object[] getFmiAndCore() {
+		return new Object[] {getFileMetaInfomation(),getCore()};
 	}
 	
 	public String[] checkUIDs() {
@@ -109,4 +113,6 @@ public class DicomReaderChe implements DicomReader{
 		}
 		return tstype4che.name();//if unknown, maybe, not image obj.
 	}
+
+	
 }

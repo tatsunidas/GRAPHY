@@ -11,11 +11,10 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is part of dcm4che, an implementation of DICOM(TM) in
- * Java(TM), hosted at https://github.com/dcm4che.
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
  *
  * The Initial Developer of the Original Code is
- * Agfa Healthcare.
+ * Visionary Imaging Services, Inc.
  * Portions created by the Initial Developer are Copyright (C) 2011
  * the Initial Developer. All Rights Reserved.
  *
@@ -35,36 +34,15 @@
  * the terms of any one of the MPL, the GPL or the LGPL.
  *
  * ***** END LICENSE BLOCK *****
- * This file is generated from Part 6 of the Standard Text Edition 2011.
  */
  
 package com.vis.dicom;
 
 
 /**
- * @author Gunter Zeilinger <gunterze@gmail.com>
  * @author tatsunidas
  */
 public enum UID {
-
-//    private static final ResourceBundle rb(
-//            ResourceBundle.getBundle("org.dcm4che3.data.UIDNames")),
-//
-//    public static String nameOf(String uid) {
-//        try {
-//            return rb.getString(uid)),
-//        } catch (Exception e) {
-//            return "?"),
-//        }
-//    }
-//
-//    public static String forName(String keyword) {
-//        try {
-//            return (String) UID.class.getField(keyword).get(null)),
-//        } catch (Exception e) {
-//            throw new IllegalArgumentException(keyword)),
-//        }
-//    }
 
     /** Verification SOP Class, SOPClass */
     Verification("1.2.840.10008.1.1"),
@@ -1595,5 +1573,18 @@ public enum UID {
 	
 	public static String forName(String keyword) {
 		return UID.valueOf(keyword).uid;
+	}
+	
+	public static UID uidOf(String uid) {
+		for(UID u : values()) {
+			if(u.uid.equals(uid)) {
+				return u;
+			}
+		}
+		return null;
+	}
+	
+	public String uid() {
+		return uid;
 	}
 }

@@ -36,17 +36,13 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-package com.vis.dicom.dcm4cheImpl;
+package com.vis.dicom;
 
 import java.util.Date;
 import java.util.TimeZone;
 
-import org.dcm4che3.data.DatePrecision;
-import org.dcm4che3.data.DatePrecisions;
-import org.dcm4che3.data.SpecificCharacterSet;
-import org.dcm4che3.data.Value;
-import org.dcm4che3.util.ArrayUtils;
-import org.dcm4che3.util.StringUtils;
+import com.vis.core.util.ArrayUtils;
+import com.vis.core.util.StringUtils;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>

@@ -36,21 +36,15 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-package com.vis.dicom.dcm4cheImpl;
+package com.vis.dicom;
 
 import java.util.Date;
 import java.util.TimeZone;
 
-import org.dcm4che3.data.DatePrecision;
-import org.dcm4che3.data.DatePrecisions;
-import org.dcm4che3.data.SpecificCharacterSet;
-import org.dcm4che3.data.Value;
-import org.dcm4che3.util.ByteUtils;
-import org.dcm4che3.util.StringUtils;
-import org.dcm4che3.util.TagUtils;
+import com.vis.core.util.ByteUtils;
+import com.vis.core.util.StringUtils;
 
 /**
- * @author Gunter Zeilinger <gunterze@gmail.com>
  * @author tatsunidas
  */
 enum BinaryValueType implements ValueType {
@@ -214,7 +208,7 @@ enum BinaryValueType implements ValueType {
 
         @Override
         protected String toString(byte[] b, int off, boolean bigEndian) {
-            return TagUtils.toHexString(toInt(b, off, bigEndian));
+            return TagDict.toHexString(toInt(b, off, bigEndian));
         }
 
         @Override

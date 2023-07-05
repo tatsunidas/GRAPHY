@@ -36,14 +36,13 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-package com.vis.dicom.dcm4cheImpl;
+package com.vis.dicom;
 
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
 
-import org.dcm4che3.data.DatePrecision;
-import org.dcm4che3.util.DateUtils;
+import com.vis.core.util.DateUtils;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
