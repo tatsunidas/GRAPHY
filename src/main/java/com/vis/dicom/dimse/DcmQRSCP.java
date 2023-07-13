@@ -1,5 +1,3 @@
-package com.vis.dicom.dimse;
-
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -38,8 +36,11 @@ package com.vis.dicom.dimse;
  *
  * ***** END LICENSE BLOCK ***** */
 
+package com.vis.dicom.dimse;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -106,7 +107,6 @@ import org.dcm4che3.util.StringUtils;
 import org.dcm4che3.util.TagUtils;
 import org.dcm4che3.util.UIDUtils;
 
-import com.google.common.io.Files;
 import com.vis.core.log.Log;
 import com.vis.db.DatabaseHandler;
 import com.vis.db.DicomServer;
@@ -448,11 +448,14 @@ public class DcmQRSCP implements DicomServer{
 
 	private static void renameTo(Association as, File from, File dest) throws IOException {
 		dest.getParentFile().mkdirs();
-		try {
+		
+		Path p1 = Paths.get(from.getAbsolutePath());
+		Path p2 = Paths.get(dest.getAbsolutePath());
+		try{
+			java.nio.file.Files.move(p1, p2, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 			LOG.info("RENAME:"+as+", "+from+", "+dest);
-			Files.move(from, dest);
-		} catch (Exception e) {
-			throw new IOException("Failed to rename " + from + " to " + dest);
+		}catch(IOException e){
+		  throw new IOException("Failed to rename " + from + " to " + dest);
 		}
 	}
 

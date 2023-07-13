@@ -37,10 +37,13 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
-import com.vis.dicom.DicomImage;
+import org.dcm4che3.data.Tag;
+
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
+import com.vis.dicom.UID;
+import com.vis.dicom.image.DicomImage;
 
 /**
  * 
@@ -52,10 +55,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	private static final long serialVersionUID = 1L;
 	protected DicomObject core = null;
 	protected DicomObject fmi = null;
-	protected String tsuid;
+	protected UID tsuid;
+	protected UID sopUID;
 	
 	public DicomImageChe(String path, boolean withPixel) {
-		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
 		reader.read(path, withPixel);
 		this.core = reader.getCore();
 		this.fmi = reader.getFileMetaInfomation();
@@ -84,13 +88,46 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 
 	@Override
-	public String getTSUID() {
+	public UID getTSUID() {
 		return tsuid;
 	}
 
 	@Override
 	public void updateFileMetaInfo(com.vis.dicom.UID uid) {
 		this.fmi = (DicomObject) core.createFileMetaInformation(uid.uid());
+	}
+
+	@Override
+	public Object pixelData() {
+		int bitsAllocated = this.core.getInt(Tag.BitsAllocated, -1);
+		if(bitsAllocated == -1) {
+			//this core does not have pixel
+			return null;
+		}
+		if(bitsAllocated == 8 || bitsAllocated == 16) {
+			return this.core.getValue(Tag.PixelData);
+		}else if(bitsAllocated == 32) {
+			return this.core.getValue(Tag.FloatPixelData);
+		}else if(bitsAllocated == 64) {
+			return this.core.getValue(Tag.DoubleFloatPixelData);
+		}
+		return null;
+	}
+
+	@Override
+	public boolean isPDF() {
+		return sopUID == 	UID.EncapsulatedPDFStorage ? true : false;
+	}
+
+	@Override
+	public boolean isMultiFrame() {
+		int frames = this.core.getInt(Tag.NumberOfFrames, 1);
+		return frames == 1 ? false:true;
+	}
+
+	@Override
+	public UID sopUID() {
+		return this.sopUID;
 	}
 
 }

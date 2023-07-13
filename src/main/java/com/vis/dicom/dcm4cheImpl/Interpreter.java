@@ -121,9 +121,9 @@ public class Interpreter {
 		return new org.dcm4che3.data.DateRange(dr.getStartDate(), dr.getEndDate());
 	}
 	
-	static org.dcm4che3.data.Attributes.UpdatePolicy updatePolicyChe(com.vis.dicom.DicomObject.UpdatePolicy policy){
-		return org.dcm4che3.data.Attributes.UpdatePolicy.valueOf(policy.name());
-	}
+//	static org.dcm4che3.data.Attributes.UpdatePolicy updatePolicyChe(com.vis.dicom.DicomObject.UpdatePolicy policy){
+//		return org.dcm4che3.data.Attributes.UpdatePolicy.valueOf(policy.name());
+//	}
 	
 	static org.dcm4che3.io.DicomEncodingOptions dicomEncodingOpsChe(com.vis.dicom.DicomEncodingOptions ops){
 		boolean groupLength = ops.groupLength;
@@ -209,9 +209,9 @@ public class Interpreter {
 		return new com.vis.dicom.DateRange(dr.getStartDate(), dr.getEndDate());
 	}
 	
-	static com.vis.dicom.DicomObject.UpdatePolicy updatePolicy(org.dcm4che3.data.Attributes.UpdatePolicy policy){
-		return com.vis.dicom.DicomObject.UpdatePolicy.valueOf(policy.name());
-	}
+//	static com.vis.dicom.DicomObject.UpdatePolicy updatePolicy(org.dcm4che3.data.Attributes.UpdatePolicy policy){
+//		return com.vis.dicom.DicomObject.UpdatePolicy.valueOf(policy.name());
+//	}
 	
 	static com.vis.dicom.DicomEncodingOptions dicomEncodingOpsChe(org.dcm4che3.io.DicomEncodingOptions ops){
 		boolean groupLength = ops.groupLength;

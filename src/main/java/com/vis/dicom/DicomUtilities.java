@@ -79,7 +79,7 @@ public class DicomUtilities {
 	}
 	
 	public static boolean namedDICOMDIR(File f) {
-		if (org.apache.commons.lang3.StringUtils.containsIgnoreCase(f.getName(), "dicomdir")) {
+		if (f.getName().startsWith("dicomdir")) {
 				return true;
 		}else {
 			return false;

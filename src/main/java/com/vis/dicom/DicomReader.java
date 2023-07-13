@@ -14,12 +14,14 @@ public interface DicomReader {
 		return null;
 	}
 
-	DicomObject read(String path);
-	DicomObject read(URI path);
-	DicomObject read(String path, boolean withPixel);
+	void read(String path);
+	void read(URI path);
+	void read(String path, boolean withPixel);
 	
 	DicomObject getCore();
 	DicomObject getFileMetaInfomation();
-	String checkTSUID();
-	String checkTSType();
+	UID checkTSUID();
+	UID checkSopClassUID();
+	boolean bigEndian();
+	TransferSyntaxType checkTSType();
 }

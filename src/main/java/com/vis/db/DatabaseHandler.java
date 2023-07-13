@@ -25,7 +25,10 @@ import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.dimse.DcmQRSCP;
-import com.google.common.io.Files;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
@@ -40,6 +43,24 @@ import com.vis.configuration.Resources;
  * @author tatsunidas
  */
 public class DatabaseHandler {
+	
+	/*
+	 * unit test
+	 */
+	public static void main(String[] args) {
+		
+		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
+		DatabaseHandler db = new DatabaseHandlerBuilder().build();
+		db.setDatabaseFolderPath(testDir);
+		db.startingUp();
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		db.shutdownDB();
+	}
 	
 	//singleton
 	private static DatabaseHandler datbaseRef;
@@ -73,24 +94,6 @@ public class DatabaseHandler {
 	private boolean saveAsLink = false;
 	
 	private java.util.logging.Logger logger = Log.logger;
-	
-	/*
-	 * unit test
-	 */
-	public static void main(String[] args) {
-		
-		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
-		DatabaseHandler db = new DatabaseHandlerBuilder().build();
-		db.setDatabaseFolderPath(testDir);
-		db.startingUp();
-		try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		db.shutdownDB();
-	}
 	
 	/**
 	 * Builder
@@ -276,7 +279,9 @@ public class DatabaseHandler {
 			try {
 				File defRecFac = new File(getClass().getResource(Resources.RecordFactory.path()).toURI());
 				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
-				Files.copy(defRecFac, recFac);
+				Path src = Paths.get(defRecFac.toURI());
+				Path out = Paths.get(recFac.toURI());
+				Files.copy(src, out);
 				recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
 			} catch (URISyntaxException | IOException e1) {
 				e1.printStackTrace();

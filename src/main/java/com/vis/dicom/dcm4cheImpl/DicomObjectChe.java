@@ -4,10 +4,8 @@ import java.io.IOException;
 import java.util.Date;
 
 import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.IOD;
-import org.dcm4che3.data.IOD.DataElement;
-import org.dcm4che3.data.ValidationResult;
 import org.dcm4che3.io.DicomOutputStream;
+import org.dcm4che3.util.TagUtils;
 
 import com.vis.dicom.DatePrecision;
 import com.vis.dicom.DatePrecisions;
@@ -24,76 +22,127 @@ import com.vis.dicom.VR.Holder;
  *
  */
 
-public class DicomObjectChe extends org.dcm4che3.data.Attributes implements DicomObject{
+public class DicomObjectChe extends Attributes implements DicomObject{
 	
 	/*
-	 * DicomObject constructed by attributes and fmi.
-	 * fmi examle
-	 * Attributes fmi = new Attributes();
-	 * fmi.setString(Tag.ImplementationVersionName, VR.SH, "DCM4CHE3"); 
-	 * fmi.setString(Tag.ImplementationClassUID, VR.UI, UIDUtils.createUID());
-	 * fmi.setString(Tag.TransferSyntaxUID, VR.UI, transferSyntax);
-	 * fmi.setString(Tag.MediaStorageSOPClassUID, VR.UI, transferSyntax);
-	 * fmi.setString(Tag.MediaStorageSOPInstanceUID, VR.UI,UIDUtils.createUID());
-	 * fmi.setString(Tag.FileMetaInformationVersion, VR.OB, "1");
-	 * fmi.setInt(Tag.FileMetaInformationGroupLength, VR.UL, dicom.size()+fmi.size());
+	 * way to success
+	 * 
+	 * do re-implemented private variables and methods in Attributes
 	 */
 	
 	private static final long serialVersionUID = -3556564730921871109L;
 	
 	private static final int INIT_CAPACITY = 16;
+//	private static final int TO_STRING_LIMIT = 50;
+//	private static final int TO_STRING_WIDTH = 78;
+	private transient Attributes parent;
+//	private transient String parentSequencePrivateCreator;
+//	private transient int parentSequenceTag;
+//	private transient int[] tags;
+//	private transient VR[] vrs;
+//	private transient Object[] values;
+//	private transient int size;
+//	private transient SpecificCharacterSet cs;
+//	private transient TimeZone tz;
+//	private transient int length = -1;
+//	private transient int[] groupLengths;
+//	private transient int groupLengthIndex0;
+//
+	private final boolean bigEndian;
+//	private long itemPosition = -1;
+//	private boolean containsSpecificCharacterSet;
+//	private boolean containsTimezoneOffsetFromUTC;
+//	private Map<String, Object> properties;
+//	private TimeZone defaultTimeZone;
+//	private volatile boolean readOnly;
 
 	public DicomObjectChe() {
-		super(false);
+		this(false);
 	}
 	
 	public DicomObjectChe(boolean bigEndian) {
-		super(bigEndian, INIT_CAPACITY);
+		this(bigEndian, INIT_CAPACITY);
 	}
 
 	public DicomObjectChe(int initialCapacity) {
-		super(false, initialCapacity);
+		this(false, initialCapacity);
 	}
 
 	public DicomObjectChe(boolean bigEndian, int initialCapacity) {
-		super(bigEndian,initialCapacity);
+		super(bigEndian, initialCapacity);
+		this.parent = super.getParent();
+		this.bigEndian = bigEndian;
 	}
 
 	public DicomObjectChe(Attributes other) {
+		this(other, other.bigEndian());
+	}
+
+	public DicomObjectChe(Attributes other, boolean bigEndian) {
 		super(other, other.bigEndian());
+		this.parent = super.getParent();
+		this.bigEndian = bigEndian;
 	}
 
-	public DicomObjectChe(DicomObjectChe other, boolean bigEndian) {
-		super(other,bigEndian);
-	}
-
-	public DicomObjectChe(DicomObjectChe other, int... selection) {
-		super(other, other.bigEndian(), selection);
-	}
-
-	public DicomObjectChe(DicomObjectChe other, boolean bigEndian, int... selection) {
+	public DicomObjectChe(Attributes other, boolean bigEndian, int... selection) {
 		super(other, bigEndian, selection);
+		this.parent = super.getParent();
+		this.bigEndian = bigEndian;
 	}
 
-    public DicomObjectChe(DicomObjectChe other, boolean bigEndian, DicomObjectChe selection) {
+    public DicomObjectChe(Attributes other, boolean bigEndian, Attributes selection) {
     	super(other, bigEndian, selection);
+    	this.parent = super.getParent();
+    	this.bigEndian = bigEndian;
+    }
+   
+    /**
+     * read-only
+     */
+    
+    public DicomObjectChe getNestedDataset(int sequenceTag) {
+    	Attributes ds = super.getNestedDataset(sequenceTag);
+		return new DicomObjectChe(ds);
     }
 
+	public DicomObjectChe getNestedDataset(int sequenceTag, int itemIndex) {
+		Attributes ds = super.getNestedDataset(sequenceTag, itemIndex);
+		return new DicomObjectChe(ds);
+	}
+
+	public DicomObjectChe getNestedDataset(String privateCreator, int sequenceTag) {
+		Attributes ds = super.getNestedDataset(privateCreator, sequenceTag);
+		return new DicomObjectChe(ds);
+	}
+
+	public DicomObjectChe getNestedDataset(String privateCreator, int sequenceTag, int itemIndex) {
+		Attributes ds = super.getNestedDataset(privateCreator, sequenceTag, itemIndex);
+		return new DicomObjectChe(ds);
+	}
+    
 	@Override
-	public Object getNestedDataset(ItemPointer... itemPointers) {
-		return super.getNestedDataset(Interpreter.itemPointersChe(itemPointers));
+	public DicomObjectChe getNestedDataset(ItemPointer... itemPointers) {
+		Attributes ds = super.getNestedDataset(Interpreter.itemPointersChe(itemPointers));
+		return new DicomObjectChe(ds);
 	}
 
 	@Override
-	public Object getNestedDataset(Object listedItemPointers) {
+	public DicomObjectChe getNestedDataset(Object listedItemPointers) {
 		if ( listedItemPointers instanceof java.util.List<?>) {
 			if(((java.util.List<?>) listedItemPointers).get(0) instanceof com.vis.dicom.ItemPointer) {
 				@SuppressWarnings("unchecked")
 				java.util.List<com.vis.dicom.ItemPointer> ips = (java.util.List<com.vis.dicom.ItemPointer>)listedItemPointers;
-				return super.getNestedDataset(Interpreter.itemPointersChe(ips));
+				Attributes ds = super.getNestedDataset(Interpreter.itemPointersChe(ips));
+				return new DicomObjectChe(ds);
 			}
 		}
 		return null;
+	}
+	
+	@Override
+	public DicomObjectChe getFunctionGroup(int sequenceTag, int frameIndex) {
+		Attributes fg = super.getFunctionGroup(sequenceTag, frameIndex);
+		return new DicomObjectChe(fg);
 	}
 
 	@Override
@@ -664,69 +713,6 @@ public class DicomObjectChe extends org.dcm4che3.data.Attributes implements Dico
 	}
 
 	@Override
-	public boolean update(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.update(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean update(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, boolean mergeOriginalAttributesSequence,
-			DicomObject newAttrs, DicomObject modified) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.update(Interpreter.updatePolicyChe(updatePolicy),mergeOriginalAttributesSequence,(Attributes)newAttrs, (Attributes)modified);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean testUpdate(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.testUpdate(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean updateSelected(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified, int... selection) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.updateSelected(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified, selection);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean testUpdateSelected(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified, int... selection) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.testUpdateSelected(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified, selection);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean updateNotSelected(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified, int... selection) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.updateNotSelected(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified, selection);
-		}
-		return false;
-	}
-
-	@Override
-	public boolean testUpdateNotSelected(com.vis.dicom.DicomObject.UpdatePolicy updatePolicy, DicomObject newAttrs,
-			DicomObject modified, int... selection) {
-		if(newAttrs instanceof Attributes && modified instanceof Attributes) {
-			return super.testUpdateNotSelected(Interpreter.updatePolicyChe(updatePolicy),(Attributes)newAttrs, (Attributes)modified, selection);
-		}
-		return false;
-	}
-
-	@Override
 	public DicomObject addOriginalAttributes(String sourceOfPreviousValues, Date modificationDateTime,
 			String reasonForModification, String modifyingSystem, DicomObject originalAttributes) {
 		Attributes added = super.addOriginalAttributes(sourceOfPreviousValues, modificationDateTime, reasonForModification, modifyingSystem, (Attributes)originalAttributes);
@@ -768,12 +754,6 @@ public class DicomObjectChe extends org.dcm4che3.data.Attributes implements Dico
 	}
 
 	@Override
-	public boolean accept(Object visitor, boolean visitNestedDatasets) throws Exception {
-		Attributes.Visitor v = (Attributes.Visitor)visitor;
-		return super.accept(v, visitNestedDatasets);
-	}
-
-	@Override
 	public void writeGroupTo(Object dicomOutputStream, int groupLengthTag) throws IOException {
 		DicomOutputStream dos = (DicomOutputStream)dicomOutputStream;
 		super.writeGroupTo(dos, groupLengthTag);
@@ -782,16 +762,6 @@ public class DicomObjectChe extends org.dcm4che3.data.Attributes implements Dico
 	@Override
 	public boolean matches(DicomObject keys, boolean ignorePNCase, boolean matchNoValue) {
 		return super.matches((Attributes)keys, ignorePNCase, matchNoValue);
-	}
-
-	@Override
-	public Object validate(Object iod) {
-		return super.validate((IOD)iod);
-	}
-
-	@Override
-	public void validate(Object dataElement, Object validationResult) {
-		super.validate((DataElement)dataElement, (ValidationResult)validationResult);
 	}
 
 	@Override
@@ -832,5 +802,15 @@ public class DicomObjectChe extends org.dcm4che3.data.Attributes implements Dico
 		DicomObjectChe doc = new DicomObjectChe(fmi_);
 		return doc;
 	}
-
+	
+	public void checkInGroup(int i, int groupLengthTag, int[] tags) {
+        int tag = tags[i];
+        if (TagUtils.groupLengthTagOf(tag) != groupLengthTag)
+            throw new IllegalStateException(TagUtils.toString(tag)
+                    + " does not belong to group (" 
+                    + TagUtils.shortToHexString(
+                            TagUtils.groupNumber(groupLengthTag))
+                    + ",eeee).");
+        
+    }
 }

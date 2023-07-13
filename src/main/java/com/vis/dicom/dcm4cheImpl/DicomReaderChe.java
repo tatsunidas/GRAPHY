@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.net.URI;
 
 import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.Tag;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomStreamException;
 import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
@@ -15,6 +14,7 @@ import com.vis.core.log.Log;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Tag;
 import com.vis.dicom.TransferSyntaxType;
 
 import java.util.logging.*;
@@ -25,8 +25,10 @@ public class DicomReaderChe implements DicomReader{
 	
 	DicomObject dataset4che = null;
 	DicomObject fmi4che = null;
-	String tsuid;
+	com.vis.dicom.UID tsuid;
+	com.vis.dicom.UID sopUID;
 	com.vis.dicom.TransferSyntaxType tstype4che;
+	boolean bigEndian = false;
 	
 	public DicomReaderChe() {}
 	
@@ -35,27 +37,28 @@ public class DicomReaderChe implements DicomReader{
 	}
 
 	@Override
-	public DicomObject read(String path) {
-		return read(path, true);
+	public void read(String path) {
+		read(path, true);
 	}
 
 	@Override
-	public DicomObject read(URI path) {
-		return read(new File(path).getAbsolutePath(), true);
+	public void read(URI path) {
+		read(new File(path).getAbsolutePath(), true);
 	}
 
 	@Override
-	public DicomObject read(String path, boolean withPixel) {
+	public void read(String path, boolean withPixel) {
 		if(!DicomUtilities.isDicomFile(new File(path))) {
-			return null;
+			return;
 		}
 		DicomInputStream dis = null;
 		try {
 			dis = new DicomInputStream(new File(path));
 			dis.setIncludeBulkData(IncludeBulkData.URI);
 			Attributes fmi4che = dis.readFileMetaInformation();
-			tsuid = dis.getTransferSyntax();
-			tstype4che = TransferSyntaxType.forUID(tsuid);
+			tsuid = com.vis.dicom.UID.valueOf(dis.getTransferSyntax());
+			tstype4che = TransferSyntaxType.forUID(tsuid.uid());
+			this.bigEndian = dis.bigEndian();
 			Attributes dataset4che = null;
 			if (!withPixel) {
 				dataset4che = dis.readDatasetUntilPixelData();
@@ -64,17 +67,17 @@ public class DicomReaderChe implements DicomReader{
 			}
 			this.dataset4che = new DicomObjectChe(dataset4che);
 			this.fmi4che = new DicomObjectChe(fmi4che);
+			this.sopUID = com.vis.dicom.UID.valueOf(this.fmi4che.getString(Tag.SOP​Class​UID));
 		}catch(DicomStreamException dse) {
 			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse.getMessage());
-			return null;
+			return;
 		} catch (IOException e) {
 			e.printStackTrace();
 			logger.severe("Reading dicom file...:getDicomAttribute\n"+e.getMessage());
-			return null;
+			return;
 		}finally {
 			SafeClose.close(dis);
 		}
-		return null;
 	}
 	
 	@Override
@@ -96,23 +99,32 @@ public class DicomReaderChe implements DicomReader{
 			return null;
 		}
 		String[] uids = new String[4];
-		uids[0] = dataset4che.getString(Tag.PatientID);
-		uids[1] = dataset4che.getString(Tag.StudyInstanceUID);
-		uids[2] = dataset4che.getString(Tag.SeriesInstanceUID);
-		uids[3] = dataset4che.getString(Tag.SOPInstanceUID);
+		uids[0] = dataset4che.getString(Tag.Patient​ID);
+		uids[1] = dataset4che.getString(Tag.Study​Instance​UID);
+		uids[2] = dataset4che.getString(Tag.Series​Instance​UID);
+		uids[3] = dataset4che.getString(Tag.SOP​Instance​UID);
 		return uids;
 	}
 	
-	public String checkTSUID() {
+	public com.vis.dicom.UID checkTSUID() {
 		return tsuid;
 	}
 	
-	public String checkTSType() {
+	public com.vis.dicom.TransferSyntaxType checkTSType() {
 		if(tstype4che == null) {
 			return null;
 		}
-		return tstype4che.name();//if unknown, maybe, not image obj.
+		return tstype4che;//if unknown, maybe, not image obj.
 	}
 
-	
+	@Override
+	public com.vis.dicom.UID checkSopClassUID() {
+		return this.sopUID;
+	}
+
+	@Override
+	public boolean bigEndian() {
+		return this.bigEndian;
+	}
+
 }

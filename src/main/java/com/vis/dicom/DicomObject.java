@@ -2,726 +2,609 @@ package com.vis.dicom;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.Map;
+import java.util.List;
 import java.util.TimeZone;
 
 import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
 /**
  * 
- * DicomObject API to handle mutiple dicom libraries.
+ * DicomObject API to handle multiple dicom libraries.
+ * 
+ * 1. Be simple 
+ * 2. keep (almost) read-only 
+ * 3. if you want complex building dicom, do it in impl class, do not here.)
  * 
  * @author tatsunidas
  *
  */
-public interface DicomObject{
-	
-	public enum UpdatePolicy { SUPPLEMENT, MERGE, OVERWRITE, REPLACE, PRESERVE }
-	
+public interface DicomObject {
+
 	public static DicomObject newDicomObject(DICOMBackend backend) {
-		if(backend == DICOMBackend.DCM4CHE) {
+		if (backend == DICOMBackend.DCM4CHE) {
 			return (DicomObject) new DicomObjectChe(false);
-		}else if(backend == DICOMBackend.DCMTK) {
+		} else if (backend == DICOMBackend.DCMTK) {
 			// TODO
 		}
 		return null;
 	}
-	
-	public void clear();
-	
-	public boolean isReadOnly();
 
-    public void setReadOnly();
+	public DicomObject getNestedDataset(int sequenceTag);
 
-    public Map<String, Object> getProperties();
+	public DicomObject getNestedDataset(int sequenceTag, int itemIndex);
 
-    public void setProperties(Map<String, Object> properties);
+	public DicomObject getNestedDataset(String privateCreator, int sequenceTag);
 
-    public Object getProperty(String key, Object defVal);
+	public DicomObject getNestedDataset(String privateCreator, int sequenceTag, int itemIndex);
 
-    public Object setProperty(String key, Object value);
+	public DicomObject getNestedDataset(ItemPointer... itemPointers);
 
-    public Object clearProperty(String key);
+	public DicomObject getNestedDataset(Object /*List<ItemPointer>*/ listedItemPointers);
 
-    public String getParentSequencePrivateCreator();
+	public DicomObject/*DicomObject*/ getFunctionGroup(int sequenceTag, int frameIndex);
 
-    public int getParentSequenceTag();
+	/**
+	 * resolves to the actual private tag, given a private tag with placeholers
+	 * (like 0011,xx13)
+	 */
+	public int tagOf(String privateCreator, int tag);
 
-    public int[] tags();
+	public boolean contains(int tag);
 
-    public void trimToSize();
+	public boolean contains(String privateCreator, int tag);
 
-    public void trimToSize(boolean recursive);
+	public boolean containsValue(int tag);
 
-    public void internalizeStringValues(boolean decode);
+	public boolean containsValue(String privateCreator, int tag);
 
-    public Object getNestedDataset(int sequenceTag);
+	/**
+	 * Test whether at least one tag within the given range is contained.
+	 * 
+	 * @param firstTag first tag (inclusive)
+	 * @param lastTag  last tag (inclusive)
+	 * @return whether at least one tag within the given range is contained
+	 */
+	public boolean containsTagInRange(int firstTag, int lastTag);
 
-    public Object getNestedDataset(int sequenceTag, int itemIndex);
+	public String privateCreatorOf(int tag);
 
-    public Object getNestedDataset(String privateCreator, int sequenceTag);
+	public Object getValue(int tag);
 
-    public Object getNestedDataset(String privateCreator, int sequenceTag, int itemIndex);
+	public Object getValue(int tag, VR.Holder vr_holder);
 
-    public Object getNestedDataset(ItemPointer... itemPointers);
+	public Object getValue(String privateCreator, int tag);
 
-    // List<ItemPointer>
-    public Object getNestedDataset(Object listedItemPointers);
+	public Object getValue(String privateCreator, int tag, VR.Holder vr_holder);
 
-    public Object getFunctionGroup(int sequenceTag, int frameIndex);
+	/**
+	 * Method name "getVR(tag)" is conflict to Attributes.getVR(tag).
+	 * 
+	 * @param tag
+	 * @return
+	 */
+	public VR getVROn(int tag);
 
-    /**
-     * resolves to the actual private tag,
-     * given a private tag with placeholers (like 0011,xx13)
-     */
-    public int tagOf(String privateCreator, int tag);
+	public VR getVROn(String privateCreator, int tag);
 
-    //com.vis.dicom.SpecificCharacterSet
-    public Object getSpecificCharacterSet(VR vr);
+	// retrun Sequence object
+	public Object getSequence(int tag);
 
-    public boolean contains(int tag);
+	// retrun Sequence object
+	public Object getSequence(String privateCreator, int tag);
 
-    public boolean contains(String privateCreator, int tag);
+	public byte[] getBytes(int tag) throws IOException;
 
-    public boolean containsValue(int tag);
+	public byte[] getBytes(String privateCreator, int tag) throws IOException;
 
-    public boolean containsValue(String privateCreator, int tag);
+	public byte[] getSafeBytes(int tag);
 
-    /**
-     * Test whether at least one tag within the given range is contained.
-     * 
-     * @param firstTag
-     *            first tag (inclusive)
-     * @param lastTag
-     *            last tag (inclusive)
-     * @return whether at least one tag within the given range is contained
-     */
-    public boolean containsTagInRange(int firstTag, int lastTag);
+	public byte[] getSafeBytes(String privateCreator, int tag);
 
-    public String privateCreatorOf(int tag);
+	public String getString(int tag);
 
-    public Object getValue(int tag);
+	public String getString(int tag, String defVal);
 
-    public Object getValue(int tag, VR.Holder vr_holder);
+	public String getString(int tag, int valueIndex);
 
-    public Object getValue(String privateCreator, int tag);
+	public String getString(int tag, int valueIndex, String defVal);
 
-    public Object getValue(String privateCreator, int tag, VR.Holder vr_holder);
+	public String getString(String privateCreator, int tag);
 
-    /**
-     * Method name "getVR(tag)" is conflict to Attributes.getVR(tag).
-     * @param tag
-     * @return
-     */
-    public VR getVROn(int tag);
+	public String getString(String privateCreator, int tag, String defVal);
 
-    public VR getVROn(String privateCreator, int tag);
+	public String getString(String privateCreator, int tag, VR vr);
 
-    // retrun Sequence object
-    public Object getSequence(int tag);
+	public String getString(String privateCreator, int tag, VR vr, String defVal);
 
-    // retrun Sequence object
-    public Object getSequence(String privateCreator, int tag);
+	public String getString(String privateCreator, int tag, int valueIndex);
 
-    public byte[] getBytes(int tag) throws IOException;
+	public String getString(String privateCreator, int tag, int valueIndex, String defVal);
 
-    public byte[] getBytes(String privateCreator, int tag) throws IOException;
+	public String getString(String privateCreator, int tag, VR vr, int valueIndex);
 
-    public byte[] getSafeBytes(int tag);
+	public String getString(String privateCreator, int tag, VR vr, int valueIndex, String defVal);
 
-    public byte[] getSafeBytes(String privateCreator, int tag);
+	public String[] getStrings(int tag);
 
-    public String getString(int tag);
+	public String[] getStrings(String privateCreator, int tag);
 
-    public String getString(int tag, String defVal);
+	public String[] getStrings(String privateCreator, int tag, VR vr);
 
-    public String getString(int tag, int valueIndex);
+	public int getInt(int tag, int defVal);
 
-    public String getString(int tag, int valueIndex, String defVal);
+	public int getInt(int tag, int valueIndex, int defVal);
 
-    public String getString(String privateCreator, int tag);
+	public int getInt(String privateCreator, int tag, int defVal);
 
-    public String getString(String privateCreator, int tag, String defVal);
+	public int getInt(String privateCreator, int tag, VR vr, int defVal);
 
-    public String getString(String privateCreator, int tag, VR vr);
+	public int getInt(String privateCreator, int tag, int valueIndex, int defVal);
 
-    public String getString(String privateCreator, int tag, VR vr, String defVal);
+	public int getInt(String privateCreator, int tag, VR vr, int valueIndex, int defVal);
 
-    public String getString(String privateCreator, int tag, int valueIndex);
+	public int[] getInts(int tag);
 
-    public String getString(String privateCreator, int tag, int valueIndex, String defVal);
+	public int[] getInts(String privateCreator, int tag);
 
-    public String getString(String privateCreator, int tag, VR vr, int valueIndex);
+	public int[] getInts(String privateCreator, int tag, VR vr);
 
-    public String getString(String privateCreator, int tag, VR vr, int valueIndex, String defVal);
+	public long getLong(int tag, long defVal);
 
-    public String[] getStrings(int tag);
+	public long getLong(int tag, int valueIndex, long defVal);
 
-    public String[] getStrings(String privateCreator, int tag);
+	public long getLong(String privateCreator, int tag, long defVal);
 
-    public String[] getStrings(String privateCreator, int tag, VR vr);
+	public long getLong(String privateCreator, int tag, VR vr, long defVal);
 
-    public int getInt(int tag, int defVal);
+	public long getLong(String privateCreator, int tag, int valueIndex, long defVal);
 
-    public int getInt(int tag, int valueIndex, int defVal) ;
+	public long getLong(String privateCreator, int tag, VR vr, int valueIndex, long defVal);
 
-    public int getInt(String privateCreator, int tag, int defVal);
+	public long[] getLongs(int tag);
 
-    public int getInt(String privateCreator, int tag, VR vr, int defVal);
+	public long[] getLongs(String privateCreator, int tag);
 
-    public int getInt(String privateCreator, int tag, int valueIndex, int defVal);
+	public long[] getLongs(String privateCreator, int tag, VR vr);
 
-    public int getInt(String privateCreator, int tag, VR vr, int valueIndex, int defVal);
+	public float getFloat(int tag, float defVal);
 
-    public int[] getInts(int tag);
+	public float getFloat(int tag, int valueIndex, float defVal);
 
-    public int[] getInts(String privateCreator, int tag);
+	public float getFloat(String privateCreator, int tag, float defVal);
 
-    public int[] getInts(String privateCreator, int tag, VR vr);
+	public float getFloat(String privateCreator, int tag, VR vr, float defVal);
 
-    public long getLong(int tag, long defVal);
+	public float getFloat(String privateCreator, int tag, int valueIndex, float defVal);
 
-    public long getLong(int tag, int valueIndex, long defVal);
+	public float getFloat(String privateCreator, int tag, VR vr, int valueIndex, float defVal);
 
-    public long getLong(String privateCreator, int tag, long defVal);
+	public float[] getFloats(int tag);
 
-    public long getLong(String privateCreator, int tag, VR vr, long defVal);
+	public float[] getFloats(String privateCreator, int tag);
 
-    public long getLong(String privateCreator, int tag, int valueIndex, long defVal);
+	public float[] getFloats(String privateCreator, int tag, VR vr);
 
-    public long getLong(String privateCreator, int tag, VR vr, int valueIndex, long defVal);
+	public double getDouble(int tag, double defVal);
 
-    public long[] getLongs(int tag);
+	public double getDouble(int tag, int valueIndex, double defVal);
 
-    public long[] getLongs(String privateCreator, int tag);
+	public double getDouble(String privateCreator, int tag, double defVal);
 
-    public long[] getLongs(String privateCreator, int tag, VR vr);
+	public double getDouble(String privateCreator, int tag, VR vr, double defVal);
 
-    public float getFloat(int tag, float defVal);
+	public double getDouble(String privateCreator, int tag, int valueIndex, double defVal);
 
-    public float getFloat(int tag, int valueIndex, float defVal);
+	public double getDouble(String privateCreator, int tag, VR vr, int valueIndex, double defVal);
 
-    public float getFloat(String privateCreator, int tag, float defVal);
+	public double[] getDoubles(int tag);
 
-    public float getFloat(String privateCreator, int tag, VR vr, float defVal);
+	public double[] getDoubles(String privateCreator, int tag);
 
-    public float getFloat(String privateCreator, int tag, int valueIndex, float defVal);
+	public double[] getDoubles(String privateCreator, int tag, VR vr);
 
-    public float getFloat(String privateCreator, int tag, VR vr, int valueIndex, float defVal);
+	public Date getDate(int tag);
 
-    public float[] getFloats(int tag);
+	// Object is DatePrecision
+	public Date getDate(int tag, DatePrecision precision);
 
-    public float[] getFloats(String privateCreator, int tag);
+	public Date getDate(int tag, Date defVal);
 
-    public float[] getFloats(String privateCreator, int tag, VR vr);
+	// DatePrecision
+	public Date getDate(int tag, Date defVal, DatePrecision precision);
 
-    public double getDouble(int tag, double defVal);
+	public Date getDate(int tag, int valueIndex);
 
-    public double getDouble(int tag, int valueIndex, double defVal);
+	// DatePrecision
+	public Date getDate(int tag, int valueIndex, DatePrecision precision);
 
-    public double getDouble(String privateCreator, int tag, double defVal);
+	public Date getDate(int tag, int valueIndex, Date defVal);
 
-    public double getDouble(String privateCreator, int tag, VR vr, double defVal);
+	// DatePrecision
+	public Date getDate(int tag, int valueIndex, Date defVal, DatePrecision precision);
 
-    public double getDouble(String privateCreator, int tag, int valueIndex, double defVal);
+	public Date getDate(String privateCreator, int tag);
 
-    public double getDouble(String privateCreator, int tag, VR vr, int valueIndex, double defVal);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, DatePrecision precision);
 
-    public double[] getDoubles(int tag);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, Date defVal, DatePrecision precision);
 
-    public double[] getDoubles(String privateCreator, int tag);
+	public Date getDate(String privateCreator, int tag, VR vr);
 
-    public double[] getDoubles(String privateCreator, int tag, VR vr);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, VR vr, DatePrecision precision);
 
-    public Date getDate(int tag);
+	public Date getDate(String privateCreator, int tag, VR vr, Date defVal);
 
-    // Object is DatePrecision
-    public Date getDate(int tag, DatePrecision precision);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, VR vr, Date defVal, DatePrecision precision);
 
-    public Date getDate(int tag, Date defVal);
-    
-    // DatePrecision
-    public Date getDate(int tag, Date defVal, DatePrecision precision);
+	public Date getDate(String privateCreator, int tag, int valueIndex);
 
-    public Date getDate(int tag, int valueIndex);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, int valueIndex, DatePrecision precision);
 
-    // DatePrecision
-    public Date getDate(int tag, int valueIndex, DatePrecision precision);
+	public Date getDate(String privateCreator, int tag, int valueIndex, Date defVal);
 
-    public Date getDate(int tag, int valueIndex, Date defVal);
+	// DatePrecision
+	public Date getDate(String privateCreator, int tag, int valueIndex, Date defVal, DatePrecision precision);
 
-    // DatePrecision
-    public Date getDate(int tag, int valueIndex, Date defVal, DatePrecision precision);
+	public Date getDate(String privateCreator, int tag, VR vr, int valueIndex);
 
-    public Date getDate(String privateCreator, int tag);
+	public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, DatePrecision precision);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, DatePrecision precision);
+	public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, Date defVal);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, Date defVal,DatePrecision precision);
+	public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, Date defVal, DatePrecision precision);
 
-    public Date getDate(String privateCreator, int tag, VR vr);
+	public Date getDate(long tag);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, VR vr, DatePrecision precision);
+	public Date getDate(long tag, DatePrecision precision);
 
-    public Date getDate(String privateCreator, int tag, VR vr, Date defVal);
+	public Date getDate(long tag, Date defVal);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, VR vr, Date defVal, DatePrecision precision);
+	public Date getDate(long tag, Date defVal, DatePrecision precision);
 
-    public Date getDate(String privateCreator, int tag, int valueIndex);
+	public Date getDate(String privateCreator, long tag);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, int valueIndex, DatePrecision precision);
+	public Date getDate(String privateCreator, long tag, DatePrecision precision);
 
-    public Date getDate(String privateCreator, int tag, int valueIndex,
-            Date defVal);
+	public Date getDate(String privateCreator, long tag, Date defVal);
 
-    // DatePrecision
-    public Date getDate(String privateCreator, int tag, int valueIndex, Date defVal, DatePrecision precision);
+	public Date getDate(String privateCreator, long tag, Date defVal, DatePrecision precision);
 
-    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex);
+	public Date[] getDates(int tag);
 
-    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, DatePrecision precision);
+	// DatePrecisions
+	public Date[] getDates(int tag, DatePrecisions precisions);
 
-    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex,
-            Date defVal);
+	public Date[] getDates(String privateCreator, int tag);
 
-    public Date getDate(String privateCreator, int tag, VR vr, int valueIndex, Date defVal, DatePrecision precision);
+	public Date[] getDates(String privateCreator, int tag, DatePrecisions precisions);
 
-    public Date getDate(long tag);
+	public Date[] getDates(String privateCreator, int tag, VR vr);
 
-    public Date getDate(long tag, DatePrecision precision);
+	public Date[] getDates(String privateCreator, int tag, VR vr, DatePrecisions precisions);
 
-    public Date getDate(long tag, Date defVal);
+	public Date[] getDates(long tag);
 
-    public Date getDate(long tag, Date defVal, DatePrecision precision);
+	public Date[] getDates(long tag, DatePrecisions precisions);
 
-    public Date getDate(String privateCreator, long tag);
+	public Date[] getDates(String privateCreator, long tag);
 
-    public Date getDate(String privateCreator, long tag, DatePrecision precision);
+	public Date[] getDates(String privateCreator, long tag, DatePrecisions precisions);
 
-    public Date getDate(String privateCreator, long tag, Date defVal);
+	// com.vis.dicom.DateRange
+	public Object getDateRange(int tag);
 
-    public Date getDate(String privateCreator, long tag, Date defVal,
-    		DatePrecision precision);
+	public Object getDateRange(int tag, DateRange defVal);
 
-    public Date[] getDates(int tag);
+	public Object getDateRange(String privateCreator, int tag);
 
-    // DatePrecisions
-    public Date[] getDates(int tag, DatePrecisions precisions);
+	public Object getDateRange(String privateCreator, int tag, DateRange defVal);
 
-    public Date[] getDates(String privateCreator, int tag);
+	public Object getDateRange(String privateCreator, int tag, VR vr);
 
-    public Date[] getDates(String privateCreator, int tag, DatePrecisions precisions);
+	public Object getDateRange(String privateCreator, int tag, VR vr, DateRange defVal);
 
-    public Date[] getDates(String privateCreator, int tag, VR vr);
+	public Object getDateRange(long tag);
 
-    public Date[] getDates(String privateCreator, int tag, VR vr, DatePrecisions precisions);
+	public Object getDateRange(long tag, DateRange defVal);
 
-    public Date[] getDates(long tag);
+	public Object getDateRange(String privateCreator, long tag);
 
-    public Date[] getDates(long tag, DatePrecisions precisions);
+	public Object getDateRange(String privateCreator, long tag, DateRange defVal);
 
-    public Date[] getDates(String privateCreator, long tag);
+	/**
+	 * Set Specific Character Set (0008,0005) to specified code(s) and re-encode
+	 * contained LO, LT, PN, SH, ST, UT attributes accordingly.
+	 * 
+	 * @param codes new value(s) of Specific Character Set (0008,0005)
+	 */
+	public void setSpecificCharacterSet(String... codes);
 
-    public Date[] getDates(String privateCreator, long tag, DatePrecisions precisions);
+	public Object getSpecificCharacterSet();
 
-    // com.vis.dicom.DateRange
-    public Object getDateRange(int tag);
+	public Object getSpecificCharacterSet(VR vr);
 
-    public Object getDateRange(int tag, DateRange defVal);
+	public void setDefaultTimeZone(TimeZone tz);
 
-    public Object getDateRange(String privateCreator, int tag);
+	public TimeZone getDefaultTimeZone();
 
-    public Object getDateRange(String privateCreator, int tag, DateRange defVal);
+	public TimeZone getTimeZone();
 
-    public Object getDateRange(String privateCreator, int tag, VR vr);
+	/**
+	 * Set Timezone Offset From UTC (0008,0201) to specified value and adjust
+	 * contained DA, DT and TM attributs accordingly
+	 * 
+	 * @param utcOffset offset from UTC as (+|-)HHMM
+	 */
+	public void setTimezoneOffsetFromUTC(String utcOffset);
 
-    public Object getDateRange(String privateCreator, int tag, VR vr, DateRange defVal);
+	/**
+	 * Set the Default Time Zone to specified value and adjust contained DA, DT and
+	 * TM attributs accordingly. If the Time Zone does not use Daylight Saving Time,
+	 * attribute Timezone Offset From UTC (0008,0201) will be also set accordingly.
+	 * If the Time zone uses Daylight Saving Time, a previous existing attribute
+	 * Timezone Offset From UTC (0008,0201) will be removed.
+	 * 
+	 * @param tz Time Zone
+	 *
+	 * @see #setDefaultTimeZone(TimeZone)
+	 * @see #setTimezoneOffsetFromUTC(String)
+	 */
+	public void setTimezone(TimeZone tz);
 
-    public Object getDateRange(long tag);
+	public String getPrivateCreator(int tag);
 
-    public Object getDateRange(long tag, DateRange defVal);
+	public Object remove(int tag);
 
-    public Object getDateRange(String privateCreator, long tag);
+	public Object remove(String privateCreator, int tag);
 
-    public Object getDateRange(String privateCreator, long tag, DateRange defVal);
-    
-    /**
-     * Set Specific Character Set (0008,0005) to specified code(s) and
-     * re-encode contained LO, LT, PN, SH, ST, UT attributes
-     * accordingly.
-     * 
-     * @param codes new value(s) of Specific Character Set (0008,0005) 
-     */
-    public void setSpecificCharacterSet(String... codes);
+	public Object setNull(int tag, VR vr);
 
-    public Object getSpecificCharacterSet();
+	public Object setNull(String privateCreator, int tag, VR vr);
 
-    public void setDefaultTimeZone(TimeZone tz);
+	public Object setBytes(int tag, VR vr, byte[] b);
 
-    public TimeZone getDefaultTimeZone();
+	public Object setBytes(String privateCreator, int tag, VR vr, byte[] b);
 
-    public TimeZone getTimeZone();
+	public Object setString(int tag, VR vr, String s);
 
-    /**
-     * Set Timezone Offset From UTC (0008,0201) to specified value and
-     * adjust contained DA, DT and TM attributs accordingly
-     * 
-     * @param utcOffset offset from UTC as (+|-)HHMM 
-     */
-    public void setTimezoneOffsetFromUTC(String utcOffset);
+	public Object setString(String privateCreator, int tag, VR vr, String s);
 
-    /**
-     * Set the Default Time Zone to specified value and adjust contained DA, 
-     * DT and TM attributs accordingly. If the Time Zone does not use Daylight
-     * Saving Time, attribute Timezone Offset From UTC (0008,0201) will be also
-     * set accordingly. If the Time zone uses Daylight Saving Time, a previous
-     * existing attribute Timezone Offset From UTC (0008,0201) will be removed.
-     * 
-     * @param tz Time Zone
-     *
-     * @see #setDefaultTimeZone(TimeZone)
-     * @see #setTimezoneOffsetFromUTC(String)
-     */
-    public void setTimezone(TimeZone tz);
+	public Object setString(int tag, VR vr, String... ss);
 
-    public String getPrivateCreator(int tag);
+	public Object setString(String privateCreator, int tag, VR vr, String... ss);
 
-    public Object remove(int tag);
+	public Object setInt(int tag, VR vr, int... is);
 
-    public Object remove(String privateCreator, int tag);
+	public Object setInt(String privateCreator, int tag, VR vr, int... is);
 
-    public Object setNull(int tag, VR vr);
+	public Object setLong(int tag, VR vr, long... ls);
 
-    public Object setNull(String privateCreator, int tag, VR vr);
+	public Object setLong(String privateCreator, int tag, VR vr, long... ls);
 
-    public Object setBytes(int tag, VR vr, byte[] b);
+	public Object setFloat(int tag, VR vr, float... fs);
 
-    public Object setBytes(String privateCreator, int tag, VR vr, byte[] b);
+	public Object setFloat(String privateCreator, int tag, VR vr, float... fs);
 
-    public Object setString(int tag, VR vr, String s);
+	public Object setDouble(int tag, VR vr, double... ds);
 
-    public Object setString(String privateCreator, int tag, VR vr, String s);
+	public Object setDouble(String privateCreator, int tag, VR vr, double... ds);
 
-    public Object setString(int tag, VR vr, String... ss);
+	public Object setDate(int tag, VR vr, Date... ds);
 
-    public Object setString(String privateCreator, int tag, VR vr, String... ss);
+	public Object setDate(int tag, VR vr, DatePrecision precision, Date... ds);
 
-    public Object setInt(int tag, VR vr, int... is);
+	public Object setDate(String privateCreator, int tag, VR vr, Date... ds);
 
-    public Object setInt(String privateCreator, int tag, VR vr, int... is);
+	public Object setDate(String privateCreator, int tag, VR vr, DatePrecision precision, Date... ds);
 
-    public Object setLong(int tag, VR vr, long... ls);
+	public void setDate(long tag, Date dt);
 
-    public Object setLong(String privateCreator, int tag, VR vr, long... ls);
+	public void setDate(long tag, DatePrecision precision, Date dt);
 
-    public Object setFloat(int tag, VR vr, float... fs);
+	public void setDate(String privateCreator, long tag, Date dt);
 
-    public Object setFloat(String privateCreator, int tag, VR vr, float... fs);
+	public void setDate(String privateCreator, long tag, DatePrecision precision, Date dt);
 
-    public Object setDouble(int tag, VR vr, double... ds);
+	public Object setDateRange(int tag, VR vr, DateRange range);
 
-    public Object setDouble(String privateCreator, int tag, VR vr, double... ds);
+	public Object setDateRange(int tag, VR vr, DatePrecision precision, DateRange range);
 
-    public Object setDate(int tag, VR vr, Date... ds);
+	public Object setDateRange(String privateCreator, int tag, VR vr, DateRange range);
 
-    public Object setDate(int tag, VR vr, DatePrecision precision, Date... ds);
+	public Object setDateRange(String privateCreator, int tag, VR vr, DatePrecision precision, DateRange range);
 
-    public Object setDate(String privateCreator, int tag, VR vr,
-            Date... ds);
+	public void setDateRange(long tag, DateRange range);
 
-    public Object setDate(String privateCreator, int tag, VR vr,
-            DatePrecision precision, Date... ds);
+	public void setDateRange(String privateCreator, long tag, DateRange range);
 
-    public void setDate(long tag, Date dt);
+	public Object setValue(int tag, VR vr, Object value);
 
-    public void setDate(long tag, DatePrecision precision, Date dt);
+	public Object setValue(String privateCreator, int tag, VR vr, Object value);
 
-    public void setDate(String privateCreator, long tag, Date dt);
+	// return Sequence
+	public Object newSequence(int tag, int initialCapacity);
 
-    public void setDate(String privateCreator, long tag, DatePrecision precision, Date dt);
+	public Object newSequence(String privateCreator, int tag, int initialCapacity);
 
-    public Object setDateRange(int tag, VR vr, DateRange range);
+	public Object ensureSequence(int tag, int initialCapacity);
 
-    public Object setDateRange(int tag, VR vr, DatePrecision precision, DateRange range);
+	public Object ensureSequence(String privateCreator, int tag, int initialCapacity);
 
-    public Object setDateRange(String privateCreator, int tag, VR vr, DateRange range);
+	// return Fragments
+	public Object newFragments(int tag, VR vr, int initialCapacity);
 
-    public Object setDateRange(String privateCreator, int tag, VR vr, DatePrecision precision, DateRange range);
+	// return Fragments
+	public Object newFragments(String privateCreator, int tag, VR vr, int initialCapacity);
 
-    public void setDateRange(long tag, DateRange range);
+	public boolean addAll(DicomObject other);
 
-    public void setDateRange(String privateCreator, long tag, DateRange range);
+	public boolean addAll(DicomObject other, boolean mergeOriginalAttributesSequence);
 
-    public Object setValue(int tag, VR vr, Object value);
+	public boolean addSelected(DicomObject other, DicomObject selection);
 
-    public Object setValue(String privateCreator, int tag, VR vr, Object value);
+	public boolean addSelected(DicomObject other, String privateCreator, int tag);
 
-    // return Sequence
-    public Object newSequence(int tag, int initialCapacity);
+	/**
+	 * Add selected attributes from another Attributes object to this. The specified
+	 * array of tag values must be sorted (as by the
+	 * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+	 * 
+	 * @param other     the other Attributes object
+	 * @param selection sorted tag values
+	 * @return <tt>true</tt> if one ore more attributes were added
+	 */
+	public boolean addSelected(DicomObject other, int... selection);
 
-    public Object newSequence(String privateCreator, int tag, int initialCapacity);
+	/**
+	 * Add selected attributes from another Attributes object to this. The specified
+	 * array of tag values must be sorted (as by the
+	 * {@link java.util.Arrays#sort(int[], int, int)} method) prior to making this
+	 * call.
+	 * 
+	 * @param other     the other Attributes object
+	 * @param selection sorted tag values
+	 * @param fromIndex the index of the first tag (inclusive)
+	 * @param toIndex   the index of the last tag (exclusive)
+	 * @return <tt>true</tt> if one ore more attributes were added
+	 */
+	public boolean addSelected(DicomObject other, int[] selection, int fromIndex, int toIndex);
 
-    public Object ensureSequence(int tag, int initialCapacity);
+	/**
+	 * Add not selected attributes from another Attributes object to this. The
+	 * specified array of tag values must be sorted (as by the
+	 * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+	 * 
+	 * @param other     the other Attributes object
+	 * @param selection sorted tag values
+	 * @return <tt>true</tt> if one ore more attributes were added
+	 */
+	public boolean addNotSelected(DicomObject other, int... selection);
 
-    public Object ensureSequence(String privateCreator, int tag, int initialCapacity);
+	/**
+	 * Add not selected attributes from another Attributes object to this. The
+	 * specified array of tag values must be sorted (as by the
+	 * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
+	 * 
+	 * @param other     the other Attributes object
+	 * @param selection sorted tag values
+	 * @param fromIndex the index of the first tag (inclusive)
+	 * @param toIndex   the index of the last tag (exclusive)
+	 * @return <tt>true</tt> if one ore more attributes were added
+	 */
+	public boolean addNotSelected(DicomObject other, int[] selection, int fromIndex, int toIndex);
 
-    // return Fragments
-    public Object newFragments(int tag, VR vr, int initialCapacity);
+	/**
+	 * Append item to already existing or new added (0400,0561) Original Attributes
+	 * Sequence.
+	 *
+	 * @param sourceOfPreviousValues
+	 * @param modificationDateTime
+	 * @param reasonForModification
+	 * @param modifyingSystem
+	 * @param originalAttributes
+	 * @return the same Attributes instance
+	 */
+	public DicomObject addOriginalAttributes(String sourceOfPreviousValues, Date modificationDateTime,
+			String reasonForModification, String modifyingSystem, DicomObject originalAttributes);
 
-    // return Fragments
-    public Object newFragments(String privateCreator, int tag, VR vr, int initialCapacity);
+	public boolean equalValues(DicomObject other, int tag);
 
-    public boolean addAll(DicomObject other);
+	public boolean equalValues(DicomObject other, String privateCreator, int tag);
 
-    public boolean addAll(DicomObject other, boolean mergeOriginalAttributesSequence);
+	public String toString(int limit, int maxWidth);
 
-    public boolean addSelected(DicomObject other, DicomObject selection);
+	public StringBuilder toStringBuilder(StringBuilder sb);
 
-    public boolean addSelected(DicomObject other, String privateCreator, int tag);
+	public StringBuilder toStringBuilder(int limit, int maxWidth, StringBuilder sb);
 
-    /**
-     * Add selected attributes from another Attributes object to this.
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
-     * 
-     * @param other the other Attributes object
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attributes were added
-     */
-    public boolean addSelected(DicomObject other, int... selection);
+	public int calcLength(com.vis.dicom.DicomEncodingOptions dicomEncodingOptions, boolean explicitVR);
 
-    /**
-     * Add selected attributes from another Attributes object to this.
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[], int, int)} method) prior to making this call.
-     * 
-     * @param other the other Attributes object
-     * @param selection sorted tag values
-     * @param fromIndex the index of the first tag (inclusive)
-     * @param toIndex the index of the last tag (exclusive)
-     * @return <tt>true</tt> if one ore more attributes were added
-     */
-    public boolean addSelected(DicomObject other, int[] selection,
-            int fromIndex, int toIndex);
+	public void writeTo(Object dicomOutputStream) throws IOException;
 
-    /**
-     * Add not selected attributes from another Attributes object to this.
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
-     * 
-     * @param other the other Attributes object
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attributes were added
-     */
-    public boolean addNotSelected(DicomObject other, int... selection);
+	public void writePostPixelDataTo(Object dicomOutputStream) throws IOException;
 
-    /**
-     * Add not selected attributes from another Attributes object to this.
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
-     * 
-     * @param other the other Attributes object
-     * @param selection sorted tag values
-     * @param fromIndex the index of the first tag (inclusive)
-     * @param toIndex the index of the last tag (exclusive)
-     * @return <tt>true</tt> if one ore more attributes were added
-     */
-    public boolean addNotSelected(DicomObject other, int[] selection,
-            int fromIndex, int toIndex);
+	public void writeItemTo(Object dicomOutputStream) throws IOException;
 
-    public boolean update(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified);
+	public void writeGroupTo(Object dicomOutputStream, int groupLengthTag) throws IOException;
 
-    public boolean update(UpdatePolicy updatePolicy, boolean mergeOriginalAttributesSequence, DicomObject newAttrs, DicomObject modified);
+	/**
+	 * Creates DICOM File Meta Information for this <i>Data Set</i> with given
+	 * <i>Transfer Syntax UID (0002,0010)</i>, including optional <i>Implementation
+	 * Version Name (0002,0013)</i>.
+	 *
+	 * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
+	 * @return created DICOM File Meta Information
+	 */
+	public Object createFileMetaInformation(String tsuid);
 
-    public boolean testUpdate(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified);
+	/**
+	 * Creates DICOM File Meta Information for this <i>Data Set</i> with given
+	 * <i>Transfer Syntax UID (0002,0010)</i>.
+	 *
+	 * @param tsuid                            <i>Transfer Syntax UID
+	 *                                         (0002,0010)</i>
+	 * @param includeImplementationVersionName <code>true</code> if the optional
+	 *                                         <i>Implementation Version Name
+	 *                                         (0002,0013)</i> is to be included;
+	 *                                         <code>false</code> if it is to be
+	 *                                         omitted.
+	 * @return created DICOM File Meta Information
+	 */
+	public Object createFileMetaInformation(String tsuid, boolean includeImplementationVersionName);
 
-    /**
-     * Add selected attributes from another Attributes object to this.
-     * Optionally, the original values of overwritten existing non-empty
-     * attributes are preserved in another Attributes object. 
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
-     * 
-     * @param newAttrs the other Attributes object
-     * @param modified Attributes object to collect overwritten non-empty
-     *          attributes with original values or <tt>null</tt>
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attribute were added or
-     *          overwritten with a different value
-     */
-    public boolean updateSelected(UpdatePolicy updatePolicy, DicomObject newAttrs,
-                                  DicomObject modified, int... selection);
+	public boolean matches(DicomObject keys, boolean ignorePNCase, boolean matchNoValue);
 
-    /**
-     * Tests if {@link #updateSelected} would modify attributes, without actually
-     * modifying this attributes
-     * 
-     * @param newAttrs the other Attributes object
-     * @param modified Attributes object to collect overwritten non-empty
-     *          attributes with original values or <tt>null</tt>
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attribute would be added or
-     *          overwritten with a different value
-     */
-    public boolean testUpdateSelected(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified,
-                                      int... selection);
 
-    /**
-     * Add not selected attributes from another Attributes object to this.
-     * Optionally, the original values of overwritten existing non-empty
-     * attributes are preserved in another Attributes object.
-     * The specified array of tag values must be sorted (as by the
-     * {@link java.util.Arrays#sort(int[])} method) prior to making this call.
-     *
-     * @param newAttrs the other Attributes object
-     * @param modified Attributes object to collect overwritten non-empty
-     *          attributes with original values or <tt>null</tt>
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attribute were added or
-     *          overwritten with a different value
-     */
-    public boolean updateNotSelected(UpdatePolicy updatePolicy, DicomObject newAttrs,
-                                     DicomObject modified, int... selection);
+	/**
+	 * Add attributes of this data set which were replaced in the specified other
+	 * data set into the result data set. If no result data set is passed, a new
+	 * result set will be instantiated.
+	 * 
+	 * @param other  data set
+	 * @param result data set or {@code null}
+	 *
+	 * @return result data set.
+	 */
+	public DicomObject getModified(DicomObject other, DicomObject result);
 
-    /**
-     * Tests if {@link #updateNotSelected} would modify attributes, without actually
-     * modifying this attributes
-     *
-     * @param newAttrs the other Attributes object
-     * @param modified Attributes object to collect overwritten non-empty
-     *          attributes with original values or <tt>null</tt>
-     * @param selection sorted tag values
-     * @return <tt>true</tt> if one ore more attribute would be added or
-     *          overwritten with a different value
-     */
-    public boolean testUpdateNotSelected(UpdatePolicy updatePolicy, DicomObject newAttrs, DicomObject modified,
-                                      int... selection);
+	/**
+	 * Returns attributes of this data set which were removed or replaced in the
+	 * specified other data set.
+	 * 
+	 * @param other data set
+	 * @return attributes of this data set which were removed or replaced in the
+	 *         specified other data set.
+	 */
+	public DicomObject getRemovedOrModified(DicomObject other);
 
-    /**
-     * Append item to already existing or new added (0400,0561) Original Attributes Sequence.
-     *
-     * @param sourceOfPreviousValues
-     * @param modificationDateTime
-     * @param reasonForModification
-     * @param modifyingSystem
-     * @param originalAttributes
-     * @return the same Attributes instance
-     */
-    public DicomObject addOriginalAttributes(
-            String sourceOfPreviousValues,
-            Date modificationDateTime,
-            String reasonForModification,
-            String modifyingSystem,
-            DicomObject originalAttributes);
+	public int diff(DicomObject other, int[] selection, DicomObject diff);
 
-    public boolean equalValues(DicomObject other, int tag);
+	public int diff(DicomObject other, int[] selection, DicomObject diff, boolean onlyModified);
 
-    public boolean equalValues(DicomObject other, String privateCreator, int tag);
+	public void unifyCharacterSets(DicomObject attrsList);
 
-    public String toString(int limit, int maxWidth);
+	public int removeAllBulkData();
 
-    public StringBuilder toStringBuilder(StringBuilder sb);
+	public int removePrivateAttributes(String privateCreator, int groupNumber);
 
-    public StringBuilder toStringBuilder(int limit, int maxWidth, StringBuilder sb);
+	public int removePrivateAttributes();
 
-    public int calcLength(com.vis.dicom.DicomEncodingOptions dicomEncodingOptions , boolean explicitVR);
+	public void removeSelected(int... selection);
 
+	public void replaceSelected(DicomObject others, int... selection);
 
-    public void writeTo(Object dicomOutputStream)
-            throws IOException;
+	public void replaceUIDSelected(int... selection);
 
-    public void writePostPixelDataTo(Object dicomOutputStream)
-            throws IOException;
-
-     public void writeItemTo(Object dicomOutputStream) throws IOException;
-
-
-    /**
-     * Invokes {@link Visitor#visit} for each attribute in this instance. The
-     * operation will be aborted if <code>visitor.visit()</code> returns <code>false</code>.
-     * 
-     * @param visitor
-     * @param visitNestedDatasets controls if <code>visitor.visit()</code>
-     *  is also invoked for attributes in nested datasets
-     * @return <code>true</code> if the operation was not aborted.
-     */
-    public boolean accept(Object visitor, boolean visitNestedDatasets) throws Exception;
-
-    public void writeGroupTo(Object dicomOutputStream, int groupLengthTag) throws IOException;
-
-    /**
-     * Creates DICOM File Meta Information for this <i>Data Set</i> with given <i>Transfer Syntax UID (0002,0010)</i>,
-     * including optional <i>Implementation Version Name (0002,0013)</i>.
-     *
-     * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
-     * @return created DICOM File Meta Information
-     */
-    public Object createFileMetaInformation(String tsuid);
-
-    /**
-     * Creates DICOM File Meta Information for this <i>Data Set</i> with given <i>Transfer Syntax UID (0002,0010)</i>.
-     *
-     * @param tsuid <i>Transfer Syntax UID (0002,0010)</i>
-     * @param includeImplementationVersionName <code>true</code> if the optional
-     *                                         <i>Implementation Version Name (0002,0013)</i> is to be included;
-     *                                         <code>false</code> if it is to be omitted.
-     * @return created DICOM File Meta Information
-     */
-    public Object createFileMetaInformation(String tsuid, boolean includeImplementationVersionName);
-
-    public boolean matches(DicomObject keys, boolean ignorePNCase,
-            boolean matchNoValue);
-
-    //return ValidationResult
-    public Object validate(Object iod);
-
-    public void validate(Object dataElement, Object validationResult);
-
-    /**
-     * Add attributes of this data set which were replaced in
-     * the specified other data set into the result data set.
-     * If no result data set is passed, a new result set will be instantiated.
-     * 
-     * @param other data set
-     * @param result data set or {@code null} 
-     *
-     * @return result data set.
-     */
-    public DicomObject getModified(DicomObject other, DicomObject result);
-
-    /**
-     * Returns attributes of this data set which were removed or replaced in
-     * the specified other data set.
-     * 
-     * @param other data set
-     * @return attributes of this data set which were removed or replaced in
-     *         the specified other data set.
-     */
-    public DicomObject getRemovedOrModified(DicomObject other);
-
-    public int diff(DicomObject other, int[] selection, DicomObject diff);
-
-    public int diff(DicomObject other, int[] selection, DicomObject diff, boolean onlyModified);
-
-    public void unifyCharacterSets(DicomObject attrsList);
-
-    public int removeAllBulkData();
-
-    public int removePrivateAttributes(String privateCreator, int groupNumber);
-
-    public int removePrivateAttributes();
-
-    public void removeSelected(int... selection);
-
-    public void replaceSelected(DicomObject others, int... selection);
-
-    public void replaceUIDSelected(int... selection);
-
-    public int removeCurveData();
+	/**
+	 * In Attributes class, this method is "final".
+	 * However, I add this here to remember.
+	 * @return bigEndian
+	 */
+	public boolean bigEndian();
 
 }
