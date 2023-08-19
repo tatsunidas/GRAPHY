@@ -37,19 +37,57 @@
  */
 package com.vis.dicom.image;
 
+import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
+import com.vis.dicom.dcm4cheImpl.DicomImageChe;
 
 public interface DicomImage {
-		
+	
+	public static DicomImage newDicomImage(String path, DICOMBackend backend) {
+		DicomReader reader = DicomReader.newDicomReader(backend);
+		reader.read(path);
+		DicomObject dcm = reader.getCore();
+		return newDicomImage(dcm, reader.checkTSUID(), backend);
+	}
+	
+	public static DicomImage newDicomImage(DicomObject core, UID tsUID) {
+		return newDicomImage(core, tsUID, null);
+	}
+	
+	public static DicomImage newDicomImage(DicomObject core, UID tsUID, DICOMBackend backend) {
+		if(backend == null || backend == DICOMBackend.DCM4CHE) {
+			return new DicomImageChe(core, tsUID);
+		}else {
+			
+		}
+		return null;
+	}
+	
+	public DicomObject getCore();
+	public DicomObject getFileMetaInfo();
+	public UID getTSUID();
+	public UID getSopUID();
+	public int getWidth();
+	public int getHeight();
+	public PhotometricInterpretation getPhotometricInterpletation();
+	public int getSamples();
+	public int getBitsAllocated();
+	public int getBitsStored();
+	public int getNumOfFrames();
+	public byte[] getPixelData(int frame);
+	
 	public abstract void setCore(DicomObject attr);
-	public abstract DicomObject getCore();
 	public abstract void setFileMetaInfo(DicomObject fmi);
-	public abstract DicomObject getFileMetaInfo();
+	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, byte[] newFrame);
+	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID
-	public Object pixelData();
+	
+	public boolean isColor();
+	public boolean isBanded();
+	public boolean isSigned();
 	public boolean isPDF();
 	public boolean isMultiFrame();
-	public abstract UID getTSUID();
-	public UID sopUID();
+	
 }

@@ -37,13 +37,21 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
+import java.io.IOException;
+
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.BulkData;
+import org.dcm4che3.data.Fragments;
 import org.dcm4che3.data.Tag;
 
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
+import com.vis.dicom.VR;
+import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
+import com.vis.dicom.image.PhotometricInterpretation;
 
 /**
  * 
@@ -58,6 +66,22 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	protected UID tsuid;
 	protected UID sopUID;
 	
+	public DicomImageChe(DicomObject core, UID tsUID) {
+		this(core, null, tsUID);
+	}
+	
+	public DicomImageChe(DicomObject core, DicomObject fmi, UID tsUID) {
+		if(core == null ) {
+			return;
+		}
+		if(fmi == null) {
+			core.createFileMetaInformation(tsUID.uid());
+		}
+		this.core = core;
+		this.fmi = fmi;
+		this.tsuid = tsUID;
+	}
+	
 	public DicomImageChe(String path, boolean withPixel) {
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
 		reader.read(path, withPixel);
@@ -70,6 +94,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	@Override
 	public void setCore(DicomObject attr) {
 		this.core = attr;
+		updateFileMetaInfo(tsuid);
 	}
 
 	@Override
@@ -93,25 +118,113 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 
 	@Override
-	public void updateFileMetaInfo(com.vis.dicom.UID uid) {
-		this.fmi = (DicomObject) core.createFileMetaInformation(uid.uid());
+	public void updateFileMetaInfo(com.vis.dicom.UID tsuid) {
+		this.fmi = (DicomObject) core.createFileMetaInformation(tsuid.uid());
 	}
 
 	@Override
-	public Object pixelData() {
-		int bitsAllocated = this.core.getInt(Tag.BitsAllocated, -1);
-		if(bitsAllocated == -1) {
+	public byte[] getPixelData(int frame) {
+		if(getBitsAllocated() == -1) {
 			//this core does not have pixel
 			return null;
 		}
-		if(bitsAllocated == 8 || bitsAllocated == 16) {
-			return this.core.getValue(Tag.PixelData);
-		}else if(bitsAllocated == 32) {
-			return this.core.getValue(Tag.FloatPixelData);
-		}else if(bitsAllocated == 64) {
-			return this.core.getValue(Tag.DoubleFloatPixelData);
+		
+		if(frame < 0) {
+			return null;
 		}
-		return null;
+		
+		if(frame > getNumOfFrames()) {
+			return null;
+		}
+		
+		int bitsAllocated = getBitsAllocated();
+		int samples = getSamples();
+		
+		Object bulk = null;
+		byte[] pixels = null;
+		
+		if(bitsAllocated == 32 && samples == 1) {
+			bulk = this.core.getValue(Tag.FloatPixelData);
+		}else if(bitsAllocated == 64 && samples == 1) {
+			bulk = this.core.getValue(Tag.DoubleFloatPixelData);
+		}else {
+			bulk = this.core.getValue(Tag.PixelData);
+		}
+		
+		if(bulk instanceof Fragments) {
+			Fragments frags = (Fragments)bulk;
+			Object frag = frags.get(frame+1);//frame number count from 1
+			if (frag instanceof BulkData) {
+				try {
+					pixels = ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}else if(frag instanceof byte[]) {
+				pixels = (byte[])frag;
+			}
+		}else if(bulk instanceof byte[]) {
+			pixels = (byte[])bulk;
+		}else if(bulk instanceof BulkData) {
+			BulkData bd = (BulkData)bulk;
+			try {
+				pixels = bd.toBytes(((Attributes)this.core).getVR(Tag.PixelData), bd.bigEndian());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return pixels;
+	}
+	
+	@Override
+	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixelSample, byte[] newFrame) {
+		if(frame > getNumOfFrames()) {
+			return;
+		}
+		if(frame < 0) {
+			return;
+		}
+		if(w != getWidth() || h != getHeight() || samples != getSamples()) {
+			return;
+		}
+		
+		int bitsAllocated = getBitsAllocated();
+		
+		Object bulk = null;
+		// load from original bitsAllocated
+		if(bitsAllocated == 32 && samples == 1) {
+			bulk = this.core.getValue(Tag.FloatPixelData);
+		}else if(bitsAllocated == 64 && samples == 1) {
+			bulk = this.core.getValue(Tag.DoubleFloatPixelData);
+		}else {
+			bulk = this.core.getValue(Tag.PixelData);
+		}
+		
+		if(bulk instanceof Fragments) {
+			Fragments frags = (Fragments)bulk;
+			Object frag = frags.get(frame+1);//frame number count from 1
+			if(frag instanceof byte[]) {
+				frags.set(frame+1, newFrame);
+			}
+//			core.setValue(tag, vr, fragments)
+		}else if(bulk instanceof byte[]) {
+			if(bitsAllocated == 32 && samples == 1) {
+				core.setBytes(Tag.FloatPixelData, VR.OF, newFrame);
+				
+				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),  getWidth(),
+			            newFrame, core); 
+				
+			}else if(bitsAllocated == 64 && samples == 1) {
+				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, newFrame);
+			}else {
+				if(bitsAllocated > 8 && bitsAllocated <= 16) {
+					core.setBytes(Tag.PixelData, VR.OW, newFrame);
+				}else {
+					core.setBytes(Tag.PixelData, VR.OB, newFrame);
+				}
+			}
+		}
 	}
 
 	@Override
@@ -126,8 +239,59 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 
 	@Override
-	public UID sopUID() {
+	public UID getSopUID() {
 		return this.sopUID;
+	}
+
+	@Override
+	public int getWidth() {
+		return core.getInt(Tag.Columns, 0);
+	}
+
+	@Override
+	public int getHeight() {
+		return core.getInt(Tag.Rows, 0);
+	}
+
+	@Override
+	public PhotometricInterpretation getPhotometricInterpletation() {
+		return PhotometricInterpretation
+				.fromString(core.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
+	}
+
+	@Override
+	public int getBitsAllocated() {
+		return core.getInt(Tag.BitsAllocated, -1);
+	}
+
+	@Override
+	public int getBitsStored() {
+		return core.getInt(Tag.BitsStored, getBitsAllocated());
+	}
+
+	@Override
+	public boolean isColor() {
+		return getSamples() == 3;
+	}
+
+	@Override
+	public boolean isBanded() {
+		return core.getInt(Tag.PlanarConfiguration, 0) != 0;
+	}
+
+	@Override
+	public boolean isSigned() {
+		return core.getInt(Tag.PixelRepresentation, 0) != 0;
+	}
+
+	@Override
+	public int getSamples() {
+		return core.getInt(Tag.SamplesPerPixel, 1);
+	}
+	
+	@Override
+	public int getNumOfFrames() {
+		return core.getInt(Tag.NumberOfFrames, 1);
 	}
 
 }

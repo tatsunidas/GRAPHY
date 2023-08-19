@@ -39,19 +39,39 @@ package com.vis.imageio;
 
 import com.vis.dicom.UID;
 
+/**
+ * Compatible codecs.
+ * 
+ * Of these, JPEGBaseline, JPEG2000, JPEG2000 Lossless, RLE are implementable using pure java imageIO only.
+ * However, others are not, its required opencv native libs.
+ * 
+ * GRAPHY imageio rely on dcm4che imageio that using opencv lib.
+ * 
+ * @author tatsunidas
+ *
+ */
 public enum Codec {
 	JPEGBase(UID.JPEGBaseline8Bit),
 	JPEGExtended12Bit(UID.JPEGExtended12Bit),
+	JPEGLOSSLESS(UID.JPEGLosslessSV1), 
 	JPEG2000(UID.JPEG2000), 
 	JPEG2000LOSSLESS(UID.JPEG2000Lossless),
-	JPEGLOSSLESS(UID.JPEGLossless), 
 	JPEG_LS(UID.JPEGLSLossless),
+	JPEG_NearLS(UID.JPEGLSNearLossless),
 	RLE(UID.RLELossless);
 
 	com.vis.dicom.UID uid;
 
 	Codec(com.vis.dicom.UID uid) {
 		this.uid = uid;
+	}
+	
+	public UID uid() {
+		return uid;
+	}
+	
+	public String uidString() {
+		return uid.uid();
 	}
 
 	public static boolean availableCodec(com.vis.dicom.UID uid) {
@@ -74,6 +94,36 @@ public enum Codec {
 			return false;
 		}else {
 			return true;
+		}
+	}
+	
+	public String formatName() {
+		if(!isCompressed(uid)) {
+			return null;
+		}
+		if(uid == UID.JPEGBaseline8Bit || uid == UID.JPEGLossless || uid == UID.JPEGExtended12Bit) {
+			return "jpeg";
+		}else if(uid == UID.JPEG2000 || uid == UID.JPEG2000Lossless) {
+			return "jpeg-2000";
+		}else if(uid == UID.JPEGLSLossless) {
+			return "jpeg-ls";
+		}else {
+			return null;
+		}
+	}
+	
+	public String extension() {
+		if(!isCompressed(uid)) {
+			return null;
+		}
+		if(uid == UID.JPEGBaseline8Bit || uid == UID.JPEGExtended12Bit || uid == UID.JPEGLossless) {
+			return "jpg";
+		}else if(uid == UID.JPEG2000 || uid == UID.JPEG2000Lossless) {
+			return "j2k";
+		}else if(uid == UID.JPEGLSLossless) {
+			return "jls";
+		}else {
+			return null;
 		}
 	}
 }

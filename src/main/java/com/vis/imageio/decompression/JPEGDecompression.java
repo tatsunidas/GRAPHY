@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Iterator;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
@@ -62,7 +63,7 @@ import com.sun.media.imageioimpl.plugins.jpeg.CLibJPEGImageReaderSpi;
  */
 public class JPEGDecompression {
 	
-	public static Object inflate(String compression_type, boolean bigEndian, byte[] pixelData) {
+	public byte[] inflate(String formatName, boolean bigEndian, byte[] pixelData) {
 		try {
 			ByteBuffer byteBuf = null;
 			if(bigEndian) {
@@ -75,11 +76,10 @@ public class JPEGDecompression {
 			InputStream is = new ByteArrayInputStream(pixels);
 			ImageInputStream iis = ImageIO.createImageInputStream(is);
 			
-			ImageReader reader = new CLibJPEGImageReaderSpi().createReaderInstance();
+//			ImageReader reader = new CLibJPEGImageReaderSpi().createReaderInstance();
 			
-//			Iterator<ImageReader> iter = ImageIO.getImageReadersByFormatName("jpeg");
-//			// ClibJPEGImageReader
-//			ImageReader reader = (ImageReader) iter.next();
+			Iterator<ImageReader> iter = ImageIO.getImageReadersByFormatName(formatName);
+			ImageReader reader = (ImageReader) iter.next();
 
 			/* set read param and set input pixels to reader */
 			boolean  seekForwardOnly = false; 
@@ -97,10 +97,16 @@ public class JPEGDecompression {
 				return ((DataBufferByte) bf).getData();//byte[] gray or color
 			} else if (bf instanceof DataBufferShort) {
 				bf = (DataBufferShort) bf;
-				return ((DataBufferShort) bf).getData();//short[]
+				short[] pixelDataShort = ((DataBufferShort) bf).getData();
+				ByteBuffer byteBuffer = ByteBuffer.allocate(pixelDataShort.length * 2);
+				byteBuffer.asShortBuffer().put(pixelDataShort);
+				return byteBuffer.array();
 			} else if (bf instanceof DataBufferUShort) {
 				bf = (DataBufferUShort) bf;
-				return ((DataBufferUShort) bf).getData();//short[]
+				short[] pixelDataUShort = ((DataBufferUShort) bf).getData();
+				ByteBuffer byteBuffer = ByteBuffer.allocate(pixelDataUShort.length * 2);
+				byteBuffer.asShortBuffer().put(pixelDataUShort);
+				return byteBuffer.array();
 			} else {
 				return null;
 			}

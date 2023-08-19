@@ -67,7 +67,7 @@ import org.dcm4che3.imageio.plugins.rle.RLEImageReader;
 
 import com.vis.core.util.StringUtils;
 
-
+@Deprecated
 public class RLEDecompression {
 	
 	/**

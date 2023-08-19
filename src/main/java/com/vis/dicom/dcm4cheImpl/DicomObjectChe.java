@@ -17,6 +17,8 @@ import com.vis.dicom.VR.Holder;
 
 /**
  * DicomObject implementation class.
+ * keep almost read-only.
+ * if you more complex function needed, prepare another class.
  * 
  * @author tatsunidas
  *
@@ -33,28 +35,8 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 	private static final long serialVersionUID = -3556564730921871109L;
 	
 	private static final int INIT_CAPACITY = 16;
-//	private static final int TO_STRING_LIMIT = 50;
-//	private static final int TO_STRING_WIDTH = 78;
-	private transient Attributes parent;
-//	private transient String parentSequencePrivateCreator;
-//	private transient int parentSequenceTag;
-//	private transient int[] tags;
-//	private transient VR[] vrs;
-//	private transient Object[] values;
-//	private transient int size;
-//	private transient SpecificCharacterSet cs;
-//	private transient TimeZone tz;
-//	private transient int length = -1;
-//	private transient int[] groupLengths;
-//	private transient int groupLengthIndex0;
-//
-	private final boolean bigEndian;
-//	private long itemPosition = -1;
-//	private boolean containsSpecificCharacterSet;
-//	private boolean containsTimezoneOffsetFromUTC;
-//	private Map<String, Object> properties;
-//	private TimeZone defaultTimeZone;
-//	private volatile boolean readOnly;
+//	private transient Attributes parent;
+//	private final boolean bigEndian;
 
 	public DicomObjectChe() {
 		this(false);
@@ -70,8 +52,8 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 
 	public DicomObjectChe(boolean bigEndian, int initialCapacity) {
 		super(bigEndian, initialCapacity);
-		this.parent = super.getParent();
-		this.bigEndian = bigEndian;
+//		this.parent = super.getParent();
+//		this.bigEndian = bigEndian;
 	}
 
 	public DicomObjectChe(Attributes other) {
@@ -80,26 +62,25 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 
 	public DicomObjectChe(Attributes other, boolean bigEndian) {
 		super(other, other.bigEndian());
-		this.parent = super.getParent();
-		this.bigEndian = bigEndian;
+//		this.parent = super.getParent();
+//		this.bigEndian = bigEndian;
 	}
 
 	public DicomObjectChe(Attributes other, boolean bigEndian, int... selection) {
 		super(other, bigEndian, selection);
-		this.parent = super.getParent();
-		this.bigEndian = bigEndian;
+//		this.parent = super.getParent();
+//		this.bigEndian = bigEndian;
 	}
 
     public DicomObjectChe(Attributes other, boolean bigEndian, Attributes selection) {
     	super(other, bigEndian, selection);
-    	this.parent = super.getParent();
-    	this.bigEndian = bigEndian;
+//    	this.parent = super.getParent();
+//    	this.bigEndian = bigEndian;
     }
    
     /**
      * read-only
      */
-    
     public DicomObjectChe getNestedDataset(int sequenceTag) {
     	Attributes ds = super.getNestedDataset(sequenceTag);
 		return new DicomObjectChe(ds);

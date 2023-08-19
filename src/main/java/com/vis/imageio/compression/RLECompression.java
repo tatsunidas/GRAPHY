@@ -49,76 +49,59 @@ import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageOutputStream;
 
-import com.sun.media.imageioimpl.plugins.jpeg2000.J2KImageWriter;
-import com.sun.media.imageio.plugins.jpeg2000.J2KImageWriteParam;
+import com.vis.dicom.DicomObject;
 
-public class J2KCompression {
-	
-	private boolean lossless = false;
-	
-	//lossy : set to 0.25-1.0
-	//lossless : must set Double.MAX_VALUE
-	private double encodingRate = 0.55;
-	
-	/**
-	 * In contrast to JPEG, JPEG2000 ImageWriter and Param class are public.
-	 * Use these classes directly.
-	 * @param writer
-	 * @return
-	 */
-	private J2KImageWriteParam prepareParam(J2KImageWriter writer) {
-		J2KImageWriteParam param = (J2KImageWriteParam) writer.getDefaultWriteParam();
-		if(lossless) {
-			param.setEncodingRate(Double.MAX_VALUE);//also set setLossless(true).
-		}else {
-			param.setEncodingRate(encodingRate);
-		}
-		// Assume RGB and assume always want to transform; other than YBR_RCT is illegal in DICOM anyway; JJ2000 will fail if set to false anyway (000981)
-		param.setComponentTransformation(true);
+import javax.imageio.plugins.bmp.BMPImageWriteParam;
+
+@Deprecated
+public class RLECompression {
+
+	private BMPImageWriteParam prepareParam(ImageWriter writer) {
+		BMPImageWriteParam param = (BMPImageWriteParam) writer.getDefaultWriteParam();
+		param.setCompressionMode(BMPImageWriteParam.MODE_EXPLICIT);
+		param.setCompressionType("BI_RLE8");// BMPConstants.BI_RLE8
 		return param;
 	}
 	
+	public void compress(DicomObject dcm) {
+//		if(dcm.getInt(Tag.Number​Of​Frames, -1) == -1) {
+//			byte[] compressed = compress(BufferedImageUtils.bulkToImage(dcm)[0]);
+//			int bitsCompressed = dcm.getInt(Tag.Bits​Allocated, 8);
+//			dcm.setPixelData(0, dcm.getInt(Tag.Columns, 0), dcm.getInt(Tag.Rows, 0), dcm.getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
+//		}else {
+//			//check MultiframeExtractor
+//			int num = dcm.getInt(Tag.Number​Of​Frames, 0);
+//			BufferedImage[] comps = BufferedImageUtils.bulkToImage(dcm);
+//			int bitsCompressed = getCompressedBitsPerSample(toCompressTS, dcm.getCore().getInt(Tag.Bits​Allocated, 8));
+//			for(int i=0;i<num; i++) {
+//				byte[] compressed = compress(comps[i], toCompressTS, ratio, lossless);
+//				dupImg.setPixelData(i, dcm.getCore().getInt(Tag.Columns, 0), dcm.getCore().getInt(Tag.Rows, 0), dcm.getCore().getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
+//			}
+//		}
+	}
+
 	public byte[] compress(BufferedImage rawImage) {
-		
+
 		byte[] compressed = null;
-		try (
-				ByteArrayOutputStream baos = new ByteArrayOutputStream();
-				ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
-				)
-		{
-			
-			Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("JPEG2000");
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				ImageOutputStream ios = ImageIO.createImageOutputStream(baos);) {
+
+			Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("BMP");
 			if (writers != null && writers.hasNext()) {
-				J2KImageWriter writer = (J2KImageWriter) writers.next();
-				J2KImageWriteParam param = prepareParam(writer);
+				ImageWriter writer = (ImageWriter) writers.next();
+				BMPImageWriteParam param = prepareParam(writer);
 				writer.setOutput(ios);
-				IIOMetadata metadata = writer.getDefaultImageMetadata(new ImageTypeSpecifier(rawImage.getColorModel(), rawImage.getSampleModel()), param);
+				IIOMetadata metadata = writer.getDefaultImageMetadata(
+						new ImageTypeSpecifier(rawImage.getColorModel(), rawImage.getSampleModel()), param);
 				writer.write(metadata, new IIOImage(rawImage, null/* no thumbnails */, metadata), param);
 				compressed = baos.toByteArray();
 				writer.dispose();
 			}
 		} catch (IOException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return compressed;
 	}
-	
-	public void setLossless(boolean lossless) {
-		this.lossless = lossless;
-	}
-	
-	/**
-	 * min value is 0.25
-	 * max value is 1.0
-	 * @param rate
-	 */
-	public void setEncodingRate(double rate) {
-		if(rate > 1.0) {
-			rate = 1.0;
-		}else if(rate < 0.25) {
-			rate = 0.25;
-		}
-		this.encodingRate = rate;
-	}
-	
+
 }

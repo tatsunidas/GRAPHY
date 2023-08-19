@@ -20,9 +20,19 @@ import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
  */
 public interface DicomObject {
 
-	public static DicomObject newDicomObject(DICOMBackend backend) {
+	public static DicomObject newDicomObject() {
+		DICOMBackend backend = DICOMBackend.getCurrent();
 		if (backend == DICOMBackend.DCM4CHE) {
 			return (DicomObject) new DicomObjectChe(false);
+		} else if (backend == DICOMBackend.DCMTK) {
+			// TODO
+		}
+		return null;
+	}
+	
+	public static DicomObject newDicomObject(DicomObject dcm, DICOMBackend backend) {
+		if (backend == null || backend == DICOMBackend.DCM4CHE) {
+			return (DicomObject) new DicomObjectChe((DicomObjectChe)dcm);
 		} else if (backend == DICOMBackend.DCMTK) {
 			// TODO
 		}

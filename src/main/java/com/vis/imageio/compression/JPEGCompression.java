@@ -48,14 +48,20 @@ import java.util.logging.Level;
 import javax.imageio.*;
 import javax.imageio.stream.*;
 
-import com.vis.core.log.Log;
+//import com.sun.media.imageioimpl.plugins.jpeg.*;
 
+import com.vis.core.log.Log;
+import com.vis.imageio.Codec;
+
+//import org.dcm4che3.imageio.codec.ImageWriterFactory.ImageWriterParam;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import javax.imageio.metadata.IIOMetadata;
 
 /**
+ * 
+ * This class is junk codes for JPEG Compression how to.
  * 
  * This differs from the core JPEG ImageWriteParam in that:
  *
@@ -68,32 +74,61 @@ import javax.imageio.metadata.IIOMetadata;
  * <li>isCompressionLossless() will return true if type is NOT "JPEG".</li>
  * </ul>
  * 
- * {@see, com/sun/media/imageioimpl/plugins/jpeg/CLibJPEGImageWriter}
+ * Native codec libs in JAI-ImageIO only compatible with 32-bit JDK/JRE.
+ * With this reason, JPEG-LOSSLESS, JPEG-LS, JPEG Extended 12-bit are handled by opencv.
  * 
  * @author tatsunidas
  *
  */
+
+@Deprecated
 public class JPEGCompression {
 	
-	public static final String LOSSY_COMPRESSION_TYPE = "JPEG";
-	public static final String LOSSLESS_COMPRESSION_TYPE = "JPEG-LOSSLESS";
-	public static final String LS_COMPRESSION_TYPE = "JPEG-LS";
+//	public static final String LOSSY_COMPRESSION_TYPE = "JPEG";
+	
+	// these compression types are not compatible on 64 bit JDK/JRE
+//	public static final String LOSSLESS_COMPRESSION_TYPE = "JPEG-LOSSLESS";
+//	public static final String LS_COMPRESSION_TYPE = "JPEG-LS";
 	
 	// Jpeg Metadata Format Name
 	private static final String FORMAT_NAME = "javax_imageio_jpeg_image_1.0";
 	
-	public static final int DEFAULT_QUALITY = 75;
 	private boolean disableChromaSubsampling;
 	private boolean chromaSubsamplingSet;
 	private float QUALITY = 0.75f;
-	private final String COMPRESSION_TYPE;
 	
-	public JPEGCompression(final String COMPRESSION_TYPE) {
-		if(COMPRESSION_TYPE != null && !COMPRESSION_TYPE.equals(LOSSLESS_COMPRESSION_TYPE) && !COMPRESSION_TYPE.equals(LOSSY_COMPRESSION_TYPE) && !COMPRESSION_TYPE.equals(LS_COMPRESSION_TYPE)) {
-			this.COMPRESSION_TYPE = LOSSY_COMPRESSION_TYPE;
-		}else {
-			this.COMPRESSION_TYPE = COMPRESSION_TYPE;
+	private final String destTSUID;
+	
+	public JPEGCompression(final String destTSUID) {
+		this.destTSUID = destTSUID;
+	}
+	
+	@SuppressWarnings("unused")
+	private ImageWriter loadWriter() {
+		if (destTSUID.equals(Codec.JPEGBase.uidString())) {
+			Iterator<ImageWriter> w = ImageIO.getImageWritersByFormatName("jpeg");
+			return w.hasNext() ? w.next():null;			
+		} else if (destTSUID.equals(Codec.JPEGExtended12Bit.uidString())) {
+			org.dcm4che3.imageio.codec.ImageWriterFactory.ImageWriterParam param = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterParam(destTSUID);
+			ImageWriter w = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterFromServiceLoader(param);
+			return w;
+		} else if (destTSUID.equals(Codec.JPEG2000.uidString()) || destTSUID.equals(Codec.JPEG2000LOSSLESS.uidString())) {
+			Iterator<ImageWriter> w = ImageIO.getImageWritersByFormatName("jpeg2000");
+			return w.hasNext() ? w.next():null;
+		} else if (destTSUID.equals(Codec.JPEGLOSSLESS.uidString())) {
+			org.dcm4che3.imageio.codec.ImageWriterFactory.ImageWriterParam param = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterParam(destTSUID);
+			ImageWriter w = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterFromServiceLoader(param);
+			return w;
+		} else if (destTSUID.equals(Codec.JPEG_LS.uidString())) {
+			org.dcm4che3.imageio.codec.ImageWriterFactory.ImageWriterParam param = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterParam(destTSUID);
+			ImageWriter w = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterFromServiceLoader(param);
+			return w;
+		} else if (destTSUID.equals(Codec.JPEG_NearLS.uidString())) {
+			org.dcm4che3.imageio.codec.ImageWriterFactory.ImageWriterParam param = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterParam(destTSUID);
+			ImageWriter w = org.dcm4che3.imageio.codec.ImageWriterFactory.getImageWriterFromServiceLoader(param);
+			return w;
 		}
+		return null;
 	}
 	
 	/**
@@ -102,31 +137,51 @@ public class JPEGCompression {
 	 * this ImageWriteParam is means CLibJPEGImageWriteParam.
 	 */
 	private ImageWriteParam prepareParam(ImageWriter writer) {
-		//this ImageWriterParam is interface of CLibJPEGImageWriteParam.
-		//see, CLibJPEGImageWriter.java
+		
 		ImageWriteParam param = writer.getDefaultWriteParam();
-		/*
-		 * <li>{@code MODE_EXPLICIT} - Compress using the compression type and quality
-		 * settings specified in this {@code ImageWriteParam}. Any previously set
-		 * compression parameters are discarded.
-		 */
 		param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-		param.setCompressionQuality(getQuality());
-		if(COMPRESSION_TYPE.equals(LOSSY_COMPRESSION_TYPE)) {
-			param.setCompressionType(LOSSY_COMPRESSION_TYPE);
-		}else if(COMPRESSION_TYPE.equals(LS_COMPRESSION_TYPE)) {
-			param.setCompressionType(LS_COMPRESSION_TYPE);
+		/*
+		 * Example, 
+		 * you can set compressionRatio 
+		 */
+		
+		if(destTSUID.equals(Codec.JPEGBase.uidString())) {
+			param.setCompressionQuality(getQuality());
+		}else if(destTSUID.equals(Codec.JPEGExtended12Bit.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.JPEG2000.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.JPEG2000LOSSLESS.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.JPEGLOSSLESS.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.JPEG_LS.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.JPEG_NearLS.uidString())) {
+			
+		}else if(destTSUID.equals(Codec.RLE.uidString())) {
+			
 		}else {
-			param.setCompressionType(LOSSLESS_COMPRESSION_TYPE);
+			return null;
 		}
 		
+//		
+//		
+//		if(COMPRESSION_TYPE.equals(LOSSY_COMPRESSION_TYPE)) {
+//			param.setCompressionType(LOSSY_COMPRESSION_TYPE);
+//		}else if(COMPRESSION_TYPE.equals(LS_COMPRESSION_TYPE)) {
+//			param.setCompressionType(LS_COMPRESSION_TYPE);
+//		}else {
+//			param.setCompressionType(LOSSLESS_COMPRESSION_TYPE);
+//		}
+//		
 		if(getQuality() >= 1.0f) {
 			param.setSourceSubsampling(1, 1, 0, 0);
 		}
 		return param;
 	}
 
-	public byte[] transcode(BufferedImage bi) {
+	public byte[] compress(BufferedImage bi) {
 		byte[] compressed = null;
 		
 		try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -140,7 +195,7 @@ public class JPEGCompression {
 			IIOMetadata metadata = null;
 			IIOImage iioImage = null;
 			
-			boolean disableSubsampling = getQuality() >= 90;
+			boolean disableSubsampling = getQuality() >= 0.9;
 			if (chromaSubsamplingSet) {
 				disableSubsampling = disableChromaSubsampling;
 			}
@@ -207,7 +262,7 @@ public class JPEGCompression {
 	 * @param rawImage
 	 * @return
 	 */
-	public byte[] transcodeDefault(BufferedImage rawImage) {
+	public byte[] compressDefault(BufferedImage rawImage) {
 		
 		byte[] imageInByte = null;
 		try (
@@ -324,7 +379,14 @@ public class JPEGCompression {
 		return error;
 	}
 
+	/**
+	 * 
+	 * @param jpegQuality 0.05 ~ 1.0
+	 */
 	public void setQuality(float jpegQuality) {
+		if(jpegQuality < 0.05f){
+			jpegQuality = 0.05f;
+		}
 		this.QUALITY = jpegQuality;
 	}
 

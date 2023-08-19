@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 
-import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.VR;
@@ -174,6 +173,85 @@ public class BufferedImageUtils {
         }
         return dst;
     }
+    
+    public static BufferedImage[] bulkToImage(DicomImage withoutCompress) {
+    	
+    	int numOfFrame = withoutCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
+    	BufferedImage[] images = new BufferedImage[numOfFrame];
+    	int w = withoutCompress.getCore().getInt(Tag.Columns, 0);
+    	int h = withoutCompress.getCore().getInt(Tag.Rows, 0);
+    	PhotometricInterpretation pmi = PhotometricInterpretation
+				.fromString(withoutCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
+    	boolean signed = withoutCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
+    	boolean banded = withoutCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
+    	int samples = withoutCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
+		int bitsAllocated = withoutCompress.getCore().getInt(Tag.Bits​Allocated, 8);
+		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
+		int dataType = dataType(bitsAllocated, signed, samples);
+		//int imageType = samples >= 3 ? BufferedImage.TYPE_3BYTE_BGR:BufferedImage.TYPE_BYTE_GRAY;
+    	for(int i=0; i<numOfFrame; i++) {
+    		byte[] pixels = (byte[]) withoutCompress.getPixelData(i);
+    		DataBuffer buffer = new DataBufferByte(pixels, pixels.length);
+    		if(banded) {
+    			/*
+        		 * カラーの場合、DataBufferに入れるbyte[]を、bandedな2d-arrayに変換しないといけないかも。
+        		 * その場合は。インデックスを調整して。
+        		 * bank index : new int[]{0,1,2}, bandOffset : new int[]{0, 0, 0}
+        		 * [
+        		 *  [rrr]
+        		 *   [ggg]
+        		 *   [bbb]
+        		 * ]
+        		 */
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
+						withoutCompress.getCore());
+    			//SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
+				WritableRaster raster = WritableRaster.createBandedRaster(buffer, w, h, w, new int[]{0,0,0}, new int[]{0, w*h, w*h*2}, null);
+				BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+				images[i] = dst;
+    		}else {
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
+						withoutCompress.getCore());
+    			SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
+    			WritableRaster raster = Raster.createWritableRaster(sampleModel, buffer, null);
+    			BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+				images[i] = dst;
+    		}
+    	}
+    	return images;
+    }
+    
+	public static BufferedImage createBufferedImage(int bitsAllocated, int bitsStored, int samples, int cols, int rows,
+			boolean banded, boolean signed) {
+		int dataType = DataBuffer.TYPE_BYTE;
+		if (bitsAllocated > 8 && bitsAllocated <= 16) {
+			dataType = signed ? DataBuffer.TYPE_SHORT : DataBuffer.TYPE_USHORT;
+		} else if (bitsAllocated == 32) {
+			dataType = DataBuffer.TYPE_FLOAT;
+		} else if (bitsAllocated == 64) {
+			dataType = DataBuffer.TYPE_DOUBLE;
+		}
+		ComponentColorModel cm = samples == 1
+				? new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_GRAY), new int[] { bitsStored }, false, // hasAlpha
+						false, // isAlphaPremultiplied,
+						Transparency.OPAQUE, dataType)
+				: new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB),
+						new int[] { bitsStored, bitsStored, bitsStored }, false, // hasAlpha
+						false, // isAlphaPremultiplied,
+						Transparency.OPAQUE, dataType);
+
+		SampleModel sm = banded ? new BandedSampleModel(dataType, cols, rows, samples)
+				: new PixelInterleavedSampleModel(dataType, cols, rows, samples, cols * samples, bandOffsets(samples));
+		WritableRaster raster = Raster.createWritableRaster(sm, null);
+		return new BufferedImage(cm, raster, false, null);
+	}
+
+	private static int[] bandOffsets(int samples) {
+		int[] offsets = new int[samples];
+		for (int i = 0; i < samples; i++)
+			offsets[i] = i;
+		return offsets;
+	}
 
     public static BufferedImage replaceColorModel(BufferedImage bi, ColorModel colorModel) {
         return new BufferedImage(colorModel, bi.getRaster(), false, null);
@@ -414,10 +492,10 @@ public class BufferedImageUtils {
         return (ComponentSampleModel) sb;
     }
 
-    private static DicomObject toImagePixelModule(int samples, String pmi, int rows,  int columns,
+    public static DicomObject toImagePixelModule(int samples, String pmi, int rows,  int columns,
             byte[] pixelData, DicomObject attrs) {
         if (attrs == null) {
-            attrs = DicomObject.newDicomObject(DICOMBackend.getCurrent());
+            attrs = DicomObject.newDicomObject();
         }
         attrs.setInt(Tag.Samples​Per​Pixel, VR.US, samples);
         attrs.setString(Tag.Photometric​Interpretation, VR.CS, pmi);
@@ -432,6 +510,23 @@ public class BufferedImageUtils {
         attrs.setInt(Tag.Pixel​Representation, VR.US, 0);
         attrs.setBytes(Tag.Pixel​Data, VR.OB, pixelData);
         return attrs;
+    }
+    
+    private static int dataType(int bit, boolean signed, int sample) {
+    	if(bit == 8 && sample == 1) {
+    		return DataBuffer.TYPE_BYTE;
+    	}else if(bit == 8 && sample >= 3) {
+    		return DataBuffer.TYPE_BYTE;//INT ? 
+    	}else if((bit > 8 && bit <= 16) && signed && sample == 1) {
+    		return DataBuffer.TYPE_SHORT;
+    	}else if((bit > 8 && bit <= 16) && !signed && sample == 1) {
+    		return DataBuffer.TYPE_USHORT;
+    	}else if(bit == 32 && sample == 1) {
+    		return DataBuffer.TYPE_FLOAT;
+    	}else if(bit == 64 && sample == 1) {
+    		return DataBuffer.TYPE_DOUBLE;
+    	}
+    	return DataBuffer.TYPE_UNDEFINED;
     }
 
 }

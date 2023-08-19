@@ -35,25 +35,18 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.imageio;
+package com.vis.dicom.dcm4cheImpl;
 
-import com.vis.dicom.DICOMBackend;
-import com.vis.dicom.DicomObject;
-import com.vis.dicom.dcm4cheImpl.DecompressorChe;
-import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
+import org.dcm4che3.data.Attributes;
 
-public interface Decompressor {
-	
-	public static Decompressor newInstance(DicomObject dcm, String fromTSUID, DICOMBackend backend) {
-		if(backend == DICOMBackend.DCM4CHE) {
-			com.vis.imageio.Decompressor d = (Decompressor) new DecompressorChe((DicomObjectChe)dcm, fromTSUID);
-			return d;
-		}else if(backend == DICOMBackend.DCMTK) {
-			
-		}
-		return null;
+public class DecompressorChe extends org.dcm4che3.imageio.codec.Decompressor implements com.vis.imageio.Decompressor{
+
+	public DecompressorChe(Attributes dataset, String tsuid) {
+		super(dataset, tsuid);
 	}
-	
-	public boolean decompress();
+
+	public boolean decompress() {
+		return super.decompress();
+	}
 
 }

@@ -10,7 +10,7 @@
 		<maven.compiler.source>1.11</maven.compiler.source>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		
-		<imagej-version>1.54e</imagej-version>
+		<imagej-version>1.53t</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
 		<derby-version>10.14.2.0</derby-version>
 		<pdfbox-version>2.0.12</pdfbox-version>
@@ -34,9 +34,9 @@
 	<repositories>
 		<!-- pixelmed.jar -->
 		<repository>
-			<id>GAZELLE</id>
-			<name>GAZELLE Repository</name>
-			<url>https://gazelle.ihe.net/nexus/content/repositories/releases/</url>
+			<id>XNatLibs</id>
+			<name>XNatLibs Repository</name>
+			<url>https://nrgxnat.jfrog.io/artifactory/libs-release/</url>
 		</repository>
 		<!-- 3D_Viewer -->
 		<repository>
@@ -69,17 +69,23 @@
 		</dependency>
 		<!--
 		https://mvnrepository.com/artifact/net.ihe.gazelle.pixelmed.validator/Pixelmed-jar -->
+		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed -->
 		<dependency>
-			<groupId>net.ihe.gazelle.pixelmed.validator</groupId>
-			<artifactId>Pixelmed-jar</artifactId>
-			<version>1.0.8</version>
-			<exclusions>
-				<!-- to avoid conflict to org.w3c.dom -->
-				<exclusion>
-					<groupId>dom4j</groupId>
-					<artifactId>dom4j</artifactId>
-				</exclusion>
-			</exclusions>
+			<groupId>com.dclunie</groupId>
+			<artifactId>pixelmed</artifactId>
+			<version>nrg-20200327-1</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed-imageio -->
+		<dependency>
+		    <groupId>com.dclunie</groupId>
+		    <artifactId>pixelmed-imageio</artifactId>
+		    <version>20200328</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed-codec -->
+		<dependency>
+		    <groupId>com.dclunie</groupId>
+		    <artifactId>pixelmed-codec</artifactId>
+		    <version>20200328</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
@@ -97,9 +103,9 @@
 			<artifactId>3D_Viewer</artifactId>
 			<version>4.0.5</version>
 		</dependency>
-		
+
 		<!-- DB LIBRARIES -->
-		
+
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derby -->
 		<dependency>
 			<groupId>org.apache.derby</groupId>
@@ -108,11 +114,12 @@
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derbyclient -->
 		<dependency>
-			<groupId>org.apache.derby</groupId>
+			<groupId>
+				org.apache.derby</groupId>
 			<artifactId>derbyclient</artifactId>
 			<version>${derby-version}</version>
 		</dependency>
-		
+
 		<!-- DICOM LIBRARIES -->
 		
 		<dependency>
@@ -144,13 +151,18 @@
 		    <version>1.2-pre-dr-b04</version>
 		    <type>pom</type>
 		</dependency>
-
+		<dependency>
+		    <groupId>com.sun.media</groupId>
+		    <artifactId>clibwrapper_jiio</artifactId>
+		    <version>1.2-pre-dr-b04</version>
+		    <type>pom</type>
+		</dependency>
 		<!-- when use open-cv, set run comfigration -Djava.library.path="E:/Dropbox/Graphy-WorkSpace2/graphy-parent/graphy-imageio/image-io-nativelib/windows-x86-64/" -->
-		<!-- dependency>
+		<dependency>
 			<groupId>org.dcm4che</groupId>
 			<artifactId>dcm4che-imageio-opencv</artifactId>
 			<version>${dcm4che-version}</version>
-		</dependency -->
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-emf -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
@@ -198,23 +210,27 @@
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-getscu</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<dependency>
             <groupId>org.dcm4che</groupId>
-            <artifactId>dcm4che-dcmr</artifactId>
+            <artifactId>
+				dcm4che-dcmr</artifactId>
             <version>${dcm4che-version}</version>
 		</dependency>
-        <!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
+		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
 		<dependency>
-		    <groupId>org.dcm4che</groupId>
+		    <groupId>
+				org.dcm4che</groupId>
 		    <artifactId>dcm4che-dict</artifactId>
 		    <version>${dcm4che-version}</version>
 		</dependency>
 
-		
+
 		<!-- MISC LIBRARIES -->
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<!--
@@ -247,7 +263,7 @@
 			<version>${pdfbox-version}</version>
 		</dependency>
 		-->
-		
+
 	</dependencies>
 
 </project>

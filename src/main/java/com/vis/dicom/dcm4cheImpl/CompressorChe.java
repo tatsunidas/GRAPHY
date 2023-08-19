@@ -35,17 +35,38 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.imageio;
+package com.vis.dicom.dcm4cheImpl;
 
-import org.dcm4che3.image.BufferedImageUtils;
+import java.io.IOException;
 
-public class Test {
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.util.Property;
 
-	public static void main(String[] args) {
-		
-//		int a = BufferedImageUtils
-		
-		
+import com.vis.imageio.Codec;
+
+public class CompressorChe extends org.dcm4che3.imageio.codec.Compressor implements com.vis.imageio.Compressor{
+
+	public CompressorChe(Attributes dataset, String from) {
+		super(dataset, from);
+	}
+
+	@Override
+	public void compress(String toTSUID, String... propertyStrings) {
+		if(toTSUID.equals(Codec.RLE.uidString())) {
+			
+		}else {
+			Property[] props = new Property[propertyStrings.length];
+			int i =0;
+			for(String nameAndVal : propertyStrings) {
+				Property p = new Property(nameAndVal);
+				props[i++] = p;
+			}
+			try {
+				super.compress(toTSUID, props);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 }

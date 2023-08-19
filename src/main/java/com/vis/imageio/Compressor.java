@@ -37,71 +37,38 @@
  */
 package com.vis.imageio;
 
-import java.util.logging.Level;
+import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.dcm4cheImpl.CompressorChe;
+import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
-import javax.imageio.ImageIO;
-
-import com.vis.core.log.Log;
-import com.vis.dicom.UID;
-
-public class Compressor {
+/**
+ * - pure java code compatibles -
+ * JPEGBaseline8bit
+ * JPEG2000
+ * JPEG2000 lossless
+ * RLE(RLELossless)
+ * 
+ * - opencv dependent -
+ * JPEGExtended12Bit
+ * JPEG LOSSLESS (JPEGLosslessSV1)
+ * JPEG_LS(JPEGLSLossless)
+ * JPEG Near LS(JPEGLSNearLossless)
+ * 
+ * @author tatsunidas
+ *
+ */
+public interface Compressor {
 	
-	/**
-	 * https://github.com/blezek/nifi-dicom/blob/
-	 * 1a669c5cc23f0ad52c3f51ac43c5d1fe9ffc9c2d/src/main/java/com/pixelmed/dicom/
-	 * CompressedFrameEncoder.java#L56
-	 */
-	
-	static {
-		ImageIO.scanForPlugins();
-	}
-	
-	public static byte[] compress(byte[] pixels, UID fromTS, UID toCompressTS) {
-		
-		if(pixels == null || fromTS == null || toCompressTS == null) {
-			return null;
-		}
-		
-		if(!isCompatibleTransferSyntax(fromTS, toCompressTS)) {
-			return null;
-		}
-		return compress(pixels, toCompressTS);
-	}
-	
-	private static byte[] compress(byte[] pixels, UID toCompressTS) {
-		
-		if(toCompressTS == UID.JPEGBaseline8Bit) {
-			
-		}else if(toCompressTS == UID.JPEG2000) {
-			
-		}else if(toCompressTS == UID.JPEG2000Lossless) {
-			
-		}else if(toCompressTS == UID.JPEGLSLossless) {
-			
-		}else if(toCompressTS == UID.RLELossless) {
+	public static Compressor newInstance(DicomObject dcm, String fromTSUID, DICOMBackend backend) {
+		if(backend == DICOMBackend.DCM4CHE) {
+			com.vis.imageio.Compressor c = (Compressor) new CompressorChe((DicomObjectChe)dcm, fromTSUID);
+			return c;
+		}else if(backend == DICOMBackend.DCMTK) {
 			
 		}
 		return null;
 	}
 	
-	static boolean isCompatibleTransferSyntax(UID from, UID to) {
-		
-		if(Codec.isCompressed(from)) {
-			/*
-			 * Should avoid compress by compress
-			 */
-			Log.logger.log(Level.SEVERE, "This DicomImage already compressed. return null.");
-			return false; 
-		}
-		
-		if(!Codec.availableCodec(to)) {
-			Log.logger.log(Level.WARNING, "This UID " + to + "does not accepted by graphy-image-io.");
-			return false;
-		}
-		
-		return true;
-	}
-	
-	
-
+	public void compress(String toTSUID, String... proprtyStrings);
 }

@@ -56,7 +56,7 @@ public class DicomReaderChe implements DicomReader{
 			dis = new DicomInputStream(new File(path));
 			dis.setIncludeBulkData(IncludeBulkData.URI);
 			Attributes fmi4che = dis.readFileMetaInformation();
-			tsuid = com.vis.dicom.UID.valueOf(dis.getTransferSyntax());
+			tsuid = com.vis.dicom.UID.uidOf(dis.getTransferSyntax());
 			tstype4che = TransferSyntaxType.forUID(tsuid.uid());
 			this.bigEndian = dis.bigEndian();
 			Attributes dataset4che = null;
@@ -67,7 +67,7 @@ public class DicomReaderChe implements DicomReader{
 			}
 			this.dataset4che = new DicomObjectChe(dataset4che);
 			this.fmi4che = new DicomObjectChe(fmi4che);
-			this.sopUID = com.vis.dicom.UID.valueOf(this.fmi4che.getString(Tag.SOP​Class​UID));
+			this.sopUID = com.vis.dicom.UID.uidOf(this.fmi4che.getString(Tag.SOP​Class​UID));
 		}catch(DicomStreamException dse) {
 			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse.getMessage());
 			return;
