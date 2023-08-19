@@ -52,6 +52,7 @@ import javax.imageio.stream.ImageOutputStream;
 import com.sun.media.imageioimpl.plugins.jpeg2000.J2KImageWriter;
 import com.sun.media.imageio.plugins.jpeg2000.J2KImageWriteParam;
 
+@Deprecated
 public class J2KCompression {
 	
 	private boolean lossless = false;

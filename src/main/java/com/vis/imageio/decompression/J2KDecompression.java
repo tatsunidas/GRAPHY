@@ -56,6 +56,7 @@ import javax.imageio.stream.ImageInputStream;
 
 import com.sun.media.imageioimpl.plugins.jpeg2000.J2KImageReaderSpi;
 
+@Deprecated
 public class J2KDecompression {
 	
 	public static Object inflate(boolean bigEndian, byte[] pixelData) {

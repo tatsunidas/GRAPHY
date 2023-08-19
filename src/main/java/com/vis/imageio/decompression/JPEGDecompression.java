@@ -54,13 +54,14 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import com.sun.media.imageioimpl.plugins.jpeg.CLibJPEGImageReaderSpi;
 
 /**
  * decompress JPEG, JPEG-LOSSLESS, JPEG-LS
  * @author tatsunidas
  *
  */
+
+@Deprecated
 public class JPEGDecompression {
 	
 	public byte[] inflate(String formatName, boolean bigEndian, byte[] pixelData) {
