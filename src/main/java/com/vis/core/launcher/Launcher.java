@@ -18,25 +18,13 @@ import com.vis.core.log.Log;
 /**
  * GRAPHY launcher
  * 
- * without i18n.
- * 
  * @author tatsunidas
  *
  */
 public class Launcher {
 	
 	public static void main(String[] args) {
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					new Launcher(args);
-				} catch (Exception e) {
-					e.printStackTrace();
-					Log.logger.log(Level.SEVERE, e.getMessage());
-					System.exit(0);
-				}
-			}
-		});
+		new Launcher(args);
 	}
 	
 	public Launcher(String[] args) {

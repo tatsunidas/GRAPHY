@@ -37,6 +37,8 @@
  */
 package com.vis.core.util;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -379,4 +381,65 @@ public class DateUtils {
             ceil(cal, precision.lastField);
         return cal.getTime();
     }
+    
+    /**
+	 * 
+	 * @param ymd : yyyy/MM/dd or yyyy-MM-dd or yyyyMMdd
+	 * @param splitter : / or -
+	 * @return
+	 */
+	public static java.util.Date toDateObj(String ymd, String splitter) {
+		if(ymd == null) {
+			return null;
+		}
+		if(splitter == null || !(splitter.equals("/") || splitter.equals("-"))) {
+			splitter ="/";
+		}
+		ymd = ymd.trim();
+		if(ymd.length() == 8) {
+			//in this case, ymd not include splitter, (yyyyMMdd)
+			//add to it
+			String yyyy = ymd.substring(0, 4);
+			String MM = ymd.substring(4, 6);
+			String dd = ymd.substring(6);
+			ymd = yyyy+splitter+MM+splitter+dd;
+		}else {
+			if (!ymd.contains(splitter)) {
+				ymd = ymd.replace("-", splitter);// fail safe
+				ymd = ymd.replace("/", splitter);// fail safe
+//				ymd = ymd.replace(" ", splitter);//fail safe
+			}
+		}
+		
+		try {
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy"+splitter+"MM"+splitter+"dd");
+			sdf.setLenient(false);
+			return sdf.parse(ymd);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	/**
+	 * for derbydb java.sql.Date object.
+	 * @param ymd : must to yyyy-MM-dd format for sql.Date
+	 * @return
+	 */
+	public static java.sql.Date toSQLDateObj(String ymd) {
+		if(ymd == null) {
+			return null;
+		}
+		try {
+			java.util.Date date = toDateObj(ymd, "-"); 
+			DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");//must to change this format to sql.Date
+			java.sql.Date sqlDate = null;
+			if(date != null) {
+				String str = dateFormat.format(date);
+				sqlDate = java.sql.Date.valueOf(str);
+			}
+			return sqlDate;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
 }

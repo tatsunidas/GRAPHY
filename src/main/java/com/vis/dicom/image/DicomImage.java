@@ -81,6 +81,7 @@ public interface DicomImage {
 	public abstract void setCore(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
 	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, byte[] newFrame);
+	public void setPDF(byte[] pdfFile);
 	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID
 	

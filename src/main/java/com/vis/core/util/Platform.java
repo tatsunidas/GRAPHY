@@ -1,8 +1,14 @@
 package com.vis.core.util;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.nio.ByteOrder;
 import java.nio.file.Paths;
+import java.util.Arrays;
+
+import javax.imageio.ImageIO;
+
+import com.vis.configuration.ConfigInfo;
 
 /**
  *
@@ -31,12 +37,22 @@ public enum Platform {
     /*
      * https://stackoverflow.com/questions/4871051/how-to-get-the-current-working-directory-in-java
      */
-    public static File getGraphyDirectory() {
-//        final File appDirectory = new File(".");//if win10, return currentDir/./, DO NOT USE 
-    	final File appDir = new File(Paths.get("").toAbsolutePath().toString());
-        return appDir;
-    }
+    /**
+     * @return graphy current working directory
+     */
+	public static File getGraphyDirectory() {
+		//final File appDirectory = new File(".");//DO NOT USE
+		final File appDir = new File(Paths.get("").toAbsolutePath().toString());
+		// this is also same
+		// File appDir = new File(System.getProperty("user.dir"));
+		return appDir;
+	}
 
+	/**
+	 * graphy hidden folder in home dir.
+	 * @param applicationName
+	 * @return home dir / .applicationame directory.
+	 */
     public static File getHomeDirectory(final String applicationName) {
         final String userHome = System.getProperty("user.home", ".");
         final File appDirectory;
@@ -101,6 +117,72 @@ public enum Platform {
 			return "Big-endian";
 		} else {
 			return "Little-endian";
+		}
+	}
+    
+	public static void setSystemProperties() {
+		ImageIO.scanForPlugins();
+		if (getCurrentPlatform() == MAC) {
+			System.setProperty("apple.laf.useScreenMenuBar", "true");
+			System.setProperty("com.apple.mrj.application.apple.menu.about.name", ConfigInfo.AppName.toString());
+			System.setProperty("apple.awt.antialiasing", "true");
+			System.setProperty("apple.awt.textantialiasing", "true");
+		} else if (getCurrentPlatform() == LINUX) {
+			System.setProperty("sun.java2d.pmoffscreen", "false");
+		}
+		System.setProperty("java.util.Arrays.useLegacyMergeSort", "true"); // Need to avoid the exceptions occured when using jdk 1.7
+	}
+    
+	/**
+	 * Add native lib path programmatically.
+	 * 
+	 * This method provide adding path alternate following statement,
+	 * System.setProperty("java.library.path", "path to native lib") -> this can not add path.
+	 * 
+	 * WARNING: An illegal reflective access operation has occurred
+	 * @param libDir
+	 */
+	@Deprecated
+    public static void setEnv(String libDir) {
+		Field usr_paths = null;
+		try {
+			usr_paths = ClassLoader.class.getDeclaredField("usr_paths");
+		} catch (NoSuchFieldException e1) {
+			e1.printStackTrace();
+			return;
+		} catch (SecurityException e1) {
+			e1.printStackTrace();
+			return;
+		}
+		usr_paths.setAccessible(true);
+
+		// get current path
+		String[] paths =null;
+		try {
+			paths = (String[])usr_paths.get(null);
+		} catch (IllegalArgumentException | IllegalAccessException e1) {
+			e1.printStackTrace();
+			return;
+		}
+
+		// if env has path, return
+		for(String path : paths) {
+			if(path.equals(libDir)) {
+				return;
+			}
+		}
+
+		// add path to env
+		String[] newPaths = Arrays.copyOf(paths, paths.length + 1);
+		newPaths[newPaths.length - 1] = libDir;
+		try {
+			usr_paths.set(null, newPaths);
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+			return;
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+			return;
 		}
 	}
 }

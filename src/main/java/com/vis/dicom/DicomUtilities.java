@@ -14,6 +14,7 @@ import org.dcm4che3.tool.dcmdir.DcmDir;
 import org.dcm4che3.util.SafeClose;
 
 import com.vis.core.log.Log;
+import com.vis.core.util.Utils;
 
 public class DicomUtilities {
 	
@@ -71,7 +72,7 @@ public class DicomUtilities {
 	public static boolean isDICOMDIR(File file) {
 		if (namedDICOMDIR(file)) {
 			if (DicomUtilities.isDicomFile(file)) {
-				logger.info("DICOMDIR: "+ file.getName() +" found.");
+				if (Utils.isDebug) {logger.info("DICOMDIR: "+ file.getName() +" found.");}
 				return true;
 			}
 		}
@@ -79,7 +80,7 @@ public class DicomUtilities {
 	}
 	
 	public static boolean namedDICOMDIR(File f) {
-		if (f.getName().startsWith("dicomdir")) {
+		if (f.getName().toLowerCase().startsWith("dicomdir")) {
 				return true;
 		}else {
 			return false;

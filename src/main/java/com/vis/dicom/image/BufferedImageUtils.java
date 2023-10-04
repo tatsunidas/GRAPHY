@@ -46,12 +46,19 @@ import java.awt.*;
 import java.awt.color.ColorSpace;
 import java.awt.image.*;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.List;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.VR;
+
+import ij.ImagePlus;
+import ij.process.FloatProcessor;
+import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
 
 
 /**
@@ -60,71 +67,74 @@ import com.vis.dicom.VR;
  * @since Aug 2015
  */
 public class BufferedImageUtils {
+	
+	private BufferedImageUtils() {}
 
-    private BufferedImageUtils() {}
+    private static int[] bandOffsets(int samples) {
+		int[] offsets = new int[samples];
+		for (int i = 0; i < samples; i++)
+			offsets[i] = i;
+		return offsets;
+	}
 
-    public static BufferedImage convertToIntRGB(BufferedImage bi) {
-        ColorModel cm = bi.getColorModel();
-        if (cm instanceof DirectColorModel)
-            return bi;
-
-        if (cm.getNumComponents() != 3)
-            throw new IllegalArgumentException("ColorModel: " + cm);
-
-        WritableRaster raster = bi.getRaster();
-        if (cm instanceof PaletteColorModel)
-            return ((PaletteColorModel) cm).convertToIntDiscrete(raster);
-
-        BufferedImage intRGB = new BufferedImage(bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_INT_RGB);
-        Graphics graphics = intRGB.getGraphics();
-        try {
-            graphics.drawImage(bi, 0, 0, null);
-        } finally {
-            graphics.dispose();
-        }
-        return intRGB;
+    public static BufferedImage[] bulkToImage(DicomImage withoutCompress) {
+    	
+    	int numOfFrame = withoutCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
+    	BufferedImage[] images = new BufferedImage[numOfFrame];
+    	int w = withoutCompress.getCore().getInt(Tag.Columns, 0);
+    	int h = withoutCompress.getCore().getInt(Tag.Rows, 0);
+    	PhotometricInterpretation pmi = PhotometricInterpretation
+				.fromString(withoutCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
+    	boolean signed = withoutCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
+    	boolean banded = withoutCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
+    	int samples = withoutCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
+		int bitsAllocated = withoutCompress.getCore().getInt(Tag.Bits​Allocated, 8);
+		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
+		int dataType = dataType(bitsAllocated, signed, samples);
+		//int imageType = samples >= 3 ? BufferedImage.TYPE_3BYTE_BGR:BufferedImage.TYPE_BYTE_GRAY;
+    	for(int i=0; i<numOfFrame; i++) {
+    		byte[] pixels = (byte[]) withoutCompress.getPixelData(i);
+    		DataBuffer buffer = new DataBufferByte(pixels, pixels.length);
+    		if(banded) {
+    			/*
+        		 * カラーの場合、DataBufferに入れるbyte[]を、bandedな2d-arrayに変換しないといけないかも。
+        		 * その場合は。インデックスを調整して。
+        		 * bank index : new int[]{0,1,2}, bandOffset : new int[]{0, 0, 0}
+        		 * [
+        		 *  [rrr]
+        		 *   [ggg]
+        		 *   [bbb]
+        		 * ]
+        		 */
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
+						withoutCompress.getCore());
+    			//SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
+				WritableRaster raster = WritableRaster.createBandedRaster(buffer, w, h, w, new int[]{0,0,0}, new int[]{0, w*h, w*h*2}, null);
+				BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+				images[i] = dst;
+    		}else {
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
+						withoutCompress.getCore());
+    			SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
+    			WritableRaster raster = Raster.createWritableRaster(sampleModel, buffer, null);
+    			BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+				images[i] = dst;
+    		}
+    	}
+    	return images;
     }
     
-    public static BufferedImage convertYBRtoRGB(BufferedImage src, BufferedImage dst) {
-        if (src.getColorModel().getTransferType() != DataBuffer.TYPE_BYTE) {
-            throw new UnsupportedOperationException(
-                "Cannot convert color model to RGB: unsupported transferType" + src.getColorModel().getTransferType());
-        }
-        if (src.getColorModel().getNumComponents() != 3) {
-            throw new IllegalArgumentException("Unsupported colorModel: " + src.getColorModel());
-        }
-
-        int width = src.getWidth();
-        int height = src.getHeight();
-        if (dst == null) {
-            ColorModel cmodel = new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB), new int[]{8, 8, 8},
-                    false, false, Transparency.OPAQUE, DataBuffer.TYPE_BYTE);
-            SampleModel sampleModel = cmodel.createCompatibleSampleModel(width, height);
-            DataBuffer dataBuffer = sampleModel.createDataBuffer();
-            WritableRaster rasterDst = Raster.createWritableRaster(sampleModel, dataBuffer, null);
-            dst = new BufferedImage(cmodel, rasterDst, false, null);
-        }
-        WritableRaster rasterDst = dst.getRaster();
-        WritableRaster raster = src.getRaster();
-        ColorSpace cs = src.getColorModel().getColorSpace();
-        ColorSpace dstcs = dst.getColorModel().getColorSpace();
-        byte[] ba = new byte[3];
-        float[] fba = new float[3];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                raster.getDataElements(x, y, ba);
-                for (int i = 0; i < 3; i++) {
-                    fba[i] = (ba[i] & 0xff) / 255f;
-                }
-                float[] rgb = cs.toRGB(fba);
-                float[] color = dstcs.fromRGB(rgb);
-                for (int i = 0; i < 3; i++) {
-                    ba[i] = (byte) (color[i] * 255 + 0.5f);
-                }
-                rasterDst.setDataElements(x, y, ba);
-            }
-        }
-        return dst;
+    public static BufferedImage convertColor(BufferedImage bi, ColorModel colorModel) {
+        BufferedImage dest = new BufferedImage(colorModel,
+                Raster.createWritableRaster(
+                        colorModel.createCompatibleSampleModel(
+                                bi.getWidth(),
+                                bi.getHeight()),
+                        null),
+                false,
+                null);
+        new ColorConvertOp(null).filter(bi, dest);
+        return dest;
     }
 
     public static BufferedImage convertPalettetoRGB(BufferedImage src, BufferedImage dst) {
@@ -174,54 +184,180 @@ public class BufferedImageUtils {
         return dst;
     }
     
-    public static BufferedImage[] bulkToImage(DicomImage withoutCompress) {
-    	
-    	int numOfFrame = withoutCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
-    	BufferedImage[] images = new BufferedImage[numOfFrame];
-    	int w = withoutCompress.getCore().getInt(Tag.Columns, 0);
-    	int h = withoutCompress.getCore().getInt(Tag.Rows, 0);
-    	PhotometricInterpretation pmi = PhotometricInterpretation
-				.fromString(withoutCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
-    	boolean signed = withoutCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
-    	boolean banded = withoutCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
-    	int samples = withoutCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
-		int bitsAllocated = withoutCompress.getCore().getInt(Tag.Bits​Allocated, 8);
-		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
-		int dataType = dataType(bitsAllocated, signed, samples);
-		//int imageType = samples >= 3 ? BufferedImage.TYPE_3BYTE_BGR:BufferedImage.TYPE_BYTE_GRAY;
-    	for(int i=0; i<numOfFrame; i++) {
-    		byte[] pixels = (byte[]) withoutCompress.getPixelData(i);
-    		DataBuffer buffer = new DataBufferByte(pixels, pixels.length);
-    		if(banded) {
-    			/*
-        		 * カラーの場合、DataBufferに入れるbyte[]を、bandedな2d-arrayに変換しないといけないかも。
-        		 * その場合は。インデックスを調整して。
-        		 * bank index : new int[]{0,1,2}, bandOffset : new int[]{0, 0, 0}
-        		 * [
-        		 *  [rrr]
-        		 *   [ggg]
-        		 *   [bbb]
-        		 * ]
-        		 */
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
-						withoutCompress.getCore());
-    			//SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
-				WritableRaster raster = WritableRaster.createBandedRaster(buffer, w, h, w, new int[]{0,0,0}, new int[]{0, w*h, w*h*2}, null);
-				BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
-				images[i] = dst;
-    		}else {
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
-						withoutCompress.getCore());
-    			SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
-    			WritableRaster raster = Raster.createWritableRaster(sampleModel, buffer, null);
-    			BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
-				images[i] = dst;
-    		}
-    	}
-    	return images;
+    public static BufferedImage convertToIntRGB(BufferedImage bi) {
+        ColorModel cm = bi.getColorModel();
+        if (cm instanceof DirectColorModel)
+            return bi;
+
+        if (cm.getNumComponents() != 3)
+            throw new IllegalArgumentException("ColorModel: " + cm);
+
+        WritableRaster raster = bi.getRaster();
+        if (cm instanceof PaletteColorModel)
+            return ((PaletteColorModel) cm).convertToIntDiscrete(raster);
+
+        BufferedImage intRGB = new BufferedImage(bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = intRGB.getGraphics();
+        try {
+            graphics.drawImage(bi, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return intRGB;
     }
     
-	public static BufferedImage createBufferedImage(int bitsAllocated, int bitsStored, int samples, int cols, int rows,
+	public static BufferedImage convertYBRtoRGB(BufferedImage src, BufferedImage dst) {
+        if (src.getColorModel().getTransferType() != DataBuffer.TYPE_BYTE) {
+            throw new UnsupportedOperationException(
+                "Cannot convert color model to RGB: unsupported transferType" + src.getColorModel().getTransferType());
+        }
+        if (src.getColorModel().getNumComponents() != 3) {
+            throw new IllegalArgumentException("Unsupported colorModel: " + src.getColorModel());
+        }
+
+        int width = src.getWidth();
+        int height = src.getHeight();
+        if (dst == null) {
+            ColorModel cmodel = new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB), new int[]{8, 8, 8},
+                    false, false, Transparency.OPAQUE, DataBuffer.TYPE_BYTE);
+            SampleModel sampleModel = cmodel.createCompatibleSampleModel(width, height);
+            DataBuffer dataBuffer = sampleModel.createDataBuffer();
+            WritableRaster rasterDst = Raster.createWritableRaster(sampleModel, dataBuffer, null);
+            dst = new BufferedImage(cmodel, rasterDst, false, null);
+        }
+        WritableRaster rasterDst = dst.getRaster();
+        WritableRaster raster = src.getRaster();
+        ColorSpace cs = src.getColorModel().getColorSpace();
+        ColorSpace dstcs = dst.getColorModel().getColorSpace();
+        byte[] ba = new byte[3];
+        float[] fba = new float[3];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                raster.getDataElements(x, y, ba);
+                for (int i = 0; i < 3; i++) {
+                    fba[i] = (ba[i] & 0xff) / 255f;
+                }
+                float[] rgb = cs.toRGB(fba);
+                float[] color = dstcs.fromRGB(rgb);
+                for (int i = 0; i < 3; i++) {
+                    ba[i] = (byte) (color[i] * 255 + 0.5f);
+                }
+                rasterDst.setDataElements(x, y, ba);
+            }
+        }
+        return dst;
+    }
+
+	private static void copyRGBPixelDataTo(Raster raster, byte[] dest, int offset) {
+        ComponentSampleModel csb = getComponentSampleModel(raster);
+        int pixelStride = csb.getPixelStride();
+        int scanlineStride = csb.getScanlineStride();
+        int h = csb.getHeight();
+        int w = csb.getWidth();
+        int r = csb.getOffset(0, 0, 0);
+        int g = csb.getOffset(0, 0, 1);
+        int b = csb.getOffset(0, 0, 2);
+        byte[] src = getData(raster);
+        for (int y = 0, j = offset; y < h; y++) {
+            for (int x = 0, i = y * scanlineStride; x < w; x++, i += pixelStride) {
+                dest[j++] = src[i + r];
+                dest[j++] = src[i + g];
+                dest[j++] = src[i + b];
+            }
+        }
+    }
+	
+	/**
+	 * 
+	 * @param imp
+	 * @param isMultiFrame : imp.getStackSize() > 1 ? true:false;
+	 * @return
+	 */
+	public static BufferedImage[] createBufferedImage(ImagePlus imp, boolean isMultiFrame) {
+		if(!isMultiFrame) {
+			BufferedImage bi = createBufferedImage(imp);
+			return new BufferedImage[] {bi};
+		}
+		int size = imp.getNFrames();
+		BufferedImage[] images = new BufferedImage[size];
+		int type = imp.getType();
+		for(int i=1;i<=size;i++) {
+			images[i-1] = createBufferedImage(imp.getStack().getProcessor(i), type);
+		}
+		return images;
+	}
+	
+	public static BufferedImage createBufferedImage(ImagePlus singleFrame) {
+		boolean isMultiFrame = singleFrame.getStackSize() > 1 ? true:false;
+		if(isMultiFrame) {
+			Log.logger.info("This images are multiframes. return null.");
+			return null;
+		}
+		return createBufferedImage(singleFrame.getProcessor(), singleFrame.getType());
+	}
+	
+	public static BufferedImage createBufferedImage(ImageProcessor singleFrame, int imageType) {
+
+		boolean signed = singleFrame.isSigned16Bit();
+		int type = imageType;
+		int samples = singleFrame.getNChannels();//channels
+		
+    	int w = singleFrame.getWidth();
+    	int h = singleFrame.getHeight();
+    	
+//    	PhotometricInterpretation pmi = null;
+//    	if(type == ImagePlus.GRAY8 || type == ImagePlus.GRAY16 || type == ImagePlus.GRAY32) {
+//    		pmi = PhotometricInterpretation.fromString("MONOCHROME2");
+//    	}else {
+//    		pmi = PhotometricInterpretation.fromString("RGB");
+//    	}
+    	
+//    	boolean banded = true; // imageplus always banded when rgb ??
+    	
+		int bitsAllocated = singleFrame.getBitDepth();
+		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
+		int dataType = dataType(bitsAllocated, signed, samples);
+		
+		if(type == ImagePlus.GRAY8 && samples == 1) {
+			DataBufferByte dbb = (DataBufferByte)singleFrame.getBufferedImage().getData().getDataBuffer();
+			ColorModel cmodel = ColorModelFactory.createRGBColorModel(bitsAllocated, dataType, cs);
+			WritableRaster raster = Raster.createWritableRaster(cmodel.createCompatibleSampleModel(w, h), dbb, null);
+			return new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+		}else if(type == ImagePlus.GRAY16 && samples == 1) {
+			ShortProcessor img_16 = (ShortProcessor) singleFrame;
+			if(img_16.isSigned16Bit()) {
+				// get pixels array reference
+				final short[] pix = ((short[]) img_16.getPixels()).clone();//ushort in imp
+				// adjust raw pixel values
+				for (int i=0; i<pix.length; i++) {
+					pix[i] += 32768;
+				}
+				DataBufferShort dbs = new DataBufferShort(pix, pix.length);
+				ColorModel cmodel = ColorModelFactory.createRGBColorModel(bitsAllocated, dataType, cs);
+				WritableRaster raster = Raster.createWritableRaster(cmodel.createCompatibleSampleModel(w, h), dbs, null);
+				return new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+			}else {
+				DataBufferUShort dbs = (DataBufferUShort)img_16.get16BitBufferedImage().getData().getDataBuffer();
+				ColorModel cmodel = ColorModelFactory.createRGBColorModel(bitsAllocated, dataType, cs);
+				WritableRaster raster = Raster.createWritableRaster(cmodel.createCompatibleSampleModel(w, h), dbs, null);
+				return new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+			}
+		}else if(type == ImagePlus.GRAY32 && samples == 1) {//gray 32
+			FloatProcessor img_32 = (FloatProcessor) singleFrame;
+			final float[] pix = (float[]) img_32.getPixels();
+			DataBufferFloat db = new DataBufferFloat(pix, pix.length);
+			ColorModel cmodel = ColorModelFactory.createRGBColorModel(bitsAllocated, dataType, cs);
+			WritableRaster raster = Raster.createWritableRaster(cmodel.createCompatibleSampleModel(w, h), db, null);
+			return new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
+		}else if(type == ImagePlus.COLOR_RGB || type == ImagePlus.COLOR_256) {//RGB
+			return singleFrame.getBufferedImage();
+		}else {//type 0 unknown
+			Log.logger.warning("Unknow image type, return null...");
+			return null;
+		}
+	}
+
+    public static BufferedImage createNullBufferedImage(int bitsAllocated, int bitsStored, int samples, int cols, int rows,
 			boolean banded, boolean signed) {
 		int dataType = DataBuffer.TYPE_BYTE;
 		if (bitsAllocated > 8 && bitsAllocated <= 16) {
@@ -246,28 +382,110 @@ public class BufferedImageUtils {
 		return new BufferedImage(cm, raster, false, null);
 	}
 
-	private static int[] bandOffsets(int samples) {
-		int[] offsets = new int[samples];
-		for (int i = 0; i < samples; i++)
-			offsets[i] = i;
-		return offsets;
-	}
+    private static int dataType(int bit, boolean signed, int sample) {
+    	if(bit == 8 && sample == 1) {
+    		return DataBuffer.TYPE_BYTE;
+    	}else if(bit == 8 && sample >= 3) {
+    		return DataBuffer.TYPE_BYTE;//INT ? 
+    	}else if((bit > 8 && bit <= 16) && signed && sample == 1) {
+    		return DataBuffer.TYPE_SHORT;
+    	}else if((bit > 8 && bit <= 16) && !signed && sample == 1) {
+    		return DataBuffer.TYPE_USHORT;
+    	}else if(bit == 32 && sample == 1) {
+    		return DataBuffer.TYPE_FLOAT;
+    	}else if(bit == 64 && sample == 1) {
+    		return DataBuffer.TYPE_DOUBLE;
+    	}
+    	return DataBuffer.TYPE_UNDEFINED;
+    }
+
+    private static Node getChildNode(Node root, String name) throws IIOInvalidTreeException {
+        Node child = root.getFirstChild();
+        while (child != null) {
+            if (name.equals(child.getLocalName())) {
+                return child;
+            }
+            child = child.getNextSibling();
+        }
+        throw new IIOInvalidTreeException("Required child " + name + " not present!", root);
+    }
+
+    private static ComponentSampleModel getComponentSampleModel(Raster raster) {
+        SampleModel sb = raster.getSampleModel();
+        if (!(sb instanceof ComponentSampleModel)) {
+            throw new UnsupportedOperationException(sb.toString());
+        }
+        return (ComponentSampleModel) sb;
+    }
+
+    private static byte[] getData(Raster raster) {
+        DataBuffer dataBuffer = raster.getDataBuffer();
+        if (!(dataBuffer instanceof DataBufferByte) || dataBuffer.getNumBanks() > 1) {
+            throw new UnsupportedOperationException(raster.toString());
+        }
+        return ((DataBufferByte) dataBuffer).getData();
+    }
+
+    private static String getDelayTime(Node node) throws IIOInvalidTreeException {
+        return getStringAttribute(getChildNode(node, "GraphicControlExtension"), "delayTime");
+    }
+
+    private static int getIntAttribute(Node node, String name) throws IIOInvalidTreeException {
+        try {
+            return Integer.parseInt(getStringAttribute(node, name));
+        } catch (NumberFormatException e) {
+            throw new IIOInvalidTreeException("Bad value for " + node.getNodeName() + " attribute " + name + "!", node);
+        }
+    }
+
+
+    private static Node getMetadata(IIOImage iioImage) {
+        return iioImage.getMetadata().getAsTree("javax_imageio_gif_image_1.0");
+    }
+
+    private static String getStringAttribute(Node node, String name) throws IIOInvalidTreeException {
+        Node attr = node.getAttributes().getNamedItem(name);
+        if (attr == null) {
+            throw new IIOInvalidTreeException("Required attribute " + name + " not present!", node);
+        }
+        return attr.getNodeValue();
+    }
+
+    private static void mergeFrame(Graphics graphics, BufferedImage src, Node metadata)
+            throws IIOInvalidTreeException {
+        Node imageDescriptor = getChildNode(metadata, "ImageDescriptor");
+        graphics.drawImage(src,
+                getIntAttribute(imageDescriptor, "imageLeftPosition"),
+                getIntAttribute(imageDescriptor, "imageTopPosition"),
+                null);
+    }
 
     public static BufferedImage replaceColorModel(BufferedImage bi, ColorModel colorModel) {
         return new BufferedImage(colorModel, bi.getRaster(), false, null);
     }
 
-    public static BufferedImage convertColor(BufferedImage bi, ColorModel colorModel) {
-        BufferedImage dest = new BufferedImage(colorModel,
-                Raster.createWritableRaster(
-                        colorModel.createCompatibleSampleModel(
-                                bi.getWidth(),
-                                bi.getHeight()),
-                        null),
-                false,
-                null);
-        new ColorConvertOp(null).filter(bi, dest);
-        return dest;
+    private static void setFrameTimeVector(DicomObject attrs, List<String> delayTimes) {
+        String delayTime0 = delayTimes.get(0);
+        for (int i = 1; i < delayTimes.size(); i++) {
+            if (!delayTime0.equals(delayTimes.get(i))) {
+                attrs.setString(Tag.Frame​Time​Vector, VR.DS, toFrameTimes(delayTimes));
+                attrs.setInt(Tag.Frame​Increment​Pointer, VR.AT, Tag.Frame​Time​Vector);
+            }
+        }
+        attrs.setString(Tag.Frame​Time, VR.DS, toFrameTime(delayTime0));
+        attrs.setInt(Tag.Frame​Increment​Pointer, VR.AT, Tag.Frame​Time​Vector);
+    }
+
+    private static String toFrameTime(String delayTime) {
+        return "0".equals(delayTime) ? "0" : (delayTime + "0");
+    }
+
+    private static String[] toFrameTimes(List<String> delayTimes) {
+        String[] frameTimes = new String[delayTimes.size()];
+        for (int i = 0; i < frameTimes.length; i++) {
+            frameTimes[i] = toFrameTime(delayTimes.get(i));
+        }
+        return frameTimes;
     }
 
     /**
@@ -347,151 +565,6 @@ public class BufferedImageUtils {
         return attrs;
     }
 
-    private static void mergeFrame(Graphics graphics, BufferedImage src, Node metadata)
-            throws IIOInvalidTreeException {
-        Node imageDescriptor = getChildNode(metadata, "ImageDescriptor");
-        graphics.drawImage(src,
-                getIntAttribute(imageDescriptor, "imageLeftPosition"),
-                getIntAttribute(imageDescriptor, "imageTopPosition"),
-                null);
-    }
-
-    private static Node getMetadata(IIOImage iioImage) {
-        return iioImage.getMetadata().getAsTree("javax_imageio_gif_image_1.0");
-    }
-
-    private static String getDelayTime(Node node) throws IIOInvalidTreeException {
-        return getStringAttribute(getChildNode(node, "GraphicControlExtension"), "delayTime");
-    }
-
-
-    private static String getStringAttribute(Node node, String name) throws IIOInvalidTreeException {
-        Node attr = node.getAttributes().getNamedItem(name);
-        if (attr == null) {
-            throw new IIOInvalidTreeException("Required attribute " + name + " not present!", node);
-        }
-        return attr.getNodeValue();
-    }
-
-    private static int getIntAttribute(Node node, String name) throws IIOInvalidTreeException {
-        try {
-            return Integer.parseInt(getStringAttribute(node, name));
-        } catch (NumberFormatException e) {
-            throw new IIOInvalidTreeException("Bad value for " + node.getNodeName() + " attribute " + name + "!", node);
-        }
-    }
-
-    private static Node getChildNode(Node root, String name) throws IIOInvalidTreeException {
-        Node child = root.getFirstChild();
-        while (child != null) {
-            if (name.equals(child.getLocalName())) {
-                return child;
-            }
-            child = child.getNextSibling();
-        }
-        throw new IIOInvalidTreeException("Required child " + name + " not present!", root);
-    }
-
-    private static byte[] toPixeldata(List<byte[]> frames) {
-        byte[] pixeldata = new byte[frames.get(0).length * frames.size()];
-        int pos = 0;
-        for (byte[] frame : frames) {
-            System.arraycopy(frame, 0, pixeldata, pos, frame.length);
-            pos += frame.length;
-        }
-        return pixeldata;
-    }
-
-    private static void setFrameTimeVector(DicomObject attrs, List<String> delayTimes) {
-        String delayTime0 = delayTimes.get(0);
-        for (int i = 1; i < delayTimes.size(); i++) {
-            if (!delayTime0.equals(delayTimes.get(i))) {
-                attrs.setString(Tag.Frame​Time​Vector, VR.DS, toFrameTimes(delayTimes));
-                attrs.setInt(Tag.Frame​Increment​Pointer, VR.AT, Tag.Frame​Time​Vector);
-            }
-        }
-        attrs.setString(Tag.Frame​Time, VR.DS, toFrameTime(delayTime0));
-        attrs.setInt(Tag.Frame​Increment​Pointer, VR.AT, Tag.Frame​Time​Vector);
-    }
-
-    private static String[] toFrameTimes(List<String> delayTimes) {
-        String[] frameTimes = new String[delayTimes.size()];
-        for (int i = 0; i < frameTimes.length; i++) {
-            frameTimes[i] = toFrameTime(delayTimes.get(i));
-        }
-        return frameTimes;
-    }
-
-    private static String toFrameTime(String delayTime) {
-        return "0".equals(delayTime) ? "0" : (delayTime + "0");
-    }
-
-    private static String toString(ColorSpace cs) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0, n = cs.getNumComponents(); i < n; i++) {
-            sb.append(i > 0 ? ", 0" : "ColorSpace[").append(cs.getName(i));
-        }
-        return sb.append(']').toString();
-    }
-
-    private static byte[] toMonochrome2PixelData(Raster raster) {
-        ComponentSampleModel csb = getComponentSampleModel(raster);
-        int pixelStride = csb.getPixelStride();
-        int scanlineStride = csb.getScanlineStride();
-        int h = csb.getHeight();
-        int w = csb.getWidth();
-        int offset = csb.getOffset(0, 0);
-        byte[] src = getData(raster);
-        byte[] dest = new byte[h * w];
-        for (int y = 0, j = 0; y < h; y++) {
-            for (int x = 0, i = y * scanlineStride; x < w; x++, i += pixelStride) {
-                dest[j++] = src[i + offset];
-            }
-        }
-        return dest;
-    }
-
-    private static byte[] toRGBPixelData(Raster raster) {
-        byte[] dest = new byte[raster.getHeight() * raster.getWidth() * 3];
-        copyRGBPixelDataTo(raster, dest, 0);
-        return dest;
-    }
-
-    private static void copyRGBPixelDataTo(Raster raster, byte[] dest, int offset) {
-        ComponentSampleModel csb = getComponentSampleModel(raster);
-        int pixelStride = csb.getPixelStride();
-        int scanlineStride = csb.getScanlineStride();
-        int h = csb.getHeight();
-        int w = csb.getWidth();
-        int r = csb.getOffset(0, 0, 0);
-        int g = csb.getOffset(0, 0, 1);
-        int b = csb.getOffset(0, 0, 2);
-        byte[] src = getData(raster);
-        for (int y = 0, j = offset; y < h; y++) {
-            for (int x = 0, i = y * scanlineStride; x < w; x++, i += pixelStride) {
-                dest[j++] = src[i + r];
-                dest[j++] = src[i + g];
-                dest[j++] = src[i + b];
-            }
-        }
-    }
-
-    private static byte[] getData(Raster raster) {
-        DataBuffer dataBuffer = raster.getDataBuffer();
-        if (!(dataBuffer instanceof DataBufferByte) || dataBuffer.getNumBanks() > 1) {
-            throw new UnsupportedOperationException(raster.toString());
-        }
-        return ((DataBufferByte) dataBuffer).getData();
-    }
-
-    private static ComponentSampleModel getComponentSampleModel(Raster raster) {
-        SampleModel sb = raster.getSampleModel();
-        if (!(sb instanceof ComponentSampleModel)) {
-            throw new UnsupportedOperationException(sb.toString());
-        }
-        return (ComponentSampleModel) sb;
-    }
-
     public static DicomObject toImagePixelModule(int samples, String pmi, int rows,  int columns,
             byte[] pixelData, DicomObject attrs) {
         if (attrs == null) {
@@ -511,22 +584,46 @@ public class BufferedImageUtils {
         attrs.setBytes(Tag.Pixel​Data, VR.OB, pixelData);
         return attrs;
     }
-    
-    private static int dataType(int bit, boolean signed, int sample) {
-    	if(bit == 8 && sample == 1) {
-    		return DataBuffer.TYPE_BYTE;
-    	}else if(bit == 8 && sample >= 3) {
-    		return DataBuffer.TYPE_BYTE;//INT ? 
-    	}else if((bit > 8 && bit <= 16) && signed && sample == 1) {
-    		return DataBuffer.TYPE_SHORT;
-    	}else if((bit > 8 && bit <= 16) && !signed && sample == 1) {
-    		return DataBuffer.TYPE_USHORT;
-    	}else if(bit == 32 && sample == 1) {
-    		return DataBuffer.TYPE_FLOAT;
-    	}else if(bit == 64 && sample == 1) {
-    		return DataBuffer.TYPE_DOUBLE;
-    	}
-    	return DataBuffer.TYPE_UNDEFINED;
+
+    private static byte[] toMonochrome2PixelData(Raster raster) {
+        ComponentSampleModel csb = getComponentSampleModel(raster);
+        int pixelStride = csb.getPixelStride();
+        int scanlineStride = csb.getScanlineStride();
+        int h = csb.getHeight();
+        int w = csb.getWidth();
+        int offset = csb.getOffset(0, 0);
+        byte[] src = getData(raster);
+        byte[] dest = new byte[h * w];
+        for (int y = 0, j = 0; y < h; y++) {
+            for (int x = 0, i = y * scanlineStride; x < w; x++, i += pixelStride) {
+                dest[j++] = src[i + offset];
+            }
+        }
+        return dest;
+    }
+
+    private static byte[] toPixeldata(List<byte[]> frames) {
+        byte[] pixeldata = new byte[frames.get(0).length * frames.size()];
+        int pos = 0;
+        for (byte[] frame : frames) {
+            System.arraycopy(frame, 0, pixeldata, pos, frame.length);
+            pos += frame.length;
+        }
+        return pixeldata;
+    }
+
+    private static byte[] toRGBPixelData(Raster raster) {
+        byte[] dest = new byte[raster.getHeight() * raster.getWidth() * 3];
+        copyRGBPixelDataTo(raster, dest, 0);
+        return dest;
+    }
+
+    private static String toString(ColorSpace cs) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0, n = cs.getNumComponents(); i < n; i++) {
+            sb.append(i > 0 ? ", 0" : "ColorSpace[").append(cs.getName(i));
+        }
+        return sb.append(']').toString();
     }
 
 }

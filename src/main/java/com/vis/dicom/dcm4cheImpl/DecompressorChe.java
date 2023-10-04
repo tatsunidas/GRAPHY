@@ -37,7 +37,12 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
+import java.io.File;
+
 import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.UID;
+
+import com.vis.dicom.DicomObject;
 
 public class DecompressorChe extends org.dcm4che3.imageio.codec.Decompressor implements com.vis.imageio.Decompressor{
 
@@ -47,6 +52,15 @@ public class DecompressorChe extends org.dcm4che3.imageio.codec.Decompressor imp
 
 	public boolean decompress() {
 		return super.decompress();
+	}
+	
+	public boolean decompress(File src, File target) {
+		DicomReaderChe reader = new DicomReaderChe(src.getAbsolutePath(), true);
+		DicomObjectChe obj = (DicomObjectChe)reader.getCore();
+		boolean res = super.decompress();
+		DicomWriterChe writer = new DicomWriterChe();
+		writer.writeDicomImage((DicomObject)obj, (DicomObject)obj.createFileMetaInformation(UID.ImplicitVRLittleEndian), target.getAbsolutePath(), true);
+		return res;
 	}
 
 }

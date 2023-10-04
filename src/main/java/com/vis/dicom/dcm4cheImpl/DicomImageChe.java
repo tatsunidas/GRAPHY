@@ -179,6 +179,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	
 	@Override
 	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixelSample, byte[] newFrame) {
+		
+		if(isPDF()) {
+			setPDF(newFrame);
+		}
+		
 		if(frame > getNumOfFrames()) {
 			return;
 		}
@@ -225,6 +230,10 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 				}
 			}
 		}
+	}
+	
+	public void setPDF(byte[] pdfByteArray) {
+		
 	}
 
 	@Override

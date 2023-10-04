@@ -19,15 +19,13 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
 /**
- * TODO
  * @author tatsunidas
  *
  */
 @SuppressWarnings("serial")
 public class LogWindow extends JFrame{
 	
-	public String save_log_file_name = "graphy_log_file";
-	
+	//debug
 	public static void main (String[] args) {
 		LogWindow lw = new LogWindow();
 		lw.setVisible(true);
@@ -36,11 +34,13 @@ public class LogWindow extends JFrame{
 		Log.logger.severe(Log.message(Level.SEVERE, "Information message3"));
 	}
 	
-	public Log logUtil;
+	private static LogWindow logWin = new LogWindow();
+	public String save_log_file_name = "graphy_log_file";
+	Log logUtil;
 	JTextArea logTextArea = null;
 	JScrollPane pane = null;
 	
-	public LogWindow() {
+	private LogWindow() {
 		
 		if(Log.logger == null) {
 			logUtil = new Log();
@@ -77,26 +77,33 @@ public class LogWindow extends JFrame{
 		repaint();
 	}
 	
+	public static LogWindow getInstance() {
+		if(LogWindow.logWin == null) {
+			LogWindow.logWin = new LogWindow();
+		}
+		return LogWindow.logWin;
+	}
+	
 	public void saveText(String titleWithoutExtension) {
-		if(logTextArea !=null) {
+		if (logTextArea != null) {
 			Document text = logTextArea.getDocument();
-			if(text.getLength() == 0) {
+			if (text.getLength() == 0) {
 				JOptionPane.showConfirmDialog(this, "There is empty text...");
 				return;
 			}
 			String log = null;
 			try {
-				log = text.getText(0,text.getLength());
+				log = text.getText(0, text.getLength());
 			} catch (BadLocationException e1) {
 				e1.printStackTrace();
 				Log.logger.warning("can not save log file...");
 				return;
 			}
-			
+
 			JFileChooser chooser = new JFileChooser();
-			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);//no file name mode
+			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);// no file name mode
 			int res = chooser.showSaveDialog(this);
-			if(res == JFileChooser.APPROVE_OPTION) {
+			if (res == JFileChooser.APPROVE_OPTION) {
 				File dest = chooser.getSelectedFile();
 				String dest_path = dest.getAbsolutePath() + File.separator + titleWithoutExtension + ".txt";
 				try (PrintWriter out = new PrintWriter(dest_path)) {

@@ -37,12 +37,18 @@
  */
 package com.vis.imageio;
 
+import java.io.File;
+
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.dcm4cheImpl.DecompressorChe;
 import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
 public interface Decompressor {
+	
+	public static Decompressor newInstance(DicomObject dcm, String fromTSUID) {
+		return newInstance(dcm, fromTSUID, DICOMBackend.getCurrent());
+	}
 	
 	public static Decompressor newInstance(DicomObject dcm, String fromTSUID, DICOMBackend backend) {
 		if(backend == DICOMBackend.DCM4CHE) {
@@ -55,5 +61,6 @@ public interface Decompressor {
 	}
 	
 	public boolean decompress();
+	public boolean decompress(File src, File target);
 
 }

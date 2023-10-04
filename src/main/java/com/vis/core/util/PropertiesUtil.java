@@ -136,10 +136,23 @@ public class PropertiesUtil {
 		saveProperties(prop, proppath);
 	}
 	
+	public static void setPropertyAt(ConfigInfo propFile, GraphyProp key, String value) {
+		String proppath = new File(propFile.toString()).getAbsolutePath();
+		Properties prop = loadProperties(proppath);
+		prop.setProperty(key.name(), value);
+		saveProperties(prop, proppath);
+	}
+	
 	public static String getPropValueFrom(String path, String key) {
 		path = new File(path).getAbsolutePath();
 		Properties prop = loadProperties(path);
 		return prop != null ? (String) loadProperties(path).get(key):null;
+	}
+	
+	public static String getPropValueFrom(ConfigInfo propFile, GraphyProp key) {
+		String p = new File(propFile.toString()).getAbsolutePath();
+		Properties prop = loadProperties(p);
+		return prop != null ? (String) loadProperties(p).get(key.name()):null;
 	}
 	
 	/**

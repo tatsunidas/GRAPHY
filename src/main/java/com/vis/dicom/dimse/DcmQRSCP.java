@@ -111,7 +111,9 @@ import com.vis.core.log.Log;
 import com.vis.db.DatabaseHandler;
 import com.vis.db.DicomServer;
 import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
@@ -1190,7 +1192,12 @@ public class DcmQRSCP implements DicomServer{
 		return attrs;
 	}
 
-	public void writeGraphyDB(Attributes data, File dest) {
+	private void writeGraphyDB(Attributes data, File dest) {
+		DicomObjectChe dcmChe = new DicomObjectChe(data);
+		DatabaseHandler.getInstance().writeDatasetInfo((DicomObject)dcmChe, dest.getAbsolutePath());
+	}
+	
+	public void writeGraphyDB(DicomObject data, File dest) {
 		DatabaseHandler.getInstance().writeDatasetInfo(data, dest.getAbsolutePath());
 	}
 

@@ -23,6 +23,7 @@ import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
+import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.dimse.DcmQRSCP;
 import java.nio.file.Files;
@@ -70,6 +71,8 @@ public class DatabaseHandler {
 
 	// derby
 	private EmbeddedDataSource derby;
+	private final String protocol = "jdbc:derby:";//connectionURL
+	private final String driverName = "org.apache.derby.jdbc.EmbeddedDriver";
 	private final String	databasename = "graphydb";//will become db folder name
 	private final String username = "graphy";
 	private final String password = "graphy-mtfbwy";
@@ -79,6 +82,11 @@ public class DatabaseHandler {
 	private final String defaultAET = "GRAPHY";
 	private final String defaultHost = "localhost";
 	private final String defaultPort = "4891";//for dimse, 
+	private boolean useDicomDir = false;
+	private String recordFactoryPath = new File("./conf/RecordFactory.xml").getAbsolutePath();
+    /* ae.properties for dicomdir mode */
+    private String aeProp = new File("./conf/ae.properties").getAbsolutePath();
+	
 		
 	/*
 	 * DICOM "TM" format consists of a string of characters of the format hhmmss.frac;
@@ -112,13 +120,11 @@ public class DatabaseHandler {
 			return new DatabaseHandler(this);
 		}
 	}
-
 	
 	private DatabaseHandler(DatabaseHandlerBuilder builder) {
 		datbaseRef = this;
 	}
 	
-
 	/* to use when starting graphy */
 	public static DatabaseHandler getInstance() {
 		return datbaseRef;
@@ -128,12 +134,28 @@ public class DatabaseHandler {
 		this.saveAsLink = bool;
 	}
 	
+	public String getUserName() {
+		return username;
+	}
+	
+	public String getPassword() {
+		return password;
+	}
+	
+	public String getProtocolName() {
+		return protocol;
+	}
+	
 	public String getDriverName() {
-		return "org.apache.derby.jdbc.EmbeddedDriver";
+		return driverName;
 	}
 	
 	public String getDatabaseName() {
 		return databasename;
+	}
+	
+	public EmbeddedDataSource getEmbeddedDataSource() {
+		return derby;
 	}
 	
 	public String getDatabaseFolderPath(boolean withDatabaseNameFolder) {
@@ -169,13 +191,6 @@ public class DatabaseHandler {
 	 * @return exist or not
 	 */
 	public boolean checkDBExists(String dbdir) {
-		if(derby == null) {
-			try {
-				makeDataSource(dbdir, true);
-			} catch (Throwable e) {
-				e.printStackTrace();
-			}
-		}
 		Connection con = openConnection();
 		if (con != null) {
 			try (con) {
@@ -244,10 +259,7 @@ public class DatabaseHandler {
 			return false;
 		}
 	}
-
-	/*
-	 * use for starting app
-	 */
+	
 	public void startingUp() {
 		
 		try {
@@ -256,6 +268,14 @@ public class DatabaseHandler {
 			System.setProperty("derby.system.home", dbdir);
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+		
+		if(derby == null) {
+			try {
+				makeDataSource(dbdir, true);
+			} catch (Throwable e) {
+				e.printStackTrace();
+			}
 		}
 		
 		boolean dbExists = checkDBExists(dbdir);
@@ -270,7 +290,7 @@ public class DatabaseHandler {
 			}
 		} catch (SQLException e) {
 			logger.severe("Can not start DB because can not read SQL files ...");
-			// TODO exitApp();
+			shutdownDB();
 		}
 		
 		//check configuration file
@@ -292,33 +312,33 @@ public class DatabaseHandler {
 		}
 		
 		//start qrscp
-		//get current details
 		String details[] = getListenerDetails();
     	String currentAet = details[0];
     	String currentHost = details[1];
     	String currentPort = details[2];
     	String currentStorageDirPath = details[3];
-    	/* dicomdir features that do read/write images to debug purpose */
-//    	String dicomDirPath = details[3];
 		try {
 			dcmqrscp = new DcmQRSCP();
-			String args[] = { 
-					"-b", 
-					currentAet+"@"+currentHost+":"+currentPort,
-//					"--all-storage",
-					/* see DcmQRSCP::configureDicomFileSet */
-					"--graphy-storage-dir", 
-					currentStorageDirPath,
-					/* FindSCU response value settings */
-					//https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
-					"--record-config",
-					recFac.getAbsolutePath(),
-					};
-			if(dcmqrscp.start(args)) {
-				logger.info("DicomServer(DcmQRSCP) started.");
+			if (!useDicomDir) {
+				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
+//						"--all-storage",
+						"--graphy-storage-dir", currentStorageDirPath,
+						/* FindSCU response value settings */
+						// https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
+						"--record-config", recFac.getAbsolutePath()};
+				dcmqrscp.start(args);
+			} else {
+				/* dicomdir mode : debug purpose */
+				String dicomDirPath = details[3];
+				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
+//						"--all-storage",
+						"--dicomdir", dicomDirPath,
+						"--ae-config", aeProp };
+				dcmqrscp.start(args);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+			shutdownDB();
 		}
 	}
 	
@@ -328,7 +348,7 @@ public class DatabaseHandler {
 	 */
 	private Connection openConnection() {
 		if(derby == null) {
-			logger.warning("Should be makeDataSource() first before open Connection.");
+			// logger.warning("Should be makeDataSource() first before open Connection.");
 			return null;
 		}
 		/* Open connection */
@@ -955,7 +975,7 @@ public class DatabaseHandler {
 		}
 	}
 		
-	public boolean checkCanImport(Attributes ds) {
+	public boolean checkCanImport(DicomObject ds) {
 		boolean canImport = false;
 		String patID = ds.getString(Tag.PatientID);
 		String studyUID = ds.getString(Tag.StudyInstanceUID);
@@ -970,7 +990,7 @@ public class DatabaseHandler {
 		}
 	}
 	
-	public boolean overWriteSavedAsLinkRecord(Attributes ds,boolean saveAsLinkWillImport) {
+	public boolean overWriteSavedAsLinkRecord(DicomObject ds,boolean saveAsLinkWillImport) {
 		boolean overWrite = false;
 		String patID = ds.getString(Tag.PatientID);
 		String studyUID = ds.getString(Tag.StudyInstanceUID);
@@ -992,7 +1012,7 @@ public class DatabaseHandler {
 		return overWrite;
 	}
 
-	public synchronized void writeDatasetInfo(Attributes dataset, String filePath) {
+	public synchronized void writeDatasetInfo(DicomObject dataset, String filePath) {
 		boolean overWrite = overWriteSavedAsLinkRecord(dataset,saveAsLink);
 		if(!checkCanImport(dataset) && !overWrite) {
 			return;
@@ -1025,7 +1045,7 @@ public class DatabaseHandler {
 //		StoreSCU.main(args);// then ran after writeDB in DcmQRSCP
 //	}
 
-	public void insertPatientInfo(Attributes dataset) {
+	public void insertPatientInfo(DicomObject dataset) {
 		if (!(checkRecordExists("PATIENT", "PatientID", dataset.getString(Tag.PatientID)))) {
 			Connection conn = openConnection();
 			java.util.Date date = null;
@@ -1054,7 +1074,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void insertStudyInfo(Attributes dataset, boolean saveAsLink, String patientID) {
+	public void insertStudyInfo(DicomObject dataset, boolean saveAsLink, String patientID) {
 		if (!checkRecordExists("STUDY", "StudyInstanceUID", dataset.getString(Tag.StudyInstanceUID))) {
 			Connection conn = openConnection();
 			try {
@@ -1143,7 +1163,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void insertSeriesInfo(final Attributes dataset, String patientId, String studyUid, boolean saveAsLink) {
+	public void insertSeriesInfo(final DicomObject dataset, String patientId, String studyUid, boolean saveAsLink) {
 		/*
 		 * do not use checkSeriesRecordExists here.
 		 * Each UIDs is primary-key, which not allow duplicate, always be identical and unique in tables.
@@ -1268,7 +1288,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void insertImageInfo(Attributes dataset, String filePath, String patientID, String studyUid,
+	public void insertImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
 		
 		/*
@@ -1333,7 +1353,7 @@ public class DatabaseHandler {
 					? new String(dataset.getBytes(Tag.SliceThickness))
 					: "";
 			// To get the Referenced SOP Instance UID
-			Attributes refImageSeq = dataset.getNestedDataset(Tag.ReferencedImageSequence);
+			DicomObject refImageSeq = dataset.getNestedDataset(Tag.ReferencedImageSequence);
 			if (refImageSeq != null) {
 				//TODO シーケンスの再帰的探索
 //                if (refImageSeq.hasItems()) {//tatsu
@@ -1400,7 +1420,7 @@ public class DatabaseHandler {
 //		}//checkRecordExists image level
 	}
 	
-	public void updateImageInfo(Attributes dataset, String filePath, String patientID, String studyUid,
+	public void updateImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
 		
 		Connection conn = openConnection();

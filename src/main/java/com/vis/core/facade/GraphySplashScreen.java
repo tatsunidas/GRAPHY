@@ -27,8 +27,7 @@ import com.vis.core.log.Log;
  * https://docs.oracle.com/javase/tutorial/uiswing/misc/splashscreen.html
  * 
  * But, it requires jvm option or Manifest option.
- * 
- * So, in graphy, use JFrame basis original Splash Screen.
+ * So, in graphy, use JFrame basis original splash screen.
  * 
  * @author tatsunidas
  *
@@ -46,16 +45,22 @@ public class GraphySplashScreen extends JFrame {
 	public GraphySplashScreen() {
 		setLayout(new BorderLayout());
 		setUndecorated(true);// title bar no visible
-		BufferedImage splash = null;
-		try {
-			splash = ImageIO.read(Resources.Splash.toURL());
-		} catch (IOException e) {
-			// skip showing splash
-			dispose();
-			return;
-		}
+		Image splash = Resources.Splash.loadIconFromResource().getImage();
+		// Create a buffered image with transparency
+	    BufferedImage bimage = new BufferedImage(splash.getWidth(null), splash.getHeight(null), BufferedImage.TYPE_INT_ARGB);
 
-		SplashPanel sp = new SplashPanel(splash);
+	    // Draw the image on to the buffered image
+	    Graphics2D bGr = bimage.createGraphics();
+	    bGr.drawImage(splash, 0, 0, null);
+	    bGr.dispose();
+//		try {
+//			splash = ImageIO.read(Resources.Splash.toURL());
+//		} catch (IOException e) {
+//			dispose();
+//			return;
+//		}
+
+		SplashPanel sp = new SplashPanel(bimage);//(splash);
 		add(sp, BorderLayout.CENTER);
 		
 		progress = new JProgressBar();
@@ -70,7 +75,7 @@ public class GraphySplashScreen extends JFrame {
 		pack();
 		
 		//then, set sizes
-		setSize(new Dimension(splash.getWidth(),splash.getHeight()+progress.getHeight()));
+		setSize(new Dimension(bimage.getWidth(),bimage.getHeight()+progress.getHeight()));
 		
 		setLocationRelativeTo(null);
 		setVisible(true);
@@ -79,10 +84,11 @@ public class GraphySplashScreen extends JFrame {
 	}
 	
 	public void startProgressAndClose(String progressPrefix, int max) {
-		new Thread(){
-	        public void run(){
-	        	progress.setMaximum(max);
-				progress.setString("[" + progressPrefix + "]:" + ResourceBundle.getBundle("i18n.i18n").getString("GraphySplashScreen.readyToStart"));
+		new Thread() {
+			public void run() {
+				progress.setMaximum(max);
+				progress.setString("[" + progressPrefix + "]:"
+						+ ResourceBundle.getBundle("i18n.i18n").getString("GraphySplashScreen.readyToStart"));
 				progress.repaint();
 				for (int i = 0; i < max; i++) {
 					progress.setValue(i++);
@@ -96,14 +102,14 @@ public class GraphySplashScreen extends JFrame {
 				progress.setString("GRAPHY start ...");
 				progress.repaint();
 				try {
-					Thread.sleep( max < 5 ? 2000:1500);
+					Thread.sleep(max < 5 ? 2000 : 1200);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					Log.logger.log(Level.SEVERE, e.getMessage());
 				}
 				dispose();
-	        }
-	    }.start();
+			}
+		}.start();
 	}
 	
 	private class SplashPanel extends JPanel{
@@ -114,11 +120,13 @@ public class GraphySplashScreen extends JFrame {
     		this.bg = bg;
     		this.w = bg.getWidth();
     		this.h = bg.getHeight();
-//    		this.setSize(w, h);
+    		this.setBounds(0, 0, w, h);
+    		this.setPreferredSize(new Dimension(w, h));
     	}
     	
 		@Override
 		public void paintComponent(Graphics g) {
+			super.paintComponent(g);
 			/*
 			 * if you want to resizing
 			 */

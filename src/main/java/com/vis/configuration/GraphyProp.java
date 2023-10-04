@@ -8,7 +8,6 @@ public enum GraphyProp {
 	MainScreenX,
 	MainScreenDeviceID,
 	LocalDBLocation,
-	NumOfPadForPatientID,
 	MainScreenHeight,
 	MainScreenY,
 	Viewer2DScreenDeviceID,
@@ -19,9 +18,9 @@ public enum GraphyProp {
 	Viewer2DScreenY,
 	LookAndFeels,
 	RefreshQRTreeTableOn,
-	FontSize,
 	Viewer2DScreenWidth,
 	MainScreenWidth,
+	FontSize,
 	TextFont,
 	UseDefaultLocalDBLocation,
 	ColumnOrder;

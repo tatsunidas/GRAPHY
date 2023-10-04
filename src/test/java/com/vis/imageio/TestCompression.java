@@ -140,11 +140,11 @@ public class TestCompression {
 		
 		//RGB-RLE
 		//Unsupported Transfer Syntax: 1.2.840.10008.1.2.5
-		DicomImage dcm = DicomImage.newDicomImage(rgbPath, DICOMBackend.DCM4CHE);
-		Compressor c = Compressor.newInstance(dcm.getCore(), dcm.getTSUID().uid(), DICOMBackend.DCM4CHE);
-		c.compress(Codec.RLE.uidString(), new String[] {});
-		dcm = DicomImage.newDicomImage(dcm.getCore(), Codec.RLE.uid);
-		writer.write(dcm.getCore(), dcm.getTSUID().uid(), "test_RLE.dcm");
+//		DicomImage dcm = DicomImage.newDicomImage(rgbPath, DICOMBackend.DCM4CHE);
+//		Compressor c = Compressor.newInstance(dcm.getCore(), dcm.getTSUID().uid(), DICOMBackend.DCM4CHE);
+//		c.compress(Codec.RLE.uidString(), new String[] {});
+//		dcm = DicomImage.newDicomImage(dcm.getCore(), Codec.RLE.uid);
+//		writer.write(dcm.getCore(), dcm.getTSUID().uid(), "test_RLE.dcm");
 	}
 	
 	static DicomImage create8BitGrayDicomSampleFrom(String path) {

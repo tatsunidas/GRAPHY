@@ -10,10 +10,12 @@
 		<maven.compiler.source>1.11</maven.compiler.source>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		
-		<imagej-version>1.53t</imagej-version>
+		<imagej-version>1.54f</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
 		<derby-version>10.14.2.0</derby-version>
 		<pdfbox-version>2.0.12</pdfbox-version>
+		<apache-commons-io-version>2.13.0</apache-commons-io-version>
+		<radiance-substance-version>4.5.0</radiance-substance-version>
 		
 	</properties>
 	
@@ -60,13 +62,14 @@
 	<dependencies>
 		
 		<!-- IMAGES LIBRARIES -->
-		
 		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
 		<dependency>
-			<groupId>net.imagej</groupId>
-			<artifactId>ij</artifactId>
-			<version>${imagej-version}</version>
+		    <groupId>net.imagej</groupId>
+		    <artifactId>ij</artifactId>
+		    <version>${imagej-version}</version>
 		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
 		<!--
 		https://mvnrepository.com/artifact/net.ihe.gazelle.pixelmed.validator/Pixelmed-jar -->
 		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed -->
@@ -102,6 +105,12 @@
 			<groupId>sc.fiji</groupId>
 			<artifactId>3D_Viewer</artifactId>
 			<version>4.0.5</version>
+			<exclusions>
+				<exclusion>
+					<groupId>net.imagej</groupId>
+					<artifactId>ij</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- DB LIBRARIES -->
@@ -114,8 +123,7 @@
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derbyclient -->
 		<dependency>
-			<groupId>
-				org.apache.derby</groupId>
+			<groupId>org.apache.derby</groupId>
 			<artifactId>derbyclient</artifactId>
 			<version>${derby-version}</version>
 		</dependency>
@@ -232,6 +240,38 @@
 
 
 		<!-- MISC LIBRARIES -->
+		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+		<dependency>
+		    <groupId>commons-io</groupId>
+		    <artifactId>commons-io</artifactId>
+		    <version>${apache-commons-io-version}</version>
+		</dependency>
+		
+		<!-- https://mvnrepository.com/artifact/org.pushing-pixels/radiance-substance -->
+		<dependency>
+		    <groupId>org.pushing-pixels</groupId>
+		    <artifactId>radiance-substance</artifactId>
+		    <version>${radiance-substance-version}</version>
+		</dependency>
+		
+		<!-- PDF -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>${pdfbox-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox-tools</artifactId>
+			<version>${pdfbox-version}</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.jdatepicker</groupId>
+			<artifactId>jdatepicker</artifactId>
+			<version>1.3.4</version>
+		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<!--
 		<dependency>
