@@ -30,9 +30,9 @@ import com.vis.core.util.Utils;
  *
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTableManager extends JTabbedPane {
+public class DICOMTreeTableDockManager extends JTabbedPane {
 
-	DICOMTreeTableManager dttm = this;
+	DICOMTreeTableDockManager dttm = this;
 	HashMap<String, TabDock> docks;// qrNode
 	ButtonGroup keepTopChckGroup = new ButtonGroup();
 	String currentAnchor = "";// HOME or nickname
@@ -45,7 +45,7 @@ public class DICOMTreeTableManager extends JTabbedPane {
 	 * NULLに注意。
 	 * TabDockのやりとりはなるべくdocks = new HashMapをつかう。
 	 */
-	public DICOMTreeTableManager() {
+	public DICOMTreeTableDockManager() {
 		docks = new HashMap<String, TabDock>();
 		currentAnchor  = loadWhichTreeTableKeepTop();
 		addContainerListener(new TabbedPaneContainerListener());

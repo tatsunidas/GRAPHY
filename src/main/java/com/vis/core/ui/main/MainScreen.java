@@ -23,7 +23,7 @@ import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableManager;
+import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableDockManager;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
 import com.vis.core.ui.main.dcmtreetable.TreeTableModel;
 import com.vis.core.util.PropertiesUtil;
@@ -61,7 +61,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 public class MainScreen extends JFrame implements WindowListener{
 
 	// debug
-	static boolean isDebug = Utils.isDebug;
+	boolean isDebug = Utils.isDebug;
 	//singleton
 	private static final MainScreen mainScreen = new MainScreen();
 	
@@ -69,14 +69,14 @@ public class MainScreen extends JFrame implements WindowListener{
 	boolean isLocal;
 	
 	//DICOMTreeNode -Main Explorer-
-	private DICOMTreeTableManager tabDockManager;
+	private DICOMTreeTableDockManager tabDockManager;
 	private DICOMTreeTable localTreeTable;// home treetable
 	/* Main menu bar */
 	MainScreenMenu mainMenuBar;
 	/* Main ToolBar */
 	MainScreenToolBar mainToolBar;
 	/* Main search Bar */
-	MainSearchToolBar searchToolBar;
+	SearchToolBar searchToolBar;
 	JToolBar treeTableDock;//dockable treetable
 	
 	// Variables
@@ -163,7 +163,7 @@ public class MainScreen extends JFrame implements WindowListener{
 		mainNorthPanel.add(mainToolBar,BorderLayout.NORTH);
 		
 		/* SearchToolBar */
-		searchToolBar = new MainSearchToolBar();
+		searchToolBar = new SearchToolBar();
 		mainNorthPanel.add(searchToolBar,BorderLayout.CENTER);
 		add(mainNorthPanel, BorderLayout.NORTH);
 		
@@ -174,6 +174,7 @@ public class MainScreen extends JFrame implements WindowListener{
 		JSplitPane baseSplitPane = new JSplitPane();
 		baseSplitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		baseSplitPane.setDividerLocation(200);
+		baseSplitPane.setOneTouchExpandable(true);
 		
 		//treeTables
 		initTreeTables();
@@ -189,14 +190,9 @@ public class MainScreen extends JFrame implements WindowListener{
 		/*
 		 * South Component 
 		 */
-		//statusbar
-		StatusBar statusBar = new StatusBar();
+		//trianglebar
+		TriangleBar statusBar = new TriangleBar();
 		getContentPane().add(statusBar, BorderLayout.SOUTH);
-		
-		//drop target
-		//add drop target to import
-//		DropTarget dt = new DropTarget(tableScroll, DnDConstants.ACTION_COPY_OR_MOVE,
-//				new DICOMTreeTablePaneDropListener());
 		
 	}
 	
@@ -270,7 +266,7 @@ public class MainScreen extends JFrame implements WindowListener{
 	
 	private void initTreeTables(){
 		// Local/QR TreeTables Manager
-		tabDockManager = new DICOMTreeTableManager();//TabbedPane
+		tabDockManager = new DICOMTreeTableDockManager();//TabbedPane
 		/* Local(HOME) TreeTable */
 		TreeTableModel treeTableModel = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
 		localTreeTable = new DICOMTreeTable(treeTableModel,false,null);
@@ -367,11 +363,11 @@ public class MainScreen extends JFrame implements WindowListener{
 		 */
 	}
 	
-	public DICOMTreeTableManager getCurrentTreeTableManager() {
+	public DICOMTreeTableDockManager getCurrentTreeTableManager() {
 		return this.tabDockManager;
 	}
 	
-	public MainSearchToolBar getMainSearchToolBar() {
+	public SearchToolBar getMainSearchToolBar() {
 		return this.searchToolBar;
 	}
 
@@ -450,12 +446,12 @@ public class MainScreen extends JFrame implements WindowListener{
 //		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
 		String anchorTreeTableTitle = tabDockManager.getCurrentAnchorTitle();
 		if (anchorTreeTableTitle.equals("HOME")) {
-			getMainSearchToolBar().getTextSearchObject().searchDBUsingThisConditions();
+			getMainSearchToolBar().searchDBOnCurrentConditions();
 		}
 	}
 	
 	public void refleshAnchorTreeTable() {
-		getMainSearchToolBar().getTextSearchObject().searchDBUsingThisConditions();
+		getMainSearchToolBar().searchDBOnCurrentConditions();
 	}
 	
 //	public synchronized void constructHomeTreeTable(DICOMNode root) {

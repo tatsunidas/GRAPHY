@@ -71,7 +71,8 @@ public class DICOMTreeTableMouseListener implements MouseListener{
 	    	}
 			String topDockName = WindowManager.getMainScreen().getCurrentTreeTableManager().getTopTabNickname();
 			infoset.put("Nickname", topDockName);
-			WindowManager.getMainScreen().getMainSearchToolBar().getInfoPanel().setInfoset(infoset);
+			//20231004 TODO
+//			WindowManager.getMainScreen().setInfoset(infoset);
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
 			/*
 			 * double clicked

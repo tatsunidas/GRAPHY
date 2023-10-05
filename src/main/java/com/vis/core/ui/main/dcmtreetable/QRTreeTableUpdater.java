@@ -37,7 +37,7 @@ public class QRTreeTableUpdater extends Timer{
 			String anchorTreeTableTitle = mainSc.getCurrentTreeTableManager().getCurrentAnchorTitle();
 			/*update only QR treetable*/
 			if(!anchorTreeTableTitle.equals("HOME")) {
-				mainSc.getMainSearchToolBar().getTextSearchObject().searchDBUsingThisConditions();
+				mainSc.getMainSearchToolBar().searchDBOnCurrentConditions();
 			}
 		}
 		

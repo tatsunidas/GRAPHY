@@ -17,14 +17,14 @@ import javax.swing.JPanel;
  *
  */
 @SuppressWarnings("serial")
-public class StatusBar extends JPanel {
+public class TriangleBar extends JPanel {
 
 	private JPanel contentPanel;
 
-	public StatusBar() {
+	public TriangleBar() {
 		
 		setLayout(new BorderLayout());
-		setPreferredSize(new Dimension(10, 23));
+		setPreferredSize(new Dimension(10, 20));
 
 		JLabel resizeIconLabel = new JLabel(new TriangleSquareWindowsCornerIcon());
 		resizeIconLabel.setOpaque(false);
@@ -71,30 +71,6 @@ public class StatusBar extends JPanel {
 	}
 
 }
-
-//class SeparatorPanel extends JPanel {
-//
-//	/**
-//	 * 
-//	 */
-//	private static final long serialVersionUID = 2589558480938949103L;
-//	private Color leftColor;
-//	private Color rightColor;
-//
-//	public SeparatorPanel(Color left, Color right) {
-//		leftColor = left;
-//		rightColor = right;
-//		setOpaque(false);
-//		setPreferredSize(new Dimension(5, 23));
-//	}
-//
-//	protected void paintComponent(Graphics g) {
-//		g.setColor(leftColor);
-//		g.drawLine(0, 0, 0, getHeight());
-//		g.setColor(rightColor);
-//		g.drawLine(1, 0, 1, getHeight());
-//	}
-//}
 
 class TriangleSquareWindowsCornerIcon implements Icon {
 

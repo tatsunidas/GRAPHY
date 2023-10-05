@@ -30,7 +30,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableManager;
+import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableDockManager;
 import com.vis.core.ui.main.dcmtreetable.QRStateCellEditor;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
@@ -669,7 +669,7 @@ public class QueryRetrieve implements Runnable {
 				? studynode.getData(DICOMNode.SOPInstanceUID)
 				: "");
 		/* set celleditor */
-		DICOMTreeTableManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		int arcInd = treeTable.getArchivedColumnPosition();
@@ -692,7 +692,7 @@ public class QueryRetrieve implements Runnable {
 
 	public void queryAndUpadateTreeTableByTextSearch(String patID, String patName, String from, String to,
 			ArrayList<String> modalities) {
-		DICOMTreeTableManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
 		if (anchorTreeTableTitle.equals("HOME")) {
 			Log.logger.info("QR Pane : Home");
@@ -807,7 +807,7 @@ public class QueryRetrieve implements Runnable {
 		//TODO 20230829
 //		ApplicationContext.importing = true;
 		
-		DICOMTreeTableManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		treeTable.getTableHeader().setEnabled(false);// stop table sort feature. can not ??

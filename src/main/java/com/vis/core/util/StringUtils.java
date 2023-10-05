@@ -40,10 +40,13 @@ package com.vis.core.util;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
@@ -186,6 +189,46 @@ public class StringUtils {
             endIndex--;
         return s.substring(0, endIndex);
     }
+    
+    /**
+     * trim " " and also &nbsp;, "　" those were not trim by String.trim(). 
+     * @param str
+     * @return
+     */
+	public static String trimWhitespace(String str) {
+		if (str == null || str.length() == 0) {
+			return str;
+		}
+		int st = 0;
+		int len = str.length();
+		char[] val = str.toCharArray();
+		while ((st < len) && ((val[st] <= '\u0020') || (val[st] == '\u00A0') || (val[st] == '\u3000'))) {
+			st++;
+		}
+		while ((st < len) && ((val[len - 1] <= '\u0020') || (val[len - 1] == '\u00A0') || (val[len - 1] == '\u3000'))) {
+			len--;
+		}
+		return ((st > 0) || (len < str.length())) ? str.substring(st, len) : str;
+	}
+	
+	public static String removeWhitespace(String str) {
+		if (str == null || str.length() == 0) {
+			return str;
+		}
+		int len = str.length();
+		char[] val = str.toCharArray();
+		ArrayList<Character> val_ = new ArrayList<>();
+		for (int i = 0; i < len; i++) {
+			char c = val[i];
+			if (c != '\u0020' && c != '\u00A0' && c != '\u3000') {
+				val_.add(c);
+			}
+		}
+		Character[] arr = new Character[val_.size()];
+		arr = val_.toArray(arr);
+		char[] charArr = Arrays.stream(arr).map(ch -> ch.toString()).collect(Collectors.joining()).toCharArray();
+		return String.valueOf(charArr);
+	}
 
     public static long parseIS(String s) {
         return s != null && s.length() != 0

@@ -54,7 +54,10 @@ public class BirdsEyeView extends JPanel{
 	ThumbnailListView seriesListView;
 	JPanel tileView;
 	JPanel praparatView;
-	JSplitPane birdsEyeSplit;
+	PatientInfoPanel pInfo;
+	JSplitPane patInfoAndBirdsEyeSplit;
+	JSplitPane birdsEyeSplit;//Thumbnail and tileAndPrapatSplit  
+	JSplitPane tileAndPrapatSplit; 
 	
 	public BirdsEyeView() {
 		initContents();
@@ -62,24 +65,39 @@ public class BirdsEyeView extends JPanel{
 	
 	void initContents() {
 		setLayout(new BorderLayout());
-		//North
-		seriesListView = new ThumbnailListView();
-		//Center
+		
+		patInfoAndBirdsEyeSplit = new JSplitPane();
+		patInfoAndBirdsEyeSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
+		patInfoAndBirdsEyeSplit.setOneTouchExpandable(true);
+		
+		pInfo = new PatientInfoPanel();
+		
 		birdsEyeSplit = new JSplitPane();
-		birdsEyeSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
-		birdsEyeSplit.setDividerLocation(120);
-		//split-left
+		birdsEyeSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
+		
+		patInfoAndBirdsEyeSplit.setLeftComponent(pInfo);
+		patInfoAndBirdsEyeSplit.setRightComponent(birdsEyeSplit);
+		
+		seriesListView = new ThumbnailListView();
+		
+		tileAndPrapatSplit = new JSplitPane();
+		tileAndPrapatSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
+		
+		birdsEyeSplit.setLeftComponent(seriesListView);
+		birdsEyeSplit.setRightComponent(tileAndPrapatSplit);
+		
 		tileView = new JPanel();
 		tileView.setLayout(new BorderLayout());
 		//split-right
 		praparatView = new JPanel();
 		praparatView.setLayout(new BorderLayout());
 		
-		birdsEyeSplit.setLeftComponent(tileView);
-		birdsEyeSplit.setRightComponent(praparatView);
+		tileAndPrapatSplit.setLeftComponent(tileView);
+		tileAndPrapatSplit.setRightComponent(praparatView);
+		tileAndPrapatSplit.setOneTouchExpandable(true);
+		tileAndPrapatSplit.setDividerLocation(700);
 		
-		add(seriesListView, BorderLayout.NORTH);
-		add(birdsEyeSplit, BorderLayout.CENTER);
+		add(patInfoAndBirdsEyeSplit, BorderLayout.CENTER);
 	}
 	
 	public void addSeries(Object praparat) {

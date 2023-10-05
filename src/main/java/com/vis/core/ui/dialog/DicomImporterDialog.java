@@ -99,10 +99,10 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 				return;
 			}
 			if (selectedFiles.length == 0) {
-
 				return;
 			}
 			DicomFileCollection collec = new DicomFileCollection(selectedFiles);
+			collec.collectCandidates();
 			// If large dataset > 10000
 			if (filesTooLarge(collec)) {
 				int res = PopUpMessage.showDialog(this, "Large dataset",
