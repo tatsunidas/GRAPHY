@@ -81,7 +81,7 @@ public class Praparat extends JPanel implements ComponentListener {
 	/*
 	 * Keep in my mind:
 	 * Praparat should be stay simple series viewer. 
-	 * Praparat has layers namely SlideGlass that is a holder of a single image.
+	 * Praparat has layers namely SlideGlass that is a holder of a single frame.
 	 */
 	
 	public enum ViewMode{
@@ -99,7 +99,8 @@ public class Praparat extends JPanel implements ComponentListener {
 	private JScrollPane gridPane;
 	private CineSlider slider;
 	
-	Color studyColor = Color.CYAN;
+	private Color studyColor = Color.CYAN;
+	private final int BORDER_SIZE = 6;
 	
 	private int currentSlice = 0;
 	private int prevSlice = -1;
@@ -174,9 +175,10 @@ public class Praparat extends JPanel implements ComponentListener {
 		if(this.mode == null) {
 			return;
 		}
+		//common
 		slides = new HashMap<Integer, JLayer<SlideGlass>>();
 		setLayout(new BorderLayout());
-		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, 6));// necessary
+		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
 		slider.initContext();
@@ -184,7 +186,6 @@ public class Praparat extends JPanel implements ComponentListener {
 		if(mode == ViewMode.Normal) {
 			add(pvcp, BorderLayout.NORTH);
 			add(slider, BorderLayout.SOUTH);
-			// finally, set praparat to center using LayerUI
 			viewPane = new JLayeredPane();
 			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
 			add(praparatView, BorderLayout.CENTER);
@@ -195,7 +196,6 @@ public class Praparat extends JPanel implements ComponentListener {
 		if(mode == ViewMode.SingleGrid) {
 			add(pvcp, BorderLayout.NORTH);
 			add(slider, BorderLayout.SOUTH);
-			// finally, set praparat to center using LayerUI
 			viewPane = new JLayeredPane();
 			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
 			add(praparatView, BorderLayout.CENTER);
@@ -207,7 +207,7 @@ public class Praparat extends JPanel implements ComponentListener {
 		
 		if(mode == ViewMode.FilmGrid){
 			add(pvcp, BorderLayout.NORTH);
-			// finally, set praparat to center using LayerUI
+			/*No slider*/
 			viewPane = new JLayeredPane();
 			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
 			add(praparatView, BorderLayout.CENTER);
@@ -219,6 +219,7 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 		
 		if(mode == ViewMode.Thumbnail) {
+			/*No controller and slider*/
 			viewPane = new JLayeredPane();
 			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
 			setPraparatViewSize(64, 64);
@@ -235,6 +236,7 @@ public class Praparat extends JPanel implements ComponentListener {
 			add(praparatView, BorderLayout.CENTER);
 			setFocusable(true);
 			setRequestFocusEnabled(true);// fail safe?
+			/*filmGrid is denied*/
 			pvcp.getFilmGridBtn().setEnabled(false);
 		}
 		addComponentListener(this);
@@ -281,6 +283,37 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 		prevSlice = -1;// IMPORTANT
 		currentSlice = 0;
+		if(slider != null) {
+			slider.initContext();
+		}
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
+	}
+	
+	public void prepareSlideGlasses(Praparat p) {
+		if(p == null) {
+			logger.log(Level.SEVERE, "Can not load images from this Praparat.");
+			return;
+		}
+		HashMap<String, Object> info = p.getInfoSet();
+		String patID = (String)info.get("PatientID");
+		String studyUID = (String)info.get("StudyInstanceUID");
+		String seriesUID = (String)info.get("SeriesInstanceUID");
+		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
+		ArrayList<String> pathToImages = p.getImageFileLocations();
+		
+		if(pathToImages == null || pathToImages.size()==0) {
+			System.out.println("prap needs path to images..., return.");
+			return;
+		}
+		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
+		loadSlideGlasses(p);
+		prevSlice = -1;// IMPORTANT
+		currentSlice = 0;
+		if(slider != null) {
+			slider.initContext();
+		}
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -288,7 +321,7 @@ public class Praparat extends JPanel implements ComponentListener {
 	
 	public void prepareSlideGlassesUsingImagePlus(ImagePlus images) {
 		if(images == null || images.getStackSize()==0) {
-			System.out.println("prap needs images..., return.");
+			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
 			return;
 		}
 
@@ -296,7 +329,8 @@ public class Praparat extends JPanel implements ComponentListener {
 			viewPane.removeAll();
 		}
 		if(prevSlice != -1) {
-			//do something ??
+			prevSlice = -1;
+			currentSlice = 0;
 		}
 		constructSeriesGlassesAsLayerUsingImagePlus(images);
 		System.out.println(slides.size()+" images loaded.");
@@ -306,7 +340,7 @@ public class Praparat extends JPanel implements ComponentListener {
 	}
 	
 	
-	public void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
 		this.patID = patID;
 		this.studyUID = studyUID;
 		this.seriesUID = seriesUID;
@@ -323,7 +357,7 @@ public class Praparat extends JPanel implements ComponentListener {
 		infoset.put("Patient​ID", patID);
 		infoset.put("StudyInstanceUID", studyUID);
 		infoset.put("SeriesInstanceUID", seriesUID);
-		infoset.put("SOPInstanceUIDs", sopUIDs);//arraylist
+		infoset.put("SOPInstanceUIDs", sopUIDs);//array
 		return infoset;
 	}
 	
@@ -521,7 +555,11 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 	}
 	
-	public void loadSlideGlasses(HashMap<Integer, JLayer<SlideGlass>> slides) {
+	private void loadSlideGlasses(Praparat p) {
+		if(p == null) {
+			return;
+		}
+		HashMap<Integer, JLayer<SlideGlass>> slides = p.getAllSlides();
 		if (slides == null || slides.size() < 1) {
 			System.out.println("Slides have no images...");
 			return;
@@ -540,9 +578,6 @@ public class Praparat extends JPanel implements ComponentListener {
 			JLayer<SlideGlass> ly = newsg.getSlideGlassAsLayer();
 			this.slides.put(k, ly);
 		}
-		
-		slider.initContext();
-		
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}

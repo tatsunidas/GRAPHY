@@ -335,8 +335,6 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 		}
 		
 		if (e.getID() == MouseEvent.MOUSE_ENTERED) {
-//			System.out.println("MOUSE ENTERED");
-			slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 			slide.requestFocus();//IMPORTANT : key event listen
 			slide.setFocusGained(true);
 		}

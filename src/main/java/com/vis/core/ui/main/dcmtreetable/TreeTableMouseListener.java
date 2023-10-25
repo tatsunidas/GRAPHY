@@ -23,7 +23,7 @@ public class TreeTableMouseListener implements MouseListener{
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		//right click
-		if (SwingUtilities.isRightMouseButton(e)) {
+		if (SwingUtilities.isRightMouseButton(e) && !SwingUtilities.isLeftMouseButton(e) && !SwingUtilities.isMiddleMouseButton(e)) {
 			/*
 			 * example
 			 */

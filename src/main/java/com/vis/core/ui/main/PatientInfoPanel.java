@@ -6,17 +6,21 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.GridLayout;
 import java.util.HashMap;
 
 
 @SuppressWarnings("serial")
-public class PatientInfoPanel extends JToolBar{
+public class PatientInfoPanel extends JPanel{
 	
 	private JTable table;
 
@@ -51,12 +55,17 @@ public class PatientInfoPanel extends JToolBar{
 		for(int i = 0 ; i < tabledata.length ; i++){
 		    tableModel.addRow(tabledata[i]);
 		}
-		table.setPreferredSize(new Dimension(300,300));
 //		table.setEnabled(false);//could not copy from UI
 		JScrollPane scrollPane = new JScrollPane(table);
+		scrollPane.setPreferredSize(new Dimension(300,300));
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-		add(scrollPane);
+		/*JToolBar should be put on JPanel to avoid error of backing floating state*/
+		JToolBar toolBar = new JToolBar("Patient Information");
+		toolBar.add(scrollPane);
+		setLayout(new GridLayout(1,1));
+		add(toolBar);
+		setBackground(getBackground());
 	}
 	
 	public void setInfoset(HashMap<String,String> infoset) {
@@ -79,6 +88,16 @@ public class PatientInfoPanel extends JToolBar{
 		table.getModel().setValueAt("", 5, 1);
 		table.getModel().setValueAt("", 6, 1);
 		table.repaint();
+	}
+	
+	@Override
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		g.setColor(Color.orange);
+		g.draw3DRect(16, 14, 10, 10, false);
+		g.setColor(Color.WHITE);
+		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 32));
+		g.drawString("Patient Information Area", 32, 32);
 	}
 	
 	class HorizontalAlignmentTableRenderer extends DefaultTableCellRenderer {

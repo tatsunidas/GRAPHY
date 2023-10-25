@@ -185,6 +185,7 @@ public class SlideGlass extends JLayeredPane {
 		initImageInfo(header);// execute before setUpGlasses
 		setUpGlassLayer(header);
 		loadRoiFromDB();
+		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 	}
 
 	public Praparat getPraparat() {

@@ -39,6 +39,7 @@ import com.vis.dicom.dimse.DimseUtilities;
 import javax.swing.JMenuBar;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -81,6 +82,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	SearchToolBar searchToolBar;
 	JToolBar treeTableDock;//dockable treetable
 	BirdsEyeView bev;
+	JSplitPane treeTbaleAndBirdsEyeSplitPane;
 	
 	// Variables
 //	private ArrayList<String> serverLabels = new ArrayList<String>();
@@ -167,20 +169,19 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		 * Center Component
 		 */
 		//treetable and bird's eye view
-		JSplitPane baseSplitPane = new JSplitPane();
-		baseSplitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		baseSplitPane.setDividerLocation(200);
-		baseSplitPane.setOneTouchExpandable(true);
+		treeTbaleAndBirdsEyeSplitPane = new JSplitPane();
+		treeTbaleAndBirdsEyeSplitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
+		treeTbaleAndBirdsEyeSplitPane.setOneTouchExpandable(true);
 		
 		//treeTables
 		initTreeTables();
-		baseSplitPane.setLeftComponent(tabDockManager);
+		treeTbaleAndBirdsEyeSplitPane.setLeftComponent(tabDockManager);
 		
 		//birds eye view
 		bev = new BirdsEyeView();
-		baseSplitPane.setRightComponent(bev);
+		treeTbaleAndBirdsEyeSplitPane.setRightComponent(bev);
 		
-		add(baseSplitPane, BorderLayout.CENTER);
+		add(treeTbaleAndBirdsEyeSplitPane, BorderLayout.CENTER);
 		
 		/*
 		 * South Component 
@@ -360,7 +361,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
+						tt.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 						bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+						tt.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					}
 				});
 			}else if(currentShowingStudyUID.equals(studyUID)) {
@@ -370,7 +373,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
+						tt.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 						bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+						tt.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					}
 				});
 			}
@@ -911,6 +916,10 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	public void componentShown(ComponentEvent e) {
 		if(bev !=null) {
 			bev.resetViews(true);
+		}
+		if(treeTbaleAndBirdsEyeSplitPane !=null) {
+			int h =treeTbaleAndBirdsEyeSplitPane.getHeight();
+			treeTbaleAndBirdsEyeSplitPane.setDividerLocation(h-(h/2));
 		}
 	}
 

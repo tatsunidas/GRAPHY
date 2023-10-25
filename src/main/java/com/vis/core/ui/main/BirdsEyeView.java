@@ -40,11 +40,9 @@ package com.vis.core.ui.main;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
+import java.awt.Cursor;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
@@ -56,7 +54,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.MissingIcon;
 import com.vis.core.util.Utils;
@@ -283,22 +280,13 @@ public class BirdsEyeView extends JPanel{
 		if(thumbnail == null) {
 			return;
 		}
-		
-		HashMap<String, Object> infoset = thumbnail.getInfoSet();
-		String patId = (String)infoset.get("PatientID");
-		String studyUid = (String)infoset.get("StudyInstanceUID");
-		String seriesUid = (String)infoset.get("SeriesInstanceUID");
-		currentSeriesUID = seriesUid;
-		String[] sopUidsInSeries = (String[])infoset.get("SOPInstanceUIDs");
-		ArrayList<String> instLocsInSeries = db.getInstancesLoc(studyUid, currentSeriesUID);
-		
+		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
 		 * single grid view
 		 * load all images
 		 */
-		//set series to single grid
-		singleGridView.setInfo(patId, studyUid, currentSeriesUID, sopUidsInSeries, instLocsInSeries);
-		singleGridView.loadSlideGlasses(thumbnail.getAllSlides());
+		singleGridView.prepareSlideGlasses(thumbnail);
 		singleGridView.initImageSizeAndShowFirstImage();
 		//after set first image
 		singleGridView.getController().showInfoText(false);
@@ -310,11 +298,8 @@ public class BirdsEyeView extends JPanel{
 		 * if series includes only one image, does not show self.
 		 */
 		//show same series in single grid view
-		if(sopUidsInSeries.length != 1) {
-//			filmGridView.prepareSlideGlasses(patId, studyUid, currentSeriesUID, sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]), instLocsInSeries);
-			//sharing slides with singlegridview
-			filmGridView.setInfo(patId, studyUid, currentSeriesUID, sopUidsInSeries, instLocsInSeries);
-			filmGridView.loadSlideGlasses(seriesListView.getThumbnail(currentSeriesUID).getAllSlides());
+		if(thumbnail.getNumberOfImages() > 1) {
+			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(5);
 			filmGridView.setTextVisible(false);
@@ -323,6 +308,9 @@ public class BirdsEyeView extends JPanel{
 		}
 		birdsEyeSplit.setDividerLocation(thumbnailSize);
 		seriesListView.highlightSelectedThumbnail(currentSeriesUID);
+		/*SlideGlass has set cross-hair cursor as default*/
+		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+		seriesListView.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
 	
 	public void highlightSelectedImages(ArrayList<String> selectedSopUIDsInItsSeriesOnTreeTable) {
@@ -388,7 +376,6 @@ public class BirdsEyeView extends JPanel{
 		}
 		
 		void addSeries(Praparat praparat) {
-			//TODO
 			if(praparat == null) {
 				JLabel l = new JLabel(new MissingIcon(Color.RED, 64, 64));
 				seriesListPanel.add(l);
