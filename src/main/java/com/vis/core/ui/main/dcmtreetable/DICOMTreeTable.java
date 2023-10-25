@@ -1,33 +1,26 @@
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.*;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.Autoscroll;
 import java.awt.dnd.DnDConstants;
-import java.awt.dnd.DragGestureEvent;
-import java.awt.dnd.DragGestureListener;
 import java.awt.dnd.DragGestureRecognizer;
 import java.awt.dnd.DragSource;
-import java.awt.dnd.DragSourceDragEvent;
-import java.awt.dnd.DragSourceDropEvent;
-import java.awt.dnd.DragSourceEvent;
-import java.awt.dnd.DragSourceListener;
 import java.awt.dnd.DropTarget;
 
 import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.tree.*;
+import javax.swing.table.*;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.PropertiesUtil;
+import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
-import javax.swing.table.*;
+
 
 import java.awt.event.*;
 import java.util.ArrayList;
@@ -35,12 +28,13 @@ import java.util.Arrays;
 import java.util.EventObject;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Properties;
 
 /**
  * This example shows how to create a simple JTreeTable component, by using a
  * JTree as a renderer (and editor) for the cells in a particular column in the
  * JTable.
+ * 
+ * https://www.comp.nus.edu.sg/~cs3283/ftp/Java/swingConnect/tech_topics/tables_trees_2/tables_trees_2.html
  *
  * @author Philip Milne
  * @author Scott Violet
@@ -48,16 +42,19 @@ import java.util.Properties;
  */
 @SuppressWarnings("serial")
 public class DICOMTreeTable extends JTable implements Autoscroll {
-	DICOMTreeTable treeTable;
+	
+	private final int col_minWidth = 90;
+	private final int rowHeight = 24;
+	
 	public boolean isQR = false;
 	private DicomCommunicationNode remote;
-	private DICOMTreeTableModelAdapter adapter; 
-	protected DICOMTreeTableCellRenderer tree;//sub class of jtree
+	private TreeTableModelAdapter adapter; 
+	protected TreeTableCellRenderer tree;//sub class of jtree
 	protected Point viewLocation;
 	
 	// drop target
 	DragSource dragSource = DragSource.getDefaultDragSource();
-//	protected DICOMNodeDragSourceListener sourceListener;
+	protected DICOMNodeDragSourceListener sourceListener;
 	protected ArrayList<DICOMNode> draggedComponent;
 
 	//////////////////////////
@@ -76,7 +73,6 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 				try {
 					throw new Exception();
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 					return;
 				}
@@ -84,71 +80,60 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			this.remote = remote;
 		}
 		
-		treeTable = this;
 		// Create the tree. It will be used as a renderer and editor.
-		tree = new DICOMTreeTableCellRenderer(this, treeTableModel);
+		tree = new TreeTableCellRenderer(this, treeTableModel);
 
 		// set root node no visible
 		tree.setRootVisible(false);
 
 		// Install a tableModel representing the visible rows in the tree.
-		adapter = new DICOMTreeTableModelAdapter(treeTableModel, tree);
+		adapter = new TreeTableModelAdapter(treeTableModel, tree);
 		super.setModel(adapter);
 		
 		// Force the JTable and JTree to share their row selection models.
-		ListToTreeSelectionModelWrapper selectionWrapper = new ListToTreeSelectionModelWrapper();
-//		tree.setSelectionModel(selectionWrapper);
-		tree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
-		setSelectionModel(selectionWrapper.getListSelectionModel());
+		ListToTreeSelectionModelWrapper selectionWrapper = new ListToTreeSelectionModelWrapper(tree);
+		tree.setSelectionModel(selectionWrapper);
+		
+		super.setSelectionModel(selectionWrapper.getListSelectionModel());
 
 		// Install the tree editor renderer and editor.
 		setDefaultRenderer(TreeTableModel.class, tree);
-		setDefaultEditor(TreeTableModel.class,  new DICOMTreeTableCellEditor(tree,this));
+		setDefaultEditor(TreeTableModel.class,  new TreeTableCellEditor(tree,this));
 
 		if (isQR) {
 			QRStateCellEditor sce = new QRStateCellEditor(this.remote);
 			QRStateCellRenderer scr= new QRStateCellRenderer(sce);
 			getColumn("Archived").setCellRenderer(scr);
 			getColumn("Archived").setCellEditor(sce);
-			setRowHeight(25);//icon size
-			revalidate();
 		} else {
 			// int mode, int state, Integer row, Integer col,Integer progress,Integer
 			// total,JTextField holder
-			LocalDBStateCellRendererableEditor srcre = new LocalDBStateCellRendererableEditor(this, new JTextField());// holder
+			ArchiveCellRendererableEditor srcre = new ArchiveCellRendererableEditor(null);
 			getColumn("Archived").setCellRenderer(srcre);
 			getColumn("Archived").setCellEditor(srcre);
 		}
 
-		// Grid.
-		// setShowGrid(false);
+		setShowGrid(true);
 		setShowHorizontalLines(true);
 
-		// No intercell spacing
+		// No internal cell spacing
 		setIntercellSpacing(new Dimension(0, 0));
-
-		// And update the height of the trees row to match that of
-		// the table.
 		setAutoResizeMode(JTable.AUTO_RESIZE_OFF);// need to show horizontal scroll
+		setRowHeight(rowHeight);
+		// set column cell's min size
 		TableColumnModel columnModel = getColumnModel();
 		for (int i = 0; i < columnModel.getColumnCount(); i++) {
-			columnModel.getColumn(i).setMinWidth(90);
-//			treeTable.setRowHeight(i,height);//you can do this, if you want set height
+			columnModel.getColumn(i).setMinWidth(col_minWidth);
 		}
-		//can also set height
-//		if (tree.getRowHeight() < 1) {
-//			// Metal looks better like this.
-//			setRowHeight(20);
-//		}
 		
 		/*
 		 * Set Listeners
 		 */
 		/*set mouse listener*/
-		new DICOMTreeTableMouseListener(treeTable);
+		new TreeTableMouseListener(this);
 		if(!isQR) {
 			/* set drop listener for importing */
-			new DropTarget(this, new DICOMTreeTableDropListener());
+			new DropTarget(this, new TreeTableDropListener());
 			/*
 			 * set drag source and listener through gesture recognizer to tree nodes for
 			 * local export
@@ -158,29 +143,25 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			DragGestureRecognizer dgr = dragSource.createDefaultDragGestureRecognizer(this, DnDConstants.ACTION_COPY,
 					new DICOMNodeDragGestureListener());
 		}
+		
 		/* To avoid mouse moving tree node selection */
-//		setDragEnabled(true);//get dnd.InvalidDnDOperationException: Drag and drop in progress
+		setDragEnabled(false);//get dnd.InvalidDnDOperationException: Drag and drop in progress
 		
 		/*
-		 * ソートできるが、子ノードの上下が逆転する
+		 * Sort
 		 */
-//		TableRowSorter<?> sorter = new DICOMTreeTableNodeSorter(this);
-//		sorter.setSortsOnUpdates(true);
-//		setRowSorter(sorter);
-		//JTable標準のソートは使えないので、マウスイベントアクションにする
-				// mouse listener
+		DICOMTreeTable dcmTreeTable = this;
 		getTableHeader().addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				int col = columnAtPoint(e.getPoint());
 				String colname = getColumnName(col);
-				System.out.println("Column index selected " + col + " " + colname);
+				if(Utils.isDebug) System.out.println("Column index selected " + col + " " + colname);
 				// sortTree
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						// TODO Auto-generated method stub
-						new DICOMTreeTableNodeSorter().sort(treeTable, colname);
+						new TreeTableNodeSorter().sort(dcmTreeTable, colname);
 					}
 				});
 			}
@@ -217,14 +198,14 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 		 * View settings
 		 */
 		setFillsViewportHeight(true);
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				TableColumnResizer.adjustColumnPreferredWidths(treeTable);
-				//treeTableはJTable, treeはJTreeとして、両方への操作が必要。
-//				FontEditor.setFont2Component(treeTable, Font.SANS_SERIF, Font.PLAIN, 14);
-//				FontEditor.setFont2Component(tree, Font.SANS_SERIF, Font.PLAIN, 14);
-			}
-		});
+		TableColumnResizer.adjustColumnPreferredWidths(this);
+		
+		/*
+		 * must set same font.
+		 */
+		//treeTable is JTable, tree is JTree
+		setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
+		tree.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
 	}
 
 	/**
@@ -241,7 +222,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			// laf changes.
 			
 			int w = WindowManager.getMainScreen().getWidth();
-			treeTable.setSize(w,treeTable.getHeight());
+			setSize(w,getHeight());
 			
 			//do not set tatsu
 //			setDefaultEditor(TreeTableModel.class, new TreeTableCellEditor());
@@ -376,12 +357,12 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 
 	public DICOMNode nodeForRow(int row) {
 //		int ind = convertRowIndexToModel(row);//DO NOT USE for nodeForRow.
-		return (DICOMNode) ((DICOMTreeTableModelAdapter) getModel()).nodeForRow(row);
+		return (DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row);
 	}
 
-	public LocalDBStateCellRendererableEditor getStateCellEditorAtArchiveColumn(int col_index) {
+	public ArchiveCellRendererableEditor getStateCellEditorAtArchiveColumn(int col_index) {
 		TableColumnModel tcm = getColumnModel();
-		return (LocalDBStateCellRendererableEditor) tcm.getColumn(col_index).getCellEditor();
+		return (ArchiveCellRendererableEditor) tcm.getColumn(col_index).getCellEditor();
 	}
 	
 	public QRStateCellEditor getQRStateCellEditorAtArchiveColumn(int col_index) {
@@ -390,7 +371,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 	}
 
 	public int getParticularStudyRow(String patID,String StudyUID) {
-		DICOMTreeTableModelAdapter ttm = (DICOMTreeTableModelAdapter) getModel();
+		TreeTableModelAdapter ttm = (TreeTableModelAdapter) getModel();
 		for (int i = 0; i < ttm.getRowCount(); i++) {
 			DICOMNode node = (DICOMNode) ttm.nodeForRow(i);
 			if (node.getData(DICOMNode.PatientID).equals(patID) && node.getData(DICOMNode.StudyInstanceUID).equals(StudyUID)) {
@@ -448,7 +429,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			return null;
 		}
 		for (int row : rows) {
-			nodes.add((DICOMNode) ((DICOMTreeTableModelAdapter) getModel()).nodeForRow(row));
+			nodes.add((DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row));
 		}
 		return nodes;
 	}
@@ -478,8 +459,8 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 		// or return (TreeTableModel)tree.getModel();
 	}
 
-	public DICOMTreeTableModelAdapter getTableModelInTreeTable() {
-		return (DICOMTreeTableModelAdapter) getModel();
+	public TreeTableModelAdapter getTableModelInTreeTable() {
+		return (TreeTableModelAdapter) getModel();
 	}
 	
 	public int countStudy() {
@@ -569,99 +550,6 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			noDupArray.add(infoSet.get(indexes.get(dicomuid).get(0)));
 		}
 		return noDupArray;
-	}
-
-	/**
-	 * ListToTreeSelectionModelWrapper extends DefaultTreeSelectionModel to listen
-	 * for changes in the ListSelectionModel it maintains. Once a change in the
-	 * ListSelectionModel happens, the paths are updated in the
-	 * DefaultTreeSelectionModel.
-	 */
-	class ListToTreeSelectionModelWrapper extends DefaultTreeSelectionModel {
-		/** Set to true when we are updating the ListSelectionModel. */
-		protected boolean updatingListSelectionModel;
-
-		public ListToTreeSelectionModelWrapper() {
-			super();
-			getListSelectionModel().addListSelectionListener(createListSelectionListener());
-		}
-
-		/**
-		 * Returns the list selection model. ListToTreeSelectionModelWrapper listens for
-		 * changes to this model and updates the selected paths accordingly.
-		 */
-		ListSelectionModel getListSelectionModel() {
-			return listSelectionModel;
-		}
-
-		/**
-		 * This is overridden to set <code>updatingListSelectionModel</code> and message
-		 * super. This is the only place DefaultTreeSelectionModel alters the
-		 * ListSelectionModel.
-		 */
-		public void resetRowSelection() {
-			if (!updatingListSelectionModel) {
-				updatingListSelectionModel = true;
-				try {
-					super.resetRowSelection();
-				} finally {
-					updatingListSelectionModel = false;
-				}
-			}
-			// Notice how we don't message super if
-			// updatingListSelectionModel is true. If
-			// updatingListSelectionModel is true, it implies the
-			// ListSelectionModel has already been updated and the
-			// paths are the only thing that needs to be updated.
-		}
-
-		/**
-		 * Creates and returns an instance of ListSelectionHandler.
-		 */
-		protected ListSelectionListener createListSelectionListener() {
-			return new ListSelectionHandler();
-		}
-
-		/**
-		 * If <code>updatingListSelectionModel</code> is false, this will reset the
-		 * selected paths from the selected rows in the list selection model.
-		 */
-		protected void updateSelectedPathsFromSelectedRows() {
-			if (!updatingListSelectionModel) {
-				updatingListSelectionModel = true;
-				try {
-					// This is way expensive, ListSelectionModel needs an
-					// enumerator for iterating.
-					int min = listSelectionModel.getMinSelectionIndex();
-					int max = listSelectionModel.getMaxSelectionIndex();
-
-					clearSelection();
-					if (min != -1 && max != -1) {
-						for (int counter = min; counter <= max; counter++) {
-							if (listSelectionModel.isSelectedIndex(counter)) {
-								TreePath selPath = tree.getPathForRow(counter);
-
-								if (selPath != null) {
-									addSelectionPath(selPath);
-								}
-							}
-						}
-					}
-				} finally {
-					updatingListSelectionModel = false;
-				}
-			}
-		}
-
-		/**
-		 * Class responsible for calling updateSelectedPathsFromSelectedRows when the
-		 * selection of the list changse.
-		 */
-		class ListSelectionHandler implements ListSelectionListener {
-			public void valueChanged(ListSelectionEvent e) {
-				updateSelectedPathsFromSelectedRows();
-			}
-		}
 	}
 
 	protected Rectangle getTableRect() {

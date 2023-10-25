@@ -1,14 +1,6 @@
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.Component;
-import java.awt.Font;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-
-import javax.imageio.ImageIO;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -16,24 +8,21 @@ import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.tree.DefaultTreeCellRenderer;
 
-import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.GraphyProp;
-import com.vis.core.util.PropertiesUtil;
+import com.vis.configuration.Resources;
 
-public class DICOMTreeIconCellRenderer extends DefaultTreeCellRenderer {
+/**
+ * Render tree icon.
+ * @author tatsunidas
+ *
+ */
+public class TreeIconCellRenderer extends DefaultTreeCellRenderer {
 
 	private static final long serialVersionUID = 5759419998482053684L;
-	private JLabel iconLabel;
 	private boolean showsIcons = true;
-	
-//	private String fontSize;
-	private String textFont;
+	Icon defaultIcon = UIManager.getIcon("FileView.directoryIcon");
+//	int iconSize = 12;
 
-	DICOMTreeIconCellRenderer() {
-		iconLabel = new JLabel();
-//		fontSize = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);
-		textFont = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.TextFont);
-	}
+	TreeIconCellRenderer() {}
 
 	public Icon getClosedIcon() {
 		return (showsIcons ? super.getClosedIcon() : null);
@@ -59,55 +48,56 @@ public class DICOMTreeIconCellRenderer extends DefaultTreeCellRenderer {
 		return (showsIcons ? super.getOpenIcon() : null);
 	}
 
-	private Image getScaledImage(Image srcImg, int w, int h) {
-		BufferedImage resizedImg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g2 = resizedImg.createGraphics();
-		g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-		g2.drawImage(srcImg, 0, 0, w, h, null);
-		g2.dispose();
-		return resizedImg;
-	}
-
 	public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, boolean expanded,
 			boolean leaf, int row, boolean hasFocus) {
 
 		DICOMNode node = (DICOMNode) value;
+		JLabel iconLabel = new JLabel();
 		
-		/* Set Font */
-		
-		if(textFont != null) {
-//			iconLabel.setFont(textFont);// TODO
-		}
-		iconLabel.setText(node.getData(DICOMNode.PatientID));
-		int iconSize = 12;//ApplicationContext.textFont.getSize();// TODO
-		
-		if (node.getLevel() == DICOMNode.IMAGE) {
-			try {
-				iconLabel.setIcon(new ImageIcon(getScaledImage(
-						ImageIO.read(getClass().getResourceAsStream("/icon/dcm_32x32x32.png")), iconSize+3, iconSize+3)));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		} else {
-			iconLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
-		}
-		
-//		else if (node.getLevel() == DICOMNode.PATIENT) {
+//		if (node.getLevel() == DICOMNode.PATIENT) {
 //			iconLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
-//		} else if (node.getLevel() == DICOMNode.STUDY) {
-//			iconLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
-//		} else if (node.getLevel() == DICOMNode.SERIES) {
-//			iconLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
-//			System.out.println("series level");
-//		} else if (node.getLevel() == DICOMNode.IMAGE) {
-//			try {
-//				iconLabel.setIcon(new ImageIcon(ImageIO.read(getClass().getResourceAsStream("/icon/dicom.png"))));
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
 //		}
+		
+		ImageIcon im = null;
+		
+		if (node.getLevel() == DICOMNode.STUDY) {
+			if(expanded) {
+				im = Resources.TreeStudyLevelOpenIcon.loadIconFromResource();
+			}else {
+				im = Resources.TreeStudyLevelCloseIcon.loadIconFromResource();
+			}
+			if(im != null) {
+				iconLabel.setIcon(im);
+			}else {
+				iconLabel.setIcon(defaultIcon);
+			}
+			String desc = node.getData(DICOMNode.StudyDescription);
+			if(desc == null || desc.isBlank() || desc.isEmpty()) {
+				desc = "NO-STUDY-DESC";
+			}
+			iconLabel.setText(desc);
+		} else if (node.getLevel() == DICOMNode.SERIES) {
+			im = Resources.TreeSeriesLevelIcon.loadIconFromResource();			
+			if(im != null) {
+				iconLabel.setIcon(im);
+			}else {
+				iconLabel.setIcon(defaultIcon);
+			}
+			String desc = node.getData(DICOMNode.SeriesDescription);
+			if(desc == null || desc.isBlank() || desc.isEmpty()) {
+				desc = "NO-SERIES-DESC";
+			}
+			iconLabel.setText(desc);
+		} else if (node.getLevel() == DICOMNode.IMAGE) {
+			im = Resources.TreeImageLevelIcon.loadIconFromResource();			
+			if(im != null) {
+				iconLabel.setIcon(im);
+			}else {
+				iconLabel.setIcon(defaultIcon);
+			}
+		}else {
+			iconLabel.setIcon(defaultIcon);
+		}
 		return iconLabel;
 	}
 }

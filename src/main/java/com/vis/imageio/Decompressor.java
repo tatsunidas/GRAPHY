@@ -37,12 +37,14 @@
  */
 package com.vis.imageio;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.dcm4cheImpl.DecompressorChe;
 import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
+import com.vis.dicom.image.DicomImage;
 
 public interface Decompressor {
 	
@@ -61,6 +63,8 @@ public interface Decompressor {
 	}
 	
 	public boolean decompress();
-	public boolean decompress(File src, File target);
+	public void decompress(File src, File target);
+	public void dispose();
+//	public void writeTo(DicomImage decompressedDcmImg);
 
 }

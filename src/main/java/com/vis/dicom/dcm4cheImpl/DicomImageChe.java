@@ -37,13 +37,21 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+
+import javax.imageio.stream.FileImageInputStream;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.BulkData;
 import org.dcm4che3.data.Fragments;
 import org.dcm4che3.data.Tag;
 
+import com.vis.core.log.Log;
+import com.vis.core.util.ByteUtils;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
@@ -52,6 +60,10 @@ import com.vis.dicom.VR;
 import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.PhotometricInterpretation;
+import com.vis.imageio.Codec;
+import com.vis.imageio.PixelDataDecoder;
+
+import ij.process.ImageProcessor;
 
 /**
  * 
@@ -65,6 +77,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	protected DicomObject fmi = null;
 	protected UID tsuid;
 	protected UID sopUID;
+	boolean decompressed = false;
 	
 	public DicomImageChe(DicomObject core, UID tsUID) {
 		this(core, null, tsUID);
@@ -123,6 +136,9 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 
 	@Override
+	/**
+	 * if you want decompressed pixels, do decompress before getPixelData().
+	 */
 	public byte[] getPixelData(int frame) {
 		if(getBitsAllocated() == -1) {
 			//this core does not have pixel
@@ -145,8 +161,14 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		
 		if(bitsAllocated == 32 && samples == 1) {
 			bulk = this.core.getValue(Tag.FloatPixelData);
+			if(bulk == null) {
+				this.core.getValue(Tag.PixelData);
+			}
 		}else if(bitsAllocated == 64 && samples == 1) {
 			bulk = this.core.getValue(Tag.DoubleFloatPixelData);
+			if(bulk == null) {
+				this.core.getValue(Tag.PixelData);
+			}
 		}else {
 			bulk = this.core.getValue(Tag.PixelData);
 		}
@@ -172,16 +194,43 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		}else if(bulk instanceof org.dcm4che3.data.Value) {
+			//decompressed pixel
+			org.dcm4che3.data.Value decom_val = (org.dcm4che3.data.Value)bulk;
+			try {
+				pixels = decom_val.toBytes(org.dcm4che3.data.VR.OW, bigEndian());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		
 		return pixels;
 	}
 	
 	@Override
-	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixelSample, byte[] newFrame) {
+	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixelSample, Object newFrame) {
+		
+		//byte[], short[], float[] or int[]
+		byte[] pixels = null;
+		if(newFrame instanceof byte[]) {
+			pixels = (byte[])newFrame;
+		}else if(newFrame instanceof short[]) {
+			short[] newFrame_ = (short[])newFrame;
+			pixels = ByteUtils.shortToBytes(newFrame_);
+		}else if(newFrame instanceof float[]) {
+			float[] newFrame_ = (float[])newFrame;
+			pixels = ByteUtils.floatToBytes(newFrame_);
+		}else if(newFrame instanceof double[]) {
+			double[] newFrame_ = (double[])newFrame;
+			pixels = ByteUtils.doubleToBytes(newFrame_);
+		}else if(newFrame instanceof int[]) {
+			int[] newFrame_ = (int[])newFrame;
+			pixels = ByteUtils.intToBytes(newFrame_);
+		}
 		
 		if(isPDF()) {
-			setPDF(newFrame);
+			//TODO
+//			setPDF(newFrame);
 		}
 		
 		if(frame > getNumOfFrames()) {
@@ -215,18 +264,18 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 //			core.setValue(tag, vr, fragments)
 		}else if(bulk instanceof byte[]) {
 			if(bitsAllocated == 32 && samples == 1) {
-				core.setBytes(Tag.FloatPixelData, VR.OF, newFrame);
+				core.setBytes(Tag.FloatPixelData, VR.OF, pixels);
 				
 				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),  getWidth(),
-			            newFrame, core); 
+			            pixels, core); 
 				
 			}else if(bitsAllocated == 64 && samples == 1) {
-				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, newFrame);
+				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixels);
 			}else {
 				if(bitsAllocated > 8 && bitsAllocated <= 16) {
-					core.setBytes(Tag.PixelData, VR.OW, newFrame);
+					core.setBytes(Tag.PixelData, VR.OW, pixels);
 				}else {
-					core.setBytes(Tag.PixelData, VR.OB, newFrame);
+					core.setBytes(Tag.PixelData, VR.OB, pixels);
 				}
 			}
 		}
@@ -267,6 +316,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		return PhotometricInterpretation
 				.fromString(core.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
 	}
+	
+	@Override
+	public int getPixel​Representation() {
+		return core.getInt(Tag.PixelRepresentation, -1);
+	}
 
 	@Override
 	public int getBitsAllocated() {
@@ -302,5 +356,18 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	public int getNumOfFrames() {
 		return core.getInt(Tag.NumberOfFrames, 1);
 	}
-
+	
+	@Override
+	public ImageProcessor getImageProcessor(int frame) {
+		if(Codec.isCompressed(getTSUID())) {
+			Log.logger.warning("do decompress before getImageProcessor()...");
+//			return null;
+		}
+		byte[] raw = getPixelData(frame);
+		if(raw == null) {
+			return null;
+		}
+		PixelDataDecoder pdec = new PixelDataDecoder(this);
+		return pdec.decode(raw).getProcessor();
+	}
 }

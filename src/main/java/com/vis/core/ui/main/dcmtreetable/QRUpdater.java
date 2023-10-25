@@ -7,38 +7,35 @@ import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.util.Utils;
 
 /*
  * update current anchor treetable,
  */
-public class QRTreeTableUpdater extends Timer{
+public class QRUpdater extends Timer{
 	
-	public QRTreeTableUpdater() {
+	public QRUpdater() {
 		super();
 		start(3000,20000);
 	}
 	
 	public void start(long delay, long period) {
-		super.scheduleAtFixedRate(new QRTreeTableUpdateTask(), delay, period);
+		super.scheduleAtFixedRate(new TreeTableUpdateTask(), delay, period);
 	}
 	
-	public class QRTreeTableUpdateTask extends TimerTask{
+	class TreeTableUpdateTask extends TimerTask{
 		
-		public QRTreeTableUpdateTask() {
+		public TreeTableUpdateTask() {
 			super();
 		}
 		
-		public void updateQRTreeTable(){
-			System.out.println(" QRUpdater is Running ");
+		public void updateTreeTable(){
+			if(Utils.isDebug) System.out.println(" TreeTableUpdater is Running ");
 			MainScreen mainSc = WindowManager.getMainScreen();
 			if(mainSc.getCurrentTreeTableManager() == null) {
 				return;
 			}
-			String anchorTreeTableTitle = mainSc.getCurrentTreeTableManager().getCurrentAnchorTitle();
-			/*update only QR treetable*/
-			if(!anchorTreeTableTitle.equals("HOME")) {
-				mainSc.getMainSearchToolBar().searchDBOnCurrentConditions();
-			}
+			mainSc.getMainSearchToolBar().searchDBOnCurrentConditions();
 		}
 		
 		@Override
@@ -46,8 +43,7 @@ public class QRTreeTableUpdater extends Timer{
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					// TODO Auto-generated method stub
-					updateQRTreeTable();
+					updateTreeTable();
 				}
 			});
 		}

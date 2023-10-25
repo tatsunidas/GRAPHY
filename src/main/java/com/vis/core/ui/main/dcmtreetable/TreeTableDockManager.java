@@ -30,14 +30,16 @@ import com.vis.core.util.Utils;
  *
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTableDockManager extends JTabbedPane {
+public class TreeTableDockManager extends JTabbedPane {
 
-	DICOMTreeTableDockManager dttm = this;
+	TreeTableDockManager dttm = this;
 	HashMap<String, TabDock> docks;// qrNode
 	ButtonGroup keepTopChckGroup = new ButtonGroup();
 	String currentAnchor = "";// HOME or nickname
 	String topTabNickname = "";//for floating
-	QRTreeTableUpdater updater;
+	QRUpdater updater;
+	
+	public static final String homeTabName = "HOME";
 
 	/*
 	 * TabDockのフローティング時は、
@@ -45,7 +47,7 @@ public class DICOMTreeTableDockManager extends JTabbedPane {
 	 * NULLに注意。
 	 * TabDockのやりとりはなるべくdocks = new HashMapをつかう。
 	 */
-	public DICOMTreeTableDockManager() {
+	public TreeTableDockManager() {
 		docks = new HashMap<String, TabDock>();
 		currentAnchor  = loadWhichTreeTableKeepTop();
 		addContainerListener(new TabbedPaneContainerListener());
@@ -173,7 +175,7 @@ public class DICOMTreeTableDockManager extends JTabbedPane {
 	}
 	
 	public TabDock getHomeDock() {
-		return getParticularDockFromMap("HOME");
+		return getParticularDockFromMap(homeTabName);
 	}
 	
 	public String getTopTabNickname() {
@@ -236,7 +238,7 @@ public class DICOMTreeTableDockManager extends JTabbedPane {
 	public void setAndStartRefreshQRTableTimer() {
 		boolean refreshOn = Boolean.parseBoolean(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn));
 		if(this.updater == null && refreshOn && docks.size() > 1) {
-			this.updater = new QRTreeTableUpdater();//run
+			this.updater = new QRUpdater();//run
 		}else if (this.updater != null && refreshOn){
 			stopRefreshQRTableTimer();
 			setAndStartRefreshQRTableTimer();

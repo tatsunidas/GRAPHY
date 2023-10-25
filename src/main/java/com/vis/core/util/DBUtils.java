@@ -1,4 +1,4 @@
-package com.vis.db;
+package com.vis.core.util;
 
 import java.awt.Toolkit;
 import java.io.File;
@@ -11,7 +11,11 @@ import javax.swing.ImageIcon;
 
 import org.dcm4che3.util.UIDUtils;
 
-public class DBUtil {
+import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
+import com.vis.db.DatabaseHandler;
+
+public class DBUtils {
 	
 	public static boolean isAlreadyRegisteredServer(DatabaseHandler db, String identicalNickname) {
 		if(identicalNickname == null) {
@@ -25,15 +29,8 @@ public class DBUtil {
 		}
 	}
 	
-	public static ImageIcon loadIcon(String iconPathInResource){
-		URI iconURI = null;
-		try {
-			iconURI = DBUtil.class.getResource(iconPathInResource).toURI();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-			return null;
-		}
-		return new ImageIcon(Toolkit.getDefaultToolkit().createImage(new File(iconURI).getAbsolutePath()));
+	public static String getCurrentDBLocation() {
+		return PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation);
 	}
 	
 	/**

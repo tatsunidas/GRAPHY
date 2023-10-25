@@ -1,6 +1,7 @@
 package com.vis.core.ui.main;
 
 import java.awt.Frame;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -46,7 +47,9 @@ public class MainScreenToolBar extends JToolBar {
 
 	ArrayList<String> buttonLabels = new ArrayList<String>();
 	ArrayList<String> keys = new ArrayList<>();
-	MainScreen mainSc = WindowManager.getMainScreen();
+	
+	int NEW_WIDTH = 32;
+	int NEW_HEIGHT = 32;
 	
 	private enum Tool{
 		Import,
@@ -71,7 +74,10 @@ public class MainScreenToolBar extends JToolBar {
 		removeAll();
 		HashMap<Tool,ImageIcon> icons = initButtonList();
 		for(Tool t:Tool.values()) {
-			JButton btn = new JButton(t.name(), icons.get(t));
+			Image img = icons.get(t).getImage();
+			Image newimg = img.getScaledInstance( NEW_WIDTH, NEW_HEIGHT,  java.awt.Image.SCALE_SMOOTH );
+			ImageIcon icon = new ImageIcon(newimg);
+			JButton btn = new JButton(t.name(), icon);
 			btn.setName(t.name());
 			btn.setFocusPainted(true);
 			btn.setVerticalTextPosition(SwingConstants.BOTTOM);
@@ -138,9 +144,9 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					int res = JOptionPane.showConfirmDialog(mainSc, "Delete selected records from DB ?");
+					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Delete selected records from DB ?");
 					if(res == JOptionPane.OK_OPTION) {
-						ArrayList<DICOMNode> selected = mainSc.getSelectedNode();
+						ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 						DeleteImage.deleteImages(selected);
 					}
 				}
@@ -180,7 +186,7 @@ public class MainScreenToolBar extends JToolBar {
 					/*
 					 * only allow localtreetable
 					 */
-					ArrayList<DICOMNode> selected = mainSc.getSelectedNode();
+					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					if (selected == null || selected.size() < 1) {
 						return;
 					}
@@ -202,7 +208,7 @@ public class MainScreenToolBar extends JToolBar {
 					/*
 					 * only allow localtreetable
 					 */
-					ArrayList<DICOMNode> selected = mainSc.getSelectedNode();
+					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {

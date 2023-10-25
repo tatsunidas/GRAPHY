@@ -37,6 +37,10 @@
  */
 package com.vis.core.util;
 
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
@@ -51,8 +55,13 @@ import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
+import ij.process.ColorProcessor;
+import ij.process.ImageStatistics;
 
 public class ImageUtils {
+	
+	final static int AUTO_THRESHOLD = 5000;
+	
 	//check file is general format image
 		public static boolean isImageFile(String path) {
 		    String mimeType = URLConnection.guessContentTypeFromName(path);
@@ -172,5 +181,102 @@ public class ImageUtils {
 //				return null;
 //			}
 			return null;
+		}
+		
+		public static Image resize(Image srcImg, int w, int h) {
+			BufferedImage resizedImg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+			Graphics2D g2 = resizedImg.createGraphics();
+			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			g2.drawImage(srcImg, 0, 0, w, h, null);
+			g2.dispose();
+			return resizedImg;
+		}
+		
+		public static BufferedImage merge(ImagePlus imp1, ImagePlus imp2) {
+			int w1 = imp1.getWidth();
+			int w2 = imp2.getWidth();
+			int h1 = imp1.getHeight();
+			int h2 = imp2.getHeight();
+			if(w1 != w2 || h1 != h2) {
+				imp2 = imp2.resize(w1, h1, "none");
+			}
+			ColorProcessor cp = new ColorProcessor(w1+w2, h1);
+			for(int j=0; j<h1;j++) {
+				for(int i=0; i<w1+w2;i++) {
+					if(i < w1) {
+						cp.set(i, j, imp1.getProcessor().get(i, j));
+					}else {
+						cp.set(i, j, imp2.getProcessor().get(i-w1, j));
+					}
+				}
+			}
+			ImagePlus merge = new ImagePlus("merge",cp);
+			// autoContrast(merge);
+			return merge.getBufferedImage();
+		}
+		
+		public static void autoContrast(ImagePlus imp) {
+			if(imp == null) {
+				return;
+			}
+			if (imp.getType() == ImagePlus.COLOR_RGB)
+				imp.getProcessor().reset();
+			ImageStatistics stats = imp.getRawStatistics();
+			int limit = stats.pixelCount/10;
+			int[] histogram = stats.histogram;
+			int autoThreshold = imp.getProcessor().getAutoThreshold();
+			if (autoThreshold<10)
+				autoThreshold = AUTO_THRESHOLD;
+			else
+				autoThreshold /= 2;
+			int threshold = stats.pixelCount/autoThreshold;
+			int i = -1;
+			boolean found = false;
+			int count;
+			do {
+				i++;
+				count = histogram[i];
+				if (count>limit) count = 0;
+				found = count> threshold;
+			} while (!found && i<255);
+			int hmin = i;
+			i = 256;
+			do {
+				i--;
+				count = histogram[i];
+				if (count>limit) count = 0;
+				found = count > threshold;
+			} while (!found && i>0);
+			int hmax = i;
+			ij.gui.Roi roi = imp.getRoi();
+			if (hmax>=hmin) {
+				if (imp.getType() == ImagePlus.COLOR_RGB) imp.deleteRoi();
+				double min = stats.histMin+hmin*stats.binSize;
+				double max = stats.histMin+hmax*stats.binSize;
+				if (min==max)	{min=stats.min; max=stats.max;}
+				imp.getProcessor().setMinAndMax(min, max);
+				if ((imp.getType() == ImagePlus.COLOR_RGB) && roi!=null) imp.setRoi(roi);
+			} else {
+				imp.getProcessor().resetMinAndMax();
+				return;
+			}
+		}
+		
+		public static BufferedImage toBufferedImage(Image img) {
+			if (img instanceof BufferedImage) {
+				return (BufferedImage) img;
+			}
+
+			// Create a buffered image with transparency
+			BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null),
+					BufferedImage.TYPE_INT_ARGB);
+
+			// Draw the image on to the buffered image
+			Graphics2D bGr = bimage.createGraphics();
+			bGr.drawImage(img, 0, 0, null);
+			bGr.dispose();
+
+			// Return the buffered image
+			return bimage;
 		}
 }

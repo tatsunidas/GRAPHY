@@ -37,6 +37,8 @@
  */
 package com.vis.core.util;
 
+import java.nio.ByteBuffer;
+
 /**
  * this class referenced from org.dcm4che3.util
  * @author tatsunidas
@@ -203,6 +205,12 @@ public class ByteUtils {
         bytes[off] = (byte) i;
         return bytes;
     }
+    
+	public static byte[] shortToBytes(short[] pixels) {
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 2);
+		byteBuffer.asShortBuffer().put(pixels);
+		return byteBuffer.array();
+	}
 
     public static byte[] intToBytes(int i, byte[] bytes, int off,
             boolean bigEndian) {
@@ -226,6 +234,12 @@ public class ByteUtils {
         return bytes;
     }
 
+	public static byte[] intToBytes(int[] pixels) {
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
+		byteBuffer.asIntBuffer().put(pixels);
+		return byteBuffer.array();
+	}
+    
     public static byte[] tagToBytes(int i, byte[] bytes, int off,
             boolean bigEndian) {
         return bigEndian ? tagToBytesBE(i, bytes, off)
@@ -257,6 +271,12 @@ public class ByteUtils {
     public static byte[] floatToBytesLE(float f, byte[] bytes, int off) {
         return intToBytesLE(Float.floatToIntBits(f), bytes, off);
     }
+    
+	public static byte[] floatToBytes(float[] pixels) {
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 3);
+		byteBuffer.asFloatBuffer().put(pixels);
+		return byteBuffer.array();
+	}
 
     public static byte[] doubleToBytes(double d, byte[] bytes, int off,
             boolean bigEndian) {
@@ -271,6 +291,12 @@ public class ByteUtils {
     public static byte[] doubleToBytesLE(double d, byte[] bytes, int off) {
         return longToBytesLE(Double.doubleToLongBits(d), bytes, off);
     }
+    
+	public static byte[] doubleToBytes(double[] pixels) {
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
+		byteBuffer.asDoubleBuffer().put(pixels);
+		return byteBuffer.array();
+	}
 
     public static byte[] longToBytes(long l, byte[] bytes, int off,
             boolean bigEndian) {

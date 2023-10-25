@@ -37,50 +37,32 @@
  */
 package com.vis.imageio;
 
+import java.awt.AWTEvent;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JLayer;
+import javax.swing.JLayeredPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.plaf.LayerUI;
+
+import com.vis.configuration.Resources;
+import com.vis.core.util.ImageUtils;
+import com.vis.core.view.D2.ui.glasses.Praparat;
+
+import ij.ImagePlus;
 
 public class TestMisc {
 
 	public static void main(String[] args) {
 		
-		Field usr_paths = null;
-		try {
-			usr_paths = ClassLoader.class.getDeclaredField("usr_paths");
-		} catch (NoSuchFieldException e1) {
-			e1.printStackTrace();
-		} catch (SecurityException e1) {
-			e1.printStackTrace();
-		}
-		usr_paths.setAccessible(true);
-
-		// get current path
-		String[] paths =null;
-		try {
-			paths = (String[])usr_paths.get(null);
-		} catch (IllegalArgumentException | IllegalAccessException e1) {
-			e1.printStackTrace();
-		}
-
-		// if env has path, return
-		for(String path : paths) {
-			System.out.println(path);
-//			if(path.equals(libDir)) {
-//				return;
-//			}
-		}
-
-		// add path to env
-//		String[] newPaths = Arrays.copyOf(paths, paths.length + 1);
-//		newPaths[newPaths.length - 1] = libDir;
-//		try {
-//			usr_paths.set(null, newPaths);
-//		} catch (IllegalArgumentException e) {
-//			e.printStackTrace();
-//		} catch (IllegalAccessException e) {
-//			e.printStackTrace();
-//		}
+		
 		
 	}
-
 }

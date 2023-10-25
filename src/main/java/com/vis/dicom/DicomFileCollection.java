@@ -55,6 +55,7 @@ public class DicomFileCollection {
 	boolean ignorePrivate = false;
 	private File[] files;
 	private ArrayList<File> dicomdirCandidate;// to search DicomDir
+	private ArrayList<File> no_dcm_files;
 	private HashMap<String, String> dcmFileCandidate;// path and studyUID
 	private HashMap<String, Integer> numOfInstances;
 	
@@ -96,6 +97,7 @@ public class DicomFileCollection {
 		}
 		// init
 		dicomdirCandidate = new ArrayList<>();
+		no_dcm_files = new ArrayList<>();
 		dcmFileCandidate = new HashMap<>();
 		// collect all abs paths
 		try {
@@ -158,6 +160,10 @@ public class DicomFileCollection {
 		}
 	}
 	
+	public ArrayList<File> getNoDcmFiles() {
+		return no_dcm_files;
+	}
+	
 	private void InvalidDicomDirError(String level) {
 		if (level.equals("Patient")) {
 			Log.logger.log(Level.SEVERE,"Get error when DICOMDIR loading, at Patient level record");
@@ -182,6 +188,8 @@ public class DicomFileCollection {
 							}else { //dicomdir
 								dicomdirCandidate.add(dicomFiles[i]);
 							}
+						}else {
+							no_dcm_files.add(dicomFiles[i]);
 						}
 					} else {
 						readAllDICOMFiles(new File[] {dicomFiles[i]});
@@ -190,9 +198,17 @@ public class DicomFileCollection {
 			} else {// single file
 				if (folderOrFile.isFile()) {
 					if (!DicomUtilities.namedDICOMDIR(folderOrFile)) {
-						addImportCandidate(folderOrFile);
+						if (DicomUtilities.isDicomFile(folderOrFile)) {
+							addImportCandidate(folderOrFile);
+						}else {
+							no_dcm_files.add(folderOrFile);
+						}
 					}else { //dicomdir
-						dicomdirCandidate.add(folderOrFile);
+						if (DicomUtilities.isDicomFile(folderOrFile)) {
+							dicomdirCandidate.add(folderOrFile);
+						}else {
+							no_dcm_files.add(folderOrFile);
+						}
 					}
 				}
 			}

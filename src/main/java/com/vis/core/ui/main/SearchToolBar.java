@@ -37,6 +37,7 @@
  */
 package com.vis.core.ui.main;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -53,13 +54,17 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.TimeZone;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.JToolBar;
+import javax.swing.border.Border;
 import javax.swing.border.EtchedBorder;
 import javax.swing.JFormattedTextField.AbstractFormatter;
 import javax.swing.event.DocumentEvent;
@@ -69,6 +74,8 @@ import org.jdatepicker.impl.JDatePanelImpl;
 import org.jdatepicker.impl.JDatePickerImpl;
 import org.jdatepicker.impl.UtilDateModel;
 
+import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.StringUtils;
 import com.vis.dicom.Modality;
 
@@ -118,8 +125,11 @@ public class SearchToolBar extends JToolBar{
 		scrollPane.setViewportView(panel);
 		
 		setSearchButton();
+		addSeparator();
 		setPatientTxtField();
+		addSeparator();
 		setDatePicker();
+		addSeparator();
 		setModalities();
 		
 		scrollPane.setPreferredSize(new Dimension(700, datePickerFrom.getPreferredSize().height*2));
@@ -136,6 +146,8 @@ public class SearchToolBar extends JToolBar{
 				searchDBOnCurrentConditions();
 			}
 		});
+		Font font = new Font(Font.SANS_SERIF, Font.BOLD, 14);
+		searchBtn.setFont(font);
 		panel.add(searchBtn);
 	}
 	
@@ -183,27 +195,16 @@ public class SearchToolBar extends JToolBar{
 		
 		datePickerTo.setTextEditable(true);
 		datePickerFrom.setTextEditable(true);
-		dPanel.add(new JLabel(" From "));
-		dPanel.add(datePickerFrom);
-		dPanel.add(new JLabel(" To "));
-		dPanel.add(datePickerTo);
 		
 		chckbxToday = new JCheckBox("Today");
-		Font font = new Font(Font.SANS_SERIF, Font.BOLD, 14);
+		Font font = new Font(Font.SANS_SERIF, Font.BOLD, 12);
 		chckbxToday.setFont(font);
 		chckbxToday.setSelected(true);
 		chckbxToday.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent arg0) {
 				if(chckbxToday.isSelected()){
-					//set today
-					Calendar cal = Calendar.getInstance(TimeZone.getDefault());
-					cal.setTime(getTodayDate());//assurance
-					datePickerFrom.getModel().setYear(cal.get(Calendar.YEAR));
-					datePickerFrom.getModel().setMonth(cal.get(Calendar.MONTH));
-					datePickerFrom.getModel().setDay(cal.get(Calendar.DATE));
-					datePickerFrom.getModel().setSelected(true);
-					// grayout, no editable
+					// grayout, not editable
 					datePickerFrom.getComponent(1).setEnabled(false);
 					datePickerTo.getComponent(1).setEnabled(false);
 					datePickerFrom.setTextEditable(false);
@@ -217,7 +218,11 @@ public class SearchToolBar extends JToolBar{
 				}
 			}
 		});
-		dPanel.add(chckbxToday);
+		panel.add(chckbxToday);
+		dPanel.add(new JLabel(" From "));
+		dPanel.add(datePickerFrom);
+		dPanel.add(new JLabel(" To "));
+		dPanel.add(datePickerTo);
 		panel.add(dPanel);
 	}
 	
@@ -323,7 +328,31 @@ public class SearchToolBar extends JToolBar{
 			from = getTodayString();
 			to = null;
 		}
-		new QueryRetrieve().queryAndUpadateTreeTableByTextSearch(patID, patName, from, to, getSelectedModalities());
+		ArrayList<String> m = getSelectedModalities();
+		if(nullSearchKeys()) {
+			int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show whole dataset in DB ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			if(res != JOptionPane.OK_OPTION) {
+				return;
+			}
+		}
+		new QueryRetrieve().queryAndUpadateTreeTableByTextSearch(patID, patName, from, to, m);
+	}
+	
+	public boolean nullSearchKeys() {
+		String patID = getString(patIDField);
+		String patName = getString(pNameField);
+		String from = getTermFrom();
+		String to = getTermTo();
+		if(isTodaySelected()) {
+			from = getTodayString();
+			to = null;
+		}
+		ArrayList<String> m = getSelectedModalities();
+		if(patID == null && patName==null && from==null && to ==null && m.isEmpty()) {
+			return true;
+		}else {
+			return false;
+		}
 	}
 	
 	public HashMap<String, Object> getCurrentSearchConditions(){

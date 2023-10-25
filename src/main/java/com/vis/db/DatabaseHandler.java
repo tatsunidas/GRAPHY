@@ -79,9 +79,9 @@ public class DatabaseHandler {
 	
 	// dcmqrscp
 	private DicomServer dcmqrscp;
-	private final String defaultAET = "GRAPHY";
-	private final String defaultHost = "localhost";
-	private final String defaultPort = "4891";//for dimse, 
+	public final String defaultAET = "GRAPHY";
+	public final String defaultHost = "localhost";
+	public final String defaultPort = "4891";//for dimse, 
 	private boolean useDicomDir = false;
 	private String recordFactoryPath = new File("./conf/RecordFactory.xml").getAbsolutePath();
     /* ae.properties for dicomdir mode */
@@ -552,7 +552,6 @@ public class DatabaseHandler {
 					rset.close();
 					safeClose(conn);
 				} catch (SQLException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -601,10 +600,6 @@ public class DatabaseHandler {
 		return getLocalDBLocation() + File.separator + "archive";
 	}
 
-	// insertions, tatsu
-	/*
-	 * Graphy server info
-	 */
 	private void insertDefaultListenerDetails() {
 		Connection conn = openConnection();
 		String sql = "insert into listener(aetitle,host,port,storagelocation) values( ? , ? , ? , ?)";
@@ -659,7 +654,6 @@ public class DatabaseHandler {
 		conn.createStatement().execute(
 				"insert into presets(presetname,windowwidth,windowlevel,modality_fk)values('CT Head/Neck',350,90," + pk
 						+ ")");
-//		conn.commit();
 		rs.close();
 		safeClose(conn);
 	}
@@ -1033,17 +1027,6 @@ public class DatabaseHandler {
 			logger.severe( "DatabaseHandler - Failed to update patient information\n"+e.getMessage());
 		}
 	}
-	
-	//move to importer?? or new delegate?
-//	public void writeAndImoportDataset(String absPath2img) {
-//		List<String> cmd = new ArrayList<String>();
-//		cmd.add("-c");
-//		cmd.add(defaultAET + "@" + defaultHost + ":"+ defaultPort);
-//		cmd.add(absPath2img);
-//		String args[] = new String[cmd.size()];
-//		args = cmd.toArray(args);
-//		StoreSCU.main(args);// then ran after writeDB in DcmQRSCP
-//	}
 
 	public void insertPatientInfo(DicomObject dataset) {
 		if (!(checkRecordExists("PATIENT", "PatientID", dataset.getString(Tag.PatientID)))) {
@@ -1100,7 +1083,6 @@ public class DatabaseHandler {
 					try {
 						sqlTime = new java.sql.Time(new SimpleDateFormat("kkmmss").parse(time).getTime());
 					} catch (ParseException e1) {
-						// TODO Auto-generated catch block
 						logger.severe("Can not read StudyTime that is not formatted kkmmss.SSS/kkmmss, return as null");
 						e1.printStackTrace();
 						//continue write record  
@@ -1186,23 +1168,17 @@ public class DatabaseHandler {
 				try {
 					sqlTime = new java.sql.Time(timeFormat1.parse(time).getTime());
 				} catch (ParseException e) {
-					// TODO Auto-generated catch block
 					logger.severe( "This SeriesTime not formatted kkmmss.SSS");
 					try {
 						sqlTime = new java.sql.Time(new SimpleDateFormat("kkmmss").parse(time).getTime());
 						logger.severe( "This SeriesTime was recovered formatted kkmmss");
 					} catch (ParseException e1) {
-						// TODO Auto-generated catch block
 						e1.printStackTrace();
 						//continue write record
 					}
 				}
 			}
 			
-			/*
-			 * 実際のDBの中にあるデータ数との不一致が起きる。
-			 * 処理内で整合性をとらないと
-			 */
 			int numImages = getNumOfInstanceInSeries(patientId, studyUid, dataset.getString(Tag.SeriesInstanceUID))+1;
 //			int numImages = (dataset.getString(Tag.NumberOfSeriesRelatedInstances) != null
 //					&& dataset.getString(Tag.NumberOfSeriesRelatedInstances).length() > 0)
@@ -1250,51 +1226,12 @@ public class DatabaseHandler {
 				update("study", "NoOfSeries", getNumOfSeries(patientId,studyUid), "StudyInstanceUID", studyUid);
 				safeClose(conn);
 			}
-			/* GUI upadate */
-			/*
-			 * move to another place...
-			 * need another logic...
-			 */
-//			try {
-//				mediator.updateSeries(studyUid, new DICOMNode(
-//						DICOMNode.SERIES, 
-//						"", // pname
-//						"", // pid
-//						"", // studydate
-//						(dataset.getDate(Tag.SeriesDate)) == null ? "":dateFormat.format(dataset.getDate(Tag.SeriesDate)),
-//						"", // studytime
-//						"", // acquisitionTime
-//						"", // studyDesc
-//						dataset.getString(Tag.SeriesDescription), dataset.getString(Tag.Modality), "", // sex
-//						"", // BoD
-//						"", // age
-//						dataset.getString(Tag.InstitutionName), // institution
-//						dataset.getString(Tag.ManufacturerModelName), // modelname
-//						dataset.getString(Tag.SeriesNumber), "", // acquisitionNo
-//						"", // instanceNo
-//						"", // AccessionNumber
-//						"", // NumOfSeries
-//						dataset.getString(Tag.NumberOfSeriesRelatedInstances), studyUid,
-//						dataset.getString(Tag.SeriesInstanceUID), "", 
-//						null));
-//			} catch (Exception e) {
-//				logger.severe( "databaseRef::insertSeries",e);
-//			}finally {
-//				if(opened) {
-//					safeClose(conn);
-//				}
-////				mainTreeTableRefresher();// refleshLocalDB
-//			}
 		}
 	}
 
 	public void insertImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
 		
-		/*
-		 * checkRecordExists for image level is duplicate to checkWillImportDataset.
-		 */
-//		if (!(checkRecordExists("image", "SOPInstanceUID", dataset.getString(Tag.SOPInstanceUID)))) {
 			Connection conn = openConnection();
 			boolean multiframe = false;
 			int totalFrame = 0;
@@ -1355,7 +1292,7 @@ public class DatabaseHandler {
 			// To get the Referenced SOP Instance UID
 			DicomObject refImageSeq = dataset.getNestedDataset(Tag.ReferencedImageSequence);
 			if (refImageSeq != null) {
-				//TODO シーケンスの再帰的探索
+				//TODO recursive search in Sequences ?
 //                if (refImageSeq.hasItems()) {//tatsu
 //                    Attributes dcmObj1 = refImageSeq.getDicomObject();
 //                    referSopInsUid = dcmObj1.get(Tag.ReferencedSOPInstanceUID) != null ? new String(dcmObj1.get(Tag.ReferencedSOPInstanceUID).getBytes()) : "";
@@ -1371,10 +1308,7 @@ public class DatabaseHandler {
 			String[] imagePosition = dataset.getStrings(Tag.ImagePosition);
 			String sliceLoc = imagePosition != null && imagePosition[2] != null ? imagePosition[2] : "0";
 			/* TSUID only can get from dicominputstream... */
-			/*
-			 * TODO 202306
-			 */
-			String tsUID = "";//DicomUtilities.getTransferSyntaxUID(filePath);
+			String tsUID = DicomUtilities.getTransferSyntaxUID(filePath);
 			try {
 				PreparedStatement insertStmt = conn
 						.prepareStatement("insert into image values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
@@ -1415,42 +1349,35 @@ public class DatabaseHandler {
 				ex.printStackTrace();
 			}finally {
 				safeClose(conn);
-//				mainTreeTableRefresher();
 			}
-//		}//checkRecordExists image level
 	}
 	
 	public void updateImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
-		
+
 		Connection conn = openConnection();
-		
-		/*
-		 * checkRecordExists for image level is duplicate to checkWillImportDataset.
-		 */
-//		if (!(checkRecordExists("image", "SOPInstanceUID", dataset.getString(Tag.SOPInstanceUID)))) {
-			try {
-				String statement = "UPDATE IMAGE ";
-				statement = statement + "SET FileStoreUrl=?, isLink=? ";
-				statement = statement + "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-				PreparedStatement pstmt = conn.prepareStatement(statement);
-				pstmt.setString(1, filePath);
-				pstmt.setBoolean(2, saveAsLink);
-				pstmt.setString(3, dataset.getString(Tag.PatientID));
-				pstmt.setString(4, dataset.getString(Tag.StudyInstanceUID));
-				pstmt.setString(5, dataset.getString(Tag.SeriesInstanceUID));
-				pstmt.setString(6, dataset.getString(Tag.SOPInstanceUID));
-				pstmt.executeUpdate();
-				pstmt.close();
-				conn.commit();
-			} catch (SQLException ex) {
-				logger.severe( "DatabaseHandler - Unable to save instance information\n"+ex.getMessage());
-				ex.printStackTrace();
-			}finally {
-					safeClose(conn);
-//				mainTreeTableRefresher();
-			}
-//		}//checkRecordExists image level
+
+		try {
+			String statement = "UPDATE IMAGE ";
+			statement = statement + "SET FileStoreUrl=?, isLink=? ";
+			statement = statement
+					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+			PreparedStatement pstmt = conn.prepareStatement(statement);
+			pstmt.setString(1, filePath);
+			pstmt.setBoolean(2, saveAsLink);
+			pstmt.setString(3, dataset.getString(Tag.PatientID));
+			pstmt.setString(4, dataset.getString(Tag.StudyInstanceUID));
+			pstmt.setString(5, dataset.getString(Tag.SeriesInstanceUID));
+			pstmt.setString(6, dataset.getString(Tag.SOPInstanceUID));
+			pstmt.executeUpdate();
+			pstmt.close();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - Unable to save instance information\n" + ex.getMessage());
+			ex.printStackTrace();
+		} finally {
+			safeClose(conn);
+		}
 	}
 	
 	public void updateRoiInfo(
@@ -2928,7 +2855,21 @@ public class DatabaseHandler {
 		infoset.put("PatientName", getParticularInfoFromPatient("PatientName",patID));
 		String studyDate = getParticularInfoFromStudy("StudyDate", patID, studyUID);
 		infoset.put("StudyDate", studyDate);
-		infoset.put("Modality", getParticularInfoFromSeries("Modality", patID, studyUID, seriesUID));
+		ArrayList<String> seriesUids = getSeriesUidList(patID, studyUID);
+		HashSet<String> modalities = new HashSet<>();
+		String modalitiesString = "";
+		for(String seUid:seriesUids) {
+			String m = getParticularInfoFromSeries("Modality", patID, studyUID, seUid);
+			if(m != null) {
+				modalities.add(m);
+			}
+		}
+		for(Object m_ :modalities.toArray()) {
+			modalitiesString += (String)m_ + ",";
+		}
+		modalitiesString = modalitiesString.substring(0, modalitiesString.length()-1);
+//		infoset.put("Modality", getParticularInfoFromStudy("Modality", patID, studyUID));//, seriesUID));
+		infoset.put("Modality", modalitiesString);
 		String bod = getParticularInfoFromPatient("PatientBirthDate",patID);
 		infoset.put("PatientBirthDate", bod);
 		infoset.put("PatientSex", getParticularInfoFromPatient("PatientSex",patID));
@@ -3369,7 +3310,7 @@ public class DatabaseHandler {
 					.executeQuery("select FileStoreUrl,SOPInstanceUID from image where StudyInstanceUID='" + studyUid
 							+ "' and SeriesInstanceUID='" + seriesUid + "'" + " order by InstanceNumber asc");
 			while (instanceInfo.next()) {
-				locations.add(instanceInfo.getString("FileStoreUrl") + "," + instanceInfo.getString("SOPInstanceUID"));
+				locations.add(instanceInfo.getString("FileStoreUrl"));
 			}
 			instanceInfo.close();
 			conn.commit();
@@ -5231,9 +5172,6 @@ public class DatabaseHandler {
 					.executeUpdate("update series set NoOfSeriesRelatedInstances="
 							+ (seriesLevelInstances.getInt("NoOfSeriesRelatedInstances") + 1)
 							+ "where StudyInstanceUID='" + studyUid + "' and SeriesInstanceUID='" + seriesUid + "'");
-//			conn.commit();//IMPORTANT
-//			mediator.updateInstances(studyUid, studyLevelInstances.getInt(1) + 1);
-//			mainTreeTableRefresher();//TODO !!! 0704
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		} finally {
@@ -5242,7 +5180,6 @@ public class DatabaseHandler {
 				studyLevelInstances.close();
 				safeClose(conn);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

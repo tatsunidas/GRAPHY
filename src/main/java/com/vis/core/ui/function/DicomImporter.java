@@ -1,11 +1,52 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.function;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.task.Task;
+import com.vis.core.task.TaskContext;
+import com.vis.core.task.TaskManager;
+import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.LocalDBStateCellRendererableEditor;
+import com.vis.core.ui.main.dcmtreetable.ArchiveCellRendererableEditor;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
@@ -20,40 +61,47 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import javax.swing.SwingUtilities;
 
 /**
+ * Import dicom files study by study.
  * @author tatsunidas
  */
-public class DicomImporter implements Runnable {
+public class DicomImporter implements Task {
 
 	boolean saveAsLink = false;//TODO :: this specified from chooser GUI
 	boolean ignorePrivate = false;// TODO :: this specified from chooser GUI
 	private ArrayList<String> candidateList;// Dicom Files exclude dicomdir
+	TaskContext con;
 
 //	boolean isVideo = false;//TODO
 	
 	int total = -1;
 	
-	// Threading
 	Thread thisThread;
 	boolean suspend = false;
 	protected boolean stopped;// same as cancel
 	protected boolean sleepScheduled;
 	protected boolean suspended;
-	public final static int SLEEP_TIME = 1 * 50;
+	public final static int SLEEP_TIME = 50;
 
-	public DicomImporter(ArrayList<String> candidateList, boolean saveAsLink, boolean ignorePrivate) {
+	public DicomImporter(ArrayList<String> candidateFileList, String studyUID, boolean saveAsLink, boolean ignorePrivate) {
 		this.saveAsLink = saveAsLink;
 		this.ignorePrivate = ignorePrivate;
-		this.candidateList = candidateList;
+		this.candidateList = candidateFileList;
 		total = candidateList.size();
 		// create new thread and add to main importer thread group.
 		thisThread = new Thread(this);
 		stopped = false;
 		sleepScheduled = true;//useful for debug
 		suspended = false;
+		con = new ImportingStateContext(studyUID, this);
+		con.setThreadId(thisThread.getId());
+		setContext(con);
+		TaskManager tm = TaskManager.getInstance();
+		tm.addTask(thisThread.getId(), con);
 	}
 	
 	public void setSaveAsLink(boolean isLink) {
@@ -108,7 +156,7 @@ public class DicomImporter implements Runnable {
 //				String msg = ApplicationContext.currentBundle.getString("MainScreen.import.filesCopied.text")
 				String msg = "imported !";
 				
-				new AnimatingSheet(getCandidateFilesList().size() + " "
+				new AnimatingSheet(con.currentIndex()+1+"/"+totalSize() + " "
 						+ msg, JOptionPane.INFORMATION_MESSAGE);
 
 				/*
@@ -124,60 +172,44 @@ public class DicomImporter implements Runnable {
 		});
 	}
 	
-	private void performImport() {
+	private void perform() {
 		int count = 0;
-		while (!(count == total) && !(isStopped())) {
-			if(!MainScreen.importing) {
-				MainScreen.importing = true;
-				DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
-				treeTable.getTableHeader().setEnabled(false);//stop table sort feature. can not activate??
-			}
-			if(total == -1) {
+		while (count != total && !isStopped()) {
+			if(total <= 0) {
 				setStopped(true);
 				break;
 			}
-			String candidate = candidateList.get(count);
-			/* To get particular study row to show progress bar */
-			String willImportPatID = DicomUtilities.getPatientID(candidate);
-			String willImportSUID = DicomUtilities.getStudyInstanceUID(candidate);
-			if (count == 0) {
-				// should do nothing, 
-				//first loop wait for write new record in db.
-			} else {// with update progressbar
-				if (sleepScheduled) {
+			synchronized (this) {
+				if (isSuspended()) {
 					try {
-						Thread.sleep(SLEEP_TIME);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						this.wait();
+						setSuspended(false);
+					} catch (InterruptedException ie) {
+						setStopped(true);
+						break;
 					}
-				}
-				/*
-				 * this synchronize state block is looks good to prevent multiple study import.
-				 * need more test.
-				 */
-				MainScreen mainSc = WindowManager.getMainScreen();
-				synchronized(mainSc.getLocalTreeTable().getTree()) {
-					int currentRow = mainSc.getLocalTreeTable().getParticularStudyRow(willImportPatID,willImportSUID);
-					int currentCol = mainSc.getLocalTreeTable().getArchivedColumnPosition();
-					if(Utils.isDebug) {
-						Log.logger.info("ImportingThread:ContextProgressAt:"+currentRow+" "+currentCol);
-					}
-					updateProgress(mainSc.getLocalTreeTable().getStateCellEditorAtArchiveColumn(currentCol), willImportSUID, currentRow,
-							currentCol, count);
-					mainSc.getLocalTreeTable().revalidate();
 				}
 			}
-//			DicomInputStream dis = null;
+			if (Thread.interrupted()) {
+				setStopped(true);
+				break;
+			}
+			if (sleepScheduled) {
+				try {
+					Thread.sleep(SLEEP_TIME);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
 			try {
-//				dis = new DicomInputStream(new File(candidate));
+				String candidate = candidateList.get(count);
 				DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
 				reader.read(new File(candidate).getAbsolutePath());
 				DicomObject data = reader.getCore();
 				DatabaseHandler db = DatabaseHandler.getInstance();
+				db.setSaveAsLinkState(saveAsLink);
 				if (data != null && avoidPatientIDNUll(data)) {
 					if (saveAsLink) {
-						db.setSaveAsLinkState(saveAsLink);
 						synchronized(this){
 							db.writeDatasetInfo(data, candidate);
 						}
@@ -194,32 +226,17 @@ public class DicomImporter implements Runnable {
 						}
 					}
 				}
-				synchronized (this) {
-					if (isSuspended()) {
-						try {
-							this.wait();
-							setSuspended(false);
-						} catch (InterruptedException ie) {
-							setStopped(true);
-							break;
-						}
-					}
-				}
-				if (Thread.interrupted()) {
-					setStopped(true);
-					break;
-				}
+				HashMap<String, Object> updation = new HashMap<>();
+				updation.put("CurrentIndex", count++);
+				con.updateState(updation);
+				//update treetable
+				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 			} catch (Exception e) {
 				Log.logger.severe("DicomImporter::performImport():Unable to import file. Stoped import...\n"+e.getMessage());
 				return;
-			} finally {
-				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
-				count++;
 			}
 		} // while loop end
-		if(!isStopped()) {
-			doneImport();// TODO
-		}
+		done();
 	}
 
 	private boolean avoidPatientIDNUll(DicomObject data) {
@@ -232,23 +249,13 @@ public class DicomImporter implements Runnable {
 
 	@Override
 	public void run() {
-		performImport();
+		perform();
 	}
 
-	protected void updateProgress(LocalDBStateCellRendererableEditor stateCell, String suid, int row, int col,
-			int progress) {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				stateCell.setProgressAt(suid, row, col, progress);
-//				mediator.getMainScreen().getTreeTable().repaint();
-			}
-		});
-	}
-
-	protected void doneImport() {
+	public void done() {
+		TaskManager tm = TaskManager.getInstance();
+		tm.removeAndCleanUpTasks(con.getThreadId());
 		showImportResult();
-		MainScreen.importing = false;
 		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		treeTable.getTableHeader().setEnabled(true);
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
@@ -261,12 +268,18 @@ public class DicomImporter implements Runnable {
 	private ArrayList<String> getCandidateFilesList() {
 		return this.candidateList;
 	}
+	
+	public int totalSize() {
+		return getCandidateFilesList().size();
+	}
 
-	public void startImport() {
+	public void start() {
+		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
+		treeTable.getTableHeader().setEnabled(false);
 		thisThread.start();
 	}
 
-	public synchronized void resumeImport() {
+	public synchronized void resume() {
 		this.notify();
 	}
 
@@ -288,33 +301,29 @@ public class DicomImporter implements Runnable {
 
 	public synchronized void setStopped(boolean stop) {
 		stopped = stop;
+		if(stopped) {
+			done();
+		}
 	}
 
 	public synchronized boolean isStopped() {
 		return stopped;
 	}
 
-	public void stopImport() {
+	public void terminate() {
 		thisThread.interrupt();
+		if (Utils.isDebug) {
+			Log.logger.info("import interupted.");
+		}
 	}
 
-	/*
-	 * TODO comment out 20230901
-	 * 
-	 * all time do single thread,
-	 * AllAndWait never call...maybe. tatsu
-	 */
-	public static void cancelAllAndWait() {
-//		int count = ApplicationContext.importerThreadGroup.activeCount();
-//		Thread[] threads = new Thread[count];
-//		count = ApplicationContext.importerThreadGroup.enumerate(threads);
-//		ApplicationContext.importerThreadGroup.interrupt();
-//		for (int i = 0; i < count; i++) {
-//			try {
-//				threads[i].join();
-//			} catch (InterruptedException ie) {
-//			}
-//			;
-//		}
+	@Override
+	public void setContext(TaskContext con) {
+		this.con = con;
+	}
+
+	@Override
+	public TaskContext getContext() {
+		return con;
 	}
 }

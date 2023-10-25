@@ -224,6 +224,9 @@ public class StringUtils {
 				val_.add(c);
 			}
 		}
+		if(val_.size()==0) {
+			return "";
+		}
 		Character[] arr = new Character[val_.size()];
 		arr = val_.toArray(arr);
 		char[] charArr = Arrays.stream(arr).map(ch -> ch.toString()).collect(Collectors.joining()).toCharArray();

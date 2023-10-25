@@ -97,6 +97,20 @@ public enum Codec {
 		}
 	}
 	
+	public static boolean isCompressed(String tsuid) {
+		UID u = null;
+		for(UID uid : UID.values()) {
+			if(uid.uid().equals(tsuid)) {
+				u = uid;
+				break;
+			}
+		}
+		if(u == null) {
+			new Exception("This TSUID is not valid...Please check input TSUID.");
+		}
+		return isCompressed(u);
+	}
+	
 	public String formatName() {
 		if(!isCompressed(uid)) {
 			return null;

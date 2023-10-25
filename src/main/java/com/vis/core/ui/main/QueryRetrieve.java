@@ -30,7 +30,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableDockManager;
+import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.ui.main.dcmtreetable.QRStateCellEditor;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
@@ -669,13 +669,16 @@ public class QueryRetrieve implements Runnable {
 				? studynode.getData(DICOMNode.SOPInstanceUID)
 				: "");
 		/* set celleditor */
-		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		int arcInd = treeTable.getArchivedColumnPosition();
 		TableColumnModel tcm = treeTable.getColumnModel();
-		this.cellEditor = (QRStateCellEditor) tcm.getColumn(arcInd).getCellEditor();
-		this.cellEditor.addImportingState(retrieveinfoset, this, candidateInfoSet.size());
+		
+		//20231010
+//		this.cellEditor = (QRStateCellEditor) tcm.getColumn(arcInd).getCellEditor();
+//		this.cellEditor.addImportingState(retrieveinfoset, this, candidateInfoSet.size());
+		
 		// create new thread and add to main importer thread group.
 		/* shared main importer thread group */
 		/**
@@ -692,10 +695,10 @@ public class QueryRetrieve implements Runnable {
 
 	public void queryAndUpadateTreeTableByTextSearch(String patID, String patName, String from, String to,
 			ArrayList<String> modalities) {
-		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
 		if (anchorTreeTableTitle.equals("HOME")) {
-			Log.logger.info("QR Pane : Home");
+			if(Utils.isDebug) Log.logger.info("QR Pane : Home");
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
 //			if(selectedStudiesMaterials == null || selectedStudiesMaterials.size() < 1) {
@@ -705,7 +708,7 @@ public class QueryRetrieve implements Runnable {
 			TabDock currentDock = tabDockMng.getHomeDock();
 			currentDock.updateTreeTable(newRoot);
 		} else {
-			Log.logger.info("QR Pane : " + anchorTreeTableTitle);
+			if(Utils.isDebug) Log.logger.info("QR Pane : " + anchorTreeTableTitle);
 			TabDock anchorDock = tabDockMng.getParticularDockFromMap(anchorTreeTableTitle);
 			String nickname = anchorTreeTableTitle;
 			/* root */
@@ -807,7 +810,7 @@ public class QueryRetrieve implements Runnable {
 		//TODO 20230829
 //		ApplicationContext.importing = true;
 		
-		DICOMTreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		treeTable.getTableHeader().setEnabled(false);// stop table sort feature. can not ??
@@ -858,8 +861,11 @@ public class QueryRetrieve implements Runnable {
 		treeTable.getTableHeader().setEnabled(true);
 	}
 
+	/*
+	 * TODO 20231010
+	 */
 	protected void updateProgress(QRStateCellEditor stateCell, String[] infoset, int row, int col, int progress) {
-		stateCell.setProgressAt(infoset, row, col, progress);
+//		stateCell.setProgressAt(infoset, row, col, progress);
 	}
 
 	protected void doneRetrieve(QRStateCellEditor cellEditor, String[] infoset) {

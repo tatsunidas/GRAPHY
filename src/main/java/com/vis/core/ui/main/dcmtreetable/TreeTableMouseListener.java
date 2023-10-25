@@ -1,31 +1,21 @@
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.ArrayList;
 import java.util.HashMap;
 
-import javax.swing.JMenuItem;
-import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
-import javax.swing.tree.DefaultMutableTreeNode;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.db.DatabaseHandler;
 
-//import com.vis.database.DatabaseHandler;
-//import com.vis.ui.context.ApplicationContext;
-//import com.vis.ui.toolbar.PatientIDPadding;
-//import com.vis.viewer2d.ui.frame.Viewer2DFrame;//TODO 20230901
-
-public class DICOMTreeTableMouseListener implements MouseListener{
+public class TreeTableMouseListener implements MouseListener{
 	
-	DICOMTreeTable treeTable;
+	private DICOMTreeTable treeTable;
 	
-	public DICOMTreeTableMouseListener(DICOMTreeTable treeTable) {
-		// TODO Auto-generated constructor stub
+	public TreeTableMouseListener(DICOMTreeTable treeTable) {
 		this.treeTable=treeTable;
 		this.treeTable.addMouseListener(this);
 	}
@@ -34,7 +24,9 @@ public class DICOMTreeTableMouseListener implements MouseListener{
 	public void mouseClicked(MouseEvent e) {
 		//right click
 		if (SwingUtilities.isRightMouseButton(e)) {
-			//https://stackoverflow.com/questions/517704/right-click-context-menu-for-java-jtree
+			/*
+			 * example
+			 */
 //			Point clicked = treeTable.getPopupLocation(e);//return null...why
 			/*
 			 * sample for right click
@@ -53,26 +45,14 @@ public class DICOMTreeTableMouseListener implements MouseListener{
 //			popup.show(e.getComponent(), e.getX(), e.getY());
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() != 2) {
 			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());
-			DICOMNode target = treeTable.nodeForRow(row);//ATTENTION, getParent return null.
+			DICOMNode target = treeTable.nodeForRow(row);
 			if(target == null) {
 				return;
 			}
-			HashMap<String,String> infoset = null;
-			if(target.getLevel() == DICOMNode.STUDY) {
-				String patID = target.getData(DICOMNode.PatientID);
-				String studyUID = target.getData(DICOMNode.StudyInstanceUID);
-				String seUID = target.getFirstChild().getData(DICOMNode.SeriesInstanceUID);
-				infoset = DatabaseHandler.getInstance().getInfoset(patID, studyUID, seUID);
-	    	}else if(target.getLevel() == DICOMNode.SERIES || target.getLevel() == DICOMNode.IMAGE) {
-	    		String patID = target.getData(DICOMNode.PatientID);
-				String studyUID = target.getData(DICOMNode.StudyInstanceUID);
-				String seUID = target.getData(DICOMNode.SeriesInstanceUID);
-				infoset = DatabaseHandler.getInstance().getInfoset(patID, studyUID, seUID);
-	    	}
-			String topDockName = WindowManager.getMainScreen().getCurrentTreeTableManager().getTopTabNickname();
-			infoset.put("Nickname", topDockName);
-			//20231004 TODO
-//			WindowManager.getMainScreen().setInfoset(infoset);
+			/*
+			 * show on the bird's eye
+			 */
+			WindowManager.getMainScreen().showImagesOnBirdsEye();
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
 			/*
 			 * double clicked
@@ -89,7 +69,7 @@ public class DICOMTreeTableMouseListener implements MouseListener{
 			/*
 			 * TODO 20230901
 			 */
-//			Viewer2DFrame viewer = ApplicationContext.getInstance().getViewer2DFrame();
+//			Viewer2DScreen viewer = ApplicationContext.getInstance().getViewer2DScreen();
 //			if (viewer == null) {
 //				// this case never occur ?
 //				System.out.println("Viewer2DWindow is NULL !! Please restart graphy.");

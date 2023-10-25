@@ -15,11 +15,11 @@ import javax.swing.tree.DefaultTreeModel;
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
 
-public class DICOMTreeTableNodeSorter extends TableRowSorter<TableModel> implements RowSorterListener{
+public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements RowSorterListener{
 	
 	DICOMTreeTable treeTable;
 	DICOMTreeTableModel treeTableModel;//for tree
-	DICOMTreeTableModelAdapter adapter;//for table
+	TreeTableModelAdapter adapter;//for table
 	
 	// reject if colName is included in rejectlist
 	// SHOULD keep same value to TreeTable Column Names, check also DICOMNode keys(but not same as this.).
@@ -34,11 +34,11 @@ public class DICOMTreeTableNodeSorter extends TableRowSorter<TableModel> impleme
 	/**/
 	ArrayList<String> rejectFilter = new ArrayList<>(Arrays.asList(rejectListStrings));
 	
-	public DICOMTreeTableNodeSorter() {}//for table sort
+	public TreeTableNodeSorter() {}//for table sort
 	
-	public DICOMTreeTableNodeSorter(DICOMTreeTable treeTable) {
-		super((DICOMTreeTableModelAdapter) treeTable.getModel());
-		this.adapter = (DICOMTreeTableModelAdapter) treeTable.getModel();
+	public TreeTableNodeSorter(DICOMTreeTable treeTable) {
+		super((TreeTableModelAdapter) treeTable.getModel());
+		this.adapter = (TreeTableModelAdapter) treeTable.getModel();
 		this.treeTable = treeTable;
 		this.treeTableModel = (DICOMTreeTableModel) treeTable.getTree().getModel();
 		addRowSorterListener(this);

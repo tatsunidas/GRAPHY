@@ -2,7 +2,6 @@ package com.vis.core.facade;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -11,7 +10,6 @@ import java.util.ResourceBundle;
 import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
@@ -184,30 +182,35 @@ public class ApplicationFacade{
 		return laf;
 	}
 	
-	public static void exitApp(Level level, String exitString) throws Throwable {
+	public static boolean exitApp(Level level, String exitString) throws Throwable {
 		if (splash != null) {
 			splash.dispose();
 		}
 		Log.logger.log(level, exitString);
+		boolean close = true;
 		if(level == Level.INFO) {
-			int res = JOptionPane.showConfirmDialog(null, "Close the window ? (application will close)");
+			int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Close the window ? (application will close)");
 			if(res == JOptionPane.OK_OPTION || res == JOptionPane.YES_OPTION) {
 				// application will close without any errors.
 				if(db != null) {
 					db.shutdownDB();
 				}
 				Utils.eraseTemporalDirContents();
-				System.exit(0);
-			}else if(res == JOptionPane.CANCEL_OPTION) {
+				WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+//				System.exit(0);
+			}else if(res == JOptionPane.CANCEL_OPTION || res == JOptionPane.NO_OPTION) {
 				//to be continue
-				return;
+				close = false;
+				return close;
 			}
 		}else {
 			if(db != null) {
 				db.shutdownDB();
 			}
 			Utils.eraseTemporalDirContents();
+			WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 			System.exit(Level.SEVERE.intValue());
 		}
+		return close;
 	}
 }

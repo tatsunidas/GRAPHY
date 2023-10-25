@@ -28,16 +28,16 @@ import javax.swing.tree.TreePath;
  * renderer for tree in treetable.
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTableCellRenderer extends JTree implements TableCellRenderer,TreeSelectionListener {
+public class TreeTableCellRenderer extends JTree implements TableCellRenderer,TreeSelectionListener {
 
 	protected int visibleRow;
 	private DICOMTreeTable treeTable;
 
-	public DICOMTreeTableCellRenderer(DICOMTreeTable treeTable, TreeTableModel model) {
+	public TreeTableCellRenderer(DICOMTreeTable treeTable, TreeTableModel model) {
 		super(model);
 		this.treeTable = treeTable;
 		addTreeSelectionListener(this);
-		setCellRenderer(new DICOMTreeIconCellRenderer());
+		setCellRenderer(new TreeIconCellRenderer());
 	}
 	
 	@Override
@@ -87,7 +87,6 @@ public class DICOMTreeTableCellRenderer extends JTree implements TableCellRender
 	@Override
 	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
 			int row, int column) {
-		// TODO Auto-generated method stub
 		if (isSelected) {
 			setBackground(table.getSelectionBackground());
 		} else {

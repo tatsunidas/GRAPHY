@@ -26,7 +26,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModelAdapter;
+import com.vis.core.ui.main.dcmtreetable.TreeTableModelAdapter;
 import com.vis.core.ui.main.dcmtreetable.TableColumnResizer;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -110,11 +110,14 @@ public class TabDock extends JToolBar implements AncestorListener{
 		int[] selectedRows = treeTable.getSelectedRows();//using table no good	
 		//get already opened tree node locations
 		ArrayList<Integer> willExpand = treeTable.getExpandedRowsPos();
+		
+		/*
+		 * TODO 20231005
+		 */
 		((DICOMTreeTableModel) treeTable.getTree().getModel()).setRoot((Object)newRoot);
 		((DICOMTreeTableModel) treeTable.getTree().getModel()).reload(newRoot);
 		TableColumnResizer.adjustColumnPreferredWidths(treeTable);
-		((DICOMTreeTableModelAdapter)treeTable.getModel()).fireTableDataChanged();
-//		treeTable.repaint();
+		((TreeTableModelAdapter)treeTable.getModel()).fireTableDataChanged();
 		//re-expand tree nodes
 		for (int i = 0; i < willExpand.size(); i++) {
 			treeTable.getTree().expandRow(willExpand.get(i));
@@ -126,7 +129,6 @@ public class TabDock extends JToolBar implements AncestorListener{
 			//treeTable.selectRow(selectedRows);//DO NOT USE
 		}
 		treeTable.setLastColumnOrder();
-//		ApplicationContext.getInstance().getMainScreen().constructQRTreeTable(treeTable,newRoot);
 	}
 	
 	@SuppressWarnings("unused")

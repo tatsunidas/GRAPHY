@@ -15,11 +15,6 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.db.DatabaseHandler;
-import com.vis.imageio.Decompressor;
-
-//import org.dcm4che3.tool.dcm2dcm.Dcm2Dcm;//DO NOT USE
-//import org.dcm4che3.tool.dcmdir.DcmDir;
-
 
 /**
  * 
@@ -295,9 +290,8 @@ public class DicomExporter extends JFrame implements Runnable {
 		exportDone();
 	}
 
-	@SuppressWarnings("static-access")
 	@Deprecated //see, DicomUtil
-	private void attachDICOMDIRFor(String path2PatDir) {
+	void attachDICOMDIRFor(String path2PatDir) {
 //		/*
 //		 * path:"DICOM" folder root:"Pname" folder
 //		 */
@@ -310,21 +304,18 @@ public class DicomExporter extends JFrame implements Runnable {
 //		}
 	}
 
-	/*
-	 * "="以降の文字を返す
-	 */
-	private String changePatientName(String name) {
-//		String name = tmpAttr.getString(Tag.PatientName);
-		if (name.contains("=")) {
-			name = name.substring(name.lastIndexOf("=") + 1);
-		}
-		// replace space to under score.
-		if (name.contains(" ") || name.contains("　")) {
-			name = name.replaceAll(" ", "_");
-			name = name.replaceAll("　", "_");
-		}
-		return name;
-	}
+//	private String changePatientName(String name) {
+////		String name = tmpAttr.getString(Tag.PatientName);
+//		if (name.contains("=")) {
+//			name = name.substring(name.lastIndexOf("=") + 1);
+//		}
+//		// replace space to under score.
+//		if (name.contains(" ") || name.contains("　")) {
+//			name = name.replaceAll(" ", "_");
+//			name = name.replaceAll("　", "_");
+//		}
+//		return name;
+//	}
 
 	private void exportDone() {
 		SwingUtilities.invokeLater(new Runnable() {

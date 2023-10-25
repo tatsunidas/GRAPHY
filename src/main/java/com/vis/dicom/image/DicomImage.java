@@ -43,6 +43,8 @@ import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
 import com.vis.dicom.dcm4cheImpl.DicomImageChe;
 
+import ij.process.ImageProcessor;
+
 public interface DicomImage {
 	
 	public static DicomImage newDicomImage(String path, DICOMBackend backend) {
@@ -72,15 +74,17 @@ public interface DicomImage {
 	public int getWidth();
 	public int getHeight();
 	public PhotometricInterpretation getPhotometricInterpletation();
+	public int getPixel​Representation();
 	public int getSamples();
 	public int getBitsAllocated();
 	public int getBitsStored();
 	public int getNumOfFrames();
 	public byte[] getPixelData(int frame);
+	public ImageProcessor getImageProcessor(int frame);
 	
 	public abstract void setCore(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
-	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, byte[] newFrame);
+	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object newFrame);
 	public void setPDF(byte[] pdfFile);
 	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID

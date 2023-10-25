@@ -5,7 +5,6 @@ package com.vis.core.ui.main.dcmtreetable;
  * @author tatsunidas
  *
  */
-@SuppressWarnings("serial")
 public class DICOMTreeTableModel extends AbstractTreeTableModel {
 
 	/*

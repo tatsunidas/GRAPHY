@@ -2,113 +2,122 @@ package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTargetDragEvent;
 import java.awt.dnd.DropTargetDropEvent;
 import java.awt.dnd.DropTargetEvent;
 import java.awt.dnd.DropTargetListener;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
+import javax.swing.JOptionPane;
+
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.function.DicomImporter;
+import com.vis.core.util.Utils;
+import com.vis.dicom.DicomFileCollection;
 
 /**
- * to adapt drop image files to DICOMTreeTable for import.
+ * to adapt drop image files to DICOMTreeTable to import.
  * 
  */
-public class DICOMTreeTableDropListener implements DropTargetListener{
+public class TreeTableDropListener implements DropTargetListener{
 	
 	Logger logger = Log.logger;
 	
 	@Override
 	public void dragEnter(DropTargetDragEvent enter) {
-		// TODO Auto-generated method stub
 		if(enter.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+			if(Utils.isDebug) System.out.println("JavaFilesFlavor Dragging In...");
 			return;
 		}
-		enter.rejectDrag();
 	}
 
 	@Override
-	public void dragExit(DropTargetEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
+	public void dragExit(DropTargetEvent arg0) {}
 
 	@Override
-	public void dragOver(DropTargetDragEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
+	public void dragOver(DropTargetDragEvent arg0) {}
 
 	/**
-	 * あくまでもTreeTableに対するDrop操作に対応する。
-	 * ExportはDICOMNodeDragGestureListener側で操作している。
+	 * For dropping on DICOMTreeTable.
+	 * Export is also implemeted in DICOMNodeDragGestureListener.
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
 	public void drop(DropTargetDropEvent dtde) {
 		
-		/*
-		 * TODO 20230829
-		 */
+		if(Utils.isDebug) System.out.println("dropped");
 		
-//		if(ApplicationContext.treeNodeDragging4Export) {
-//			System.out.println("this is itself, reject");
-//			dtde.rejectDrop();
-//			dtde.dropComplete(true);
-//			return;
-//		}
-//		if(dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-//			try {
-//				dtde.acceptDrop(DnDConstants.ACTION_COPY);
-//				Transferable t = dtde.getTransferable();
-//				@SuppressWarnings("unchecked")
-//				java.util.List<File> list = (java.util.List<File>)t.getTransferData(DataFlavor.javaFileListFlavor);
-//				java.util.Iterator<File> iter = list.iterator();
-//				while(iter.hasNext()) {
-//					File importCandidate = (java.io.File)iter.next();
-//					logger.debug("Dropped to imoport " +importCandidate.getName());
-//					DicomFileCollection collec = new DicomFileCollection();//init first
-//					if (collec.setImportCandidate(importCandidate)) {
-//						//boolean saveAsLink = chooser.getIsLink();//TODO
-//						//boolean ignorePrivate = chooser.ignorePrivate();//TODO
-//						//import of each study.
-//						for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
-//							ArrayList<String> candidateList = collec.selectCandidateUsingSUID(willImportStudyUID);
-//							DicomImporter importer = new DicomImporter(candidateList,false,false);
-//							int res = importer.isLink();
-//							if(res == 1) {
-//								importer.setSaveAsLink(true);
-//							}else if(res < 0) {
-//								return;//canceled
-//							}
-//							int total = candidateList.size();
-//							//As Thread Manager of importer.
-//							DICOMTreeTable mainTreeTable = ApplicationContext.getInstance().getMainScreen().getTreeTable();
-//							int currentArchiveCol = mainTreeTable.getArchivedColumnPosition();
-//							LocalDBStateCellRendererableEditor stateCell = mainTreeTable.getStateCellEditorAtArchiveColumn(currentArchiveCol);
-//							// add new ImportingState.
-//							stateCell.addImportingState(willImportStudyUID, total, importer);
-//							ApplicationContext.importing = true;
-//							ApplicationContext.importerExecSvc.submit(importer);
-////							importer.startImport();//use executor.(but this is also can use.)
-//						}
-//					}
-//				}
-//			}catch(Exception e) {
-//				dtde.dropComplete(false);
-//				return;
-//			}
-//		}else if(dtde.getTransferable() instanceof File) {
-//			//not need??
-//		}
+		DataFlavor[] fs = dtde.getCurrentDataFlavors();
+		for(DataFlavor f: fs) {
+			// skip swing component
+			if(f.isMimeTypeEqual(DataFlavor.javaJVMLocalObjectMimeType)) {
+				dtde.rejectDrop();
+				dtde.dropComplete(true);
+				return;
+			}
+		}
+		ArrayList<File> candidates = new ArrayList<>();
+		for(DataFlavor f: fs) {
+			if(f.isMimeTypeEqual(DataFlavor.javaFileListFlavor)) {
+				dtde.acceptDrop(DnDConstants.ACTION_COPY);
+				Transferable t = dtde.getTransferable();
+				java.util.List<Object> list = null;
+				try {
+					list = (java.util.List<Object>)t.getTransferData(DataFlavor.javaFileListFlavor);
+				} catch (UnsupportedFlavorException | IOException e) {
+					e.printStackTrace();
+					dtde.rejectDrop();
+					dtde.dropComplete(true);
+					return;
+				}
+				java.util.Iterator<Object> iter = list.iterator();
+				while(iter.hasNext()) {
+					Object obj = iter.next();
+					if(!(obj instanceof File)) {
+						continue;
+					}else {
+						candidates.add((java.io.File)obj);
+					}
+				}
+			}
+		}
+		if(!candidates.isEmpty()) {
+			File[] files = candidates.toArray(new File[candidates.size()]);
+			DicomFileCollection collec = new DicomFileCollection(files);
+			collec.collectCandidates();
+			boolean saveAsLink = false;
+			if(collec.getNumOfTotalDcmFiles()>0) {
+				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "DICOM import from dropping", "Save as link ?", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				if(res == JOptionPane.OK_OPTION) {
+					saveAsLink = true;
+				}
+				boolean ignorePrivate = false;//TODO
+				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+					DicomImporter importer = new DicomImporter(candidateList,willImportStudyUID,saveAsLink,ignorePrivate);
+//					int total = candidateList.size();
+					//As Thread Manager of importer.
+//					DICOMTreeTable mainTreeTable = ApplicationContext.getInstance().getMainScreen().getTreeTable();
+//					int currentArchiveCol = mainTreeTable.getArchivedColumnPosition();
+//					LocalDBStateCellRendererableEditor stateCell = mainTreeTable.getStateCellEditorAtArchiveColumn(currentArchiveCol);
+//					stateCell.addImportingState(willImportStudyUID, total, importer);
+//					ApplicationContext.importing = true;
+//					ApplicationContext.importerExecSvc.submit(importer);
+					importer.start();//use executor.(but this is also can use.)
+				}
+			}
+		}
+		dtde.dropComplete(true);
 	}
 
 	@Override
-	public void dropActionChanged(DropTargetDragEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
+	public void dropActionChanged(DropTargetDragEvent arg0) {}
 
 }

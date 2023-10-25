@@ -20,11 +20,11 @@ import javax.swing.event.TreeModelListener;
  * @author Scott Violet
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTableModelAdapter extends AbstractTableModel {
+public class TreeTableModelAdapter extends AbstractTableModel {
 	JTree tree;
 	TreeTableModel treeTableModel;
 
-	public DICOMTreeTableModelAdapter(TreeTableModel treeTableModel, JTree tree) {
+	public TreeTableModelAdapter(TreeTableModel treeTableModel, JTree tree) {
 		this.tree = tree;
 		this.treeTableModel = treeTableModel;
 

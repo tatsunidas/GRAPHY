@@ -14,9 +14,9 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.LogWindow;
+import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
 import com.vis.core.ui.dialog.HelpDialog;
 import com.vis.core.ui.function.DeleteImage;
@@ -25,14 +25,9 @@ import com.vis.core.ui.function.SeriesIntegrator;
 import com.vis.core.ui.function.SeriesSeparator;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 
-//import com.vis.function.DeleteImage;
-//import com.vis.function.PatientInfoEditor;
-//import com.vis.function.SeriesIntegrator;
-//import com.vis.function.SeriesSeparator;
-//import com.vis.ui.form.dialog.DicomExporter;
-//import com.vis.ui.form.dialog.DicomImporter;
-//import com.vis.ui.form.dialog.DicomImporterDialog;
-
+/**
+ * @author tatsunidas 
+ */
 @SuppressWarnings("serial")
 public class MainScreenMenu extends JMenuBar{
 	
@@ -66,8 +61,7 @@ public class MainScreenMenu extends JMenuBar{
 				if(win != null) {
 					MainScreen main = (MainScreen)win;
 					ArrayList<DICOMNode> selected = main.getSelectedNode();
-					//TODO 20230823
-//					new DicomExporter(selected);
+					new DicomExporter(selected);
 				}
 			}
 		});

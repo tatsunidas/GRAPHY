@@ -119,6 +119,21 @@ public final class LookAndFeels {
 		setLookAndFeel(defaultLAF);
 	}
 	
+	public String getCurrentLAF() {
+		if(this.currentLAF == null) {
+			this.currentLAF = defaultLAF;
+		}
+		return this.currentLAF;
+	}
+	
+	public ArrayList<String> getInstalledLAF(){
+		return this.names;
+	}
+	
+	public HashMap<String, String> getInstalledLAFMap(){
+		return this.lafmap;
+	}
+	
 	public void updateLookAndFeels(Component con) {
 		if(currentLAF == null) {
 			setDefaultTheme();

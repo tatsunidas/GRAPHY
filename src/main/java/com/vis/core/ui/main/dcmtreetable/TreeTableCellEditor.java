@@ -16,12 +16,12 @@ import javax.swing.table.TableCellEditor;
  *
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTableCellEditor extends AbstractCellEditor implements TableCellEditor {
+public class TreeTableCellEditor extends AbstractCellEditor implements TableCellEditor {
 
 	private JTree tree;
 	private JTable table;
 
-	public DICOMTreeTableCellEditor(JTree tree, JTable table) {
+	public TreeTableCellEditor(JTree tree, JTable table) {
 		this.tree = tree;
 		this.table = table;
 	}

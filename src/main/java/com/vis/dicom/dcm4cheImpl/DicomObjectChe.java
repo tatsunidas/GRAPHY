@@ -83,28 +83,28 @@ public class DicomObjectChe extends Attributes implements DicomObject{
      */
     public DicomObjectChe getNestedDataset(int sequenceTag) {
     	Attributes ds = super.getNestedDataset(sequenceTag);
-		return new DicomObjectChe(ds);
+		return ds != null ? new DicomObjectChe(ds):null;
     }
 
 	public DicomObjectChe getNestedDataset(int sequenceTag, int itemIndex) {
 		Attributes ds = super.getNestedDataset(sequenceTag, itemIndex);
-		return new DicomObjectChe(ds);
+		return ds != null ? new DicomObjectChe(ds):null;
 	}
 
 	public DicomObjectChe getNestedDataset(String privateCreator, int sequenceTag) {
 		Attributes ds = super.getNestedDataset(privateCreator, sequenceTag);
-		return new DicomObjectChe(ds);
+		return ds != null ? new DicomObjectChe(ds):null;
 	}
 
 	public DicomObjectChe getNestedDataset(String privateCreator, int sequenceTag, int itemIndex) {
 		Attributes ds = super.getNestedDataset(privateCreator, sequenceTag, itemIndex);
-		return new DicomObjectChe(ds);
+		return ds != null ? new DicomObjectChe(ds):null;
 	}
     
 	@Override
 	public DicomObjectChe getNestedDataset(ItemPointer... itemPointers) {
 		Attributes ds = super.getNestedDataset(Interpreter.itemPointersChe(itemPointers));
-		return new DicomObjectChe(ds);
+		return ds != null ? new DicomObjectChe(ds):null;
 	}
 
 	@Override
@@ -123,7 +123,7 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 	@Override
 	public DicomObjectChe getFunctionGroup(int sequenceTag, int frameIndex) {
 		Attributes fg = super.getFunctionGroup(sequenceTag, frameIndex);
-		return new DicomObjectChe(fg);
+		return fg != null ? new DicomObjectChe(fg):null;
 	}
 
 	@Override

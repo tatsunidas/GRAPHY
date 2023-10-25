@@ -3,9 +3,7 @@ package com.vis.core.ui.dialog;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.function.DicomImporter;
-import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.LocalDBStateCellRendererableEditor;
 import com.vis.dicom.DicomFileCollection;
 
 import java.io.File;
@@ -13,6 +11,7 @@ import java.util.ArrayList;
 import java.util.ResourceBundle;
 
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -103,6 +102,15 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 			}
 			DicomFileCollection collec = new DicomFileCollection(selectedFiles);
 			collec.collectCandidates();
+			//if no dcm files exists, show popup
+			if(collec.getNoDcmFiles().size()>0) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						PopUpMessage.showDialog(null, "None dicom file found !", "Dicom Importer can not import non dicom files.\nIf you would like to import, use General Image Format Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+					}
+				});
+			}
 			// If large dataset > 10000
 			if (filesTooLarge(collec)) {
 				int res = PopUpMessage.showDialog(this, "Large dataset",
@@ -113,24 +121,13 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 					return;
 				}
 			}
-			/**
-			 * TODO 20230829
-			 */
 			boolean saveAsLink = chckbxSaveAsLink.isSelected();
 //			boolean ignorePrivate = ignorePrivate();//TODO
 			// import of each study.
 			for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 				ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
-				DicomImporter importer = new DicomImporter(candidateList, saveAsLink, false);
-				int total = candidateList.size();
-//				//As Thread Manager of importer.
-				int currentArchiveCol = mainTreeTable.getArchivedColumnPosition();
-				LocalDBStateCellRendererableEditor stateCell = mainTreeTable
-						.getStateCellEditorAtArchiveColumn(currentArchiveCol);
-//				// add new ImportingState.
-				stateCell.addImportingState(willImportStudyUID, total, importer);
-				MainScreen.importing = true;
-				importer.startImport();// use executor.(this is also can use.)
+				DicomImporter importer = new DicomImporter(candidateList, willImportStudyUID,saveAsLink, false);
+				importer.start();
 			}
 		}
 		doClose(RET_OK);

@@ -44,6 +44,7 @@ public class DeleteImage {
 			}
 		}
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+		WindowManager.getMainScreen().clearPatientInfo();
 	}
 	
 	public static void deleteImagesByFilePath(ArrayList<String> deleteInstFileLocs){

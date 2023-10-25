@@ -1,17 +1,20 @@
 package com.vis.core.ui.main;
 
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
@@ -23,11 +26,12 @@ import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableDockManager;
+import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
 import com.vis.core.ui.main.dcmtreetable.TreeTableModel;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.DimseUtilities;
@@ -41,12 +45,8 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
-import java.awt.Toolkit;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DragSource;
 import java.awt.dnd.DragSourceListener;
-import java.awt.dnd.DropTarget;
 
 import javax.swing.JSplitPane;
 import javax.swing.JToolBar;
@@ -58,7 +58,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class MainScreen extends JFrame implements WindowListener{
+public class MainScreen extends JFrame implements WindowListener, ComponentListener{
 
 	// debug
 	boolean isDebug = Utils.isDebug;
@@ -66,10 +66,12 @@ public class MainScreen extends JFrame implements WindowListener{
 	private static final MainScreen mainScreen = new MainScreen();
 	
 	public static boolean importing = false;
+	public boolean qrAutoRefreshOn = false;
+	
 	boolean isLocal;
 	
-	//DICOMTreeNode -Main Explorer-
-	private DICOMTreeTableDockManager tabDockManager;
+	/* Main Explorer */
+	private TreeTableDockManager tabDockManager;
 	private DICOMTreeTable localTreeTable;// home treetable
 	/* Main menu bar */
 	MainScreenMenu mainMenuBar;
@@ -78,28 +80,23 @@ public class MainScreen extends JFrame implements WindowListener{
 	/* Main search Bar */
 	SearchToolBar searchToolBar;
 	JToolBar treeTableDock;//dockable treetable
+	BirdsEyeView bev;
 	
 	// Variables
-	private ArrayList<String> serverLabels = new ArrayList<String>();
-	private JPopupMenu preferencesPopup;
-	private JMenuItem preferencesItem, resetItem, importItem;
+//	private ArrayList<String> serverLabels = new ArrayList<String>();
+//	private JPopupMenu preferencesPopup;
+//	private JMenuItem preferencesItem, resetItem, importItem;
 	public int progressValue = 0;
 	public JPanel activeViewPanel;
 	public JSplitPane seriesThumbnailSplit;
 	private javax.swing.JLabel queryInfoLabel;
 	
 	/* drag and drop */
-	static DataFlavor NODE_FLAVOR;// = new DataFlavor(DefaultMutableTreeNode.class, "DICOMNodeInstance");
-	static {
-		try {
-			NODE_FLAVOR = new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType);
-		}catch(ClassNotFoundException cnfe) {
-			cnfe.printStackTrace();
-		}
-	}
 	DICOMNode draggedNode;
 	DragSourceListener sourceListener;
 	DragSource dragSource;
+	
+	Logger logger = Log.logger;
 
 	/**
 	 * keep singleton
@@ -135,8 +132,7 @@ public class MainScreen extends JFrame implements WindowListener{
 	
 	private void setSettings() {
 		setName(ConfigInfo.MainScreen.toString());
-		addWindowListener(this);
-		setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
 		//set window title
 		if (!isDebug) {
 			setTitle(ConfigInfo.AppName.toString()+" "+ConfigInfo.Version.toString());
@@ -181,8 +177,7 @@ public class MainScreen extends JFrame implements WindowListener{
 		baseSplitPane.setLeftComponent(tabDockManager);
 		
 		//birds eye view
-		BirdsEyeView bev = new BirdsEyeView();
-		bev.testSeriesList();
+		bev = new BirdsEyeView();
 		baseSplitPane.setRightComponent(bev);
 		
 		add(baseSplitPane, BorderLayout.CENTER);
@@ -190,10 +185,20 @@ public class MainScreen extends JFrame implements WindowListener{
 		/*
 		 * South Component 
 		 */
-		//trianglebar
+		//triangle bar
 		TriangleBar statusBar = new TriangleBar();
 		getContentPane().add(statusBar, BorderLayout.SOUTH);
 		
+		addWindowListener(this);
+		addComponentListener(this);
+	}
+	
+	public void setInfoToPatientPanel(HashMap<String,String> infoset) {
+		bev.setPatientInfo(infoset);
+	}
+	
+	public void clearPatientInfo() {
+		bev.clearPatientInfo();
 	}
 	
 	/**
@@ -248,10 +253,10 @@ public class MainScreen extends JFrame implements WindowListener{
 				 */
 //				GraphicsConfiguration gcon = ApplicationContext.getInstance().getMainScreenGraphicsConfiguration();
 //				int screen_width = gcon.getBounds().width;
-//		        int screen_height = gcon.getBounds().height;
+//		       int screen_height = gcon.getBounds().height;
 //				setLocation(0, 0);
 //				setSize(screen_width, screen_height));
-//				setBounds(0,0,screen_width, screen_height);//important
+//				setBounds(0,0,screen_width, screen_height);
 			}
 		});
 	}
@@ -266,7 +271,7 @@ public class MainScreen extends JFrame implements WindowListener{
 	
 	private void initTreeTables(){
 		// Local/QR TreeTables Manager
-		tabDockManager = new DICOMTreeTableDockManager();//TabbedPane
+		tabDockManager = new TreeTableDockManager();//TabbedPane
 		/* Local(HOME) TreeTable */
 		TreeTableModel treeTableModel = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
 		localTreeTable = new DICOMTreeTable(treeTableModel,false,null);
@@ -281,7 +286,6 @@ public class MainScreen extends JFrame implements WindowListener{
 			}
 		}
 		/* QR TreeTables */
-		//get serverlist
 		ArrayList<DicomCommunicationNode> servers = DatabaseHandler.getInstance().loadServerList();
 		if(servers != null && !servers.isEmpty()) {
 			//show top ? if no, set HOME to Top.
@@ -310,10 +314,77 @@ public class MainScreen extends JFrame implements WindowListener{
 		}
 	}
 	
+	public void showImagesOnBirdsEye() {
+		TreeTableDockManager ttdm = getCurrentTreeTableManager();
+		if(!ttdm.getCurrentAnchorTitle().equals(TreeTableDockManager.homeTabName)) {
+			return;
+		}
+		TabDock homeDock = ttdm.getHomeDock();
+		DICOMTreeTable tt = homeDock.getDICOMTreeTable();
+		ArrayList<DICOMNode> selectedNodes = tt.getSelectedNodes();
+		// if selected multiple studies, do not show images 
+		int studyCount = 0;
+		for(DICOMNode n : selectedNodes) {
+			if(n.getLevel()==DICOMNode.STUDY) {
+				studyCount++;
+			}
+		}
+		if(studyCount > 1) {
+			if(Utils.isDebug) {
+				logger.info("showImagesOnBirdsEye(): Can not show multi studies on Bird's eye view.");
+			}
+			return;
+		}
+		ArrayList<String> selectedSeriesUIDs = new ArrayList<>();
+//		ArrayList<String> selectedImageUIDs = new ArrayList<>();
+		HashMap<String, ArrayList<String>> selectedImageUIDs = new HashMap<>();
+		for(DICOMNode n : selectedNodes) {
+			if(n.getLevel()==DICOMNode.SERIES) {
+				selectedSeriesUIDs.add(n.getData(DICOMNode.SeriesInstanceUID));
+			}
+			if(n.getLevel()==DICOMNode.IMAGE) {
+				if(selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID))==null) {
+					ArrayList<String> uids = new ArrayList<>();
+					uids.add(n.getData(DICOMNode.SOPInstanceUID));
+					selectedImageUIDs.put(n.getData(DICOMNode.SeriesInstanceUID), uids);
+				}else {
+					selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID)).add(n.getData(DICOMNode.SOPInstanceUID));
+				}
+			}
+		}
+		String patID = selectedNodes.get(0).getData(DICOMNode.PatientID);
+		String studyUID = selectedNodes.get(0).getData(DICOMNode.StudyInstanceUID);
+		if(bev != null) {
+			String currentShowingStudyUID = bev.getShowingStudyUID();
+			if(currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+					}
+				});
+			}else if(currentShowingStudyUID.equals(studyUID)) {
+				if(selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size()==0) {
+					return;
+				}
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+					}
+				});
+			}
+		}
+	}
+	
+	public void showImagesOnBirdsEye(Praparat thumbnailedParap) {
+		bev.showImagesFromThumbnailAction(thumbnailedParap);
+	}
+	
 	public void updateQRTreeTables(){
 		//get serverlist
 		ArrayList<DicomCommunicationNode> servers = DatabaseHandler.getInstance().loadServerList();
-		String keepTopTitle = PropertiesUtil.getPropValueFrom("/conf/graphy.properties", "MainTreeTableKeepTopTitle");
+		String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
 		for(DicomCommunicationNode svr:servers) {
 			//constructQRTreeTables
 			boolean svrReady = DimseUtilities.echo(svr);
@@ -363,7 +434,7 @@ public class MainScreen extends JFrame implements WindowListener{
 		 */
 	}
 	
-	public DICOMTreeTableDockManager getCurrentTreeTableManager() {
+	public TreeTableDockManager getCurrentTreeTableManager() {
 		return this.tabDockManager;
 	}
 	
@@ -433,23 +504,20 @@ public class MainScreen extends JFrame implements WindowListener{
 	}
 	
 	public void loadLocalStudiesBySearchKey() {
-//		HashMap<String, Object> keys = getMainSearchToolBar().getTextSearchObject().getCurrentSearchConditions();
-//		DatabaseHandler db = ApplicationContext.getInstance().getDatabaseRef();
-//		@SuppressWarnings("unchecked")
-//		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeysUsingPatName((String)keys.get("PatientID"), (String)keys.get("PatientName"), (String)keys.get("From"), (String)keys.get("To"),
-//				(ArrayList<String>)keys.get("Modalities"));
-//		if(selectedStudies == null || selectedStudies.size() < 1) {
-//			return;
-//		}
-//		DICOMNodeBuilder builder = new DICOMNodeBuilder();
-//		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(selectedStudies);
-//		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
-		String anchorTreeTableTitle = tabDockManager.getCurrentAnchorTitle();
-		if (anchorTreeTableTitle.equals("HOME")) {
-			getMainSearchToolBar().searchDBOnCurrentConditions();
+		HashMap<String, Object> keys = getMainSearchToolBar().getCurrentSearchConditions();
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		@SuppressWarnings("unchecked")
+		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeysUsingPatName((String)keys.get("PatientID"), (String)keys.get("PatientName"), (String)keys.get("From"), (String)keys.get("To"),
+				(ArrayList<String>)keys.get("Modalities"));
+		if(selectedStudies == null) {
+			selectedStudies = new ArrayList<>();
 		}
+		DICOMNodeBuilder builder = new DICOMNodeBuilder();
+		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(selectedStudies);
+		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
 	}
 	
+	// see QueryRetrieve
 	public void refleshAnchorTreeTable() {
 		getMainSearchToolBar().searchDBOnCurrentConditions();
 	}
@@ -808,7 +876,10 @@ public class MainScreen extends JFrame implements WindowListener{
 		 * 4. system.exit(0)
 		 */
 		try {
-			ApplicationFacade.exitApp(Level.INFO, "Shutting down graphy...");
+			boolean close = ApplicationFacade.exitApp(Level.INFO, "Shutting down graphy...");
+			if(!close) {
+				return;
+			}
 		} catch (Throwable e1) {
 			e1.printStackTrace();
 			System.exit(13);
@@ -829,5 +900,21 @@ public class MainScreen extends JFrame implements WindowListener{
 
 	@Override
 	public void windowDeactivated(WindowEvent e) {}
+
+	@Override
+	public void componentResized(ComponentEvent e) {}
+
+	@Override
+	public void componentMoved(ComponentEvent e) {}
+
+	@Override
+	public void componentShown(ComponentEvent e) {
+		if(bev !=null) {
+			bev.resetViews(true);
+		}
+	}
+
+	@Override
+	public void componentHidden(ComponentEvent e) {}
 }
 

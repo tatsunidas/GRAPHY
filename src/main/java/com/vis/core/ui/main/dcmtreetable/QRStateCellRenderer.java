@@ -9,6 +9,7 @@ import javax.swing.JTable;
 import javax.swing.table.TableCellRenderer;
 
 import com.vis.configuration.Resources;
+import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.QRHandler;
 
 public class QRStateCellRenderer extends JButton implements TableCellRenderer{
@@ -41,7 +42,7 @@ public class QRStateCellRenderer extends JButton implements TableCellRenderer{
 			isc = getImportingCellStateAt(importingList,row, col);
 		}
 		if (isc != null) {
-			return isc.getProgressBar();
+//			return isc.getProgressBar();//20231010
 		} else {// waiting state
 			if (selected) {
 	            setForeground(table.getSelectionForeground());
@@ -89,27 +90,23 @@ public class QRStateCellRenderer extends JButton implements TableCellRenderer{
 			}
 			return this;
 		}
+		return this;
 	}
 
 	private ImportingStateContext getImportingCellStateAt(ArrayList<ImportingStateContext> importingList,int row, int col) {
 		if(importingList == null || importingList.size() == 0) {
 			return null;
 		}
-		for (int i = 0; i < importingList.size(); i++) {
-			ImportingStateContext isc = importingList.get(i);
-			int r = isc.getImportingRow();
-			int c = isc.getImportingCol();
-			
-//			System.out.println(r);
-//			System.out.println(c);
+		//20231010
+//		for (int i = 0; i < importingList.size(); i++) {
+//			ImportingStateContext isc = importingList.get(i);
+//			int r = isc.getImportingRow();
+//			int c = isc.getImportingCol();
 //			
-//			System.out.println(row);
-//			System.out.println(col);
-			
-			if (r == row && c == col) {
-				return isc;
-			}
-		}
+//			if (r == row && c == col) {
+//				return isc;
+//			}
+//		}
 		return null;
 	}
 }
