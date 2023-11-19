@@ -1,17 +1,49 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.awt.geom.Point2D;
 import java.io.File;
 import java.util.ArrayList;
@@ -31,6 +63,7 @@ import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 
 import com.vis.core.log.Log;
+import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -43,12 +76,11 @@ import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
 import com.vis.dicom.VR;
-//import com.vis.mediareader.DICOMImage;
-//import com.vis.mediareader.GImageReader;
 //import com.vis.mediareader.PDFReader;
 import com.vis.dicom.image.DicomImage;
 import com.vis.imageio.Codec;
@@ -72,17 +104,41 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
+/**
+ * SeriesViewer
+ */
 @SuppressWarnings("serial")
-public class Praparat extends JPanel implements ComponentListener {
+public class Praparat extends JPanel {
 
-	/**
-	 * SeriesViewer
-	 */
-	/*
-	 * Keep in my mind:
-	 * Praparat should be stay simple series viewer. 
-	 * Praparat has layers namely SlideGlass that is a holder of a single frame.
-	 */
+	class SlideGlassHolder extends JLayeredPane{
+		int prevW;
+		int prevH;
+		
+		SlideGlassHolder(){
+			setOpaque(false);
+			prevW = getWidth();
+			prevH = getHeight();
+		}
+		
+		@Override
+		public void paintComponent(Graphics g){
+			super.paintComponent(g);
+			if(mode == ViewMode.Thumbnail) {
+				return;
+			}
+			int currentW = getParent().getWidth();
+			int currentH = getParent().getHeight();
+			if(prevW != currentW || prevH != currentH) {
+				if(!isShowGridViewOn()) {
+					adjustSlideHolderSize();
+				}else {
+					adjustGridViewSize();
+				}
+				prevW = currentW;
+				prevH = currentH;
+			}
+		}
+	}
 	
 	public enum ViewMode{
 		Normal,
@@ -91,61 +147,57 @@ public class Praparat extends JPanel implements ComponentListener {
 		FilmGrid,//for bird's eye
 		MPR,
 	}
-	
+	//patient info set keys
+	public final String KEY_PadID = "Patient​ID";
+	public final String KEY_StudyUID = "StudyInstanceUID";
+	public final String KEY_SeriesUID = "SeriesInstanceUID";
+
+	public final String KEY_SopUIDs = "SOPInstanceUIDs";
 	// component
 	private PraparatViewControlPanel pvcp;
-	private JLayer<JLayeredPane> praparatView;
-	private JLayeredPane viewPane; // slide glass screen.
-	private JScrollPane gridPane;
+	/**
+	 * You should not add all slideglasses on SlideGlassHolder.
+	 * This be able to cause JLayerUI conflict between glasses. 
+	 * In Praparat, shows slide one by one(add() and remove() handling).
+	 */
+	private JLayer<SlideGlassHolder> slideGlassHolder;//ImageScreen
+	private JScrollPane gridScrollPane;//gridView
+	
 	private CineSlider slider;
-	
 	private Color studyColor = Color.CYAN;
-	private final int BORDER_SIZE = 6;
 	
+	private final int BORDER_SIZE = 6;
+	private final int ThumbnailSize = 64;
 	private int currentSlice = 0;
 	private int prevSlice = -1;
-	private int previousPraparatX = -1;// component sizeX
-	private int previousPraparatY = -1;// component sizeY
-	private int filmGridColumns = 5;
 
-	private boolean isMultiframe = false;
+	private int filmGridColumns = 5;
+	private boolean isMultiframe = false;/*to set video option*/
+	private boolean isPDF = false;
 	private boolean selected = false;
 	private boolean focusGained = false;
 	private boolean showGridViewOn = false;
-	private boolean processSeries = true;
 	
+	private boolean processSeries = true;
 	//mpr
 	private boolean crossLineCursorMode = false;
+
 	private ReferenceLine refLine;
 
 	private ArrayList<String> pathToImages = null;
-
 	Eyepiece prapManager;
 	String patID;
 	String studyUID;
 	String seriesUID;
 	String[] sopUIDs;
 	String modality = null;
+	
 	private HashMap<Integer, JLayer<SlideGlass>> slides;
 	
 	final ViewMode mode;
 	
 	private Logger logger = Log.logger;
 	
-	public Praparat(ViewMode mode) {
-		if(mode == null) {
-			this.mode = ViewMode.Normal;
-		}else {
-			this.mode = mode;
-		}
-		init();
-	}
-	
-	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
-		this(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages, null, studyColor, mode);
-	}
-	
-	//for simple series view
 	public Praparat(ImagePlus stack, Color studyColor) {
 		this.mode = ViewMode.Normal;
 		if(studyColor != null) {
@@ -153,7 +205,10 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 		init();
 		prepareSlideGlassesUsingImagePlus(stack);
-//		initImageSizeAndShowFirstImage();
+	}
+	
+	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
+		this(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages, null, studyColor, mode);
 	}
 	
 	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Eyepiece manager,
@@ -171,1096 +226,99 @@ public class Praparat extends JPanel implements ComponentListener {
 		init();
 	}
 
-	private void init() {
-		if(this.mode == null) {
-			return;
-		}
-		//common
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();
-		setLayout(new BorderLayout());
-		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
-		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
-		slider = new CineSlider(this);
-		slider.initContext();
-		
-		if(mode == ViewMode.Normal) {
-			add(pvcp, BorderLayout.NORTH);
-			add(slider, BorderLayout.SOUTH);
-			viewPane = new JLayeredPane();
-			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
-			add(praparatView, BorderLayout.CENTER);
-			setFocusable(true);
-			setRequestFocusEnabled(true);
-		}
-		
-		if(mode == ViewMode.SingleGrid) {
-			add(pvcp, BorderLayout.NORTH);
-			add(slider, BorderLayout.SOUTH);
-			viewPane = new JLayeredPane();
-			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
-			add(praparatView, BorderLayout.CENTER);
-			setFocusable(true);
-			setRequestFocusEnabled(true);
-			pvcp.getFilmGridBtn().setEnabled(false);
-			pvcp.enableProcessSeries(false);
-		}
-		
-		if(mode == ViewMode.FilmGrid){
-			add(pvcp, BorderLayout.NORTH);
-			/*No slider*/
-			viewPane = new JLayeredPane();
-			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
-			add(praparatView, BorderLayout.CENTER);
-			setFocusable(true);
-			setRequestFocusEnabled(true);// fail safe?
-			/*see also setTextVisible(). This is called when after preparedImages*/
-			pvcp.enableShowInfo(false);
-			pvcp.enableProcessSeries(false);
-		}
-		
-		if(mode == ViewMode.Thumbnail) {
-			/*No controller and slider*/
-			viewPane = new JLayeredPane();
-			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
-			setPraparatViewSize(64, 64);
-			add(praparatView, BorderLayout.CENTER);
-			setFocusable(true);
-			setRequestFocusEnabled(true);
-		}
-		
-		if(mode == ViewMode.MPR){
-			add(pvcp, BorderLayout.NORTH);
-			add(slider, BorderLayout.SOUTH);
-			viewPane = new JLayeredPane();
-			praparatView = new JLayer<JLayeredPane>(viewPane, new PraparatUI(this));
-			add(praparatView, BorderLayout.CENTER);
-			setFocusable(true);
-			setRequestFocusEnabled(true);// fail safe?
-			/*filmGrid is denied*/
-			pvcp.getFilmGridBtn().setEnabled(false);
-		}
-		addComponentListener(this);
-	}
-
-	/*
-	 * prepareSlideGlasses
-	 * set specimen
-	 */
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
-		ArrayList<String> pathToImages = null;
-		DatabaseHandler db = DatabaseHandler.getInstance();//.getDatabase();
-		if (sopUIDs == null || sopUIDs.length < 1) {
-			// load all instances in series
-			pathToImages = db.getFileLocations(patID, studyUID, seriesUID);
-		} else {
-			// load particular instances
-			pathToImages = new ArrayList<String>();
-			for (String sopUID : sopUIDs) {
-				String p2img = db.getFileLocation(patID, studyUID, seriesUID, sopUID);
-				pathToImages.add(p2img);
-			}
-		}
-		if (pathToImages == null || pathToImages.size()<1) {
-			return;
-		}
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToImages);
-	}
-	
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, ArrayList<String> sopUIDs, ArrayList<String> pathToImages) {
-		String[] sopUids = sopUIDs.toArray(new String[sopUIDs.size()]);
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUids, pathToImages);
-	}
-	
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
-		if(pathToImages == null || pathToImages.size()==0) {
-			System.out.println("prap needs path to images..., return.");
-			return;
-		}
-		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
-		constructSeriesGlassesAsLayer();
-		if(slider != null) {
-			slider.initContext();
-		}
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
-		if(slider != null) {
-			slider.initContext();
-		}
-		if(Utils.isDebug) {
-			System.out.println(slides.size()+" images loaded.");
-		}
-	}
-	
-	public void prepareSlideGlasses(Praparat p) {
-		if(p == null) {
-			logger.log(Level.SEVERE, "Can not load images from this Praparat.");
-			return;
-		}
-		HashMap<String, Object> info = p.getInfoSet();
-		String patID = (String)info.get("PatientID");
-		String studyUID = (String)info.get("StudyInstanceUID");
-		String seriesUID = (String)info.get("SeriesInstanceUID");
-		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
-		ArrayList<String> pathToImages = p.getImageFileLocations();
-		
-		if(pathToImages == null || pathToImages.size()==0) {
-			System.out.println("prap needs path to images..., return.");
-			return;
-		}
-		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
-		loadSlideGlasses(p);
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
-		if(slider != null) {
-			slider.initContext();
-		}
-		if(Utils.isDebug) {
-			System.out.println(slides.size()+" images loaded.");
-		}
-	}
-	
-	public void prepareSlideGlassesUsingImagePlus(ImagePlus images) {
-		if(images == null || images.getStackSize()==0) {
-			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
-			return;
-		}
-
-		if(viewPane != null) {
-			viewPane.removeAll();
-		}
-		if(prevSlice != -1) {
-			prevSlice = -1;
-			currentSlice = 0;
-		}
-		constructSeriesGlassesAsLayerUsingImagePlus(images);
-		System.out.println(slides.size()+" images loaded.");
-		if(slider != null) {
-			slider.initContext();
-		}
-	}
-	
-	
-	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
-		this.patID = patID;
-		this.studyUID = studyUID;
-		this.seriesUID = seriesUID;
-		this.sopUIDs = sopUIDs;
-		setImageFileLocations(pathToImages);
-	}
-	
-	public ViewMode getViewMode() {
-		return mode;
-	}
-	
-	public HashMap<String,Object> getInfoSet() {
-		HashMap<String,Object> infoset = new HashMap<>();
-		infoset.put("Patient​ID", patID);
-		infoset.put("StudyInstanceUID", studyUID);
-		infoset.put("SeriesInstanceUID", seriesUID);
-		infoset.put("SOPInstanceUIDs", sopUIDs);//array
-		return infoset;
-	}
-	
-	public PraparatViewControlPanel getController() {
-		return pvcp;
-	}
-	
-	public void setFilmGridColumns(int num) {
-		this.filmGridColumns = num;
-	}
-
-	public int getSlideHolderWidth() {
-		if(viewPane == null) {
-			return -1;
-		}
-		return viewPane.getWidth();
-	}
-
-	public int getSlideHolderHeight() {
-		if(viewPane == null) {
-			return -1;
-		}
-		return viewPane.getHeight();
-	}
-	
-	/**
-	 * series view JLayeredPane
-	 * @return
-	 */
-	public JLayeredPane getPraparatViewPane() {
-		return viewPane;
-	}
-	
-	public JLayer<JLayeredPane> getPraparatView() {
-		return praparatView;
-	}
-
-	/*
-	 * refleshAndLoadNewSlideGlasses
-	 */
-	public void wink(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
-		// do not allow sopUIDs NULL.
-		if (sopUIDs == null) {
-			return;
-		}
-		// at first, remove current series image.
-		removeSlide(getCurrentSlide());
-		// get new series info
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-		slider.initContext();
-		// show new series
-//		showFirstImage();
-		initImageSizeAndShowFirstImage();
-	}
-
-	public void constructSeriesGlassesAsLayer() {
-		//including only one series.
-		ArrayList<String> imgFiles = getImageFileLocations();
-		if (imgFiles == null || imgFiles.size() < 1) {
-			logger.info("Please set file locations, Praparat::constructSeriesGlassesAsLayer");
-			return;
-		}
-		// init
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();
-		/*
-		 * image files already sorted by inst No.
-		 */
-		DICOMBackend be = DICOMBackend.getCurrent();
-		for (int i = 0; i < imgFiles.size(); i++) {
-			DicomImage header = DicomImage.newDicomImage(imgFiles.get(i), be);
-			// TODO
-			/*
-			 * pdfToDicomObject()
-			 */
-			if(header.isPDF()) {
-				//read as series level
-				PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i)));
-				ImagePlus pdfStack = pdfReader.pdf2ImageStack();
-				isMultiframe = pdfStack.getNSlices() > 1;
-				if(!isMultiframe) {
-					ImageProcessor instIp = pdfStack.getProcessor();
-					header.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-					DicomObject header_core = ((DicomObject)header.getCore());
-					header_core.setString(Tag.Instance​Number, VR.IS, String.valueOf((1)));
-					SlideGlass sg = new SlideGlass(this, header);
-					JLayer<SlideGlass> ly = sg.getSlideGlassAsLayer();
-					slides.put(0, ly);
-				}else {
-					for(int j=0;j<pdfStack.getStackSize();j++) {
-//						ImageProcessor instIp = pdfStack.getStack().getProcessor(j+1);
-//						DicomObject header_core = ((DicomObject)header.getCore().duplicate());
-//						header.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-//						header_core.setString(Tag.Instance​Number, VR.IS, String.valueOf((j+1)));
-//						DicomImage dcm = DicomImage.newDicomImage(header_core, UID.EncapsulatedPDFStorage);
-//						
-//						SlideGlass sg = new SlideGlass(this, iamge, studyColor);
-//						// change to jlayer
-//						JLayer<SlideGlass> ly = sg.getSlideGlassAsLayer();
-//						slides.put(j, ly);
-					}
-				}
-				pdfReader.close();
-				continue;
-			}
-			/*
-			 * multiframe to one series.
-			 */
-			isMultiframe = header.isMultiFrame();
-			//single frame
-			if(!isMultiframe) {
-				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), DICOMBackend.getCurrent());
-				/*
-				 * TODO
-				 * if decompressed, update DicomImage and Attributes TSUID.
-				 * but, original TSUID remains in it ?,... 
-				 */
-				if(Codec.isCompressed(dcmimg.getCore().getString(Tag.Transfer​Syntax​UID))) {
-					Decompressor decom = Decompressor.newInstance(dcmimg.getCore(), dcmimg.getTSUID().uid());
-					if(decom.decompress()) {
-//						dcmimg.decompressed(true);
-					}
-				}
-				SlideGlass sg = new SlideGlass(this, dcmimg);
-				// change to jlayer
-				JLayer<SlideGlass> l = sg.getSlideGlassAsLayer();
-				slides.put(i, l);
-			//multiframe
-			}else {
-				/*
-				 * TODO 20231008
-				 */
-				//read and decompressed
-//				DICOMImage frames = new DICOMImage();//multi
-//				frames.load(imgFiles.get(i));
-//				DicomObject multi_dcm = new DicomObject(imgFiles.get(i), true);
-//				GImageReader gir = new GImageReader();
-//				ArrayList<DicomObject> headers = gir.readMultiFrameDicomHeaders(multi_dcm);
-//				for(int j=0;j<frames.getNSlices();j++) {
-//					ImagePlus inst = new ImagePlus("", frames.getImageStack().getProcessor(j+1));
-//					inst.setCalibration(frames.getCalibration().copy());
-//					DicomObject header_in_frames = headers.get(j);
-//					SlideGlass sg = new SlideGlass(this, inst, header_in_frames, studyColor);
-//					// change to jlayer
-//					JLayer<SlideGlass> l = sg.getSlideGlassAsLayer();
-//					slides.put(j, l);
-//				}
-				/*
-				 * if multiframe, load only one file.
-				 */
-				return;
-			}
-//			gir = null;
-		}
-	}
-	
-	/*
-	 * TODO 20231008
-	 */
-	public void constructSeriesGlassesAsLayerUsingImagePlus(ImagePlus images) {
-		if (images == null || images.getStackSize() < 1) {
-			System.out.println("Please set images, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
-			return;
-		}
-		// init
-		removeShowingSlide();
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();// need
-		if(images.getNSlices() == 1) {
-			/*
-			 * TODO 20231008
-			 */
-			DicomObject dcmObj = DicomObject.newDicomObject();
-			
-			//add attributes from imageplus's fileinfo
-			//...TODO...
-			
-			DicomImage dcm = DicomImage.newDicomImage(dcmObj, UID.ImplicitVRLittleEndian);
-			SlideGlass sg = new SlideGlass(this, dcm);
-			// change to jlayer
-			JLayer<SlideGlass> l = sg.getSlideGlassAsLayer();
-			slides.put(0, l);
+	public Praparat(ViewMode mode) {
+		if(mode == null) {
+			this.mode = ViewMode.Normal;
 		}else {
-			for (int i = 0; i < images.getStackSize(); i++) {
-				images.setSlice(i + 1);
-				ImagePlus slice = new ImagePlus("" + (i + 1), images.getProcessor().duplicate());
-				slice.setCalibration(images.getCalibration().copy());
-				slice.setProperty("Info", images.getStack().getSliceLabel(i+1));
-				/*
-				 * TODO 20231008
-				 */
-//				SlideGlass sg = new SlideGlass(this, slice,null, studyColor);
-//				// change to jlayer
-//				JLayer<SlideGlass> l = sg.getSlideGlassAsLayer();
-//				slides.put(i, l);
-			}
+			this.mode = mode;
 		}
+		init();
 	}
 	
-	private void loadSlideGlasses(Praparat p) {
-		if(p == null) {
-			return;
-		}
-		HashMap<Integer, JLayer<SlideGlass>> slides = p.getAllSlides();
-		if (slides == null || slides.size() < 1) {
-			System.out.println("Slides have no images...");
-			return;
-		}
-		// init
-		if(isVisible()) {
-			removeShowingSlide();
-		}
-		this.slides = new HashMap<Integer, JLayer<SlideGlass>>();
-		
-		Set<Integer> keys = slides.keySet();
-		for(Integer k : keys) {
-			//init slide from another slides to set this praparat.
-			SlideGlass sg = slides.get(k).getView();
-			SlideGlass newsg = new SlideGlass(this, sg.getDicomImage());
-			JLayer<SlideGlass> ly = newsg.getSlideGlassAsLayer();
-			this.slides.put(k, ly);
-		}
-		if(Utils.isDebug) {
-			System.out.println(slides.size()+" images loaded.");
-		}
-	}
-
-
-	/**
-	 * without frameOfReferenceUID
-	 * @return
-	 */
-	public Object[] getUIDs() {
-		Object[] uids = new Object[5];
-		uids[0] = patID;
-		uids[1] = studyUID;
-		uids[2] = seriesUID;
-		uids[3] = sopUIDs;// String[]
-		return uids;
-	}
-	
-	public void setStudyColor(Color color) {
-		if(color != null) {
-			this.studyColor = color;
-		}
-	}
-	
-	public Color getStudyColor() {
-		return this.studyColor;
-	}
-
-	public Eyepiece getEyepieceAsPraparatManager() {
-		return prapManager;
-	}
-	
-	public void setImagePositionTo(SlideGlass sg) {
-		Set<Integer> keys = slides.keySet();
-		for(Integer key : keys) {
-			SlideGlass slide = slides.get(key).getView();
-			if(sg == slide) {
-				setImagePosition(key);
-				break;
-			}
-		}
-	}
-
-	/**
-	 * For CineSlider.
-	 * If you want to change slide position, use setImagePositionUsingSlider instead.
-	 * @param sliceIndex:number of slice index, 0 to n-1
-	 */
-	protected void setImagePosition(int sliceIndex) {
-		if (slides == null) { //do not include pathToImages
-			return;
-		}
-		if(viewPane == null) {
-			return;
-		}
-		if(isShowGridViewOn()) {
-			if(prevSlice == sliceIndex) {
+	public void adjustGridViewSize() {
+		synchronized (this) {
+			if(gridScrollPane == null || !showGridViewOn) {
 				return;
 			}
-			prevSlice = currentSlice;
-			currentSlice = sliceIndex;
-			return;
-		}
-		prevSlice = currentSlice;
-		removeShowingSlide();
-		currentSlice = sliceIndex;
-		JLayer<SlideGlass> currentGlass = this.slides.get(currentSlice);
-		// avoid starting up Null excep.
-		if (currentGlass == null) {
-			return;
-		}
-		fitImageSize2PraparatView(sliceIndex);
-//		System.out.println("Current Image Position " + (currentSlice + 1) + "/" + slides.size());
-		viewPane.add(currentGlass);
-		viewPane.validate();
-		viewPane.repaint();
-		currentGlass.requestFocus();//IMPORTANT for key listener
-	}
-
-	/**
-	 * Specify slideglass position on prap.
-	 * pos: 0 to n-1
-	 */
-	public void setImagePositionUsingSlider(int pos) {
-		slider.setSlice(pos);
-	}
-	
-	public void setNextSlice() {
-		setImagePositionUsingSlider(currentSlice+1);
-	}
-	
-	public void setPreviousSlice() {
-		setImagePositionUsingSlider(currentSlice-1);
-	}
-
-	/*
-	 * do not use, see SlideGlass::calcImageSize2FitComponent() or fit2praparat()
-	 */
-//	public int[] calcSlideSize(int compWidth, int compHeight) {
-//		JLayer<SlideGlass> currentGlass = this.slides.get(currentSlice);
-//		Dimension orgImgSize = currentGlass.getView().getOriginalImageSize();
-//		int original_width = orgImgSize.width;
-//		int original_height = orgImgSize.height;
-//		int bound_width = compWidth;
-//		int bound_height = compHeight;
-//		// first, adjust new component size
-//		int new_width = bound_width;
-//		// scale height to maintain aspect ratio
-//		int new_height = (new_width * original_height) / original_width;
-//		// then check if we need to scale width
-//		if (original_width > bound_width) {
-//			new_width = bound_width;
-//			new_height = (new_width * original_height) / original_width;
-//		}
-//		// then check if we need to scale even with the new height
-//		if (new_height > bound_height) {
-//			new_height = bound_height;
-//			new_width = (new_height * original_width) / original_height;
-//		}
-//		return new int[] { new_width, new_height };
-//	}
-	
-	/*
-	 * 表示中のGridViewのサイズを調整する
-	 */
-	public void adjustGridViewSize() {
-		if(gridPane == null || !showGridViewOn) {
-			return;
-		}
-		if(viewPane.getWidth()<1 && viewPane.getHeight()<1) {
-			return;
-		}
-		// calc grid size
-		JPanel gridView = (JPanel) gridPane.getViewport().getView();
-		GridLayout gl = (GridLayout) gridView.getLayout();
-		gridPane.setBounds(0, 0, viewPane.getWidth(), viewPane.getHeight());
-		//show always square
-		int scrollBarWidth = 15;//default size //gridPane.getVerticalScrollBar().getWidth();return zero 
-		int gridX = (viewPane.getWidth()-scrollBarWidth) / gl.getColumns();
-		int gridY = gridX;// viewPane.getHeight()/row;
-		int s = getNumberOfImages();
-		for (int i = 0; i < s; i++) {
-			JLayer<SlideGlass> slide = slides.get(i);
-			slide.getView().fitImg2Comp(gridX, gridY);
-//			slide.getView().showBorder(false);
-		}
-		gridView.repaint();
-		gridPane.repaint();
-		viewPane.repaint();
-	}
-
-	public int getCurrentSlidePos() {
-		return currentSlice;
-	}
-	
-	public int getSlidePosition(String sopUID) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
-		if(slides == null) {
-			return -1;
-		}
-		for(int p : slides.keySet()) {
-			JLayer<SlideGlass> g = slides.get(p);
-			SlideGlass sg = g.getView();
-			String sopUID_ = sg.getSOPInstanceUID();
-			if(sopUID.equals(sopUID_)) {
-				return p;
+			setSlideGlassHolderSize(getSlideHolderWidth(), getSlideHolderHeight());
+			Object comp = gridScrollPane.getViewport().getView();
+			if(!(comp instanceof JPanel)) {
+				return;
+			}
+			JPanel gridView = (JPanel) comp;
+			GridLayout gl = (GridLayout) gridView.getLayout();
+			gridScrollPane.setPreferredSize(new Dimension(getSlideHolderWidth(), getSlideHolderHeight()));
+			gridScrollPane.setBounds(0, 0, getSlideHolderWidth(), getSlideHolderHeight());
+			
+			int margin = 4;/*to avoid horizontal scroll bar shown*/
+			int scrollBarWidth = gridScrollPane.getVerticalScrollBar().getWidth()+margin;
+			if(scrollBarWidth <= margin) {
+				scrollBarWidth = 15/*default bar width*/+margin;
+			}
+			gridView.setSize(getSlideHolderWidth()-scrollBarWidth, getSlideHolderHeight());
+			//DO NOT set setPreferedSize to avoid collapsing squared GridLayout
+			gridView.setBounds(0, 0, getSlideHolderWidth()-scrollBarWidth, getSlideHolderHeight());
+			int gridX = gridView.getWidth() / gl.getColumns();
+			int gridY = gridX;//grids are showed square
+			int s = getNumberOfImages();
+			for (int i = 0; i < s; i++) {
+				JLayer<SlideGlass> slide = slides.get(i);
+				slide.getView().adjustGlassesSize(gridX, gridY);
 			}
 		}
-		return -1;
 	}
 	
-//	private void fitAllImagesSize2PraparatView() {
-//		if(slides == null || slides.size() == 0) {
-//			return;
-//		}
-//		if(getSlideHolderWidth() == 0 || getSlideHolderHeight() == 0) {
-//			return;
-//		}
-//		for(int i=0;i<slides.size();i++) {
-//			SlideGlass sg = slides.get(i).getView();
-////			sg.fitImg2Comp(new_size[0], new_size[1], getSlideHolderWidth(), getSlideHolderHeight());
-//			sg.fit2Praparat();
-//		}
-//		viewPane.validate();
-//		viewPane.repaint();
-//	}
-	
-	private void fitImageSize2PraparatView(int slice) {
-		if(slides == null || slides.size() == 0 || slides.get(slice).getView() == null) {
+	/**
+	 * Run after componentResized()
+	 */
+	public void adjustSlideHolderSize() {
+		if(slides == null || slides.size() == 0) {
 			return;
 		}
-		if(viewPane == null) {
-			return;
-		}
-		if(getSlideHolderWidth() == 0 || getSlideHolderHeight() == 0) {
-			return;
-		}
-		SlideGlass current = slides.get(slice).getView();
-		//set sg size to same size of prap.
-		current.setSize(new Dimension(viewPane.getWidth(), viewPane.getHeight()));//IMPORTANT
-		current.fit2Praparat();
-		//set origin all slides
-		if(processSeries) {
+		setSlideGlassHolderSize(getSlideHolderWidth(), getSlideHolderHeight());
+		if(!processSeries) {
+			SlideGlass target = slides.get(currentSlice).getView();
+			target.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
+		}else {
 			for (Integer key : slides.keySet()) {
 				JLayer<SlideGlass> sl = slides.get(key);
 				SlideGlass sg_ = sl.getView();
-				if(sg_ == current) {
-					continue;
-				}
-				sg_.setSize(new Dimension(viewPane.getWidth(), viewPane.getHeight()));//IMPORTANT
-				sg_.updateScale();
-				if (!current.panningFlag && !sg_.panningFlag) {
-					sg_.lastOriginX = current.originX;
-					sg_.lastOriginY = current.originY;
-					sg_.originX = current.originX;
-					sg_.originY = current.originY;
+				sg_.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
+			}
+			SlideGlass target = slides.get(currentSlice).getView();
+			//set origin all slides
+			for (Integer key : slides.keySet()) {
+				JLayer<SlideGlass> sl = slides.get(key);
+				SlideGlass sg_ = sl.getView();
+				if (target != null && !target.panningFlag && !sg_.panningFlag) {
+					sg_.lastOriginX = target.originX;
+					sg_.lastOriginY = target.originY;
+					sg_.originX = target.originX;
+					sg_.originY = target.originY;
 //					System.out.println("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
 				}
-				/*
-				 * too slow
-				 */
-//				sg_.fit2Praparat();
 			}
 		}
 	}
 	
-	public void initImageSizeAndShowFirstImage() {
-//		initImageSize to component
-//		fitAllImagesSize2PraparatView();
-		
-		previousPraparatX = getWidth(); 
-		previousPraparatY = getHeight(); 
-		showFirstImage();
-		fitImageSize2PraparatView(currentSlice);
-	}
-
-	public void showFirstImage() {
-		// position range is 0 to n
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
-//		System.out.println("showFirstImage:: "+viewPane.getWidth()+" "+viewPane.getHeight());
-		setImagePosition(currentSlice);
-	}
-
-	public void resetView() {
-		if (getCurrentSlidePos() == -1) {
-			return;
+	private List<Point2D> calcLocalizer(SlideGlass src, SlideGlass target) {
+		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
+		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
+		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
+		List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
+		if(Utils.isDebug){
+			System.out.println(src.getHeader().getString(TagDict.forName("InstanceNumber")));
+			System.out.println(target.getHeader().getString(TagDict.forName("InstanceNumber")));
+			Point2D p0_leftlower = shapes.get(0);
+			Point2D p1_rightlower = shapes.get(1);
+			Point2D p2_rightupper = shapes.get(2);
+			Point2D p3_leftupper = shapes.get(3);
+			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
+			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
+			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
+			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
 		}
-		//for mpr view
-		if (Viewer2DScreen.getInstance() == null) {
-			return;
-		}
-		if(mode == ViewMode.Normal) {
-			if (isShowGridViewOn()) {
-				viewPane.remove(gridPane);
-				showGridViewOn = false;
-			} else {
-				// remove view before init slideglasses.
-				viewPane.remove(getCurrentSlide());
-			}
-			prevSlice = -1;
-			currentSlice = 0;
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
-			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			slider.initContext();
-			initImageSizeAndShowFirstImage();
-			setTextVisible(pvcp.isShowInfo());
-			setAnnotationVisible(pvcp.isShowRoi());
-			return;
-		}
-		
-		if(mode == ViewMode.SingleGrid) {
-			viewPane.remove(getCurrentSlide());
-			prevSlice = -1;
-			currentSlice = 0;
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
-			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			setTextVisible(pvcp.isShowInfo());
-			setAnnotationVisible(pvcp.isShowRoi());
-			slider.initContext();
-			initImageSizeAndShowFirstImage();
-			return;
-		}
-		
-		if(mode == ViewMode.FilmGrid) {
-			viewPane.remove(gridPane);
-			prevSlice = -1;
-			currentSlice = 0;
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
-			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			setTextVisible(false);
-			setAnnotationVisible(false);
-			doFilmGridLayout(filmGridColumns);
-			return;
-		}
-		
-		if(mode == ViewMode.Thumbnail) {
-			//do nothing
-			return;
-		}
-		
-	}
-
-	public void removeSlide(JLayer<SlideGlass> slide) {
-		if (isShowGridViewOn()) {
-			if (gridPane != null) {
-				viewPane.remove(gridPane);
-			}
-		} else {
-			if (slide != null) {
-				viewPane.remove(slide);
-				viewPane.removeAll();
-			}
-		}
-		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
-	}
-	
-	@SuppressWarnings("unchecked")
-	public void removeShowingSlide() {
-		if(prevSlice == -1) {
-			if(viewPane == null) {
-				return;
-			}
-			Component con = viewPane.getComponentAt(getSlideHolderWidth()/2,getSlideHolderHeight()/2);
-			if(con instanceof JLayer<?>) {
-				removeSlide((JLayer<SlideGlass>)con);
-			}
-			return;
-		}
-		JLayer<SlideGlass> prevGlass = this.slides.get(prevSlice);
-		if (prevGlass != null) {
-			removeSlide(prevGlass);
-		}
-	}
-
-//	void saveSeriesSettings() {
-//		winMin = imagePane.currentMin;
-//		winMax = imagePane.currentMax;
-//		//add ...
-//	}
-
-	public int[] getSlideHolderLocation() {
-		return new int[] { viewPane.getX(), viewPane.getY() };
-	}
-
-	public Point getSlideHolderLocationOnScreen() {
-		return viewPane.getLocationOnScreen();
-	}
-
-	public void setAndShowPixelValue(int X, int Y) {
-		SlideGlass currentSlide = getCurrentSlide().getView();
-		double scale = currentSlide.getScaleFactor();
-		double mag = currentSlide.getMagnification();
-		double rotate = currentSlide.getRotateAngle();
-		if(!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
-			double raw_v = pixelRawAndCalibrated[0];
-			double calibrated_v = pixelRawAndCalibrated[1];
-			updateInfoLabel(X, Y, raw_v+"("+calibrated_v+")",scale,mag,rotate);
-		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
-			String r = rgbAndColor[0];
-			String g = rgbAndColor[1];
-			String b = rgbAndColor[2];
-//			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
-//			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
-			updateInfoLabel(X, Y, r+","+g+","+b, scale, mag, rotate);
-		}
-	}
-	
-	protected void updateInfoLabel(int x, int y, String value, double scale, double mag, double rotate) {
-		if(getViewMode() != ViewMode.Thumbnail) {
-			this.pvcp.setText2InfoLabel(x, y, value, scale, mag, rotate);
-		}
-	}
-
-	public void doFilmGridLayout(int col) {
-		if(!isShowGridViewOn()) {
-			System.out.println("You must set gridViewOn before do this.");
-			return;
-		}
-		setFilmGridColumns(col);
-		try {
-			Component c = viewPane.getComponent(0);
-			if (c instanceof JLayer<?>) {
-				viewPane.remove(getCurrentSlide());
-			} else if (gridPane != null && c == gridPane) {
-				viewPane.remove(gridPane);
-			}
-		}catch(java.lang.ArrayIndexOutOfBoundsException e) {
-			//do nothing
-		}
-		
-		// calc num of row
-		int row = 1;
-		int numOfImage = slides.size();
-		if (numOfImage % col > 0) {
-			row = (int) (numOfImage / col) + 1;
-		} else {
-			row = (int) (numOfImage / col);
-		}
-		JPanel gridView = new JPanel();
-		gridView.setLayout(new GridLayout(row, col));
-		gridPane = new JScrollPane(gridView);
-		viewPane.add(gridPane);
-		setCursor(new Cursor(Cursor.WAIT_CURSOR));
-		for (int i = 0; i < numOfImage; i++) {
-			JLayer<SlideGlass> slide = slides.get(i);
-			gridView.add(slide);
-		}
-		gridView.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-		/*
-		 * if already showing parapat on anything component, prap is directly adjusted by adjustGridViewSize().
-		 */
-		adjustGridViewSize();
-	}
-	
-	public void setAnnotationVisible(boolean v) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
-		if(slides == null) {
-			return;
-		}
-		if (isShowGridViewOn()) {
-			for (Integer k : slides.keySet()) {
-				JLayer<SlideGlass> s = slides.get(k);
-				s.getView().setAnnotationVisible(v);
-			}
-		} else {
-			if(processSeries) {
-				for (Integer k : slides.keySet()) {
-					JLayer<SlideGlass> s = slides.get(k);
-					s.getView().setAnnotationVisible(v);
-				}
-			}else {
-				getCurrentSlide().getView().setAnnotationVisible(v);
-			}
-		}
-	}
-
-	public void setTextVisible(boolean v) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
-		if(slides == null) {
-			return;
-		}
-		if (showGridViewOn) {
-			for (Integer k : slides.keySet()) {
-				JLayer<SlideGlass> s = slides.get(k);
-				s.getView().setTextVisible(v);
-			}
-		} else {
-			if(this.processSeries) {
-				for (Integer k : slides.keySet()) {
-					JLayer<SlideGlass> s = slides.get(k);
-					s.getView().setTextVisible(v);
-				}
-			}else {
-				getCurrentSlide().getView().setTextVisible(v);
-			}
-		}
-	}
-	
-	/*
-	 * ??
-	 */
-	public void setProcessSeries(boolean v) {
-		if (showGridViewOn) {
-			//same-as
-			this.processSeries = v;
-		} else {
-			this.processSeries = v;
-		}
-	}
-	
-	public boolean getProcessSeries() {
-		return pvcp.processSeries();
-	}
-
-	public int getNumberOfImages() {
-		if (isMultiframe) {
-			return slides.size();
-		} else {
-			return slides.size();
-		}
-	}
-
-	private void setImageFileLocations(ArrayList<String> pathToImages) {
-		this.pathToImages = pathToImages;
-	}
-
-	public ArrayList<String> getImageFileLocations() {
-		return this.pathToImages;
-	}
-
-	public JLayer<SlideGlass> getCurrentSlide() {
-		if (currentSlice == -1) {
-			return null;
-		}
-		return slides.get(currentSlice);
-	}
-	
-	public HashMap<Integer,JLayer<SlideGlass>> getAllSlides() {
-		if (currentSlice == -1) {
-			return null;
-		}
-		return slides;
-	}
-	
-	/**
-	 * return stacked series slides as imageplus.
-	 * @return imageplus
-	 */
-	public ImagePlus getStackSeries() {
-		JLayer<SlideGlass> currentSlide = getCurrentSlide();
-		if(currentSlide == null) {
-			return null;
-		}
-		ImagePlus ref_imp = currentSlide.getView().getOriginalImage();
-		ref_imp.deleteRoi();
-		ref_imp.resetDisplayRange();
-		Calibration cal = ref_imp.getCalibration().copy();
-		int size = getNumberOfImages();
-		ImageStack stack = new ImageStack(ref_imp.getWidth(), ref_imp.getHeight(), size);
-		HashMap<Integer,JLayer<SlideGlass>> all_slides = getAllSlides();
-		for(int i=0; i<size; i++) {
-			ImagePlus imp = all_slides.get(i).getView().getOriginalImage();
-			imp.deleteRoi();
-			ImagePlus imp2 = new Duplicator().run(imp);
-//			imp2.setSlice(1);//1 slideglass have 1 imageplus
-			ImageProcessor ip = imp2.getProcessor();//.duplicate();
-			if(ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
-				ip.snapshot();//keep original pixels
-			}
-			ip.resetMinAndMax();
-			stack.setProcessor(ip, i+1);//1<=N<=slices
-		}
-		ImagePlus stacked = new ImagePlus("stack-series", stack);
-		stacked.setCalibration(cal);
-		return stacked;
-	}
-		
-	public void clearCrossLines() {
-		HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
-		for(Integer sglKey : slides.keySet()) {
-			JLayer<SlideGlass> sgl = slides.get(sglKey);
-			CanvasGlass cg = (CanvasGlass) sgl.getView().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.setCrossLine(null);
-		}
-	}
-	
-	public void setPraparatViewSize(int w, int h) {
-		if(!isShowGridViewOn()) {
-			if(viewPane != null) {
-				viewPane.setSize(w, h);
-				viewPane.setBounds(0, 0, w, h);
-				praparatView.setSize(w, h);
-				praparatView.setBounds(0, 0, w, h);
-				if(mode == ViewMode.Thumbnail) {
-					viewPane.setPreferredSize(new Dimension(w, h));
-					praparatView.setPreferredSize(new Dimension(w, h));
-				}
-				viewPane.repaint();
-			}
-		}else {
-			if(gridPane != null) {
-				int scrollWidth = gridPane.getHorizontalScrollBar().getWidth(); 
-				gridPane.setBounds(0, 0, w, h);
-				if(viewPane != null) {
-					viewPane.setSize(w-scrollWidth, h);
-					viewPane.setBounds(0, 0, w-scrollWidth, h);
-					praparatView.setSize(w, h);
-					praparatView.setBounds(0, 0, w, h);
-					viewPane.repaint();
-				}
-				gridPane.repaint();
-			}
-		}
-	}
-
-	public int getImageScreenSizeX() {
-		return viewPane.getWidth();
-	}
-
-	public int getImageScreenSizeY() {
-		return viewPane.getHeight();
-	}
-
-	public void gridViewOn(boolean show) {
-		this.showGridViewOn = show;
-	}
-
-	public boolean isShowGridViewOn() {
-		return this.showGridViewOn;
-	}
-
-	public boolean isFocusGained() {
-		return focusGained;
-	}
-
-	public void setFocusGained(boolean focusGained) {
-		this.focusGained = focusGained;
-		if(getViewMode()!=ViewMode.SingleGrid && getViewMode()!=ViewMode.FilmGrid) {
-			showBorder();
-		}
-		repaint();
-	}
-
-	// list selection action
-	public void setSelectionState(boolean select) {
-		this.selected = select;
-		showBorder();
-		repaint();
-	}
-
-	// mouse action
-	public void setSelectionState() {
-		if (isSelected()) {
-			setSelectionState(false);
-		} else {
-			setSelectionState(true);
-		}
-	}
-
-	public boolean isSelected() {
-		return selected;
-	}
-	
-	public boolean isMultiFrame() {
-		return this.isMultiframe;
-	}
-
-	public void showBorder() {
-		if(this.mode==ViewMode.FilmGrid || this.mode == ViewMode.SingleGrid) {
-			setBorder(BorderFactory.createLineBorder(getBackground(), 4));
-			return;
-		}
-		if(this.mode == ViewMode.Thumbnail) {
-			if (isSelected()) {/*DO NOT USE forcusGained here.*/
-				Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 4);
-				setBorder(selectionBorder);
-			}else {
-				setBorder(BorderFactory.createLineBorder(getBackground(), 4));
-			}
-			return;
-		}
-		
-		if (isSelected() && !isFocusGained()) {// show border force
-			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 4);
-			setBorder(selectionBorder);
-			repaint();
-		} else if (!isSelected() && isFocusGained()) {
-			Border focusBorder = BorderFactory.createLineBorder(studyColor, 4);
-			setBorder(focusBorder);
-			repaint();
-		} else if (isSelected() && isFocusGained()) {
-			//if you want 3 color border
-//			Border studyBorder = BorderFactory.createLineBorder(studyColor, 2);
-//			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 1);
-//			Border focusBorder = BorderFactory.createLineBorder(Color.CYAN, 1);
-//			Border compBorder1 = new CompoundBorder(focusBorder, selectionBorder);
-//			Border compBorder2 = new CompoundBorder(compBorder1, studyBorder);
-//			setBorder(compBorder2);
-			Border focusBorder = BorderFactory.createLineBorder(studyColor, 2);
-			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 2);
-			Border compBorder = new CompoundBorder(selectionBorder, focusBorder);
-			setBorder(compBorder);
-			repaint();
-		} else {
-			setBorder(BorderFactory.createLineBorder(getBackground(), 4));
-			repaint();
-		}
-	}
-	
-	public void setShowCrossLineMode(boolean crossMode) {
-		this.crossLineCursorMode = crossMode;
-	}
-	
-	public boolean isShowCrossLineMode() {
-		return this.crossLineCursorMode;
+		return shapes;
 	}
 	
 	public void callBackLocalizer() {
@@ -1301,93 +359,167 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 	}
 	
-	private List<Point2D> calcLocalizer(SlideGlass src, SlideGlass target) {
-		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
-		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
-		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
-		List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
-		if(Utils.isDebug){
-			System.out.println(src.getHeader().getString(TagDict.forName("InstanceNumber")));
-			System.out.println(target.getHeader().getString(TagDict.forName("InstanceNumber")));
-			Point2D p0_leftlower = shapes.get(0);
-			Point2D p1_rightlower = shapes.get(1);
-			Point2D p2_rightupper = shapes.get(2);
-			Point2D p3_leftupper = shapes.get(3);
-			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
-			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
-			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
-			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
+	public void clearCrossLines() {
+		HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
+		for(Integer sglKey : slides.keySet()) {
+			JLayer<SlideGlass> sgl = slides.get(sglKey);
+			CanvasGlass cg = (CanvasGlass) sgl.getView().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			cg.setCrossLine(null);
 		}
-		return shapes;
 	}
 	
-	public void invertImages() {
-		if(!getProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
-			sg.invert();
-		}else {
-			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
-				sg.invert();
+	private void constructSlideGlassesFromDicom(ArrayList<String> imgFiles) {
+		//including only one series.
+		if(imgFiles == null) {
+			imgFiles = getImageFileLocations();
+		}
+		if (imgFiles == null || imgFiles.size() < 1) {
+			logger.info("Please set file locations, Praparat::constructSeriesGlassesAsLayer");
+			return;
+		}
+		// init
+		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		/*
+		 * as a premise, image files were sorted by inst No before loading.
+		 */
+		DICOMBackend backend = DICOMBackend.getCurrent();
+		for (int i = 0; i < imgFiles.size(); i++) {
+			DicomReader reader = DicomReader.newDicomReader(backend);
+			reader.read(imgFiles.get(i), false);
+			DicomObject header = reader.getCore();
+			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
+			UID tsUID = reader.checkTSUID();
+			//PDF
+			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
+				//read as series level
+				PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
+				ImagePlus pdfStack = pdfReader.pdf2ImageStack();
+				isMultiframe = true;//always treats multi
+				isPDF = true;
+				//if thumbnail, load only one frame
+				if(getViewMode() == ViewMode.Thumbnail) {
+					ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
+					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+					instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+					instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+					instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+					instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+					instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
+					DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+					img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
+					SlideGlass sg = new SlideGlass(this, img);
+					JLayer<SlideGlass> ly = sg.getSlide();
+					slides.put(0, ly);
+				}else {
+					for (int j = 0; j < pdfStack.getNSlices(); j++) {
+						ImageProcessor instIp = pdfStack.getStack().getProcessor(j + 1);
+						DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+						instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+						instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+						instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+						instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+						instHeader.setInt(Tag.Instance​Number, VR.IS, (j + 1));
+						DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+						img.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
+						SlideGlass sg = new SlideGlass(this, img);
+						JLayer<SlideGlass> ly = sg.getSlide();
+						slides.put(j, ly);
+					}
+				}
+				pdfReader.close();
+				break;//if multiframe, load only first file.
 			}
-		}
-	}
-	
-	public void flipLR() {
-		if(!getProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
-			sg.flipLR();
-		}else {
-			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
-				sg.flipLR();
+			// images
+			int size = header.getInt(Tag.Number​Of​Frames, -1);
+			isMultiframe = size > 0;//general image type does not have NumberOfFrames tag.
+			//single frame
+			if(!isMultiframe) {
+				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), backend);
+				if(Codec.isCompressed(tsUID.uid())) {
+					Decompressor.newInstance(dcmimg).decompress();
+				}
+				SlideGlass sg = new SlideGlass(this, dcmimg);
+				JLayer<SlideGlass> sli = sg.getSlide();
+				slides.put(i, sli);
+			}else {
+				/*
+				 * multiframe to one series.
+				 */
+				DicomReader video_reader_ = DicomReader.newDicomReader(backend);
+				video_reader_.read(imgFiles.get(i), true/*with bulk*/);
+				DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
+				int w = header.getInt(Tag.Columns, 0);
+				int h = header.getInt(Tag.Rows, 0);
+				int c = header.getInt(Tag.Samples​Per​Pixel, 1);
+				int bits = header.getInt(Tag.Bits​Allocated, 8);
+				/*
+				 * to address jpeg multiframe
+				 */
+				if(Codec.isCompressed(reader.checkTSUID())) {
+					Decompressor.newInstance(videoDcm).decompress();
+				}
+				for(int j=0;j<size;j++) {
+					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+					instHeader.setInt(Tag.Instance​Number, VR.IS, (j+1));
+					DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+					frame.setPixelData(j, w, h, c, bits, videoDcm.getImageProcessor(j).getPixels());
+					SlideGlass sg = new SlideGlass(this, frame);
+					JLayer<SlideGlass> l = sg.getSlide();
+					slides.put(j, l);
+				}
+				video_reader_ = null;
+				/*
+				 * if multiframe, load as only one file.
+				 */
+				break;
 			}
+			reader = null;
 		}
 	}
-	
-	public void flipHF() {
-		if(!getProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
-			sg.flipHF();
-		}else {
-			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
-				sg.flipHF();
-			}
-		}
-	}
-		
-	public void loadRoiFromDB() {
-		SlideGlass sg = getCurrentSlide().getView();
-		sg.loadRoiFromDB();
-	}
-	
-	public void setReferenceLine(ReferenceLine refLine) {
-		this.refLine = refLine;
-	}
-	
-	public ReferenceLine getReferenceLine() {
-		return this.refLine;
-	}
-	
-	public void setLUT(LUT lut) {
-		if(!getProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
-			sg.setLUT(lut);
-		}else {
-			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
-				sg.setLUT(lut);
-			}
-		}
-	}
-	
+
 	/**
-	 * check Viewer2D selecting tool.
-	 * @return
+	 * This method is used to a dependence single series view or MPR.
 	 */
-	public int getCurrentViewerToolType() {
-		return Viewer2DScreen.getInstance().getCurrentToolType();
+	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
+		if (images == null || images.getStackSize() < 1) {
+			logger.warning("Please set not null images, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
+			return;
+		}
+		// init
+		getSlideGlassHolder().getView().removeAll();
+		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, false/*treat as secondary*/);
+		for (int i = 0; i < ds.size(); i++) {
+			SlideGlass sg = new SlideGlass(this, ds.get(i));
+			JLayer<SlideGlass> l = sg.getSlide();
+			slides.put(i, l);
+		}
+	}
+
+	private void constructSlideGlassesFromPraparat(Praparat p) {
+		if(p == null) {
+			return;
+		}
+		HashMap<Integer, JLayer<SlideGlass>> slides = p.getAllSlides();
+		if (slides == null || slides.size() < 1) {
+			System.out.println("Slides have no images...");
+			return;
+		}
+		// init
+		removeSlide(currentSlice);
+		this.slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		
+		Set<Integer> keys = slides.keySet();
+		for(Integer k : keys) {
+			//init slide from another slides to set this praparat.
+			SlideGlass sg = slides.get(k).getView();
+			SlideGlass newsg = new SlideGlass(this, sg.getDicomImage());
+			JLayer<SlideGlass> ly = newsg.getSlide();
+			this.slides.put(k, ly);
+		}
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
 	}
 	
 	public ImagePlus cropRectangle(boolean show) {
@@ -1396,10 +528,10 @@ public class Praparat extends JPanel implements ComponentListener {
 		if(roi == null) {
 			return null;
 		}
-		int res = JOptionPane.showConfirmDialog(viewPane, "process all slide in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		int res = JOptionPane.showConfirmDialog(this, "process all slide in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		final ImagePlus crop;
 		if(res != JOptionPane.YES_OPTION) {
-			crop = sg.cropRect(roi);
+			crop = sg.processCropRect(roi);
 		}else {
 			HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
 			Set<Integer> keys = slides.keySet();
@@ -1410,7 +542,7 @@ public class Praparat extends JPanel implements ComponentListener {
 			for(Integer k : keys) {
 				JLayer<SlideGlass> l = slides.get(k);
 				SlideGlass slide = l.getView();
-				ImagePlus c = slide.cropRect(roi);
+				ImagePlus c = slide.processCropRect(roi);
 				if(c == null) {
 					System.err.println("something happened...crop failed.");
 					return null;
@@ -1442,8 +574,457 @@ public class Praparat extends JPanel implements ComponentListener {
 		}
 		return crop;
 	}
+
+	public void doFilmGridLayout(int col) {
+		if(this.mode != ViewMode.FilmGrid && this.mode != ViewMode.Normal) {
+			logger.warning("You are not able to show gridView in this mode::"+this.mode);
+			gridViewOn(false);
+			return;
+		}
+		gridViewOn(true);
+		setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		setFilmGridColumns(col);
+		getSlideGlassHolder().getView().removeAll();
+		// calc num of row
+		int row = 1;
+		int numOfImage = slides.size();
+		if (numOfImage % col > 0) {
+			row = (int) (numOfImage / col) + 1;
+		} else {
+			row = (int) (numOfImage / col);
+		}
+		JPanel gridView = new JPanel();
+		gridView.setLayout(new GridLayout(row, col));
+		gridScrollPane = new JScrollPane(gridView);
+		getSlideGlassHolder().getView().add(gridScrollPane,0);
+		for (int i = 0; i < numOfImage; i++) {
+			JLayer<SlideGlass> slide = slides.get(i);
+			gridView.add(slide);
+		}
+		/*
+		 * if already showing parapat on anything component, prap is directly adjusted by adjustGridViewSize().
+		 */
+		adjustGridViewSize();
+		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+	}
+
+	public void doSingleGridLayout() {
+		if(this.mode == ViewMode.FilmGrid) {
+			logger.warning("You are not able to show single grid view on this mode::"+this.mode);
+			return;
+		}
+		gridViewOn(false);
+		adjustSlideHolderSize();
+		setImagePositionUsingSlider(currentSlice);
+	}
 	
-	public void cut() {
+	public HashMap<Integer,JLayer<SlideGlass>> getAllSlides() {
+		if (currentSlice == -1) {
+			return null;
+		}
+		if(slides != null && slides.size() < 1) {
+			return null;
+		}
+		return slides;
+	}
+
+	public PraparatViewControlPanel getController() {
+		return pvcp;
+	}
+	
+	public JLayer<SlideGlass> getCurrentSlide() {
+		if (currentSlice == -1) {
+			return null;
+		}
+		return slides.get(currentSlice);
+	}
+	
+	public int getCurrentSlidePos() {
+		return currentSlice;
+	}
+
+	/**
+	 * check Viewer2D selecting tool.
+	 * @return
+	 */
+	public int getCurrentViewerToolType() {
+		return Viewer2DScreen.getInstance().getCurrentToolType();
+	}
+	
+	public Eyepiece getEyepieceAsPraparatManager() {
+		return prapManager;
+	}
+
+	public ArrayList<String> getImageFileLocations() {
+		return this.pathToImages;
+	}
+
+	/**
+	 * return slides as imageplus.
+	 * @return imageplus
+	 */
+	public ImagePlus getImagePlus() {
+		if(slides == null || slides.size() < 1) {
+			return null;
+		}
+		ImagePlus ref_imp = slides.get(0).getView().convertToImagePlus();
+		Calibration cal = ref_imp.getCalibration().copy();
+		int size = getNumberOfImages();
+		ImageStack stack = new ImageStack(ref_imp.getWidth(), ref_imp.getHeight(), size);
+		HashMap<Integer,JLayer<SlideGlass>> all_slides = getAllSlides();
+		for(int i=0; i<size; i++) {
+			ImagePlus imp = all_slides.get(i).getView().convertToImagePlus();
+			ImagePlus imp2 = new Duplicator().run(imp);
+			String header = imp.getInfoProperty();//imp.getStack().getSliceLabel(1);
+//			imp2.setProperty("Info", header);
+			ImageProcessor ip = imp2.getProcessor();
+			if(ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
+				ip.snapshot();//keep original pixels
+			}
+			stack.setProcessor(ip, i+1);//1<=N<=slices
+			stack.setSliceLabel(header, i+1);
+		}
+		ImagePlus stacked = new ImagePlus("stack-series", stack);
+		stacked.setCalibration(cal);
+		return stacked;
+	}
+	
+	public int getImageScreenSizeX() {
+		return getSlideHolderWidth();
+	}
+	
+	public int getImageScreenSizeY() {
+		return getSlideHolderHeight();
+	}
+	
+	public HashMap<String,Object> getInfoSet() {
+		HashMap<String,Object> infoset = new HashMap<>();
+		infoset.put(KEY_PadID, patID);
+		infoset.put(KEY_StudyUID, studyUID);
+		infoset.put(KEY_SeriesUID, seriesUID);
+		infoset.put(KEY_SopUIDs, sopUIDs);//string[]
+		return infoset;
+	}
+
+	public int getNumberOfImages() {
+		if (isMultiframe) {
+			return slides.size();
+		} else {
+			return slides.size();
+		}
+	}
+	
+	public ReferenceLine getReferenceLine() {
+		return this.refLine;
+	}
+	
+//	private void fitAllImagesSize2PraparatView() {
+//		if(slides == null || slides.size() == 0) {
+//			return;
+//		}
+//		if(getSlideHolderWidth() == 0 || getSlideHolderHeight() == 0) {
+//			return;
+//		}
+//		for(int i=0;i<slides.size();i++) {
+//			SlideGlass sg = slides.get(i).getView();
+////			sg.fitImg2Comp(new_size[0], new_size[1], getSlideHolderWidth(), getSlideHolderHeight());
+//			sg.fit2Praparat();
+//		}
+//		viewPane.validate();
+//		viewPane.repaint();
+//	}
+	
+	public JLayer<SlideGlassHolder> getSlideGlassHolder() {
+		return slideGlassHolder;
+	}
+	
+	/**
+	 * PraparatViewPane(JLayeredPane) Height
+	 * @return
+	 */
+	int getSlideHolderHeight() {
+		if(slideGlassHolder == null) {
+			return -1;
+		}
+		return slideGlassHolder.getHeight();
+	}
+
+	public int[] getSlideHolderLocation() {
+		return new int[] { getSlideGlassHolder().getView().getX(), getSlideGlassHolder().getView().getY() };
+	}
+
+	public Point getSlideHolderLocationOnScreen() {
+		return getSlideGlassHolder().getView().getLocationOnScreen();
+	}
+	
+	/**
+	 * PraparatViewPane(JLayeredPane) Width
+	 * @return
+	 */
+	int getSlideHolderWidth() {
+		if(slideGlassHolder == null) {
+			return -1;
+		}
+		return slideGlassHolder.getWidth();
+	}
+
+	public int getSlidePosition(JLayer<SlideGlass> slide) {
+		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		if(slides == null) {
+			return -1;
+		}
+		for(int p : slides.keySet()) {
+			JLayer<SlideGlass> sg = slides.get(p);
+			if(slide == sg) {
+				return p;
+			}
+		}
+		return -1;
+	}
+	
+//	void saveSeriesSettings() {
+//		winMin = imagePane.currentMin;
+//		winMax = imagePane.currentMax;
+//		//add ...
+//	}
+
+	public int getSlidePosition(String sopUID) {
+		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		if(slides == null) {
+			return -1;
+		}
+		for(int p : slides.keySet()) {
+			JLayer<SlideGlass> g = slides.get(p);
+			SlideGlass sg = g.getView();
+			String sopUID_ = sg.getSOPInstanceUID();
+			if(sopUID.equals(sopUID_)) {
+				return p;
+			}
+		}
+		return -1;
+	}
+
+	public Color getStudyColor() {
+		return this.studyColor;
+	}
+
+	/**
+	 * without frameOfReferenceUID
+	 * @return
+	 */
+	public Object[] getUIDs() {
+		final Object[] uids = new Object[5];
+		uids[0] = patID;
+		uids[1] = studyUID;
+		uids[2] = seriesUID;
+		uids[3] = sopUIDs;// String[]
+		return uids;
+	}
+	
+	public ViewMode getViewMode() {
+		return this.mode;
+	}
+	
+	public void gridViewOn(boolean show) {
+		if(this.mode == ViewMode.FilmGrid) {
+			this.showGridViewOn = true;
+			return;
+		}
+		if(this.mode == ViewMode.Normal) {
+			this.showGridViewOn = show;
+		}else {
+			this.showGridViewOn = false;
+		}
+	}
+	
+	private void init() {
+		if(this.mode == null) {
+			throw new NullPointerException();
+		}
+		//common
+		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		setLayout(new BorderLayout());
+		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
+		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
+		slider = new CineSlider(this);
+		SlideGlassHolder slideGlassPane = new SlideGlassHolder();
+		slideGlassPane.setOpaque(false);//invisible
+		slideGlassHolder = new JLayer<SlideGlassHolder>(slideGlassPane);
+		slideGlassHolder.setUI(new PraparatUI(this));
+		JPanel viewPanel = new JPanel();
+		viewPanel.setBackground(Color.BLACK);//debug purpose
+		viewPanel.setLayout(new GridLayout(1, 1));
+		viewPanel.add(slideGlassHolder);
+		add(viewPanel, BorderLayout.CENTER);
+		
+		if(mode == ViewMode.Normal) {
+			add(pvcp, BorderLayout.NORTH);
+			add(slider, BorderLayout.SOUTH);
+			setFocusable(true);
+			setRequestFocusEnabled(true);
+		}
+		
+		if(mode == ViewMode.SingleGrid) {
+			add(pvcp, BorderLayout.NORTH);
+			add(slider, BorderLayout.SOUTH);
+			setFocusable(true);
+			setRequestFocusEnabled(true);
+			pvcp.getFilmGridBtn().setEnabled(false);
+			pvcp.enableProcessSeries(false);
+		}
+		
+		if(mode == ViewMode.FilmGrid){
+			add(pvcp, BorderLayout.NORTH);
+			/*No slider*/
+			setFocusable(true);
+			setRequestFocusEnabled(true);// fail safe?
+			/*see also setTextVisible(). This is called when after preparedImages*/
+			pvcp.enableShowInfo(false);
+			pvcp.enableProcessSeries(false);
+		}
+		
+		if(mode == ViewMode.Thumbnail) {
+			/*No controller and slider*/
+			setSlideGlassHolderSize(ThumbnailSize, ThumbnailSize);
+			setFocusable(true);
+			setRequestFocusEnabled(true);
+		}
+		
+		if(mode == ViewMode.MPR){
+			add(pvcp, BorderLayout.NORTH);
+			add(slider, BorderLayout.SOUTH);
+			setFocusable(true);
+			setRequestFocusEnabled(true);// fail safe?
+			/*filmGrid is denied*/
+			pvcp.getFilmGridBtn().setEnabled(false);
+		}
+	}
+
+	public boolean isFocusGained() {
+		return focusGained;
+	}
+	
+	public boolean isMultiFrame() {
+		return this.isMultiframe;
+	}
+	
+	public boolean isPDF() {
+		return this.isPDF;
+	}
+
+	public boolean isProcessSeries() {
+		return pvcp.processSeries();
+	}
+	
+	public boolean isSelected() {
+		return selected;
+	}
+	
+	public boolean isShowCrossLineMode() {
+		return this.crossLineCursorMode;
+	}
+
+	public boolean isShowGridViewOn() {
+		return this.showGridViewOn;
+	}
+
+	public void loadRoiFromDB() {
+		SlideGlass sg = getCurrentSlide().getView();
+		sg.loadRoiFromDB();
+	}
+
+	public void prepareSlideGlasses(Praparat p) {
+		if(p == null) {
+			logger.log(Level.SEVERE, "Can not load images from this Praparat.");
+			return;
+		}
+		HashMap<String, Object> info = p.getInfoSet();
+		String patID = (String)info.get("PatientID");
+		String studyUID = (String)info.get("StudyInstanceUID");
+		String seriesUID = (String)info.get("SeriesInstanceUID");
+		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
+		ArrayList<String> pathToImages = p.getImageFileLocations();
+		
+		if(pathToImages == null || pathToImages.size()==0) {
+			logger.warning("prap needs path to images..., return.");
+			return;
+		}
+		slideGlassHolder.getView().removeAll();
+		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
+		constructSlideGlassesFromPraparat(p);
+		prevSlice = -1;// IMPORTANT
+		currentSlice = 0;
+		if(slider != null) {
+			slider.initContext();
+		}
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
+	}
+
+	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, ArrayList<String> sopUIDs, ArrayList<String> pathToImages) {
+		String[] sopUids = sopUIDs.toArray(new String[sopUIDs.size()]);
+		prepareSlideGlasses(patID, studyUID, seriesUID, sopUids, pathToImages);
+	}
+	
+	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
+		ArrayList<String> pathToImages = null;
+		DatabaseHandler db = DatabaseHandler.getInstance();//.getDatabase();
+		if (sopUIDs == null || sopUIDs.length < 1) {
+			// load all instances in series
+			pathToImages = db.getFileLocations(patID, studyUID, seriesUID);
+		} else {
+			// load particular instances
+			pathToImages = new ArrayList<String>();
+			for (String sopUID : sopUIDs) {
+				String p2img = db.getFileLocation(patID, studyUID, seriesUID, sopUID);
+				pathToImages.add(p2img);
+			}
+		}
+		if (pathToImages == null || pathToImages.size()<1) {
+			logger.warning("Cannot find images for loading...");
+			return;
+		}
+		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToImages);
+	}
+	
+	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+		if(pathToImages == null || pathToImages.size()==0) {
+			System.out.println("prap needs path to images..., return.");
+			return;
+		}
+		slideGlassHolder.getView().removeAll();
+		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
+		constructSlideGlassesFromDicom(pathToImages);
+		if(slider != null) {
+			slider.initContext();
+		}
+		prevSlice = -1;// IMPORTANT
+		currentSlice = 0;
+		if(slider != null) {
+			slider.initContext();
+		}
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
+	}
+		
+	public void prepareSlideGlassesUsingImagePlus(ImagePlus images) {
+		if(images == null || images.getStackSize()==0) {
+			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
+			return;
+		}
+		prevSlice = -1;
+		currentSlice = 0;
+		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+		constructSlideGlassesFromImagePlus(images);
+		slider.initContext();
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
+	}
+	
+	public void processCut() {
 		SlideGlass sg = getCurrentSlide().getView();
 		RoiObj currentRoi = sg.findCurrentRoi();
 		if(currentRoi == null ) {
@@ -1454,80 +1035,418 @@ public class Praparat extends JPanel implements ComponentListener {
 			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "Cut process needed closed type roi.");
 			return;
 		}
-		int res = JOptionPane.showConfirmDialog(viewPane, "process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		int res = JOptionPane.showConfirmDialog(this, "process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res == JOptionPane.YES_OPTION) {
 			HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
 			Set<Integer> keys = slides.keySet();
 			for(Integer k : keys) {
 				JLayer<SlideGlass> l = slides.get(k);
 				SlideGlass s = l.getView();
-				s.cut(currentRoi);
+				s.processCut(currentRoi);
 			}
 		}else {
 			JLayer<SlideGlass> l = getCurrentSlide();
 			SlideGlass s = l.getView();
-			s.cut(currentRoi);
+			s.processCut(currentRoi);
 		}
 	}
 
-	private void findMultiframeStatus() {
-//        textOverlay.multiframeStatusDisplay(imgpanel.isMultiFrame());//tatsu
+	public void processFlipHF() {
+		if(!isProcessSeries()) {
+			SlideGlass sg = getCurrentSlide().getView();
+			sg.flipHF();
+		}else {
+			for(Integer key:slides.keySet()) {
+				SlideGlass sg = slides.get(key).getView();
+				sg.flipHF();
+			}
+		}
 	}
 
-	private void setTextOverlayParam() {
-//        textOverlay.setTextOverlayParam(imgpanel.getTextOverlayParam());//tatsu
+	public void processFlipLR() {
+		if(!isProcessSeries()) {
+			SlideGlass sg = getCurrentSlide().getView();
+			sg.flipLR();
+		}else {
+			for(Integer key:slides.keySet()) {
+				SlideGlass sg = slides.get(key).getView();
+				sg.flipLR();
+			}
+		}
 	}
 
-	@Override
-	public void componentHidden(ComponentEvent arg0) {}
+	public void processInvertImages() {
+		if(!isProcessSeries()) {
+			SlideGlass sg = getCurrentSlide().getView();
+			sg.invert();
+		}else {
+			for(Integer key:slides.keySet()) {
+				SlideGlass sg = slides.get(key).getView();
+				sg.invert();
+			}
+		}
+	}
 
-	@Override
-	public void componentMoved(ComponentEvent arg0) {}
+	public void reloadSlideGlasses(ImagePlus imp) {
+		if (imp == null) { return; }
+		prepareSlideGlassesUsingImagePlus(imp);
+		if(!isShowGridViewOn()) {
+			adjustSlideHolderSize();
+			doSingleGridLayout();
+		}else {
+			doFilmGridLayout(filmGridColumns);
+		}
+	}
+	
+	/**
+	 * refresh and load new slideglasses from DB.
+	 */
+	public void reloadSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
+		// do not allow sopUIDs NULL.
+		if (sopUIDs == null) { return; }
+		// remove current series image and get new series info
+		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+		if(!isShowGridViewOn()) {
+			doSingleGridLayout();
+		}else {
+			doFilmGridLayout(filmGridColumns);
+		}
+	}
 
-	@Override
-	public void componentResized(ComponentEvent e) {
-		if(Utils.isDebug) System.out.println("Praparat:ComponentResized !!:"+this.mode);
+	public void removeSlide(int target) {
+		JLayer<SlideGlass> s = this.slides.get(target);
+		if (s != null) {
+			removeSlide(s);
+		}
+	}
 
-		/*
-		 * Can not get win size before 2DViewerFrame.setVisible(true)
-		 * You should get prap (or other component) size after show Viewer2D
-		 */
-//		Viewer2DScreen viewerWin = Viewer2DScreen.getInstance();
-//		if(viewerWin == null && !viewerWin.isVisible()) {
-//			return;
-//		}
-		int compW = getSlideHolderWidth();
-		int compH = getSlideHolderHeight();
-		if (compW < 1 && compH < 1) {
+	private void removeSlide(JLayer<SlideGlass> slide) {
+		if (isShowGridViewOn()) {
+			//do nothing
+		} else {
+			if (slide != null) {
+				getSlideGlassHolder().getView().remove(slide);
+//				getSlideGlassHolder().getView().removeAll();
+			}
+		}
+		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+	}
+
+	public void resetView() {
+		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
+			ImagePlus imp = getImagePlus();
+			reloadSlideGlasses(imp);
 			return;
 		}
-		//setPreferredSize::can not get getWidth/getHeight.
-		viewPane.setSize(new Dimension(compW, compH));
-		viewPane.setPreferredSize(new Dimension(compW, compH));
 		
-		//resize slider
-		if(slider != null) {
-			slider.setPreferredSize(new Dimension(slider.getWidth(), slider.getHeight()));
-			slider.revalidate();
-			slider.repaint();
+		if(mode == ViewMode.Normal) {
+			if (isShowGridViewOn()) {
+				showGridViewOn = false;
+			}
+			prevSlice = -1;
+			currentSlice = 0;
+			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			// reload slides
+			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+			slider.initContext();
+			doSingleGridLayout();
+			setTextVisible(pvcp.isShowInfo());
+			setAnnotationVisible(pvcp.isShowRoi());
+			return;
 		}
-		//resize images
-		// if resizing size is small, ignore.
-		int subX = Math.abs(previousPraparatX - compW);
-		int subY = Math.abs(previousPraparatY - compH);
-		if (subX > 3 || subY > 3) {
-			if (!isShowGridViewOn()) {
-				fitImageSize2PraparatView(currentSlice);
-			} else {
-				adjustGridViewSize();
+		
+		if(mode == ViewMode.SingleGrid) {
+			getSlideGlassHolder().getView().removeAll();
+			prevSlice = -1;
+			currentSlice = 0;
+			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			// reload slides
+			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+			setTextVisible(pvcp.isShowInfo());
+			setAnnotationVisible(pvcp.isShowRoi());
+			slider.initContext();
+			showFirstImage();
+			return;
+		}
+		
+		if(mode == ViewMode.FilmGrid) {
+			getSlideGlassHolder().getView().remove(gridScrollPane);
+			prevSlice = -1;
+			currentSlice = 0;
+			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			// reload slides
+			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+			setTextVisible(false);
+			setAnnotationVisible(false);
+			doFilmGridLayout(filmGridColumns);
+			return;
+		}
+		
+		if(mode == ViewMode.Thumbnail) {
+			//do nothing
+			return;
+		}
+		
+	}
+
+	public void setAndShowPixelValue(int X, int Y) {
+		SlideGlass currentSlide = getCurrentSlide().getView();
+		double scale = currentSlide.getScaleFactor();
+		double mag = currentSlide.getMagnification();
+		double rotate = currentSlide.getRotateAngle();
+		if(!currentSlide.isRGB()) {
+			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
+			double raw_v = pixelRawAndCalibrated[0];
+			double calibrated_v = pixelRawAndCalibrated[1];
+			updateInfoLabel(X, Y, raw_v+"("+calibrated_v+")",scale,mag,rotate);
+		}else {
+			String[] rgbAndColor = (String[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
+			String r = rgbAndColor[0];
+			String g = rgbAndColor[1];
+			String b = rgbAndColor[2];
+//			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
+//			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
+			updateInfoLabel(X, Y, r+","+g+","+b, scale, mag, rotate);
+		}
+	}
+
+	public void setAnnotationVisible(boolean v) {
+		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		if(slides == null) {
+			return;
+		}
+		if (isShowGridViewOn()) {
+			for (Integer k : slides.keySet()) {
+				JLayer<SlideGlass> s = slides.get(k);
+				s.getView().setAnnotationVisible(v);
+			}
+		} else {
+			if(processSeries) {
+				for (Integer k : slides.keySet()) {
+					JLayer<SlideGlass> s = slides.get(k);
+					s.getView().setAnnotationVisible(v);
+				}
+			}else {
+				getCurrentSlide().getView().setAnnotationVisible(v);
 			}
 		}
 	}
 	
-	@Override
-	public void componentShown(ComponentEvent arg0) {
-		/*
-		 * dummy, it is never call. MUST use JFrame.
-		 */
+	public void setFilmGridColumns(int num) {
+		this.filmGridColumns = num;
+	}
+	
+	public void setFocusGained(boolean focusGained) {
+		this.focusGained = focusGained;
+		if(getViewMode()!=ViewMode.SingleGrid && getViewMode()!=ViewMode.FilmGrid) {
+			showBorder();
+		}
+	}
+	
+	private void setImageFileLocations(ArrayList<String> pathToImages) {
+		this.pathToImages = pathToImages;
+	}
+	
+	/**
+	 * For CineSlider.
+	 * If you want to change slide position, use setImagePositionUsingSlider instead.
+	 * @param sliceIndex:number of slice index, 0 to n-1
+	 */
+	protected void setImagePosition(int sliceIndex) {
+		if (slides == null) { //do not include pathToImages
+			return;
+		}
+		if(isShowGridViewOn()) {
+			if(prevSlice == sliceIndex) {
+				return;
+			}
+			prevSlice = currentSlice;
+			currentSlice = sliceIndex;
+			return;
+		}
+		if(currentSlice != sliceIndex) {
+			prevSlice = currentSlice;
+			currentSlice = sliceIndex;
+		}
+		JLayer<SlideGlass> currentGlass = this.slides.get(currentSlice);
+		final int top = 0;
+		getSlideGlassHolder().getView().removeAll();
+		getSlideGlassHolder().getView().add(currentGlass, top);
+		currentGlass.requestFocus();//IMPORTANT for key listener
+		getSlideGlassHolder().getView().repaint();
+	}
+	
+	public void setImagePositionTo(SlideGlass sg) {
+		Set<Integer> keys = slides.keySet();
+		for(Integer key : keys) {
+			SlideGlass slide = slides.get(key).getView();
+			if(sg == slide) {
+				setImagePosition(key);
+				break;
+			}
+		}
+	}
+	
+	/**
+	 * Specify slideglass position on prap.
+	 * pos: 0 to n-1
+	 */
+	public void setImagePositionUsingSlider(int pos) {
+		slider.setSlice(pos);
+	}
+	
+	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+		this.patID = patID;
+		this.studyUID = studyUID;
+		this.seriesUID = seriesUID;
+		this.sopUIDs = sopUIDs;
+		setImageFileLocations(pathToImages);
+	}
+	
+	public void setLUT(LUT lut) {
+		if(!isProcessSeries()) {
+			SlideGlass sg = getCurrentSlide().getView();
+			sg.setLUT(lut);
+		}else {
+			for(Integer key:slides.keySet()) {
+				SlideGlass sg = slides.get(key).getView();
+				sg.setLUT(lut);
+			}
+		}
+	}
+		
+	public void setNextSlice() {
+		setImagePositionUsingSlider(currentSlice+1);
+	}
+	
+	public void setPreviousSlice() {
+		setImagePositionUsingSlider(currentSlice-1);
+	}
+	
+	/*
+	 * ??
+	 */
+	public void setProcessSeries(boolean v) {
+		if (showGridViewOn) {
+			//same-as
+			this.processSeries = v;
+		} else {
+			this.processSeries = v;
+		}
+	}
+	
+	public void setReferenceLine(ReferenceLine refLine) {
+		this.refLine = refLine;
+	}
+	
+	// mouse action
+	public void setSelectionState() {
+		if (isSelected()) {
+			setSelectionState(false);
+		} else {
+			setSelectionState(true);
+		}
+	}
+	
+	// list selection action
+	public void setSelectionState(boolean select) {
+		this.selected = select;
+		showBorder();
+	}
+	
+	public void setShowCrossLineMode(boolean crossMode) {
+		this.crossLineCursorMode = crossMode;
+	}
+
+	public void setSlideGlassHolderSize(int w, int h) {
+		// set JLayer size
+		slideGlassHolder.setSize(w, h);
+		slideGlassHolder.setBounds(0, 0, w, h);
+		slideGlassHolder.setPreferredSize(new Dimension(w, h));
+		//set SlideGlassHolder(JLayeredPane) size
+		getSlideGlassHolder().getView().setSize(w, h);
+		getSlideGlassHolder().getView().setPreferredSize(new Dimension(w, h));
+		getSlideGlassHolder().getView().setBounds(0, 0, w, h);
+	}
+
+	public void setStudyColor(Color color) {
+		if(color != null) {
+			this.studyColor = color;
+		}
+	}
+
+	public void setTextVisible(boolean v) {
+		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		if(slides == null) {
+			return;
+		}
+		if (isShowGridViewOn()) {
+			for (Integer k : slides.keySet()) {
+				JLayer<SlideGlass> s = slides.get(k);
+				s.getView().setTextVisible(v);
+			}
+		} else {
+			if(isProcessSeries()) {
+				for (Integer k : slides.keySet()) {
+					JLayer<SlideGlass> s = slides.get(k);
+					s.getView().setTextVisible(v);
+				}
+			}else {
+				getCurrentSlide().getView().setTextVisible(v);
+			}
+		}
+	}
+
+	public void showBorder() {
+		if(this.mode==ViewMode.FilmGrid || this.mode == ViewMode.SingleGrid) {
+			setBorder(BorderFactory.createLineBorder(getBackground(), BORDER_SIZE));
+			return;
+		}
+		if(this.mode == ViewMode.Thumbnail) {
+			if (isSelected()) {/*DO NOT USE forcusGained here.*/
+				Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE);
+				setBorder(selectionBorder);
+			}else {
+				setBorder(BorderFactory.createLineBorder(getBackground(), 4));
+			}
+			return;
+		}
+		
+		if (isSelected() && !isFocusGained()) {// show border force
+			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE);
+			setBorder(selectionBorder);
+		} else if (!isSelected() && isFocusGained()) {
+			Border focusBorder = BorderFactory.createLineBorder(studyColor, BORDER_SIZE);
+			setBorder(focusBorder);
+		} else if (isSelected() && isFocusGained()) {
+			//if you want 3 color border
+//			Border studyBorder = BorderFactory.createLineBorder(studyColor, 2);
+//			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 1);
+//			Border focusBorder = BorderFactory.createLineBorder(Color.CYAN, 1);
+//			Border compBorder1 = new CompoundBorder(focusBorder, selectionBorder);
+//			Border compBorder2 = new CompoundBorder(compBorder1, studyBorder);
+//			setBorder(compBorder2);
+			Border focusBorder = BorderFactory.createLineBorder(studyColor, BORDER_SIZE/2);
+			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE/2);
+			Border compBorder = new CompoundBorder(selectionBorder, focusBorder);
+			setBorder(compBorder);
+		} else {
+			setBorder(BorderFactory.createLineBorder(getBackground(), BORDER_SIZE));
+		}
+	}
+	
+	public void showFirstImage() {
+		adjustSlideHolderSize();
+		slider.initContext();//slider setValue -1.
+		// position range is 0 to n-1
+		prevSlice = -1;
+		currentSlice = 0;
+		setImagePosition(currentSlice);
+	}
+	
+	protected void updateInfoLabel(int x, int y, String value, double scale, double mag, double rotate) {
+		if(getViewMode() != ViewMode.Thumbnail) {
+			this.pvcp.setText2InfoLabel(x, y, value, scale, mag, rotate);
+		}
 	}
 }

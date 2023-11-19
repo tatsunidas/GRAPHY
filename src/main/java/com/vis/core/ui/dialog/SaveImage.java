@@ -30,7 +30,7 @@ public class SaveImage {
 	}
 	
 	public static void save(Praparat prap, String title, String defaultDir, String defaultName, String extensionWithDot) {
-		ImagePlus imp = prap.getStackSeries();
+		ImagePlus imp = prap.getImagePlus();
 		if(imp != null && imp.getNSlices() > 0) {
 			jSaveDispatchThread(imp, title, defaultDir, defaultName, extensionWithDot);
 		}

@@ -67,7 +67,7 @@ class SeriesQueryTaskUsingDB extends StudyQueryTaskUsingDB {
                 keys.getStrings(Tag.SeriesInstanceUID));
         /* obtain all studies with keys*/
         /* レコードを検索（親クラスで参照しているPatID, StudyIUIDを検索条件に追加） */
-        seriesCandidate = db.getAllCandidate4SeriesQuery(patRec,studyRec,keys);
+        seriesCandidate = db.getAllCandidate4SeriesQuery(patRec.getString(Tag.PatientID),studyRec.getString(Tag.StudyInstanceUID),seriesIUIDs);
         this.total = seriesCandidate.size();
         wrappedFindNextSeries();
    }
@@ -129,7 +129,7 @@ class SeriesQueryTaskUsingDB extends StudyQueryTaskUsingDB {
     	while (seriesRec == null && super.findNextStudy()) {
     		this.process = 0;
     		/* この時点で、studyRecは新しく更新されている。存在しない場合はNullを返す */
-    		seriesCandidate = db.getAllCandidate4SeriesQuery(patRec,studyRec,keys);
+    		seriesCandidate = db.getAllCandidate4SeriesQuery(patRec.getString(Tag.PatientID),studyRec.getString(Tag.StudyInstanceUID),StringUtils.maskNull(keys.getStrings(Tag.SeriesInstanceUID)));
     		if (seriesCandidate != null && seriesCandidate.size()>0) {
     			seriesRec = constructInfo(seriesCandidate.get(process));
     		} 

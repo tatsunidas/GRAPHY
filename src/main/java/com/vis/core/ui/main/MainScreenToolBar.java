@@ -23,6 +23,8 @@ import com.vis.core.ui.dialog.NonDicomImageImporter;
 import com.vis.core.ui.function.DatabaseBrowser;
 import com.vis.core.ui.function.DeleteImage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.util.Platform;
+import com.vis.core.util.Utils;
 
 //import com.vis.ui.form.dialog.BurnerWindow;
 //import com.vis.function.DatabaseBrowser2;
@@ -74,7 +76,9 @@ public class MainScreenToolBar extends JToolBar {
 		removeAll();
 		HashMap<Tool,ImageIcon> icons = initButtonList();
 		for(Tool t:Tool.values()) {
-			Image img = icons.get(t).getImage();
+			ImageIcon ic = icons.get(t);
+			if(ic == null) {continue;}
+			Image img = ic.getImage();
 			Image newimg = img.getScaledInstance( NEW_WIDTH, NEW_HEIGHT,  java.awt.Image.SCALE_SMOOTH );
 			ImageIcon icon = new ImageIcon(newimg);
 			JButton btn = new JButton(t.name(), icon);
@@ -92,7 +96,13 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Import, Resources.MenuBarImportIcon.loadIconFromResource());
 		map.put(Tool.Export, Resources.MenuBarExportIcon.loadIconFromResource());
 		map.put(Tool.BrowseDB, Resources.MenuBarBrowseDBIcon.loadIconFromResource());
-		map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
+		if(Utils.isDebug) {
+			map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
+		}else {
+			if(Platform.getCurrentPlatform()==Platform.WINDOWS) {
+				map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
+			}
+		}
 		map.put(Tool.ImportNoneDcm, Resources.MenuBarImportNoDcmIcon.loadIconFromResource());
 		map.put(Tool.Delete, Resources.MenuBarDeleteIcon.loadIconFromResource());
 		map.put(Tool.Metadata,  Resources.MenuBarMetadataIcon.loadIconFromResource());
@@ -127,6 +137,9 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
+					/**
+					 * From Only Home Dock.
+					 */
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					new DicomExporter(selected);
 				}

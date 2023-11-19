@@ -14,7 +14,10 @@ import javax.swing.SwingUtilities;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.DICOMBackend;
+import com.vis.imageio.Decompressor;
 
 /**
  * 
@@ -106,11 +109,13 @@ public class DicomExporter extends JFrame implements Runnable {
 	}
 
 	private void exportDICOM() {
-		//TODO ? if QR treetable ?
+		//Home Dock only
 		ArrayList<String[]> exportSet = WindowManager.getMainScreen().getLocalTreeTable()
 				.createNoDuplicateImageList(getTargetNodes());
 		String[] selected = eop.getSelectedButtonsName();
-		System.out.println("Settings:" + selected[0] + " " + selected[1]);
+		if(Utils.isDebug) {
+			System.out.println("Export with Settings:" + selected[0] + " " + selected[1]);
+		}
 		// folder structure
 		if (!burnCD) {
 			switch (selected[0]) {
@@ -134,23 +139,19 @@ public class DicomExporter extends JFrame implements Runnable {
 			}
 			exportDICOM(flatOutput, decompress, jfc.getSelectedFile(), exportSet);
 		}else {
-			if(!new File("tmp").exists()) {
+			if(!new File("./tmp").exists()) {
 				try {
-					new File("tmp").createNewFile();
+					new File("./tmp").createNewFile();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			exportDICOM(false, false, new File("tmp/"+"BURN2CD"), exportSet);
+			exportDICOM(false, false, new File("./tmp/"+"BURN2CD"), exportSet);
 		}
 		
 	}
 
 	private void exportDICOM(boolean flatOutput, boolean decompress, File selectedDir, ArrayList<String[]> exportSet) {
-
-		System.out.println(exportSet.size());
-
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		ArrayList<String> patIDs = new ArrayList<String>();
 		ArrayList<String> studyIUIDs = new ArrayList<String>();
@@ -183,12 +184,10 @@ public class DicomExporter extends JFrame implements Runnable {
 						}
 						if (patID == null || patID.equals("") || patID.contentEquals(" ")) {
 							patID = "NULL-PatientID";
-							System.out.println("patID is null");
 						}
-						// destはdescription使う
 						String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
 						if (studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
-//							studyDesc = "no-studydesc";//重複の可能性あり
+//							studyDesc = "no-studydesc";//to avoid duplication, use UID.
 							studyDesc = studyIUID;
 							System.out.println("studyDesc is null, uid used instead.");
 						}
@@ -219,19 +218,16 @@ public class DicomExporter extends JFrame implements Runnable {
 								continue;
 							}
 							synchronized (to) {
-								if (decompress) {
-									/**
-									 * TODO 20230831
-									 */
-									// do it to saved dcm
-//									new Decompressor.newInstance(dcmObj, tsuid).decompress();
-								} else {
-									try {
+								try {
+									if(!decompress) {
 										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-									} catch (IOException e) {
-										e.printStackTrace();
-										return;
+									}else{
+										DICOMBackend backend = DICOMBackend.getCurrent();
+										Decompressor.newInstance(backend).decompress(from, to);
 									}
+								} catch (IOException e) {
+									e.printStackTrace();
+									return;
 								}
 							}
 							// flat
@@ -253,18 +249,15 @@ public class DicomExporter extends JFrame implements Runnable {
 								continue;
 							}
 							synchronized (to) {
-								if (decompress) {
-									// do it to saved dcm
-									// TODO
-//									new Decompressor.newInstance(dcmObj, tsuid).decompress();
-								} else {
-									try {
-										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-									} catch (IOException e) {
-										// TODO Auto-generated catch block
-										e.printStackTrace();
-										return;
+								try {
+									Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+									if (decompress) {
+										DICOMBackend backend = DICOMBackend.getCurrent();
+										Decompressor.newInstance(backend).decompress(to, to);
 									}
+								} catch (IOException e) {
+									e.printStackTrace();
+									continue;
 								}
 								instanceCount++;
 							}
@@ -275,18 +268,14 @@ public class DicomExporter extends JFrame implements Runnable {
 		} // patient loop
 
 		if (missingFilesFound) {
-			JOptionPane.showConfirmDialog(null, "Missing files found, cannot completed exporting files.");
+			JOptionPane.showConfirmDialog(null, "Missing files found, cannot completed exporting whole files.");
 			return;
 		}
 
-		// finally, create DICOMDIR
-		/*
-		 * CDなどのメディア作成ではないので、不要。
-		 */
+		// finally, create DICOMDIR?
 //		for(String path2PatDir:exportRootParentPathSet) {
 //			attachDICOMDIRFor(path2PatDir);
 //		}
-		// end
 		exportDone();
 	}
 
@@ -322,7 +311,7 @@ public class DicomExporter extends JFrame implements Runnable {
 			@Override
 			public void run() {
 				// show result
-				JOptionPane.showOptionDialog(WindowManager.getMainScreen(), "Export done.",
+				JOptionPane.showOptionDialog(WindowManager.getMainScreen(), "Export was done.",
 						"Complete -Export images-", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE, null,
 						new String[] { "OK" }, "default");
 			}
@@ -338,7 +327,6 @@ public class DicomExporter extends JFrame implements Runnable {
 
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
 		exportDICOM();
 	}
 }

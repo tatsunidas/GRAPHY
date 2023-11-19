@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Calendar;
 
 import javax.swing.JComponent;
@@ -24,22 +25,16 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.PDFRenderer;
-//import org.dcm4che3.data.Attributes;
-//import org.dcm4che3.data.Tag;
-//import org.dcm4che3.data.UID;
-//import org.dcm4che3.data.VR;
-//import org.dcm4che3.io.DicomInputStream;
-//import org.dcm4che3.io.DicomOutputStream;
-//import org.dcm4che3.util.UIDUtils;
 
+import com.vis.core.util.Platform;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UID;
+import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
-import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -47,9 +42,12 @@ import ij.process.ImageProcessor;
 
 public class PDFReader implements Closeable, KeyListener{
 
-	public static void test(File pdf) {
-		// TODO Auto-generated method stub
-		
+	public static void main(String[] args) {
+		Calendar cal = Calendar.getInstance();
+		cal.set(Calendar.YEAR, 1984);
+		cal.set(Calendar.MONTH, Calendar.DECEMBER);
+		cal.set(Calendar.DAY_OF_MONTH, 10);
+		System.out.println(cal.getTime());
 	}
 
 	private static final long MAX_FILE_SIZE = 0x7FFFFFFE;
@@ -57,7 +55,7 @@ public class PDFReader implements Closeable, KeyListener{
 	int pageMax = -1;
 	PDDocument doc = null;
 	int dpi = 300;
-
+	
 	/**
 	 * please close this instance using close(). 
 	 * @param pdfOrDcm
@@ -73,8 +71,8 @@ public class PDFReader implements Closeable, KeyListener{
 			reader.read(pdfOrDcm.toURI());
 			DicomObject dcm = reader.getCore();
 			String sopUID = dcm.getString(Tag.SOP​Class​UID);
-			if(!sopUID.equals(UID.EncapsulatedPDFStorage)) {
-				System.out.println("PDFReader:This dicom file is not PDF, return null...");
+			if(!sopUID.equals(UID.EncapsulatedPDFStorage.uid())) {
+				System.out.println("PDFReader:This dicom file is not PDF, return ...");
 				return;
 			}
 			this.doc = dcm2pdf(dcm);
@@ -90,44 +88,16 @@ public class PDFReader implements Closeable, KeyListener{
 		}
 	}
 	
-	/*
-	 * windows
-	 * mac
-	 * linux
-	 * 
-	 * replace IJ.isMac ??
-	 */
-	public boolean isThisOS(String osname) {
-		String os = System.getProperty("os.name").toLowerCase();
-		if(os.indexOf("win") >= 0) {
-			if(osname.equals("windows")) {
-				return true;
-			}
-		}else if(os.indexOf("mac") >= 0) {
-			if(osname.equals("mac")) {
-				return true;
-			}
-		}else if(os.indexOf("nix") >=0 || os.indexOf("nux") >=0) {
-			if(osname.equals("linux")) {
-				return true;
-			}
-		}else {
-			return false;
-		}
-		return false;
-	}
-	
 	/**
 	 * load pdf file.(No dicom.)
 	 * @param srcPDF
 	 * @return
 	 */
-	public PDDocument loadFromFile(File srcPDF) {
+	public static PDDocument loadFromFile(File srcPDF) {
 		PDDocument doc = null;
 		try {
 			doc = PDDocument.load(srcPDF);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.println("PDFReader:This PDF not readable, return null...");
 			return null;
@@ -168,7 +138,7 @@ public class PDFReader implements Closeable, KeyListener{
 			try {
 				pdfRenderer.isSubsamplingAllowed();
 //				bImage = pdfRenderer.renderImageWithDPI(i, dpi, org.apache.pdfbox.rendering.ImageType.RGB);//strange image size? cropped ?
-				bImage = pdfRenderer.renderImage(i);
+				bImage = pdfRenderer.renderImage(i);//RGB
 			} catch (IOException e) {
 				e.printStackTrace();
 				continue;
@@ -231,11 +201,11 @@ public class PDFReader implements Closeable, KeyListener{
 		Runtime rt = Runtime.getRuntime();
 		String dest = pdf.getAbsolutePath();
 		try {
-			if (isThisOS("windows")) {
+			if (Platform.getCurrentPlatform() == Platform.WINDOWS) {
 				rt.exec("rundll32 url.dll, FileProtocolHandler " + dest);
-			} else if (isThisOS("mac")) {
+			} else if (Platform.getCurrentPlatform() == Platform.MAC) {
 				rt.exec("open " + dest);
-			} else if (isThisOS("linux")) {
+			} else if (Platform.getCurrentPlatform() == Platform.LINUX) {
 				rt.exec("xdg-open " + dest);
 			}else {
 				// Unknown OS, try with desktop
@@ -244,7 +214,6 @@ public class PDFReader implements Closeable, KeyListener{
 	            }
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -253,7 +222,7 @@ public class PDFReader implements Closeable, KeyListener{
 	 * show pdf on JFrame as Image.
 	 * @param pdfdcm
 	 */
-	public void showFrame(DicomObject pdfdcm) {
+	public void showInFrame(DicomObject pdfdcm) {
 		JFrame frame = new JFrame("Simple PDF View");
 		frame.addKeyListener(this);
 		SwingUtilities.invokeLater(new Runnable() {
@@ -271,7 +240,6 @@ public class PDFReader implements Closeable, KeyListener{
 //					frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 					frame.setVisible(true);
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 					JOptionPane.showMessageDialog(null, "Can not read this PDF...Sorry...");
 					return;
@@ -325,84 +293,68 @@ public class PDFReader implements Closeable, KeyListener{
 		return null;
 	}
 
-	/*
-	 * TODO 20230905
-	 */
-	public boolean convert2DCM(
+	public static DicomObject convert2DCM(
 			File srcPDF, 
-			File destDCM,
 			String pname,
 			String pid,
-			String dob,//1999/01/01
+			java.util.Date dob,//1999/01/01 or 1999-01-01
 			String sex,//M,F,O
 			java.util.Date studyDate,
 			java.util.Date studyTime,
 			java.util.Date contentDate,
 			java.util.Date contentTime,
-			java.util.Date acquisitionDateTime,
-			Integer studyID,
 			Integer seriesNo,
-//			Integer InstNo, //always 1, mandatory
 			String studyUID,//if null setNew
-			String seriesUID,//if null setNew
-			boolean burnedInAnnotation
+			String seriesUID//if null setNew
 			) {
 		
-		/*
-		 * TODO 20230905
-		 */
-		
-//		PDDocument doc = loadFromFile(srcPDF);
-//		if(doc == null) {
-//			return false;
-//		}
-//		DicomObject attr = DicomObject.newDicomObject();
-//		//patient
-//		attr.setString(Tag.Patient​Name, VR.PN, pname);
-//		attr.setString(Tag.Patient​ID, VR.LO, pid);
-//		attr.setString(Tag.Patient​Sex, VR.CS, sex);
-//		if(dob != null) {
-//			String[] dobArray = new String[3];
-//			if(dob.contains("-")) {
-//				dobArray = dob.trim().split("-");
-//			}else if(dob.contains("/")) {
-//				dobArray = dob.trim().split("/");
-//			}
-//			Calendar now = Calendar.getInstance();
-//			now.set(Integer.parseInt(dobArray[0]), Integer.parseInt(dobArray[1]), Integer.parseInt(dobArray[2]));
-//			attr.setDate(Tag.Patient​Birth​Date, VR.DA, now.getTime());
-//		}else {
-//			attr.setNull(Tag.Patient​Birth​Date, VR.DA);
-//		}
-//		//study
-//		if(studyDate == null) {
-//			attr.setNull(Tag.Study​Date, VR.DA);
-//		}else {
-//			attr.setDate(Tag.Study​Date, VR.DA, studyDate);
-//		}
-//		if(studyTime == null) {
-//			attr.setNull(Tag.Study​Time, VR.TM);
-//		}else {
-//			attr.setDate(Tag.Study​Time, VR.TM, studyTime);
-//		}
+		PDDocument doc = loadFromFile(srcPDF);
+		if(doc == null) {
+			return null;
+		}
+		long fileLength = srcPDF.length();
+		if (fileLength > MAX_FILE_SIZE) {
+			throw new IllegalArgumentException("file-too-large");
+		}
+		DicomObject attr = DicomObject.newDicomObject();
+		//patient
+		attr.setString(Tag.Patient​Name, VR.PN, pname);
+		attr.setString(Tag.Patient​ID, VR.LO, pid);
+		attr.setString(Tag.Patient​Sex, VR.CS, sex);
+		if(dob != null) {
+			attr.setDate(Tag.Patient​Birth​Date, VR.DA, dob);
+		}else {
+			attr.setNull(Tag.Patient​Birth​Date, VR.DA);
+		}
+		//study
+		if(studyDate == null) {
+			attr.setNull(Tag.Study​Date, VR.DA);
+		}else {
+			attr.setDate(Tag.Study​Date, VR.DA, studyDate);
+		}
+		if(studyTime == null) {
+			attr.setNull(Tag.Study​Time, VR.TM);
+		}else {
+			attr.setDate(Tag.Study​Time, VR.TM, studyTime);
+		}
 //		if(studyID == null) {
 //			attr.setNull(Tag.Study​ID, VR.SH);
 //		}else {
 //			attr.setInt(Tag.Study​ID, VR.SH, studyID);
 //		}
-//		//series
-//		attr.setInt(Tag.Series​Number, VR.IS, seriesNo);
-//		//instance
-//		if(contentDate == null) {
-//			attr.setNull(Tag.Content​Date, VR.DA);
-//		}else {
-//			attr.setDate(Tag.Content​Date, VR.DA, contentDate);
-//		}
-//		if(contentTime == null) {
-//			attr.setNull(Tag.Content​Time, VR.TM);
-//		}else {
-//			attr.setDate(Tag.Content​Time, VR.TM, contentTime);
-//		}
+		//series
+		attr.setInt(Tag.Series​Number, VR.IS, seriesNo);
+		//instance
+		if(contentDate == null) {
+			attr.setNull(Tag.Content​Date, VR.DA);
+		}else {
+			attr.setDate(Tag.Content​Date, VR.DA, contentDate);
+		}
+		if(contentTime == null) {
+			attr.setNull(Tag.Content​Time, VR.TM);
+		}else {
+			attr.setDate(Tag.Content​Time, VR.TM, contentTime);
+		}
 //		if(acquisitionDateTime == null) {
 //			attr.setNull(Tag.Acquisition​Date​Time, VR.DT);
 //		}else {
@@ -410,38 +362,31 @@ public class PDFReader implements Closeable, KeyListener{
 //		}
 //		attr.setNull(Tag.Accession​Number, VR.SH);
 //		attr.setNull(Tag.Referring​Physician​Name, VR.PN);
-//		attr.setString(Tag.Modality, VR.CS, "OT");//or "DOC" ?
-//		attr.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc");
+		attr.setString(Tag.Modality, VR.CS, "OT");
+		attr.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc");
 //		attr.setString(Tag.Conversion​Type, VR.CS, "WSD");// workstation
-//		attr.setInt(Tag.Instance​Number, VR.IS, 1);
-//		attr.setString(Tag.Document​Title, VR.ST, doc.getDocumentInformation().getTitle());
+		attr.setInt(Tag.Instance​Number, VR.IS, 1);
+		attr.setString(Tag.Document​Title, VR.ST, doc.getDocumentInformation().getTitle());
+		attr.setInt(Tag.Number​Of​Frames, VR.IS, doc.getNumberOfPages());
 //		attr.setNull(Tag.Concept​Name​Code​Sequence, VR.SQ);
 //		attr.setString(Tag.MIME​Type​Of​Encapsulated​Document, VR.LO, "application/pdf");
 //		attr.setString(Tag.Burned​In​Annotation, VR.CS, burnedInAnnotation ? "YES":"NO");
 //		//UID
-//		attr.setString(Tag.SOP​Class​UID, VR.UI, UID.EncapsulatedPDFStorage.uid());
-//		attr.setString(Tag.Study​Instance​UID, VR.UI, studyUID != null ? studyUID:UIDUtils.createUID());
-//		attr.setString(Tag.Series​Instance​UID, VR.UI, seriesUID != null ? seriesUID:UIDUtils.createUID());
-//		attr.setString(Tag.SOP​Instance​UID, VR.UI, UIDUtils.createUID());
-//		long fileLength = srcPDF.length();
-//		if (fileLength > MAX_FILE_SIZE) {
-//			throw new IllegalArgumentException("file-too-large");
-//		}
-//		if(!destDCM.getAbsolutePath().endsWith("dcm")) {
-//			destDCM = new File(destDCM.getAbsolutePath()+".dcm");
-//		}
-//		
-//		DicomImage dcmImg = DicomImage.newDicomImage(attr, UID.EncapsulatedPDFStorage);
-//		dcmImg.setPixelData(0, currentPage, pageMax, currentPage, dpi, null)
-//		
-//		try (DicomOutputStream dos = new DicomOutputStream(destDCM)) {
-//			dos.writeDataset(attr.createFileMetaInformation(UID.ExplicitVRLittleEndian), attr);
-//			dos.writeAttribute(Tag.EncapsulatedDocument, VR.OB, java.nio.file.Files.readAllBytes(srcPDF.toPath()));
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		return true;
+		attr.setString(Tag.SOP​Class​UID, VR.UI, UID.EncapsulatedPDFStorage.uid());
+		attr.setString(Tag.Study​Instance​UID, VR.UI, studyUID != null ? studyUID:UIDUtils.createUID());
+		attr.setString(Tag.Series​Instance​UID, VR.UI, seriesUID != null ? seriesUID:UIDUtils.createUID());
+		attr.setString(Tag.SOP​Instance​UID, VR.UI, UIDUtils.createUID());
+		
+		try {
+			attr.setValue(Tag.Encapsulated​Document, VR.OB, Files.readAllBytes(srcPDF.toPath()));
+			doc.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+			attr = null;
+			doc = null;
+			return null;
+		}
+		return attr;
 	}
 	
 	public void close() {

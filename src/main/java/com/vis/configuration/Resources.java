@@ -124,12 +124,13 @@ public enum Resources {
 	}
 	
 	public URL toURL() {
-		return getClass().getClassLoader().getResource(pathInResource);
+		return Thread.currentThread().getContextClassLoader().getResource(pathInResource);
 	}
 	
 	public ImageIcon loadIconFromResource(){
 		if(pathInResource.endsWith("png") || pathInResource.endsWith("jpg") || pathInResource.endsWith("jpeg")) {
-			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);
+			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
+//			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);//DO NOT USE
 			ImageIcon ico = null;
 			try {
 				ico = new ImageIcon(javax.imageio.ImageIO.read(stream));
@@ -146,7 +147,7 @@ public enum Resources {
 		if(pathInResource.endsWith("lut")) {
 			URI lutURI = null;
 			try {
-				lutURI = Resources.class.getClassLoader().getResource(pathInResource).toURI();
+				lutURI = Thread.currentThread().getContextClassLoader().getResource(pathInResource).toURI();
 			} catch (URISyntaxException e) {
 				e.printStackTrace();
 			}
@@ -160,7 +161,7 @@ public enum Resources {
 		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
 		URI lutDirURI = null;
 		try {
-			lutDirURI = Resources.class.getClassLoader().getResource("NucMed_Image_LUTs/").toURI();
+			lutDirURI = Thread.currentThread().getContextClassLoader().getResource("NucMed_Image_LUTs/").toURI();
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 		}

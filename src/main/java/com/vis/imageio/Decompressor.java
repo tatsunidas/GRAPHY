@@ -37,7 +37,6 @@
  */
 package com.vis.imageio;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 
 import com.vis.dicom.DICOMBackend;
@@ -48,13 +47,36 @@ import com.vis.dicom.image.DicomImage;
 
 public interface Decompressor {
 	
-	public static Decompressor newInstance(DicomObject dcm, String fromTSUID) {
-		return newInstance(dcm, fromTSUID, DICOMBackend.getCurrent());
+	/**
+	 * Generally use
+	 * @param dcm
+	 * @return
+	 */
+	public static Decompressor newInstance(DicomImage dcm) {
+		return newInstance(dcm, DICOMBackend.getCurrent());
 	}
 	
-	public static Decompressor newInstance(DicomObject dcm, String fromTSUID, DICOMBackend backend) {
+	/**
+	 * This instance method only used for decompress(File in, File out).
+	 * @param backend
+	 * @return
+	 */
+	public static Decompressor newInstance(DICOMBackend backend) {
+		return newInstance(null, backend);
+	}
+	
+	public static Decompressor newInstance(DicomImage dcm, DICOMBackend backend) {
+		if(dcm == null) {
+			if(backend == DICOMBackend.DCM4CHE) {
+				com.vis.imageio.Decompressor d = (Decompressor) new DecompressorChe();
+				return d;
+			}else if(backend == DICOMBackend.DCMTK) {
+				
+			}
+			return null;
+		}
 		if(backend == DICOMBackend.DCM4CHE) {
-			com.vis.imageio.Decompressor d = (Decompressor) new DecompressorChe((DicomObjectChe)dcm, fromTSUID);
+			com.vis.imageio.Decompressor d = (Decompressor) new DecompressorChe(dcm);
 			return d;
 		}else if(backend == DICOMBackend.DCMTK) {
 			
@@ -65,6 +87,5 @@ public interface Decompressor {
 	public boolean decompress();
 	public void decompress(File src, File target);
 	public void dispose();
-//	public void writeTo(DicomImage decompressedDcmImg);
 
 }

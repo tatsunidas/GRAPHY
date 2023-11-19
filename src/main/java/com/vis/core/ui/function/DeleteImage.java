@@ -39,7 +39,6 @@ public class DeleteImage {
 			try {
 				DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

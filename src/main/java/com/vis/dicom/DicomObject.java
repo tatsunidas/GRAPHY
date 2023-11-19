@@ -58,6 +58,8 @@ public interface DicomObject {
 	 * (like 0011,xx13)
 	 */
 	public int tagOf(String privateCreator, int tag);
+	
+	public int[] tags();
 
 	public boolean contains(int tag);
 

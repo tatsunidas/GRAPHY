@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.imageio;
 
 import java.awt.Transparency;
@@ -11,13 +48,9 @@ import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.util.logging.*;
 
-import org.dcm4che3.data.UID;
-
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
-import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
@@ -27,7 +60,6 @@ import ij.process.ShortProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
-
 
 /**
  * Extract PixelData from DicomObject
@@ -47,7 +79,11 @@ public class PixelDataDecoder {
 	int bitsStored;
 	int samplesPerPixel;
 	int pixelRep;
-	boolean banded;// = dataset.getInt(Tag.PlanarConfiguration, 0) != 0;
+	/*
+	 * banded [true] means rrr...ggg...bbb..
+	 * banded [false] mean rgbrgb...
+	 */
+	boolean banded;// i.e, Tag.PlanarConfiguration, 0) != 0;
 	boolean signed;// = dataset.getInt(Tag.PixelRepresentation, 0) != 0;
 	int frames;// = dataset.getInt(Tag.NumberOfFrames, 1);
 	int frameLength;// = rows * cols * samples * bitsAllocated / 8;
@@ -71,10 +107,10 @@ public class PixelDataDecoder {
 		samplesPerPixel = dcm.getSamples();
 		colorType = dcm.getPhotometricInterpletation().name();
 		bigEndian = tsUID.indexOf("1.2.840.10008.1.2.2")>=0 ? true:false;
-		isMultiFrame = dcm.getNumOfFrames() > 1;
 		banded = dcm.isBanded();
        signed = dcm.isSigned();
        frames = dcm.getNumOfFrames();
+       isMultiFrame = frames > 0;
        frameLength = w * h * samplesPerPixel * bitsAllocated / 8;
        length = frameLength * frames;
 		
@@ -120,7 +156,6 @@ public class PixelDataDecoder {
 	
 	private ImagePlus read() {
 		ImageStack is = new ImageStack(w, h);
-		
 		for (int i = 0; i < frames; i++) {
 			byte[] pixels = (byte[]) dcm.getPixelData(i);
 			ImageProcessor ip = null;
@@ -129,7 +164,8 @@ public class PixelDataDecoder {
 					//decompressed pixel
 					short[] spix = new short[pixels.length/2];
 					com.vis.core.util.ByteUtils.bytesToShorts(pixels, spix, 0, spix.length, dcm.getCore().bigEndian());
-					ShortProcessor sp = new ShortProcessor(w, h, spix, null);
+					ShortProcessor sp = new ShortProcessor(w, h);
+					sp.setPixels(spix);
 					ip = new ByteProcessor(w, h);
 					ip.setPixels(sp.convertToByteProcessor());
 					continue;
@@ -144,7 +180,7 @@ public class PixelDataDecoder {
 				ip.setPixels(buffer.array());
 			}else if(samplesPerPixel == 1 && bitsAllocated == 16){
 				short[] pixelsShort = toShortArray((byte[])pixels);
-				ip = new ShortProcessor(w, h, signed);
+				ip = new ShortProcessor(w, h);
 				ip.setPixels(pixelsShort);
 			}else if(samplesPerPixel == 1 && bitsAllocated == 32){
 				float[] pixelsFloat = toFloatArray((byte[])pixels);
@@ -163,7 +199,6 @@ public class PixelDataDecoder {
 			if(samplesPerPixel == 3) {
 				ip = transformRGB2Processor(w, h, pixels);
 			}
-			
 			is.addSlice(String.valueOf((i+1)), ip, i);
 		}
 		ImagePlus imp = new ImagePlus("", is);
@@ -173,7 +208,9 @@ public class PixelDataDecoder {
 	
 	private short[] toShortArray(byte[] pixels) {
 		short[] shortArray = new short[pixels.length / 2];
+//		ByteBuffer buffer = ByteBuffer.wrap(pixels);
 		ByteBuffer buffer = null;
+		//Changing byte order occurs pixels bit overflow.
 		if(bigEndian) {
 			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
 		}else {
@@ -181,37 +218,53 @@ public class PixelDataDecoder {
 		}
 		buffer.asShortBuffer().get(shortArray);
 		buffer.order(ByteOrder.nativeOrder()).asShortBuffer().put(shortArray);
-//		ShortBuffer sb = buffer.asShortBuffer();//DO NOT USE java.lang.UnsupportedOperationException
-//		short[] unsigned = sb.array();//DO NOT USE java.lang.UnsupportedOperationException
 		if(!signed) {//unsigned
 			return shortArray;
 		}else {//signed
-			short[] shortArraySigned = new short[shortArray.length];
-			for(int i=0;i<shortArray.length;i++) {
-				shortArraySigned[i] = (short) (shortArray[i] - (short)32768);
+			/*
+			 * see also slideglass::initImageInfo() that adjust image pixel density.
+			 */
+			convertToUnsigned(shortArray);
+			return shortArray;
+		}
+	}
+	
+	/** Convert 16-bit signed to unsigned if all pixels>=0. */
+	void convertToUnsigned(short[] pixels) {
+		int min = Integer.MAX_VALUE;
+		int value;
+		for (int i=0; i<pixels.length; i++) {
+			value = pixels[i]&0xffff;
+			if (value<min)
+				min = value;
+		}
+		if (min>=32768) {
+			for (int i=0; i<pixels.length; i++) {
+				pixels[i] = (short)(pixels[i]-32768);
 			}
-			return shortArraySigned;
 		}
 	}
 	
 	private float[] toFloatArray(byte[] pixels) {
-		ByteBuffer buffer = null;
-		if(bigEndian) {
-			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-		}else {
-			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-		}
+		ByteBuffer buffer = ByteBuffer.wrap(pixels);
+		//Changing byte order occurs pixels bit overflow.
+//		if(bigEndian) {
+//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
+//		}else {
+//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
+//		}
 		FloatBuffer fb = buffer.asFloatBuffer();//.get(floatArray);
 		return fb.array();
 	}
 	
 	private double[] toDoubleArray(byte[] pixels) {
-		ByteBuffer buffer = null;
-		if(bigEndian) {
-			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-		}else {
-			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-		}
+		ByteBuffer buffer = ByteBuffer.wrap(pixels);
+		//Changing byte order occurs pixels bit overflow.
+//		if(bigEndian) {
+//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
+//		}else {
+//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
+//		}
 		DoubleBuffer db = buffer.asDoubleBuffer();
 		return db.array();
 	}

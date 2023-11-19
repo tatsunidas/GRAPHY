@@ -7,12 +7,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Hashtable;
 
-import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -38,7 +36,7 @@ public class CineSlider extends JPanel implements ActionListener {
 	private Timer timer;
 	private int frame = 100;
 	private ColorBar colorBar;
-	private int currentSliceIndex = -1;//0 to n-1
+	private int currentSliceIndex = -1;//1 to n, -1 is needed to initialize.
 
 	public CineSlider(Praparat pp) {
 		super();
@@ -69,20 +67,16 @@ public class CineSlider extends JPanel implements ActionListener {
 		add(colorBar, BorderLayout.NORTH);
 	}
 
-	public int getCurrentSliceIndex() {
+	private int getCurrentSliceIndex() {
 		//slider value is 1 to n
-		//slice index is 0 to n-1
-		return slider.getValue()-1;
+		return slider.getValue();
 	}
 
-	protected void setSlice(int ind) {
-		if(currentSliceIndex == ind){
-			return;
-		}
+	protected void setSlice(int ind/*0 to n-1*/) {
 		if (ind >= pp.getNumberOfImages()) {
 			ind = 0;
 		} else if (ind < 0) {
-			ind = pp.getNumberOfImages() - 1;
+			ind = pp.getNumberOfImages()-1;
 		}
 		int sliderPos = ind + 1;//slider value is 1 to n
 		slider.setValue(sliderPos);
@@ -120,40 +114,36 @@ public class CineSlider extends JPanel implements ActionListener {
 
 	class CineSliderHelper extends JSlider implements ChangeListener {
 
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
+		
+		boolean initializing = false;
 
 		public CineSliderHelper() {
+			addChangeListener(this);
 		}
 
 		public void initContext() {
 			if (pp.getNumberOfImages() < 0) {
+				if(initializing) {
+					initializing = false;
+				}
 				return;
-			} else {
-				if (getChangeListeners() != null) {
-					removeChangeListener(this);
-				}
-//				setMajorTickSpacing(10);//DO NOT USE
-				setLabelTable(null);//needed to update slider ui
-				setMinorTickSpacing(1);
-				setMinimum(1);
-				setMaximum(pp.getNumberOfImages());
-				createLabelTableAndSet(10,pp.getNumberOfImages());
-				setPaintTicks(true);
-				setPaintLabels(true);
-				setSnapToTicks(true);
-				if(!isVisible()) {
-					setValue(1);
-					addChangeListener(this);
-				}else {
-					addChangeListener(this);
-					setValue(1);//execute from listener
-				}
-				revalidate();
-				repaint();
 			}
+			initializing = true;//to ignore state changed.
+//			setMajorTickSpacing(10);//DO NOT USE
+			setLabelTable(null);//needed to update slider ui
+			setMinorTickSpacing(1);
+			setMinimum(1);
+			setMaximum(pp.getNumberOfImages());
+			createLabelTableAndSet(10,pp.getNumberOfImages());
+			setPaintTicks(true);
+			setPaintLabels(true);
+			setSnapToTicks(true);
+			initializing = false;
+			/*if slider inputed same index, not to fire state changed.*/
+			/*here, intend to fire state changed, set -1*/
+			currentSliceIndex = -1;
+			setValue(currentSliceIndex);
 		}
 		
 		private void createLabelTableAndSet(int majorTickSpacing, int numOfSlices){
@@ -163,7 +153,6 @@ public class CineSlider extends JPanel implements ActionListener {
 			labelTable.put(Integer.valueOf(numOfSlices), new JLabel(String.valueOf(numOfSlices)));//end
 			if(numOfSlices < majorTickSpacing) {
 				setLabelTable(labelTable);
-				return;
 			}else {
 				double numOfTick = numOfSlices/majorTickSpacing;
 				BigDecimal bd = new BigDecimal(String.valueOf(numOfTick));
@@ -177,19 +166,21 @@ public class CineSlider extends JPanel implements ActionListener {
 		}
 		
 		/*
-		 * calling paging by paging
+		 * paging
 		 */
 		@Override
 		public void stateChanged(ChangeEvent e) {
-			if (pp.getNumberOfImages() < 0) {
+			if (pp.getNumberOfImages() < 1) {
+				return;
+			}
+			if(initializing) {
 				return;
 			}
 			JSlider source = (JSlider) e.getSource();
 			int nextpos = (int) source.getValue();// 1 to n
-			int currentPos = currentSliceIndex+1;
-			if(nextpos != currentPos) {
-				currentSliceIndex = nextpos-1;
-				pp.setImagePosition(currentSliceIndex);//should be use "setImagePosition"
+			if(nextpos != currentSliceIndex) {
+				currentSliceIndex = nextpos;
+				pp.setImagePosition(currentSliceIndex-1);//0 to n-1
 				pp.callBackLocalizer();
 			}
 		}

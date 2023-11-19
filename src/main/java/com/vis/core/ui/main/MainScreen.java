@@ -8,19 +8,15 @@ import java.awt.event.WindowListener;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
-import javax.swing.JMenuItem;
-import javax.swing.JPopupMenu;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
@@ -199,7 +195,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public void clearPatientInfo() {
-		bev.clearPatientInfo();
+		bev.resetViews(true);
 	}
 	
 	/**
@@ -323,6 +319,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		TabDock homeDock = ttdm.getHomeDock();
 		DICOMTreeTable tt = homeDock.getDICOMTreeTable();
 		ArrayList<DICOMNode> selectedNodes = tt.getSelectedNodes();
+		if(selectedNodes == null) {
+			return;
+		}
 		// if selected multiple studies, do not show images 
 		int studyCount = 0;
 		for(DICOMNode n : selectedNodes) {

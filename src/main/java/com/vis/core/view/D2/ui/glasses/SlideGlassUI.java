@@ -242,7 +242,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 				
 				if(viewerToolType==Viewer2DToolBar.Windowing) {
 					//WW/WL
-					if(!pp.getProcessSeries()) {
+					if(!pp.isProcessSeries()) {
 						slide.lastX = e.getX();
 						slide.lastY = e.getY();
 						slide.lastOriginX = slide.originX;
@@ -284,7 +284,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 					return;
 				}
 				logger.info("zoom : middle mouse btn pressed!!");
-				if(!pp.getProcessSeries()) {
+				if(!pp.isProcessSeries()) {
 					slide.lastX = e.getX();//for move position
 					slide.lastY = e.getY();//for move position
 					slide.lastDraggedX = e.getX();//for cappulate mag
@@ -311,7 +311,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 			//roi
 			slide.handleRoiMouseUp(e);
 			//release panning
-			if(!pp.getProcessSeries()) {
+			if(!pp.isProcessSeries()) {
 				if(slide.panningInAction) {
 					slide.releasePanning();
 				}
@@ -418,7 +418,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 			if(viewerToolType==Viewer2DToolBar.Windowing) {
 				if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
 					// WW/WL left button
-					if (!pp.getProcessSeries()) {
+					if (!pp.isProcessSeries()) {
 						slide.adjustWindowFromMouseAction(x, y);
 					} else {
 						HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
@@ -440,7 +440,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 				 * only calcurate mag
 				 */
 				int currentDragY = e.getY();
-				if(!pp.getProcessSeries()) {
+				if(!pp.isProcessSeries()) {
 					//lastDraggedYはEnter時に更新されている
 					double diffY = slide.lastDraggedY - currentDragY;
 					double change = 0.005 * diffY;//緩やかに拡大させるために小さく
@@ -482,7 +482,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 				slide.setCursor(new Cursor(Cursor.MOVE_CURSOR));
 				double moveX = slide.lastX - e.getX();
 				double moveY = slide.lastY - e.getY();
-				if(!pp.getProcessSeries()) {
+				if(!pp.isProcessSeries()) {
 					slide.panning(moveX, moveY);
 				} else {
 					// process series
@@ -526,7 +526,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 			}
 			if(Utils.isDebug) System.out.println("rotate! "+rotation);
 			this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-			if(!pp.getProcessSeries()) {
+			if(!pp.isProcessSeries()) {
 				this.slide.rotate(rotation);
 			}else {
 				HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();

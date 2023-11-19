@@ -83,6 +83,7 @@ import org.dcm4che3.io.DicomOutputStream;
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.image.DicomImage;
 
 /**
  * 
@@ -91,6 +92,7 @@ import com.vis.dicom.DicomObject;
  */
 public class DecompressorChe implements com.vis.imageio.Decompressor{
 
+	public DicomImage dcmImg;
 	public final Attributes dataset;
 	protected final String tsuid;
 	protected final TransferSyntaxType tstype;
@@ -113,14 +115,44 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 	protected ImageReadParam readParam;
 	protected PatchJPEGLS patchJpegLS;
 	protected ImageDescriptor imageDescriptor;
+	
+	/**
+	 * to use method decompress(File from, File to)
+	 */
+	public DecompressorChe() {
+		this.dataset = null;
+		this.tsuid = null;
+		this.tstype = null;
+	};
+	
+	/**
+	 * Default(Generally used) 
+	 * @param dcmImg
+	 */
+	public DecompressorChe(DicomImage dcmImg) {
+		if (dcmImg == null)
+			throw new NullPointerException("DicomImage is Null...");
+		this.dcmImg = dcmImg;
+		this.dataset = (Attributes) dcmImg.getCore();
+		this.tsuid = dcmImg.getTSUID().uid();
+		this.tstype = TransferSyntaxType.forUID(tsuid);
+		init(this.dataset, this.tsuid);
+	}
 
-    public DecompressorChe(Attributes dataset, String tsuid) {
-        if (tsuid == null)
-            throw new NullPointerException("tsuid");
-
-        this.dataset = dataset;
-        this.tsuid = tsuid;
-        this.tstype = TransferSyntaxType.forUID(tsuid);
+	public DecompressorChe(Attributes dataset, String tsuid) {
+		if (tsuid == null) {
+			throw new NullPointerException("tsuid");
+		}
+		if(dataset == null) {
+			
+		}
+		this.dataset = dataset;
+		this.tsuid = tsuid;
+		this.tstype = TransferSyntaxType.forUID(tsuid);
+		init(this.dataset, this.tsuid);
+	}
+    
+    private void init(Attributes dataset, String tsuid) {
         Object pixeldata = dataset.getValue(Tag.PixelData);
         if (pixeldata == null)
             return;
@@ -180,8 +212,37 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		}
 		decompressor = null;
 	}
-
+	
 	public boolean decompress() {
+		if (decompressor == null)
+			return false;
+
+		if (tstype == TransferSyntaxType.RLE)
+			bi = createBufferedImage(bitsStored, true, signed);
+		
+		/**
+		 * VR is always OW.(even if set OB as VR, return 16 bit volume byte array.)
+		 */
+		toDecompressable();
+		Value bulk = (Value) dataset.getValue(Tag.PixelData);
+		try {
+			byte[] bulkBytes = bulk.toBytes(VR.OW, dataset.bigEndian());
+			dataset.setValue(Tag.PixelData, VR.OW, bulkBytes);
+			if(dcmImg != null) {
+				dcmImg.decompressed(true);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+		if (samples > 1) {
+			dataset.setString(Tag.PhotometricInterpretation, VR.CS, pmiAfterDecompression.toString());
+			dataset.setInt(Tag.PlanarConfiguration, VR.US, tstype.getPlanarConfiguration());
+		}
+		return true;
+	}
+
+	public boolean toDecompressable() {
 		if (decompressor == null)
 			return false;
 
@@ -227,15 +288,11 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		}
 		return true;
 	}
-
-    public static boolean decompress(Attributes dataset, String tsuid) {
-        return new DecompressorChe(dataset, tsuid).decompress();
-    }
     
     public void decompress(File src, File target) {
 		DicomReaderChe reader = new DicomReaderChe(src.getAbsolutePath(), true);
 		DicomObjectChe obj = (DicomObjectChe)reader.getCore();
-		decompress();
+		new DecompressorChe(obj, reader.checkTSUID().uid()).toDecompressable();
 		DicomWriterChe writer = new DicomWriterChe();
 		writer.writeDicomImage((DicomObject)obj, (DicomObject)obj.createFileMetaInformation(UID.ImplicitVRLittleEndian), target.getAbsolutePath(), true);
 	}
@@ -299,7 +356,6 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
         writeTo(decompressFrame(iis, frameIndex).getRaster(), out);
     }
 
-	@SuppressWarnings("resource")
 	protected BufferedImage decompressFrame(ImageInputStream iis, int index) throws IOException {
 		SegmentedInputImageStream siis = new SegmentedInputImageStream(iis, pixeldataFragments, index);
 		siis.setImageDescriptor(imageDescriptor);

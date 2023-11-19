@@ -43,6 +43,7 @@ import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
 import com.vis.dicom.dcm4cheImpl.DicomImageChe;
 
+import ij.measure.Calibration;
 import ij.process.ImageProcessor;
 
 public interface DicomImage {
@@ -70,7 +71,7 @@ public interface DicomImage {
 	public DicomObject getCore();
 	public DicomObject getFileMetaInfo();
 	public UID getTSUID();
-	public UID getSopUID();
+	public UID getSopClassUID();
 	public int getWidth();
 	public int getHeight();
 	public PhotometricInterpretation getPhotometricInterpletation();
@@ -85,7 +86,7 @@ public interface DicomImage {
 	public abstract void setCore(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
 	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object newFrame);
-	public void setPDF(byte[] pdfFile);
+	public void decompressed(boolean decompressed);
 	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID
 	
@@ -94,5 +95,7 @@ public interface DicomImage {
 	public boolean isSigned();
 	public boolean isPDF();
 	public boolean isMultiFrame();
+	
+	public boolean isDecompressed();
 	
 }

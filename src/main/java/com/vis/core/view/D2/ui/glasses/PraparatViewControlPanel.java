@@ -14,6 +14,7 @@ import javax.swing.JPanel;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.util.ImageUtils;
+import com.vis.core.util.Utils;
 
 import ij.IJ;
 
@@ -81,6 +82,9 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 				int newCol = setFilmGridLayout();
 				if (newCol != -1) {
 					pp.doFilmGridLayout(newCol);
+				}else{
+					//reset to single grid
+					pp.doSingleGridLayout();
 				}
 			}
 		});
@@ -182,12 +186,18 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 		Object[] options1 = { "OK", "CLOSE" };
 		JPanel panel = new JPanel();
 		panel.add(new JLabel("Choose number of cols between 1 and 12"));
-		JComboBox<Integer> num = new JComboBox<Integer>(new Integer[] {1,2,3,4,5,6,7,8,9,10,11,12});
+		JComboBox<String> num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10","Reset"});
 		panel.add(num);
 		int result = JOptionPane.showOptionDialog(WindowManager.getMainScreen(), panel, "Choose a Num of Columns", JOptionPane.YES_NO_OPTION,
 				JOptionPane.PLAIN_MESSAGE, null, options1, null);
 		if (result == JOptionPane.YES_OPTION) {
-			currentColumnSize = (int) num.getSelectedItem();
+			try{
+				String selected = (String)num.getSelectedItem();
+				currentColumnSize = Integer.parseInt(selected);
+			}catch(NumberFormatException e) {
+				//Reset was selected
+				return -1;
+			}
 		}else if(result == JOptionPane.NO_OPTION) {
 			//do nothing
 		}
@@ -210,13 +220,13 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 	public void itemStateChanged(ItemEvent ie) {
 		String name = ((Component) ie.getSource()).getName();
 		if(name.equals("roi")) {
-			System.out.println("roi item changed "+isShowRoi());
+			if(Utils.isDebug) System.out.println("roi item changed "+isShowRoi());
 			pp.setAnnotationVisible(isShowRoi());
 		}else if(name.equals("text")) {
-			System.out.println("text item changed "+isShowInfo());
+			if(Utils.isDebug) System.out.println("text item changed "+isShowInfo());
 			pp.setTextVisible(isShowInfo());
 		}else if(name.equals("series")) {
-			System.out.println("process series changed "+processSeries());
+			if(Utils.isDebug) System.out.println("process series changed "+processSeries());
 			pp.setProcessSeries(processSeries());
 		}
 	}

@@ -260,7 +260,7 @@ public class PraparatUI extends LayerUI<JLayeredPane> {
 			if (Utils.isDebug) {
 				System.out.println("PraparatUI::KEY RELEASED !:" + e.getKeyCode());
 				System.out.println("Num Of Keys (before released): " + numOfKeys);
-				System.out.println("Num Of Keys (after released): " + pressedKeys.size());
+				System.out.println("Num Of Keys (after released): " + pressedKeys.size()+pressedKeys);
 			}
 		}
 	}
@@ -300,6 +300,7 @@ public class PraparatUI extends LayerUI<JLayeredPane> {
 		}
 		
 		if (e.getID() == MouseEvent.MOUSE_ENTERED) {
+			if(Utils.isDebug)System.out.println("Praparat focus gained");
 			pp.setFocusGained(true);
 		}
 		
@@ -386,7 +387,7 @@ public class PraparatUI extends LayerUI<JLayeredPane> {
 			} else {// showGridViewOn
 				try {
 					Component t = e.getComponent();
-					Component c = pp.getPraparatViewPane().getComponent(0);
+					Component c = pp.getSlideGlassHolder().getView().getComponent(0);
 					if (c instanceof JScrollPane && !c.equals(t)) {
 						JScrollPane gridPane = (JScrollPane) c;
 						MouseEvent me = SwingUtilities.convertMouseEvent(t, e, gridPane);

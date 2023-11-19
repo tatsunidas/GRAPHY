@@ -104,7 +104,7 @@ class PatientQueryTaskUsingDB extends BasicQueryTask {
          * 1.if patientID(PrimaryKey) in keys,search pid & others.
          * 2. esle , find all dataset matched in keys. 
          */
-        patCandidate = db.getAllCandidate4PatientQuery(keys);
+        patCandidate = db.getAllCandidate4PatientQuery(patIDs);
         if(patCandidate == null) {
         	total = 0;
         }else {

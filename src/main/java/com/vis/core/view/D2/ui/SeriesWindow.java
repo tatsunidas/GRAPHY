@@ -52,7 +52,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 				if(prap == null) {
 					return;
 				}
-				ImagePlus imp = prap.getStackSeries();
+				ImagePlus imp = prap.getImagePlus();
 				if(imp != null && imp.getNSlices() > 0) {
 					String title = "Images save to..."; 
 					String defaultDir = System.getProperty("user.home");

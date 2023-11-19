@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Color;
@@ -29,6 +66,7 @@ import javax.swing.border.CompoundBorder;
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -47,35 +85,33 @@ import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.measure.Calibration;
 import ij.plugin.ContrastEnhancer;
-import ij.plugin.Duplicator;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
-import ij.util.DicomTools;
 
 /**
- * image screen with overlays
+ * image screen and overlays
  * 
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
 public class SlideGlass extends JLayeredPane {
 
+	// glass layer type
+	public final static int IMAGE_LAYER = JLayeredPane.DEFAULT_LAYER;
+	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
+	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
 	// main layer component
 	private JLayer<SlideGlass> slide;// main component
 	private Praparat pp;// series viewer
 	private DicomObject header;
 	private DicomImage dcmImg;
-//	protected Color studyColor = Color.CYAN;
+	//	protected Color studyColor = Color.CYAN;
 	// glasses
 	private ImageSpecimenGlass imageSpecimen;
 	private TextOverlayGlass textOverlay;
 	private CanvasGlass roiOverlay;
 	private SlideGlassUI layerUI;
-	// glass layer type
-	public final static int IMAGE_LAYER = JLayeredPane.DEFAULT_LAYER;
-	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
-	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
 	//Border
 	Color focusColor = Color.WHITE;
 	Color selectionColor = Color.MAGENTA;
@@ -83,7 +119,7 @@ public class SlideGlass extends JLayeredPane {
 	final int BORDER_SIZE = 4;
 	Border focusBorder = BorderFactory.createLineBorder(focusColor, BORDER_SIZE);
 	Border selectionBorder = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE);
-	// image // TODO change to ImageProcessor.
+	// image
 	private ImagePlus original = null;
 	private ImagePlus displayImp = null;
 	// flags
@@ -98,7 +134,7 @@ public class SlideGlass extends JLayeredPane {
 	private boolean showAnnotation = true;
 	private boolean showText = true;
 	boolean isPDF = false;
-	boolean isGrayscale = false;//LUTがGrayかどうか。チャンネル数に関係なく。
+	boolean isGrayscale = false;
 	boolean isRGB = false;
 	private int mouseActionFlag = -1; // MouseAction ModifierEx.
 
@@ -112,7 +148,7 @@ public class SlideGlass extends JLayeredPane {
 	public int currentRotateAngle = 0;
 	public int lastRotateAngle = 0;
 	// zoom
-	private double magnification = 1.0d;// 表示しているslideglassコンポーネントサイズに対応した画像サイズに対する倍率
+	private double magnification = 1.0d;// magnification ratio of showing slideglass size (not to original)
 	private double lastMagnification = 1.0d;
 	// mouse settings
 	public int lastX = -1;// last clicked mouse position X on slideglass
@@ -168,307 +204,222 @@ public class SlideGlass extends JLayeredPane {
 	private ArrayList<RoiObj> roiset;
 	Logger logger = Log.logger;
 
-	public SlideGlass(Praparat pp, DicomImage dcmImg) {
+	public SlideGlass(Praparat pp, DicomImage dcmImg/*single frame*/) {
+		if(pp == null || dcmImg == null) {
+			throw new NullPointerException();
+		}
 		initComponents(pp, dcmImg);
 	}
 	
-	public void initComponents(Praparat pp, DicomImage dcmImg) {
-		this.pp = pp;
-		this.roiset = new ArrayList<RoiObj>();
-		this.dcmImg = dcmImg;
-		this.header = dcmImg.getCore();
-		setBorder(BorderFactory.createLineBorder(clearColor, BORDER_SIZE));
-		setOpaque(false);
-		setFocusable(true);// for keylistener
-		setRequestFocusEnabled(true);
-		setOriginalImage(new ImagePlus("", dcmImg.getImageProcessor(0)));
-		initImageInfo(header);// execute before setUpGlasses
-		setUpGlassLayer(header);
-		loadRoiFromDB();
-		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+	public void addRoi(RoiObj newRoi) {
+		if(newRoi instanceof ReferenceLine) {
+			return;
+		}
+		if (!this.roiset.contains(newRoi)) {
+			if(isExistsInRoiSet(newRoi)) {
+				updateRoi(newRoi.getStudyUID(), newRoi.getSeriesUID(), newRoi.getSopUID(), newRoi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), newRoi);
+			}else {
+				roiset.add(newRoi);
+				insertOrUpdateRoi4DB(newRoi);
+			}
+		}
 	}
 
-	public Praparat getPraparat() {
-		return this.pp;
+	public void addRoi(RoiObj newRoi, boolean updateDB) {
+		if(newRoi instanceof ReferenceLine) {
+			return;
+		}
+		if(updateDB) {
+			addRoi(newRoi);
+		}else {
+			if (!this.roiset.contains(newRoi)) {
+				roiset.add(newRoi);
+			}
+		}
 	}
 	
-	public DicomImage getDicomImage() {
-		return this.dcmImg;
+	void adjustGlassesSize(int compW, int compH) {
+		setGlassSize(this, compW, compH);
+		setGlassSize(slide, compW, compH);
+		setGlassSize(imageSpecimen, compW, compH);
+		setGlassSize(textOverlay, compW, compH);
+		setGlassSize(roiOverlay, compW, compH);
+		updateScale();
+		displayImageWithCurrentCondition();
+		initPrapInfoLabel();
 	}
-
-	public Object getGlassAt(int layer_type) {
-		if(layer_type == IMAGE_LAYER) {
-			return imageSpecimen;
-		}else if(layer_type == ROI_CANVAS_LAYER) {
-			return roiOverlay;
-		}else if(layer_type == TEXT_LAYER) {
-			return textOverlay;
-		}else {
-			return null;
+	
+	void adjustWindow2Current() {
+		if (currentMax == -1 || currentMin == -1) {
+			return;
 		}
+		setWindowingState(true);
+		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
+		// current settings
+		double currentWindow = currentMax - currentMin;
+		double currentLevel = currentMin + (.5 * currentWindow);
+		changeWindow((int) currentLevel, (int) currentWindow);
 	}
 
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public int onImageX(int glassX) {
-		return onOriginalImageX(glassX);
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int onImageY(int glassY) {
-		return onOriginalImageY(glassY);
-	}
-
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public double onImageXD(int glassX) {
-		return onOriginalImageXD(glassX);
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public double onImageYD(int glassY) {
-		return onOriginalImageYD(glassY);
-	}
-
-	/** Converts an screen x-coordinate to a original image x-coordinate. */
-	public int onOriginalImageX(int glassX) {
-		if (!panningFlag) {
-			double backScale = (glassX - originX) / getMagnification() / getScaleFactor();
-			return (int) backScale;
-		} else {
-			/*
-			 * 見かけ上の原点に合うように原点位置に対してスケールは乗ずる
-			 */
-			double backScale = (glassX - (originX * getScaleFactor())) / getMagnification() / getScaleFactor();
-			return (int) backScale;
+	void adjustWindowFromMouseAction(int locX, int locY) {
+		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
+				- getCurrentDisplayImagePlus().getDisplayRangeMin();
+		int xDiff = locX - this.lastX;
+		int yDiff = locY - this.lastY;
+		int totalWidth = pp.getImageScreenSizeX();
+		int totalHeight = pp.getImageScreenSizeY();
+		double xRatio = ((double) xDiff) / ((double) totalWidth);
+		double yRatio = ((double) yDiff) / ((double) totalHeight);
+		// scale to our image range
+		double xScaledValue = minMaxDifference * xRatio;
+		double yScaledValue = minMaxDifference * yRatio;
+		// to avoid rangeMin > rangeMax
+		if (Math.abs(xScaledValue) > minMaxDifference) {
+			if (xScaledValue < 0) {
+				xScaledValue = -1 * minMaxDifference;
+			} else {
+				xScaledValue = minMaxDifference;
+			}
 		}
+		if (Math.abs(yScaledValue) > minMaxDifference) {
+			if (yScaledValue < 0) {
+				yScaledValue = -1 * minMaxDifference;
+			} else {
+				yScaledValue = minMaxDifference;
+			}
+		}
+		// invert x
+//				 xScaledValue = xScaledValue * -1;
+		adjustWindowLevel(xScaledValue, yScaledValue);
 	}
 
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int onOriginalImageY(int glassY) {
-		if (!panningFlag) {
-			double backScale = (glassY - originY) / getMagnification() / getScaleFactor();
-			return (int) backScale;
-		} else {
-			double backScale = (glassY - (originY * getScaleFactor())) / getMagnification() / getScaleFactor();
-			return (int) backScale;
-		}
-	}
-
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public double onOriginalImageXD(int glassX) {
-		if (!panningFlag) {
-			double backScale = (glassX - originX) / getMagnification() / getScaleFactor();
-			return backScale;
-		} else {
-			double backScale = (glassX - (originX * getScaleFactor())) / getMagnification() / getScaleFactor();
-			return backScale;
-		}
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public double onOriginalImageYD(int glassY) {
-		if (!panningFlag) {
-			double backScale = (glassY - originY) / getMagnification() / getScaleFactor();
-			return backScale;
-		} else {
-			double backScale = (glassY - (originY * getScaleFactor())) / getMagnification() / getScaleFactor();
-			return backScale;
-		}
-	}
-
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public int onDisplayImageX(int glassX) {
-		if (!panningFlag) {
-			return (int) ((glassX - originX) * getMagnification());
-		} else {
-			return (int) ((glassX - (originX * getScaleFactor())) * getMagnification());
-		}
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int onDisplayImageY(int glassY) {
-		if (!panningFlag) {
-			return (int) ((glassY - originY) * getMagnification());
-		} else {
-			return (int) ((glassY - (originY * getScaleFactor())) * getMagnification());
-		}
+	void adjustWindowLevel(double xDifference, double yDifference) {
+		this.windowing = true;
+		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
+		// current settings
+		double currentWindow = lastMax - lastMin;
+		double currentLevel = lastMin + (.5 * currentWindow);
+		// change
+		double newWindow = currentWindow + xDifference;
+		double newLevel = currentLevel + yDifference;
+		changeWindow((int) newLevel, (int) newWindow);
 	}
 
 	/**
-	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
+	 * see also ImageUtils.autoContrast()
 	 */
-	public double onDisplayImageXD(double glassX) {
-		if (!panningFlag) {
-			return ((glassX - originX) * getMagnification());
-		} else {
-			return ((glassX - (originX * getScaleFactor())) * getMagnification());
+	public void autoWindow() {
+		if(getOriginalImage() == null || getCurrentDisplayImagePlus() == null) {
+			return;
 		}
+		if(isRGB()) {
+			getOriginalImage().getProcessor().reset();
+		}
+		new ContrastEnhancer().stretchHistogram(getOriginalImage().getProcessor(), 0.5);
+		this.currentMin = getOriginalImage().getProcessor().getMin();// DO NOT USE getMinThreshold()
+		this.currentMax = getOriginalImage().getProcessor().getMax();// DO NOT USE getMaxThreshold()
+		imgProcess.windowing(displayImp, this.currentMin, this.currentMax);
 	}
 
-	/**
-	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
-	 */
-	public double onDisplayImageYD(double glassY) {
-		if (!panningFlag) {
-			return ((glassY - originY) * getMagnification());
-		} else {
-			return ((glassY - (originY * getScaleFactor())) * getMagnification());
+	private Point calcDefaultImageOrigin(int newImgW, int newImgH, int compWidth, int compHeight) {
+		/*
+		 * width basis
+		 */
+		if (compWidth <= newImgW && compHeight <= newImgH) {
+			return new Point(0, 0);
+		}
+		int x = 0;
+		int y = 0;
+		int diffX = compWidth - newImgW;
+		int diffY = compHeight - newImgH;
+		if (!(diffX < 0)) {
+			x = (int) ((double) diffX / 2d);
+		}
+		if (!(diffY < 0)) {
+			y = (int) ((double) diffY / 2d);
+		}
+		return new Point(x, y);
+	}
+
+	private void calcDefaultImageOriginAndReset(int newImgW, int newImgH, int prapViewWidth, int prapViewHeight) {
+		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH, prapViewWidth, prapViewHeight);
+		this.originX = defaultOrigin.x;
+		this.originY = defaultOrigin.y;
+		// set false force.
+		if (panningFlag) {
+			panningFlag = false;
+		}
+		if(Utils.isDebug) {
+			logger.info("calcDefaultImageOriginAndReset: Reset CurrentOriginXY: " + originX + " " + originY + " ,compXY: "
+				+ prapViewWidth + ", " + prapViewHeight);
 		}
 	}
 
 	/*
-	 * convert originale coordinate to glass coordinate.
+	 * fit original size to slide holder size
 	 */
-	public int screenX(int imageX) {
-		return orgX2ScreenX(imageX);
-	}
-
-	public int screenY(int imageY) {
-		return orgY2ScreenY(imageY);
-	}
-
-	public double screenXD(double imageX) {
-		return orgX2ScreenXD(imageX);
-	}
-
-	public double screenYD(double imageY) {
-		return orgY2ScreenYD(imageY);
-	}
-
-	private int orgX2ScreenX(int orgImageX) {
-		if (!panningFlag) {
-			return (int) ((orgImageX * getMagnification() * getScaleFactor()) + originX);
-		} else {
-			return (int) ((orgImageX * getMagnification() * getScaleFactor()) + (originX * getScaleFactor()));
+	private Dimension calcImageSize2FitComponent() {
+		int bound_width = getWidth()-(BORDER_SIZE*2);
+		int bound_height = getHeight()-(BORDER_SIZE*2);
+		if (bound_width < 1 || bound_height < 1) {
+			return null;
 		}
-	}
-
-	private int orgY2ScreenY(int orgImageY) {
-		if (!panningFlag) {
-			return (int) ((orgImageY * getMagnification() * getScaleFactor()) + originY);
-		} else {
-			return (int) ((orgImageY * getMagnification() * getScaleFactor()) + (originY * getScaleFactor()));
+		Dimension orgImgSize = getOriginalImageSize();
+		int original_width = orgImgSize.width;
+		int original_height = orgImgSize.height;
+		// first, adjust new component size
+		int new_width = bound_width;
+		// scale height to maintain aspect ratio
+		int new_height = (new_width * original_height) / original_width;
+		// then check if we need to scale width
+		if (original_width > bound_width) {
+			// scale width to fit
+			new_width = bound_width;
+			// scale height to maintain aspect ratio
+			new_height = (new_width * original_height) / original_width;
 		}
-	}
-
-	private double orgX2ScreenXD(double orgImageX) {
-		if (!panningFlag) {
-			return ((orgImageX * getMagnification() * getScaleFactor()) + originX);
-		} else {
-			return ((orgImageX * getMagnification() * getScaleFactor()) + (originX * getScaleFactor()));
+		// then check if we need to scale even with the new height
+		if (new_height > bound_height) {
+			// scale height to fit instead
+			new_height = bound_height;
+			// scale width to maintain aspect ratio
+			new_width = (new_height * original_width) / original_height;
 		}
+//		System.out.println("Fit slide to prap : new dim = "+new_width+" "+new_height);
+		return new Dimension(new_width, new_height);
 	}
 
-	public double orgY2ScreenYD(double orgImageY) {
-		if (!panningFlag) {
-			return ((orgImageY * getMagnification() * getScaleFactor()) + originY);
-		} else {
-			return ((orgImageY * getMagnification() * getScaleFactor()) + (originY * getScaleFactor()));
+	public void changeWindow(int WL, int WW) {
+		double newMin = WL - (.5 * WW);
+		double newMax = WL + (.5 * WW);
+		if (newMin > newMax) {
+			logger.log(Level.SEVERE,"SlideGlass::changeWindow() problem occured: min " + newMin + " max " + newMax);
 		}
-	}
-
-	public String getPatientID() {
-		return header != null ? header.getString(Tag.Patient​ID, "NO_PID") : null;// safe ?
-	}
-
-	public String getStudyInstanceUID() {
-		return header != null ? header.getString(Tag.Study​Instance​UID, "NO_StudyInstanceUID"):null;
-	}
-
-	public String getSeriesInstanceUID() {
-		return header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID"):null;
-	}
-
-	public String getSOPInstanceUID() {
-		return header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID"):null;
-	}
-
-	public Integer getInstanceNo() {
-		return header != null ? header.getInt(Tag.Instance​Number, 0):null;
-	}
-
-	public String getUID(int tag) {
-		return header != null ? header.getString(tag):null;
-	}
-
-//	private void setModality(String modality) {
-//		this.modality = modality;
-//	}
-
-	public String getModality() {
-		return header != null ? header.getString(Tag.Modality, "UNKNOWN"):null;
-		/*
-		 * IJ return null...
-		 */
-//		if(header != null) {
-//			return header.getString(Tag.Modality, "UNKNOWN");
-//		}else {
-//			return DicomTools.getTag(getOriginalImage(), "0008,0060");
-//		}
-	}
-	
-	public DicomObject getHeader() {
-		return header;
-	}
-
-	public JLayer<SlideGlass> getSlideGlassAsLayer() {
-		return slide;
-	}
-
-	public void setOriginalImage(ImagePlus imp) {
-		this.original = imp;
-		imp.deleteRoi();
-		initDisplayImage();// IMPORTANT; update calibration
-	}
-
-	public ImagePlus getOriginalImage() {
-		return this.original;
-	}
-	
-	private void setOriginalCalibration(Calibration cal) {
-		getOriginalImage().setCalibration(cal);
-	}
-	
-	public Calibration getOriginalCalibration() {
-		return getOriginalImage().getCalibration();
-	}
-
-	// mouse action
-	public void setSelectionState() {
-		if (isSelected()) {
-			setSelectionState(false);
-		} else {
-			setSelectionState(true);
-		}
-	}
-	
-	// list selection action
-	public void setSelectionState(boolean select) {
-		this.selectedFlag = select;
-		showBorder();
+//		lastMin = currentMin;//DO NOT SET HERE, see mouse enter 
+//		lastMax = currentMax;//DO NOT SET HERE, see mouse enter 
+		currentMin = newMin;
+		currentMax = newMax;
+		if(Utils.isDebug)logger.info("change ww/wl : newMin "+newMin+" newMax "+newMax);
+		imgProcess.windowing(displayImp, newMin, newMax);
 		repaint();
 	}
 
-	public boolean isSelected() {
-		return selectedFlag;
+	/**
+	 * see, ImageSpecimen
+	 * @param currentbufferedimage
+	 * @param overlayImg
+	 * @return
+	 */
+	@SuppressWarnings("unused")
+	private BufferedImage combineImages(BufferedImage currentbufferedimage, BufferedImage overlayImg) {
+		Graphics2D g2d = currentbufferedimage.createGraphics();
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+		g2d.drawImage(overlayImg, 0, 0, null);
+		g2d.dispose();
+		return currentbufferedimage;
 	}
 
-	public boolean isFocusGained() {
-		return focusFlag;
-	}
-
-	public void setFocusGained(boolean focusGained) {
-		this.focusFlag = focusGained;
-		if(pp.getViewMode()==ViewMode.Thumbnail) {
-			this.focusFlag = false;
-			showBorder();
-			return;
-		}
-		if(pp.isShowGridViewOn()) {
-			pp.setImagePositionTo(this);
-		}
-		showBorder();
-	}
-	
 	private Border constructBorder() {
 		if(pp.getViewMode()==ViewMode.SingleGrid) {
 			if(!isSelected() && isFocusGained()) {
@@ -505,55 +456,17 @@ public class SlideGlass extends JLayeredPane {
 		}
 	}
 
-	public void showBorder() {
-		Border b = constructBorder();
-		setBorder(b);
-		repaint();
-	}
-	
-//	public void showBorder(boolean show) {
-//		if(show) {
-//			showBorder();
-//		}else {
-//			Border b = BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-//			setBorder(b);
-//		}
-//	}
-	
-	public void setViewer2DToolType(int toolType) {
-		layerUI.setViewer2DToolType(toolType);
-	}
-	
-	public int getViewer2DToolTypeInSlideGlassUI() {
-		return layerUI.getViewer2DToolType();
+	public ImagePlus convertToImagePlus() {
+		return ImagePlusDicomTagTools.dcmImgToImagePlus(getDicomImage());
 	}
 
-	/*
-	 * load reference size (praparatview size) image
-	 */
-//	private ImagePlus loadImageThatFittedPrap() {
-//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
-//		ip.setInterpolationMethod(INTERPOLATION_METHOD);
-//		ImagePlus dup = new ImagePlus("", ip);
-//		dup.setCalibration(cal);
-//		dup.updateImage();
-//		if(isRGB && ip instanceof ColorProcessor) {
-//			ip.snapshot();//keep original pixels
-//		}
-//		Dimension d = calcImageSize2FitComponent();
-//		if (d != null) {
-//			dup = imgProcess.zoom(dup, getScaleFactor());// imp.resize(d.width, d.height, "bicubic");
-//		}
-//		return dup;
-//	}
-	
 	/**
-	 * create simple image to display, it was fitted prap size without zoom/pan/rotation/windowing.
+	 * create image to display, it was fitted prap size without zoom/pan/rotation/windowing.
 	 * @return
 	 */
 	private ImagePlus createInitialDisplayImage() {
-//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, does not attach calibration.	
-//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();//DO NOT USE, does not attach calibration.	
+//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, calibration was removed.	
+//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();	
 //		ImagePlus dup = new Duplicator().run(getOriginalImage());//OK
 		ImagePlus imp = getOriginalImage().createImagePlus();
 		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
@@ -570,24 +483,271 @@ public class SlideGlass extends JLayeredPane {
 		}
 		return imp;
 	}
-	
-	private void loadDisplayImage() {
-		this.displayImp = createInitialDisplayImage();
+
+	public ImagePlus cropRect() {
+		if(roiset.size() < 1) {
+			return null;
+		}
+		RoiObj roi = findCurrentRoi();
+		int type = roi.getType();
+		System.out.println(type);
+		if(type != RoiObj.RECTANGLE && type != RoiObj.OVAL && type != RoiObj.POLYGON) {
+			return null;
+		}
+		Rectangle2D rect = roi.getBounds();
+//		Roi r = new RoiConverter().convert2Roi(roi);
+		Roi r = new Roi(rect.getX(),rect.getY(),rect.getWidth(), rect.getHeight());
+		ImagePlus orgImp = getOriginalImage();
+		ImageProcessor ip = orgImp.getProcessor().duplicate();
+		ip.setRoi(r);
+		ip = ip.crop();
+		ImagePlus cropImp = getOriginalImage().createImagePlus();
+		cropImp.setProcessor(ip);
+		return cropImp;
 	}
 
-	/*
-	 * init reference size (praparatview size) image
+	public ImagePlus processCropRect(RoiObj rectRoi) {
+		if(rectRoi == null) {
+			return null;
+		}
+		RoiObj roi = rectRoi;
+		int type = roi.getType();
+		System.out.println(type);
+		if(type != RoiObj.RECTANGLE && type != RoiObj.OVAL && type != RoiObj.POLYGON) {
+			return null;
+		}
+		Rectangle2D rect = roi.getBounds();
+//		Roi r = new RoiConverter().convert2Roi(roi);
+		Roi r = new Roi(rect.getX(),rect.getY(),rect.getWidth(), rect.getHeight());
+		ImagePlus orgImp = getOriginalImage();
+		ImageProcessor ip = orgImp.getProcessor().duplicate();
+		ip.setRoi(r);
+		ip = ip.crop();
+		ImagePlus cropImp = getOriginalImage().createImagePlus();
+		cropImp.setProcessor(ip);
+		return cropImp;
+	}
+
+	/**
+	 * 
+	 * @param roi
 	 */
-	private void initDisplayImage() {
-		if(getOriginalImage() == null) {
+	public void processCut(RoiObj roi) {
+		if(roi == null) {
 			return;
 		}
-		loadDisplayImage();
-		// windowing
-		if (imageSpecimen != null) {
-//			autoWindow();
-			adjustWindow2Current();
+		int roiType = roi.getType();
+		if(roiType == RoiObj.ANGLE || roiType == RoiObj.ARROW || roiType == RoiObj.FREELINE || roiType == RoiObj.POINT || roiType==RoiObj.LINE) {
+			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "You need set closed type roi.");
+			return;
 		}
+		ImagePlus imp = getOriginalImage();
+		Roi ijRoi = new RoiConverter().convert2Roi(roi);
+		imp.setRoi(ijRoi);
+//		imp.getProcessor().fill();
+		imp.getProcessor().set(0);
+		setOriginalImage(imp);
+		repaint();
+	}
+
+	public void deleteRoi(int sx, int sy) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		RoiObj roi2remove = roiOverlay.activateAndGetRoiAt(sx, sy);
+		if (roi2remove != null) {
+			String studyUID = roi2remove.getStudyUID();
+			String seriesUID = roi2remove.getSeriesUID();
+			String sopUID = roi2remove.getSopUID();
+			String roiInd = roi2remove.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
+			deleteRoi(studyUID, seriesUID, sopUID, roiInd);
+		} else {
+			/*
+			 * TODO delete activeRoi ?
+			 */
+		}
+		repaint();
+	}
+
+	public void deleteRoi(RoiObj roi2remove) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		String studyUID = roi2remove.getStudyUID();
+		String seriesUID = roi2remove.getSeriesUID();
+		String sopUID = roi2remove.getSopUID();
+		String roiInd = roi2remove.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
+		deleteRoi(studyUID, seriesUID, sopUID, roiInd);
+	}
+
+	public void deleteRoi(String studyUID, String seriesUID, String sopUID, String roiInd) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		/*
+		 * pay attention remove item from list
+		 * see, https://stackoverflow.com/questions/8104692/how-to-avoid-java-util-concurrentmodificationexception-when-iterating-through-an
+		 */
+		Iterator<RoiObj> itr = roiset.iterator();
+		ArrayList<RoiObj> roi2Remove = new ArrayList<>();
+		while(itr.hasNext()){
+		    RoiObj roi = itr.next();
+			if (roi.isThisRoi(studyUID, seriesUID, sopUID, roiInd)) {
+				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
+				deleteRoiFromDB(roi);
+//				roiset.remove(roi);//DO NOT DO THIS !
+				roi2Remove.add(roi);
+//					roi = null;//safe ??
+				break;
+			} else if (studyUID == null && seriesUID == null && sopUID == null) {
+				// SliceLine or temporal roi
+				// skip delete from db
+				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
+				roi2Remove.add(roi);
+			}
+		}
+		if(roiset.size() > 0) {
+			roiset.removeAll(roi2Remove);
+			roiset.trimToSize();
+		}
+		roiOverlay.setCurrentRoi2NULL();
+	}
+
+	private void deleteRoiFromDB(RoiObj roi) {
+		String patID = roi.getPatientID();
+		String studyUid = roi.getStudyUID();
+		String seriesUid = roi.getSeriesUID();
+		String sopUid = roi.getSopUID();
+		String roiId = roi.getPropertyAt(RoiObj.RoiContextKeySet.RoiID.name());
+		Viewer2DScreen.getInstance().getDatabase().deleteRoi(patID, studyUid, seriesUid,sopUid,roiId);
+		if(Viewer2DScreen.getRoiObjManager() != null) {
+			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
+			rom.updateRoiObjList(getPatientID());
+		}
+	}
+
+	private void displayImageWithCurrentCondition() {
+		this.displayImp = getCurrentStateImageFreshCopy();
+		if (!panningFlag) {
+			calcDefaultImageOriginAndReset(getCurrentDisplayImagePlus().getWidth(),
+					getCurrentDisplayImagePlus().getHeight(), getWidth(), getHeight());
+		}
+		imageSpecimen.repaint();
+		textOverlay.repaint();
+		roiOverlay.repaint();
+	}
+
+	public void drawCross(MouseEvent e) {
+		Point currentScreenPos = e.getPoint();
+		GeneralPath path = new GeneralPath();
+    	int sx = currentScreenPos.x;
+    	int sy = currentScreenPos.y;
+        path.moveTo(0f, sy);
+        path.lineTo(slide.getWidth(), sy);
+        path.moveTo(sx, 0f);
+        path.lineTo(sx, slide.getHeight());
+        roiOverlay.setCrossLine(path);
+        //do not return
+        repaint();
+    }
+
+	public void drawCross(Point onOrgImageCoordinatePoint) {
+    	GeneralPath path = new GeneralPath();
+    	int sx = screenX(onOrgImageCoordinatePoint.x);
+    	int sy = screenY(onOrgImageCoordinatePoint.y);
+        path.moveTo(0f, sy);
+        path.lineTo(slide.getWidth(), sy);
+        path.moveTo(sx, 0f);
+        path.lineTo(sx, slide.getHeight());
+        roiOverlay.setCrossLine(path);
+        //do not return
+        repaint();
+    }
+
+	/**
+	 * null-able.
+	 * if set to null, stop displaying localizer.
+	 * @param localizer
+	 */
+	public void drawLocalizer(java.util.List<java.awt.geom.Point2D> localizerGeo) {
+		roiOverlay.setLocalizerGeometry(localizerGeo);
+	}
+
+	public RoiObj findCurrentRoi() {
+		RoiObj currentRoi = getActiveRoi();
+		if (currentRoi != null) {
+			return currentRoi;
+		} else {
+			currentRoi = roiOverlay.getCurrentRoi();
+			if(currentRoi == null) {
+				return roiOverlay.getPreviousRoi();
+			}else {
+				return currentRoi;
+			}
+		}
+	}
+
+	public void flipHF() {
+		rotate(180);// to avoid flipFlag mismatch, run first.
+		flipLR();
+		displayImp.updateImage();
+		repaint();
+	}
+
+	public void flipLR() {
+		if (isFlipped()) {
+			setFlipState(false);
+		} else {
+			setFlipState(true);
+		}
+		displayImp.getProcessor().flipHorizontal();
+		displayImp.updateImage();
+		repaint();
+	}
+
+	public RoiObj getActiveRoi() {
+		ArrayList<RoiObj> rois = getRois();
+		for (RoiObj roi : rois) {
+			if (roi.isActiveOverlayRoi()) {
+				return roi;
+			}
+		}
+		return null;
+	}
+
+	public ImagePlus getCurrentDisplayImagePlus() {
+		return this.displayImp;
+	}
+
+	// see, TestRoi2.java
+	public int getCurrentModifiersEx() {
+		return mouseActionFlag;
+	}
+	
+	private ImagePlus getCurrentStateImageFreshCopy() {
+		ImagePlus dup = createInitialDisplayImage();
+		if (isFlipped()) {
+			dup.getProcessor().flipHorizontal();
+		}
+		if (isZoomed()) {
+			double mag = getMagnification();
+			dup = imgProcess.zoom(dup, mag);
+		}
+		if (isRotated()) {
+			imgProcess.rotate(dup, getRotateAngle());
+		}
+		dup.setLut(currentLUT);
+		if (isInverted()) {
+			imgProcess.invert(dup);
+		}
+		/*
+		 * skip panning, to delegate slideglass::updateImage
+		 */
+		// window
+		if (windowing) {
+			imgProcess.windowing(dup, currentMin, currentMax);
+		}
+		return dup;
 	}
 
 	@SuppressWarnings("unused")
@@ -618,246 +778,6 @@ public class SlideGlass extends JLayeredPane {
 		return dup;
 	}
 
-	private ImagePlus getCurrentStateImageFreshCopy() {
-		ImagePlus dup = createInitialDisplayImage();
-		if (isFlipped()) {
-			dup.getProcessor().flipHorizontal();
-		}
-		if (isZoomed()) {
-			double mag = getMagnification();
-			dup = imgProcess.zoom(dup, mag);
-		}
-		if (isRotated()) {
-			imgProcess.rotate(dup, getRotateAngle());
-		}
-		dup.setLut(currentLUT);
-		if (isInverted()) {
-			imgProcess.invert(dup);
-		}
-		/*
-		 * skip panning, to delegate slideglass::updateImage
-		 */
-		// window
-		if (windowing) {
-			imgProcess.windowing(dup, currentMin, currentMax);
-		}
-		return dup;
-	}
-
-	private void setUpGlassLayer(DicomObject header) {
-		imageSpecimen = new ImageSpecimenGlass();
-		roiOverlay = new CanvasGlass(this);
-		textOverlay = new TextOverlayGlass(header);
-		int top_in_its_layers = 0;
-		add(imageSpecimen, IMAGE_LAYER, top_in_its_layers);
-		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);
-		add(textOverlay, TEXT_LAYER, top_in_its_layers);
-		// finally, add LayerUI for Actions
-		layerUI = new SlideGlassUI(this);
-		slide = new JLayer<SlideGlass>(this, layerUI);
-		slide.setOpaque(true);// IMPORTANT
-		slide.setBackground(Color.BLACK);
-	}
-
-	private void initImageInfo(DicomObject dataset) {
-		if(dataset == null) {
-			initImageInfoUsingImagePlus();
-			return;
-		}
-		ImagePlus org = getOriginalImage();
-		Calibration originalCal = org.getCalibration().copy();
-		/*
-		 * load lut from dicom tag ? todo, see dicomwriter.
-		 */
-		setLUT(org.getProcessor().getLut());
-		this.header = dataset;
-		isRGB = org.getType() == ImagePlus.COLOR_RGB;//choice suitable one.
-		if(isRGB()) {
-			org.getProcessor().snapshot();
-		}
-		String inverted = dataset.getString(Tag.Photometric​Interpretation, null);
-		if ("MONOCHROME1".equals(inverted) || "MONOCHROME2".equals(inverted)) {
-			/*
-			 * Spatial calibrations
-			 */
-			try {
-				// x-y-z
-				double pixelSpacingX = 1.0;
-				double pixelSpacingY = 1.0;
-				double pixelSpacingZ = 1.0;
-				double[] pixelSpacing = dataset.getDoubles(Tag.Pixel​Spacing);
-				double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
-				if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-					pixelSpacingX = pixelSpacing[0];
-					pixelSpacingY = pixelSpacing[1];
-					if (spacingBetweenSlices != -1) {
-						pixelSpacingZ = spacingBetweenSlices;
-					} else {
-						double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
-						if (sliceThickness != -1) {
-							pixelSpacingZ = sliceThickness;
-						}
-					}
-					/*
-					 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-					 * definition.
-					 */
-					originalCal.setUnit("mm");//
-				} else {
-					// init
-					pixelSpacingX = 1.0;
-					pixelSpacingY = 1.0;
-					pixelSpacingZ = 1.0;
-					if (spacingBetweenSlices != -1) {
-						pixelSpacingZ = spacingBetweenSlices;
-					} else {
-						double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
-						if (sliceThickness != -1) {
-							pixelSpacingZ = sliceThickness;
-						}
-					}
-					originalCal.setUnit("pixel");
-				}
-				// then, set to cal
-				originalCal.pixelWidth = pixelSpacingX;
-				originalCal.pixelHeight = pixelSpacingY;
-				originalCal.pixelDepth = pixelSpacingZ;
-			} catch (NullPointerException e) { // ignore
-				logger.log(Level.SEVERE,"SlideGlass - Unable to get Pixel spacing", e.getMessage());
-			}
-			/*
-			 * set density calibration
-			 */
-//			if(!originalCal.scaled()) {//DO NOT USE
-			/*
-			 * see, ij.measure.Calibration.setImage()
-			 */
-			if (getModality().equals("CT") && dataset.getInt(Tag.Bits​Stored, -1) == 16) {
-				double slope = dataset.getDouble(Tag.Rescale​Slope, -1);
-				double intercept = dataset.getDouble(Tag.Rescale​Intercept, -1);
-				// 0 = unsigned, 1 = signed
-				int pixelRep = dataset.getInt(Tag.Pixel​Representation,-1);
-				if (intercept == 0 && pixelRep == 1) {
-//					double[] coeff = new double[2];
-//					coeff[0] = -32768.0;
-//					coeff[1] = slope;// 1.0
-					String pixelValUnit = "HU";
-//					originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, pixelValUnit);
-					originalCal.setSigned16BitCalibration();
-					originalCal.setValueUnit(pixelValUnit);
-				} else {
-					if (slope != -1 && intercept != -1) {
-						originalCal.setFunction(Calibration.STRAIGHT_LINE, new double[] { intercept, slope }, "HU");
-					}
-				}
-			}else if(dataset.getInt(Tag.Pixel​Representation, -1)==1 && dataset.getInt(Tag.Bits​Stored, -1) == 16) {
-				originalCal.setSigned16BitCalibration();
-			}
-//			}
-			
-			// adjust WW/WL
-			int WL = dataset.getInt(Tag.Window​Center, -1);
-			int WW = dataset.getInt(Tag.Window​Width, -1);
-			
-			if (WL == -1 || WW == -1) {
-				autoWindow();
-			} else {
-				changeWindow(WL, WW);
-			}
-		}
-		setOriginalCalibration(originalCal);
-	}
-	
-	private void initImageInfoUsingImagePlus() {
-		ImagePlus org = getOriginalImage();
-		Calibration originalCal = org.getCalibration().copy();
-		isRGB = org.getType() == ImagePlus.COLOR_RGB;//choice suitable one.
-		if(isRGB()) {
-			org.getProcessor().snapshot();
-		}
-//		if (org.getNChannels() == 1) {
-//			/*
-//			 * set density calibration
-//			 */
-////			if(!originalCal.scaled()) {//DO NOT USE
-//			/*
-//			 * see, ij.measure.Calibration.setImage()
-//			 */
-//			// 0 = unsigned, 1 = signed , Tag.PixelRepresentation
-//			if (getModality().equals("CT") && org.getType() == ImagePlus.GRAY16) {
-//				double slope = Double.parseDouble(DicomTools.getTag(org, "0028,1053").trim());
-//				double intercept = Double.parseDouble(DicomTools.getTag(org, "0028,1052").trim());
-//				if (intercept == 0 && originalCal.isSigned16Bit()) {
-////					double[] coeff = new double[2];
-////					coeff[0] = -32768.0;
-////					coeff[1] = slope;// 1.0
-//					String pixelValUnit = "HU";
-////					originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, pixelValUnit);
-//					originalCal.setSigned16BitCalibration();
-//					originalCal.setValueUnit(pixelValUnit);
-//				} else {
-//					if (slope != -1 && intercept != -1) {
-//						originalCal.setFunction(Calibration.STRAIGHT_LINE, new double[] { intercept, slope }, "HU");
-//					}
-//				}
-//			}else if(originalCal.isSigned16Bit() && org.getType() == ImagePlus.GRAY16) {
-//				originalCal.setSigned16BitCalibration();
-//			}
-////			}
-//			// adjust WW/WL
-//			/*
-//			 * 0x00281050;
-//			 * 0028,1051
-//			 */
-//			int WL = Integer.parseInt(DicomTools.getTag(org, "0028,1050").trim());
-//			int WW = Integer.parseInt(DicomTools.getTag(org, "0028,1051").trim());
-//			if (WL == -1 || WW == -1) {
-//				autoWindow();
-//			} else {
-//				changeWindow(WL, WW);
-//			}
-//		}
-		setOriginalCalibration(originalCal);
-	}
-
-	public void setAnnotationVisible(boolean v) {
-		if (this.showAnnotation == v) {
-			return;
-		}
-		this.showAnnotation = v;
-		if (this.showAnnotation) {
-			// show annotation
-			add(roiOverlay, 0,  JLayeredPane.PALETTE_LAYER);
-		} else {
-			// do not show annotation
-			remove(roiOverlay);
-		}
-		repaint();
-	}
-
-	public void setTextVisible(boolean v) {
-		if (this.showText == v) {
-			return;
-		}
-		this.showText = v;
-		if (this.showText) {
-			// show annotation
-			add(textOverlay, 0, JLayeredPane.MODAL_LAYER);
-		} else {
-			// do not show annotation
-			remove(textOverlay);
-		}
-		repaint();
-	}
-
-	/*
-	 * current display image origin
-	 */
-	public Point getDisplayImageLocationXY() {
-		Point origin = new Point(this.originX, this.originY);
-		return origin;
-	}
-
 	/*
 	 * mouse position on slide glass XY location
 	 */
@@ -866,203 +786,292 @@ public class SlideGlass extends JLayeredPane {
 		return pointOnScreen;
 	}
 
+	public DicomImage getDicomImage() {
+		return this.dcmImg;
+	}
+	
+	public Dimension getDisplayImageDimension() {
+		int[] dim = this.displayImp.getDimensions();
+		return new Dimension(dim[0], dim[1]);
+	}
+	
+	/*
+	 * current display image origin
+	 */
+	public Point getDisplayImageLocationXY() {
+		Point origin = new Point(this.originX, this.originY);
+		return origin;
+	}
+
+	public double getDisplayPixelSpacingX() {
+		return getOriginalCalibration().pixelWidth;
+	}
+	
+	public double getDisplayPixelSpacingY() {
+		return getOriginalCalibration().pixelHeight;
+	}
+
+	public double getDisplayPixelSpacingZ() {
+		return getOriginalCalibration().pixelDepth;
+	}
+
+	public Object getGlassAt(int layer_type) {
+		if(layer_type == IMAGE_LAYER) {
+			return imageSpecimen;
+		}else if(layer_type == ROI_CANVAS_LAYER) {
+			return roiOverlay;
+		}else if(layer_type == TEXT_LAYER) {
+			return textOverlay;
+		}else {
+			return null;
+		}
+	}
+
+	public DicomObject getHeader() {
+		return header;
+	}
+	
+	public Integer getInstanceNo() {
+		return header != null ? header.getInt(Tag.Instance​Number, 0):null;
+	}
+
+	public double getMagnification() {
+		return this.magnification;
+	}
+	
+//	public void showBorder(boolean show) {
+//		if(show) {
+//			showBorder();
+//		}else {
+//			Border b = BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
+//			setBorder(b);
+//		}
+//	}
+	
+	public String getModality() {
+		return header != null ? header.getString(Tag.Modality, "UNKNOWN"):null;
+		/*
+		 * IJ return null...
+		 */
+//		if(header != null) {
+//			return header.getString(Tag.Modality, "UNKNOWN");
+//		}else {
+//			return DicomTools.getTag(getOriginalImage(), "0008,0060");
+//		}
+	}
+	
+	public Calibration getOriginalCalibration() {
+		return getOriginalImage().getCalibration();
+	}
+
+	/*
+	 * load reference size (praparatview size) image
+	 */
+//	private ImagePlus loadImageThatFittedPrap() {
+//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
+//		ip.setInterpolationMethod(INTERPOLATION_METHOD);
+//		ImagePlus dup = new ImagePlus("", ip);
+//		dup.setCalibration(cal);
+//		dup.updateImage();
+//		if(isRGB && ip instanceof ColorProcessor) {
+//			ip.snapshot();//keep original pixels
+//		}
+//		Dimension d = calcImageSize2FitComponent();
+//		if (d != null) {
+//			dup = imgProcess.zoom(dup, getScaleFactor());// imp.resize(d.width, d.height, "bicubic");
+//		}
+//		return dup;
+//	}
+	
+	public ImagePlus getOriginalImage() {
+		return this.original;
+	}
+	
 	public Dimension getOriginalImageSize() {
 		int[] dims = getOriginalImage().getDimensions();
 		return new Dimension(dims[0], dims[1]);
 	}
 
+	public double getOriginalPixelSpacingX() {
+		return getOriginalCalibration().pixelWidth;
+	}
+
+	public double getOriginalPixelSpacingY() {
+		return getOriginalCalibration().pixelHeight;
+	}
+
+	public double getOriginalPixelSpacingZ() {
+		return getOriginalCalibration().pixelDepth;
+	}
+
+	public String getPatientID() {
+		return header != null ? header.getString(Tag.Patient​ID, "NO_PID") : null;// safe ?
+	}
+
+	public String getPixelSpacingUnit() {
+		return getOriginalCalibration().getUnit();
+	}
+	
 	/*
-	 * for grid view
+	 * return no calibrate val and calibrated val at displayImageX and displayImageY
+	 * are coordinate on the display image.
+	 * displayImageX and displayImageY are not slideX/Y.
+	 * slideXY has praparat origin.
+	 * displayImage have origin(0,0), but it was magnified and scaled.
 	 */
-	public void fitImg2Comp(int compW, int compH) {
-		if (compW == 0 || compH == 0) {
-			return;
+	public Object[] getPixelValueFromDisplay(int displayImageX, int displayImageY) {
+		if(!isRGB()) {
+			double pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
+			double pix_cal = getCurrentDisplayImagePlus().getProcessor().getPixelValue(displayImageX, displayImageY);
+			return new Double[] { pix_raw, pix_cal };
+		}else {
+			ColorProcessor cp = (ColorProcessor)getCurrentDisplayImagePlus().getProcessor();
+			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
+			String color = cp.getColor(displayImageX, displayImageY).toString();
+			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2]), color };
 		}
-		adjustGlassesSize(compW, compH);
-		updateScale();
-		displayCurrentStateImage();
-		initPrapInfoLabel();
 	}
 
-	/*
-	 * for single view resize img modify img origin
-	 */
-	public void fit2Praparat() {
-		if (getWidth() < 10 || getHeight() < 10) {
-			return;
-		}
-		adjustGlassesSize(getWidth(), getHeight());
-		updateScale();
-		displayCurrentStateImage();
-		initPrapInfoLabel();
+	public double[] getPixelValueFromOriginal(int orgImageX, int orgImageY) {
+		double pix_raw = getOriginalImage().getProcessor().get(orgImageX, orgImageY);
+		double pix_cal = getOriginalImage().getProcessor().getPixelValue(orgImageX, orgImageY);
+		return new double[] { pix_raw, pix_cal };
 	}
 
-	private void adjustGlassesSize(int compW, int compH) {
-		setGlassSize(this, compW, compH);
-		setGlassSize(slide, compW, compH);
-		setGlassSize(imageSpecimen, compW, compH);
-		setGlassSize(textOverlay, compW, compH);
-		setGlassSize(roiOverlay, compW, compH);
-	}
-
-	private void setGlassSize(JComponent comp, int compW, int compH) {
-		comp.setSize(new Dimension(compW, compH));
-		comp.setPreferredSize(new Dimension(compW, compH));
-		/*************************************************************************************/
-		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
-		/*************************************************************************************/
-	}
-
-	/*
-	 * fit original size to praparat view comp size
-	 */
-	private Dimension calcImageSize2FitComponent() {
-		int bound_width = getWidth()-(BORDER_SIZE*2);
-		int bound_height = getHeight()-(BORDER_SIZE*2);
-		if (bound_width < 1 || bound_height < 1) {
+	protected Object[] getPixelValueOnSlide(int slideX, int slideY) {
+		if (pp == null) {
 			return null;
 		}
-		Dimension orgImgSize = getOriginalImageSize();
-		int original_width = orgImgSize.width;
-		int original_height = orgImgSize.height;
-		// first, adjust new component size
-		int new_width = bound_width;
-		// scale height to maintain aspect ratio
-		int new_height = (new_width * original_height) / original_width;
-		// then check if we need to scale width
-		if (original_width > bound_width) {
-			// scale width to fit
-			new_width = bound_width;
-			// scale height to maintain aspect ratio
-			new_height = (new_width * original_height) / original_width;
-		}
-		// then check if we need to scale even with the new height
-		if (new_height > bound_height) {
-			// scale height to fit instead
-			new_height = bound_height;
-			// scale width to maintain aspect ratio
-			new_width = (new_height * original_width) / original_height;
-		}
-//		System.out.println("Fit slide to prap : new dim = "+new_width+" "+new_height);
-		return new Dimension(new_width, new_height);
-	}
-
-	private void calcDefaultImageOriginAndReset(int newImgW, int newImgH, int prapViewWidth, int prapViewHeight) {
-		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH, prapViewWidth, prapViewHeight);
-		this.originX = defaultOrigin.x;
-		this.originY = defaultOrigin.y;
-		// set false force.
+		// 画像の原点座標を取得する
+		Point currentOrigin = getDisplayImageLocationXY();
+		// 画像のディメンションを取得する
+		Dimension currentDimension = getDisplayImageDimension();
+		// ディメンション内のとき、ピクセル値を出力する
 		if (panningFlag) {
-			panningFlag = false;
+			/*
+			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する see,ImageSpecimen.paintComponent()
+			 */
+			int scaledOriginX = (int) (currentOrigin.x * getScaleFactor());
+			int scaledOriginY = (int) (currentOrigin.y * getScaleFactor());
+			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDimension.width)) {
+				if (scaledOriginY <= slideY && slideY < (scaledOriginY + currentDimension.height)) {
+					int imageX = slideX - scaledOriginX;
+					int imageY = slideY - scaledOriginY;
+					return getPixelValueFromDisplay((imageX), (imageY));
+				}
+			}
+		} else {
+			/*
+			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
+			 */
+			if (currentOrigin.x <= slideX && slideX < (currentOrigin.x + currentDimension.width)) {
+				if (currentOrigin.y <= slideY && slideY < (currentOrigin.y + currentDimension.height)) {
+					int imageX = slideX - currentOrigin.x;
+					int imageY = slideY - currentOrigin.y;
+					return getPixelValueFromDisplay((imageX), (imageY));
+				}
+			}
 		}
-//		System.out.println("Reset Origin, CurrentOrigin (X,Y) : "+originX +" "+ originY);
-		logger.info("calcDefaultImageOriginAndReset: Reset CurrentOriginXY: " + originX + " " + originY + " ,compXY: "
-				+ prapViewWidth + ", " + prapViewHeight);
+		return null;
 	}
 
-	private Point calcDefaultImageOrigin(int newImgW, int newImgH, int compWidth, int compHeight) {
+	public Praparat getPraparat() {
+		return this.pp;
+	}
+
+	public ReferenceLine getReferenceLine() {
+		if(pp != null) {
+			return pp.getReferenceLine();
+		}else {
+			return null;
+		}
+	}
+
+	public ArrayList<RoiObj> getRoiAt(String sopUID) {
+		ArrayList<RoiObj> roisOnSlice = new ArrayList<RoiObj>();
+		for (RoiObj roi : getRois()) {
+			if (roi.getProperty("SOPInstanceUID") != null && roi.getProperty("SOPInstanceUID").equals(sopUID)) {
+				roisOnSlice.add(roi);
+			}
+		}
+		if (roisOnSlice.size() < 1) {
+			return null;
+		} else {
+			return roisOnSlice;
+		}
+	}
+
+	/**
+	 * 
+	 * @param screenX:slideX
+	 * @param screenY:slideY
+	 * @return
+	 */
+	public RoiObj getRoiLoacationAt(int screenX, int screenY) {
+
+		int ix = onImageX(screenX);
+		int iy = onImageY(screenY);
+		ArrayList<RoiObj> rois = getRois();
 		/*
-		 * width basis
+		 * if rois are overlapping, return roi that find first.
 		 */
-		if (compWidth <= newImgW && compHeight <= newImgH) {
-			return new Point(0, 0);
+		if (rois != null && rois.size() > 0) {
+			for (RoiObj roi : rois) {
+				if (roi.contains(ix, iy)) {
+					return roi;
+				}
+			}
 		}
-		int x = 0;
-		int y = 0;
-		int diffX = compWidth - newImgW;
-		int diffY = compHeight - newImgH;
-		if (!(diffX < 0)) {
-			x = (int) ((double) diffX / 2d);
-		}
-		if (!(diffY < 0)) {
-			y = (int) ((double) diffY / 2d);
-		}
-		return new Point(x, y);
+		return null;
 	}
 
-	public Dimension getDisplayImageDimension() {
-		int[] dim = this.displayImp.getDimensions();
-		return new Dimension(dim[0], dim[1]);
+	public RoiPopupDialog getRoiPopupAt(int slideX, int slideY) {
+		/*
+		 * MouseEventのgetXYでは、
+		 * RoiPopupDialogがJPanelのサブクラスならslideXYのままでいいのだけど TextAreaにすると座標がリセットされる
+		 */
+		Component com = roiOverlay.getComponentAt(slideX, slideY);
+		if (com != null && com != roiOverlay && com instanceof RoiPopupDialog) {
+			return (RoiPopupDialog) com;
+		} else {
+			return null;
+		}
 	}
 
-	/**
-	 * This routine used to retrieve some other tag information from the dataset
-	 */
-//    private void retrieveTagInfo(Attributes dataset) {
-//        try {
-//            instanceUidList = Viewer2DScreen.getInstance().getDatabase().getInstanceUidList(dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID));
-//            totalInstance = !isMultiFrame() ? instanceUidList.size() : totalInstance;
-//        } catch (NullPointerException e) {
-//            Viewer2DScreen.logger().error("Image Panel", e);
-//        }
-//    }
-
-//	public void showBorder(boolean show) {
-//		if(show) {
-//			Border border = BorderFactory.createLineBorder(Color.CYAN, 5);
-//			textOverlay.setBorder(border);
-//			textOverlay.repaint();
-//		}else {
-//			if(textOverlay != null) { //&& textOverlay.getBorder() != null) {
-//				textOverlay.setBorder(null);
-//				textOverlay.repaint();
-//			}
-//		}
-//	}
-
-	// future work
-	private void retrieveScoutParam() {
-//        currentScoutDetails = Viewer2DScreen.getInstance().getDatabase().getScoutLineDetails(dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID), dataset.getString(Tag.SOPInstanceUID));
-//        isLocalizer = (currentScoutDetails.getImageType().equalsIgnoreCase("LOCALIZER")) ? true : false;
-//        findOrientation();
+	public RoiPopupDialog getRoiPopupAt(MouseEvent e) {
+		Object obj = e.getSource();
+		if(obj != null && obj instanceof RoiPopupDialog) {
+			return (RoiPopupDialog)obj;
+		}else {
+			return null;
+		}
 	}
 
-	/**
-	 * This routine used to retrieve the instance related information
-	 */
-//	private void retrieveInstanceInformation(Attributes dataset) {
-//		String inverted = dataset.getString(Tag.PhotometricInterpretation, null);
-//		if ("MONOCHROME1".equals(inverted) || "MONOCHROME2".equals(inverted)) {
-////            cmParam = cmFactory.makeParam(dataset);//tatsu
-//
-//			int size = 1 << dataset.getInt(Tag.BitsStored, 8);
-//			int signed = dataset.getInt(Tag.PixelRepresentation, 0);
-//			int min = dataset.getInt(Tag.SmallestImagePixelValue, signed == 0 ? 0 : -(size >> 1));
-//			int max = dataset.getInt(Tag.LargestImagePixelValue, signed == 0 ? size - 1 : (size >> 1) - 1);
-////			int cMin = (int) cmParam.toMeasureValue(min);
-////			int cMax = (int) cmParam.toMeasureValue(max - 1);
-////			int wMax = cMax - cMin;
-////			int w = wMax;
-//			try {
-//				pixelSpacingY = Double.parseDouble(dataset.getString(Tag.PixelSpacing, 0));
-//				pixelSpacingX = Double.parseDouble(dataset.getString(Tag.PixelSpacing, 1));
-//			} catch (NullPointerException e) { // ignore
-//				Viewer2DScreen.logger().error("Image Panel - Unable to get Pixel spacing", e.getMessage());
-//			}
-//			//set initial pixel scale, see annotaion ovly
-//			scale = (double)img.getWidth() / (double)dataset.getInt(Tag.Rows,img.getWidth());
-//			
-//			//following, future work...
-////			int nWindow = cmParam.getNumberOfWindows();
-////			if (nWindow > 0) {
-////				WC = windowLevel = (int) cmParam.getWindowCenter(0);
-////				WW = windowWidth = (int) cmParam.getWindowWidth(0);
-////			} else {
-////				WW = windowWidth = (int) Math.pow(2, dataset.getInt(Tag.BitsStored, 8));
-////				WC = windowLevel = (int) w / 2;
-////			}
-//		}
-////        windowChanged(windowLevel, windowWidth);
-//	}
+	public RoiPopupDialog getRoiPopupFromRoiAt(int slideX, int slideY) {
+		RoiObj roi = roiOverlay.activateAndGetRoiAt(slideX, slideY);
+		if (roi == null) {
+			return null;
+		} else {
+			return roi.getRoiPopupDialog();
+		}
+	}
 
-	// To render the overlay data in image
-	private BufferedImage combineImages(BufferedImage currentbufferedimage, BufferedImage overlayImg) {
-		Graphics2D g2d = currentbufferedimage.createGraphics();
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-		g2d.drawImage(overlayImg, 0, 0, null);
-		g2d.dispose();
-		return currentbufferedimage;
+	public ArrayList<RoiObj> getRois() {
+		return this.roiset;
+//    	return pp.getRoiAt(header.getString(Tag.SOPInstanceUID));
+	}
+
+	public int getRotateAngle() {
+		return currentRotateAngle;
+	}
+
+	public double getScaleFactor() {
+		updateScale();
+		return this.scale;
+	}
+
+	public String getSeriesInstanceUID() {
+		return header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID"):null;
 	}
 
 //	private void setIsNormal() {
@@ -1221,58 +1230,252 @@ public class SlideGlass extends JLayeredPane {
 //		g2d.drawImage(this.img, originX, originY, null);
 //	}
 
-	public double getOriginalPixelSpacingX() {
-		return getOriginalCalibration().pixelWidth;
+	/**
+	 * Get SlideGlass as JLayer
+	 * @return JLayer<SlideGlass>
+	 */
+	public JLayer<SlideGlass> getSlide() {
+		return slide;
 	}
 
-	public double getOriginalPixelSpacingY() {
-		return getOriginalCalibration().pixelHeight;
+	public String getSOPInstanceUID() {
+		return header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID"):null;
 	}
 
-	public double getOriginalPixelSpacingZ() {
-		return getOriginalCalibration().pixelDepth;
+	public String getStudyInstanceUID() {
+		return header != null ? header.getString(Tag.Study​Instance​UID, "NO_StudyInstanceUID"):null;
 	}
 
-	public double getDisplayPixelSpacingX() {
-		return getOriginalCalibration().pixelWidth;
+	public String getUID(int tag) {
+		return header != null ? header.getString(tag):null;
 	}
 
-	public double getDisplayPixelSpacingY() {
-		return getOriginalCalibration().pixelHeight;
+	public int getViewer2DToolTypeInSlideGlassUI() {
+		return layerUI.getViewer2DToolType();
 	}
 
-	public double getDisplayPixelSpacingZ() {
-		return getOriginalCalibration().pixelDepth;
+	public boolean handleRoiMouseDragged(MouseEvent me) {
+		if(pp.isShowCrossLineMode()) {
+			drawCross(me);
+		}
+		mouseActionFlag = me.getModifiersEx();
+		return roiOverlay.handleRoiMouseDragged(me, this);
 	}
 
-	public String getPixelSpacingUnit() {
-		return getOriginalCalibration().getUnit();
+	public void handleRoiMouseMoved(MouseEvent me) {
+		mouseActionFlag = me.getModifiersEx();
+		roiOverlay.mouseMoved(me);
 	}
 
-	public double getScaleFactor() {
-		updateScale();
-		return this.scale;
+	public void handleRoiMousePressed(MouseEvent me) {
+		mouseActionFlag = me.getModifiersEx();// future work change to getButton()? related getModifiersEx...but buggy??
+//		roiOverlay.handleRoiMouseDown(me);
+		roiOverlay.mousePressed(me);
+	}
+
+	public void handleRoiMouseUp(MouseEvent me) {
+		mouseActionFlag = me.getModifiersEx();
+		roiOverlay.mouseReleased(me);// (me, x, y);
+	}
+
+	public void hideRoiDialogAt(int sx, int sy) {
+		Component com = roiOverlay.getComponentAt(sx, sy);
+		if (com != null && com != roiOverlay && com instanceof RoiPopupDialog) {
+			RoiPopupDialog rpd = (RoiPopupDialog) com;
+			rpd.setVisible(false);
+			roiOverlay.revalidate();// no need, but maybe fail safe
+			roiOverlay.repaint();
+			repaint();
+		}
+	}
+
+	public void hideRoiDialogOf(RoiObj roi) {
+		if (roi == null) {
+			return;
+		}
+		roi.setVisibleRoiPopup(false);
+		roiOverlay.revalidate();// no need, but maybe fail safe
+		roiOverlay.repaint();
+		repaint();
+	}
+
+	public void initComponents(Praparat pp, DicomImage dcmImg/*single frame*/) {
+		this.pp = pp;
+		this.roiset = new ArrayList<RoiObj>();
+		this.dcmImg = dcmImg;
+		this.header = dcmImg.getCore();
+		setBorder(BorderFactory.createLineBorder(clearColor, BORDER_SIZE));
+		setOpaque(false);
+		setFocusable(true);// for keylistener
+		setRequestFocusEnabled(true);
+		setOriginalImage(new ImagePlus("", dcmImg.getImageProcessor(0)));
+		initImageInfo(header);// execute before setUpGlasses
+		setUpGlassLayer(header);
+		loadRoiFromDB();
+		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 	}
 
 	/*
-	 * call when component resized.
+	 * init reference size (praparatview size) image
 	 */
-	public void updateScale() {
-		// DO NOT USE displayImp directly.
-		if (pp == null) {
+	private void initDisplayImage() {
+		if(getOriginalImage() == null) {
 			return;
 		}
-		if (getWidth() < 1 || getHeight() < 1) {
+		loadDisplayImage();
+		// windowing
+		if (imageSpecimen != null) {
+//			autoWindow();
+			adjustWindow2Current();
+		}
+	}
+
+	/**
+	 * Calibrate original image
+	 * @param dataset
+	 */
+	private void initImageInfo(DicomObject dataset) {
+		if(dataset == null) {
+			//for MPR ?
+			initImageInfoUsingImagePlus();
 			return;
 		}
-		Dimension d = calcImageSize2FitComponent();
-		if (d != null) {
-			if(header != null) {
-				this.scale = (double) d.width / (double) header.getInt(Tag.Columns, getOriginalImage().getWidth());
-			}else {
-				this.scale = (double) d.width / (double)getOriginalImage().getWidth();
+		if(this.header == null) {
+			this.header = dataset;
+		}
+		/*No calibrated imageplus*/
+		ImagePlus org = getOriginalImage();
+		Calibration originalCal = org.getCalibration();
+		/*
+		 * TODO
+		 * load lut from dicom tag ? todo, see dicomwriter as reference.
+		 */
+		setLUT(org.getProcessor().getLut());
+		isRGB = org.getType() == ImagePlus.COLOR_RGB;//choice suitable one.
+		if(isRGB()) {
+			org.getProcessor().snapshot();
+		}
+		
+		/*
+		 * Spatial calibrations
+		 */
+		// x-y-z
+		double pixelSpacingX = 1.0;
+		double pixelSpacingY = 1.0;
+		double pixelSpacingZ = 1.0;
+		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
+		double[] pixelSpacing = dataset.getDoubles(Tag.Pixel​Spacing);
+		double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
+		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
+			pixelSpacingX = pixelSpacing[1];// column
+			pixelSpacingY = pixelSpacing[0];// row
+			if (spacingBetweenSlices != -1) {
+				pixelSpacingZ = spacingBetweenSlices;
+			} else {
+				double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
+				if (sliceThickness != -1) {
+					pixelSpacingZ = sliceThickness;
+				}
 			}
+			/*
+			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
+			 * definition.
+			 */
+			originalCal.setUnit("mm");//
 		}
+		// then, set to cal
+		originalCal.pixelWidth = pixelSpacingX;
+		originalCal.pixelHeight = pixelSpacingY;
+		originalCal.pixelDepth = pixelSpacingZ;
+		
+		/*
+		 * density calibration
+		 */
+		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
+		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
+		String modality = getModality();
+		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && dcmImg.isSigned()) {
+			if (!intercept.isNaN() && !slope.isNaN()) {
+				double[] coeff = new double[2];
+				coeff[0] = slope*(-32768) + intercept;
+				coeff[1] = slope;
+				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+				originalCal.getCTable();//to make cTable.
+//				originalCal.setSigned16BitCalibration();//DO NOT USE
+				if(modality != null && modality.equals("CT")) {
+					originalCal.setValueUnit("HU");
+				}
+				//add another modalities unit...
+			}
+		}else if (intercept!=0.0 && slope==1.0) {
+			double[] coeff = new double[2];
+			coeff[0] = intercept;
+			coeff[1] = slope;
+			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+			originalCal.getCTable();//to make cTable.
+		}
+		// adjust WW/WL
+		int WL = dataset.getInt(Tag.Window​Center, Integer.MIN_VALUE);
+		int WW = dataset.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
+		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+			autoWindow();
+		} else {
+			changeWindow(WL, WW);
+		}
+		setOriginalCalibration(originalCal.copy());
+	}
+
+	@Deprecated
+	private void initImageInfoUsingImagePlus() {
+		ImagePlus org = getOriginalImage();
+		Calibration originalCal = org.getCalibration().copy();
+		isRGB = org.getType() == ImagePlus.COLOR_RGB;//choice suitable one.
+		if(isRGB()) {
+			org.getProcessor().snapshot();
+		}
+//		if (org.getNChannels() == 1) {
+//			/*
+//			 * set density calibration
+//			 */
+////			if(!originalCal.scaled()) {//DO NOT USE
+//			/*
+//			 * see, ij.measure.Calibration.setImage()
+//			 */
+//			// 0 = unsigned, 1 = signed , Tag.PixelRepresentation
+//			if (getModality().equals("CT") && org.getType() == ImagePlus.GRAY16) {
+//				double slope = Double.parseDouble(DicomTools.getTag(org, "0028,1053").trim());
+//				double intercept = Double.parseDouble(DicomTools.getTag(org, "0028,1052").trim());
+//				if (intercept == 0 && originalCal.isSigned16Bit()) {
+////					double[] coeff = new double[2];
+////					coeff[0] = -32768.0;
+////					coeff[1] = slope;// 1.0
+//					String pixelValUnit = "HU";
+////					originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, pixelValUnit);
+//					originalCal.setSigned16BitCalibration();
+//					originalCal.setValueUnit(pixelValUnit);
+//				} else {
+//					if (slope != -1 && intercept != -1) {
+//						originalCal.setFunction(Calibration.STRAIGHT_LINE, new double[] { intercept, slope }, "HU");
+//					}
+//				}
+//			}else if(originalCal.isSigned16Bit() && org.getType() == ImagePlus.GRAY16) {
+//				originalCal.setSigned16BitCalibration();
+//			}
+////			}
+//			// adjust WW/WL
+//			/*
+//			 * 0x00281050;
+//			 * 0028,1051
+//			 */
+//			int WL = Integer.parseInt(DicomTools.getTag(org, "0028,1050").trim());
+//			int WW = Integer.parseInt(DicomTools.getTag(org, "0028,1051").trim());
+//			if (WL == -1 || WW == -1) {
+//				autoWindow();
+//			} else {
+//				changeWindow(WL, WW);
+//			}
+//		}
+		setOriginalCalibration(originalCal);
 	}
 
 	private void initPrapInfoLabel() {
@@ -1282,291 +1485,94 @@ public class SlideGlass extends JLayeredPane {
 		pp.updateInfoLabel(-1, -1, null, this.scale, getMagnification(), getRotateAngle());
 	}
 
-	/*
-	 * slideX: x on slideglass slideY: y on slideglass
-	 */
-	protected void updatePrapInfoLabel(int slideX, int slideY) {
-		if (pp == null || pp.getViewMode()==ViewMode.Thumbnail) {
+	private void initRoiSet() {
+		roiset = null;
+		roiset = new ArrayList<RoiObj>();
+	}
+
+	public void insertOrUpdateRoi4DB(RoiObj roi) {
+		if(roi == null) {
 			return;
 		}
-		// 画像の原点座標を取得する
-		Point currentOrigin = getDisplayImageLocationXY();
-		// 画像のディメンションを取得する
-		Dimension currentDimension = getDisplayImageDimension();
-		// ディメンション内のとき、ピクセル値を出力する
-		if (panningFlag) {
-			/*
-			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する see,ImageSpecimen.paintComponent()
-			 */
-			int scaledOriginX = (int) (currentOrigin.x * getScaleFactor());
-			int scaledOriginY = (int) (currentOrigin.y * getScaleFactor());
-			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDimension.width)) {
-				if (scaledOriginY <= slideY && slideY < (scaledOriginY + currentDimension.height)) {
-					int imageX = slideX - scaledOriginX;
-					int imageY = slideY - scaledOriginY;
-					pp.setAndShowPixelValue(imageX, imageY);
-					logger.info("scaledOriginXY:" + scaledOriginX + " " + scaledOriginY);
-					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + imageX + " " + imageY);
-				}
-			}
+		//save as new or update
+		if(Viewer2DScreen.getInstance().getDatabase() != null) {
+			Viewer2DScreen.getInstance().getDatabase().insertRoi(roi.readContext());
+		}
+	}
+
+	public void invert() {
+		if (isInverted()) {
+			setInvertState(false);
 		} else {
-			/*
-			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
-			 */
-			if (currentOrigin.x <= slideX && slideX < (currentOrigin.x + currentDimension.width)) {
-				if (currentOrigin.y <= slideY && slideY < (currentOrigin.y + currentDimension.height)) {
-					int dispImageX = slideX - currentOrigin.x;
-					int dispImageY = slideY - currentOrigin.y;
-					pp.setAndShowPixelValue(dispImageX, dispImageY);
-					logger.info("originXY:" + currentOrigin.x + " " + currentOrigin.y);
-					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + dispImageX + " " + dispImageY);
-				}
-			}
+			setInvertState(true);
 		}
-	}
-
-	protected Object[] getPixelValueOnSlide(int slideX, int slideY) {
-		if (pp == null) {
-			return null;
-		}
-		// 画像の原点座標を取得する
-		Point currentOrigin = getDisplayImageLocationXY();
-		// 画像のディメンションを取得する
-		Dimension currentDimension = getDisplayImageDimension();
-		// ディメンション内のとき、ピクセル値を出力する
-		if (panningFlag) {
-			/*
-			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する see,ImageSpecimen.paintComponent()
-			 */
-			int scaledOriginX = (int) (currentOrigin.x * getScaleFactor());
-			int scaledOriginY = (int) (currentOrigin.y * getScaleFactor());
-			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDimension.width)) {
-				if (scaledOriginY <= slideY && slideY < (scaledOriginY + currentDimension.height)) {
-					int imageX = slideX - scaledOriginX;
-					int imageY = slideY - scaledOriginY;
-					return getPixelValueFromDisplay((imageX), (imageY));
-				}
-			}
-		} else {
-			/*
-			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
-			 */
-			if (currentOrigin.x <= slideX && slideX < (currentOrigin.x + currentDimension.width)) {
-				if (currentOrigin.y <= slideY && slideY < (currentOrigin.y + currentDimension.height)) {
-					int imageX = slideX - currentOrigin.x;
-					int imageY = slideY - currentOrigin.y;
-					return getPixelValueFromDisplay((imageX), (imageY));
-				}
-			}
-		}
-		return null;
-	}
-
-	/*
-	 * return no calibrate val and calibrated val at displayImageX and displayImageY
-	 * are coordinate on the display image.
-	 * displayImageX and displayImageY are not slideX/Y.
-	 * slideXY has praparat origin.
-	 * displayImage have origin(0,0), but it was magnified and scaled.
-	 */
-	public Object[] getPixelValueFromDisplay(int displayImageX, int displayImageY) {
-		if(!isRGB()) {
-			double pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
-			double pix_cal = getCurrentDisplayImagePlus().getProcessor().getPixelValue(displayImageX, displayImageY);
-			return new Double[] { pix_raw, pix_cal };
-		}else {
-			ColorProcessor cp = (ColorProcessor)getCurrentDisplayImagePlus().getProcessor();
-			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
-			String color = cp.getColor(displayImageX, displayImageY).toString();
-			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2]), color };
-		}
-	}
-
-	public double[] getPixelValueFromOriginal(int orgImageX, int orgImageY) {
-		double pix_raw = getOriginalImage().getProcessor().get(orgImageX, orgImageY);
-		double pix_cal = getOriginalImage().getProcessor().getPixelValue(orgImageX, orgImageY);
-		return new double[] { pix_raw, pix_cal };
-	}
-
-	public void setMagnification(double mag) {
-		this.lastMagnification = getMagnification();
-		this.magnification = mag;
-		if (mag == 0.0d) {
-			zoomFlag = false;
-		} else {
-			zoomFlag = true;
-		}
-	}
-
-	public double getMagnification() {
-		return this.magnification;
-	}
-
-	public boolean isZoomed() {
-		return zoomFlag;
-	}
-
-	public void setInvertState(boolean invert) {
-		invertFlag = invert;
-	}
-
-	public boolean isInverted() {
-		return invertFlag;
+		imgProcess.invert(displayImp);
+//		displayImp.getProcessor().invert();
+//		displayImp.updateImage();
+		TextOverlayGlass tg = (TextOverlayGlass)getGlassAt(TEXT_LAYER);
+		tg.setInvertState(this.invertFlag);
+		repaint();
 	}
 	
-	public boolean isRGB() {
-		return isRGB;
+	public boolean isChangedWLWW() {
+		return windowing;
 	}
 
-	public void setFlipState(boolean flip) {
-		flipFlag = flip;
+	private boolean isExistsInRoiSet(RoiObj newRoi) {
+		String studyUid = newRoi.getStudyUID();
+		String seriesUid = newRoi.getSeriesUID();
+		String sopUid = newRoi.getSopUID();
+		String roiId = newRoi.getPropertyAt(RoiObj.RoiContextKeySet.RoiID.name());
+		ArrayList<RoiObj> currentRoiSet = getRois();
+		int size = currentRoiSet.size();
+		for(int i =0;i<size;i++) {
+			RoiObj r = currentRoiSet.get(i);
+			if(r.isThisRoi(studyUid, seriesUid, sopUid, roiId)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public boolean isFlipped() {
 		return flipFlag;
 	}
 
-	public void setWindowChanged(boolean changed) {
-		windowing = changed;
+	public boolean isFocusGained() {
+		return focusFlag;
 	}
 
-	public boolean isChangedWLWW() {
-		return windowing;
+	public boolean isHereRoiPopup(MouseEvent e) {
+		Object obj = e.getSource();
+		if(obj instanceof RoiPopupDialog) {
+			return true;
+		}else {
+			return false;
+		}
 	}
 
-	public void autoWindow() {
-		if(getOriginalImage() == null || getCurrentDisplayImagePlus() == null) {
-			return;
-		}
-		if(isRGB()) {
-			getOriginalImage().getProcessor().reset();
-		}
-		new ContrastEnhancer().stretchHistogram(getOriginalImage().getProcessor(), 0.5);
-		this.currentMin = getOriginalImage().getProcessor().getMin();// DO NOT USE getMinThreshold()
-		this.currentMax = getOriginalImage().getProcessor().getMax();// DO NOT USE getMaxThreshold()
-		imgProcess.windowing(displayImp, this.currentMin, this.currentMax);
-		repaint();
+	public boolean isInverted() {
+		return invertFlag;
 	}
 
-	public void changeWindow(int WL, int WW) {
-		double newMin = WL - (.5 * WW);
-		double newMax = WL + (.5 * WW);
-		if (newMin > newMax) {
-			logger.log(Level.SEVERE,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
-		}
-		
-//		lastMin = currentMin;//DO NOT SET HERE, see mouse enter 
-//		lastMax = currentMax;//DO NOT SET HERE, see mouse enter 
-		currentMin = newMin;
-		currentMax = newMax;
-		logger.info("change ww/wl : newMin "+newMin+" newMax "+newMax);
-		imgProcess.windowing(displayImp, newMin, newMax);
-//		displayImp.setDisplayRange(newMin, newMax);
-//		if(!isRGB()) {
-//			displayImp.updateImage();// IMPORTANT
-//		}
-		repaint();
+	public boolean isRGB() {
+		return isRGB;
 	}
 
-	void adjustWindow2Current() {
-		if (currentMax == -1 || currentMin == -1) {
-			return;
-		}
-		setWindowChanged(true);
-		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
-		// current settings
-		double currentWindow = currentMax - currentMin;
-		double currentLevel = currentMin + (.5 * currentWindow);
-		changeWindow((int) currentLevel, (int) currentWindow);
+	private boolean isRotated() {
+		return rotatedFlag;
 	}
 
-	void adjustWindowLevel(double xDifference, double yDifference) {
-		this.windowing = true;
-		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
-		// current settings
-		double currentWindow = lastMax - lastMin;
-		double currentLevel = lastMin + (.5 * currentWindow);
-		// change
-		double newWindow = currentWindow + xDifference;
-		double newLevel = currentLevel + yDifference;
-		changeWindow((int) newLevel, (int) newWindow);
+	public boolean isSelected() {
+		return selectedFlag;
 	}
 
-	public void adjustWindowFromMouseAction(int locX, int locY) {
-		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
-				- getCurrentDisplayImagePlus().getDisplayRangeMin();
-		int xDiff = locX - this.lastX;
-		int yDiff = locY - this.lastY;
-		int totalWidth = pp.getImageScreenSizeX();
-		int totalHeight = pp.getImageScreenSizeY();
-		double xRatio = ((double) xDiff) / ((double) totalWidth);
-		double yRatio = ((double) yDiff) / ((double) totalHeight);
-		// scale to our image range
-		double xScaledValue = minMaxDifference * xRatio;
-		double yScaledValue = minMaxDifference * yRatio;
-		// to avoid rangeMin > rangeMax
-		if (Math.abs(xScaledValue) > minMaxDifference) {
-			if (xScaledValue < 0) {
-				xScaledValue = -1 * minMaxDifference;
-			} else {
-				xScaledValue = minMaxDifference;
-			}
-		}
-		if (Math.abs(yScaledValue) > minMaxDifference) {
-			if (yScaledValue < 0) {
-				yScaledValue = -1 * minMaxDifference;
-			} else {
-				yScaledValue = minMaxDifference;
-			}
-		}
-		// invert x
-//				 xScaledValue = xScaledValue * -1;
-		adjustWindowLevel(xScaledValue, yScaledValue);
+	public boolean isZoomed() {
+		return zoomFlag;
 	}
 
-	/**
-	 * 
-	 * @param magnification : zoom scale(0.2<, <7.0)
-	 */
-	void zoom(double mag) {
-		// set magnification min max
-		if (mag < 0.2) {
-			mag = 0.2;
-		} else if (mag > 7.0) {
-			mag = 7.0;
-		}
-		// save last mag
-		setMagnification(mag);
-//    	System.out.println("Prev mag:"+lastMagnification+" "+"New mag:"+ mag);
-		displayCurrentStateImage();
-
-		// TODO
-//    	if(mag != 1.0 && !panningFlag) {
-//    		panningFlag = true;//because, image origin shifted by focuse zoom.
-//    	}
-
-		// adjust image origin, keep last pressed point(on screen) to center
-//    	スクリーン中心
-//    	int screenCX = (getWidth() / 2)-1;
-//    	int screenCY = (getHeight() /2)-1;
-////		スクリーン中心までの距離
-//		int diffCX = lastX - screenCX;
-//		int diffCY = lastY - screenCY;
-//		System.out.println("ScreenCenter distance:" + diffCX + " " + diffCY);
-//    	double moveX = 0;
-//		double moveY = 0;
-//    	if(prevImg.getWidth() >= zoomed.getWidth()) {
-//			moveX = (prevImg.getWidth() - zoomed.getWidth())/2;
-//			moveY = (prevImg.getHeight() - zoomed.getHeight())/2;
-//    	}else {
-//    		moveX = (-1 * (prevImg.getWidth() - zoomed.getWidth())/2);
-//			moveY = (-1 * (prevImg.getHeight() - zoomed.getHeight())/2);
-//    	}
-//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
-//    	moveX = moveX + diffCX*mag + lastOriginX;
-//    	moveY = moveY + diffCY*mag + lastOriginY;
-//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
-//		panning((double)moveX,(double)moveY);
+	private void loadDisplayImage() {
+		this.displayImp = getCurrentStateImageFreshCopy();
 	}
 
 //    private void zoom() {
@@ -1584,506 +1590,6 @@ public class SlideGlass extends JLayeredPane {
 //    	repaint();
 //    }
 
-	/*
-	 * パンニングは単純に表示画像原点位置の移動。 Zoomやスケールは無視。
-	 */
-	void panning(double moveX, double moveY) {
-		if (panningFlag && !panningInAction) {
-			// pann状態の場合、先に原点をスケールさせる
-			this.originX = (int) (lastOriginX * getScaleFactor()) - (int) moveX;
-			this.originY = (int) (lastOriginY * getScaleFactor()) - (int) moveY;
-			lastOriginX = originX;
-			lastOriginY = originY;
-		} else {
-			this.originX = this.lastOriginX - (int) moveX;
-			this.originY = this.lastOriginY - (int) moveY;
-		}
-		if(Utils.isDebug) logger.info("Panning : originX " + originX + " ," + " originY " + originY);
-		panningFlag = true;// fail safe
-		panningInAction = true;// 敢えてここでハンドリングする
-//		System.out.println("panning in action "+panningInAction);
-		updatePanningState();
-		repaint();
-	}
-
-	private void updatePanningState() {
-		Dimension d = calcImageSize2FitComponent();
-		if (d == null) {
-			return;
-		}
-		Point defOrigin = calcDefaultImageOrigin(d.width, d.height, getWidth(), getHeight());
-		if ((this.originX == defOrigin.x) && (this.originY == defOrigin.y)) {
-			panningFlag = false;
-		} else {
-			panningFlag = true;
-		}
-	}
-
-	protected void releasePanning() {
-		/*
-		 * pann中はscalingOriginが基本。 pann中はスケールさせずに表示するが、あくまでもスケールしている見せかけの状態。
-		 * pann操作後、ずれを修正しておく。
-		 */
-//		System.out.println("Released Panning pre:"+originX+"  "+originY);
-		if (panningInAction) {
-			// https://stackoverflow.com/questions/2654839/rounding-a-double-to-turn-it-into-an-int-java
-			double reverseToNoScaleOriginX = originX / getScaleFactor();
-			double reverseToNoScaleOriginY = originY / getScaleFactor();
-			if (reverseToNoScaleOriginX >= 0) {
-				originX = (int) (reverseToNoScaleOriginX + 0.5);
-			} else {
-				originX = (int) (reverseToNoScaleOriginX - 0.5);
-			}
-			if (reverseToNoScaleOriginY >= 0) {
-				originY = (int) (reverseToNoScaleOriginY + 0.5);
-			} else {
-				originY = (int) (reverseToNoScaleOriginY - 0.5);
-			}
-			// update lastOrigin
-			lastOriginX = originX;
-			lastOriginY = originY;
-		}
-		this.panningInAction = false;
-		System.out.println("panning released, in action ? " + panningInAction);
-	}
-
-	void rotate(int changeAngle) {
-
-		double willRotateAngle = getRotateAngle() + changeAngle;
-		if (willRotateAngle >= 360) {
-			willRotateAngle = willRotateAngle - 360;
-		} else if (willRotateAngle <= -360) {
-			willRotateAngle = willRotateAngle + 360;
-		}
-		setRotateAngle((int) willRotateAngle);
-		displayCurrentStateImage();
-		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-	}
-
-	private void displayCurrentStateImage() {
-		this.displayImp = getCurrentStateImageFreshCopy();
-		if (!panningFlag) {
-			calcDefaultImageOriginAndReset(getCurrentDisplayImagePlus().getWidth(),
-					getCurrentDisplayImagePlus().getHeight(), getWidth(), getHeight());
-		}
-		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-		repaint();
-	}
-
-	public int getRotateAngle() {
-		return currentRotateAngle;
-	}
-
-	public void setRotateAngle(int angle) {
-		this.currentRotateAngle = angle;
-		System.out.println("setRotateAngle:: " + angle);
-		if (angle == 0) {
-			rotatedFlag = false;
-		} else {
-			rotatedFlag = true;
-		}
-	}
-
-	private boolean isRotated() {
-		return rotatedFlag;
-	}
-
-	public ImagePlus getCurrentDisplayImagePlus() {
-		return this.displayImp;
-	}
-
-	public void invert() {
-		if (isInverted()) {
-			setInvertState(false);
-		} else {
-			setInvertState(true);
-		}
-		imgProcess.invert(displayImp);
-//		displayImp.getProcessor().invert();
-//		displayImp.updateImage();
-		TextOverlayGlass tg = (TextOverlayGlass)getGlassAt(TEXT_LAYER);
-		tg.setInvertState(this.invertFlag);
-		repaint();
-	}
-
-	public void flipLR() {
-		if (isFlipped()) {
-			setFlipState(false);
-		} else {
-			setFlipState(true);
-		}
-		displayImp.getProcessor().flipHorizontal();
-		displayImp.updateImage();
-		repaint();
-	}
-
-	public void flipHF() {
-		rotate(180);// to avoid flipFlag mismatch, run first.
-		flipLR();
-		displayImp.updateImage();
-		repaint();
-	}
-	
-	public ImagePlus cropRect() {
-		if(roiset.size() < 1) {
-			return null;
-		}
-		RoiObj roi = findCurrentRoi();
-		int type = roi.getType();
-		System.out.println(type);
-		if(type != RoiObj.RECTANGLE && type != RoiObj.OVAL && type != RoiObj.POLYGON) {
-			return null;
-		}
-		Rectangle2D rect = roi.getBounds();
-//		Roi r = new RoiConverter().convert2Roi(roi);
-		Roi r = new Roi(rect.getX(),rect.getY(),rect.getWidth(), rect.getHeight());
-		ImagePlus orgImp = getOriginalImage();
-		ImageProcessor ip = orgImp.getProcessor().duplicate();
-		ip.setRoi(r);
-		ip = ip.crop();
-		ImagePlus cropImp = getOriginalImage().createImagePlus();
-		cropImp.setProcessor(ip);
-		return cropImp;
-	}
-	
-	public ImagePlus cropRect(RoiObj rectRoi) {
-		if(rectRoi == null) {
-			return null;
-		}
-		RoiObj roi = rectRoi;
-		int type = roi.getType();
-		System.out.println(type);
-		if(type != RoiObj.RECTANGLE && type != RoiObj.OVAL && type != RoiObj.POLYGON) {
-			return null;
-		}
-		Rectangle2D rect = roi.getBounds();
-//		Roi r = new RoiConverter().convert2Roi(roi);
-		Roi r = new Roi(rect.getX(),rect.getY(),rect.getWidth(), rect.getHeight());
-		ImagePlus orgImp = getOriginalImage();
-		ImageProcessor ip = orgImp.getProcessor().duplicate();
-		ip.setRoi(r);
-		ip = ip.crop();
-		ImagePlus cropImp = getOriginalImage().createImagePlus();
-		cropImp.setProcessor(ip);
-		return cropImp;
-	}
-	
-	/**
-	 * 
-	 * @param roi
-	 */
-	public void cut(RoiObj roi) {
-		if(roi == null) {
-			return;
-		}
-		int roiType = roi.getType();
-		if(roiType == RoiObj.ANGLE || roiType == RoiObj.ARROW || roiType == RoiObj.FREELINE || roiType == RoiObj.POINT || roiType==RoiObj.LINE) {
-			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "You need set closed type roi.");
-			return;
-		}
-		ImagePlus imp = getOriginalImage();
-		Roi ijRoi = new RoiConverter().convert2Roi(roi);
-		imp.setRoi(ijRoi);
-//		imp.getProcessor().fill();
-		imp.getProcessor().set(0);
-		setOriginalImage(imp);
-		repaint();
-	}
-
-	public void setLUT(LUT lut) {
-		if (invertFlag) {
-			// do nothing
-		} else {
-			// do nothing
-		}
-		this.currentLUT = lut;
-		displayImp.setLut(currentLUT);
-		displayImp.updateImage();
-		repaint();
-	}
-
-	public void reset() {
-		initDisplayImage();
-		// reset window range
-//		this.currentMin = this.replica.getDisplayRangeMin();
-//		this.currentMax = this.replica.getDisplayRangeMax();
-		// reset manification
-		setMagnification(1.0d);
-		// reset rotate angle
-		setRotateAngle(0);
-		// set image position for origin and resize
-//		Dimension d = calcImageSize4FitComponent(original.getWidth(), original.getHeight());//initReplica
-//		replica.getProcessor().resize(d.width, d.height);//initReplica
-		setFlipState(false);
-		zoomFlag = false;
-		windowing = false;
-		rotatedFlag = false;
-		panningFlag = false;
-		panningInAction = false;
-		originX = 0;
-		originY = 0;
-		calcDefaultImageOriginAndReset(displayImp.getWidth(), displayImp.getHeight(), getWidth(), getHeight());
-		initRoiSet();
-		repaint();
-	}
-
-//	public ArrayList<RoiObj> getRoiSet() {
-//		return this.roiset;
-//	}
-	
-	private boolean isExistsInRoiSet(RoiObj newRoi) {
-		String studyUid = newRoi.getStudyUID();
-		String seriesUid = newRoi.getSeriesUID();
-		String sopUid = newRoi.getSopUID();
-		String roiId = newRoi.getPropertyAt(RoiObj.RoiContextKeySet.RoiID.name());
-		ArrayList<RoiObj> currentRoiSet = getRois();
-		int size = currentRoiSet.size();
-		for(int i =0;i<size;i++) {
-			RoiObj r = currentRoiSet.get(i);
-			if(r.isThisRoi(studyUid, seriesUid, sopUid, roiId)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public void addRoi(RoiObj newRoi) {
-		if(newRoi instanceof ReferenceLine) {
-			return;
-		}
-		if (!this.roiset.contains(newRoi)) {
-			if(isExistsInRoiSet(newRoi)) {
-				updateRoi(newRoi.getStudyUID(), newRoi.getSeriesUID(), newRoi.getSopUID(), newRoi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), newRoi);
-			}else {
-				roiset.add(newRoi);
-				insertOrUpdateRoi4DB(newRoi);
-			}
-		}
-	}
-	
-	public void addRoi(RoiObj newRoi, boolean updateDB) {
-		if(newRoi instanceof ReferenceLine) {
-			return;
-		}
-		if(updateDB) {
-			addRoi(newRoi);
-		}else {
-			if (!this.roiset.contains(newRoi)) {
-				roiset.add(newRoi);
-			}
-		}
-	}
-
-	/**
-	 * 
-	 * @param StudyUID
-	 * @param seriesUID
-	 * @param sopUID
-	 * @param roiInd
-	 * @param updatedRoi : attached attributes should be same to original roi.
-	 */
-	public void updateRoi(String studyUID, String seriesUID, String sopUID, String roiInd, RoiObj updatedRoi) {
-		if(updatedRoi == null) {
-			return;
-		}
-		int ind = -1;
-		if (roiset != null && roiset.size() > 0) {
-			for(int i=0;i<roiset.size();i++) {
-				if (roiset.get(i).isThisRoi(studyUID, seriesUID, sopUID, roiInd)) {
-					ind = i;
-					break;
-				}
-			}
-			if(ind != -1) {
-				roiset.set(ind, updatedRoi);
-				insertOrUpdateRoi4DB(updatedRoi);// saveRoi to db
-			}
-		}
-	}
-	
-	public void replaceRoi(String beReplacedStudyUID, String beReplacedSeriesUID, String beReplacedSopUID, String beReplacedRoiId, RoiObj roiToReplace) {
-		if(roiToReplace == null) {
-			return;
-		}
-		String candidateRoiID = roiToReplace.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
-		if (roiset != null && roiset.size() > 0) {
-			for (RoiObj roi : roiset) {
-				if (roi.isThisRoi(beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId)) {
-					if(roiToReplace.getProperty(RoiObj.RoiContextKeySet.RoiID.name()).equals(candidateRoiID)) {
-						updateRoi(beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, candidateRoiID, roiToReplace);
-					}else {
-						addRoi(roiToReplace);// then add !
-						deleteRoi(roi);// delete first!
-					}
-					break;
-				}
-			}
-		}
-	}
-
-	public void deleteRoi(String studyUID, String seriesUID, String sopUID, String roiInd) {
-		if (roiset == null || roiset.size() < 1) {
-			return;
-		}
-		/*
-		 * pay attention remove item from list
-		 * see, https://stackoverflow.com/questions/8104692/how-to-avoid-java-util-concurrentmodificationexception-when-iterating-through-an
-		 */
-		Iterator<RoiObj> itr = roiset.iterator();
-		ArrayList<RoiObj> roi2Remove = new ArrayList<>();
-		while(itr.hasNext()){
-		    RoiObj roi = itr.next();
-			if (roi.isThisRoi(studyUID, seriesUID, sopUID, roiInd)) {
-				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
-				deleteRoiFromDB(roi);
-//				roiset.remove(roi);//DO NOT DO THIS !
-				roi2Remove.add(roi);
-//					roi = null;//safe ??
-				break;
-			} else if (studyUID == null && seriesUID == null && sopUID == null) {
-				// SliceLine or temporal roi
-				// skip delete from db
-				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
-				roi2Remove.add(roi);
-			}
-		}
-		if(roiset.size() > 0) {
-			roiset.removeAll(roi2Remove);
-			roiset.trimToSize();
-		}
-		roiOverlay.setCurrentRoi2NULL();
-	}
-
-	public void deleteRoi(RoiObj roi2remove) {
-		if (roiset == null || roiset.size() < 1) {
-			return;
-		}
-		String studyUID = roi2remove.getStudyUID();
-		String seriesUID = roi2remove.getSeriesUID();
-		String sopUID = roi2remove.getSopUID();
-		String roiInd = roi2remove.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
-		deleteRoi(studyUID, seriesUID, sopUID, roiInd);
-	}
-
-	public void deleteRoi(int sx, int sy) {
-		if (roiset == null || roiset.size() < 1) {
-			return;
-		}
-		RoiObj roi2remove = roiOverlay.activateAndGetRoiAt(sx, sy);
-		if (roi2remove != null) {
-			String studyUID = roi2remove.getStudyUID();
-			String seriesUID = roi2remove.getSeriesUID();
-			String sopUID = roi2remove.getSopUID();
-			String roiInd = roi2remove.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
-			deleteRoi(studyUID, seriesUID, sopUID, roiInd);
-		} else {
-			/*
-			 * TODO delete activeRoi ?
-			 */
-		}
-		repaint();
-	}
-	
-	private void deleteRoiFromDB(RoiObj roi) {
-		String patID = roi.getPatientID();
-		String studyUid = roi.getStudyUID();
-		String seriesUid = roi.getSeriesUID();
-		String sopUid = roi.getSopUID();
-		String roiId = roi.getPropertyAt(RoiObj.RoiContextKeySet.RoiID.name());
-		Viewer2DScreen.getInstance().getDatabase().deleteRoi(patID, studyUid, seriesUid,sopUid,roiId);
-		if(Viewer2DScreen.getRoiObjManager() != null) {
-			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
-			rom.updateRoiObjList(getPatientID());
-		}
-	}
-
-	public ArrayList<RoiObj> getRoiAt(String sopUID) {
-		ArrayList<RoiObj> roisOnSlice = new ArrayList<RoiObj>();
-		for (RoiObj roi : getRois()) {
-			if (roi.getProperty("SOPInstanceUID") != null && roi.getProperty("SOPInstanceUID").equals(sopUID)) {
-				roisOnSlice.add(roi);
-			}
-		}
-		if (roisOnSlice.size() < 1) {
-			return null;
-		} else {
-			return roisOnSlice;
-		}
-	}
-
-	private void initRoiSet() {
-		roiset = null;
-		roiset = new ArrayList<RoiObj>();
-	}
-
-	public ArrayList<RoiObj> getRois() {
-		return this.roiset;
-//    	return pp.getRoiAt(header.getString(Tag.SOPInstanceUID));
-	}
-
-	public RoiObj getActiveRoi() {
-		ArrayList<RoiObj> rois = getRois();
-		for (RoiObj roi : rois) {
-			if (roi.isActiveOverlayRoi()) {
-				return roi;
-			}
-		}
-		return null;
-	}
-	
-	/**
-	 * 
-	 * @param screenX:slideX
-	 * @param screenY:slideY
-	 * @return
-	 */
-	public RoiObj getRoiLoacationAt(int screenX, int screenY) {
-
-		int ix = onImageX(screenX);
-		int iy = onImageY(screenY);
-		ArrayList<RoiObj> rois = getRois();
-		/*
-		 * if rois are overlapping, return roi that find first.
-		 */
-		if (rois != null && rois.size() > 0) {
-			for (RoiObj roi : rois) {
-				if (roi.contains(ix, iy)) {
-					return roi;
-				}
-			}
-		}
-		return null;
-	}
-
-	public RoiObj findCurrentRoi() {
-		RoiObj currentRoi = getActiveRoi();
-		if (currentRoi != null) {
-			return currentRoi;
-		} else {
-			currentRoi = roiOverlay.getCurrentRoi();
-			if(currentRoi == null) {
-				return roiOverlay.getPreviousRoi();
-			}else {
-				return currentRoi;
-			}
-		}
-	}
-	
-	public void saveCurrentRoiSate() {
-		RoiObj roi = findCurrentRoi();
-		insertOrUpdateRoi4DB(roi);
-	}
-	
-	public void insertOrUpdateRoi4DB(RoiObj roi) {
-		if(roi == null) {
-			return;
-		}
-		//save as new or update
-		if(Viewer2DScreen.getInstance().getDatabase() != null) {
-			Viewer2DScreen.getInstance().getDatabase().insertRoi(roi.readContext());
-		}
-	}
-	
 	public void loadRoiFromDB() {
 //		Viewer2DScreen viewer = Viewer2DScreen.getInstance();
 //		if (viewer == null){
@@ -2112,57 +1618,428 @@ public class SlideGlass extends JLayeredPane {
 			}
 		}
 	}
+
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public int onDisplayImageX(int glassX) {
+		if (!panningFlag) {
+			return (int) ((glassX - originX) * getMagnification());
+		} else {
+			return (int) ((glassX - (originX * getScaleFactor())) * getMagnification());
+		}
+	}
+
+	/**
+	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
+	 */
+	public double onDisplayImageXD(double glassX) {
+		if (!panningFlag) {
+			return ((glassX - originX) * getMagnification());
+		} else {
+			return ((glassX - (originX * getScaleFactor())) * getMagnification());
+		}
+	}
+
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public int onDisplayImageY(int glassY) {
+		if (!panningFlag) {
+			return (int) ((glassY - originY) * getMagnification());
+		} else {
+			return (int) ((glassY - (originY * getScaleFactor())) * getMagnification());
+		}
+	}
+
+	/**
+	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
+	 */
+	public double onDisplayImageYD(double glassY) {
+		if (!panningFlag) {
+			return ((glassY - originY) * getMagnification());
+		} else {
+			return ((glassY - (originY * getScaleFactor())) * getMagnification());
+		}
+	}
+
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public int onImageX(int glassX) {
+		return onOriginalImageX(glassX);
+	}
+
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public double onImageXD(int glassX) {
+		return onOriginalImageXD(glassX);
+	}
+
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public int onImageY(int glassY) {
+		return onOriginalImageY(glassY);
+	}
+
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public double onImageYD(int glassY) {
+		return onOriginalImageYD(glassY);
+	}
+
+	/** Converts an screen x-coordinate to a original image x-coordinate. */
+	public int onOriginalImageX(int glassX) {
+		if (!panningFlag) {
+			double backScale = (glassX - originX) / getMagnification() / getScaleFactor();
+			return (int) backScale;
+		} else {
+			/*
+			 * 見かけ上の原点に合うように原点位置に対してスケールは乗ずる
+			 */
+			double backScale = (glassX - (originX * getScaleFactor())) / getMagnification() / getScaleFactor();
+			return (int) backScale;
+		}
+	}
+
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public double onOriginalImageXD(int glassX) {
+		if (!panningFlag) {
+			double backScale = (glassX - originX) / getMagnification() / getScaleFactor();
+			return backScale;
+		} else {
+			double backScale = (glassX - (originX * getScaleFactor())) / getMagnification() / getScaleFactor();
+			return backScale;
+		}
+	}
+
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public int onOriginalImageY(int glassY) {
+		if (!panningFlag) {
+			double backScale = (glassY - originY) / getMagnification() / getScaleFactor();
+			return (int) backScale;
+		} else {
+			double backScale = (glassY - (originY * getScaleFactor())) / getMagnification() / getScaleFactor();
+			return (int) backScale;
+		}
+	}
 	
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public double onOriginalImageYD(int glassY) {
+		if (!panningFlag) {
+			double backScale = (glassY - originY) / getMagnification() / getScaleFactor();
+			return backScale;
+		} else {
+			double backScale = (glassY - (originY * getScaleFactor())) / getMagnification() / getScaleFactor();
+			return backScale;
+		}
+	}
+	
+	private int orgX2ScreenX(int orgImageX) {
+		if (!panningFlag) {
+			return (int) ((orgImageX * getMagnification() * getScaleFactor()) + originX);
+		} else {
+			return (int) ((orgImageX * getMagnification() * getScaleFactor()) + (originX * getScaleFactor()));
+		}
+	}
+	
+	private double orgX2ScreenXD(double orgImageX) {
+		if (!panningFlag) {
+			return ((orgImageX * getMagnification() * getScaleFactor()) + originX);
+		} else {
+			return ((orgImageX * getMagnification() * getScaleFactor()) + (originX * getScaleFactor()));
+		}
+	}
+
+	private int orgY2ScreenY(int orgImageY) {
+		if (!panningFlag) {
+			return (int) ((orgImageY * getMagnification() * getScaleFactor()) + originY);
+		} else {
+			return (int) ((orgImageY * getMagnification() * getScaleFactor()) + (originY * getScaleFactor()));
+		}
+	}
+
+	public double orgY2ScreenYD(double orgImageY) {
+		if (!panningFlag) {
+			return ((orgImageY * getMagnification() * getScaleFactor()) + originY);
+		} else {
+			return ((orgImageY * getMagnification() * getScaleFactor()) + (originY * getScaleFactor()));
+		}
+	}
+
+//	public ArrayList<RoiObj> getRoiSet() {
+//		return this.roiset;
+//	}
+	
+	@Override
+	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		if (panningFlag) {
+			/*
+			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する
+			 */
+			if (panningInAction) {
+				imageSpecimen.updateImage(originX, originY, getCurrentDisplayImagePlus());
+			} else {
+				imageSpecimen.updateImage(originX, originY, getScaleFactor(), getCurrentDisplayImagePlus());
+			}
+		} else if (!panningFlag && !panningInAction) {
+			/*
+			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
+			 */
+			imageSpecimen.updateImage(originX, originY, getCurrentDisplayImagePlus());
+		}
+		textOverlay.repaint();
+		updateRoiCanvas();// show roi
+	}
+
+	/*
+	 * パンニングは単純に表示画像原点位置の移動。 Zoomやスケールは無視。
+	 */
+	void panning(double moveX, double moveY) {
+		if (panningFlag && !panningInAction) {
+			// pann状態の場合、先に原点をスケールさせる
+			this.originX = (int) (lastOriginX * getScaleFactor()) - (int) moveX;
+			this.originY = (int) (lastOriginY * getScaleFactor()) - (int) moveY;
+			lastOriginX = originX;
+			lastOriginY = originY;
+		} else {
+			this.originX = this.lastOriginX - (int) moveX;
+			this.originY = this.lastOriginY - (int) moveY;
+		}
+		if(Utils.isDebug) logger.info("Panning : originX " + originX + " ," + " originY " + originY);
+		panningFlag = true;// fail safe
+		panningInAction = true;// 敢えてここでハンドリングする
+//		System.out.println("panning in action "+panningInAction);
+		updatePanningState();
+		repaint();
+	}
+	
+	protected void releasePanning() {
+		/*
+		 * pann中はscalingOriginが基本。 pann中はスケールさせずに表示するが、あくまでもスケールしている見せかけの状態。
+		 * pann操作後、ずれを修正しておく。
+		 */
+//		System.out.println("Released Panning pre:"+originX+"  "+originY);
+		if (panningInAction) {
+			// https://stackoverflow.com/questions/2654839/rounding-a-double-to-turn-it-into-an-int-java
+			double reverseToNoScaleOriginX = originX / getScaleFactor();
+			double reverseToNoScaleOriginY = originY / getScaleFactor();
+			if (reverseToNoScaleOriginX >= 0) {
+				originX = (int) (reverseToNoScaleOriginX + 0.5);
+			} else {
+				originX = (int) (reverseToNoScaleOriginX - 0.5);
+			}
+			if (reverseToNoScaleOriginY >= 0) {
+				originY = (int) (reverseToNoScaleOriginY + 0.5);
+			} else {
+				originY = (int) (reverseToNoScaleOriginY - 0.5);
+			}
+			// update lastOrigin
+			lastOriginX = originX;
+			lastOriginY = originY;
+		}
+		this.panningInAction = false;
+		System.out.println("panning released, in action ? " + panningInAction);
+	}
+
+	public void removeRoiPopupDialogOnCanvas(RoiPopupDialog rpd) {
+		if (rpd != null && roiOverlay != null) {
+			roiOverlay.remove(rpd);
+			roiOverlay.revalidate();// no need, but maybe fail safe
+			roiOverlay.repaint();
+			repaint();
+		}
+	}
+	
+	public void replaceRoi(String beReplacedStudyUID, String beReplacedSeriesUID, String beReplacedSopUID, String beReplacedRoiId, RoiObj roiToReplace) {
+		if(roiToReplace == null) {
+			return;
+		}
+		String candidateRoiID = roiToReplace.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
+		if (roiset != null && roiset.size() > 0) {
+			for (RoiObj roi : roiset) {
+				if (roi.isThisRoi(beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId)) {
+					if(roiToReplace.getProperty(RoiObj.RoiContextKeySet.RoiID.name()).equals(candidateRoiID)) {
+						updateRoi(beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, candidateRoiID, roiToReplace);
+					}else {
+						addRoi(roiToReplace);// then add !
+						deleteRoi(roi);// delete first!
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	public void reset() {
+		initDisplayImage();
+		// reset window range
+//		this.currentMin = this.replica.getDisplayRangeMin();
+//		this.currentMax = this.replica.getDisplayRangeMax();
+		// reset manification
+		setMagnification(1.0d);
+		// reset rotate angle
+		setRotateAngle(0);
+		// set image position for origin and resize
+//		Dimension d = calcImageSize4FitComponent(original.getWidth(), original.getHeight());//initReplica
+//		replica.getProcessor().resize(d.width, d.height);//initReplica
+		setFlipState(false);
+		zoomFlag = false;
+		windowing = false;
+		rotatedFlag = false;
+		panningFlag = false;
+		panningInAction = false;
+		originX = 0;
+		originY = 0;
+		calcDefaultImageOriginAndReset(displayImp.getWidth(), displayImp.getHeight(), getWidth(), getHeight());
+		initRoiSet();
+		repaint();
+	}
+
+	/**
+	 * This routine used to retrieve some other tag information from the dataset
+	 */
+//    private void retrieveTagInfo(Attributes dataset) {
+//        try {
+//            instanceUidList = Viewer2DScreen.getInstance().getDatabase().getInstanceUidList(dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID));
+//            totalInstance = !isMultiFrame() ? instanceUidList.size() : totalInstance;
+//        } catch (NullPointerException e) {
+//            Viewer2DScreen.logger().error("Image Panel", e);
+//        }
+//    }
+
+//	public void showBorder(boolean show) {
+//		if(show) {
+//			Border border = BorderFactory.createLineBorder(Color.CYAN, 5);
+//			textOverlay.setBorder(border);
+//			textOverlay.repaint();
+//		}else {
+//			if(textOverlay != null) { //&& textOverlay.getBorder() != null) {
+//				textOverlay.setBorder(null);
+//				textOverlay.repaint();
+//			}
+//		}
+//	}
+
+	// future work
+	private void retrieveScoutParam() {
+//        currentScoutDetails = Viewer2DScreen.getInstance().getDatabase().getScoutLineDetails(dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID), dataset.getString(Tag.SOPInstanceUID));
+//        isLocalizer = (currentScoutDetails.getImageType().equalsIgnoreCase("LOCALIZER")) ? true : false;
+//        findOrientation();
+	}
+
+	void rotate(int changeAngle) {
+
+		double willRotateAngle = getRotateAngle() + changeAngle;
+		if (willRotateAngle >= 360) {
+			willRotateAngle = willRotateAngle - 360;
+		} else if (willRotateAngle <= -360) {
+			willRotateAngle = willRotateAngle + 360;
+		}
+		setRotateAngle((int) willRotateAngle);
+		displayImageWithCurrentCondition();
+	}
+	
+	public void saveCurrentRoiSate() {
+		RoiObj roi = findCurrentRoi();
+		insertOrUpdateRoi4DB(roi);
+	}
+
+	/*
+	 * convert originale coordinate to glass coordinate.
+	 */
+	public int screenX(int imageX) {
+		return orgX2ScreenX(imageX);
+	}
+
+	public double screenXD(double imageX) {
+		return orgX2ScreenXD(imageX);
+	}
+
+	public int screenY(int imageY) {
+		return orgY2ScreenY(imageY);
+	}
+
+	public double screenYD(double imageY) {
+		return orgY2ScreenYD(imageY);
+	}
+	
+	public void setAnnotationVisible(boolean v) {
+		this.showAnnotation = v;
+		if (this.showAnnotation) {
+			// show annotation
+			add(roiOverlay, ROI_CANVAS_LAYER, 0);
+		} else {
+			// do not show annotation
+			remove(roiOverlay);
+		}
+		repaint();
+	}
+
+	public void setFlipState(boolean flip) {
+		flipFlag = flip;
+	}
+	
+	public void setFocusGained(boolean focusGained) {
+		this.focusFlag = focusGained;
+		if(pp.getViewMode()==ViewMode.Thumbnail) {
+			this.focusFlag = false;
+			showBorder();
+			return;
+		}
+		if(pp.isShowGridViewOn()) {
+			pp.setImagePositionTo(this);
+		}
+		showBorder();
+	}
+	
+	private void setGlassSize(JComponent comp, int compW, int compH) {
+		comp.setSize(new Dimension(compW, compH));
+		comp.setPreferredSize(new Dimension(compW, compH));
+		/*************************************************************************************/
+		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
+		/*************************************************************************************/
+	}
+	
+	public void setInvertState(boolean invert) {
+		invertFlag = invert;
+	}
+	
+	public void setLUT(LUT lut) {
+		if (invertFlag) {
+			// do nothing
+		} else {
+			// do nothing
+		}
+		this.currentLUT = lut;
+		displayImp.setLut(currentLUT);
+		displayImp.updateImage();
+		repaint();
+	}
+	
+	public void setMagnification(double mag) {
+		this.lastMagnification = getMagnification();
+		this.magnification = mag;
+		if (mag == 0.0d) {
+			zoomFlag = false;
+		} else {
+			zoomFlag = true;
+		}
+	}
+
+	private void setOriginalCalibration(Calibration cal) {
+		getOriginalImage().setCalibration(cal);
+	}
+	
+	public void setOriginalImage(ImagePlus imp) {
+		this.original = imp;
+		imp.deleteRoi();
+		initDisplayImage();// IMPORTANT; update calibration
+	}
+
 	public void setRoiBrush(RoiObj brush) {
 		roiOverlay.setBrush(brush);
 	}
 	
-	public RoiPopupDialog getRoiPopupFromRoiAt(int slideX, int slideY) {
-		RoiObj roi = roiOverlay.activateAndGetRoiAt(slideX, slideY);
-		if (roi == null) {
-			return null;
+	public void setRotateAngle(int angle) {
+		this.currentRotateAngle = angle;
+		System.out.println("setRotateAngle:: " + angle);
+		if (angle == 0) {
+			rotatedFlag = false;
 		} else {
-			return roi.getRoiPopupDialog();
-		}
-	}
-
-	public RoiPopupDialog getRoiPopupAt(MouseEvent e) {
-		Object obj = e.getSource();
-		if(obj != null && obj instanceof RoiPopupDialog) {
-			return (RoiPopupDialog)obj;
-		}else {
-			return null;
-		}
-	}
-	
-	public RoiPopupDialog getRoiPopupAt(int slideX, int slideY) {
-		/*
-		 * MouseEventのgetXYでは、
-		 * RoiPopupDialogがJPanelのサブクラスならslideXYのままでいいのだけど TextAreaにすると座標がリセットされる
-		 */
-		Component com = roiOverlay.getComponentAt(slideX, slideY);
-		if (com != null && com != roiOverlay && com instanceof RoiPopupDialog) {
-			return (RoiPopupDialog) com;
-		} else {
-			return null;
-		}
-	}
-
-	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {
-		RoiPopupDialog rpd = getRoiPopupFromRoiAt(slideX, slideY);
-		if (rpd == null) {
-			return;
-		} else {
-			rpd.setVisible(show);
-		}
-	}
-	
-	public boolean isHereRoiPopup(MouseEvent e) {
-		Object obj = e.getSource();
-		if(obj instanceof RoiPopupDialog) {
-			return true;
-		}else {
-			return false;
+			rotatedFlag = true;
 		}
 	}
 	
@@ -2219,6 +2096,72 @@ public class SlideGlass extends JLayeredPane {
 //		return null;
 //	}
 
+	// mouse action
+	public void setSelectionState() {
+		if (isSelected()) {
+			setSelectionState(false);
+		} else {
+			setSelectionState(true);
+		}
+	}
+
+	// list selection action
+	public void setSelectionState(boolean select) {
+		this.selectedFlag = select;
+		showBorder();
+		repaint();
+	}
+
+	public void setTextVisible(boolean v) {
+		this.showText = v;
+		if (this.showText) {
+			// show annotation
+			add(textOverlay, TEXT_LAYER, 0);
+		} else {
+			// do not show annotation
+			remove(textOverlay);
+		}
+		repaint();
+	}
+
+	private void setUpGlassLayer(DicomObject header) {
+		imageSpecimen = new ImageSpecimenGlass();
+		roiOverlay = new CanvasGlass(this);
+		textOverlay = new TextOverlayGlass(header);
+		int top_in_its_layers = 0;
+		add(imageSpecimen, IMAGE_LAYER, top_in_its_layers);
+		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);
+		add(textOverlay, TEXT_LAYER, top_in_its_layers);
+		// finally, add LayerUI for Actions
+		layerUI = new SlideGlassUI(this);
+		slide = new JLayer<SlideGlass>(this, layerUI);
+		slide.setOpaque(true);// IMPORTANT
+		slide.setBackground(Color.BLACK);
+	}
+		
+	public void setViewer2DToolType(int toolType) {
+		layerUI.setViewer2DToolType(toolType);
+	}
+	
+	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {
+		RoiPopupDialog rpd = getRoiPopupFromRoiAt(slideX, slideY);
+		if (rpd == null) {
+			return;
+		} else {
+			rpd.setVisible(show);
+		}
+	}
+	
+	public void setWindowingState(boolean windowing) {
+		this.windowing = windowing;
+	}
+	
+	public void showBorder() {
+		Border b = constructBorder();
+		setBorder(b);
+		repaint();
+	}
+
 	public void showRoiPopupOf(RoiObj roi) {
 		if (roi == null) {
 			return;
@@ -2229,132 +2172,156 @@ public class SlideGlass extends JLayeredPane {
 		roi.showRoiPopupOnCanvas();
 	}
 
-	public void hideRoiDialogOf(RoiObj roi) {
-		if (roi == null) {
+	private void updatePanningState() {
+		Dimension d = calcImageSize2FitComponent();
+		if (d == null) {
 			return;
 		}
-		roi.setVisibleRoiPopup(false);
-		roiOverlay.revalidate();// no need, but maybe fail safe
-		roiOverlay.repaint();
-		repaint();
-	}
-
-	public void hideRoiDialogAt(int sx, int sy) {
-		Component com = roiOverlay.getComponentAt(sx, sy);
-		if (com != null && com != roiOverlay && com instanceof RoiPopupDialog) {
-			RoiPopupDialog rpd = (RoiPopupDialog) com;
-			rpd.setVisible(false);
-			roiOverlay.revalidate();// no need, but maybe fail safe
-			roiOverlay.repaint();
-			repaint();
+		Point defOrigin = calcDefaultImageOrigin(d.width, d.height, getWidth(), getHeight());
+		if ((this.originX == defOrigin.x) && (this.originY == defOrigin.y)) {
+			panningFlag = false;
+		} else {
+			panningFlag = true;
 		}
 	}
 
-	public void removeRoiPopupDialogOnCanvas(RoiPopupDialog rpd) {
-		if (rpd != null && roiOverlay != null) {
-			roiOverlay.remove(rpd);
-			roiOverlay.revalidate();// no need, but maybe fail safe
-			roiOverlay.repaint();
-			repaint();
-		}
-	}
-		
-	public ReferenceLine getReferenceLine() {
-		if(pp != null) {
-			return pp.getReferenceLine();
-		}else {
-			return null;
-		}
-	}
-	
-	/**
-	 * null-able.
-	 * if set to null, stop displaying localizer.
-	 * @param localizer
+	/*
+	 * slideX: x on slideglass slideY: y on slideglass
 	 */
-	public void drawLocalizer(java.util.List<java.awt.geom.Point2D> localizerGeo) {
-		roiOverlay.setLocalizerGeometry(localizerGeo);
-	}
-	
-	public void drawCross(MouseEvent e) {
-		Point currentScreenPos = e.getPoint();
-		GeneralPath path = new GeneralPath();
-    	int sx = currentScreenPos.x;
-    	int sy = currentScreenPos.y;
-        path.moveTo(0f, sy);
-        path.lineTo(slide.getWidth(), sy);
-        path.moveTo(sx, 0f);
-        path.lineTo(sx, slide.getHeight());
-        roiOverlay.setCrossLine(path);
-        //do not return
-        repaint();
-    }
-	
-	public void drawCross(Point onOrgImageCoordinatePoint) {
-    	GeneralPath path = new GeneralPath();
-    	int sx = screenX(onOrgImageCoordinatePoint.x);
-    	int sy = screenY(onOrgImageCoordinatePoint.y);
-        path.moveTo(0f, sy);
-        path.lineTo(slide.getWidth(), sy);
-        path.moveTo(sx, 0f);
-        path.lineTo(sx, slide.getHeight());
-        roiOverlay.setCrossLine(path);
-        //do not return
-        repaint();
-    }
-
-	// see, TestRoi2.java
-	public int getCurrentModifiersEx() {
-		return mouseActionFlag;
-	}
-
-	public void handleRoiMousePressed(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();// future work change to getButton()? related getModifiersEx...but buggy??
-//		roiOverlay.handleRoiMouseDown(me);
-		roiOverlay.mousePressed(me);
-	}
-
-	public void handleRoiMouseMoved(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();
-		roiOverlay.mouseMoved(me);
-	}
-
-	public boolean handleRoiMouseDragged(MouseEvent me) {
-		if(pp.isShowCrossLineMode()) {
-			drawCross(me);
+	protected void updatePrapInfoLabel(int slideX, int slideY) {
+		if (pp == null || pp.getViewMode()==ViewMode.Thumbnail) {
+			return;
 		}
-		mouseActionFlag = me.getModifiersEx();
-		return roiOverlay.handleRoiMouseDragged(me, this);
+		// 画像の原点座標を取得する
+		Point currentOrigin = getDisplayImageLocationXY();
+		// 画像のディメンションを取得する
+		Dimension currentDimension = getDisplayImageDimension();
+		// ディメンション内のとき、ピクセル値を出力する
+		if (panningFlag) {
+			/*
+			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する see,ImageSpecimen.paintComponent()
+			 */
+			int scaledOriginX = (int) (currentOrigin.x * getScaleFactor());
+			int scaledOriginY = (int) (currentOrigin.y * getScaleFactor());
+			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDimension.width)) {
+				if (scaledOriginY <= slideY && slideY < (scaledOriginY + currentDimension.height)) {
+					int imageX = slideX - scaledOriginX;
+					int imageY = slideY - scaledOriginY;
+					pp.setAndShowPixelValue(imageX, imageY);
+					logger.info("scaledOriginXY:" + scaledOriginX + " " + scaledOriginY);
+					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + imageX + " " + imageY);
+				}
+			}
+		} else {
+			/*
+			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
+			 */
+			if (currentOrigin.x <= slideX && slideX < (currentOrigin.x + currentDimension.width)) {
+				if (currentOrigin.y <= slideY && slideY < (currentOrigin.y + currentDimension.height)) {
+					int dispImageX = slideX - currentOrigin.x;
+					int dispImageY = slideY - currentOrigin.y;
+					pp.setAndShowPixelValue(dispImageX, dispImageY);
+					logger.info("originXY:" + currentOrigin.x + " " + currentOrigin.y);
+					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + dispImageX + " " + dispImageY);
+				}
+			}
+		}
 	}
 
-	public void handleRoiMouseUp(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();
-		roiOverlay.mouseReleased(me);// (me, x, y);
+	/**
+	 * 
+	 * @param StudyUID
+	 * @param seriesUID
+	 * @param sopUID
+	 * @param roiInd
+	 * @param updatedRoi : attached attributes should be same to original roi.
+	 */
+	public void updateRoi(String studyUID, String seriesUID, String sopUID, String roiInd, RoiObj updatedRoi) {
+		if(updatedRoi == null) {
+			return;
+		}
+		int ind = -1;
+		if (roiset != null && roiset.size() > 0) {
+			for(int i=0;i<roiset.size();i++) {
+				if (roiset.get(i).isThisRoi(studyUID, seriesUID, sopUID, roiInd)) {
+					ind = i;
+					break;
+				}
+			}
+			if(ind != -1) {
+				roiset.set(ind, updatedRoi);
+				insertOrUpdateRoi4DB(updatedRoi);// saveRoi to db
+			}
+		}
 	}
 
 	public void updateRoiCanvas() {
 		roiOverlay.repaint();// show roi
 	}
 
-	@Override
-	protected void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		if (panningFlag) {
-			/*
-			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する
-			 */
-			if (panningInAction) {
-				imageSpecimen.updateImage(originX, originY, getCurrentDisplayImagePlus());
-			} else {
-				imageSpecimen.updateImage(originX, originY, getScaleFactor(), getCurrentDisplayImagePlus());
-			}
-		} else if (!panningFlag && !panningInAction) {
-			/*
-			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
-			 */
-			imageSpecimen.updateImage(originX, originY, getCurrentDisplayImagePlus());
+	/*
+	 * call when component resized.
+	 */
+	public void updateScale() {
+		// DO NOT USE displayImp directly.
+		if (pp == null) {
+			return;
 		}
-		textOverlay.repaint();
-		updateRoiCanvas();// show roi
+		if (getWidth() < 1 || getHeight() < 1) {
+			return;
+		}
+		Dimension d = calcImageSize2FitComponent();
+		if (d != null) {
+			if(header != null) {
+				this.scale = (double) d.width / (double) header.getInt(Tag.Columns, getOriginalImage().getWidth());
+			}else {
+				this.scale = (double) d.width / (double)getOriginalImage().getWidth();
+			}
+		}
+	}
+
+	/**
+	 * 
+	 * @param magnification : zoom scale(0.2<, <7.0)
+	 */
+	void zoom(double mag) {
+		// set magnification min max
+		if (mag < 0.2) {
+			mag = 0.2;
+		} else if (mag > 7.0) {
+			mag = 7.0;
+		}
+		// save last mag
+		setMagnification(mag);
+//    	System.out.println("Prev mag:"+lastMagnification+" "+"New mag:"+ mag);
+		displayImageWithCurrentCondition();
+
+		// TODO
+//    	if(mag != 1.0 && !panningFlag) {
+//    		panningFlag = true;//because, image origin shifted by focuse zoom.
+//    	}
+
+		// adjust image origin, keep last pressed point(on screen) to center
+//    	スクリーン中心
+//    	int screenCX = (getWidth() / 2)-1;
+//    	int screenCY = (getHeight() /2)-1;
+////		スクリーン中心までの距離
+//		int diffCX = lastX - screenCX;
+//		int diffCY = lastY - screenCY;
+//		System.out.println("ScreenCenter distance:" + diffCX + " " + diffCY);
+//    	double moveX = 0;
+//		double moveY = 0;
+//    	if(prevImg.getWidth() >= zoomed.getWidth()) {
+//			moveX = (prevImg.getWidth() - zoomed.getWidth())/2;
+//			moveY = (prevImg.getHeight() - zoomed.getHeight())/2;
+//    	}else {
+//    		moveX = (-1 * (prevImg.getWidth() - zoomed.getWidth())/2);
+//			moveY = (-1 * (prevImg.getHeight() - zoomed.getHeight())/2);
+//    	}
+//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
+//    	moveX = moveX + diffCX*mag + lastOriginX;
+//    	moveY = moveY + diffCY*mag + lastOriginY;
+//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
+//		panning((double)moveX,(double)moveY);
 	}
 }

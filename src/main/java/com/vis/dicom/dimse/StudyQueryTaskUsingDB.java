@@ -66,7 +66,7 @@ class StudyQueryTaskUsingDB extends PatientQueryTaskUsingDB {
         studyIUIDs = StringUtils.maskNull(keys.getStrings(Tag.StudyInstanceUID));
 //        System.out.println(studyIUIDs.length);
         /* obtain all studies with keys*/
-        studyCandidate = db.getAllCandidate4StudyQuery(patRec,keys);
+        studyCandidate = db.getAllCandidate4StudyQuery(patRec.getString(Tag.PatientID), studyIUIDs);
         this.total = studyCandidate.size();
         wrappedFindNextStudy();
     }
@@ -134,7 +134,7 @@ class StudyQueryTaskUsingDB extends PatientQueryTaskUsingDB {
     	while (studyRec == null && super.findNextPatient()) {
     		this.process = 0;
     		/* この時点で、patRecは新しく更新されている。存在しない場合はNullを返す */
-    		studyCandidate = db.getAllCandidate4StudyQuery(patRec,keys);
+    		studyCandidate = db.getAllCandidate4StudyQuery(patRec.getString(Tag.PatientID),StringUtils.maskNull(keys.getStrings(Tag.StudyInstanceUID)));
     		if (studyCandidate != null && studyCandidate.size()>0) {
     			studyRec = constructInfo(studyCandidate.get(process));
     		} 

@@ -147,7 +147,7 @@ public class PraparatShelf {
 				this.sopUIDs = Arrays.asList(sopUIDs);//array
 			}
 			this.frameOfReferenceUID = frameOfReferenceUID;
-			getPraparat().wink(patID, studyUID, seriesUID, sopUIDs);
+			getPraparat().reloadSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 		}
 		
 		public Object[] getContextUIDs() {
