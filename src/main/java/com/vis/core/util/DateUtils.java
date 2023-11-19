@@ -38,7 +38,9 @@
 package com.vis.core.util;
 
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -48,6 +50,22 @@ import com.vis.dicom.DatePrecision;
 
 
 public class DateUtils {
+	
+	/*
+	 * DICOM "TM" format consists of a string of characters of the format hhmmss.frac;
+	 * kkmmss.SSS ->  see, https://docs.oracle.com/javase/jp/8/docs/api/java/time/format/DateTimeFormatter.html
+	 * where hh contains hours (range "00" - "23"), mm contains minutes (range "00" - "59"), 
+	 * ss contains seconds (range "00" - "59"), 
+	 * and frac contains a fractional part of a second as small as 1 millionth of a second (range 000000 - 999999).
+	 */
+	private static DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+	private static DateFormat sqlDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	//use kk instead HH for represent 24 hour.
+	//DICOM TM format represent time in kk:mm:ss.SSS000. Here, last "000" is padding vales to represent milisec in 6 digits.
+	//DO NOT USE kkmmss.SSSSSS. This occurs 000SSS nor SSS000(DICOM form).
+	//see also DateUtils.
+	private static DateFormat timeFormat = new SimpleDateFormat("kk:mm:ss.SSS");//use kk instead HH for represent 24 hour.
+	
 
     public static final Date[] EMPTY_DATES = {};
 
@@ -386,18 +404,21 @@ public class DateUtils {
 	 * 
 	 * @param ymd : yyyy/MM/dd or yyyy-MM-dd or yyyyMMdd
 	 * @param splitter : / or -
-	 * @return
+	 * @return yyyy/MM/dd
 	 */
 	public static java.util.Date toDateObj(String ymd, String splitter) {
 		if(ymd == null) {
 			return null;
 		}
-		if(splitter == null || !(splitter.equals("/") || splitter.equals("-"))) {
+		if(splitter == null) {
 			splitter ="/";
+		}
+		if(!splitter.equals("/") && !splitter.equals("-")) {
+			splitter = "/";
 		}
 		ymd = ymd.trim();
 		if(ymd.length() == 8) {
-			//in this case, ymd not include splitter, (yyyyMMdd)
+			//in this case, ymd does not include splitter, (yyyyMMdd)
 			//add to it
 			String yyyy = ymd.substring(0, 4);
 			String MM = ymd.substring(4, 6);
@@ -405,17 +426,55 @@ public class DateUtils {
 			ymd = yyyy+splitter+MM+splitter+dd;
 		}else {
 			if (!ymd.contains(splitter)) {
-				ymd = ymd.replace("-", splitter);// fail safe
-				ymd = ymd.replace("/", splitter);// fail safe
-//				ymd = ymd.replace(" ", splitter);//fail safe
+				ymd = ymd.replace("-", splitter);
 			}
 		}
-		
 		try {
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy"+splitter+"MM"+splitter+"dd");
-			sdf.setLenient(false);
 			return sdf.parse(ymd);
 		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	/**
+	 * 
+	 * @param time : kkmmss.SSS000 or kk:mm:ss.SSS000
+	 * @param splitter
+	 * @return kk:mm:ss or kk:mm:ss.SSS
+	 */
+	public static java.util.Date toTimeObj(String time, String splitter) {
+		if(time == null || time.length()==0) {
+			return null;
+		}
+		if(splitter == null || !splitter.equals(":")) {
+			splitter =":";
+		}
+		time = time.trim();
+		String kms = null;
+		String ms = "";
+		if(time.contains(".")) {
+			String timeAndMilisec[] = time.split(".");
+			kms = timeAndMilisec[0];
+			ms = timeAndMilisec[1];
+		}else {
+			kms = time;
+		}
+		if(kms.length() == 6 /*kkmmss*/) {
+			String kk = kms.substring(0, 2);
+			String mm = kms.substring(2, 4);
+			String ss = kms.substring(4, 6);
+			kms = kk+splitter+mm+splitter+ss;
+		}else if(kms.length() == 8 /*kk?mm?ss*/){
+			String kk = kms.substring(0, 2);
+			String mm = kms.substring(3, 5);
+			String ss = kms.substring(6, 8);
+			kms = kk+splitter+mm+splitter+ss;
+		}
+		try {
+			timeFormat.setLenient(false);
+			return timeFormat.parse(kms+"."+ms);
+		} catch (ParseException ex) {
 			return null;
 		}
 	}
@@ -431,13 +490,54 @@ public class DateUtils {
 		}
 		try {
 			java.util.Date date = toDateObj(ymd, "-"); 
-			DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");//must to change this format to sql.Date
 			java.sql.Date sqlDate = null;
 			if(date != null) {
-				String str = dateFormat.format(date);
+				String str = sqlDateFormat.format(date);
 				sqlDate = java.sql.Date.valueOf(str);
 			}
 			return sqlDate;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	public static java.sql.Date toSQLDateObj(java.util.Date ymd) {
+		if(ymd == null) {
+			return null;
+		}
+		try {
+			String str = sqlDateFormat.format(ymd);
+			java.sql.Date sqlDate = java.sql.Date.valueOf(str);
+			return sqlDate;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	public static java.sql.Time toSQLTime(String kms/*kk:mm:ss.SSS*/, String splitter) {
+		if(kms == null) {
+			return null;
+		}
+		try {
+			java.util.Date time = toTimeObj(kms, splitter);
+			java.sql.Time sqlTime = null;
+			if(time != null) {
+				String str = timeFormat.format(time);
+				sqlTime = java.sql.Time.valueOf(str);
+			}
+			return sqlTime;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	public static java.sql.Time toSQLTime(java.util.Date time) {
+		if(time == null) {
+			return null;
+		}
+		try {
+			java.sql.Time sqlTime = new java.sql.Time(time.getTime());
+			return sqlTime;
 		} catch (Exception ex) {
 			return null;
 		}

@@ -14,17 +14,16 @@ import java.util.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
-
-import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.Tag;
-
 import com.vis.core.log.Log;
+import com.vis.core.util.DateUtils;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Tag;
+import com.vis.dicom.UID;
 import com.vis.dicom.dimse.DcmQRSCP;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,9 +94,12 @@ public class DatabaseHandler {
 	 * ss contains seconds (range "00" - "59"), 
 	 * and frac contains a fractional part of a second as small as 1 millionth of a second (range 000000 - 999999).
 	 */
-	private DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-	private DateFormat timeFormat1 = new SimpleDateFormat("kkmmss");//use kk instead HH for represent 24 hour.
-//	private DateFormat timeFormat2 = new SimpleDateFormat("kkmmss.SSS");//use kk instead HH for represent 24 hour.
+	private DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+	//use kk instead HH for represent 24 hour.
+	//DICOM TM format represent time in kk:mm:ss.SSS000. Here, last "000" is padding vales to represent milisec in 6 digits.
+	//DO NOT USE kkmmss.SSSSSS. This occurs 000SSS nor SSS000(DICOM form).
+	//see also DateUtils.
+	private DateFormat timeFormat = new SimpleDateFormat("kk:mm:ss.SSS");//use kk instead HH for represent 24 hour.
 	
 	private boolean saveAsLink = false;
 	
@@ -297,7 +299,7 @@ public class DatabaseHandler {
 		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
 		if(!recFac.exists()) {
 			try {
-				File defRecFac = new File(getClass().getResource(Resources.RecordFactory.path()).toURI());
+				File defRecFac = new File(Resources.RecordFactory.toURL().toURI());
 				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
 				Path src = Paths.get(defRecFac.toURI());
 				Path out = Paths.get(recFac.toURI());
@@ -786,21 +788,21 @@ public class DatabaseHandler {
 		Connection conn = openConnection();
 		// initial annotations
 		ArrayList<Integer> tags = new ArrayList<>();
-		tags.add(Tag.PatientID);
-		tags.add(Tag.PatientName);
-    	tags.add(Tag.PatientBirthDate);
-		tags.add(Tag.PatientAge);
-		tags.add(Tag.PatientSex);
-		tags.add(Tag.InstitutionName);
-		tags.add(Tag.StudyDate);
-		tags.add(Tag.StudyTime);
-		tags.add(Tag.SeriesDescription);
-		tags.add(Tag.InstanceNumber);
-		tags.add(Tag.SeriesNumber);
-		tags.add(Tag.SliceLocation);
-		tags.add(Tag.SliceThickness);
-		tags.add(Tag.FieldOfViewDimensions);
-		tags.add(Tag.ManufacturerModelName);
+		tags.add(Tag.Patient​ID);
+		tags.add(Tag.Patient​Name);
+    	tags.add(Tag.Patient​Birth​Date);
+		tags.add(Tag.Patient​Age);
+		tags.add(Tag.Patient​Sex);
+		tags.add(Tag.Institution​Name);
+		tags.add(Tag.Study​Date);
+		tags.add(Tag.Study​Time);
+		tags.add(Tag.Series​Description);
+		tags.add(Tag.Instance​Number);
+		tags.add(Tag.Series​Number);
+		tags.add(Tag.Slice​Location);
+		tags.add(Tag.Slice​Thickness);
+		tags.add(Tag.Field​Of​View​Dimensions);
+		tags.add(Tag.Manufacturer​Model​Name);
 		tags.add(Tag.Rows);
 		tags.add(Tag.Columns);
 		for (Integer tag : tags) {
@@ -971,10 +973,10 @@ public class DatabaseHandler {
 		
 	public boolean checkCanImport(DicomObject ds) {
 		boolean canImport = false;
-		String patID = ds.getString(Tag.PatientID);
-		String studyUID = ds.getString(Tag.StudyInstanceUID);
-		String seriesUID = ds.getString(Tag.SeriesInstanceUID);
-		String sopUID = ds.getString(Tag.SOPInstanceUID);
+		String patID = ds.getString(Tag.Patient​ID);
+		String studyUID = ds.getString(Tag.Study​Instance​UID);
+		String seriesUID = ds.getString(Tag.Series​Instance​UID);
+		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
 		if(checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
 			return canImport;
@@ -986,10 +988,10 @@ public class DatabaseHandler {
 	
 	public boolean overWriteSavedAsLinkRecord(DicomObject ds,boolean saveAsLinkWillImport) {
 		boolean overWrite = false;
-		String patID = ds.getString(Tag.PatientID);
-		String studyUID = ds.getString(Tag.StudyInstanceUID);
-		String seriesUID = ds.getString(Tag.SeriesInstanceUID);
-		String sopUID = ds.getString(Tag.SOPInstanceUID);
+		String patID = ds.getString(Tag.Patient​ID);
+		String studyUID = ds.getString(Tag.Study​Instance​UID);
+		String seriesUID = ds.getString(Tag.Series​Instance​UID);
+		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
 		if(checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
 			/* check existing data is savedAsLink? */
@@ -1013,125 +1015,98 @@ public class DatabaseHandler {
 		}
 		try {
 			insertPatientInfo(dataset);
-			insertStudyInfo(dataset, saveAsLink, dataset.getString(Tag.PatientID));
-			insertSeriesInfo(dataset, dataset.getString(Tag.PatientID), dataset.getString(Tag.StudyInstanceUID),
+			insertStudyInfo(dataset, saveAsLink, dataset.getString(Tag.Patient​ID));
+			insertSeriesInfo(dataset, dataset.getString(Tag.Patient​ID), dataset.getString(Tag.Study​Instance​UID),
 					saveAsLink);
 			if(!overWrite) {
-				insertImageInfo(dataset, filePath, dataset.getString(Tag.PatientID),
-						dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID),saveAsLink);
+				insertImageInfo(dataset, filePath, dataset.getString(Tag.Patient​ID),
+						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),saveAsLink);
 			}else {
-				updateImageInfo(dataset, filePath, dataset.getString(Tag.PatientID),
-						dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID),saveAsLink);
+				updateImageInfo(dataset, filePath, dataset.getString(Tag.Patient​ID),
+						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),saveAsLink);
 			}
 		} catch (Exception e) {
 			logger.severe( "DatabaseHandler - Failed to update patient information\n"+e.getMessage());
 		}
 	}
 
-	public void insertPatientInfo(DicomObject dataset) {
-		if (!(checkRecordExists("PATIENT", "PatientID", dataset.getString(Tag.PatientID)))) {
+	private void insertPatientInfo(DicomObject dataset) {
+		if (!(checkRecordExists("PATIENT", "PatientID", dataset.getString(Tag.Patient​ID)))) {
 			Connection conn = openConnection();
-			java.util.Date date = null;
-			java.sql.Date sqlDate = null;
-			date = dataset.getDate(Tag.PatientBirthDate);
-			if(date != null) {
-				String str = dateFormat.format(date);
-				sqlDate = java.sql.Date.valueOf(str);
-			}
-			//check string
-//			dateFormat.format(dataset.getDate(Tag.PatientBirthDate))
+			java.util.Date bod = dataset.getDate(Tag.Patient​Birth​Date);
+			java.sql.Date sqlBod = DateUtils.toSQLDateObj(bod);
 			try {
 				PreparedStatement insertStmt = conn.prepareStatement("insert into patient values(?,?,?,?)");
-				insertStmt.setString(1, dataset.getString(Tag.PatientID));
-				insertStmt.setString(2, dataset.getString(Tag.PatientName));
-				insertStmt.setDate(3, sqlDate);
-				insertStmt.setString(4, dataset.getString(Tag.PatientSex));
+				insertStmt.setString(1, dataset.getString(Tag.Patient​ID));
+				insertStmt.setString(2, dataset.getString(Tag.Patient​Name));
+				insertStmt.setDate(3, sqlBod);
+				insertStmt.setString(4, dataset.getString(Tag.Patient​Sex));
 				insertStmt.execute();
 				insertStmt.close();
 				conn.commit();//fail safe
 			} catch (SQLException ex) {
 				logger.severe("DatabaseHandler - Unable to save patient information\n"+ex.getMessage());
 			}finally {
-					safeClose(conn);
+				safeClose(conn);
 			}
 		}
 	}
 
-	public void insertStudyInfo(DicomObject dataset, boolean saveAsLink, String patientID) {
-		if (!checkRecordExists("STUDY", "StudyInstanceUID", dataset.getString(Tag.StudyInstanceUID))) {
+	private void insertStudyInfo(DicomObject dataset, boolean saveAsLink, String patientID) {
+		if (!checkRecordExists("STUDY", "StudyInstanceUID", dataset.getString(Tag.Study​Instance​UID))) {
 			Connection conn = openConnection();
 			try {
 				/* Study date */
-				java.util.Date date = null;
-				date = dataset.getDate(Tag.StudyDate);
-				java.sql.Date sqlDate = null;
-				if(date != null) {
-					String datestr = dateFormat.format(date);
-					sqlDate = java.sql.Date.valueOf(datestr);
-				}
+				java.util.Date date = dataset.getDate(Tag.Study​Date);
+				java.sql.Date sqlDate = DateUtils.toSQLDateObj(date);
 				
 		       /* Study Time */
-				String time = dataset.getString(Tag.StudyTime);
-				java.sql.Time sqlTime = null;
-				try {
-					if(time != null) {
-						sqlTime = new java.sql.Time(timeFormat1.parse(time).getTime());
-					}
-				} catch (ParseException e) {
-					// TODO Auto-generated catch block
-					logger.severe("This StudyTime not formatted kkmmss.SSS");
-					try {
-						sqlTime = new java.sql.Time(new SimpleDateFormat("kkmmss").parse(time).getTime());
-					} catch (ParseException e1) {
-						logger.severe("Can not read StudyTime that is not formatted kkmmss.SSS/kkmmss, return as null");
-						e1.printStackTrace();
-						//continue write record  
-					}
-				}
+				java.util.Date time = dataset.getDate(Tag.Study​Time);
+				/*ignore milliseconds in db, but it remains in dataset.*/
+				java.sql.Time sqlTime = DateUtils.toSQLTime(time);
+
+				java.util.Date birthOfDate = dataset.getDate(Tag.Patient​Birth​Date);
+				Integer age = Utils.calculateAge(birthOfDate, date);
 				
-				java.util.Date birthOfDate = null;
-				birthOfDate = dataset.getDate(Tag.PatientBirthDate);
-				String age = Utils.calculateAge(birthOfDate);
-				
-				String accessionNo = (dataset.getString(Tag.AccessionNumber) != null
-						&& dataset.getString(Tag.AccessionNumber).length() > 0) ? dataset.getString(Tag.AccessionNumber)
+				String accessionNo = (dataset.getString(Tag.Accession​Number) != null
+						&& dataset.getString(Tag.Accession​Number).length() > 0) ? dataset.getString(Tag.Accession​Number)
 								: "";
-				String refName = (dataset.getString(Tag.ReferringPhysicianName) != null
-						&& dataset.getString(Tag.ReferringPhysicianName).length() > 0)
-								? dataset.getString(Tag.ReferringPhysicianName)
+				String refName = (dataset.getString(Tag.Referring​Physician​Name) != null
+						&& dataset.getString(Tag.Referring​Physician​Name).length() > 0)
+								? dataset.getString(Tag.Referring​Physician​Name)
 								: "";
-				String retAe = (dataset.getString(Tag.RetrieveAETitle) != null
-						&& dataset.getString(Tag.RetrieveAETitle).length() > 0) ? dataset.getString(Tag.RetrieveAETitle)
+				String retAe = (dataset.getString(Tag.Retrieve​AE​Title) != null
+						&& dataset.getString(Tag.Retrieve​AE​Title).length() > 0) ? dataset.getString(Tag.Retrieve​AE​Title)
 								: "";
-				String studyDesc = (dataset.getString(Tag.StudyDescription) != null
-						&& dataset.getString(Tag.StudyDescription).length() > 0)
-								? dataset.getString(Tag.StudyDescription)
+				String studyDesc = (dataset.getString(Tag.Study​Description) != null
+						&& dataset.getString(Tag.Study​Description).length() > 0)
+								? dataset.getString(Tag.Study​Description)
 								: "";
-				String studyId = (dataset.getString(Tag.StudyID) != null
-										&& dataset.getString(Tag.StudyID).length() > 0)
-												? dataset.getString(Tag.StudyID)
+				String studyId = (dataset.getString(Tag.Study​ID) != null
+										&& dataset.getString(Tag.Study​ID).length() > 0)
+												? dataset.getString(Tag.Study​ID)
 												: "";
-				int numOfSeries = getNumOfSeries(patientID, dataset.getString(Tag.StudyInstanceUID))+1;
-				int numOfInst = getNumOfInstancesInStudy(patientID, dataset.getString(Tag.StudyInstanceUID))+1;
+				int numOfSeries = getNumOfSeries(patientID, dataset.getString(Tag.Study​Instance​UID))+1;
+				int numOfInst = getNumOfInstancesInStudy(patientID, dataset.getString(Tag.Study​Instance​UID))+1;
 				
 				// 15 state, be careful
 				PreparedStatement insertStmt = conn
 						.prepareStatement("insert into study values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-				insertStmt.setString(1, dataset.getString(Tag.StudyInstanceUID));
+				insertStmt.setString(1, dataset.getString(Tag.Study​Instance​UID));
 				insertStmt.setDate(2, sqlDate);
 				insertStmt.setTime(3, sqlTime);
 				insertStmt.setString(4, accessionNo);
-				insertStmt.setString(5, refName);
-				insertStmt.setString(6, studyDesc.replace('/', ' '));
-				insertStmt.setString(7, studyId.replace('/', ' '));
-				insertStmt.setString(8, dataset.getString(Tag.ModalitiesInStudy));
-				insertStmt.setInt(9, numOfSeries);//dataset.getInt(Tag.NumberOfStudyRelatedSeries,0));//TODO:実際にDBに登録された数に
-				insertStmt.setInt(10, numOfInst);//);dataset.getInt(Tag.NumberOfStudyRelatedInstances,0));//TODO
-				insertStmt.setInt(11, 0);//RecdImgCnt
-				insertStmt.setInt(12, 0);//SendImgCnt
-				insertStmt.setString(13, retAe);
+				insertStmt.setString(5, refName);//deprecated
+				insertStmt.setString(6, studyDesc);
+				insertStmt.setString(7, studyId);
+				insertStmt.setString(8, dataset.getString(Tag.Modalities​In​Study));
+				insertStmt.setInt(9, numOfSeries);
+				insertStmt.setInt(10, numOfInst);
+				insertStmt.setInt(11, 0);//RecdImgCnt//deprecated
+				insertStmt.setInt(12, 0);//SendImgCnt//deprecated
+				insertStmt.setString(13, retAe);//deprecated
 				insertStmt.setBoolean(14, false);//DownloadStatus
-				insertStmt.setString(15,age);
+				insertStmt.setInt(15,age);//deprecated
 				insertStmt.setString(16, patientID);
 				insertStmt.execute();
 				insertStmt.close();
@@ -1140,72 +1115,45 @@ public class DatabaseHandler {
 				logger.severe("DatabaseHandler - Unable to save study information\n"+ex.getMessage());
 			} finally {
 				safeClose(conn);
-//				mainTreeTableRefresher();
 			}
 		}
 	}
 
-	public void insertSeriesInfo(final DicomObject dataset, String patientId, String studyUid, boolean saveAsLink) {
-		/*
-		 * do not use checkSeriesRecordExists here.
-		 * Each UIDs is primary-key, which not allow duplicate, always be identical and unique in tables.
-		 */
-		if (!checkRecordExists("SERIES", "SeriesInstanceUID", dataset.getString(Tag.SeriesInstanceUID))) {
+	private void insertSeriesInfo(final DicomObject dataset, String patientId, String studyUid, boolean saveAsLink) {
+		if (!checkRecordExists("SERIES", "SeriesInstanceUID", dataset.getString(Tag.Series​Instance​UID))) {
 			Connection conn = openConnection();
 			/* Series Date */
-			String datestr = (dataset.getString(Tag.SeriesDate) != null && dataset.getString(Tag.SeriesDate).length() > 0)
-					? dateFormat.format(dataset.getDate(Tag.SeriesDate))
-					: null;
-			java.sql.Date sqlDate = null;
-			if(datestr != null) {
-				sqlDate = java.sql.Date.valueOf(datestr);
-			}
-			
+			java.util.Date date = dataset.getDate(Tag.Series​Date);
+			java.sql.Date sqlDate = DateUtils.toSQLDateObj(date);
 			/* Series Time */
-			String time = dataset.getString(Tag.SeriesTime);
-			java.sql.Time sqlTime = null;
-			if (time != null) {
-				try {
-					sqlTime = new java.sql.Time(timeFormat1.parse(time).getTime());
-				} catch (ParseException e) {
-					logger.severe( "This SeriesTime not formatted kkmmss.SSS");
-					try {
-						sqlTime = new java.sql.Time(new SimpleDateFormat("kkmmss").parse(time).getTime());
-						logger.severe( "This SeriesTime was recovered formatted kkmmss");
-					} catch (ParseException e1) {
-						e1.printStackTrace();
-						//continue write record
-					}
-				}
-			}
+			java.util.Date time = dataset.getDate(Tag.Series​Time);
+			/*ignore milliseconds*/
+			java.sql.Time sqlTime = DateUtils.toSQLTime(time);
 			
-			int numImages = getNumOfInstanceInSeries(patientId, studyUid, dataset.getString(Tag.SeriesInstanceUID))+1;
-//			int numImages = (dataset.getString(Tag.NumberOfSeriesRelatedInstances) != null
-//					&& dataset.getString(Tag.NumberOfSeriesRelatedInstances).length() > 0)
-//							? dataset.getInt(Tag.NumberOfSeriesRelatedInstances, 0)
-//							: 0;
-			String institution = (dataset.getString(Tag.InstitutionName) != null
-					&& dataset.getString(Tag.InstitutionName).length() > 0) ? dataset.getString(Tag.InstitutionName)
+			int numImages = getNumOfInstanceInSeries(patientId, studyUid, dataset.getString(Tag.Series​Instance​UID))+1;
+
+			String institution = (dataset.getString(Tag.Institution​Name) != null
+					&& dataset.getString(Tag.Institution​Name).length() > 0) ? dataset.getString(Tag.Institution​Name)
 							: "";
-			String seriesNo = (dataset.getString(Tag.SeriesNumber) != null
-					&& dataset.getString(Tag.SeriesNumber).length() > 0) ? dataset.getString(Tag.SeriesNumber) : "";
+			String seriesNo = (dataset.getString(Tag.Series​Number) != null
+					&& dataset.getString(Tag.Series​Number).length() > 0) ? dataset.getString(Tag.Series​Number) : "";
 			String modality = (dataset.getString(Tag.Modality) != null && dataset.getString(Tag.Modality).length() > 0)
 					? dataset.getString(Tag.Modality)
 					: "";
-			String modelName = (dataset.getString(Tag.ManufacturerModelName) != null
-					&& dataset.getString(Tag.ManufacturerModelName).length() > 0)
-							? dataset.getString(Tag.ManufacturerModelName)
+			String modelName = (dataset.getString(Tag.Manufacturer​Model​Name) != null
+					&& dataset.getString(Tag.Manufacturer​Model​Name).length() > 0)
+							? dataset.getString(Tag.Manufacturer​Model​Name)
 							: "";
-			String seriesDesc = (dataset.getString(Tag.SeriesDescription) != null
-					&& dataset.getString(Tag.SeriesDescription).length() > 0) ? dataset.getString(Tag.SeriesDescription)
+			String seriesDesc = (dataset.getString(Tag.Series​Description) != null
+					&& dataset.getString(Tag.Series​Description).length() > 0) ? dataset.getString(Tag.Series​Description)
 							: "";
-			String bodyPartExamined = (dataset.getString(Tag.BodyPartExamined) != null
-					&& dataset.getString(Tag.BodyPartExamined).length() > 0) ? dataset.getString(Tag.BodyPartExamined)
+			String bodyPartExamined = (dataset.getString(Tag.Body​Part​Examined) != null
+					&& dataset.getString(Tag.Body​Part​Examined).length() > 0) ? dataset.getString(Tag.Body​Part​Examined)
 							: "";
 			try {
 				PreparedStatement insertStmt = conn
 						.prepareStatement("insert into series values(?,?,?,?,?,?,?,?,?,?,?,?)");
-				insertStmt.setString(1, dataset.getString(Tag.SeriesInstanceUID));
+				insertStmt.setString(1, dataset.getString(Tag.Series​Instance​UID));
 				insertStmt.setString(2, seriesNo);
 				insertStmt.setDate(3, sqlDate);
 				insertStmt.setTime(4, sqlTime);
@@ -1229,7 +1177,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void insertImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
+	private void insertImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
 		
 			Connection conn = openConnection();
@@ -1237,106 +1185,83 @@ public class DatabaseHandler {
 			int totalFrame = 0;
 			boolean encapsulatedPDF = false;
 
-			if (dataset.getString(Tag.SOPClassUID) != null
-					&& dataset.getString(Tag.SOPClassUID).equalsIgnoreCase("1.2.840.10008.5.1.4.1.1.104.1")) {
+			if (dataset.getString(Tag.SOP​Class​UID) != null
+					&& dataset.getString(Tag.SOP​Class​UID).equals(UID.EncapsulatedPDFStorage.uid())) {
 				encapsulatedPDF = true;
 			}
 
-			if (dataset.getString(Tag.NumberOfFrames) != null
-					&& Integer.parseInt(dataset.getString(Tag.NumberOfFrames)) > 1) {
+			if (dataset.getString(Tag.Number​Of​Frames) != null
+					&& Integer.parseInt(dataset.getString(Tag.Number​Of​Frames)) > 1) {
 				multiframe = true;
-				totalFrame = dataset.getInt(Tag.NumberOfFrames,-1);
+				totalFrame = dataset.getInt(Tag.Number​Of​Frames,-1);
 			}
-			String acquisitionNo = dataset.getString(Tag.AcquisitionNumber) != null
-					? dataset.getString(Tag.AcquisitionNumber)
+			String acquisitionNo = dataset.getString(Tag.Acquisition​Number) != null
+					? dataset.getString(Tag.Acquisition​Number)
 					: "";
-			String acquisitionDateTime = dataset.getString(Tag.AcquisitionDateTime) != null
-					? dataset.getString(Tag.AcquisitionDateTime)
-					: null;
-			java.sql.Time sqlAcqDateTime = null;			
-			if (acquisitionDateTime != null) {
-				try {
-					sqlAcqDateTime = new java.sql.Time(timeFormat1.parse(acquisitionDateTime).getTime());
-				} catch (ParseException e) {
-					// TODO Auto-generated catch block
-					logger.severe( "This AcquisitionDateTime not formatted kkmmss.SSS");
-					try {
-						sqlAcqDateTime = new java.sql.Time(new SimpleDateFormat("kkmmss").parse(acquisitionDateTime).getTime());
-						logger.severe( "This AcquisitionDateTime was recovered formatted kkmmss");
-					} catch (ParseException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-						//continue write record
-					}
-				}
-			}
-			
-			String frameOfRefUid = dataset.getString(Tag.FrameOfReferenceUID) != null
-					? dataset.getString(Tag.FrameOfReferenceUID)
+			java.util.Date acqDateTime = dataset.getDate(Tag.Acquisition​Date​Time);
+			java.sql.Time sqlAcqDateTime = DateUtils.toSQLTime(acqDateTime);			
+
+			String frameOfRefUid = dataset.getString(Tag.Frame​Of​Reference​UID) != null
+					? dataset.getString(Tag.Frame​Of​Reference​UID)
 					: "";
-			String imgPos = dataset.getBytes(Tag.ImagePosition) != null
-					? new String(dataset.getBytes(Tag.ImagePosition))
+			String imgPos = dataset.getBytes(Tag.Image​Position) != null
+					? new String(dataset.getBytes(Tag.Image​Position))
 					: "";
-			String imgOrientation = dataset.getBytes(Tag.ImageOrientation) != null
-					? new String(dataset.getBytes(Tag.ImageOrientation))
-					: "null";
-			String pixelSpacing = dataset.getBytes(Tag.PixelSpacing) != null
-					? new String(dataset.getBytes(Tag.PixelSpacing))
+			String imgOrientation = dataset.getBytes(Tag.Image​Orientation) != null
+					? new String(dataset.getBytes(Tag.Image​Orientation))
+					: "";
+			String pixelSpacing = dataset.getBytes(Tag.Pixel​Spacing) != null
+					? new String(dataset.getBytes(Tag.Pixel​Spacing))
 					: "";
 			int row = dataset.getInt(Tag.Rows, 0) != 0 ? dataset.getInt(Tag.Rows, 0) : 1;
 			int columns = dataset.getInt(Tag.Columns, 0) != 0 ? dataset.getInt(Tag.Columns, 0) : 1;
 			String referSopInsUid = "", image_type = "";
-			String sliceThickness = dataset.getBytes(Tag.SliceThickness) != null
-					? new String(dataset.getBytes(Tag.SliceThickness))
+			String sliceThickness = dataset.getBytes(Tag.Spacing​Between​Slices) != null
+					? new String(dataset.getBytes(Tag.Spacing​Between​Slices))
 					: "";
 			// To get the Referenced SOP Instance UID
-			DicomObject refImageSeq = dataset.getNestedDataset(Tag.ReferencedImageSequence);
+			DicomObject refImageSeq = dataset.getNestedDataset(Tag.Referenced​Image​Sequence);
 			if (refImageSeq != null) {
-				//TODO recursive search in Sequences ?
-//                if (refImageSeq.hasItems()) {//tatsu
-//                    Attributes dcmObj1 = refImageSeq.getDicomObject();
-//                    referSopInsUid = dcmObj1.get(Tag.ReferencedSOPInstanceUID) != null ? new String(dcmObj1.get(Tag.ReferencedSOPInstanceUID).getBytes()) : "";
-//                }
-				referSopInsUid = refImageSeq.getString(Tag.ReferencedSOPInstanceUID);
+				referSopInsUid = refImageSeq.getString(Tag.Referenced​SOP​Instance​UID);
 			}
 			// To get the Image Type (LOCALIZER / AXIAL / OTHER)
-			image_type = dataset.getBytes(Tag.ImageType) != null ? new String(dataset.getBytes(Tag.ImageType)) : "";
+			image_type = dataset.getBytes(Tag.Image​Type) != null ? new String(dataset.getBytes(Tag.Image​Type)) : "";
 			String[] imageTypes = image_type.split("\\\\");
 			if (imageTypes.length >= 3) {
 				image_type = imageTypes[2];
 			}
-			String[] imagePosition = dataset.getStrings(Tag.ImagePosition);
+			String[] imagePosition = dataset.getStrings(Tag.Image​Position);
 			String sliceLoc = imagePosition != null && imagePosition[2] != null ? imagePosition[2] : "0";
 			/* TSUID only can get from dicominputstream... */
 			String tsUID = DicomUtilities.getTransferSyntaxUID(filePath);
 			try {
 				PreparedStatement insertStmt = conn
 						.prepareStatement("insert into image values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-				insertStmt.setString(1, dataset.getString(Tag.SOPInstanceUID));
-				insertStmt.setString(2, dataset.getString(Tag.SOPClassUID));
-				insertStmt.setInt(3, dataset.getInt(Tag.InstanceNumber, 0));
+				insertStmt.setString(1, dataset.getString(Tag.SOP​Instance​UID));
+				insertStmt.setString(2, dataset.getString(Tag.SOP​Class​UID));
+				insertStmt.setInt(3, dataset.getInt(Tag.Instance​Number, 1));
 				insertStmt.setString(4, acquisitionNo);
 				insertStmt.setBoolean(5, multiframe);
 				insertStmt.setInt(6, totalFrame);
-				insertStmt.setString(7, "partial");
+				insertStmt.setString(7, "partial");//deprecated
 				insertStmt.setTime(8, sqlAcqDateTime);
-				insertStmt.setTime(9, null);//TODO ForwardDateTime
+				insertStmt.setTime(9, null);//TODO ForwardDateTime//deprecated
 				insertStmt.setTime(10, null);//TODO ReceivedDateTime
-				insertStmt.setString(11, "partial");//ReceiveStatus
+				insertStmt.setString(11, "partial");//ReceiveStatus//deprecated
 				insertStmt.setString(12, filePath);
 				insertStmt.setBoolean(13, saveAsLink);
 				insertStmt.setInt(14, Integer.parseInt(sliceLoc));
 				insertStmt.setBoolean(15, encapsulatedPDF);
-				insertStmt.setBoolean(16, false);//ThumbnailStatus
-				insertStmt.setString(17, frameOfRefUid);
-				insertStmt.setString(18, imgPos);
-				insertStmt.setString(19, imgOrientation);
-				insertStmt.setString(20, image_type);
-				insertStmt.setString(21, pixelSpacing);
-				insertStmt.setString(22, sliceThickness);
-				insertStmt.setInt(23, row);
-				insertStmt.setInt(24, columns);
-				insertStmt.setString(25, referSopInsUid.trim());
+				insertStmt.setBoolean(16, false);//ThumbnailStatus//deprecated
+				insertStmt.setString(17, frameOfRefUid);//deprecated
+				insertStmt.setString(18, imgPos);//deprecated
+				insertStmt.setString(19, imgOrientation);//deprecated
+				insertStmt.setString(20, image_type);//deprecated
+				insertStmt.setString(21, pixelSpacing);//deprecated
+				insertStmt.setString(22, sliceThickness);//deprecated
+				insertStmt.setInt(23, row);//deprecated
+				insertStmt.setInt(24, columns);//deprecated
+				insertStmt.setString(25, referSopInsUid.trim());//deprecated
 				insertStmt.setString(26, tsUID);
 				insertStmt.setString(27, patientID);
 				insertStmt.setString(28, studyUid);
@@ -1365,10 +1290,10 @@ public class DatabaseHandler {
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, filePath);
 			pstmt.setBoolean(2, saveAsLink);
-			pstmt.setString(3, dataset.getString(Tag.PatientID));
-			pstmt.setString(4, dataset.getString(Tag.StudyInstanceUID));
-			pstmt.setString(5, dataset.getString(Tag.SeriesInstanceUID));
-			pstmt.setString(6, dataset.getString(Tag.SOPInstanceUID));
+			pstmt.setString(3, dataset.getString(Tag.Patient​ID));
+			pstmt.setString(4, dataset.getString(Tag.Study​Instance​UID));
+			pstmt.setString(5, dataset.getString(Tag.Series​Instance​UID));
+			pstmt.setString(6, dataset.getString(Tag.SOP​Instance​UID));
 			pstmt.executeUpdate();
 			pstmt.close();
 			conn.commit();
@@ -2873,55 +2798,10 @@ public class DatabaseHandler {
 		String bod = getParticularInfoFromPatient("PatientBirthDate",patID);
 		infoset.put("PatientBirthDate", bod);
 		infoset.put("PatientSex", getParticularInfoFromPatient("PatientSex",patID));
-		//calc age
-		if(studyDate != null) {
-			studyDate = studyDate.replace("-", "/");
-		}
-		if(bod != null) {
-			bod = bod.replace("-", "/");
-		}
-		int age = calcAge(bod, studyDate);
-		infoset.put("PatientAge", age == -1 ? null : String.valueOf(age));
+		//calc age when study performed.
+		Integer age = Utils.calculateAge(bod, studyDate);
+		infoset.put("PatientAge", age == null ? null : String.valueOf(age));
 		return infoset;
-	}
-	
-	private int calcAge(String bod,  String studyDate) {
-		if(bod == null || studyDate == null) {
-			return -1;
-		}
-		//fail safe
-		bod = bod.replace("-", "/");
-		studyDate = studyDate.replace("-", "/");
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-		try {
-			java.util.Date birth = sdf.parse(bod);
-			java.util.Date studydate = sdf.parse(studyDate);
-			long diff = studydate.getTime() - birth.getTime();
-            int diffDays = (int) (diff / (24 * 60 * 60 * 1000));
-            return (int) diffDays/365;
-		} catch (ParseException e) {
-			System.out.println("can not calulate age... return -1.");
-			return -1;
-		}
-	}
-	
-	public String getPatientName(String PID) {
-		Connection conn = openConnection();
-		String pname = null;
-		try {
-			ResultSet rs = conn.createStatement().executeQuery("select PatientName" + " from PATIENT"
-					+ " where PatientID" + " = '" + PID.trim() + "'");
-			if(rs.next()) {
-				pname = rs.getString("PatientName");
-			}
-			conn.commit();
-			rs.close();
-			return pname;
-		} catch (Exception e) {
-			return null;
-		}finally {
-				safeClose(conn);
-		}
 	}
 	
 	public ArrayList<String> getStudyAndSeriesUID(String sopUid) {
@@ -3662,29 +3542,23 @@ public class DatabaseHandler {
 				pstmt.close();
 				safeClose(conn);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		return null;
 	}
 	
-	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(Attributes keys){
+	//see, ***QueryTaskUsingDB
+	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(String[] patIDs){
 		ArrayList<HashMap<String,String>> patCandidate = new ArrayList<>();
-		/* PatientID is primary key */
-		String[] patIDs = keys.getStrings(Tag.PatientID);
 		if(patIDs != null && patIDs.length != 0) {
 			/* search pid && othersPatientRelatedInfo */
 			for(int i=0;i<patIDs.length;i++) {
-				HashMap<String,String> patInfo = findPatientRecordWithPatIDAnd(patIDs[i],keys);
+				HashMap<String,String> patInfo = getPatientInfoByPatID(patIDs[i]);
 				if(patInfo != null) {
 					patCandidate.add(patInfo);
 				}
 			}
-		}else {
-			/* search without pid */
-			/* if can not find candidate, get null */
-			patCandidate = findPatientRecordWithoutPatID(keys);
 		}
 		if(patCandidate != null && !patCandidate.isEmpty()) {
 			return patCandidate;
@@ -3699,79 +3573,6 @@ public class DatabaseHandler {
 	 * (0010,0030) DA [] PatientBirthDate
 	 * (0010,0040) CS [M] PatientSex
 	 */
-	public HashMap<String, String> findPatientRecordWithPatIDAnd(String patID, Attributes keys) {
-		Connection conn = openConnection();
-		/* check item in keys */
-		String pName = null;
-		String pBD = null;
-		String pSex = null;
-		StringBuilder builder = new StringBuilder();
-		String statement = "SELECT * FROM PATIENT WHERE PatientID=?";
-		builder.append(statement);
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 2;
-		if(keys.contains(Tag.PatientName)) {
-			pName=keys.getString(Tag.PatientName);
-			builder.append(" AND "+"PatientName=?");
-			keymap.put(pos,pName);
-			pos++;
-		}
-		if(keys.contains(Tag.PatientBirthDate)) {
-			pBD=keys.getString(Tag.PatientBirthDate);
-			builder.append(" AND "+"PatientBirthDate=?");
-			keymap.put(pos,pBD);
-			pos++;
-		}
-		if(keys.contains(Tag.PatientSex)) {
-			pSex=keys.getString(Tag.PatientSex);
-			builder.append(" AND "+"PatientSex=?");
-			keymap.put(pos,pSex);
-		}
-		
-		HashMap<String, String> map = new HashMap<>();
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			pstmt.setString(1, patID);//start from 1
-			for(int keypos:keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
-			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);
-			/*
-			 * PatientName varchar(255), 
-			 * PatientBirthDate varchar(30),
-			 *  PatientSex varchar(10)
-			 */
-			//PatientAge varchar(10)//do not need
-//			while(rset.next()) {//pid is primary key. always return 1 data.
-			if(rset.next()) { 
-				map.put("PatientID", patID);
-				map.put("PatientName", rset.getString("PatientName"));
-				map.put("PatientBirthDate", rset.getString("PatientBirthDate"));
-				map.put("PatientSex", rset.getString("PatientSex"));
-			}
-			if(map.isEmpty()) {
-				return null;
-			}else {
-				return map;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			try {
-				rset.close();
-				pstmt.close();
-				safeClose(conn);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
-	
 	public HashMap<String, String> getPatientInfoByPatID(String patID) {
 		if(patID == null) {
 			return null;
@@ -3784,13 +3585,6 @@ public class DatabaseHandler {
 			pstmt = conn.prepareStatement("SELECT * FROM PATIENT WHERE PatientID=?");
 			pstmt.setString(1, patID);//start from 1
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
-			/*
-			 * PatientName varchar(255), 
-			 * PatientBirthDate varchar(30),
-			 *  PatientSex varchar(10)
-			 */
-			//PatientAge varchar(10)//do not need
 			if(rset.next()) {
 				map.put("PatientID", patID);
 				map.put("PatientName", rset.getString("PatientName"));
@@ -3810,128 +3604,73 @@ public class DatabaseHandler {
 				pstmt.close();
 				safeClose(conn);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		return null;
 	}
 	
-	/*
-	 * only can specify one value of each key item.
-	 * e.g, 
-	 * pName=123, pName=456 -> NG
-	 * pName=123, pBD=01/04/1990, pSex=F -> OK
-	 * 
-	 * not use OR, in this query always AND.
-	 */
-	public ArrayList<HashMap<String, String>> findPatientRecordWithoutPatID(Attributes keys) {
-		Connection conn = openConnection();
-		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
-		String statement = "SELECT * FROM PATIENT WHERE";
-		builder.append(statement);
-		HashMap<Integer,String> keymap = new HashMap<Integer, String>();
-		int keypos = 1;
-		for(int tag:keys.tags()) {
-			if(tag == Tag.PatientName){
-				if(keypos != 1) {
-					builder.append(" AND "+"PatientName=?");
-				}else {
-					builder.append(" PatientName=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.PatientName));
-				keypos++;
-			}
-			if(tag == Tag.PatientBirthDate) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"PatientBirthDate=?");
-				}else {
-					builder.append(" PatientBirthDate=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.PatientBirthDate));
-				keypos++;
-			}
-			if(tag == Tag.PatientSex) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"PatientSex=?");
-				}else {
-					builder.append(" PatientSex=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.PatientSex));
-				keypos++;
-			}
-		}
-		HashMap<String, String> map = null;
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			for(int pos :keymap.keySet()) {
-				pstmt.setString(pos, keymap.get(pos));
-			}
-			rset = pstmt.executeQuery();
-			/* limit 30 patients */
-			rset.setFetchSize(30);
-			/*
-			 * PatientName varchar(255), 
-			 * PatientBirthDate varchar(30),
-			 *  PatientSex varchar(10)
-			 */
-			//PatientAge varchar(10)//do not need
-			while(rset.next()) {
-				map = new HashMap<>();
-				map.put("PatientID", rset.getString("PatientID"));
-				map.put("PatientName", rset.getString("PatientName"));
-				map.put("PatientBirthDate", rset.getString("PatientBirthDate"));
-				map.put("PatientSex", rset.getString("PatientSex"));
-				if(map.isEmpty()) {
-					continue;
-				}else {
-					result.add(map);
-				}
-			}
-			if(result.isEmpty()) {
-				return null;
-			}else {
-				return result;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			try {
-				rset.close();
-				pstmt.close();
-				safeClose(conn);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
+//	
+//	public ArrayList<HashMap<String, String>> findPatientRecordWithoutPatID(String pname, String bod/*yyyy/MM/dd*/, String sex/*M,F,O*/) {
+//		Connection conn = openConnection();
+//		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
+//		StringBuilder builder = new StringBuilder();
+//		String statement = "SELECT * FROM PATIENT WHERE";
+//		builder.append(statement);
+//		HashMap<Integer,String> keymap = new HashMap<Integer, String>();
+//		int keypos = 1;
+//		builder.append(" PatientName LIKE ?");
+//		keymap.put(keypos++, pname+"%");
+//		builder.append(" PatientBirthDate=?");
+//		keymap.put(keypos++, bod);
+//		builder.append(" PatientSex=?");
+//		keymap.put(keypos, sex);
+//		
+//		ResultSet rset = null;
+//		PreparedStatement pstmt = null;
+//		try {
+//			pstmt = conn.prepareStatement(builder.toString());
+//			for(int pos :keymap.keySet()) {
+//				pstmt.setString(pos, keymap.get(pos));
+//			}
+//			rset = pstmt.executeQuery();
+//			while(rset.next()) {
+//				HashMap<String, String> map = new HashMap<>();
+//				map.put("PatientID", rset.getString("PatientID"));
+//				map.put("PatientName", rset.getString("PatientName"));
+//				map.put("PatientBirthDate", rset.getString("PatientBirthDate"));
+//				map.put("PatientSex", rset.getString("PatientSex"));
+//				result.add(map);
+//			}
+//			if(result.isEmpty()) {
+//				return null;
+//			}else {
+//				return result;
+//			}
+//		} catch (SQLException ex) {
+//			logger.severe(ex.getMessage());
+//		}finally {
+//			try {
+//				rset.close();
+//				pstmt.close();
+//				safeClose(conn);
+//			} catch (SQLException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//		return null;
+//	}
 	
-	public ArrayList<HashMap<String,String>> getAllCandidate4StudyQuery(Attributes patRec, Attributes keys){
-		String patID = null;
-		if(patRec != null) {
-			patID = patRec.getString(Tag.PatientID);
-		}
+	public ArrayList<HashMap<String,String>> getAllCandidate4StudyQuery(String patID, String[] studyIUIDs){
 		ArrayList<HashMap<String,String>> studyCandidate = new ArrayList<>();
-		/* StudyIUID is primary key */
-		String[] studyIUIDs = keys.getStrings(Tag.StudyInstanceUID);
 		if(studyIUIDs != null && studyIUIDs.length != 0) {
 			/* search by studyIUID && othersStudyRelatedInfo */
 			for(int i=0;i<studyIUIDs.length;i++) {
-				HashMap<String,String> studyInfo = findStudyRecordWithStudyIUIDAnd(patID,studyIUIDs[i],keys);
+				HashMap<String,String> studyInfo = findStudyRecordByStudyIUID(patID, studyIUIDs[i]);
 				if(studyInfo != null) {
 					studyCandidate.add(studyInfo);
 				}
 			}
-		}else {
-			/* search without pid */
-			/* if can not find candidate, get null */
-			studyCandidate = findStudyRecordWithoutStudyIUID(patID, keys);
 		}
 		if(studyCandidate != null && !studyCandidate.isEmpty()) {
 			return studyCandidate;
@@ -3948,58 +3687,20 @@ public class DatabaseHandler {
 	 * map.put("StudyDescription", rset.getString("StudyDescription"));
 	 * map.put("StudyID", rset.getString("StudyID"));
 	 */
-	public HashMap<String, String> findStudyRecordWithStudyIUIDAnd(String patID,String studyIUID, Attributes keys) {
+	public HashMap<String, String> findStudyRecordByStudyIUID(String patID/*null-able*/, String studyIUID) {
 		Connection conn = openConnection();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
 		String statement = null;
 		if(patID == null) {
 			statement = "SELECT * FROM STUDY WHERE StudyInstanceUID=?";
 		}else {
 			statement = "SELECT * FROM STUDY WHERE PatientID="+patID+" StudyInstanceUID=?";
 		}
-		builder.append(statement);
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 2;//pos:1 is studyIUID
-		if(keys.contains(Tag.StudyDate)) {
-			builder.append(" AND "+"StudyDate=?");
-			keymap.put(pos,keys.getString(Tag.StudyDate));
-			pos++;
-		}
-		if(keys.contains(Tag.StudyTime)) {
-			builder.append(" AND "+"StudyTime=?");
-			keymap.put(pos,keys.getString(Tag.StudyTime));
-			pos++;
-		}
-		if(keys.contains(Tag.AccessionNumber)) {
-			builder.append(" AND "+"AccessionNumber=?");
-			keymap.put(pos,keys.getString(Tag.AccessionNumber));
-			pos++;
-		}
-		if(keys.contains(Tag.ReferringPhysicianName)) {
-			builder.append(" AND "+"ReferringPhysicianName=?");
-			keymap.put(pos,keys.getString(Tag.ReferringPhysicianName));
-			pos++;
-		}
-		if(keys.contains(Tag.StudyDescription)) {
-			builder.append(" AND "+"StudyDescription=?");
-			keymap.put(pos,keys.getString(Tag.StudyDescription));
-			pos++;
-		}
-		if(keys.contains(Tag.StudyID)) {
-			builder.append(" AND "+"StudyID=?");
-			keymap.put(pos,keys.getString(Tag.StudyID));
-			pos++;//not need, but remain to do not forget.
-		}
 		HashMap<String, String> map = new HashMap<>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement(builder.toString());
+			pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, studyIUID);//start from 1
-			for(int keypos:keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);//when studyIUID specified, will get only 1 study.
 //			while(rset.next()) {//always return 1 data.
@@ -4032,159 +3733,20 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	/*
-	 * only can specify one value of each key item.
-	 * e.g, 
-	 * pName=123, pName=456 -> NG
-	 * pName=123, pBD=01/04/1990, pSex=F -> OK
-	 * 
-	 * not use OR, in this query always AND.
-	 */
-	public ArrayList<HashMap<String, String>> findStudyRecordWithoutStudyIUID(String patID, Attributes keys) {
-		Connection conn = openConnection();
-		int keypos = 1;
-		String statement = "SELECT * FROM STUDY WHERE";
-		if(patID != null) {
-			statement = "SELECT * FROM STUDY WHERE PatientID=?";
-			keypos++;
-		}
-		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
-		builder.append(statement);
-		HashMap<Integer,String> keymap = new HashMap<Integer, String>();
-		for(int tag:keys.tags()) {
-			if(tag == Tag.StudyDate){
-				if(keypos != 1) {
-					builder.append(" AND "+"StudyDate=?");
-				}else {
-					builder.append(" StudyDate=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.StudyDate));
-				keypos++;
-			}
-			if(tag == Tag.StudyTime) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"StudyTime=?");
-				}else {
-					builder.append(" StudyTime=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.StudyTime));
-				keypos++;
-			}
-			if(tag == Tag.AccessionNumber) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"AccessionNumber=?");
-				}else {
-					builder.append(" AccessionNumber=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.AccessionNumber));
-				keypos++;
-			}
-			if(tag == Tag.ReferringPhysicianName) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"ReferringPhysicianName=?");
-				}else {
-					builder.append(" ReferringPhysicianName=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.StudyTime));
-				keypos++;
-			}
-			if(tag == Tag.StudyDescription) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"StudyDescription=?");
-				}else {
-					builder.append(" StudyDescription=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.StudyDescription));
-				keypos++;
-			}
-			if(tag == Tag.StudyID) {
-				if(!builder.toString().equals(statement)) {
-					builder.append(" AND "+"StudyID=?");
-				}else {
-					builder.append(" StudyID=?");
-				}
-				keymap.put(keypos,keys.getString(Tag.StudyID));
-				keypos++;
-			}
-		}
-		HashMap<String, String> map = null;
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			if(patID != null) {
-				pstmt.setString(1, patID);
-			}
-			for(int pos :keymap.keySet()) {
-				pstmt.setString(pos, keymap.get(pos));
-			}
-			rset = pstmt.executeQuery();
-			/* limit 30 patients */
-			rset.setFetchSize(30);
-			while(rset.next()) {
-				map = new HashMap<>();
-				map.put("StudyDate", rset.getString("StudyDate"));
-				map.put("StudyTime", rset.getString("StudyTime"));
-				map.put("AccessionNumber", rset.getString("AccessionNumber"));
-				map.put("ReferingPhysicianName", rset.getString("ReferingPhysicianName"));
-				map.put("StudyDescription", rset.getString("StudyDescription"));
-				map.put("StudyID", rset.getString("StudyID"));
-				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-				if(map.isEmpty()) {
-					continue;
-				}else {
-					result.add(map);
-				}
-			}
-			if(result.isEmpty()) {
-				return null;
-			}else {
-				return result;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			try {
-				rset.close();
-				pstmt.close();
-				safeClose(conn);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
 	
 	/*
 	 * input only one patient and one study
 	 */
-	public ArrayList<HashMap<String,String>> getAllCandidate4SeriesQuery(Attributes patRec,Attributes studyRec, Attributes keys){
-		String patID = null;
-		String studyIUID = null;
-		if(patRec != null) {
-			patID = patRec.getString(Tag.PatientID);
-		}
-		if(studyRec != null) {
-			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
-		}
+	public ArrayList<HashMap<String,String>> getAllCandidate4SeriesQuery(String patID, String studyIUID, String[] seriesIUIDs){
 		ArrayList<HashMap<String,String>> seriesCandidate = new ArrayList<>();
-		/* SeriesIUID is primary key */
-		String[] seriesIUIDs = keys.getStrings(Tag.SeriesInstanceUID);
 		if(seriesIUIDs != null && seriesIUIDs.length != 0) {
 			/* search by seriesIUID && othersSeriesRelatedInfo */
 			for(int i=0;i<seriesIUIDs.length;i++) {
-				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(patID,studyIUID,seriesIUIDs[i],keys);
+				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(patID,studyIUID,seriesIUIDs[i]);
 				if(seriesInfo != null) {
 					seriesCandidate.add(seriesInfo);
 				}
 			}
-		}else {
-			/* search without pid */
-			/* if can not find candidate, get null */
-			seriesCandidate = findSeriesRecordWithoutSeriesIUID(patID, studyIUID,keys);
 		}
 		if(seriesCandidate != null && !seriesCandidate.isEmpty()) {
 			return seriesCandidate;
@@ -4199,64 +3761,18 @@ public class DatabaseHandler {
 	 * map.put("Modaity", rset.getString("Modality"));
 	 * map.put("SeriesNumber", rset.getString("SeriesNumber"));
 	 */
-	public HashMap<String, String> findSeriesRecordWithSeriesIUIDAnd(String patID,String studyIUID, String seriesIUID, Attributes keys) {
+	public HashMap<String, String> findSeriesRecordWithSeriesIUIDAnd(String patID,String studyIUID, String seriesIUID) {
 		Connection conn = openConnection();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
-		String statement = null;
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 1;
-		if(patID == null) {
-			if(studyIUID == null) {
-				statement = "SELECT * FROM SERIES WHERE SeriesInstanceUID=?";
-				keymap.put(pos, seriesIUID);
-				pos++;
-			}else {
-				statement = "SELECT * FROM SERIES WHERE StudyInstanceUID=? AND SeriesInstanceUID=?";
-				keymap.put(pos, studyIUID);
-				pos++;
-				keymap.put(pos, seriesIUID);
-				pos++;
-			}
-		}else {
-			if(studyIUID == null) {
-				statement = "SELECT * FROM SERIES WHERE PatientID=? AND SeriesInstanceUID=?";
-				keymap.put(pos, patID);
-				pos++;
-				keymap.put(pos, seriesIUID);
-				pos++;
-			}else {
-				statement = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
-				keymap.put(pos, patID);
-				pos++;
-				keymap.put(pos, studyIUID);
-				pos++;
-				keymap.put(pos, seriesIUID);
-				pos++;
-			}
-		}
-		builder.append(statement);		
-		if(keys.contains(Tag.Modality)) {
-			builder.append(" AND "+"Modality=?");
-			keymap.put(pos,keys.getString(Tag.Modality));
-			pos++;
-		}
-		if(keys.contains(Tag.SeriesNumber)) {
-			builder.append(" AND "+"SeriesNumber=?");
-			keymap.put(pos,keys.getString(Tag.SeriesNumber));
-			pos++;
-		}
-		
+		String statement = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
 		HashMap<String, String> map = new HashMap<>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			for(int keypos:keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
+			pstmt = conn.prepareStatement(statement);
+			pstmt.setString(1, patID);
+			pstmt.setString(2, studyIUID);
+			pstmt.setString(3, seriesIUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);
 			if(rset.next()) { 
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				map.put("Modality", rset.getString("Modality"));
@@ -4285,127 +3801,109 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	public ArrayList<HashMap<String, String>> findSeriesRecordWithoutSeriesIUID(String patID, String studyIUID, Attributes keys) {
-		Connection conn = openConnection();
-		String statement = "SELECT * FROM SERIES WHERE";
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 1;
-		if(patID == null) {
-			if(studyIUID == null) {
-				// do nothing
-			}else {
-				statement = statement+" StudyInstanceUID=?";
-				keymap.put(pos, studyIUID);
-				pos++;
-			}
-		}else {
-			if(studyIUID == null) {
-				statement = " PatientID=?";
-				keymap.put(pos, patID);
-				pos++;
-			}else {
-				statement = statement+" PatientID=? AND StudyInstanceUID=?";
-				keymap.put(pos, patID);
-				pos++;
-				keymap.put(pos, studyIUID);
-				pos++;
-			}
-		}
-		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
-		builder.append(statement);
-		for(int tag:keys.tags()) {
-			if(tag == Tag.Modality){
-				if(pos != 1) {
-					builder.append(" AND "+"Modality=?");
-				}else {
-					builder.append(" Modality=?");
-				}
-				keymap.put(pos,keys.getString(Tag.Modality));
-				pos++;
-			}
-			if(tag == Tag.SeriesNumber) {
-				if(pos != 1) {
-					builder.append(" AND "+"SeriesNumber=?");
-				}else {
-					builder.append(" SeriesNumber=?");
-				}
-				keymap.put(pos,keys.getString(Tag.SeriesNumber));
-				pos++;
-			}
-		}
-		HashMap<String, String> map = null;
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			for(int keypos :keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
-			rset = pstmt.executeQuery();
-			/* limit 30 series */
-			rset.setFetchSize(30);
-			while(rset.next()) {
-				map = new HashMap<>();
-				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-				map.put("Modality", rset.getString("Modality"));
-				map.put("SeriesNumber", rset.getString("SeriesNumber"));
-				/* もし追加したければここに増やす。 */
-				if(map.isEmpty()) {
-					continue;
-				}else {
-					result.add(map);
-				}
-			}
-			if(result.isEmpty()) {
-				return null;
-			}else {
-				return result;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			try {
-				rset.close();
-				pstmt.close();
-				safeClose(conn);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
+//	public ArrayList<HashMap<String, String>> findSeriesRecordWithoutSeriesIUID(String patID, String studyIUID, Attributes keys) {
+//		Connection conn = openConnection();
+//		String statement = "SELECT * FROM SERIES WHERE";
+//		HashMap<Integer,String> keymap = new HashMap<>();
+//		int pos = 1;
+//		if(patID == null) {
+//			if(studyIUID == null) {
+//				// do nothing
+//			}else {
+//				statement = statement+" StudyInstanceUID=?";
+//				keymap.put(pos, studyIUID);
+//				pos++;
+//			}
+//		}else {
+//			if(studyIUID == null) {
+//				statement = " PatientID=?";
+//				keymap.put(pos, patID);
+//				pos++;
+//			}else {
+//				statement = statement+" PatientID=? AND StudyInstanceUID=?";
+//				keymap.put(pos, patID);
+//				pos++;
+//				keymap.put(pos, studyIUID);
+//				pos++;
+//			}
+//		}
+//		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
+//		/* check item in keys */
+//		StringBuilder builder = new StringBuilder();
+//		builder.append(statement);
+//		for(int tag:keys.tags()) {
+//			if(tag == Tag.Modality){
+//				if(pos != 1) {
+//					builder.append(" AND "+"Modality=?");
+//				}else {
+//					builder.append(" Modality=?");
+//				}
+//				keymap.put(pos,keys.getString(Tag.Modality));
+//				pos++;
+//			}
+//			if(tag == Tag.SeriesNumber) {
+//				if(pos != 1) {
+//					builder.append(" AND "+"SeriesNumber=?");
+//				}else {
+//					builder.append(" SeriesNumber=?");
+//				}
+//				keymap.put(pos,keys.getString(Tag.SeriesNumber));
+//				pos++;
+//			}
+//		}
+//		HashMap<String, String> map = null;
+//		ResultSet rset = null;
+//		PreparedStatement pstmt = null;
+//		try {
+//			pstmt = conn.prepareStatement(builder.toString());
+//			for(int keypos :keymap.keySet()) {
+//				pstmt.setString(keypos, keymap.get(keypos));
+//			}
+//			rset = pstmt.executeQuery();
+//			/* limit 30 series */
+//			rset.setFetchSize(30);
+//			while(rset.next()) {
+//				map = new HashMap<>();
+//				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
+//				map.put("Modality", rset.getString("Modality"));
+//				map.put("SeriesNumber", rset.getString("SeriesNumber"));
+//				/* もし追加したければここに増やす。 */
+//				if(map.isEmpty()) {
+//					continue;
+//				}else {
+//					result.add(map);
+//				}
+//			}
+//			if(result.isEmpty()) {
+//				return null;
+//			}else {
+//				return result;
+//			}
+//		} catch (SQLException ex) {
+//			logger.severe(ex.getMessage());
+//		}finally {
+//			try {
+//				rset.close();
+//				pstmt.close();
+//				safeClose(conn);
+//			} catch (SQLException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//		}
+//		return null;
+//	}
 	
-	public ArrayList<HashMap<String,String>> getAllCandidate4InstanceQuery(Attributes patRec,Attributes studyRec,Attributes seriesRec,Attributes keys){
-		String patID = null;
-		String studyIUID = null;
-		String seriesIUID = null;
-		if(patRec != null) {
-			patID = patRec.getString(Tag.PatientID);
-		}
-		if(studyRec != null) {
-			studyIUID = studyRec.getString(Tag.StudyInstanceUID);
-		}
-		if(seriesRec != null) {
-			seriesIUID = seriesRec.getString(Tag.SeriesInstanceUID);
-		}
+	public ArrayList<HashMap<String,String>> getAllCandidate4InstanceQuery(String patID, String studyIUID, String seriesIUID, String[] sopIUIDs){
 		ArrayList<HashMap<String,String>> instCandidate = new ArrayList<>();
-		/* sopIUID is primary key */
-		String[] sopIUIDs = keys.getStrings(Tag.SOPInstanceUID);
 		if(sopIUIDs != null && sopIUIDs.length != 0) {
 			/* search by sopIUID && othersInstanceRelatedInfo */
 			for(int i=0;i<sopIUIDs.length;i++) {
-				HashMap<String,String> instInfo = findImageRecordWithSopIUIDAnd(patID,studyIUID,seriesIUID,sopIUIDs[i],keys);
+				HashMap<String,String> instInfo = findImageRecordBySopIUID(patID,studyIUID,seriesIUID,sopIUIDs[i]);
 				if(instInfo != null) {
 					instCandidate.add(instInfo);
 				}
 			}
-		}else {
-			/* search without pid */
-			/* if can not find candidate, get null */
-			instCandidate = findImageRecordWithoutSopIUID(patID, studyIUID,seriesIUID,keys);
 		}
 		if(instCandidate != null && !instCandidate.isEmpty()) {
 			return instCandidate;
@@ -4418,109 +3916,20 @@ public class DatabaseHandler {
 //	(0004,1511) UI [1.3.6.1.4.1.14519.5.2.1.3344.2526.3991481572793857949648742095//same as SOP Instance UID
 //	(0004,1512) UI [1.2.840.10008.1.2] ReferencedTransferSyntaxUIDInFile//same as TransferSyntaxUID
 //	(0020,0013) IS [6] InstanceNumber//mandatory for directory record
-	public HashMap<String, String> findImageRecordWithSopIUIDAnd(String patID,String studyIUID, String seriesIUID, String sopIUID, Attributes keys) {
+	public HashMap<String, String> findImageRecordBySopIUID(String patID,String studyIUID, String seriesIUID, String sopIUID) {
 		/* check item in keys */
 		Connection conn = openConnection();
-		String statement = "SELECT * FROM IMAGE WHERE";
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 1;
-		if(patID == null) {
-			if(studyIUID == null) {
-				if(seriesIUID == null) {
-					statement = statement+" SOPInstanceUID=?";
-					keymap.put(pos, sopIUID);
-					pos++;
-				}else {
-					statement = statement+" SeriesInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, seriesIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}
-			}else {
-				if(seriesIUID == null) {
-					statement = statement+" StudyInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}else {
-					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}
-			}
-		}else {
-			if(studyIUID == null) {
-				if(seriesIUID == null) {
-					statement = statement+" PatientID=? AND SOPInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}else {
-					statement = statement+" PatientID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}
-			}else {
-				if(seriesIUID == null) {
-					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}else {
-					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-					keymap.put(pos, sopIUID);
-					pos++;
-				}
-			}
-		}
-		StringBuilder builder = new StringBuilder();
-		builder.append(statement);		
-		if(keys.contains(Tag.TransferSyntaxUID)) {
-			builder.append(" AND "+"TransferSyntaxUID=?");
-			keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
-			pos++;
-		}
-		if(keys.contains(Tag.InstanceNumber)) {
-			builder.append(" AND "+"InstanceNumber=?");
-			keymap.put(pos,keys.getString(Tag.InstanceNumber));
-			pos++;
-		}
-		if(keys.contains(Tag.SOPClassUID)) {
-			builder.append(" AND "+"SOPClassUID=?");
-			keymap.put(pos,keys.getString(Tag.SOPClassUID));
-			pos++;
-		}
-		
+		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		HashMap<String, String> map = new HashMap<>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			for(int keypos:keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
+			pstmt = conn.prepareStatement(statement);
+			pstmt.setString(1, patID);
+			pstmt.setString(2, studyIUID);
+			pstmt.setString(3, seriesIUID);
+			pstmt.setString(4, sopIUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);
 			if(rset.next()) { 
 				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
 				map.put("SOPInstanceUID", sopIUID);
@@ -4548,141 +3957,6 @@ public class DatabaseHandler {
 		return null;
 	}
 	
-	public ArrayList<HashMap<String, String>> findImageRecordWithoutSopIUID(String patID, String studyIUID, String seriesIUID, Attributes keys) {
-		Connection conn = openConnection();
-		String statement = "SELECT * FROM IMAGE WHERE";
-		HashMap<Integer,String> keymap = new HashMap<>();
-		int pos = 1;
-		if(patID == null) {
-			if(studyIUID == null) {
-				if(seriesIUID == null) {
-					//do nothing
-				}else {
-					statement = statement+" SeriesInstanceUID=?";
-					keymap.put(pos, seriesIUID);
-					pos++;
-				}
-			}else {
-				if(seriesIUID == null) {
-					statement = statement+" StudyInstanceUID=?";
-					keymap.put(pos, studyIUID);
-					pos++;
-				}else {
-					statement = statement+" StudyInstanceUID=? AND SeriesInstanceUID=?";
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-				}
-			}
-		}else {
-			if(studyIUID == null) {
-				if(seriesIUID == null) {
-					statement = statement+" PatientID=?";
-					keymap.put(pos, patID);
-					pos++;
-				}else {
-					statement = statement+" PatientID=? AND SeriesInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-				}
-			}else {
-				if(seriesIUID == null) {
-					statement = statement+" PatientID=? AND StudyInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, studyIUID);
-					pos++;
-				}else {
-					statement = statement+" PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
-					keymap.put(pos, patID);
-					pos++;
-					keymap.put(pos, studyIUID);
-					pos++;
-					keymap.put(pos, seriesIUID);
-					pos++;
-				}
-			}
-		}
-		ArrayList<HashMap<String, String>> result = new ArrayList<HashMap<String,String>>();
-		/* check item in keys */
-		StringBuilder builder = new StringBuilder();
-		builder.append(statement);
-		for(int tag:keys.tags()) {
-			if(tag == Tag.TransferSyntaxUID){
-				if(pos != 1) {
-					builder.append(" AND "+"TransferSyntaxUID=?");
-				}else {
-					builder.append(" TransferSyntaxUID=?");
-				}
-				keymap.put(pos,keys.getString(Tag.TransferSyntaxUID));
-				pos++;
-			}
-			if(tag == Tag.SOPClassUID) {
-				if(pos != 1) {
-					builder.append(" AND "+"SOPClassUID=?");
-				}else {
-					builder.append(" SOPClassUID=?");
-				}
-				keymap.put(pos,keys.getString(Tag.SOPClassUID));
-				pos++;
-			}
-			if(tag == Tag.InstanceNumber) {
-				if(pos != 1) {
-					builder.append(" AND "+"InstanceNumber=?");
-				}else {
-					builder.append(" InstanceNumber=?");
-				}
-				keymap.put(pos,keys.getString(Tag.InstanceNumber));
-				pos++;
-			}
-		}
-		HashMap<String, String> map = null;
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(builder.toString());
-			for(int keypos :keymap.keySet()) {
-				pstmt.setString(keypos, keymap.get(keypos));
-			}
-			rset = pstmt.executeQuery();
-			/* limit 30000 images */
-			rset.setFetchSize(30000);
-			while(rset.next()) {
-				map = new HashMap<>();
-				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
-				map.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-				map.put("SOPClassUID", rset.getString("SOPClassUID"));
-				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
-				map.put("InstanceNumber", rset.getString("InstanceNumber"));
-				/* もし追加したければここに増やす。 */
-				if(map.isEmpty()) {
-					continue;
-				}else {
-					result.add(map);
-				}
-			}
-			if(result.isEmpty()) {
-				return null;
-			}else {
-				return result;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			try {
-				rset.close();
-				pstmt.close();
-				safeClose(conn);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
 	
 	/*
 	 * for study node builder

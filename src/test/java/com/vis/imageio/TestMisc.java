@@ -41,8 +41,13 @@ import java.awt.AWTEvent;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.lang.reflect.Field;
+import java.net.URLConnection;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -62,7 +67,23 @@ public class TestMisc {
 
 	public static void main(String[] args) {
 		
+		String pdf = "/home/tatsunidas/デスクトップ/Java+2D+Graphics.pdf";
+		String png = "";
+		String avi ="/home/tatsunidas/デスクトップ/t1-head.avi";
+		String avi2 = "/home/tatsunidas/ビデオ/Kazam_screencast_00000.avi";
+		String mp4 ="/home/tatsunidas/ビデオ/Kazam_screencast_00000.mp4";
+		String webm = "/home/tatsunidas/ビデオ/Kazam_screencast_00000.webm";
 		
+		File f = new File(avi2);
+		
+		VideoReader reader = new VideoReader();
+		try {
+			reader.read(f);
+			ImagePlus imp = reader.convert2ImagePlus();
+			imp.show();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 	}
 }

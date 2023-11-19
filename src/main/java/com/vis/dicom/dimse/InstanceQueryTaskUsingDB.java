@@ -63,7 +63,10 @@ class InstanceQueryTaskUsingDB extends SeriesQueryTaskUsingDB {
             throws DicomServiceException {
         super(as, pc, rq, keys, qrscp);
         sopIUIDs = StringUtils.maskNull(keys.getStrings(Tag.SOPInstanceUID));
-        instCandidate = db.getAllCandidate4InstanceQuery(patRec,studyRec,seriesRec,keys);
+        String patID = patRec.getString(Tag.PatientID);
+        String studyUID = studyRec.getString(Tag.StudyInstanceUID);
+        String seriesUID = seriesRec.getString(Tag.SeriesInstanceUID);
+        instCandidate = db.getAllCandidate4InstanceQuery(patID,studyUID,seriesUID,sopIUIDs);
         this.total = instCandidate.size();
         wrappedFindNextInstance();
     }
@@ -131,7 +134,11 @@ class InstanceQueryTaskUsingDB extends SeriesQueryTaskUsingDB {
 		while (instRec == null && super.findNextSeries()) {
 			this.process = 0;
 			/* この時点で、seriesRecは新しく更新されている。存在しない場合はNullを返す */
-			instCandidate = db.getAllCandidate4InstanceQuery(patRec, studyRec, seriesRec, keys);
+			String[] sopIUIDs = StringUtils.maskNull(keys.getStrings(Tag.SOPInstanceUID));
+	        String patID = patRec.getString(Tag.PatientID);
+	        String studyUID = studyRec.getString(Tag.StudyInstanceUID);
+	        String seriesUID = seriesRec.getString(Tag.SeriesInstanceUID);
+	        instCandidate = db.getAllCandidate4InstanceQuery(patID,studyUID,seriesUID,sopIUIDs);
 			if (instCandidate != null && instCandidate.size() > 0) {
 				instRec = constructInfo(instCandidate.get(process));
 			}

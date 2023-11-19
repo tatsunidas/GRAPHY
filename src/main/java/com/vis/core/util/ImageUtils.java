@@ -45,87 +45,110 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import com.vis.core.log.Log;
+import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Tag;
+import com.vis.dicom.UID;
+import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
+import com.vis.dicom.image.ImagePlusToDicomImage;
 
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
 import ij.process.ImageStatistics;
+import ij.util.DicomTools;
 
 public class ImageUtils {
-	
+
 	final static int AUTO_THRESHOLD = 5000;
-	
-	//check file is general format image
-		public static boolean isImageFile(String path) {
-		    String mimeType = URLConnection.guessContentTypeFromName(path);
-		    return mimeType != null && mimeType.startsWith("image");
+
+	// check file is general format image
+	public static boolean isImageFile(String path) {
+		String mimeType = URLConnection.guessContentTypeFromName(path);
+		// image/format
+		return mimeType != null && mimeType.startsWith("image");
+	}
+
+	public static boolean isVideoFile(String path) {
+		String mimeType = URLConnection.guessContentTypeFromName(path);
+		// mp4 : video/mp4, "video/quicktime"
+		// mpeg : "video/mpeg"
+		// webm : video/webm
+		// avi : application/x-troff-msvideo
+		if(mimeType == null) {
+			return false;
 		}
-		
-		public static boolean isVideoFile(String path) {
-		    String mimeType = URLConnection.guessContentTypeFromName(path);
-		    return mimeType != null && mimeType.startsWith("video");
-		}
-		
-		public static boolean isDicom(File f) {
-			return DicomUtilities.isDicomFile(f);
-		}
-		
-		public static boolean isPDF(String path) {
-			if(path == null || path.equals("")) {
-				return false;
-			}
-			PDDocument doc = null;
-			try {
-				doc = PDDocument.load(new File(path));
-			} catch (IOException e) {
-				return false;
-			}
-			if(doc == null) {
-				return false;
-			}
+		if(mimeType.startsWith("video")) {
 			return true;
 		}
-		
-		
-		public static ImagePlus readFile(File f) {
-			if(isDicom(f)){
-				DicomImage dcmObj = DicomImage.newDicomImage(f.getAbsolutePath(), DICOMBackend.getCurrent());
-				String tsUID = dcmObj.getTSUID().uid();
-				return readDicomObject(dcmObj, tsUID);
-			}else {
-				//general image format or avi, pdf ??
-				try {
-					return new ImagePlus(f.getAbsolutePath());
-				}catch(Exception err) {
-					System.out.println(err);
-					Log.logger.info(err.getMessage());
-					return null;
-				}
-			}
+		if(mimeType.contains("video") && path.endsWith(".avi")) {
+			return true;
 		}
-		
-		/*
-		 * TODO 20230906
-		 */
-		//single frame dicom
-		public static ImagePlus readDicomObject(DicomImage dcm, String tsUID) {
-			if(dcm == null || tsUID == null) {
-				Log.logger.info("Please input non-null values...");
+		return false;
+	}
+
+	public static boolean isPDFFile(String path) {
+		String mimeType = URLConnection.guessContentTypeFromName(path);
+		// application/pdf
+		return mimeType != null && mimeType.contains("pdf");
+	}
+
+	public static boolean isDicom(File f) {
+		return DicomUtilities.isDicomFile(f);
+	}
+
+	public static boolean isPDF(String path) {
+		if (path == null || path.equals("")) {
+			return false;
+		}
+		try {
+			PDDocument doc = PDDocument.load(new File(path));
+			doc.close();
+			return true;
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
+	public static ImagePlus readFile(File f) {
+		if (isDicom(f)) {
+			DicomImage dcmObj = DicomImage.newDicomImage(f.getAbsolutePath(), DICOMBackend.getCurrent());
+			String tsUID = dcmObj.getTSUID().uid();
+			return readDicomObject(dcmObj, tsUID);
+		} else {
+			// general image format or avi, pdf ??
+			try {
+				return new ImagePlus(f.getAbsolutePath());
+			} catch (Exception err) {
+				System.out.println(err);
+				Log.logger.info(err.getMessage());
 				return null;
 			}
-//			DicomPixelDataDecoder decoder = new DicomPixelDataDecoder(dcm, tsUID);
-//			return decoder.decode();
-			
+		}
+	}
+
+	/*
+	 * TODO 20230906
+	 */
+	// single frame dicom
+	public static ImagePlus readDicomObject(DicomImage dcm, String tsUID) {
+		if (dcm == null || tsUID == null) {
+			Log.logger.info("Please input non-null values...");
 			return null;
 		}
-		
+//			DicomPixelDataDecoder decoder = new DicomPixelDataDecoder(dcm, tsUID);
+//			return decoder.decode();
+
+		return null;
+	}
+
 //		public ArrayList<Attributes> readMultiFrameAsAttributes(Attributes ds, String tsUID) {
 //			//return arraylist
 //			ArrayList<Attributes> frames = new ArrayList<Attributes>();
@@ -145,18 +168,19 @@ public class ImageUtils {
 //			}
 //			return frames;
 //		}
-		
-		/**
-		 * 
-		 * TODO 202308906
-		 * 
-		 * get headers(without pixels) to show multi frames.
-		 * @param multiFrameDcm
-		 * @param tsUID
-		 * @return
-		 */
-		public static ArrayList<DicomObject> readMultiFrameDicomHeaders(DicomObject multiFrameDcm) {
-			// return arraylist
+
+	/**
+	 * 
+	 * TODO 202308906
+	 * 
+	 * get headers(without pixels) to show multi frames.
+	 * 
+	 * @param multiFrameDcm
+	 * @param tsUID
+	 * @return
+	 */
+	public static ArrayList<DicomObject> readMultiFrameDicomHeaders(DicomObject multiFrameDcm) {
+		// return arraylist
 //			ArrayList<DicomObject> frames = new ArrayList<DicomObject>();
 //			int w = multiFrameDcm.getInt(Tag.Columns, -1);
 //			int h = multiFrameDcm.getInt(Tag.Rows, -1);
@@ -180,103 +204,127 @@ public class ImageUtils {
 //			} else {
 //				return null;
 //			}
-			return null;
+		return null;
+	}
+
+	public static Image resize(Image srcImg, int w, int h) {
+		BufferedImage resizedImg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g2 = resizedImg.createGraphics();
+		g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g2.drawImage(srcImg, 0, 0, w, h, null);
+		g2.dispose();
+		return resizedImg;
+	}
+
+	public static BufferedImage merge(ImagePlus imp1, ImagePlus imp2) {
+		int w1 = imp1.getWidth();
+		int w2 = imp2.getWidth();
+		int h1 = imp1.getHeight();
+		int h2 = imp2.getHeight();
+		if (w1 != w2 || h1 != h2) {
+			imp2 = imp2.resize(w1, h1, "none");
 		}
-		
-		public static Image resize(Image srcImg, int w, int h) {
-			BufferedImage resizedImg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-			Graphics2D g2 = resizedImg.createGraphics();
-			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-			g2.drawImage(srcImg, 0, 0, w, h, null);
-			g2.dispose();
-			return resizedImg;
-		}
-		
-		public static BufferedImage merge(ImagePlus imp1, ImagePlus imp2) {
-			int w1 = imp1.getWidth();
-			int w2 = imp2.getWidth();
-			int h1 = imp1.getHeight();
-			int h2 = imp2.getHeight();
-			if(w1 != w2 || h1 != h2) {
-				imp2 = imp2.resize(w1, h1, "none");
-			}
-			ColorProcessor cp = new ColorProcessor(w1+w2, h1);
-			for(int j=0; j<h1;j++) {
-				for(int i=0; i<w1+w2;i++) {
-					if(i < w1) {
-						cp.set(i, j, imp1.getProcessor().get(i, j));
-					}else {
-						cp.set(i, j, imp2.getProcessor().get(i-w1, j));
-					}
+		ColorProcessor cp = new ColorProcessor(w1 + w2, h1);
+		for (int j = 0; j < h1; j++) {
+			for (int i = 0; i < w1 + w2; i++) {
+				if (i < w1) {
+					cp.set(i, j, imp1.getProcessor().get(i, j));
+				} else {
+					cp.set(i, j, imp2.getProcessor().get(i - w1, j));
 				}
 			}
-			ImagePlus merge = new ImagePlus("merge",cp);
-			// autoContrast(merge);
-			return merge.getBufferedImage();
 		}
-		
-		public static void autoContrast(ImagePlus imp) {
-			if(imp == null) {
-				return;
-			}
+		ImagePlus merge = new ImagePlus("merge", cp);
+		// autoContrast(merge);
+		return merge.getBufferedImage();
+	}
+
+	public static void autoContrast(ImagePlus imp) {
+		if (imp == null) {
+			return;
+		}
+		if (imp.getType() == ImagePlus.COLOR_RGB)
+			imp.getProcessor().reset();
+		ImageStatistics stats = imp.getRawStatistics();
+		int limit = stats.pixelCount / 10;
+		int[] histogram = stats.histogram;
+		int autoThreshold = imp.getProcessor().getAutoThreshold();
+		if (autoThreshold < 10)
+			autoThreshold = AUTO_THRESHOLD;
+		else
+			autoThreshold /= 2;
+		int threshold = stats.pixelCount / autoThreshold;
+		int i = -1;
+		boolean found = false;
+		int count;
+		do {
+			i++;
+			count = histogram[i];
+			if (count > limit)
+				count = 0;
+			found = count > threshold;
+		} while (!found && i < 255);
+		int hmin = i;
+		i = 256;
+		do {
+			i--;
+			count = histogram[i];
+			if (count > limit)
+				count = 0;
+			found = count > threshold;
+		} while (!found && i > 0);
+		int hmax = i;
+		ij.gui.Roi roi = imp.getRoi();
+		if (hmax >= hmin) {
 			if (imp.getType() == ImagePlus.COLOR_RGB)
-				imp.getProcessor().reset();
-			ImageStatistics stats = imp.getRawStatistics();
-			int limit = stats.pixelCount/10;
-			int[] histogram = stats.histogram;
-			int autoThreshold = imp.getProcessor().getAutoThreshold();
-			if (autoThreshold<10)
-				autoThreshold = AUTO_THRESHOLD;
-			else
-				autoThreshold /= 2;
-			int threshold = stats.pixelCount/autoThreshold;
-			int i = -1;
-			boolean found = false;
-			int count;
-			do {
-				i++;
-				count = histogram[i];
-				if (count>limit) count = 0;
-				found = count> threshold;
-			} while (!found && i<255);
-			int hmin = i;
-			i = 256;
-			do {
-				i--;
-				count = histogram[i];
-				if (count>limit) count = 0;
-				found = count > threshold;
-			} while (!found && i>0);
-			int hmax = i;
-			ij.gui.Roi roi = imp.getRoi();
-			if (hmax>=hmin) {
-				if (imp.getType() == ImagePlus.COLOR_RGB) imp.deleteRoi();
-				double min = stats.histMin+hmin*stats.binSize;
-				double max = stats.histMin+hmax*stats.binSize;
-				if (min==max)	{min=stats.min; max=stats.max;}
-				imp.getProcessor().setMinAndMax(min, max);
-				if ((imp.getType() == ImagePlus.COLOR_RGB) && roi!=null) imp.setRoi(roi);
-			} else {
-				imp.getProcessor().resetMinAndMax();
-				return;
+				imp.deleteRoi();
+			double min = stats.histMin + hmin * stats.binSize;
+			double max = stats.histMin + hmax * stats.binSize;
+			if (min == max) {
+				min = stats.min;
+				max = stats.max;
 			}
+			imp.getProcessor().setMinAndMax(min, max);
+			if ((imp.getType() == ImagePlus.COLOR_RGB) && roi != null)
+				imp.setRoi(roi);
+		} else {
+			imp.getProcessor().resetMinAndMax();
+			return;
 		}
-		
-		public static BufferedImage toBufferedImage(Image img) {
-			if (img instanceof BufferedImage) {
-				return (BufferedImage) img;
-			}
+	}
 
-			// Create a buffered image with transparency
-			BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null),
-					BufferedImage.TYPE_INT_ARGB);
-
-			// Draw the image on to the buffered image
-			Graphics2D bGr = bimage.createGraphics();
-			bGr.drawImage(img, 0, 0, null);
-			bGr.dispose();
-
-			// Return the buffered image
-			return bimage;
+	public static BufferedImage toBufferedImage(Image img) {
+		if (img instanceof BufferedImage) {
+			return (BufferedImage) img;
 		}
+
+		// Create a buffered image with transparency
+		BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+
+		// Draw the image on to the buffered image
+		Graphics2D bGr = bimage.createGraphics();
+		bGr.drawImage(img, 0, 0, null);
+		bGr.dispose();
+
+		// Return the buffered image
+		return bimage;
+	}
+
+	/**
+	 * To create DicomObject that has minimum header set from ImagePlus.
+	 * 
+	 * @param imp
+	 * @return
+	 */
+	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
+		if (imp == null) {
+			return null;
+		}
+		HashMap<Integer, DicomImage> images = ImagePlusToDicomImage.imagePlusToDcm(imp, dealWithSecondaryCapture);
+		return images;
+	}
+
+	public static ImagePlus dcmImgToImgPlus(DicomImage dcmImg) {
+		return ImagePlusDicomTagTools.dcmImgToImagePlus(dcmImg);
+	}
 }

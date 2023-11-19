@@ -52,47 +52,54 @@ import com.vis.db.DatabaseHandler;
 public class DatabaseBrowser extends JDialog implements WindowListener {
 
 	private static final long serialVersionUID = 1453185558822644934L;
-	protected Connection conn;
-	protected JComboBox<String> catalogBox;
-	protected JComboBox<String> schemaBox;
-	protected JComboBox<String> tableBox;
-	protected JTable table;
-	private DatabaseHandler db = DatabaseHandler.getInstance();
+	Connection conn;
+	JComboBox<String> catalogBox;
+	JComboBox<String> schemaBox;
+	JComboBox<String> tableBox;
+	JTable table;
+	DatabaseHandler db = DatabaseHandler.getInstance();
 
-	String username = db.getUserName();
-	String password = db.getPassword();
-	String driver = db.getDriverName();
-	String protocol = db.getProtocolName();
-	String databasename = db.getDatabaseName();
+	String username;
+	String password;
+	String driver;
+	String protocol;
+	String databasename;
 	
-	String[] tableType = new String[] {"IMAGE","SERIES","STUDY","PATIENT","SERVERS","ROI"};
+	String[] tableType = new String[] {"PATIENT","STUDY","SERIES","IMAGE","SERVERS","ROI"};
 	// URL
 	// protocol + databasename + ";create=false"
 
 	public DatabaseBrowser() throws Exception {
 		super(WindowManager.getMainScreen(), true);
-//	    ConnectionDialog cd = new ConnectionDialog(this);
-//	    conn = cd.getConnection();
+		super.setTitle("Database Browser");
+		super.setLocationRelativeTo(WindowManager.getMainScreen());
+		if(db == null) {
+			dispose();
+		}
 		if (!db.checkDBExists(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation))) {
 			dispose();
-			return;
 		}
+		username = db.getUserName();
+		password = db.getPassword();
+		driver = db.getDriverName();
+		protocol = db.getProtocolName();
+		databasename = db.getDatabaseName();
+		
 		openConnection(protocol + databasename + ";create=false", username, password);
 		buildFrameLayout();
 		setSize(600, 450);
 		pack();
 		setVisible(true);
-		addWindowListener(this);// dissconnect when window closing
+		addWindowListener(this);// disconnect when window closing
 	}
 
 	private void openConnection(String url, String username, String password) {
-		boolean dbExists = db.checkDBExists(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation));
-//		System.setProperty("derby.system.home", ApplicationContext.getLocalDBLocation());
 		try {
 			Class.forName(driver);
 		} catch (ClassNotFoundException e) {
 			StringWriter str = new StringWriter();
 			e.printStackTrace(new PrintWriter(str));
+			Log.logger.severe(e.getMessage());
 		}
 		try {
 			EmbeddedDataSource ds = db.getEmbeddedDataSource();
@@ -104,36 +111,15 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 				ApplicationFacade
 						.exitApp(Level.SEVERE,"ERROR: ClassNotFoundException:" + e.getMessage() + ": GRAPHY stop and close...");
 			} catch (Throwable e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 		}
 		try {
-			if (!dbExists) {
-				JOptionPane.showConfirmDialog(this, "GRAPHYDB Dir is not exist.");
-				return;
-			} else {
-				conn = DriverManager.getConnection(protocol + databasename + ";create=false", username, password);
-			}
+			conn = DriverManager.getConnection(protocol + databasename + ";create=false", username, password);
 		} catch (Exception e) {
-			if (dbExists && conn == null) {
-				JOptionPane.showConfirmDialog(this, "An instance of GRAPHY is running: Exit the browser");
-				this.setVisible(false);
-				this.dispose();
-//				return;
-			}
+				dispose();
 		}
 	}
-
-//	private boolean checkDBexists(String tem) {
-//		File[] listFiles = new File(tem).listFiles();
-//		for (int l = 0; l < listFiles.length; l++) {
-//			if (listFiles[l].getName().equalsIgnoreCase(databasename)) {
-//				return true;
-//			}
-//		}
-//		return false;
-//	}
 
 	protected void buildFrameLayout() {
 		Container pane = getContentPane();
@@ -142,7 +128,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		refreshTable();
 		pane.add(new JScrollPane(table), BorderLayout.CENTER);
-		pane.add(getFrameButtonPanel(), BorderLayout.SOUTH);
+//		pane.add(getFrameButtonPanel(), BorderLayout.SOUTH);//Close button
 	}
 
 	protected JPanel getSelectionPanel() {
@@ -152,44 +138,44 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.gridy = 0;
 		gbc.insets = new Insets(5, 10, 5, 10);
-		label = new JLabel("Catalog", JLabel.RIGHT);
-		panel.add(label, gbc);
-		label = new JLabel("Schema", JLabel.RIGHT);
-		panel.add(label, gbc);
+//		label = new JLabel("Catalog", JLabel.RIGHT);
+//		panel.add(label, gbc);
+//		label = new JLabel("Schema", JLabel.RIGHT);
+//		panel.add(label, gbc);
 		label = new JLabel("Table", JLabel.RIGHT);
 		panel.add(label, gbc);
 
 		gbc.gridy = 1;
-		catalogBox = new JComboBox<>();
-		populateCatalogBox();
-		panel.add(catalogBox, gbc);
-		schemaBox = new JComboBox<>();
-		populateSchemaBox();
-		panel.add(schemaBox, gbc);
+//		catalogBox = new JComboBox<>();
+//		populateCatalogBox();
+//		panel.add(catalogBox, gbc);
+//		schemaBox = new JComboBox<>();
+//		populateSchemaBox();
+//		panel.add(schemaBox, gbc);
 		tableBox = new JComboBox<>();
 		populateTableBox();
 		panel.add(tableBox, gbc);
 
-		catalogBox.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent event) {
-				String newCatalog = (String) (catalogBox.getSelectedItem());
-				try {
-					conn.setCatalog(newCatalog);
-				} catch (Exception e) {
-				}
-				;
-				populateSchemaBox();
-				populateTableBox();
-				refreshTable();
-			}
-		});
+//		catalogBox.addItemListener(new ItemListener() {
+//			public void itemStateChanged(ItemEvent event) {
+//				String newCatalog = (String) (catalogBox.getSelectedItem());
+//				try {
+//					conn.setCatalog(newCatalog);
+//				} catch (Exception e) {
+//				}
+//				;
+//				populateSchemaBox();
+//				populateTableBox();
+//				refreshTable();
+//			}
+//		});
 
-		schemaBox.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent event) {
-				populateTableBox();
-				refreshTable();
-			}
-		});
+//		schemaBox.addItemListener(new ItemListener() {
+//			public void itemStateChanged(ItemEvent event) {
+//				populateTableBox();
+//				refreshTable();
+//			}
+//		});
 
 		tableBox.addItemListener(new ItemListener() {
 			public void itemStateChanged(ItemEvent event) {
@@ -234,12 +220,12 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		}
 	}
 
-	protected void populateTableBox() {
+	void populateTableBox() {
 		List<String> allowList = Arrays.asList(tableType);
 		try {
-			String[] types = { "TABLE" };
+			final String[] types = { "TABLE" };
 			String catalog = conn.getCatalog();
-			String schema = (String) (schemaBox.getSelectedItem());
+			String schema = null;//(String) (schemaBox.getSelectedItem());
 			DatabaseMetaData dmd = conn.getMetaData();
 			ResultSet rset = dmd.getTables(catalog, schema, null, types);
 			Vector<String> values = new Vector<>();
@@ -250,7 +236,12 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 				}
 			}
 			rset.close();
-			tableBox.setModel(new DefaultComboBoxModel<String>(values));
+			if(allowList.size() == values.size()) {
+				//all tables found
+				tableBox.setModel(new DefaultComboBoxModel<String>(tableType));//to keep list order
+			}else {
+				tableBox.setModel(new DefaultComboBoxModel<String>(values));
+			}
 			tableBox.setEnabled(values.size() > 0);
 		} catch (Exception e) {
 			tableBox.setEnabled(false);
@@ -274,7 +265,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 //	    String catalog = (catalogBox.isEnabled() ?
 //	        catalogBox.getSelectedItem().toString() :
 //	        null);
-		String schema = (schemaBox.isEnabled() ? schemaBox.getSelectedItem().toString() : null);
+		String schema = null;//(schemaBox.isEnabled() ? schemaBox.getSelectedItem().toString() : null);
 		String tableName = (String) tableBox.getSelectedItem();
 		if (tableName == null) {
 			table.setModel(new DefaultTableModel());
@@ -386,7 +377,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		}
 
 		protected void onDialogCancel() {
-			System.exit(0);
+			dispose();
 		}
 
 		protected boolean attemptConnection() {

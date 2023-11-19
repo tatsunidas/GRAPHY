@@ -1,29 +1,26 @@
 package com.vis.core.view.D2.processing;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.joml.Vector3d;
 
-import com.vis.dicom.DICOMBackend;
+import com.vis.core.log.Log;
+import com.vis.core.util.ByteUtils;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.Tag;
+import com.vis.dicom.TagDict;
+import com.vis.dicom.TagUtils;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.VirtualStack;
+import ij.measure.Calibration;
 import ij.plugin.DICOM;
 import ij.util.DicomTools;
 import ij.util.Tools;
 
-/*
- * 遺産　ImagePlusに、DicomTagを追加する。DicomImageを主に使って、画像系でImagePlusに変換すればいいので、もう必要ない。
- * ImagePlusのサブクラスであるDICOMクラスの改良版。
- */
 public class ImagePlusDicomTagTools extends DICOM{
 
 	public static void main(String[] args) {
@@ -48,353 +45,353 @@ public class ImagePlusDicomTagTools extends DICOM{
 //		String arr = "0.0\\1.0\\2.0\\";
 //		arr = arr.substring(0, arr.lastIndexOf('\\'));
 //		System.out.println(arr);
-		System.out.println(Tools.parseDouble("-0.0"));//keep minus, ok
+//		System.out.println(Tools.parseDouble("-0.0"));//keep minus, ok
+		int t = Tag.Patient​ID;
+		System.out.println(com.vis.dicom.TagUtils.toString(t));
+		System.out.println(TagUtils.toDicomToolsString(t));
 	}
 	
-//	Logger logger = Logger.getLogger(ImagePlusDicomTagTools.class.getName());
-//	private boolean showErrors = true;
-//	private boolean gettingInfo;
-//	private BufferedInputStream inputStream;
-//	private String info;
-//	private static String directory;
-//	private static String fileName;
-//	
-//	/**
-//	 * if you want specific slice info, do imp.setSlice() before call this methods. 
-//	 * @param imp
-//	 * @param tag
-//	 * @return
-//	 */
-//	public String getTag(ImagePlus imp, String tag) {
-//		return DicomTools.getTag(imp, tag);
-//	}
-//	
-//	private String getTag(String hdr, String tag) {
-//		if (hdr==null) return null;
-//		int index1 = hdr.indexOf(tag);
-//		if (index1==-1) return null;
-//		if (hdr.charAt(index1+11)=='>') {
-//			// ignore tags in sequences
-//			index1 = hdr.indexOf(tag, index1+10);
-//			if (index1==-1) return null;
-//		}
-//		index1 = hdr.indexOf(":", index1);
-//		if (index1==-1) return null;
-//		int index2 = hdr.indexOf("\n", index1);
-//		String value = hdr.substring(index1+1, index2);
-//		return value;
-//	}
-//	
-//	public Double getDouble(ImagePlus imp, String tag) {
-//		int pos = imp.getCurrentSlice();
-//		String hdr = getHeader(imp.getStack(), pos);
-//		String value = getTag(hdr, tag);
-//		if (value==null) return Double.NaN;
-//		int index3 = value.indexOf("\\");
-//		if (index3>0)
-//			value = value.substring(0, index3);
-//		return Tools.parseDouble(value);
-//	}
-//	
-//	public double[] getDoubles(ImagePlus imp, String tag) {
-//		String res = getTag(imp, tag);
-//		if (res == null) return null;
-//		String[] xyz = res.split("\\\\");
-//		if(xyz == null || xyz.length < 1) {
-//			return null;
-//		}
-//		double[] arr = new double[xyz.length];
-//		for(int i=0;i<xyz.length;i++) {
-//			arr[i] = Tools.parseDouble(xyz[i]);//can keep minus in case of -0.0.
-//		}
-//		return arr;
-//	}
-//	
-//	private InputStream loadFileInputStream(String path) {
-//		File f = new File(path);
-//		if(!f.exists() || f.isDirectory()) {
-//			return null;
-//		}
-//		directory = f.getParentFile().getAbsolutePath();
-//		fileName = f.getName();
-//		FileInputStream fis = null;
-//		try {
-//			fis = new FileInputStream(new File(path));
-//			return fis;
-//		}catch(IOException e) {
-//			return null;
-//		}
-//	}
-//	
-//	public void load(String path2file) {
-//		this.inputStream = new BufferedInputStream(loadFileInputStream(path2file));
-//		load();
-//	}
-//	
-//	private void load() {
-//		if(this.inputStream == null) {
-//			return;
-//		}
-//		DicomDecoder dd = new DicomDecoder(directory, fileName);
-//		dd.inputStream = inputStream;
-//		FileInfo fi = null;
-//		try {
-//			fi = dd.getFileInfo();
-//		} catch (IOException e) {
-//			String msg = e.getMessage();
-//			System.err.println(msg);
-//			if (msg.indexOf("EOF")<0&&showErrors) {
-////				IJ.error("DICOM Reader", e.getClass().getName()+"\n \n"+msg);
-//				System.err.println("Something odd when reading input stream...");
-//				return;
-//			} else if (!dd.dicmFound()&&showErrors) {
-//				msg = "This does not appear to be a valid\n"
-//				+ "DICOM file. It does not have the\n"
-//				+ "characters 'DICM' at offset 128.";
-//				System.err.println(msg);
-//				return;
-//			}
-//		}
-//		if (gettingInfo) {
-//			info = dd.getDicomInfo();
-//			return;
-//		}
-//		if (fi!=null && fi.width>0 && fi.height>0) {
-//			/*
-//			 * build imageplus with display information
-//			 */
-//			ImagePlus imp = null;
-//			if(!dd.isCompressedPixels()) {//no pixels compression
-//				FileOpener fo = new FileOpener(fi);
-//				imp = fo.openImage();
-//			}else {//compress
-//				GImageReader reader = new GImageReader();
-//				imp = reader.readFile(new File(directory+File.separator+fileName));
-//			}
-//			if (imp != null) {// no pixels compression
-//				// Avoid opening as float even if slope != 1.0 in case ignoreRescaleSlope or
-//				// fixedDicomScaling
-//				// were checked in the DICOM preferences.
-//				boolean openAsFloat = (dd.rescaleSlope != 1.0);
-////				boolean openAsFloat = (dd.rescaleSlope!=1.0 && !(Prefs.ignoreRescaleSlope || Prefs.fixedDicomScaling)) 
-////						|| Prefs.openDicomsAsFloat;
-//				if (openAsFloat) {
-//					// IJ.run(imp, "32-bit", "");
-//					if (dd.rescaleSlope != 1.0)
-//						IJ.run(imp, "Multiply...", "value=" + dd.rescaleSlope + " stack");
-//					if (dd.rescaleIntercept != 0.0)
-//						IJ.run(imp, "Add...", "value=" + dd.rescaleIntercept + " stack");
-//					if (imp.getStackSize() > 1) {
-//						imp.setSlice(imp.getStackSize() / 2);
-//						ImageStatistics stats = imp.getRawStatistics();
-//						imp.setDisplayRange(stats.min, stats.max);
-//					}
-//				} else if (fi.fileType == FileInfo.GRAY16_SIGNED) {
-//					if (dd.rescaleIntercept != 0.0 && (dd.rescaleSlope == 1.0 /* ||Prefs.fixedDicomScaling */ )) {
-//						double[] coeff = new double[2];
-//						coeff[0] = dd.rescaleSlope * (-32768) + dd.rescaleIntercept;
-//						coeff[1] = dd.rescaleSlope;
-//						imp.getCalibration().setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//					}
-//				} else if (dd.rescaleIntercept != 0.0
-//						&& (dd.rescaleSlope == 1.0 || /* Prefs.fixedDicomScaling|| */ fi.fileType == FileInfo.GRAY8)) {
-//					double[] coeff = new double[2];
-//					coeff[0] = dd.rescaleIntercept;
-//					coeff[1] = dd.rescaleSlope;
-//					imp.getCalibration().setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//				}
-//				if (dd.windowWidth > 0.0) {
-//					double min = dd.windowCenter - dd.windowWidth / 2;
-//					double max = dd.windowCenter + dd.windowWidth / 2;
-//					if (!openAsFloat) {
-//						Calibration cal = imp.getCalibration();
-//						min = cal.getRawValue(min);
-//						max = cal.getRawValue(max);
-//					}
-//					ImageProcessor ip = imp.getProcessor();
-//					ip.setMinAndMax(min, max);
-//				}
-//				if (imp.getStackSize() > 1)
-//					setStack(fileName, imp.getStack());
-//				else
-//					setProcessor(fileName, imp.getProcessor());
-//				setCalibration(imp.getCalibration());
-//				setProperty("Info", dd.getDicomInfo());
-//				setFileInfo(fi); // needed for revert
-//			}
-//		}
-//		if(inputStream != null) {
-//			try {
-//				inputStream.close();
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-//		}
-//	}
-//	
-//	/** Returns the DICOM tags of the specified file as a string. */ 
-//	public String getInfo(String path) {
-//		showErrors = false;
-//		gettingInfo = true;
-//		load(path);
-//		return info;
-//	}
-//	
-//	public void setTag(ImagePlus imp, String tag, String value) {
-//		if(imp.getNSlices() > 1) {
-//			int pos = imp.getCurrentSlice();
-//			ImageStack stack = imp.getStack();
-//			String hdr = stack.getSliceLabel(pos);
-//			if ((hdr == null || hdr.length() < 100) && stack.isVirtual()) {
-//				String dir = ((VirtualStack) stack).getDirectory();
-//				String name = ((VirtualStack) stack).getFileName(pos);
-//				DicomImage reader = DicomImage.newDicomImage(dir + name, DICOMBackend.getCurrent());
-//				hdr = reader.getInfo(dir + name);
-//				if (hdr != null)
-//					hdr = name + "\n" + hdr;
-//			}
-//			int index1 = hdr.indexOf(tag);
-//			if (index1 != -1) {// found
-//				if (hdr.charAt(index1 + 11) == '>') {
-//					// ignore tags in sequences
-//					index1 = hdr.indexOf(tag, index1 + 10);
-//				}
-//				index1 = hdr.indexOf(":", index1) + 1;
-//				String upper = hdr.substring(0, index1);
-//				int index2 = hdr.indexOf("\n", index1);
-//				String after = hdr.substring(index2);
-//				hdr = upper + value + after;
-//			} else {// not found
-//				if (!hdr.endsWith("\n")) {
-//					hdr = hdr + "\n" + tag + ": " + value + "\n";
-//				} else {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}
-//			}
-//			stack.setSliceLabel(hdr, pos);
-//		}else {
-//			String hdr = (String)imp.getProperty("Info");
-//			if (hdr == null) {
-//				hdr = "";
-//			}
-//			int index1 = hdr.indexOf(tag);
-//			if (index1 != -1) {// found
-//				if (hdr.charAt(index1 + 11) == '>') {
-//					// ignore tags in sequences
-//					index1 = hdr.indexOf(tag, index1 + 10);
-//				}
-//				index1 = hdr.indexOf(":", index1) + 1;
-//				String upper = hdr.substring(0, index1);
-//				int index2 = hdr.indexOf("\n", index1);
-//				String after = hdr.substring(index2);
-//				hdr = upper + value + after;
-//			} else {// not found
-//				if(hdr.equals("")) {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}else if (!hdr.endsWith("\n")) {
-//					hdr = hdr + "\n" + tag + ": " + value + "\n";
-//				} else {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}
-//			}
-//			imp.setProperty("Info", hdr);
-//		}
-//	}
-//	
-//	public void setDoubles(ImagePlus imp, String tag, double[] values) {
-//		String arr = "";
-//		for(double v : values) {
-//			arr += String.valueOf(v) + "\\";
-//		}
-//		//delete foinal \\
-//		arr = arr.substring(0, arr.lastIndexOf('\\'));
-//		setTag(imp, tag, arr);
-//	}
-//	
-//	/**
-//	 * 
-//	 * @param stack
-//	 * @param n : from 1 to n
-//	 * @return
-//	 */
-//	private String getHeader(ImageStack stack, int n) {
-//		String hdr = stack.getSliceLabel(n);
-//		if ((hdr == null || hdr.length() < 100) && stack.isVirtual()) {
-//			String dir = ((VirtualStack) stack).getDirectory();
-//			String name = ((VirtualStack) stack).getFileName(n);
-//			DICOMImage reader = new DICOMImage(dir + name);
-//			hdr = reader.getInfo(dir + name);
-//			if (hdr != null)
-//				hdr = name + "\n" + hdr;
-//		}
-//		return hdr;
-//	}
-//	
-//	public void headerCopy(ImagePlus from, ImagePlus to) {
-//		if(from.getNSlices() != to.getNSlices()) {
-//			logger.info("Can not copy header, stack size not match.");
-//			return;
-//		}
-//		if(from.getNSlices() == 1) {
-//			to.setProperty("Info", from.getInfoProperty());
-//		}else {
-//			int size = from.getNSlices();
-//			for(int i=1;i<=size;i++) {
-//				String hdr = from.getStack().getSliceLabel(i);
-//				to.getStack().setSliceLabel(hdr, i);
-//			}
-//		}
-//	}
-//	
-//	
-//	/**
-//	 * 
-//	 * @param dcms : if it has multi slices, set image position before perform.
-//	 * @param ipp
-//	 */
-//	public void setImagePositionPatient(ImagePlus dcms, Vector3d ipp){
-//		if(ipp == null) {
-//			logger.info("ImagePositionPatient must have 3 component x,y,z...");
-//			return;
-//		}
-//		setImagePositionPatient(dcms, new double[] {ipp.x(),ipp.y(),ipp.z()});
-//	}
-//	
-//	/**
-//	 * 
-//	 * @param dcms : if it has multi slices, set image position before perform.
-//	 * @param ipp
-//	 */
-//	public void setImagePositionPatient(ImagePlus dcms, double[] ipp){
-//		if(ipp == null || ipp.length != 3) {
-//			logger.info("ImagePositionPatient must have 3 component x,y,z...");
-//			return;
-//		}
-//		setDoubles(dcms, "0020,0032", ipp);
-//	}
-//	
-//	/**
-//	 * 
-//	 * @param dcms : if it has multi slices, set image position before perform.
-//	 * @param ipp
-//	 */
-//	public void setImageOrientationPatient(ImagePlus dcms, double[] iop){
-//		if(iop == null || iop.length != 6) {
-//			logger.info("ImageOrientationPatient must have 6 component y axis(Row) : xyz, x axis(Col) : xyz");
-//			return;
-//		}
-//		setDoubles(dcms, "0020,0037", iop);
-//	}
-//	
-//	public double[] getImagePositionPatient(ImagePlus imp) {
-//		double[] ipp = getDoubles(imp, "0020,0032");
-//		return ipp;
-//	}
-//	
-//	public double[] getImageOrientationPatient(ImagePlus imp) {
-//		double[] iop = getDoubles(imp, "0020,0037");
-//		return iop;
-//	}
+	static Logger logger = Log.logger;
+	
+	/**
+	 * @param imp
+	 * @param pos
+	 * @param tag
+	 * @return
+	 */
+	public String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
+		imp.setSlice(pos);
+		return DicomTools.getTag(imp, tag);
+	}
+	
+	public Double getDouble(ImagePlus imp, int pos/*1 to N*/, String tag) {
+		imp.setSlice(pos);
+		String value = getTag(imp, pos, tag);
+		if (value==null) return Double.NaN;
+		int index3 = value.indexOf("\\");
+		if (index3>0)
+			value = value.substring(0, index3);
+		return Tools.parseDouble(value);
+	}
+	
+	public double[] getDoubles(ImagePlus imp, int pos, String tag) {
+		String res = getTag(imp, pos, tag);
+		if (res == null) return null;
+		String[] xyz = res.split("\\\\");
+		if(xyz == null || xyz.length < 1) {
+			return null;
+		}
+		double[] arr = new double[xyz.length];
+		for(int i=0;i<xyz.length;i++) {
+			arr[i] = Tools.parseDouble(xyz[i]);//can keep minus in case of -0.0.
+		}
+		return arr;
+	}
+	
+	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag, String value) {
+		if(imp.getNSlices() > 1) {
+			ImageStack stack = imp.getStack();
+			String hdr = stack.getSliceLabel(pos);
+			if(hdr == null) {
+				hdr = "";
+			}
+			int index1 = hdr.indexOf(tag);
+			if (index1 != -1) {// found
+				if (hdr.charAt(index1 + 11) == '>') {
+					// ignore tags in sequences
+					index1 = hdr.indexOf(tag, index1 + 10);
+				}
+				index1 = hdr.indexOf(":", index1) + 1;
+				String upper = hdr.substring(0, index1);
+				int index2 = hdr.indexOf("\n", index1);
+				String after = hdr.substring(index2);
+				hdr = upper + value + after;
+			} else {// not found
+				if (!hdr.endsWith("\n")) {
+					hdr = hdr + "\n" + tag + ": " + value + "\n";
+				} else {
+					hdr = hdr + tag + ": " + value + "\n";
+				}
+			}
+			stack.setSliceLabel(hdr, pos);
+		}else {
+			String hdr = (String)imp.getProperty("Info");
+			if (hdr == null) {
+				hdr = "";
+			}
+			int index1 = hdr.indexOf(tag);
+			if (index1 != -1) {// found
+				if (hdr.charAt(index1 + 11) == '>') {
+					// ignore tags in sequences
+					index1 = hdr.indexOf(tag, index1 + 10);
+				}
+				index1 = hdr.indexOf(":", index1) + 1;
+				String upper = hdr.substring(0, index1);
+				int index2 = hdr.indexOf("\n", index1);
+				String after = hdr.substring(index2);
+				hdr = upper + value + after;
+			} else {// not found
+				if(hdr.equals("")) {
+					hdr = hdr + tag + ": " + value + "\n";
+				}else if (!hdr.endsWith("\n")) {
+					hdr = hdr + "\n" + tag + ": " + value + "\n";
+				} else {
+					hdr = hdr + tag + ": " + value + "\n";
+				}
+			}
+			imp.setProperty("Info", hdr);
+		}
+	}
+	
+	public void setDoubles(ImagePlus imp, int pos, String tag, double[] values) {
+		String arr = "";
+		for(double v : values) {
+			arr += String.valueOf(v) + "\\";
+		}
+		//delete end of "\\"
+		arr = arr.substring(0, arr.lastIndexOf('\\'));
+		setTag(imp, pos, tag, arr);
+	}
+	
+	/**
+	 * 
+	 * @param stack
+	 * @param n : from 1 to n
+	 * @return
+	 */
+	public String getHeader(ImageStack stack, int n) {
+		String hdr = stack.getSliceLabel(n);
+		if ((hdr == null || hdr.length() < 100) && stack.isVirtual()) {
+			String dir = ((VirtualStack) stack).getDirectory();
+			String name = ((VirtualStack) stack).getFileName(n);
+			ImagePlus reader = new ImagePlus(dir + name);
+			hdr = reader.getInfoProperty();
+			if (hdr != null)
+				hdr = name + "\n" + hdr;
+		}
+		return hdr;
+	}
+	
+	public void headerCopy(ImagePlus from, ImagePlus to) {
+		if(from.getNSlices() != to.getNSlices()) {
+			logger.info("Can not copy header, not matching stack sizes.");
+			return;
+		}
+		if(from.getNSlices() == 1) {
+			to.setProperty("Info", from.getInfoProperty());
+		}else {
+			int size = from.getNSlices();
+			for(int i=1;i<=size;i++) {
+				String hdr = from.getStack().getSliceLabel(i);
+				to.getStack().setSliceLabel(hdr, i);
+			}
+		}
+	}
+	
+	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg) {
+		if(!dcmImg.isMultiFrame()) {
+			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0));
+			DicomObject header = dcmImg.getCore();
+			int[] tags = header.tags();
+			for(int t : tags) {
+				if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+					continue;
+				}
+				String ts = TagUtils.toDicomToolsString(t);
+				if(TagDict.vmOf(t).equals("1")) {
+					setTag(imp,1,ts,header.getString(t));
+				}else {
+					String[] vals = header.getStrings(t);
+					String v = "";
+					for(String val:vals) {
+						v = v + val+"\\";
+					}
+					v = v.substring(0, v.length()-1);//remove last "\\"
+					setTag(imp,1,ts,v);
+				}
+			}
+			calibrate(imp, header);
+			return imp;
+		}else {
+			int size = dcmImg.getNumOfFrames();
+			ImageStack stack = new ImageStack();
+			Calibration cal = null;
+			for(int i=0; i<size; i++) {
+				/*single frame imp*/
+				ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(i));
+				DicomObject header = dcmImg.getCore();
+				int[] tags = header.tags();
+				for(int t : tags) {
+					if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+						continue;
+					}
+					String ts = TagUtils.toDicomToolsString(t);
+					if(TagDict.vmOf(t).equals("1")) {
+						setTag(imp,1,ts,header.getString(t));
+					}else {
+						String[] vals = header.getStrings(t);
+						String v = "";
+						for(String val:vals) {
+							v = v + val+"\\";
+						}
+						v = v.substring(0, v.length()-1);//remove last "\\"
+						setTag(imp,1,ts,v);
+					}
+				}
+				setTag(imp,(i+1),TagUtils.toDicomToolsString(Tag.Instance​Number),String.valueOf(i+1));
+				calibrate(imp, header);
+				if(cal == null) {
+					cal = imp.getCalibration();
+				}
+				stack.addSlice(imp.getProcessor());
+				stack.setSliceLabel(imp.getInfoProperty(), i+1);
+			}
+			ImagePlus newImp = new ImagePlus("",stack);
+			newImp.setCalibration(cal);
+			return newImp;
+		}
+	}
+	
+	/**
+	 * Calibrate imageplus using header.
+	 * @param imp
+	 * @param header
+	 */
+	public static void calibrate(ImagePlus imp/*No calibrated imageplus*/, DicomObject header) {
+		if(imp == null) {
+			throw new NullPointerException();
+		}
+		if(header == null) {
+			return;
+		}
+		/*No calibrated imageplus*/
+		Calibration originalCal = imp.getCalibration();
+		boolean isRGB = imp.getType() == ImagePlus.COLOR_RGB;
+		if(isRGB) {
+			imp.getProcessor().snapshot();
+		}
+		/*
+		 * Spatial calibrations
+		 */
+		// x-y-z
+		double pixelSpacingX = 1.0;
+		double pixelSpacingY = 1.0;
+		double pixelSpacingZ = 1.0;
+		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
+		double[] pixelSpacing = header.getDoubles(Tag.Pixel​Spacing);
+		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, -1);
+		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
+			pixelSpacingX = pixelSpacing[1];// column
+			pixelSpacingY = pixelSpacing[0];// row
+			if (spacingBetweenSlices != -1) {
+				pixelSpacingZ = spacingBetweenSlices;
+			} else {
+				double sliceThickness = header.getDouble(Tag.Slice​Thickness, -1);
+				if (sliceThickness != -1) {
+					pixelSpacingZ = sliceThickness;
+				}
+			}
+			/*
+			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
+			 * definition.
+			 */
+			originalCal.setUnit("mm");//
+		}
+		// then, set to cal
+		originalCal.pixelWidth = pixelSpacingX;
+		originalCal.pixelHeight = pixelSpacingY;
+		originalCal.pixelDepth = pixelSpacingZ;
+		
+		/*
+		 * density calibration
+		 */
+		Double slope = header.getDouble(Tag.Rescale​Slope, Double.NaN);
+		Double intercept = header.getDouble(Tag.Rescale​Intercept, Double.NaN);
+		String modality = header.getString(Tag.Modality);
+		boolean isSigned = header.getInt(Tag.Pixel​Representation, 0) != 0;
+		if (header.getInt(Tag.Bits​Allocated, -1) == 16 && isSigned) {
+			if (!intercept.isNaN() && !slope.isNaN()) {
+				double[] coeff = new double[2];
+				coeff[0] = slope*(-32768) + intercept;
+				coeff[1] = slope;
+				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+				originalCal.getCTable();//to make cTable.
+//				originalCal.setSigned16BitCalibration();//DO NOT USE
+				if(modality != null && modality.equals("CT")) {
+					originalCal.setValueUnit("HU");
+				}
+				//add another modalities unit...
+			}
+		}else if (intercept!=0.0 && slope==1.0) {
+			double[] coeff = new double[2];
+			coeff[0] = intercept;
+			coeff[1] = slope;
+			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+			originalCal.getCTable();//to make cTable.
+		}
+		// adjust WW/WL
+		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
+		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
+		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+			double newMin = WL - (.5 * WW);
+			double newMax = WL + (.5 * WW);
+			if (newMin > newMax) {
+				logger.log(Level.WARNING,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
+			}
+			imp.setDisplayRange(newMin, newMax);
+		}
+		imp.setCalibration(originalCal);
+	}
+	
+	
+	/**
+	 * 
+	 * @param dcms : if it has multi slices, set image position before perform.
+	 * @param ipp
+	 */
+	public void setImagePositionPatient(ImagePlus dcms, int pos, Vector3d ipp){
+		if(ipp == null) {
+			logger.info("ImagePositionPatient must have 3 component x,y,z...");
+			return;
+		}
+		setImagePositionPatient(dcms, pos, new double[] {ipp.x(),ipp.y(),ipp.z()});
+	}
+	
+	/**
+	 * 
+	 * @param dcms : if it has multi slices, set image position before perform.
+	 * @param ipp
+	 */
+	public void setImagePositionPatient(ImagePlus dcms, int pos, double[] ipp){
+		if(ipp == null || ipp.length != 3) {
+			logger.info("ImagePositionPatient must have 3 component x,y,z...");
+			return;
+		}
+		setDoubles(dcms, pos, "0020,0032", ipp);
+	}
+	
+	/**
+	 * 
+	 * @param dcms : if it has multi slices, set image position before perform.
+	 * @param ipp
+	 */
+	public void setImageOrientationPatient(ImagePlus dcms, int pos, double[] iop){
+		if(iop == null || iop.length != 6) {
+			logger.info("ImageOrientationPatient must have 6 component y axis(Row) : xyz, x axis(Col) : xyz");
+			return;
+		}
+		setDoubles(dcms, pos, "0020,0037", iop);
+	}
+	
+	public double[] getImagePositionPatient(ImagePlus imp, int pos) {
+		double[] ipp = getDoubles(imp, pos, "0020,0032");
+		return ipp;
+	}
+	
+	public double[] getImageOrientationPatient(ImagePlus imp, int pos) {
+		double[] iop = getDoubles(imp, pos, "0020,0037");
+		return iop;
+	}
 }
 
 //class DicomDictionary {
@@ -1143,5 +1140,5 @@ public class ImagePlusDicomTagTools extends DICOM{
 //		"FFFEE000=DLItem",
 //		"FFFEE00D=DLItem Delimitation Item",
 //		"FFFEE0DD=DLSequence Delimitation Item"
-//	}
+//	};
 //}

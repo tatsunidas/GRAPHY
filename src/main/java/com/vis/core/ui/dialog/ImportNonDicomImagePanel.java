@@ -32,7 +32,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 	private JTextField textField_pname;//name
 	private JTextField textField_pid;//id
 	private JTextField textField_dob;//date of birth
-//	private JTextField textField_studyDesc;////only series import.
+	private JTextField textField_studyDesc;//to import new study
 	private JTextField textField_seriesDesc;
 	
 	private JRadioButton rdbtnMale;
@@ -41,13 +41,6 @@ public class ImportNonDicomImagePanel extends JPanel{
 	private JRadioButton rdbtnImportToStudy;
 	private JRadioButton rdbtnImportNew;
 	
-	
-	/*
-	 * input control
-	 * https://stackoverflow.com/questions/25782655/java-how-to-enforce-jtextfield-to-have-alphanumeric-values
-	 * https://github.com/venkmurthy/PixelMed-Fork/blob/master/com/pixelmed/dicom/ImageToDicom.java
-	 */
-
 	//test
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -83,6 +76,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 				rdbtnMale.setEnabled(false);
 				rdbtnFemale.setEnabled(false);
 				rdbtnOther.setEnabled(false);
+				textField_studyDesc.setEditable(false);
 				repaint();
 			}
 		});
@@ -113,6 +107,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 				rdbtnMale.setEnabled(true);
 				rdbtnFemale.setEnabled(true);
 				rdbtnOther.setEnabled(true);
+				textField_studyDesc.setEditable(true);
 				repaint();
 			}
 		});
@@ -195,12 +190,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_lblPatientSex.gridy = 4;
 		add(lblPatientSex, gbc_lblPatientSex);
 		
-		/*
-		 * window builder bug can not show correctly on builder.
-		 * but runtime can show correctly.
-		 */
 		JPanel panel = new JPanel();
-//		panel.setBounds(0,0,100,35);
 		GridBagConstraints gbc_panel = new GridBagConstraints();
 		gbc_panel.insets = new Insets(0, 0, 5, 5);
 		gbc_panel.fill = GridBagConstraints.HORIZONTAL;
@@ -226,21 +216,23 @@ public class ImportNonDicomImagePanel extends JPanel{
 		btnGroupSex.add(rdbtnFemale);
 		btnGroupSex.add(rdbtnOther);
 		
-		JLabel lblNewLabel = new JLabel("Optional");
+		JLabel lblStudyDescLabel = new JLabel("StudyDescription");
 		GridBagConstraints gbc_lblNewLabel = new GridBagConstraints();
 		gbc_lblNewLabel.insets = new Insets(0, 0, 5, 5);
+		gbc_lblNewLabel.anchor = GridBagConstraints.EAST;
 		gbc_lblNewLabel.gridx = 0;
 		gbc_lblNewLabel.gridy = 5;
-		add(lblNewLabel, gbc_lblNewLabel);
+		add(lblStudyDescLabel, gbc_lblNewLabel);
 		
-//		textField_studyDesc = new JTextField();
-//		GridBagConstraints gbc_textField_3 = new GridBagConstraints();
-//		gbc_textField_3.insets = new Insets(0, 0, 5, 5);
-//		gbc_textField_3.fill = GridBagConstraints.HORIZONTAL;
-//		gbc_textField_3.gridx = 1;
-//		gbc_textField_3.gridy = 5;
-//		add(textField_studyDesc, gbc_textField_3);
-//		textField_studyDesc.setColumns(10);
+		textField_studyDesc = new JTextField();
+		GridBagConstraints gbc_textField_3 = new GridBagConstraints();
+		gbc_textField_3.insets = new Insets(0, 0, 5, 5);
+		gbc_textField_3.fill = GridBagConstraints.HORIZONTAL;
+		gbc_textField_3.gridx = 1;
+		gbc_textField_3.gridy = 5;
+		add(textField_studyDesc, gbc_textField_3);
+		textField_studyDesc.setColumns(10);
+		textField_studyDesc.addKeyListener(new AlphanumericTextKeyListener(64, null));
 		
 		JLabel lblSeriesdescription = new JLabel("SeriesDescription");
 		GridBagConstraints gbc_lblSeriesdescription = new GridBagConstraints();
@@ -259,7 +251,6 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_textField_4.gridy = 6;
 		add(textField_seriesDesc, gbc_textField_4);
 		textField_seriesDesc.setColumns(10);
-		//		textField_studyDesc.addKeyListener(mnotl);
 		textField_seriesDesc.addKeyListener(new AlphanumericTextKeyListener(64, null));
 		
 		//listener
@@ -273,7 +264,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 		textField_pname.addKeyListener(pnameTextListener);
 		
 		/*
-		 * when starting up, import to study mode
+		 * when starting up, set "import to study" mode
 		 */
 		textField_pid.setEditable(false);
 		textField_pname.setEditable(false);
@@ -281,6 +272,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 		rdbtnMale.setEnabled(false);
 		rdbtnFemale.setEnabled(false);
 		rdbtnOther.setEnabled(false);
+		textField_studyDesc.setEditable(false);
 	}
 	
 	/*
@@ -322,6 +314,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 			sex = "O";
 		}
 		inputs.put("Sex", sex);
+		inputs.put("StudyDesc", textField_studyDesc.getText());
 		inputs.put("SeriesDesc", textField_seriesDesc.getText());
 		return inputs;
 	}

@@ -41,8 +41,13 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
@@ -76,9 +81,11 @@ public class BirdsEyeView extends JPanel{
 	JSplitPane filmAndSingleGridSplit; 
 	JPanel filmGridPane;
 	JPanel singleGridPane;
-	DatabaseHandler db = DatabaseHandler.getInstance();
+	DatabaseHandler db;
 	String currentStudyUID;
 	String currentSeriesUID;
+	
+	Dimension lastSingleGridViewSize = new Dimension(0, 0);
 	
 	final int thumbnailSize = 64 + 24;
 	
@@ -111,8 +118,9 @@ public class BirdsEyeView extends JPanel{
 		birdsEyeSplit.setLeftComponent(seriesListView);
 		birdsEyeSplit.setRightComponent(filmAndSingleGridSplit);
 		
+		
 		filmAndSingleGridSplit.setOneTouchExpandable(true);
-		filmAndSingleGridSplit.setDividerLocation(700);
+		filmAndSingleGridSplit.setDividerLocation(650);
 		
 		filmGridPane = new JPanel(new GridLayout(1, 1));
 		singleGridPane = new JPanel(new GridLayout(1, 1));
@@ -128,7 +136,37 @@ public class BirdsEyeView extends JPanel{
 		filmAndSingleGridSplit.setLeftComponent(filmGridPane);
 		filmAndSingleGridSplit.setRightComponent(singleGridPane);
 		
+		PropertyChangeListener pcl_thumb = new PropertyChangeListener() {
+			@Override
+			public void propertyChange(PropertyChangeEvent evt) {
+				String propertyName = evt.getPropertyName();
+				if (propertyName.equals(JSplitPane.LAST_DIVIDER_LOCATION_PROPERTY)) {
+					Dimension dl = birdsEyeSplit.getLeftComponent().getSize();
+					System.out.println("BirdsEyeSplit:"+dl);
+					if(dl.height < 90) {
+						birdsEyeSplit.setDividerLocation(90);
+					}
+					updateViewSize();
+				}
+			}
+		};
+		
+		PropertyChangeListener pcl = new PropertyChangeListener() {
+			@Override
+			public void propertyChange(PropertyChangeEvent evt) {
+				// JSplitPane sourceSplitPane = (JSplitPane) evt.getSource();
+				String propertyName = evt.getPropertyName();
+				if (propertyName.equals(JSplitPane.DIVIDER_LOCATION_PROPERTY) || propertyName.equals(JSplitPane.LAST_DIVIDER_LOCATION_PROPERTY)) {
+					updateViewSize();
+				}
+			}
+		};
+		
+		birdsEyeSplit.addPropertyChangeListener(pcl_thumb);
+		filmAndSingleGridSplit.addPropertyChangeListener(pcl);
+		
 		add(patInfoAndBirdsEyeSplit, BorderLayout.CENTER);
+		db = DatabaseHandler.getInstance();
 	}
 	
 	/**
@@ -162,6 +200,24 @@ public class BirdsEyeView extends JPanel{
 		filmAndSingleGridSplit.setDividerLocation(w-(int)(w/3));
 		revalidate();
 		repaint();
+	}
+	
+	public void updateViewSize() {
+		Dimension dr = filmAndSingleGridSplit.getRightComponent().getSize();
+		if(lastSingleGridViewSize.width == dr.width && lastSingleGridViewSize.height == dr.height) {
+			return;
+		}
+		if (singleGridView != null && singleGridView.isVisible()) {
+			singleGridView.adjustSlideHolderSize();
+			singleGridView.revalidate();
+			singleGridView.repaint();
+		}
+		if (filmGridView != null && filmGridView.isVisible()) {
+			filmGridView.adjustGridViewSize();
+			filmGridView.revalidate();
+			filmGridView.repaint();
+		}
+		lastSingleGridViewSize = dr;
 	}
 	
 	public void setPatientInfo(HashMap<String,String> infoset) {
@@ -238,27 +294,23 @@ public class BirdsEyeView extends JPanel{
 			currentSeriesUID = selectedSeriesUIDs.get(0);
 		}
 		
-		DatabaseHandler db = DatabaseHandler.getInstance();
 		HashMap<String,String> infoset = db.getInfoset(patId, currentStudyUID, currentSeriesUID);
 		setPatientInfo(infoset);
-		
-		ArrayList<String> sopUidsInSeries = db.getInstanceUidList(patId, studyUid, currentSeriesUID);
-//		ArrayList<String> instLocsInSeries = db.getInstancesLoc(studyUid, currentSeriesUID);
-		
+
 		/*
 		 * thumbnails: praparat list holder
 		 */
 		//load all series in study
 		for(String series : allSeriesUIDList) {
 			//add thumbnails
-			sopUidsInSeries = db.getInstanceUidList(patId, studyUid, series);
+			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(patId, studyUid, series);
 			if(sopUidsInSeries != null && sopUidsInSeries.size() > 0) {
 				Praparat th = new Praparat(ViewMode.Thumbnail);
 				String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
 				th.prepareSlideGlasses(patId, studyUid, series, sopUids);
 				th.setTextVisible(false);
 				th.setAnnotationVisible(false);
-				th.initImageSizeAndShowFirstImage();
+				th.showFirstImage();
 				addSeries(th);
 			}else {
 				addSeries(null);
@@ -280,14 +332,27 @@ public class BirdsEyeView extends JPanel{
 		if(thumbnail == null) {
 			return;
 		}
+		boolean isMultiFrame = thumbnail.isMultiFrame();
+		boolean isPDF = thumbnail.isPDF();
+		
 		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
 		 * single grid view
 		 * load all images
 		 */
-		singleGridView.prepareSlideGlasses(thumbnail);
-		singleGridView.initImageSizeAndShowFirstImage();
+		if(!isMultiFrame && !isPDF) {
+			singleGridView.prepareSlideGlasses(thumbnail);
+		}else {
+			HashMap<String, Object> info = thumbnail.getInfoSet();
+			String padId = (String)info.get(thumbnail.KEY_PadID);
+			String studyUid = (String)info.get(thumbnail.KEY_StudyUID);
+			String seriesUid = (String)info.get(thumbnail.KEY_SeriesUID);
+			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(padId, studyUid, seriesUid);
+			String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
+			singleGridView.prepareSlideGlasses(padId, studyUid, seriesUid, sopUids);
+		}
+		singleGridView.showFirstImage();
 		//after set first image
 		singleGridView.getController().showInfoText(false);
 		singleGridView.setTextVisible(false);
@@ -295,10 +360,13 @@ public class BirdsEyeView extends JPanel{
 		
 		/*
 		 * film grid view
-		 * if series includes only one image, does not show self.
+		 * Exclude following series
+		 * - Series includes only one image.
+		 * - PDF, MultiFrame
 		 */
+		
 		//show same series in single grid view
-		if(thumbnail.getNumberOfImages() > 1) {
+		if(!isMultiFrame && isPDF && singleGridView.getNumberOfImages() > 1) {
 			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(5);
@@ -328,6 +396,9 @@ public class BirdsEyeView extends JPanel{
 			}
 		}
 		slides = filmGridView.getAllSlides();
+		if(slides == null) {
+			return;//if series only have an one image, slides will null.
+		}
 		keys = slides.keySet();
 		for(int i : keys) {
 			SlideGlass sg = slides.get(i).getView();

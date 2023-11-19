@@ -3,6 +3,8 @@ package com.vis.core.util;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
@@ -32,7 +34,10 @@ public class Utils {
 		return ConfigInfo.getPath(dirNameType);
 	}
 
-	public static void eraseTemporalDirContents() {
+	/**
+	 * delete temp dir and included files
+	 */
+	public static void eraseTemporalDir() {
 		File tmp = new File("./" + ConfigInfo.TemporalDirName.toString());
 		if (tmp.exists()) {
 			if (tmp.listFiles().length > 0) {
@@ -41,6 +46,30 @@ public class Utils {
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	public static void eraseTemporalDirContents() {
+		File tmp = new File("./" + ConfigInfo.TemporalDirName.toString());
+		if (tmp.exists()) {
+			if (tmp.listFiles().length > 0) {
+				File[] tmp_files = tmp.listFiles();
+				for(File f : tmp_files) {
+					if(f.isFile()) {
+						try {
+							FileUtils.delete(f);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}else {
+						try {
+							FileUtils.deleteDirectory(f);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
 				}
 			}
 		}
@@ -75,7 +104,7 @@ public class Utils {
 		}
 	}
 
-	public static String calculateAge(java.util.Date birthOfDate) {
+	public static String calculateCurrentAge(java.util.Date birthOfDate) {
 		if (birthOfDate == null) {
 			return "";
 		}
@@ -89,5 +118,43 @@ public class Utils {
 		Period diff1 = Period.between(l1, now1);
 		return String.valueOf(diff1.getYears());
 	}
-
+	
+	public static Integer calculateAge(java.util.Date birthOfDate, java.util.Date studyDate) {
+		if (birthOfDate == null || studyDate == null) {
+			return null;
+		}
+		Calendar any = Calendar.getInstance();
+		any.setTime(birthOfDate);
+		int year0 = any.get(Calendar.YEAR);
+		int month0 = any.get(Calendar.MONTH) + 1;
+		int date0 = any.get(Calendar.DATE);
+		any.setTime(studyDate);
+		int year1 = any.get(Calendar.YEAR);
+		int month1 = any.get(Calendar.MONTH) + 1;
+		int date1 = any.get(Calendar.DATE);
+		LocalDate born = LocalDate.of(year0, month0, date0);
+		LocalDate study = LocalDate.of(year1, month1, date1);
+		Period dif = Period.between(born, study);
+		return dif.getYears();
+	}
+	
+	/**
+	 * yyyy/MM/dd format
+	 * @param bod
+	 * @param studyDate
+	 * @return
+	 */
+	public static Integer calculateAge(String bod, String studyDate) {
+		if (bod == null || studyDate == null) {
+			return null;
+		}
+		java.util.Date birth = DateUtils.toDateObj(bod, "-");
+		java.util.Date studydate = DateUtils.toDateObj(studyDate, "-");
+		if(birth ==null || studydate == null) {
+			return null;
+		}
+		long diff = studydate.getTime() - birth.getTime();
+		int diffDays = (int) (diff / (24 * 60 * 60 * 1000));
+		return (int) diffDays / 365;
+	}
 }

@@ -283,7 +283,7 @@ public class Viewer2DToolBar extends JToolBar{
 					Eyepiece eye = activeStage.getEyepiece();
 					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
 					for(Praparat pp:selectedPraps) {
-						pp.invertImages();
+						pp.processInvertImages();
 					}
 					setSelectedToolBackground();
 				}
@@ -303,7 +303,7 @@ public class Viewer2DToolBar extends JToolBar{
 					Eyepiece eye = activeStage.getEyepiece();
 					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
 					for(Praparat pp:selectedPraps) {
-						pp.flipLR();
+						pp.processFlipLR();
 					}
 					currentTool = Windowing;
 					setSelectedToolBackground();
@@ -324,7 +324,7 @@ public class Viewer2DToolBar extends JToolBar{
 					Eyepiece eye = activeStage.getEyepiece();
 					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
 					for(Praparat pp:selectedPraps) {
-						pp.flipHF();
+						pp.processFlipHF();
 					}
 					currentTool = Windowing;
 					setSelectedToolBackground();
@@ -504,7 +504,7 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					
 					for(Praparat pp:selectedPraps) {
-						pp.cut();//cut current roi area
+						pp.processCut();//cut current roi area
 					}
 					currentTool = Windowing;
 					setSelectedToolBackground();

@@ -6,6 +6,8 @@ import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.SubjectOrientation;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.Tag;
+
 import java.awt.Graphics;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -251,20 +253,43 @@ public class TextOverlayGlass extends JPanel{
 		if(header == null) {
 			return;
 		}
+		ArrayList<Integer> tags = null;
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db == null) {
-			//for mpr view
-			return;
+			tags = loadDefaultTextAnnotationTags();
+		}else {
+			tags = db.getTextAnnotationList();
 		}
-		ArrayList<Integer> tags = db.getTextAnnotationList();
-		for(int i=0;i<tags.size();i++) {
-			String value = header.getString(tags.get(i));
-			if(value == null) {
-				listOfLabels.get(i).setText("NULL");
-			}else {
-				listOfLabels.get(i).setText(value);
+		if(tags != null && tags.size() > 0) {
+			for(int i=0;i<tags.size();i++) {
+				String value = header.getString(tags.get(i));
+				if(value == null) {
+					listOfLabels.get(i).setText("NULL");
+				}else {
+					listOfLabels.get(i).setText(value);
+				}
 			}
 		}
+	}
+	
+	private ArrayList<Integer> loadDefaultTextAnnotationTags(){
+		ArrayList<Integer> tags = new ArrayList<>();
+		tags.add(Tag.Patient​Name);
+		tags.add(Tag.Patient​ID);
+		tags.add(Tag.Patient​Birth​Date);
+		tags.add(Tag.Patient​Sex);
+		tags.add(Tag.Patient​Weight);
+		
+		tags.add(Tag.Study​Date);
+		tags.add(Tag.Series​Number);
+		tags.add(Tag.Study​Description);
+		tags.add(Tag.Series​Description);
+		tags.add(Tag.Instance​Number);
+		
+		tags.add(Tag.Pixel​Spacing);
+		tags.add(Tag.Spacing​Between​Slices);
+		
+		return tags;
 	}
 	
 	private void loadDirection(DicomObject dcm) {

@@ -38,6 +38,7 @@
 package com.vis.core.util;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * this class referenced from org.dcm4che3.util
@@ -208,7 +209,7 @@ public class ByteUtils {
     
 	public static byte[] shortToBytes(short[] pixels) {
 		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 2);
-		byteBuffer.asShortBuffer().put(pixels);
+		byteBuffer.order(ByteOrder.nativeOrder()).asShortBuffer().put(pixels);
 		return byteBuffer.array();
 	}
 
@@ -234,10 +235,24 @@ public class ByteUtils {
         return bytes;
     }
 
-	public static byte[] intToBytes(int[] pixels) {
-		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
-		byteBuffer.asIntBuffer().put(pixels);
-		return byteBuffer.array();
+	public static byte[] intToBytes(int[] pixels, boolean ignoreAlpha) {
+		if(!ignoreAlpha) {
+			ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
+			byteBuffer.asIntBuffer().put(pixels);
+			return byteBuffer.array();
+		}else {
+			byte[] b = new byte[pixels.length * 3];
+			int itr = 0;
+			for(int i=0;i<pixels.length;i++) {
+				byte[] eb = new byte[4];
+				eb = intToBytesLE(pixels[i], eb, 0);
+				b[itr] = eb[2];
+				b[itr+1] = eb[1];
+				b[itr+2] = eb[0];
+				itr += 3;
+			}
+			return b;
+		}
 	}
     
     public static byte[] tagToBytes(int i, byte[] bytes, int off,
