@@ -1,27 +1,17 @@
 package com.vis.core.ui.dialog;
 
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferInt;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.text.SimpleDateFormat;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.logging.SimpleFormatter;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
-import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
-import com.vis.core.util.ByteUtils;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
@@ -43,7 +33,6 @@ import com.vis.imageio.PDFReader;
 import com.vis.imageio.VideoReader;
 
 import ij.ImagePlus;
-import ij.plugin.AVI_Reader;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
@@ -154,28 +143,8 @@ public class NonDicomImageImporter extends JFrame implements Runnable{
 			}
 		}
 		
-		//create temp dir
-		File tempParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName));
 		Calendar now = Calendar.getInstance();
-		String tempDirName = now.getTime().toString().replace(":", "_");// do not include ":" in path.
-		Path tempDir = null;
-		File dirInTemp = null;
-		if(!new File(tempParentDir.getAbsolutePath()+File.separator+tempDirName).exists()) {
-			Path root = tempParentDir.toPath();
-			try {
-				tempDir = Files.createTempDirectory(root, tempDirName);
-			} catch (IOException e) {
-				e.printStackTrace();
-				return;
-			}
-		}
-		if(tempDir == null) {
-			System.out.println("temp dir creation failed...:NonDicomImport");
-			throw new NullPointerException("Can not create Temp Folder to create dcm.");
-		}
-		
-		dirInTemp = tempDir.toFile();//will erase when graphy shutting down.
-		
+		File dirInTemp = Utils.createNewDirInTemp();
 		if(importToExistingStudy) {
 			/*
 			 * get study uid
@@ -193,7 +162,7 @@ public class NonDicomImageImporter extends JFrame implements Runnable{
 			}
 			
 			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(pid, studyUID);
-			int numOfSeries = db.getNumOfSeriesInStudy(pid, studyUID);
+			int numOfSeries = db.getNumOfSeriesInStudy(studyUID);
 			String studyID = studyInfo.get("StudyID");
 			String studyDate = studyInfo.get("StudyDate");
 			String studyTime = studyInfo.get("StudyTime");

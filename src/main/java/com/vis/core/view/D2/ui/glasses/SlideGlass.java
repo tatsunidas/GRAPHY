@@ -465,8 +465,7 @@ public class SlideGlass extends JLayeredPane {
 	 * @return
 	 */
 	private ImagePlus createInitialDisplayImage() {
-//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, calibration was removed.	
-//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();	
+//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
 //		ImagePlus dup = new Duplicator().run(getOriginalImage());//OK
 		ImagePlus imp = getOriginalImage().createImagePlus();
 		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
@@ -921,9 +920,20 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public Object[] getPixelValueFromDisplay(int displayImageX, int displayImageY) {
 		if(!isRGB()) {
-			double pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
+			int pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
 			double pix_cal = getCurrentDisplayImagePlus().getProcessor().getPixelValue(displayImageX, displayImageY);
-			return new Double[] { pix_raw, pix_cal };
+			double v_raw = 0;
+			double v_cal = 0;
+			if(dcmImg.getBitsAllocated() == 32) {
+				v_raw = Float.intBitsToFloat(pix_raw);
+			}else if (dcmImg.isSigned()){
+				v_raw = pix_cal;//-32768 by calibration function
+				v_cal = pix_raw;//original scale
+			}else {
+				v_raw = pix_raw;
+				v_cal = pix_cal;
+			}
+			return new Double[] { v_raw, v_cal };
 		}else {
 			ColorProcessor cp = (ColorProcessor)getCurrentDisplayImagePlus().getProcessor();
 			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
@@ -1393,19 +1403,22 @@ public class SlideGlass extends JLayeredPane {
 		 */
 		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
 		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
+		Boolean signed = (dataset.getInt(Tag.Pixel​Representation, -1) == 1);
 		String modality = getModality();
-		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && dcmImg.isSigned()) {
+		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
 			if (!intercept.isNaN() && !slope.isNaN()) {
-				double[] coeff = new double[2];
-				coeff[0] = slope*(-32768) + intercept;
+				//y = a + bx
+				double[] coeff = new double[2];//[a,b]
+				coeff[0] = intercept-32768;
 				coeff[1] = slope;
 				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-				originalCal.getCTable();//to make cTable.
-//				originalCal.setSigned16BitCalibration();//DO NOT USE
-				if(modality != null && modality.equals("CT")) {
-					originalCal.setValueUnit("HU");
-				}
 				//add another modalities unit...
+			}else {
+				originalCal.setSigned16BitCalibration();
+			}
+			originalCal.getCTable();//to make cTable.
+			if(modality != null && modality.equals("CT")) {
+				originalCal.setValueUnit("HU");
 			}
 		}else if (intercept!=0.0 && slope==1.0) {
 			double[] coeff = new double[2];

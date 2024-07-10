@@ -522,7 +522,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 					String[] info = new String[] {patID,studyIUID,seriesIUID,sopUID};
 					infoSet.add(info);
 				}
-			//イメージノード内の全インスタンスUIDを取得
+			//イメージノードのインスタンスUIDを取得
 			}else if(node.getLevelString().equals("IMAGE")) {
 				String patID = node.getData(DICOMNode.PatientID);
 				String studyIUID = node.getData(DICOMNode.StudyInstanceUID);
@@ -540,14 +540,14 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			dicomuidlist.add(dicomuid);
 		}
 		//https://stackoverflow.com/questions/41095090/index-of-duplicates-items-in-java-arraylist
-		HashMap<String,List<Integer>> indexes = new HashMap<>();
+		HashMap<String,List<Integer>> indices = new HashMap<>();
 		for (int i = 0; i < dicomuidlist.size(); i++) {
-		    indexes.computeIfAbsent(dicomuidlist.get(i), c -> new ArrayList<>()).add(i);
+		    indices.computeIfAbsent(dicomuidlist.get(i), c -> new ArrayList<>()).add(i);
 		}		
 		ArrayList<String[]> noDupArray = new ArrayList<>();
-		for(String dicomuid:indexes.keySet()) {
+		for(String dicomuid:indices.keySet()) {
 			/* 最初の１つめのみを取得する */
-			noDupArray.add(infoSet.get(indexes.get(dicomuid).get(0)));
+			noDupArray.add(infoSet.get(indices.get(dicomuid).get(0)));
 		}
 		return noDupArray;
 	}

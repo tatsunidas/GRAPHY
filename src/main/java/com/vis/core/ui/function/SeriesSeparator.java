@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.function;
 
 import java.util.ArrayList;
@@ -6,10 +43,11 @@ import javax.swing.JOptionPane;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.util.DBUtils;
 
 public class SeriesSeparator {
 	
-	private ArrayList<DICOMNode> selected;//same pt, study, and series level only.
+	private ArrayList<DICOMNode> selected;
 	
 	public SeriesSeparator() {}
 	
@@ -18,17 +56,12 @@ public class SeriesSeparator {
 		separateSeries(selected);
 	}
 	
-	public void separateSeries(ArrayList<DICOMNode> selectedNodes) {
-		/*
-		 * is images level ?
-		 * is in same pts ?
-		 * is in same study ?
-		 */
-		this.selected = selectedNodes;
-		if(!isSeparateReady()) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Select images not separate ready. Please select images from same series.");
+	public void separateSeries(ArrayList<DICOMNode> selected) {
+		if(!isSeparateReady(selected)) {
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Select images not ready to separate. Please select images from a series.");
 			return;
 		}
+		this.selected = selected;
 		//show custom popup
 		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Do you want to separate series current selected images ?");
 		if(res == JOptionPane.OK_OPTION) {
@@ -40,7 +73,7 @@ public class SeriesSeparator {
 		}
 	}
 	
-	private boolean isSeparateReady() {
+	private boolean isSeparateReady(ArrayList<DICOMNode> selected) {
 		if(selected == null || selected.size() < 1) {
 			return false;
 		}
@@ -56,16 +89,20 @@ public class SeriesSeparator {
 				pid = node.getData(DICOMNode.PatientID);
 				studyUID = node.getData(DICOMNode.StudyInstanceUID);
 				seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-				continue;//at first time, continue...
+				continue;
 			}
 			//avoid something strange.
 			if(pid == null || studyUID == null || seriesUID == null) {
 				return false;
 			}
+			//contamination check
 			String pidChi = node.getData(DICOMNode.PatientID);
 			String studyUIDChi = node.getData(DICOMNode.StudyInstanceUID);
 			String seriesUIDChi = node.getData(DICOMNode.SeriesInstanceUID);
-			if(!pid.equals(pidChi) || !studyUID.equals(studyUIDChi) || !pid.equals(seriesUIDChi)) {
+			if(pidChi == null || studyUIDChi == null || seriesUIDChi == null) {
+				return false;
+			}
+			if(!pid.equals(pidChi) || !studyUID.equals(studyUIDChi) || !seriesUID.equals(seriesUIDChi)) {
 				return false;
 			}
 		}
@@ -73,8 +110,11 @@ public class SeriesSeparator {
 	}
 	
 	private void separate() {
-		//TODO 20230829
-//		DicomDuplicator.duplicateImageAndStore2DB(selected, true, true);
+		String pid = selected.get(0).getData(DICOMNode.PatientID);
+		String studyUID = selected.get(0).getData(DICOMNode.StudyInstanceUID);
+		String newSeriesUID = DBUtils.createNewUIDNoExistingInDB("SERIES");
+		DicomDuplicator.duplicateImageAndStore2DB(selected, pid, studyUID,
+				newSeriesUID, true /*setNewInstanceUID*/);
 	}
 
 	private void delete() {

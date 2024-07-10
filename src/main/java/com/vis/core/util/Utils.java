@@ -2,9 +2,9 @@ package com.vis.core.util;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
@@ -32,6 +32,31 @@ public class Utils {
 
 	public static String getConfSubDirPath(ConfigInfo dirNameType) {
 		return ConfigInfo.getPath(dirNameType);
+	}
+	
+	/**
+	 * ./temp/dateAndTimeDir
+	 * @return
+	 */
+	public static File createNewDirInTemp() {
+		File tempParentDir = new File(getConfSubDirPath(ConfigInfo.TemporalDirName));
+		Calendar now = Calendar.getInstance();
+		String tempDirName = now.getTime().toString().replace(":", "_");// do not include ":" in path.
+		Path tempDirPath = null;
+		if(!new File(tempParentDir.getAbsolutePath()+File.separator+tempDirName).exists()) {
+			Path root = tempParentDir.toPath();
+			try {
+				tempDirPath = Files.createTempDirectory(root, tempDirName);
+				if(tempDirPath == null) {
+					System.out.println("temp dir creation failed...:NonDicomImport");
+					throw new NullPointerException("Can not create Temp Folder to create dcm.");
+				}
+				return tempDirPath.toFile();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return null;
 	}
 
 	/**

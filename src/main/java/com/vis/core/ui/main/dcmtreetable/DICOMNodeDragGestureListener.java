@@ -117,7 +117,7 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							seriesDesc = "no-seriesDesc";
 							System.out.println("seriesDesc is null");
 						}
-						int instNo = db.getInstanceNo(patID,studyIUID, seriesIUID, sopIUID);
+						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
 						/* dest はこの時点ではtemporal dir */
 						String destParent = baseDest+File.separator+patID+File.separator+studyDesc+File.separator+seriesDesc;
 						String dest = destParent+File.separator+instNo+".dcm";

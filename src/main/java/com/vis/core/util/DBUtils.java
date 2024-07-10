@@ -1,19 +1,13 @@
 package com.vis.core.util;
 
-import java.awt.Toolkit;
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Calendar;
-import javax.swing.ImageIcon;
-
-import org.dcm4che3.util.UIDUtils;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.UIDUtils;
 
 public class DBUtils {
 	

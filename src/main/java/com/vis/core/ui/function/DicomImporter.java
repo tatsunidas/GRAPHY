@@ -44,20 +44,17 @@ import com.vis.core.task.TaskContext;
 import com.vis.core.task.TaskManager;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.AnimatingSheet;
-import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.ArchiveCellRendererableEditor;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
-import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.VR;
+import com.vis.dicom.dimse.DimseUtilities;
 
 import java.io.File;
-import java.util.List;
 
 import javax.swing.JOptionPane;
 import java.util.ArrayList;
@@ -215,14 +212,7 @@ public class DicomImporter implements Task {
 						}
 					} else {// store image file to DB
 						synchronized(this){
-							List<String> cmd = new ArrayList<String>();
-							String listenerInfo[] = db.getListenerDetails();
-							cmd.add("-c");
-							cmd.add(listenerInfo[0] + "@" + listenerInfo[1] + ":"+ listenerInfo[2]);
-							cmd.add(candidate);
-							String args[] = new String[cmd.size()];
-							args = cmd.toArray(args);
-							com.vis.dicom.dimse.StoreSCU.main(args);// then do run, and writeDB in DcmQRSCP
+							DimseUtilities.store(candidate, false/*deleteAfterStored*/);
 						}
 					}
 				}
@@ -312,6 +302,8 @@ public class DicomImporter implements Task {
 
 	public void terminate() {
 		thisThread.interrupt();
+		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
+		treeTable.getTableHeader().setEnabled(true);
 		if (Utils.isDebug) {
 			Log.logger.info("import interupted.");
 		}

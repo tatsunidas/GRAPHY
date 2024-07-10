@@ -46,6 +46,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 import java.util.logging.*;
 
 import com.vis.core.log.Log;
@@ -131,7 +132,7 @@ public class PixelDataDecoder {
 		this.compressed = Codec.isCompressed(tsUID);
 		/*
 		 * here, do not perform decompress.
-		 * do decompress first, before pixel decoding.
+		 * decompressing should be performed before pixel decoding.
 		 */
 //		if(compressed) {
 //			Decompressor.newInstance(dcm.getCore(), tsUID).decompress();
@@ -207,18 +208,19 @@ public class PixelDataDecoder {
 	
 	
 	private short[] toShortArray(byte[] pixels) {
-		short[] shortArray = new short[pixels.length / 2];
-//		ByteBuffer buffer = ByteBuffer.wrap(pixels);
+		short[] shortArray = new short[pixels.length / 2];		
 		ByteBuffer buffer = null;
-		//Changing byte order occurs pixels bit overflow.
 		if(bigEndian) {
 			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
 		}else {
 			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
 		}
 		buffer.asShortBuffer().get(shortArray);
-		buffer.order(ByteOrder.nativeOrder()).asShortBuffer().put(shortArray);
 		if(!signed) {//unsigned
+			/*
+			 * If unsigned, just auto-boxing as short.
+			 * (short)org_pix.
+			 */
 			return shortArray;
 		}else {//signed
 			/*
@@ -229,19 +231,33 @@ public class PixelDataDecoder {
 		}
 	}
 	
-	/** Convert 16-bit signed to unsigned if all pixels>=0. */
+	/** Convert 16-bit signed to unsigned. 
+	 * [-32768, 32767] to [0, 65535]
+	 * 
+	 * ImageJ ShortProcessor can only handle short[].
+	 * Unsigned 16 bit data type is represent by int in java.
+	 * With this reason, add 32768 to short[] before creating imageplus, 
+	 * then subtract by Calibration function when showing images.
+	 * 
+	 * ImagePlus is handle ShortProcessor as Unsigned!
+	 * BUT, data type of pixels array is short[].
+	 * So, we must add 32768 if original image is signed short[].
+	 * Otherwise, simply convert unsigned short to signed short.
+	 * 
+	 * e.g., when you handle unsigned 16 bit by using short[];
+	 * if original is signed 16 bit, 
+	 * pix_as_us = (short)((short)org_pix + (short)32765)
+	 * else if original is unsigned 16 bit,
+	 * pix_as_us = (short)org_pix.
+	 * 
+	 * then, you can get unsigned short by (pix_as_us & 0xffff) method.
+	 * 
+	 * これは、本来、Javaでint型レンジで扱う、UnsignedなShortを、
+	 * SignedなShortレンジで扱うための方法なので、こんがらがりやすい。
+	 */
 	void convertToUnsigned(short[] pixels) {
-		int min = Integer.MAX_VALUE;
-		int value;
 		for (int i=0; i<pixels.length; i++) {
-			value = pixels[i]&0xffff;
-			if (value<min)
-				min = value;
-		}
-		if (min>=32768) {
-			for (int i=0; i<pixels.length; i++) {
-				pixels[i] = (short)(pixels[i]-32768);
-			}
+			pixels[i] = (short)(pixels[i]+(short)32768);
 		}
 	}
 	

@@ -366,7 +366,7 @@ public class StoreSCU {
 				if(!echo) {
 					for(String absPath :argList) {
 						if(!new File(absPath).delete()) {
-							System.out.println("temp file delete failed");
+							System.out.println("temp file deletion was failed");
 						}else {
 							System.out.println("*Temp Graphy Image File Deleted after stored*");
 							System.out.println(absPath);

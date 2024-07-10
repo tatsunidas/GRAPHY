@@ -56,7 +56,7 @@ public class ImageListTable extends JTable{
 		Object[][] imageInfoSets = new Object[images.size()][];
 		for(int i=0;i<images.size();i++) {
 			HashMap<String,String> imageInfo = images.get(i);
-			String name = new File(db.getFileLocation(patID, studyUID, seriesUID, imageInfo.get("SOPInstanceUID"))).getName();
+			String name = new File(db.getFileLocation(studyUID, seriesUID, imageInfo.get("SOPInstanceUID"))).getName();
 			Object[] row = new Object[header.length];
 			row[0] = imageInfo.get("SOPInstanceUID");
 			if(onStageImageList.contains(imageInfo.get("SOPInstanceUID"))) {

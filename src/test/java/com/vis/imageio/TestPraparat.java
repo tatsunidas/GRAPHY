@@ -37,7 +37,9 @@
  */
 package com.vis.imageio;
 
-import java.awt.Dimension;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import com.vis.core.util.ByteUtils;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -52,31 +54,67 @@ public class TestPraparat {
 
 	public static void main(String[] args) {
 //		singnedImageTest();
-		showIndepent();
+//		show();
+		showUsingPixelDecoder();
 	}
 	
-	static void showIndepent() {
+	static void unsined() {
+		short ss = (short)-100;
+		short us = (short)40000;
+		System.out.println("to unsigned:"+((ss+(short)32765) & 0xffff));
+		System.out.println("to unsigned:"+(us & 0xffff));
+	}
+	
+	static void show() {
 		javax.swing.JFrame f = new javax.swing.JFrame();
 		f.setSize(300,300);
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		Praparat pp = new Praparat(ViewMode.Normal);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
 		pp.doSingleGridLayout();
+		pp.showFirstImage();
+		f.add(pp);
+		f.setVisible(true);
+	}
+	
+	static void showUsingPixelDecoder() {
+		javax.swing.JFrame f = new javax.swing.JFrame();
+		f.setSize(300,300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
+		ArrayList<String> paths = new ArrayList<String>();
+		
+		//suidobashi test
+//		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");//Signed
+//		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/CT_LEE_IR87a.dcm");//Signed
+		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MG_CC_L_LEE_IR87a.dcm");//Unsigned
+		
+//		File[] lists = new File("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151").listFiles();
+//		for(int i=0; i<lists.length; i++) {
+//			paths.add(lists[i].getAbsolutePath());
+//		}
+		
+		Praparat pp = new Praparat(ViewMode.Normal);
+		pp.prepareSlideGlassesFromDcmObj(paths);
+		pp.doSingleGridLayout();
+		pp.showFirstImage();
 		f.add(pp);
 		f.setVisible(true);
 	}
 	
 	/*
 	 * ShortProceccer is designed for unsigned 16 bit images as default.
-	 * If it is inputed images have signed pixels, 
-	 * pix[i] & 0xffff
+	 * If you handle images that have signed pixels, 
+	 * first, pix += 32768,
+	 * then, pix & 0xffff to convert unsigned.
 	 */
 	static void singnedImageTest() {
 		// array conversion test
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		short[] spix = (short[])((ShortProcessor)(imp.getProcessor())).getPixels();
-		System.out.println("org isSigned16Bit"+imp.getProcessor().isSigned16Bit());//true
+		System.out.println("org isSigned16Bit: "+imp.getProcessor().isSigned16Bit());//true
 		/*
 		 * back to imp
 		 */

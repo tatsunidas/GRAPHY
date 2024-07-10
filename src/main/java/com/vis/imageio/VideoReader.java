@@ -91,6 +91,9 @@ public class VideoReader implements ControllerListener {
 			return;
 		}
 		constractPlayer(video);
+		if(reader == null) {
+			System.out.println("Sorry, cannot load this video file...Please check video file.");
+		}
 		numOfFrames = getFrameCount();
 		flops = (int) Math.rint(numOfFrames/reader.getDuration().getSeconds());
 		fileName = video.getName();
@@ -111,7 +114,6 @@ public class VideoReader implements ControllerListener {
 			if(reader !=null) {
 				reader.close();
 			}
-			return;
 		}
 	}
 	

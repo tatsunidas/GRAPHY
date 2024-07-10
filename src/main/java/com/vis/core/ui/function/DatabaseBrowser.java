@@ -76,7 +76,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		if(db == null) {
 			dispose();
 		}
-		if (!db.checkDBExists(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation))) {
+		if (!db.checkDBExists()) {
 			dispose();
 		}
 		username = db.getUserName();

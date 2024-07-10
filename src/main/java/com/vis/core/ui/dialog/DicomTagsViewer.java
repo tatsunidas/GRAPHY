@@ -82,12 +82,12 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "-DicomTagsViewer-\nPlease select image row.");
 			return;
 		}
-		String patID = node.getData(DICOMNode.PatientID);
+		setLocationRelativeTo(WindowManager.getMainScreen());
 		String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 		String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
 		String sopUID = node.getData(DICOMNode.SOPInstanceUID);
 		DatabaseHandler db = DatabaseHandler.getInstance();
-		String p2img = db.getFileLocation(patID, studyUID, seriesUID, sopUID);
+		String p2img = db.getFileLocation(studyUID, seriesUID, sopUID);
 		setUp(p2img);
 		setVisible(true);
 	}

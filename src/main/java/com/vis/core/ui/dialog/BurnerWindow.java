@@ -52,7 +52,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 
 	// debug
 	public static void main(String[] args) {
-		new BurnerWindow(new File("graphy_tmp/DICOM-CD-TEST"), true);
+		new BurnerWindow(new File("temp/DICOM-CD-TEST"), true);
 	}
 
 	/*
@@ -68,13 +68,12 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		this.simulate = debug;
 
 		if (!burnFileInTemp.exists()) {
-			JOptionPane.showConfirmDialog(null, "Could not found the burn target folder, please re-try.",
+			JOptionPane.showConfirmDialog(null, "Could not find the burn target folder, please re-try.",
 					"Something strange about burn media..?? return null", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
 		setSize(400, 400);
-//		getContentPane().setPreferredSize(new Dimension(300,400));
 
 		JPanel panelSelectDrive = new JPanel();
 		getContentPane().add(panelSelectDrive, BorderLayout.NORTH);
@@ -289,7 +288,8 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		speed = (Integer) comboBoxSpeed.getSelectedItem();
 		if (!isCD((String) comboBoxDrive.getSelectedItem())) {
 			// see, BurnCD::setWriteSpeed().
-			speed = 5;// DVD, DVDRAM,BD, smallest number...
+			System.out.println("WriteSpeed changed to 8X for wrinting non CD-R media.");
+			speed = 8;// DVD, DVDRAM,BD, fastest number...
 		}
 		String device = getDeviveScsi((String) comboBoxDrive.getSelectedItem());
 		boolean eject = chckbxEject.isSelected();
@@ -312,7 +312,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 				if (!debug) {
 					burner.setSimulate(false);
 					try {
-						burner.burn(burnFileInTemp, new File("graphy_tmp/" + burnFileInTemp.getName() + ".iso"));// isoRoot,
+						burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));// isoRoot,
 																											// iso,
 																											// which iso
 																											// , need

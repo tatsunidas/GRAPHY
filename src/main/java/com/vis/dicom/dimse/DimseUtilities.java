@@ -35,14 +35,14 @@ public class DimseUtilities {
 		for (File dcm : dcms) {
 			sendFile(dcm);
 		}
-		Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
+		Window win = WindowManager.getMainScreen();
 		if(win !=null) {
 			MainScreen main = (MainScreen) win;
 			main.loadLocalStudiesBySearchKey();
 		}
 	}
 	
-	public static synchronized void sendFile(File dcm) {
+	private static synchronized void sendFile(File dcm) {
 		List<String> cmd = new ArrayList<String>();
 		String listenerInfo[] = DatabaseHandler.getInstance().getListenerDetails();
 		cmd.add("-c");
@@ -59,12 +59,12 @@ public class DimseUtilities {
 	 * @param read_file
 	 * @param delteSrcAfterStored
 	 */
-	public static synchronized void store(String read_file, boolean delteSrcAfterStored) {
+	public static synchronized void store(String read_file, boolean deleteSrcAfterStored) {
 		String listenerDetail[] = DatabaseHandler.getInstance().getListenerDetails();
 		String aet = listenerDetail[0];
 		String host = listenerDetail[1];
 		int port = Integer.valueOf(listenerDetail[2]);
 		String args[] = { "-c", aet + "@" + host + ":" + port, read_file };
-		com.vis.dicom.dimse.StoreSCU.storeInstance2Graphy(args, delteSrcAfterStored);
+		com.vis.dicom.dimse.StoreSCU.storeInstance2Graphy(args, deleteSrcAfterStored);
 	}
 }

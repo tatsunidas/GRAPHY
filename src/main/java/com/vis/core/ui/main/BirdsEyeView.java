@@ -44,8 +44,6 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
@@ -202,6 +200,14 @@ public class BirdsEyeView extends JPanel{
 		repaint();
 	}
 	
+	private void waitingFilmGridView() {
+		if(filmGridPane == null) {
+			return;
+		}
+		filmGridPane.remove(0);
+		filmGridPane.add(waitingPanel1);
+	}
+	
 	public void updateViewSize() {
 		Dimension dr = filmAndSingleGridSplit.getRightComponent().getSize();
 		if(lastSingleGridViewSize.width == dr.width && lastSingleGridViewSize.height == dr.height) {
@@ -284,7 +290,7 @@ public class BirdsEyeView extends JPanel{
 		ArrayList<String> allSeriesUIDList = db.getSeriesUidList(patId,studyUid);
 //		ArrayList<String> allInstUIDList = db.getAllInstanceUIDsFromSTUDY(studyUid);
 		
-		resetViews(false);
+		resetViews(false/*clearPatientInfo*/);
 		
 		currentStudyUID = studyUid;
 		
@@ -334,7 +340,7 @@ public class BirdsEyeView extends JPanel{
 		}
 		boolean isMultiFrame = thumbnail.isMultiFrame();
 		boolean isPDF = thumbnail.isPDF();
-		
+		currentSeriesUID = (String)thumbnail.getUIDs()[2];
 		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
@@ -366,13 +372,15 @@ public class BirdsEyeView extends JPanel{
 		 */
 		
 		//show same series in single grid view
-		if(!isMultiFrame && isPDF && singleGridView.getNumberOfImages() > 1) {
+		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
 			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(5);
 			filmGridView.setTextVisible(false);
 			filmGridView.setAnnotationVisible(false);
 			setFilmGridView();
+		}else {
+			waitingFilmGridView();
 		}
 		birdsEyeSplit.setDividerLocation(thumbnailSize);
 		seriesListView.highlightSelectedThumbnail(currentSeriesUID);

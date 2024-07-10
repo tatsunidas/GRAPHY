@@ -41,8 +41,8 @@ public class ImageProcessing {
 		Calibration cal = imp.getCalibration().copy();
 //		ImagePlus imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "bicubic");//too slow? 
 		ImageProcessor ip = imp.getProcessor().duplicate();
-		ip.setInterpolationMethod(ImageProcessor.BICUBIC);//slow ?
-//		ip.setInterpolationMethod(ImageProcessor.BILINEAR);
+//		ip.setInterpolationMethod(ImageProcessor.BICUBIC);//slow ?
+		ip.setInterpolationMethod(ImageProcessor.BILINEAR);
 		ip = ip.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag));
 		ImagePlus imp2= new ImagePlus("display", ip);
 		if (cal.scaled()) {

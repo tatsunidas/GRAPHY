@@ -198,7 +198,7 @@ public class DicomExporter extends JFrame implements Runnable {
 							seriesDesc = seriesIUID;
 							System.out.println("seriesDesc is null, uid used instead.");
 						}
-						int instNo = db.getInstanceNo(patID, studyIUID, seriesIUID, sopIUID);
+						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
 
 						if (!flatOutput) {// hierarchical
 							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator

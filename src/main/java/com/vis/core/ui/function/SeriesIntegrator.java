@@ -11,25 +11,20 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
-import org.pushingpixels.substance.internal.utils.RolloverMenuItemListener;
-
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.db.DatabaseHandler;
 
 /**
- * procedure:
- * 1.select series node as integrate destination.
- * 2.select series nodes or image nodes to integrate above.
  * @author tatsunidas
  */
 public class SeriesIntegrator{
 	
-	private ArrayList<DICOMNode> selected;//same pt, study, and series level only.
+	private ArrayList<DICOMNode> selected;//same patient only.
 	private JComboBox<String> destSeriesList;
 	private String destSeriesKey;
 	private HashMap<String, DICOMNode> seriesMap;
-	private ArrayList<DICOMNode> willIntegrate;
-//	private boolean deleteAfterSeparation = false;
 	
 	public SeriesIntegrator() {}
 	
@@ -42,7 +37,6 @@ public class SeriesIntegrator{
 		
 		this.selected = selectedNodes;
 		if(!isReady()) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Selected images not integrate ready. Please select series/images.");
 			return;
 		}
 		buildDestSeriesCombo();
@@ -51,10 +45,6 @@ public class SeriesIntegrator{
 			destSeriesKey = (String) destSeriesList.getSelectedItem();
 			//do integrate
 			integrate();
-			int res2 = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Do you want to delete integrated images from current series ?");
-			if(res2 == JOptionPane.OK_OPTION) {
-				delete(willIntegrate);
-			}
 		}
 	}
 	
@@ -62,48 +52,73 @@ public class SeriesIntegrator{
 		if(selected == null || selected.size() < 1) {
 			return false;
 		}
-		//ref uids
-//		String pid = null;
-//		String studyUID = null;
-//		String seriesUID = null;
-		seriesMap = new HashMap<String, DICOMNode>();
+		//if including nor series or image level, return false.
 		for(DICOMNode node : selected) {
 			if(node.getLevel() != DICOMNode.SERIES && node.getLevel() != DICOMNode.IMAGE) {
+				JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Can not interate. Please select series/images.");
 				return false;
 			}
+		}
+		//if only including a series, return false
+		HashMap<String/*SeriesUID*/, DICOMNode> series = new HashMap<String/*SeriesUID*/, DICOMNode>();
+		for(DICOMNode node : selected) {
+			String seUID = node.getData(DICOMNode.SeriesInstanceUID);
+			if(seUID == null) {
+				System.out.println("This dcm file does not have SeriesUID, can not handle to integration.");
+				return false;
+			}
+			series.put(seUID, node);
+		}
+		if(series.isEmpty() || series.size()==1) {
+			PopUpMessage.showDialog(WindowManager.getMainScreen(), "Can not interate", "Please select 2 or more series.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		}
+		//if not same patient, return false
+		Set<String> keys = series.keySet();
+		for(String k : keys) {
+			DICOMNode n = series.get(k);
+			String pid = n.getData(DICOMNode.PatientID);
+			if(pid == null) pid = "NULL";
+			for(String k2 : keys) {
+				DICOMNode n2 = series.get(k2);
+				if(n == n2) {
+					continue;
+				}
+				String pid2 = n2.getData(DICOMNode.PatientID);
+				if(pid2 == null) pid2 = "NULL";
+				if(!pid.equals(pid2)) {
+					PopUpMessage.showDialog(WindowManager.getMainScreen(), "Can not interate", "Selected dataset contains multiple patients.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+					return false;
+				}
+			}
+		}
+		
+		
+		seriesMap = new HashMap<String/*Series name*/, DICOMNode>();
+		
+		for(DICOMNode node : selected) {
 			if(node.getLevel() == DICOMNode.SERIES) {
 				String pid = node.getData(DICOMNode.PatientID);
-				String date = node.getData(DICOMNode.StudyDate);
+				String date = node.getData(DICOMNode.SeriesDate);
 				String desc = node.getData(DICOMNode.SeriesDescription);
-				seriesMap.put(pid+"_"+date+"_"+desc, node);
+				String seUID = node.getData(DICOMNode.SeriesInstanceUID);
+				seriesMap.put(pid+"_"+date+"_"+desc+"_"+seUID, node);
 			}
-//			if(pid == null && studyUID == null && seriesUID == null) {
-//				pid = node.getData(DICOMNode.PatientID);
-//				studyUID = node.getData(DICOMNode.StudyInstanceUID);
-//				seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-//				continue;//at first time, continue...
-//			}
-//			//avoid something strange.
-//			if(pid == null || studyUID == null || seriesUID == null) {
-//				return false;
-//			}
-//			String pidChi = node.getData(DICOMNode.PatientID);
-//			String studyUIDChi = node.getData(DICOMNode.StudyInstanceUID);
-//			String seriesUIDChi = node.getData(DICOMNode.SeriesInstanceUID);
-//			if(!pid.equals(pidChi) || !studyUID.equals(studyUIDChi) || !pid.equals(seriesUIDChi)) {
-//				return false;
-//			}
 		}
 		return true;
 	}
 	
 	private void buildDestSeriesCombo() {
 		/*
-		 * key : pid + study date + series desc
+		 * key : pid + study date + series desc + series uid
 		 * value : node
 		 */
-		Set<String> keys = seriesMap.keySet();
-		destSeriesList = new JComboBox<>(keys.toArray(new String[keys.size()]));
+		String[] keys = new String[seriesMap.size()];
+		int itr = 0;
+		for(String k : seriesMap.keySet()) {
+			String name = k;//.substring(0, k.lastIndexOf("_"));
+			keys[itr++] = name;
+		}
+		destSeriesList = new JComboBox<>(keys);
 		destSeriesList.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
@@ -115,43 +130,58 @@ public class SeriesIntegrator{
 	private JPanel constructConfirmPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new java.awt.BorderLayout());
-		JLabel l1 = new JLabel(" will integrate to...");
+		JLabel l1 = new JLabel("Do integrate to...");
 		p.add(l1, java.awt.BorderLayout.NORTH);
 		p.add(destSeriesList, java.awt.BorderLayout.SOUTH);
 		return p;
 	}
 
 	private int showCustomPopup() {
-		 return JOptionPane.showConfirmDialog(null,constructConfirmPanel(),"Integration detail...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		 return JOptionPane.showConfirmDialog(null,constructConfirmPanel(),"Select integration destination...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 	}
 	
 	private void integrate() {
-		willIntegrate = new ArrayList<>();
 		DICOMNode destNode = seriesMap.get(destSeriesKey);
-		
 		String refPid = destNode.getData(DICOMNode.PatientID);
 		String refStudyUID = destNode.getData(DICOMNode.StudyInstanceUID);
 		String refSeriesUID = destNode.getData(DICOMNode.SeriesInstanceUID);
+		ArrayList<String> willIntegrate = new ArrayList<>();//file paths
 		
 		for(DICOMNode node : selected) {
 			/*
-			 * skip if same series to destNode
+			 * skip destNode
 			 * set destNode's SeriesUID
 			 */
+			if(node == destNode) {
+				continue;
+			}
+			//fail safe
 			String pid = node.getData(DICOMNode.PatientID);
 			String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+			DatabaseHandler db = DatabaseHandler.getInstance();
 			if(refPid.equals(pid) && refStudyUID.equals(studyUID) && refSeriesUID.equals(seriesUID)) {
 				continue;
 			}else {
-				willIntegrate.add(node);
+				if(node.getLevel()==DICOMNode.SERIES) {
+					ArrayList<String> paths= db.getInstancesLoc(studyUID, seriesUID);
+					for(String p:paths) {
+						if(!willIntegrate.contains(p)) {
+							willIntegrate.add(p);
+						}
+					}
+				}else if(node.getLevel()==DICOMNode.IMAGE) {
+					String path = db.getFileLocation(studyUID, seriesUID, node.getData(DICOMNode.SOPInstanceUID));
+					if(!willIntegrate.contains(path)) {
+						willIntegrate.add(path);
+					}
+				}
 			}
 		}
-		//TODO 20230829
-//		DicomDuplicator.duplicateImageAndStore2DB(willIntegrate, refPid, refStudyUID, refSeriesUID, true);
-	}
-	
-	private void delete(ArrayList<DICOMNode> deleteNodes) {
-		DeleteImage.deleteImages(deleteNodes);
+		DicomDuplicator.duplicateImageAndStore2DB((String[]) willIntegrate.toArray(new String[willIntegrate.size()]), refPid, refStudyUID, refSeriesUID, true);
+		int res2 = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Do you want to delete integrated images from current series ?");
+		if(res2 == JOptionPane.OK_OPTION) {
+			DeleteImage.deleteImagesByFilePath(willIntegrate);
+		}
 	}
 }

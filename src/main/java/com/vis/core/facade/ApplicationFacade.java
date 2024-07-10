@@ -143,8 +143,7 @@ public class ApplicationFacade{
 	
 	private void initDB() {
 		db = new DatabaseHandlerBuilder().build();
-		db.startingUp();
-		if(db.checkDBExists(db.getDatabaseFolderPath(false)) == false) {
+		if(db.startingUp() == false) {
 			try {
 				exitApp(Level.SEVERE, "Can not start graphy db.");
 			} catch (Throwable e) {

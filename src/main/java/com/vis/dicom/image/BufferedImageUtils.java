@@ -46,7 +46,6 @@ import java.awt.*;
 import java.awt.color.ColorSpace;
 import java.awt.image.*;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.List;
 
@@ -64,7 +63,6 @@ import ij.process.ShortProcessor;
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
  * @author tatsunidas
- * @since Aug 2015
  */
 public class BufferedImageUtils {
 	
@@ -77,23 +75,23 @@ public class BufferedImageUtils {
 		return offsets;
 	}
 
-    public static BufferedImage[] bulkToImage(DicomImage withoutCompress) {
+    public static BufferedImage[] bulkToImage(DicomImage noCompress) {
     	
-    	int numOfFrame = withoutCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
+    	int numOfFrame = noCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
     	BufferedImage[] images = new BufferedImage[numOfFrame];
-    	int w = withoutCompress.getCore().getInt(Tag.Columns, 0);
-    	int h = withoutCompress.getCore().getInt(Tag.Rows, 0);
+    	int w = noCompress.getCore().getInt(Tag.Columns, 0);
+    	int h = noCompress.getCore().getInt(Tag.Rows, 0);
     	PhotometricInterpretation pmi = PhotometricInterpretation
-				.fromString(withoutCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
-    	boolean signed = withoutCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
-    	boolean banded = withoutCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
-    	int samples = withoutCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
-		int bitsAllocated = withoutCompress.getCore().getInt(Tag.Bits​Allocated, 8);
+				.fromString(noCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
+    	boolean signed = noCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
+    	boolean banded = noCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
+    	int samples = noCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
+		int bitsAllocated = noCompress.getCore().getInt(Tag.Bits​Allocated, 8);
 		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
 		int dataType = dataType(bitsAllocated, signed, samples);
 		//int imageType = samples >= 3 ? BufferedImage.TYPE_3BYTE_BGR:BufferedImage.TYPE_BYTE_GRAY;
     	for(int i=0; i<numOfFrame; i++) {
-    		byte[] pixels = (byte[]) withoutCompress.getPixelData(i);
+    		byte[] pixels = (byte[]) noCompress.getPixelData(i);
     		DataBuffer buffer = new DataBufferByte(pixels, pixels.length);
     		if(banded) {
     			/*
@@ -106,15 +104,13 @@ public class BufferedImageUtils {
         		 *   [bbb]
         		 * ]
         		 */
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
-						withoutCompress.getCore());
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getCore());
     			//SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
 				WritableRaster raster = WritableRaster.createBandedRaster(buffer, w, h, w, new int[]{0,0,0}, new int[]{0, w*h, w*h*2}, null);
 				BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
 				images[i] = dst;
     		}else {
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,
-						withoutCompress.getCore());
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getCore());
     			SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
     			WritableRaster raster = Raster.createWritableRaster(sampleModel, buffer, null);
     			BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
@@ -169,6 +165,14 @@ public class BufferedImageUtils {
         return dst;
     }
 
+    /**
+     * ???
+     * Use ShortProcessor instead.
+     * tatsuaki
+     * @param src
+     * @param dst
+     * @return
+     */
     public static BufferedImage convertShortsToBytes(BufferedImage src, BufferedImage dst) {
         if (dst == null) {
             dst = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_BYTE_GRAY);

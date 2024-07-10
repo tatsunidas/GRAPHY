@@ -110,6 +110,9 @@ import ij.process.LUT;
 @SuppressWarnings("serial")
 public class Praparat extends JPanel {
 
+	/*
+	 * single/grid view screen
+	 */
 	class SlideGlassHolder extends JLayeredPane{
 		int prevW;
 		int prevH;
@@ -240,25 +243,37 @@ public class Praparat extends JPanel {
 			if(gridScrollPane == null || !showGridViewOn) {
 				return;
 			}
-			setSlideGlassHolderSize(getSlideHolderWidth(), getSlideHolderHeight());
 			Object comp = gridScrollPane.getViewport().getView();
 			if(!(comp instanceof JPanel)) {
 				return;
 			}
+			/*
+			 * set slide glass holder size to show grid view on. 
+			 */
+			int screenSizeW = getSlideHolderWidth();
+			int screenSizeH = getSlideHolderHeight();
+			
+			if(screenSizeW <= 0 && screenSizeH <= 0) {
+				return;
+			}
+			
+			setSlideGlassHolderSize(screenSizeW, screenSizeH);
+			
 			JPanel gridView = (JPanel) comp;
 			GridLayout gl = (GridLayout) gridView.getLayout();
-			gridScrollPane.setPreferredSize(new Dimension(getSlideHolderWidth(), getSlideHolderHeight()));
-			gridScrollPane.setBounds(0, 0, getSlideHolderWidth(), getSlideHolderHeight());
+//			gridScrollPane.setPreferredSize(new Dimension(screenSizeW, screenSizeH));
+			gridScrollPane.setBounds(0, 0, screenSizeW, screenSizeH);
 			
 			int margin = 4;/*to avoid horizontal scroll bar shown*/
 			int scrollBarWidth = gridScrollPane.getVerticalScrollBar().getWidth()+margin;
 			if(scrollBarWidth <= margin) {
 				scrollBarWidth = 15/*default bar width*/+margin;
 			}
-			gridView.setSize(getSlideHolderWidth()-scrollBarWidth, getSlideHolderHeight());
+			gridView.setSize(screenSizeW-scrollBarWidth, screenSizeH);
 			//DO NOT set setPreferedSize to avoid collapsing squared GridLayout
-			gridView.setBounds(0, 0, getSlideHolderWidth()-scrollBarWidth, getSlideHolderHeight());
-			int gridX = gridView.getWidth() / gl.getColumns();
+			gridView.setBounds(0, 0, screenSizeW-scrollBarWidth, screenSizeH);
+			int cols = gl.getColumns();
+			int gridX = gridView.getWidth() / cols;
 			int gridY = gridX;//grids are showed square
 			int s = getNumberOfImages();
 			for (int i = 0; i < s; i++) {
@@ -597,13 +612,16 @@ public class Praparat extends JPanel {
 		gridView.setLayout(new GridLayout(row, col));
 		gridScrollPane = new JScrollPane(gridView);
 		getSlideGlassHolder().getView().add(gridScrollPane,0);
-		for (int i = 0; i < numOfImage; i++) {
-			JLayer<SlideGlass> slide = slides.get(i);
-			gridView.add(slide);
+		for (int i = 0; i < row*col; i++) {
+			if(i<numOfImage) {
+				JLayer<SlideGlass> slide = slides.get(i);
+				gridView.add(slide);
+			}else {
+				JPanel emptyP = new JPanel();
+				emptyP.setBackground(Color.BLACK);
+				gridView.add(emptyP);
+			}
 		}
-		/*
-		 * if already showing parapat on anything component, prap is directly adjusted by adjustGridViewSize().
-		 */
 		adjustGridViewSize();
 		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
@@ -972,12 +990,12 @@ public class Praparat extends JPanel {
 		DatabaseHandler db = DatabaseHandler.getInstance();//.getDatabase();
 		if (sopUIDs == null || sopUIDs.length < 1) {
 			// load all instances in series
-			pathToImages = db.getFileLocations(patID, studyUID, seriesUID);
+			pathToImages = db.getFileLocationsSeriesLevel(studyUID, seriesUID);
 		} else {
 			// load particular instances
 			pathToImages = new ArrayList<String>();
 			for (String sopUID : sopUIDs) {
-				String p2img = db.getFileLocation(patID, studyUID, seriesUID, sopUID);
+				String p2img = db.getFileLocation(studyUID, seriesUID, sopUID);
 				pathToImages.add(p2img);
 			}
 		}
@@ -1019,6 +1037,28 @@ public class Praparat extends JPanel {
 		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 		constructSlideGlassesFromImagePlus(images);
 		slider.initContext();
+		if(Utils.isDebug) {
+			System.out.println(slides.size()+" images loaded.");
+		}
+	}
+	
+	public void prepareSlideGlassesFromDcmObj(ArrayList<String> paths) {
+		if(paths == null || paths.size()==0) {
+			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
+			return;
+		}
+		prevSlice = -1;
+		currentSlice = 0;
+		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+		constructSlideGlassesFromDicom(paths);
+		if(slider != null) {
+			slider.initContext();
+		}
+		prevSlice = -1;// IMPORTANT
+		currentSlice = 0;
+		if(slider != null) {
+			slider.initContext();
+		}
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}

@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.function;
 
 import java.util.ArrayList;
@@ -12,20 +49,27 @@ import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.DateUtils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
+import com.vis.dicom.DicomWriter;
+import com.vis.dicom.Tag;
+import com.vis.dicom.VR;
+import com.vis.core.ui.listener.DateTextKeyListener;
 
-//TODO
-//import com.vis.dimse.delegate.DicomDuplicator;
-//import com.vis.dimse.delegate.DimseUtilities;
-//import com.vis.ui.listener.DateTextKeyListener;
-
+/**
+ * Edit all instances of particular patient on PATIENT LEVEL.
+ * @author tatsunidas
+ *
+ */
 public class PatientInfoEditor {
 	
 	/*
-	 * pid -this is primary key, so you can not edit pid.(if you want to do, delete it then import again.)-
+	 * pid -this is primary key, so if you want to edit pid, delete from db and re-record it.-
 	 * pname
 	 * bod
 	 * sex
@@ -35,12 +79,15 @@ public class PatientInfoEditor {
 	JTextField pnameField;
 	JTextField bodField;
 	ButtonGroup selectSexGroup;
-	JCheckBox processAllChk;
+	JCheckBox editAllStudy;
 	
 	String previousPID;
 	String previousPNAME;
 	String previousBOD;
 	String previousSEX;
+	
+	DICOMBackend backend = DICOMBackend.getCurrent();
+	DatabaseHandler db = DatabaseHandler.getInstance();
 	
 	public PatientInfoEditor(ArrayList<DICOMNode> selected) {
 		if (selected == null || selected.size() < 1) {
@@ -48,12 +95,12 @@ public class PatientInfoEditor {
 		}
 		this.selected = selected;
 		if(!isReady()) {
-			JOptionPane.showMessageDialog(null,"PatientInfoEditor: please select same patient images.");
+			PopUpMessage.showDialog(WindowManager.getMainScreen(), "Patient Info Editor", "Please select same patient images.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		if(JOptionPane.showConfirmDialog(null, constructPanel(), "Edit patient information for selected images", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
+		int res = JOptionPane.showConfirmDialog(null, constructPanel(), "Edit patient information", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+		if(res == JOptionPane.OK_OPTION) {
 			if(previousPID == null || previousPID.length() == 0) {
-				//somethig strange
 				System.out.println("patientID not found. return");
 				return;
 			}
@@ -61,108 +108,46 @@ public class PatientInfoEditor {
 			String newPNAME = pnameField.getText();
 			String newBOD = bodField.getText();
 			String newSex = selectSexGroup.getSelection().getActionCommand();//Male, Female, Other
+			boolean editAllStudies = editAllStudy.isSelected();
 			if(newPID.length() == 0) {
 				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please input PatientID.");
 				return;
 			}
-			boolean processAll = processAllChk.isSelected();
 			if(previousPID.equals(newPID) && previousPNAME.equals(newPNAME) && previousSEX.equals(newSex) && previousBOD.equals(newBOD)) {
-				System.out.println("Edit patient information : no change, return.");
+				System.out.println("Edit patient information : There is no changes, return.");
 				return;
 			}
-			if(!processAll) {
-				HashMap<String, String> pmap = new HashMap<>();
-				pmap.put("PatientID", newPID);
-				pmap.put("PatientName", newPNAME);
-				pmap.put("PatientBirthDate", newBOD);
-				pmap.put("PatientSex", newSex);
-				ArrayList<String[]> imageUIDsStillInDB = editOnlySelected(pmap);
-				if(imageUIDsStillInDB != null) {
-					// delete
-					if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
-							JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
-						boolean dummy = true;
-						DeleteImage.deleteImages(imageUIDsStillInDB, dummy);
-					}
-				}
-			}else {
-				/*
-				 * even if already exists newPID, update all images with this condition.
-				 */
-				ArrayList<String[]> imageUIDsStillInDB = editAll(newPID, newPNAME, newBOD, newSex);
-				if(imageUIDsStillInDB != null) {
-					// delete
-					if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
-							JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
-						boolean dummy = true;
-						DeleteImage.deleteImages(imageUIDsStillInDB, dummy);
-					}
-				}
-			}
+			HashMap<String, String> pmap = new HashMap<>();
+			pmap.put("PatientID", newPID);
+			pmap.put("PatientName", newPNAME);
+			pmap.put("PatientBirthDate", newBOD);
+			pmap.put("PatientSex", newSex);
+			
+			edit(newPID, newPNAME, newBOD, newSex, editAllStudies);
 		}
 //		reflesh table
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+		
 	}
 	
 	/**
-	 * return duplicated original UIDs still in DB.
-	 * 
+	 * check it contains only one patient.
+	 * @return
 	 */
-	private ArrayList<String[]> editAll(String pid, String pname, String bod, String sex) {
-//		get all images which have previous pid
-		DatabaseHandler db = DatabaseHandler.getInstance();
-		ArrayList<String> files = (ArrayList<String>) db.getFileLocationsByPid(previousPID);//no duplicate
-		// create idset
-		ArrayList<String[]> imageUIDs = (ArrayList<String[]>) db.getUIDsByFileLocations(files);
-		HashMap<String, String> pmap = new HashMap<>();
-		pmap.put("PatientID", pid);
-		pmap.put("PatientName", pname);
-		pmap.put("PatientBirthDate", bod);
-		pmap.put("PatientSex", sex);
-//		rewrite dicom data
-		if(!previousPID.equals(pid)) {
-			/**
-			 * TODO 20230829
-			 */
-//			DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,pmap);
-			return imageUIDs;
-		}else {
-			for(String f : files) {
-				overwritePatientAttributes(db,f, pmap);
-			}
-			return null;
-		}
-	}
-	
-	private ArrayList<String[]> editOnlySelected(HashMap<String, String> patInfoMap) {
-		//pid-studyuid-seriesuid-instuid array list
-		ArrayList<String[]> noDuplicatedInstList = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(selected);
-		//edit dicom and dup
-		if(!previousPID.equals(patInfoMap.get("PatientID"))) {
-			/**
-			 * TODO 20280829
-			 */
-//			DicomDuplicator.updatePatientInformationAndStore2DB(noDuplicatedInstList, patInfoMap);
-			return noDuplicatedInstList;
-		}else {
-			if (JOptionPane.showConfirmDialog(null, "Edit all images this patient ?", "Edit all ?",
-					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
-				String pid = patInfoMap.get("PatientID");
-				String pname = patInfoMap.get("PatientName");
-				String bod = patInfoMap.get("PatientBirthDate");
-				String sex = patInfoMap.get("PatientSex");
-				return editAll(pid, pname, bod, sex);
-			}else {
-				return null;
-			}
-		}
-	}
-
 	private boolean isReady() {
-//		all nodes have same pid ?
+		// check whether all nodes have same pid
 		String pid = selected.get(0).getData(DICOMNode.PatientID);
-		for(int i=1;i<selected.size();i++) {
-			if(!pid.equals(selected.get(i).getData(DICOMNode.PatientID))) {
+		for (int i = 1; i < selected.size(); i++) {
+			if (!pid.equals(selected.get(i).getData(DICOMNode.PatientID))) {
+				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please select single Patient.");
+				return false;
+			}
+		}
+		// check whether has only one study uid.
+		String studyUID = selected.get(0).getData(DICOMNode.StudyInstanceUID);
+		for (int i = 1; i < selected.size(); i++) {
+			if (!studyUID.equals(selected.get(i).getData(DICOMNode.StudyInstanceUID))) {
+				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please select only single study.");
 				return false;
 			}
 		}
@@ -176,7 +161,7 @@ public class PatientInfoEditor {
 			previousPNAME = selected.get(0).getData(DICOMNode.PatientName);
 			previousBOD = selected.get(0).getData(DICOMNode.BirthDate);
 			if(previousBOD != null && previousBOD.length()!=0) {
-				previousBOD.replace("-", "/");
+				previousBOD = previousBOD.replace("-", "/");
 			}
 			previousSEX = selected.get(0).getData(DICOMNode.Sex).trim();
 		}else {
@@ -185,7 +170,7 @@ public class PatientInfoEditor {
 			previousPNAME = pmap.get("PatientName");
 			previousBOD = pmap.get("PatientBirthDate");
 			if(previousBOD != null && previousBOD.length()!=0) {
-				previousBOD.replace("-", "/");
+				previousBOD = previousBOD.replace("-", "/");
 			}
 			previousSEX = pmap.get("PatientSex");
 		}
@@ -206,18 +191,11 @@ public class PatientInfoEditor {
 		JPanel p = new JPanel();
 		int gap = 2;
 		p.setLayout(new java.awt.GridLayout(5,2,gap,gap));
-		processAllChk = new JCheckBox("Process all images in DB about this patient");
-		processAllChk.setSelected(false);
-		processAllChk.setToolTipText("if yes, re-write all images about this patients, else, edit only selected images.");
+		editAllStudy = new JCheckBox("Apply changes to all studies");
 		pidField = new JTextField(previousPID);
 		pnameField = new JTextField(previousPNAME);
 		bodField = new JTextField(previousBOD);
-		
-		/**
-		 * TODO
-		 * 20230829
-		 */
-//		bodField.addKeyListener(new DateTextKeyListener());
+		bodField.addKeyListener(new DateTextKeyListener());
 		
 		selectSexGroup = new ButtonGroup();
 		JRadioButton rbtnMale = new JRadioButton("Male");
@@ -240,8 +218,8 @@ public class PatientInfoEditor {
 		sexPanel.add(rbtnMale);
 		sexPanel.add(rbtnFemale);
 		sexPanel.add(rbtnOther);
-		p.add(new JLabel("Process Mode"));
-		p.add(processAllChk);
+		p.add(new JLabel(""));
+		p.add(editAllStudy);
 		p.add(new JLabel("PatientID"));
 		p.add(pidField);
 		p.add(new JLabel("PatientName"));
@@ -254,30 +232,85 @@ public class PatientInfoEditor {
 	}
 	
 	
-	public void overwritePatientAttributes(DatabaseHandler db, String filePath, HashMap<String, String> pmap) {
-		String backend = DICOMBackend.getCurrent().name();
-		if(backend.equals("dcm4che")) {
-			/*
-			 * overwrite
-			 */
-			
-			/**
-			 * TODO 20230829
-			 */
-//			DicomWriter.overWritePatientInfo(filePath, pmap.get("PatientName"), pmap.get("PatientBirthDate"), pmap.get("PatientSex"));
-			
-			// db updation
-			db.update("PATIENT", "PatientName", pmap.get("PatientName"), "PatientID", pmap.get("PatientID"));
-			java.sql.Date sqlDate = DateUtils.toSQLDateObj(pmap.get("PatientBirthDate"));
-			/*
-			 * BOD is NULL-able, but, here not set if null.
-			 */
-			if(sqlDate != null) {
-				db.update("PATIENT", "PatientBirthDate", sqlDate, "PatientID", pmap.get("PatientID"));
-			}
-			db.update("PATIENT", "PatientSex", pmap.get("PatientSex"), "PatientID", pmap.get("PatientID"));
+	private void edit(String pid, String pname, String bod, String sex, boolean editAllStudies) {
+//		get all images which have previous pid
+		ArrayList<String> files = null;
+		if(editAllStudies) {
+			files = db.getFileLocationsPatientLevel(previousPID);//no duplicate
 		}else {
-			//do something another dcm engine ?
+			files = db.getFileLocationsStudyLevel(selected.get(0).getData(DICOMNode.StudyInstanceUID));
 		}
+		// create idset
+		ArrayList<String[]> imageUIDs = (ArrayList<String[]>) db.getUIDsByFileLocations(files);
+		HashMap<String, String> pmap = new HashMap<>();
+		pmap.put("PatientID", pid);
+		pmap.put("PatientName", pname);
+		pmap.put("PatientBirthDate", bod);
+		pmap.put("PatientSex", sex);
+//		rewrite dicom data
+		/*
+		 * if pid was changed, should process [remain or remove] files
+		 */
+		if(!previousPID.equals(pid)) {
+			//update UIDs and write to DB.
+			DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,pmap);
+			// delete
+			if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
+					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
+				DeleteImage.deleteImagesByFilePath(files);
+			}
+		// if pid was not changed, overwrite.
+		}else {
+			if(editAllStudies) {
+				for (String f : files) {
+					overwritePatientAttributes(f, pmap);
+				}
+			}else {
+				PopUpMessage.showDialog(WindowManager.getMainScreen(), "Cannot Edit Information", "PID must be change...(in study level editting).", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+			}
+		}
+	}
+	
+	public void overwritePatientAttributes(String filePath, HashMap<String, String> pmap) {
+		
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db == null) {
+			return;
+		}
+		
+		DicomReader dr = DicomReader.newDicomReader(backend); 
+		dr.read(filePath, true);// with pixel
+		
+		DicomObject orgDcm = dr.getCore();
+		String tsUID = dr.checkTSUID().uid();
+
+		String PID = pmap.get("PatientID").trim(); //pid is never changing
+		String newPNAME = pmap.get("PatientName").trim();
+		String newBOD = pmap.get("PatientBirthDate").trim().replace("/", "");
+		String newSex = pmap.get("PatientSex").trim();
+		
+		orgDcm.setString(Tag.Patient​Name, VR.PN, newPNAME);
+		orgDcm.setDate(Tag.Patient​Birth​Date, VR.DA, DateUtils.toSQLDateObj(newBOD));
+		orgDcm.setString(Tag.Patient​Sex, VR.CS, newSex);
+		//do not update UIDs, keep original.
+//		orgDcm.setString(Tag.Study​Instance​UID, VR.UI, newStudyUID);
+//		orgDcm.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);
+//		orgDcm.setString(Tag.SOP​Instance​UID, VR.UI, newSopInstUID);
+//		orgDcm.setString(Tag.Media​Storage​SOP​Instance​UID, VR.UI, newSopInstUID);
+		/*
+		 * re-write
+		 */
+		DicomWriter writer = DicomWriter.newDicomWriter(backend);
+		writer.write(orgDcm,  tsUID, filePath);
+		// db updation
+		db.update("PATIENT", "PatientName", newPNAME, "PatientID", PID);
+		java.sql.Date sqlDate = DateUtils.toSQLDateObj(newBOD);
+		/*
+		 * BOD is NULL-able, but, here not set null.
+		 */
+		if (sqlDate != null) {
+			db.update("PATIENT", "PatientBirthDate", sqlDate, "PatientID", PID);
+		}
+		db.update("PATIENT", "PatientSex", newSex, "PatientID", PID);
 	}
 }

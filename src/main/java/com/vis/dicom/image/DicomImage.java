@@ -43,7 +43,6 @@ import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
 import com.vis.dicom.dcm4cheImpl.DicomImageChe;
 
-import ij.measure.Calibration;
 import ij.process.ImageProcessor;
 
 public interface DicomImage {

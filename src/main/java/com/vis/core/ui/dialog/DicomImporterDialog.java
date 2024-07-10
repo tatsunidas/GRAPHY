@@ -107,7 +107,7 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						PopUpMessage.showDialog(null, "None dicom file found !", "Dicom Importer can not import non dicom files.\nIf you would like to import, use General Image Format Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+						PopUpMessage.showDialog(null, "None dicom file found !", "Dicom Importer can not import non dicom files.\nIf you would like to import non dicom, use Non Dcm Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 					}
 				});
 			}
@@ -122,7 +122,6 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 				}
 			}
 			boolean saveAsLink = chckbxSaveAsLink.isSelected();
-//			boolean ignorePrivate = ignorePrivate();//TODO
 			// import of each study.
 			for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 				ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
