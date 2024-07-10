@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.sql.*;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -32,27 +30,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import com.jogamp.newt.Window;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 
 /**
  * 
- * DatabaseHandler is a GRAPHY DB.
- * DatabaseHandler has main two servers.
- * - derby : local db used to any tables and communicate with dcmqrscp.
- * - DicomServer : dcmqrscp.
- *  
+ * DatabaseHandler is a GRAPHY DB. DatabaseHandler has main two servers. - derby
+ * : local db used to any tables and communicate with dcmqrscp. - DicomServer :
+ * dcmqrscp.
+ * 
  * @author tatsunidas
  */
 public class DatabaseHandler {
-	
+
 	/*
 	 * unit test
 	 */
 	public static void main(String[] args) {
-		
+
 		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
 		DatabaseHandler db = new DatabaseHandlerBuilder().build();
 		db.setDatabaseFolderPath(testDir);
@@ -64,78 +60,58 @@ public class DatabaseHandler {
 		}
 		db.shutdownDB();
 	}
-	
+
 	/**
 	 * Builder
 	 * 
-	 * Here, we would like to use just embedded data source.
-	 * EmbeddedDataSource does not need ip:port properties.
+	 * Here, we would like to use just embedded data source. EmbeddedDataSource does
+	 * not need ip:port properties.
 	 * 
 	 * @author tatsunidas
 	 *
 	 */
-	public static class DatabaseHandlerBuilder{
-		
-		public DatabaseHandlerBuilder() {}
-		
+	public static class DatabaseHandlerBuilder {
+
+		public DatabaseHandlerBuilder() {
+		}
+
 		public DatabaseHandler build() {
 			return new DatabaseHandler(this);
 		}
 	}
-	
-	//singleton
-	private static DatabaseHandler datbaseRef;
-	
-	/* to use when starting graphy */
-	public static DatabaseHandler getInstance() {
-		return datbaseRef;
-	}
 
-	//location
-	private String dbdir = "";//keep blank. db folder, without databasename.
+	// singleton
+	private static DatabaseHandler datbaseRef;
+
+	// location
+	private String dbdir = "";// keep blank. db folder, without databasename.
+
 	// derby
 	private EmbeddedDataSource derby;
-	private final String protocol = "jdbc:derby:";//connectionURL
+	private final String protocol = "jdbc:derby:";// connectionURL
 	private final String driverName = "org.apache.derby.jdbc.EmbeddedDriver";
-	private final String	databasename = "graphydb";//will become db folder name
-	
+	private final String databasename = "graphydb";// will become db folder name
 	private final String username = "graphy";
 	private final String password = "graphy-mtfbwy";
+
 	// dcmqrscp
 	private DicomServer dcmqrscp;
 	public final String defaultAET = "GRAPHY";
 	public final String defaultHost = "localhost";
-	public final String defaultPort = "4891";//for dimse, 
-    private boolean useDicomDir = false;
-	
-		
-	private String recordFactoryPath = new File("./conf/RecordFactory.xml").getAbsolutePath();
+	public final String defaultPort = "4891";// for dimse,
+	private boolean useDicomDir = false;
+
 	/* ae.properties for dicomdir mode */
-    private String aeProp = new File("./conf/ae.properties").getAbsolutePath();
-	
-	/*
-	 * DICOM "TM" format consists of a string of characters of the format hhmmss.frac;
-	 * kkmmss.SSS ->  see, https://docs.oracle.com/javase/jp/8/docs/api/java/time/format/DateTimeFormatter.html
-	 * where hh contains hours (range "00" - "23"), mm contains minutes (range "00" - "59"), 
-	 * ss contains seconds (range "00" - "59"), 
-	 * and frac contains a fractional part of a second as small as 1 millionth of a second (range 000000 - 999999).
-	 */
-	private DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-	
-	//use kk instead HH for represent 24 hour.
-	//DICOM TM format represent time in kk:mm:ss.SSS000. Here, last "000" is padding vales to represent milisec in 6 digits.
-	//DO NOT USE kkmmss.SSSSSS. This occurs 000SSS nor SSS000(DICOM form).
-	//see also DateUtils.
-	private DateFormat timeFormat = new SimpleDateFormat("kk:mm:ss.SSS");//use kk instead HH for represent 24 hour.
-	
+	private String aeProp = new File("./conf/ae.properties").getAbsolutePath();
+
 	private boolean saveAsLink = false;
-	
+
 	private java.util.logging.Logger logger = Log.logger;
-	
+
 	private DatabaseHandler(DatabaseHandlerBuilder builder) {
 		datbaseRef = this;
 	}
-	
+
 	private void addNewLocale(String localeid) throws SQLException {
 		String languagecode = "", countrycode = "";
 		String languageAndCountry[] = localeid.split("_");
@@ -148,9 +124,9 @@ public class DatabaseHandler {
 		String country = locale.getDisplayCountry();
 		insertLocale(language, country, languagecode, countrycode, localeid);
 	}
-	
+
 	private double[] blob2DoubleArray(Blob b) {
-		if(b == null) {
+		if (b == null) {
 			return null;
 		}
 		try {
@@ -158,8 +134,8 @@ public class DatabaseHandler {
 			byte[] blobAsBytes = b.getBytes(1, blobLength);
 			ByteBuffer bb2Back = ByteBuffer.wrap(blobAsBytes);
 			double[] res = new double[blobAsBytes.length / 8];
-			for(int i = 0; i < res.length; i++) {
-			    res[i] = bb2Back.getDouble();
+			for (int i = 0; i < res.length; i++) {
+				res[i] = bb2Back.getDouble();
 			}
 			b.free();
 			return res;
@@ -168,21 +144,21 @@ public class DatabaseHandler {
 			return null;
 		}
 	}
-	
+
 	public boolean checkCanImport(DicomObject ds) {
 		String patID = ds.getString(Tag.Patient​ID);
 		String studyUID = ds.getString(Tag.Study​Instance​UID);
 		String seriesUID = ds.getString(Tag.Series​Instance​UID);
 		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
-		if(checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
+		if (checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
 			return false;
-		}else {
+		} else {
 			return true;
 		}
-		/* add another rules...*/
+		/* add another rules... */
 	}
-	
+
 	public boolean checkDBExists() {
 		Connection con = openConnection();
 		if (con != null) {
@@ -197,7 +173,7 @@ public class DatabaseHandler {
 			return false;
 		}
 	}
-	
+
 	public boolean checkImageRecordExists(String patID, String studyIUID, String seriesIUID, String sopIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
@@ -210,26 +186,25 @@ public class DatabaseHandler {
 			pstmt.setString(3, seriesIUID);
 			pstmt.setString(4, sopIUID);
 			rset = pstmt.executeQuery();
-			if(rset.next()) {
+			if (rset.next()) {
 				pstmt.close();
 				rset.close();
 				return true;
 			}
 		} catch (Exception e) {
 			return false;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
-	//TODO 2024/1/10 should do test
+
+	// TODO 2024/1/10 should do test
 	public boolean checkRecordExists(String tablename, String fieldname, String value) {
 		Connection conn = openConnection();
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
-		String sql = "SELECT COUNT(" + fieldname + ") FROM " + tablename
-					+ " WHERE " + fieldname + " = ?";
+		String sql = "SELECT COUNT(" + fieldname + ") FROM " + tablename + " WHERE " + fieldname + " = ?";
 		try {
 			pstmt = conn.prepareStatement(sql);
 			pstmt.setString(1, value);
@@ -242,12 +217,12 @@ public class DatabaseHandler {
 			}
 		} catch (SQLException e) {
 			return false;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
+
 	public boolean checkSeriesRecordExists(String patID, String studyIUID, String seriesIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
@@ -260,19 +235,19 @@ public class DatabaseHandler {
 			pstmt.setString(3, seriesIUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				pstmt.close();
 				rset.close();
 				return true;
 			}
 		} catch (Exception e) {
 			return false;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
+
 	public boolean checkStudyRecordExists(String patID, String studyIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
@@ -284,72 +259,47 @@ public class DatabaseHandler {
 			pstmt.setString(2, studyIUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				rset.close();
 				pstmt.close();
 				return true;
 			}
 		} catch (Exception e) {
 			return false;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
+
 	private void createTables() {
 		Connection conn = openConnection();
-		if(conn == null) {
+		if (conn == null) {
 			return;
 		}
 		try (Statement statement = conn.createStatement(); conn) {
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_PATIENT.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_STUDY.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_SERIES.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_IMAGE.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_LISTENER.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_AE.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_THEME.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_MODALITY.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_PRESET.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_LOCALE.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_MISCELLANEOUS.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_TEXTANNOTATION.toURL().getPath())
-					.get(0));
-			statement.executeUpdate(new SQLReader()
-					.createQueries(Resources.SQL_ROI.toURL().getPath())
-					.get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PATIENT.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_STUDY.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_SERIES.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_IMAGE.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LISTENER.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_AE.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_THEME.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_MODALITY.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PRESET.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LOCALE.toURL().getPath()).get(0));
+			statement
+					.executeUpdate(new SQLReader().createQueries(Resources.SQL_MISCELLANEOUS.toURL().getPath()).get(0));
+			statement.executeUpdate(
+					new SQLReader().createQueries(Resources.SQL_TEXTANNOTATION.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_ROI.toURL().getPath()).get(0));
 		} catch (SQLException ex) {
-			logger.severe("DatabaseHandler, can not read SQL correctly..\n"+ex.getMessage());
+			logger.severe("DatabaseHandler, can not read SQL correctly..\n" + ex.getMessage());
 		}
 	}
-	
+
 	/**
-	 * under development
-	 * delete all tables for re-building.
+	 * under development delete all tables for re-building.
 	 */
 	@SuppressWarnings("unused")
 	private void deleteAllRecord() {
@@ -368,7 +318,7 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -377,29 +327,29 @@ public class DatabaseHandler {
 	 * delete record and file in instance level.
 	 */
 	public void deleteInstance(String patID, String studyUID, String seriesUID, String sopUID) throws SQLException {
-		
+
 		Connection conn = openConnection();
 		/*
-		 * if link, just only delete record ,
-		 * else delete file and if it was last one file, delete parent directory folder too.
+		 * if link, just only delete record , else delete file and if it was last one
+		 * file, delete parent directory folder too.
 		 */
 		boolean saveAsLink = isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID);
 		String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
-		
+
 		String statement = "DELETE FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		PreparedStatement pstmt = conn.prepareStatement(statement);
 		pstmt.setString(1, patID);
 		pstmt.setString(2, studyUID);
 		pstmt.setString(3, seriesUID);
 		pstmt.setString(4, sopUID);
-		
-		if(saveAsLink) {
-			if (pstmt.executeUpdate()==1) {//execute deletion
+
+		if (saveAsLink) {
+			if (pstmt.executeUpdate() == 1) {// execute deletion
 				if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) == 0) {
-					if(deleteSeriesRecord(patID, studyUID, seriesUID)) {
-						if(getNumOfSeries(patID, studyUID)==0) {
-							if(deleteStudyRecord(patID, studyUID)) {
-								if(getNumOfStudyParticularPatient(patID)==0) {
+					if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
+						if (getNumOfSeries(patID, studyUID) == 0) {
+							if (deleteStudyRecord(patID, studyUID)) {
+								if (getNumOfStudyParticularPatient(patID) == 0) {
 									deletePatientRecord(patID);
 								}
 							}
@@ -407,30 +357,32 @@ public class DatabaseHandler {
 					}
 				}
 			}
-		}else {			
-			if (pstmt.executeUpdate()==1) {
+		} else {
+			if (pstmt.executeUpdate() == 1) {
 				File instance = new File(storeURI);
 				File parent = instance.getParentFile();
-				if(!instance.delete()) {
-					logger.log(Level.SEVERE, "Cannot delete image instance file...\n"+instance.getAbsolutePath());
+				if (!instance.delete()) {
+					logger.log(Level.SEVERE, "Cannot delete image instance file...\n" + instance.getAbsolutePath());
 				}
 				if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) == 0) {
 					File seriesDir = new File(parent.getAbsolutePath());
 					parent = seriesDir.getParentFile();
-					if(!seriesDir.delete()) {
-						logger.log(Level.SEVERE, "Cannot delete empty series dir...\n"+seriesDir.getAbsolutePath());
+					if (!seriesDir.delete()) {
+						logger.log(Level.SEVERE, "Cannot delete empty series dir...\n" + seriesDir.getAbsolutePath());
 					}
-					if(deleteSeriesRecord(patID, studyUID, seriesUID)) {
-						if(getNumOfSeries(patID, studyUID)==0) {
+					if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
+						if (getNumOfSeries(patID, studyUID) == 0) {
 							File studyDir = new File(parent.getAbsolutePath());
 							parent = studyDir.getParentFile();
-							if(!studyDir.delete()) {
-								logger.log(Level.SEVERE, "Cannot delete empty study dir...\n"+studyDir.getAbsolutePath());
+							if (!studyDir.delete()) {
+								logger.log(Level.SEVERE,
+										"Cannot delete empty study dir...\n" + studyDir.getAbsolutePath());
 							}
-							if(deleteStudyRecord(patID, studyUID)) {
-								if(getNumOfStudyParticularPatient(patID)==0) {
-									if(!parent.delete()) {
-										logger.log(Level.SEVERE, "Cannot delete empty patient dir...\n"+parent.getAbsolutePath());
+							if (deleteStudyRecord(patID, studyUID)) {
+								if (getNumOfStudyParticularPatient(patID) == 0) {
+									if (!parent.delete()) {
+										logger.log(Level.SEVERE,
+												"Cannot delete empty patient dir...\n" + parent.getAbsolutePath());
 									}
 									deletePatientRecord(patID);
 								}
@@ -440,7 +392,7 @@ public class DatabaseHandler {
 				}
 			}
 		}
-		if(pstmt != null && !pstmt.isClosed()) {
+		if (pstmt != null && !pstmt.isClosed()) {
 			pstmt.close();
 		}
 		safeClose(conn);
@@ -454,13 +406,13 @@ public class DatabaseHandler {
 			pstmt = conn.prepareStatement(statement);
 			pstmt.setBoolean(1, true);
 			ResultSet rs = pstmt.executeQuery();
-			while(rs.next()) {
+			while (rs.next()) {
 				String url = rs.getString("FileStoreUrl");
 				String patID = rs.getString("PatientID");
 				String studyUID = rs.getString("StudyInstanceUID");
 				String seriesUID = rs.getString("SeriesInstanceUID");
 				String sopUID = rs.getString("SOPInstanceUID");
-				if(!new File(url).exists()) {
+				if (!new File(url).exists()) {
 					deleteInstance(patID, studyUID, seriesUID, sopUID);
 				}
 			}
@@ -469,20 +421,21 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		MainScreen main = WindowManager.getMainScreen();
-		if(main != null) {
+		if (main != null) {
 			main.loadLocalStudiesBySearchKey();
-			//reset birds eye view ?
+			// reset birds eye view ?
 		}
 	}
-	
+
 	public void deletePatientRecord(String patID) {
 		Connection conn = openConnection();
-		if(getNumOfStudyParticularPatient(patID)>0) {
-			logger.warning("Cannot delete. This Patient has study records, you should delete under level records first.");
+		if (getNumOfStudyParticularPatient(patID) > 0) {
+			logger.warning(
+					"Cannot delete. This Patient has study records, you should delete under level records first.");
 			safeClose(conn);
 			return;
 		}
@@ -496,12 +449,12 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException e1) {
 			e1.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	public synchronized void deleteRoi(String patID,String studyUid,String seriesUid, String sopUid,String roiId) {
+
+	public synchronized void deleteRoi(String patID, String studyUid, String seriesUid, String sopUid, String roiId) {
 		Connection conn = openConnection();
 		String statement = "DELETE FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 		PreparedStatement pstmt = null;
@@ -512,31 +465,33 @@ public class DatabaseHandler {
 			pstmt.setString(3, seriesUid);
 			pstmt.setString(4, sopUid);
 			pstmt.setString(5, roiId);
-			pstmt.executeUpdate();//if(pstmt.executeUpdate()==1) {}
+			pstmt.executeUpdate();// if(pstmt.executeUpdate()==1) {}
 			pstmt.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
+
 	public void deleteRow(String tableName, String whereFiled, String whereValue) {
 		Connection conn = openConnection();
 		try {
-			conn.createStatement().execute("DELETE FROM '" + tableName + "' WHERE '" + whereFiled + "'='" + whereValue + "'");
+			conn.createStatement()
+					.execute("DELETE FROM '" + tableName + "' WHERE '" + whereFiled + "'='" + whereValue + "'");
 			conn.commit();
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	public boolean deleteSeriesRecord(String patID, String studyUID, String seriesUID){
+
+	public boolean deleteSeriesRecord(String patID, String studyUID, String seriesUID) {
 		Connection conn = openConnection();
-		if(getNumOfInstanceInSeries(patID, studyUID, seriesUID)>0) {
-			logger.severe("Cannot delete. This Series has instance record. you should delete under level records first.");
+		if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) > 0) {
+			logger.severe(
+					"Cannot delete. This Series has instance record. you should delete under level records first.");
 			return false;
 		}
 		String statement = "DELETE FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
@@ -552,12 +507,12 @@ public class DatabaseHandler {
 			return true;
 		} catch (SQLException e1) {
 			e1.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
+
 	public void deleteServer(String nickname) {
 		Connection conn = openConnection();
 		String statement = "DELETE FROM SERVERS WHERE pk=?";
@@ -570,14 +525,14 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	public boolean deleteStudyRecord(String patID, String studyUID){
+
+	public boolean deleteStudyRecord(String patID, String studyUID) {
 		Connection conn = openConnection();
-		if(getNumOfSeries(patID, studyUID)>0) {
+		if (getNumOfSeries(patID, studyUID) > 0) {
 			logger.severe("This Study has series record, can not delete record.return");
 			return false;
 		}
@@ -593,76 +548,23 @@ public class DatabaseHandler {
 			return true;
 		} catch (SQLException e1) {
 			e1.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
 
 	private float[] doubleArr2floatArr(double[] da) {
-		if(da == null) {
+		if (da == null) {
 			return null;
 		}
 		float[] fa = new float[da.length];
-		for(int i=0;i<da.length;i++) {
-			fa[i] = (float)da[i];
+		for (int i = 0; i < da.length; i++) {
+			fa[i] = (float) da[i];
 		}
 		return fa;
 	}
 
-	/**
-	 * 
-	 * @param patID
-	 * @param studyIUID
-	 * @param seriesIUID
-	 * @param sopIUID
-	 * @return
-	 */
-	public HashMap<String, String> getInstanceQueryInfo(String patID,String studyIUID, String seriesIUID, String sopIUID) {
-		/* check item in keys */
-		Connection conn = openConnection();
-		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		HashMap<String, String> map = new HashMap<>();
-		ResultSet rset = null;
-		PreparedStatement pstmt = null;
-		try {
-			pstmt = conn.prepareStatement(statement);
-			pstmt.setString(1, patID);
-			pstmt.setString(2, studyIUID);
-			pstmt.setString(3, seriesIUID);
-			pstmt.setString(4, sopIUID);
-			rset = pstmt.executeQuery();
-			if(rset.next()) { 
-				/*
-				 * (0004,1500) CS [DICOM\6EFD8DF8\FF3A35F6\4C11115A] ReferencedFileID
-				 * (0004,1510) UI [1.2.840.10008.5.1.4.1.1.4] ReferencedSOPClassUIDInFile//same
-				 * as SOPClassUID 
-				 * (0004,1511) UI [1.3.6.1.4.1.14519.5.2.1.3344.2526.3991481572793857949648742095//same as SOP
-				 * Instance UID // 
-				 * (0004,1512) UI [1.2.840.10008.1.2]ReferencedTransferSyntaxUIDInFile//same as TransferSyntaxUID 
-				 * (0020,0013) IS [6] InstanceNumber//mandatory for directory record
-				 */
-				map.put("ReferencedFileID", DicomUtilities.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
-				map.put("SOPInstanceUID", sopIUID);
-				map.put("SOPClassUID", rset.getString("SOPClassUID"));
-				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
-				map.put("InstanceNumber", rset.getString("InstanceNumber"));
-			}
-			rset.close();
-			pstmt.close();
-			if(map.isEmpty()) {
-				return null;
-			}else {
-				return map;
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			safeClose(conn);
-		}
-		return null;
-	}
-	
 	public HashMap<String, String> findSeriesRecordWithSeriesIUIDAnd(String studyIUID, String seriesIUID) {
 		Connection conn = openConnection();
 		String statement = "SELECT * FROM SERIES WHERE StudyInstanceUID=? AND SeriesInstanceUID=?";
@@ -674,7 +576,7 @@ public class DatabaseHandler {
 			pstmt.setString(1, studyIUID);
 			pstmt.setString(2, seriesIUID);
 			rset = pstmt.executeQuery();
-			if(rset.next()) { 
+			if (rset.next()) {
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				map.put("Modality", rset.getString("Modality"));
 				map.put("SeriesNumber", rset.getString("SeriesNumber"));
@@ -682,27 +584,27 @@ public class DatabaseHandler {
 			rset.close();
 			pstmt.close();
 			conn.commit();
-			if(map.isEmpty()) {
+			if (map.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return map;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
+
 	/*
 	 * map.put("StudyInstanceUID", studyIUID); -> primary key of study level.
-	 * map.put("StudyDate", rset.getString("StudyDate"));
-	 * map.put("StudyTime", rset.getString("StudyTime"));
-	 * map.put("AccessionNumber", rset.getString("AccessionNumber"));
-	 * map.put("ReferringPhysicianName", rset.getString("ReferringPhysicianName"));
-	 * map.put("StudyDescription", rset.getString("StudyDescription"));
-	 * map.put("StudyID", rset.getString("StudyID"));
+	 * map.put("StudyDate", rset.getString("StudyDate")); map.put("StudyTime",
+	 * rset.getString("StudyTime")); map.put("AccessionNumber",
+	 * rset.getString("AccessionNumber")); map.put("ReferringPhysicianName",
+	 * rset.getString("ReferringPhysicianName")); map.put("StudyDescription",
+	 * rset.getString("StudyDescription")); map.put("StudyID",
+	 * rset.getString("StudyID"));
 	 */
 	public HashMap<String, String> findStudyRecordByStudyIUID(String studyIUID) {
 		Connection conn = openConnection();
@@ -712,10 +614,10 @@ public class DatabaseHandler {
 		PreparedStatement pstmt = null;
 		try {
 			pstmt = conn.prepareStatement(statement);
-			pstmt.setString(1, studyIUID);//start from 1
+			pstmt.setString(1, studyIUID);// start from 1
 			rset = pstmt.executeQuery();
 //			while(rset.next()) {//always return 1 data.
-			if(rset.next()) { 
+			if (rset.next()) {
 				map.put("StudyInstanceUID", studyIUID);
 				map.put("StudyDate", rset.getString("StudyDate"));
 				map.put("StudyTime", rset.getString("StudyTime"));
@@ -726,19 +628,19 @@ public class DatabaseHandler {
 			}
 			rset.close();
 			pstmt.close();
-			if(map.isEmpty()) {
+			if (map.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return map;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
+
 	public HashMap<String, String[]> getActiveLanguage() {
 		Connection conn = openConnection();
 		ResultSet resultSet = null;
@@ -747,15 +649,12 @@ public class DatabaseHandler {
 		String statement = "SELECT * FROM LOCALE WHERE STATUS=?";
 		try {
 			pstmt = conn.prepareStatement(statement);
-			pstmt.setBoolean(1, true);//start from 1
+			pstmt.setBoolean(1, true);// start from 1
 			resultSet = pstmt.executeQuery();
 			while (resultSet.next()) {
 				String code = resultSet.getString("countrycode");
-				String[] l = new String[] {
-						resultSet.getString("country"),
-						resultSet.getString("languagecode"),
-						resultSet.getString("language"),
-						resultSet.getString("localeid") };
+				String[] l = new String[] { resultSet.getString("country"), resultSet.getString("languagecode"),
+						resultSet.getString("language"), resultSet.getString("localeid") };
 				map.put(code, l);
 			}
 			resultSet.close();
@@ -763,12 +662,12 @@ public class DatabaseHandler {
 			return map;
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
+
 	public ArrayList<String> getActiveModalities() {
 		Connection conn = openConnection();
 		ResultSet resultSet = null;
@@ -787,7 +686,7 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return modalities;
@@ -802,7 +701,7 @@ public class DatabaseHandler {
 			pstmt = conn.prepareStatement(stat);
 			pstmt.setBoolean(1, true);
 			resultSet = pstmt.executeQuery();
-			if(resultSet.next()) {
+			if (resultSet.next()) {
 				return resultSet.getString("name");
 			}
 			resultSet.close();
@@ -810,60 +709,79 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
 
-	public ArrayList<HashMap<String,String>> getAllCandidate4InstanceQuery(String patID, String studyIUID, String seriesIUID, String[] sopIUIDs){
-		ArrayList<HashMap<String,String>> instCandidate = new ArrayList<>();
-		if(sopIUIDs != null && sopIUIDs.length != 0) {
+	public ArrayList<HashMap<String, String>> getAllCandidate4InstanceQuery(String patID, String studyIUID,
+			String seriesIUID, String[] sopIUIDs) {
+		ArrayList<HashMap<String, String>> instCandidate = new ArrayList<>();
+		if (sopIUIDs != null && sopIUIDs.length != 0) {
 			/* search by sopIUID && othersInstanceRelatedInfo */
-			for(int i=0;i<sopIUIDs.length;i++) {
-				HashMap<String,String> instInfo = getInstanceQueryInfo(patID,studyIUID,seriesIUID,sopIUIDs[i]);
-				if(instInfo != null) {
+			for (int i = 0; i < sopIUIDs.length; i++) {
+				HashMap<String, String> instInfo = getInstanceQueryInfo(patID, studyIUID, seriesIUID, sopIUIDs[i]);
+				if (instInfo != null) {
 					instCandidate.add(instInfo);
 				}
 			}
 		}
-		if(instCandidate != null && !instCandidate.isEmpty()) {
+		if (instCandidate != null && !instCandidate.isEmpty()) {
 			return instCandidate;
 		}
 		return null;
 	}
 
-	//see, ***QueryTaskUsingDB
-	public ArrayList<HashMap<String,String>> getAllCandidate4PatientQuery(String[] patIDs){
-		ArrayList<HashMap<String,String>> patCandidate = new ArrayList<>();
-		if(patIDs != null && patIDs.length != 0) {
+	// see, ***QueryTaskUsingDB
+	public ArrayList<HashMap<String, String>> getAllCandidate4PatientQuery(String[] patIDs) {
+		ArrayList<HashMap<String, String>> patCandidate = new ArrayList<>();
+		if (patIDs != null && patIDs.length != 0) {
 			/* search pid && othersPatientRelatedInfo */
-			for(int i=0;i<patIDs.length;i++) {
-				HashMap<String,String> patInfo = getPatientInfoByPatID(patIDs[i]);
-				if(patInfo != null) {
+			for (int i = 0; i < patIDs.length; i++) {
+				HashMap<String, String> patInfo = getPatientInfoByPatID(patIDs[i]);
+				if (patInfo != null) {
 					patCandidate.add(patInfo);
 				}
 			}
 		}
-		if(patCandidate != null && !patCandidate.isEmpty()) {
+		if (patCandidate != null && !patCandidate.isEmpty()) {
 			return patCandidate;
 		}
 		return null;
 	}
 
-	public ArrayList<HashMap<String,String>> getAllCandidate4SeriesQuery(String patID, String studyIUID, String[] seriesIUIDs){
-		ArrayList<HashMap<String,String>> seriesCandidate = new ArrayList<>();
-		if(seriesIUIDs != null && seriesIUIDs.length != 0) {
+	public ArrayList<HashMap<String, String>> getAllCandidate4SeriesQuery(String patID, String studyIUID,
+			String[] seriesIUIDs) {
+		ArrayList<HashMap<String, String>> seriesCandidate = new ArrayList<>();
+		if (seriesIUIDs != null && seriesIUIDs.length != 0) {
 			/* search by seriesIUID && othersSeriesRelatedInfo */
-			for(int i=0;i<seriesIUIDs.length;i++) {
-				HashMap<String,String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(studyIUID,seriesIUIDs[i]);
-				if(seriesInfo != null) {
+			for (int i = 0; i < seriesIUIDs.length; i++) {
+				HashMap<String, String> seriesInfo = findSeriesRecordWithSeriesIUIDAnd(studyIUID, seriesIUIDs[i]);
+				if (seriesInfo != null) {
 					seriesCandidate.add(seriesInfo);
 				}
 			}
 		}
-		if(seriesCandidate != null && !seriesCandidate.isEmpty()) {
+		if (seriesCandidate != null && !seriesCandidate.isEmpty()) {
 			return seriesCandidate;
+		}
+		return null;
+	}
+
+	public ArrayList<HashMap<String, String>> getAllCandidate4StudyQuery(String patID, String[] studyIUIDs) {
+		ArrayList<HashMap<String, String>> studyCandidate = new ArrayList<>();
+		if (studyIUIDs != null && studyIUIDs.length != 0) {
+			/* search by studyIUID && othersStudyRelatedInfo */
+			for (int i = 0; i < studyIUIDs.length; i++) {
+				HashMap<String, String> studyInfo = findStudyRecordByStudyIUID(studyIUIDs[i]);
+				if (studyInfo != null) {
+					studyCandidate.add(studyInfo);
+				}
+			}
+		}
+		if (studyCandidate != null && !studyCandidate.isEmpty()) {
+			return studyCandidate;
 		}
 		return null;
 	}
@@ -887,24 +805,7 @@ public class DatabaseHandler {
 //		}
 //	}
 
-	public ArrayList<HashMap<String,String>> getAllCandidate4StudyQuery(String patID, String[] studyIUIDs){
-		ArrayList<HashMap<String,String>> studyCandidate = new ArrayList<>();
-		if(studyIUIDs != null && studyIUIDs.length != 0) {
-			/* search by studyIUID && othersStudyRelatedInfo */
-			for(int i=0;i<studyIUIDs.length;i++) {
-				HashMap<String,String> studyInfo = findStudyRecordByStudyIUID(studyIUIDs[i]);
-				if(studyInfo != null) {
-					studyCandidate.add(studyInfo);
-				}
-			}
-		}
-		if(studyCandidate != null && !studyCandidate.isEmpty()) {
-			return studyCandidate;
-		}
-		return null;
-	}
-
-	public ArrayList<String> getAllInstanceUIDsFromSTUDY(String studyUid){
+	public ArrayList<String> getAllInstanceUIDsFromSTUDY(String studyUid) {
 		Connection conn = openConnection();
 		ArrayList<String> instanceUIDs = new ArrayList<>();
 		PreparedStatement ps = null;
@@ -914,7 +815,7 @@ public class DatabaseHandler {
 			ps = conn.prepareStatement(statement1);
 			ps.setString(1, studyUid);
 			ResultSet seriesInfo = ps.executeQuery();
-			while (seriesInfo.next()) { // Series Iteration				
+			while (seriesInfo.next()) { // Series Iteration
 				ArrayList<String> images = new ArrayList<String>();
 				try {
 					ps = conn.prepareStatement(statement2);
@@ -934,24 +835,25 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return instanceUIDs;
 	}
-	
-	public ArrayList<String> getAllInstanceUIDsFromSTUDY_old(String studyUid){
+
+	public ArrayList<String> getAllInstanceUIDsFromSTUDY_old(String studyUid) {
 		Connection conn = openConnection();
 		ArrayList<String> instanceUIDs = new ArrayList<>();
 		try {
 			ResultSet seriesInfo = conn.createStatement()
 					.executeQuery("select SeriesInstanceUID from series where StudyInstanceUID='" + studyUid + "'");
-			while (seriesInfo.next()) { // Series Iteration				
+			while (seriesInfo.next()) { // Series Iteration
 				ArrayList<String> images = new ArrayList<String>();
 				try {
-					ResultSet imageLocations = conn.createStatement().executeQuery(
-							"select SOPInstanceUID from image where StudyInstanceUID='" + studyUid + "' and SeriesInstanceUID='"
-									+ seriesInfo.getString("SeriesInstanceUID") + "' order by InstanceNumber, FileStoreUrl");
+					ResultSet imageLocations = conn.createStatement()
+							.executeQuery("select SOPInstanceUID from image where StudyInstanceUID='" + studyUid
+									+ "' and SeriesInstanceUID='" + seriesInfo.getString("SeriesInstanceUID")
+									+ "' order by InstanceNumber, FileStoreUrl");
 					while (imageLocations.next()) {
 						images.add(imageLocations.getString("SOPInstanceUID"));
 					}
@@ -966,7 +868,7 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return instanceUIDs;
@@ -975,24 +877,31 @@ public class DatabaseHandler {
 	private String getArchiveDirectory() {
 		return getLocalDBLocation() + File.separator + "archive";
 	}
-	
-	public ArrayList<HashMap<String,Object>> getCommunicationServerList() {
+
+	public ArrayList<HashMap<String, Object>> getCommunicationServerList() {
 		Connection conn = openConnection();
-		ArrayList<HashMap<String,Object>> serverMaterialsList = new ArrayList<HashMap<String,Object>>();
+		ArrayList<HashMap<String, Object>> serverMaterialsList = new ArrayList<HashMap<String, Object>>();
 		try {
 			ResultSet serverInfo = conn.createStatement().executeQuery("SELECT * FROM SERVERS");
 			while (serverInfo.next()) {
-				HashMap<String,Object> nodeMaterials = new HashMap<>();
-				String logicalname = serverInfo.getString("logicalname") != null ? serverInfo.getString("logicalname"):"";
-				String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle"):"";
-				String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname"):"";
-				Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port"):null;
-				String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers"):"";
-				String retrievetype = serverInfo.getString("retrievetype") != null ? serverInfo.getString("retrievetype"):"";
-				String wadocontext = serverInfo.getString("wadocontext") != null ? serverInfo.getString("wadocontext"):"";
-				Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null ? serverInfo.getInt("wadoport"):null;
-				String wadoprotocol = serverInfo.getString("wadoprotocol") != null ? serverInfo.getString("wadoprotocol"):"";
-				String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets"):"";
+				HashMap<String, Object> nodeMaterials = new HashMap<>();
+				String logicalname = serverInfo.getString("logicalname") != null ? serverInfo.getString("logicalname")
+						: "";
+				String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle") : "";
+				String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname") : "";
+				Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port") : null;
+				String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers") : "";
+				String retrievetype = serverInfo.getString("retrievetype") != null
+						? serverInfo.getString("retrievetype")
+						: "";
+				String wadocontext = serverInfo.getString("wadocontext") != null ? serverInfo.getString("wadocontext")
+						: "";
+				Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null ? serverInfo.getInt("wadoport")
+						: null;
+				String wadoprotocol = serverInfo.getString("wadoprotocol") != null
+						? serverInfo.getString("wadoprotocol")
+						: "";
+				String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets") : "";
 				nodeMaterials.put("logicalname", logicalname);
 				nodeMaterials.put("aetitle", aetitle);
 				nodeMaterials.put("hostname", hostname);
@@ -1009,20 +918,19 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return serverMaterialsList;
 	}
 
 	public int getCommunicationServerPk(String nickname) {
-		Connection conn = openConnection();		
+		Connection conn = openConnection();
 		ResultSet svrInfo = null;
 		int res = -1;
 		try {
-			svrInfo = conn.createStatement()
-					.executeQuery("SELECT * FROM SERVERS WHERE logicalname='" + nickname + "'");
-			if(svrInfo.next()) {
+			svrInfo = conn.createStatement().executeQuery("SELECT * FROM SERVERS WHERE logicalname='" + nickname + "'");
+			if (svrInfo.next()) {
 				res = svrInfo.getInt("pk");
 			}
 			svrInfo.close();
@@ -1051,34 +959,34 @@ public class DatabaseHandler {
 			return countryList;
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
-//	public Locale getCurrentLocale() {
-//		String[] appLocale = getActiveLanguage();
-//		return new Locale(appLocale[2], appLocale[0]);
-//	}
-	
+
 	/**
 	 * 
 	 * @param withDatabaseNameFolder
 	 * @return ../to dbdir/[graphydb]
 	 */
 	public String getDatabaseFolderPath(boolean withDatabaseNameFolder) {
-		if(withDatabaseNameFolder) {
+		if (withDatabaseNameFolder) {
 			return this.dbdir + File.separator + databasename;
-		}else {
+		} else {
 			return this.dbdir;
 		}
 	}
-		
+
+//	public Locale getCurrentLocale() {
+//		String[] appLocale = getActiveLanguage();
+//		return new Locale(appLocale[2], appLocale[0]);
+//	}
+
 	public String getDatabaseName() {
 		return databasename;
 	}
-	
+
 	private Set<String> getDBTable(Connection targetDBConn) throws SQLException {
 		Set<String> set = new HashSet<String>();
 		DatabaseMetaData dbmeta = targetDBConn.getMetaData();
@@ -1086,8 +994,27 @@ public class DatabaseHandler {
 		return set;
 	}
 
-	public String getDriverName() {
+	public String getDerbyDriverName() {
 		return driverName;
+	}
+
+	/**
+	 * 
+	 * @return jdbc password
+	 */
+	public String getDerbyPassword() {
+		return password;
+	}
+
+	/**
+	 * @return jdbc protocol name
+	 */
+	public String getDerbyProtocolName() {
+		return protocol;
+	}
+
+	public String getDerbyUserName() {
+		return username;
 	}
 
 	public EmbeddedDataSource getEmbeddedDataSource() {
@@ -1114,7 +1041,7 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return url;
@@ -1140,14 +1067,15 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return loc;
 	}
-	
+
 	/**
 	 * return all instances file locations with specified patient id.
+	 * 
 	 * @param patID
 	 * @return
 	 */
@@ -1160,59 +1088,31 @@ public class DatabaseHandler {
 		List<String> locs = new ArrayList<String>();
 		ResultSet rset = null;
 		try {
-			PreparedStatement pstmt = conn.prepareStatement("SELECT FileStoreUrl FROM IMAGE WHERE PatientID=?");//do not order by
-			pstmt.setString(1, patID);//start from 1
+			PreparedStatement pstmt = conn.prepareStatement("SELECT FileStoreUrl FROM IMAGE WHERE PatientID=?");// do
+																												// not
+																												// order
+																												// by
+			pstmt.setString(1, patID);// start from 1
 			rset = pstmt.executeQuery();
-			while(rset.next()) {
+			while (rset.next()) {
 				locs.add(rset.getString("FileStoreUrl"));
 			}
 			rset.close();
 			pstmt.close();
-			conn.commit();			
-			if(locs.isEmpty()) {
+			conn.commit();
+			if (locs.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return new ArrayList<String>(new HashSet<>(locs));
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return null;
-	}
-	
-	public ArrayList<String> getFileLocationsStudyLevel(String studyUid) {
-		if (studyUid == null) {
-			new NullPointerException("studyUid must be non-null.");
-			return null;
-		}
-		Connection conn = openConnection();
-		List<String> locs = new ArrayList<String>();
-		ResultSet rset = null;
-		try {
-			PreparedStatement pstmt = conn.prepareStatement("SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=?");//do not order by
-			pstmt.setString(1, studyUid);//start from 1
-			rset = pstmt.executeQuery();
-			while(rset.next()) {
-				locs.add(rset.getString("FileStoreUrl"));
-			}
-			rset.close();
-			pstmt.close();
-			conn.commit();			
-			if(locs.isEmpty()) {
-				return null;
-			}else {
-				return new ArrayList<String>(new HashSet<>(locs));
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
+
 	public ArrayList<String> getFileLocationsSeriesLevel(String studyUid, String seriesUid) {
 		if (studyUid == null || seriesUid == null) {
 			new NullPointerException("studyUid or seriesUid must be non-null.");
@@ -1222,42 +1122,31 @@ public class DatabaseHandler {
 		List<String> locs = new ArrayList<String>();
 		ResultSet rset = null;
 		try {
-			PreparedStatement pstmt = conn.prepareStatement("SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=? AND StudyInstanceUID=? Order by InstanceNumber asc");
-			pstmt.setString(1, studyUid);//start from 1
+			PreparedStatement pstmt = conn.prepareStatement(
+					"SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=? AND StudyInstanceUID=? Order by InstanceNumber asc");
+			pstmt.setString(1, studyUid);// start from 1
 			pstmt.setString(2, seriesUid);
 			rset = pstmt.executeQuery();
-			while(rset.next()) {
+			while (rset.next()) {
 				locs.add(rset.getString("FileStoreUrl"));
 			}
 			rset.close();
 			pstmt.close();
-			conn.commit();			
-			if(locs.isEmpty()) {
+			conn.commit();
+			if (locs.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return new ArrayList<String>(new HashSet<>(locs));
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
-	
-	public String getFirstInstanceLocation(String studyUid, String seriesUid) {
-		if (studyUid == null || seriesUid == null) {
-			new NullPointerException("studyUid or seriesUid must be non-null.");
-			return null;
-		}
-		ArrayList<String> list = getFileLocationsSeriesLevel(studyUid, seriesUid);
-		if(list != null) {
-			return list.get(0);
-		}
-		return null;
-	}
-	
-	//move to another class
+
+	// move to another class
 //	public ArrayList<DicomCommunicationNode> getCommunicationableServers() {
 //		Connection conn = openConnection();
 //		ArrayList<DicomCommunicationNode> serverList = new ArrayList<DicomCommunicationNode>();
@@ -1292,57 +1181,104 @@ public class DatabaseHandler {
 //		return serverList;
 //	}
 
-	public ArrayList<HashMap<String,String>> getImageInstanceInfo(String pid,String studyIUID,String seriesIUID, String sopIUID) {
+	public ArrayList<String> getFileLocationsStudyLevel(String studyUid) {
+		if (studyUid == null) {
+			new NullPointerException("studyUid must be non-null.");
+			return null;
+		}
+		Connection conn = openConnection();
+		List<String> locs = new ArrayList<String>();
+		ResultSet rset = null;
+		try {
+			PreparedStatement pstmt = conn.prepareStatement("SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=?");// do
+																														// not
+																														// order
+																														// by
+			pstmt.setString(1, studyUid);// start from 1
+			rset = pstmt.executeQuery();
+			while (rset.next()) {
+				locs.add(rset.getString("FileStoreUrl"));
+			}
+			rset.close();
+			pstmt.close();
+			conn.commit();
+			if (locs.isEmpty()) {
+				return null;
+			} else {
+				return new ArrayList<String>(new HashSet<>(locs));
+			}
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return null;
+	}
+
+	public String getFirstInstanceLocation(String studyUid, String seriesUid) {
+		if (studyUid == null || seriesUid == null) {
+			new NullPointerException("studyUid or seriesUid must be non-null.");
+			return null;
+		}
+		ArrayList<String> list = getFileLocationsSeriesLevel(studyUid, seriesUid);
+		if (list != null) {
+			return list.get(0);
+		}
+		return null;
+	}
+
+	public ArrayList<HashMap<String, String>> getImageInstanceInfo(String pid, String studyIUID, String seriesIUID,
+			String sopIUID) {
 		Connection conn = openConnection();
 		String statement = "SELECT * FROM IMAGE WHERE";
-		HashMap<Integer,String> keymap = new HashMap<Integer, String>();
+		HashMap<Integer, String> keymap = new HashMap<Integer, String>();
 		int pos = 1;
-		if(pid != null) {
-			statement = statement+" PatientID=?";
+		if (pid != null) {
+			statement = statement + " PatientID=?";
 			keymap.put(pos, pid);
 			pos++;
 		}
-		if(studyIUID != null) {
-			if(pos == 1) {
-				statement = statement+" StudyInstanceUID=?";
-			}else {
-				statement = statement+" AND StudyInstanceUID=?";
+		if (studyIUID != null) {
+			if (pos == 1) {
+				statement = statement + " StudyInstanceUID=?";
+			} else {
+				statement = statement + " AND StudyInstanceUID=?";
 			}
 			keymap.put(pos, studyIUID);
 			pos++;
 		}
-		if(seriesIUID != null) {
-			if(pos == 1) {
-				statement = statement+" SeriesInstanceUID=?";
-			}else {
-				statement = statement+" AND SeriesInstanceUID=?";
+		if (seriesIUID != null) {
+			if (pos == 1) {
+				statement = statement + " SeriesInstanceUID=?";
+			} else {
+				statement = statement + " AND SeriesInstanceUID=?";
 			}
 			keymap.put(pos, seriesIUID);
 			pos++;
 		}
-		if(sopIUID != null) {
-			if(pos == 1) {
-				statement = statement+" SOPInstanceUID=?";
-			}else {
-				statement = statement+" AND SOPInstanceUID=?";
+		if (sopIUID != null) {
+			if (pos == 1) {
+				statement = statement + " SOPInstanceUID=?";
+			} else {
+				statement = statement + " AND SOPInstanceUID=?";
 			}
 			keymap.put(pos, studyIUID);
 			pos++;
-		}		
-		
-		//get result
-		ArrayList<HashMap<String,String>> result = new ArrayList<>();
-		HashMap<String,String> map = null;
+		}
+
+		// get result
+		ArrayList<HashMap<String, String>> result = new ArrayList<>();
+		HashMap<String, String> map = null;
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
 			pstmt = conn.prepareStatement(statement);
-			for(int keypos:keymap.keySet()) {
+			for (int keypos : keymap.keySet()) {
 				pstmt.setString(keypos, keymap.get(keypos));
 			}
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(10000);//limitation
-			while(rset.next()) {
+			rset.setFetchSize(10000);// limitation
+			while (rset.next()) {
 //				String cuid = instRec.getString(Tag.ReferencedSOPClassUIDInFile);
 //				String iuid = instRec.getString(Tag.ReferencedSOPInstanceUIDInFile);
 //				String tsuid = instRec.getString(Tag.ReferencedTransferSyntaxUIDInFile);
@@ -1354,57 +1290,59 @@ public class DatabaseHandler {
 				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
 				if (!map.isEmpty()) {
 					result.add(map);
-				} 
+				}
 			}
 			rset.close();
 			pstmt.close();
-			if(!result.isEmpty()) {
+			if (!result.isEmpty()) {
 				return result;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return null;
 	}
 
-	public List<HashMap<String, String>> getImagesInfoByUIDs(String patID,String studyUID, String seriesUID) {
-		if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) < 1 ) {
+	public List<HashMap<String, String>> getImagesInfoByUIDs(String patID, String studyUID, String seriesUID) {
+		if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) < 1) {
 			return null;
 		}
 		Connection conn = openConnection();
-		List<HashMap<String, String>> imageInfoList = new ArrayList<HashMap<String,String>>();
+		List<HashMap<String, String>> imageInfoList = new ArrayList<HashMap<String, String>>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement("SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? order by InstanceNumber");
-			pstmt.setString(1, patID);//start from 1
+			pstmt = conn.prepareStatement(
+					"SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? order by InstanceNumber");
+			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			pstmt.setString(3, seriesUID);
 			rset = pstmt.executeQuery();
 //			rset.setFetchSize(9999); //need ?
-			while(rset.next()) {
+			while (rset.next()) {
 				HashMap<String, String> map = new HashMap<>();
 				map.put("PatientID", patID);
 				map.put("AcquisitionDateTime", rset.getString("AcquisitionDateTime"));
 				map.put("AcquisitionNumber", rset.getString("AcquisitionNumber"));
 				map.put("InstanceNumber", rset.getString("InstanceNumber"));
-				//?NumOfInstanceInSeries? -> should check...
-				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"), rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
+				// ?NumOfInstanceInSeries? -> should check...
+				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
+						rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				map.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
 				imageInfoList.add(map);
 			}
-			if(imageInfoList.isEmpty()) {
+			if (imageInfoList.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return imageInfoList;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -1417,34 +1355,39 @@ public class DatabaseHandler {
 		return null;
 	}
 
-	public HashMap<String,String> getInfoset(String patID, String studyUID, String seriesUID) {
-		HashMap<String,String> infoset = new HashMap<String,String>();
+	public HashMap<String, String> getInfoset(String patID, String studyUID, String seriesUID) {
+		HashMap<String, String> infoset = new HashMap<String, String>();
 		infoset.put("PatientID", patID);
-		infoset.put("PatientName", getParticularInfoFromPatient("PatientName",patID));
+		infoset.put("PatientName", getParticularInfoFromPatient("PatientName", patID));
 		String studyDate = getParticularInfoFromStudy("StudyDate", patID, studyUID);
 		infoset.put("StudyDate", studyDate);
 		ArrayList<String> seriesUids = getSeriesUidList(patID, studyUID);
 		HashSet<String> modalities = new HashSet<>();
 		String modalitiesString = "";
-		for(String seUid:seriesUids) {
+		for (String seUid : seriesUids) {
 			String m = getParticularInfoFromSeries("Modality", patID, studyUID, seUid);
-			if(m != null) {
+			if (m != null) {
 				modalities.add(m);
 			}
 		}
-		for(Object m_ :modalities.toArray()) {
-			modalitiesString += (String)m_ + ",";
+		for (Object m_ : modalities.toArray()) {
+			modalitiesString += (String) m_ + ",";
 		}
-		modalitiesString = modalitiesString.substring(0, modalitiesString.length()-1);
+		modalitiesString = modalitiesString.substring(0, modalitiesString.length() - 1);
 //		infoset.put("Modality", getParticularInfoFromStudy("Modality", patID, studyUID));//, seriesUID));
 		infoset.put("Modality", modalitiesString);
-		String bod = getParticularInfoFromPatient("PatientBirthDate",patID);
+		String bod = getParticularInfoFromPatient("PatientBirthDate", patID);
 		infoset.put("PatientBirthDate", bod);
-		infoset.put("PatientSex", getParticularInfoFromPatient("PatientSex",patID));
-		//calc age when study performed.
+		infoset.put("PatientSex", getParticularInfoFromPatient("PatientSex", patID));
+		// calc age when study performed.
 		Integer age = Utils.calculateAge(bod, studyDate);
 		infoset.put("PatientAge", age == null ? null : String.valueOf(age));
 		return infoset;
+	}
+
+	/* to use when starting graphy */
+	public static DatabaseHandler getInstance() {
+		return datbaseRef;
 	}
 
 	public int getInstanceNo(String studyUid, String seriesUid, String sopUid) {
@@ -1463,7 +1406,7 @@ public class DatabaseHandler {
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -1475,24 +1418,23 @@ public class DatabaseHandler {
 		}
 		return -1;
 	}
-	
-	//see, DcmQRSCP
+
+	// see, DcmQRSCP
 	public String getInstancePathUsingSOPInstanceUID(String sopIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement(
-					"SELECT * FROM IMAGE WHERE SOPInstanceUID=?");
+			pstmt = conn.prepareStatement("SELECT * FROM IMAGE WHERE SOPInstanceUID=?");
 			pstmt.setString(1, sopIUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(5);//but, always only have one row.
-			if(rset.next()) {
+			rset.setFetchSize(5);// but, always only have one row.
+			if (rset.next()) {
 				return rset.getString("FileStoreUrl");
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				pstmt.close();
 				rset.close();
@@ -1504,65 +1446,61 @@ public class DatabaseHandler {
 		}
 		return null;
 	}
-	
-	public ArrayList<String> getInstancesLoc(String studyUid) {
-		Connection conn = openConnection();
-		ArrayList<String> locations = new ArrayList<String>();
-		try {
-			ResultSet instanceInfo = conn.createStatement()
-					.executeQuery("SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID='" + studyUid
-							+ "'" + " Order by InstanceNumber asc");
-			while (instanceInfo.next()) {
-				locations.add(instanceInfo.getString("FileStoreUrl"));
-			}
-			instanceInfo.close();
-			conn.commit();
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return locations;
-	}
 
-	public ArrayList<String> getInstancesLoc(String studyUid, String seriesUid) {
+	/**
+	 * 
+	 * @param patID
+	 * @param studyIUID
+	 * @param seriesIUID
+	 * @param sopIUID
+	 * @return
+	 */
+	public HashMap<String, String> getInstanceQueryInfo(String patID, String studyIUID, String seriesIUID,
+			String sopIUID) {
+		/* check item in keys */
 		Connection conn = openConnection();
-		ArrayList<String> locations = new ArrayList<String>();
+		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+		HashMap<String, String> map = new HashMap<>();
+		ResultSet rset = null;
+		PreparedStatement pstmt = null;
 		try {
-			ResultSet instanceInfo = conn.createStatement()
-					.executeQuery("SELECT FileStoreUrl,SOPInstanceUID FROM IMAGE WHERE StudyInstanceUID='" + studyUid
-							+ "' AND SeriesInstanceUID='" + seriesUid + "'" + " Order by InstanceNumber asc");
-			while (instanceInfo.next()) {
-				locations.add(instanceInfo.getString("FileStoreUrl"));
+			pstmt = conn.prepareStatement(statement);
+			pstmt.setString(1, patID);
+			pstmt.setString(2, studyIUID);
+			pstmt.setString(3, seriesIUID);
+			pstmt.setString(4, sopIUID);
+			rset = pstmt.executeQuery();
+			if (rset.next()) {
+				/*
+				 * (0004,1500) CS [DICOM\6EFD8DF8\FF3A35F6\4C11115A] ReferencedFileID
+				 * (0004,1510) UI [1.2.840.10008.5.1.4.1.1.4] ReferencedSOPClassUIDInFile//same
+				 * as SOPClassUID (0004,1511) UI
+				 * [1.3.6.1.4.1.14519.5.2.1.3344.2526.3991481572793857949648742095//same as SOP
+				 * Instance UID // (0004,1512) UI
+				 * [1.2.840.10008.1.2]ReferencedTransferSyntaxUIDInFile//same as
+				 * TransferSyntaxUID (0020,0013) IS [6] InstanceNumber//mandatory for directory
+				 * record
+				 */
+				map.put("ReferencedFileID", DicomUtilities
+						.convertAbsPath2ReferencedFileID(rset.getString("FileStoreUrl"), rset.getBoolean("isLink")));
+				map.put("SOPInstanceUID", sopIUID);
+				map.put("SOPClassUID", rset.getString("SOPClassUID"));
+				map.put("TransferSyntaxUID", rset.getString("TransferSyntaxUID"));
+				map.put("InstanceNumber", rset.getString("InstanceNumber"));
 			}
-			instanceInfo.close();
-			conn.commit();
+			rset.close();
+			pstmt.close();
+			if (map.isEmpty()) {
+				return null;
+			} else {
+				return map;
+			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
-		return locations;
-	}
-
-	public HashMap<String/*URL*/, String/*sopUID*/> getInstancesLocMap(String studyUid, String seriesUid) {
-		Connection conn = openConnection();
-		HashMap<String, String> locationsMap = new HashMap<>();
-		try {
-			ResultSet instanceInfo = conn.createStatement()
-					.executeQuery("select FileStoreUrl,SOPInstanceUID from image where StudyInstanceUID='" + studyUid
-							+ "' and SeriesInstanceUID='" + seriesUid + "'" + " order by InstanceNumber asc");
-			while (instanceInfo.next()) {
-				locationsMap.put(instanceInfo.getString("FileStoreUrl"), instanceInfo.getString("SOPInstanceUID"));
-			}
-			instanceInfo.close();
-			conn.commit();
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return locationsMap;
+		return null;
 	}
 
 //	public ArrayList<PresetModel> getPresetsForModality(String modality) {
@@ -1590,13 +1528,74 @@ public class DatabaseHandler {
 //		return presets;
 //	}
 
+	public ArrayList<String> getInstancesLoc(String studyUid) {
+		Connection conn = openConnection();
+		ArrayList<String> locations = new ArrayList<String>();
+		try {
+			ResultSet instanceInfo = conn.createStatement()
+					.executeQuery("SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID='" + studyUid + "'"
+							+ " Order by InstanceNumber asc");
+			while (instanceInfo.next()) {
+				locations.add(instanceInfo.getString("FileStoreUrl"));
+			}
+			instanceInfo.close();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return locations;
+	}
+
+	public ArrayList<String> getInstancesLoc(String studyUid, String seriesUid) {
+		Connection conn = openConnection();
+		ArrayList<String> locations = new ArrayList<String>();
+		try {
+			ResultSet instanceInfo = conn.createStatement()
+					.executeQuery("SELECT FileStoreUrl,SOPInstanceUID FROM IMAGE WHERE StudyInstanceUID='" + studyUid
+							+ "' AND SeriesInstanceUID='" + seriesUid + "'" + " Order by InstanceNumber asc");
+			while (instanceInfo.next()) {
+				locations.add(instanceInfo.getString("FileStoreUrl"));
+			}
+			instanceInfo.close();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return locations;
+	}
+
+	public HashMap<String/* URL */, String/* sopUID */> getInstancesLocMap(String studyUid, String seriesUid) {
+		Connection conn = openConnection();
+		HashMap<String, String> locationsMap = new HashMap<>();
+		try {
+			ResultSet instanceInfo = conn.createStatement()
+					.executeQuery("select FileStoreUrl,SOPInstanceUID from image where StudyInstanceUID='" + studyUid
+							+ "' and SeriesInstanceUID='" + seriesUid + "'" + " order by InstanceNumber asc");
+			while (instanceInfo.next()) {
+				locationsMap.put(instanceInfo.getString("FileStoreUrl"), instanceInfo.getString("SOPInstanceUID"));
+			}
+			instanceInfo.close();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return locationsMap;
+	}
+
 	public ArrayList<String> getInstanceUidList(String patID, String studyUid, String seriesUid) {
 		Connection conn = openConnection();
 		ArrayList<String> sopUids = new ArrayList<String>();
 		try {
-			ResultSet imageLocations = conn.createStatement().executeQuery(
-					"SELECT SOPInstanceUID from IMAGE WHERE PatientID='"+patID+"' and StudyInstanceUID='" + studyUid + "' and SeriesInstanceUID='"
-							+ seriesUid + "' Order by InstanceNumber, FileStoreUrl");
+			ResultSet imageLocations = conn.createStatement()
+					.executeQuery("SELECT SOPInstanceUID from IMAGE WHERE PatientID='" + patID
+							+ "' and StudyInstanceUID='" + studyUid + "' and SeriesInstanceUID='" + seriesUid
+							+ "' Order by InstanceNumber, FileStoreUrl");
 			while (imageLocations.next()) {
 				sopUids.add(imageLocations.getString("SOPInstanceUID"));
 			}
@@ -1604,13 +1603,13 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return sopUids;
 	}
 
-	//TODO 2024/1/10
+	// TODO 2024/1/10
 	// needed ?
 	public String getJNLPRetrieveType() {
 		Connection conn = openConnection();
@@ -1623,14 +1622,14 @@ public class DatabaseHandler {
 			retrieveInfo.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return JNLPRetrieveType;
 	}
 
-	//TODO 2024/1/10
-		// needed ?
+	// TODO 2024/1/10
+	// needed ?
 	public String[] getLanguagesOfCountry(String country) {
 		Connection conn = openConnection();
 		try {
@@ -1650,75 +1649,13 @@ public class DatabaseHandler {
 			return languageList;
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return null;
-	}
-
-	// When starting up, use prop file.
-	public String[] getListenerDetails() {
-		Connection conn = openConnection();
-		String detail[] = new String[4];
-		try {
-			String statement="SELECT * FROM LISTENER";
-			PreparedStatement pstmt = conn.prepareStatement(statement);
-			ResultSet listenerInfo = pstmt.executeQuery();
-			if (listenerInfo.next()) {
-				detail[0] = listenerInfo.getString("aetitle");
-				detail[1] = listenerInfo.getString("host");
-				detail[2] = listenerInfo.getString("port");
-				detail[3] = listenerInfo.getString("storagelocation");
-			}
-			listenerInfo.close();
-			pstmt.close();
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
-		return detail;
-	}
-
-	public String getLocalDBLocation() {
-		if(dbdir == null || dbdir.isBlank()) {
-			try {
-				loadLocalDBLocation();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-		return dbdir;
-	}
-	
-	public String[] getLocaleIDForCountryAndLanguage(String country, String language) {
-		Connection conn = openConnection();
-		try {
-			ResultSet count = conn.createStatement().executeQuery("select count(localeid) from locale where country='"
-					+ country + "' and language='" + language + "'");
-			count.next();
-			String[] localeId = new String[count.getInt(1)];
-			ResultSet result = conn.createStatement().executeQuery(
-					"select localeid from locale where country='" + country + "' and language='" + language + "'");
-			int index = 0;
-			while (result.next()) {
-				localeId[index] = result.getString("localeid");
-				index++;
-			}
-			count.close();
-			result.close();
-			return localeId;
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-
 		return null;
 	}
-	
-	
-	//move to another...
+
+	// move to another...
 //	public ArrayList<DICOMNode> getSeriesList(String patID, DICOMNode studyNode) {
 //		Connection conn = openConnection();
 //		ArrayList<DICOMNode> seriesList = new ArrayList<DICOMNode>();
@@ -1773,12 +1710,74 @@ public class DatabaseHandler {
 //		}
 //		return seriesList;
 //	}
-	
+
+	// When starting up, use prop file.
+	public String[] getListenerDetails() {
+		Connection conn = openConnection();
+		String detail[] = new String[4];
+		try {
+			String statement = "SELECT * FROM LISTENER";
+			PreparedStatement pstmt = conn.prepareStatement(statement);
+			ResultSet listenerInfo = pstmt.executeQuery();
+			if (listenerInfo.next()) {
+				detail[0] = listenerInfo.getString("aetitle");
+				detail[1] = listenerInfo.getString("host");
+				detail[2] = listenerInfo.getString("port");
+				detail[3] = listenerInfo.getString("storagelocation");
+			}
+			listenerInfo.close();
+			pstmt.close();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return detail;
+	}
+
+	public String getLocalDBLocation() {
+		if (dbdir == null || dbdir.isBlank()) {
+			try {
+				loadLocalDBLocation();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return dbdir;
+	}
+
+	public String[] getLocaleIDForCountryAndLanguage(String country, String language) {
+		Connection conn = openConnection();
+		try {
+			ResultSet count = conn.createStatement().executeQuery("select count(localeid) from locale where country='"
+					+ country + "' and language='" + language + "'");
+			count.next();
+			String[] localeId = new String[count.getInt(1)];
+			ResultSet result = conn.createStatement().executeQuery(
+					"select localeid from locale where country='" + country + "' and language='" + language + "'");
+			int index = 0;
+			while (result.next()) {
+				localeId[index] = result.getString("localeid");
+				index++;
+			}
+			count.close();
+			result.close();
+			return localeId;
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+
+		return null;
+	}
+
 	/**
 	 * 
 	 * move to DICOMNodeBuilder...
 	 * 
 	 * return whole number of study level DICOM Nodes
+	 * 
 	 * @return
 	 */
 //	public ArrayList<DICOMNode> listAllLocalStudies() {
@@ -1814,7 +1813,7 @@ public class DatabaseHandler {
 //		}
 //		return studiesList;
 //	}
-	
+
 //	public ArrayList<DICOMNode> getSeriesList(String patID, DICOMNode studyNode) {
 //		Connection conn = openConnection();
 //		ArrayList<DICOMNode> seriesList = new ArrayList<DICOMNode>();
@@ -1869,7 +1868,7 @@ public class DatabaseHandler {
 //		}
 //		return seriesList;
 //	}
-	
+
 	public boolean getLoopbackStatus() {
 		Connection conn = openConnection();
 		try {
@@ -1878,45 +1877,46 @@ public class DatabaseHandler {
 			return loopBackStatus.getBoolean("Loopback");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
-	public List<String> getModalitiesInStudyRealatedAllSeries(String patID,String studyUID) {
-		if (getNumOfSeries(patID, studyUID) < 1 ) {
+
+	public List<String> getModalitiesInStudyRealatedAllSeries(String patID, String studyUID) {
+		if (getNumOfSeries(patID, studyUID) < 1) {
 			return null;
 		}
 		Connection conn = openConnection();
 		List<String> modalities = new ArrayList<String>();
 		ResultSet rset = null;
 		try {
-			PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?");
-			pstmt.setString(1, patID);//start from 1
+			PreparedStatement pstmt = conn
+					.prepareStatement("SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?");
+			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(1000);
-			while(rset.next()) {
+			while (rset.next()) {
 				modalities.add(rset.getString("Modality"));
 			}
 			rset.close();
 			pstmt.close();
-			conn.commit();			
-			if(modalities.isEmpty()) {
+			conn.commit();
+			if (modalities.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				List<String> noduplicate = new ArrayList<String>(new HashSet<>(modalities));
 				return noduplicate;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return null;
 	}
-	
+
 	public int getNumOfInstanceInSeries(String patID, String studyUID, String seriesUID) {
 		Connection conn = openConnection();
 		int size = 0;
@@ -1935,7 +1935,7 @@ public class DatabaseHandler {
 			pstmt.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return size;
@@ -1950,19 +1950,19 @@ public class DatabaseHandler {
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, patID);
 			rset = pstmt.executeQuery();
-			if(rset.next()){
+			if (rset.next()) {
 				count = rset.getInt(1);
 			}
 			rset.close();
 			pstmt.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return count;
 	}
-	
+
 	public int getNumOfInstancesInDB() {
 		Connection conn = openConnection();
 		try {
@@ -1971,23 +1971,24 @@ public class DatabaseHandler {
 			return totalInfo.getInt(1);
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return 0;
 	}
-	
+
 	public int getNumOfInstancesInSeries(String studyUid, String seUid) {
 		Connection conn = openConnection();
 		try {
 			ResultSet totalInstancesInfo = conn.createStatement()
-					.executeQuery("select count(*) from image where StudyInstanceUID='" + studyUid + "'"+" and SeriesInstanceUID='" + seUid + "'");
+					.executeQuery("select count(*) from image where StudyInstanceUID='" + studyUid + "'"
+							+ " and SeriesInstanceUID='" + seUid + "'");
 			totalInstancesInfo.next();
 			return totalInstancesInfo.getInt(1);
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return 0;
 	}
@@ -2001,12 +2002,12 @@ public class DatabaseHandler {
 			return totalInstancesInfo.getInt(1);
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return 0;
 	}
-	
+
 	public int getNumOfInstanceStudy(String patID, String studyUID) {
 		Connection conn = openConnection();
 		String statement = "SELECT COUNT(SOPInstanceUID) FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=?";
@@ -2017,15 +2018,15 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
-			if(rset.next()){
+			if (rset.next()) {
 				count = rset.getInt(1);
 			}
 			pstmt.close();
 			rset.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return count;
 	}
@@ -2038,12 +2039,12 @@ public class DatabaseHandler {
 			return totalInfo.getInt(1);
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return 0;
 	}
-	
+
 	public int getNumOfSeries(String patID, String studyUID) {
 		Connection conn = openConnection();
 		String statement = "SELECT COUNT(SeriesInstanceUID) FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?";
@@ -2054,7 +2055,7 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
-			if(rset.next()){
+			if (rset.next()) {
 				count = rset.getInt(1);
 			}
 			rset.close();
@@ -2062,53 +2063,10 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return count;
-	}
-	
-	public int getNumOfSeriesInDB() {
-		Connection conn = openConnection();
-		try {
-			ResultSet totalInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM SERIES");
-			totalInfo.next();
-			return totalInfo.getInt(1);
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return 0;
-	}
-	
-	public int getNumOfSeriesInStudy(String studyUid) {
-		Connection conn = openConnection();
-		try {
-			ResultSet totalInstancesInfo = conn.createStatement()
-					.executeQuery("select count(*) from SERIES where StudyInstanceUID='" + studyUid + "'");
-			totalInstancesInfo.next();
-			return totalInstancesInfo.getInt(1);
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return 0;
-	}
-
-	public int getNumOfStudiesInDB() {
-		Connection conn = openConnection();
-		try {
-			ResultSet totalStudiesInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM STUDY");
-			totalStudiesInfo.next();
-			return totalStudiesInfo.getInt(1);
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
-		}
-		return 0;
 	}
 
 	/*
@@ -2135,17 +2093,60 @@ public class DatabaseHandler {
 //		return locations;
 //	}
 
-	public int getNumOfStudyInPatient(String patID) {
+	public int getNumOfSeriesInDB() {
 		Connection conn = openConnection();
 		try {
-			ResultSet totalInfo = conn.createStatement()
-					.executeQuery("select count(*) from STUDY where PatientID='"+patID+"'");
+			ResultSet totalInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM SERIES");
 			totalInfo.next();
 			return totalInfo.getInt(1);
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
+		}
+		return 0;
+	}
+
+	public int getNumOfSeriesInStudy(String studyUid) {
+		Connection conn = openConnection();
+		try {
+			ResultSet totalInstancesInfo = conn.createStatement()
+					.executeQuery("select count(*) from SERIES where StudyInstanceUID='" + studyUid + "'");
+			totalInstancesInfo.next();
+			return totalInstancesInfo.getInt(1);
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return 0;
+	}
+
+	public int getNumOfStudiesInDB() {
+		Connection conn = openConnection();
+		try {
+			ResultSet totalStudiesInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM STUDY");
+			totalStudiesInfo.next();
+			return totalStudiesInfo.getInt(1);
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return 0;
+	}
+
+	public int getNumOfStudyInPatient(String patID) {
+		Connection conn = openConnection();
+		try {
+			ResultSet totalInfo = conn.createStatement()
+					.executeQuery("select count(*) from STUDY where PatientID='" + patID + "'");
+			totalInfo.next();
+			return totalInfo.getInt(1);
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
 		}
 		return 0;
 	}
@@ -2161,19 +2162,20 @@ public class DatabaseHandler {
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, patID);
 			studyCount = pstmt.executeQuery();
-			if(studyCount.next()) {
+			if (studyCount.next()) {
 				count = studyCount.getInt(1);
 			}
 			studyCount.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return count;
 	}
 
-	public String getParticularInfoFromImage(String targetColName,String patID, String studyUID, String seriesUID, String sopUID) {
+	public String getParticularInfoFromImage(String targetColName, String patID, String studyUID, String seriesUID,
+			String sopUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
@@ -2186,7 +2188,7 @@ public class DatabaseHandler {
 			pstmt.setString(3, seriesUID);
 			pstmt.setString(4, sopUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
+			rset.setFetchSize(3);// but, always only have one row.
 			if (rset.next()) {
 				something = rset.getString(targetColName);
 			}
@@ -2195,8 +2197,8 @@ public class DatabaseHandler {
 			rset.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return something;
 	}
@@ -2210,13 +2212,13 @@ public class DatabaseHandler {
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, patID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
+			rset.setFetchSize(3);// but, always only have one row.
 			if (rset.next()) {
 				result = rset.getString(targetColName);
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				conn.commit();
@@ -2240,7 +2242,7 @@ public class DatabaseHandler {
 			pstmt.setString(2, studyUid);
 			pstmt.setString(3, seriesUid);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
+			rset.setFetchSize(3);// but, always only have one row.
 			if (rset.next()) {
 				something = rset.getString(targetColName);
 			}
@@ -2249,12 +2251,12 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return something;
 	}
-	
+
 	public String getParticularInfoFromStudy(String targetColName, String patID, String studyUid) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
@@ -2265,14 +2267,14 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUid);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
+			rset.setFetchSize(3);// but, always only have one row.
 			if (rset.next()) {
 				something = rset.getString(targetColName);
 			}
 			pstmt.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				safeClose(conn);
@@ -2283,20 +2285,14 @@ public class DatabaseHandler {
 		}
 		return something;
 	}
-	
-	public String getPassword() {
-		return password;
-	}
-	
+
 	/*
-	 * return following info
-	 * (0010,0010) PN [LGG-203] PatientName
-	 * (0010,0020) LO [LGG-203] PatientID
-	 * (0010,0030) DA [] PatientBirthDate
-	 * (0010,0040) CS [M] PatientSex
+	 * return following info (0010,0010) PN [LGG-203] PatientName (0010,0020) LO
+	 * [LGG-203] PatientID (0010,0030) DA [] PatientBirthDate (0010,0040) CS [M]
+	 * PatientSex
 	 */
 	public HashMap<String, String> getPatientInfoByPatID(String patID) {
-		if(patID == null) {
+		if (patID == null) {
 			return null;
 		}
 		Connection conn = openConnection();
@@ -2305,22 +2301,22 @@ public class DatabaseHandler {
 		PreparedStatement pstmt = null;
 		try {
 			pstmt = conn.prepareStatement("SELECT * FROM PATIENT WHERE PatientID=?");
-			pstmt.setString(1, patID);//start from 1
+			pstmt.setString(1, patID);// start from 1
 			rset = pstmt.executeQuery();
-			if(rset.next()) {
+			if (rset.next()) {
 				map.put("PatientID", patID);
 				map.put("PatientName", rset.getString("PatientName"));
 				map.put("PatientBirthDate", rset.getString("PatientBirthDate"));
 				map.put("PatientSex", rset.getString("PatientSex"));
 			}
-			if(map.isEmpty()) {
+			if (map.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return map;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2331,11 +2327,7 @@ public class DatabaseHandler {
 		}
 		return null;
 	}
-	
-	public String getProtocolName() {
-		return protocol;
-	}
-	
+
 	public String getRetrieveType(String serverName) {
 		Connection conn = openConnection();
 		String retType = null;
@@ -2348,12 +2340,12 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 			return null;
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return retType;
 	}
-	
+
 	public ArrayList<String> getSeriesFileURL(String studyUid) {
 		Connection conn = openConnection();
 		ArrayList<String> seriesFileURLs = new ArrayList<String>();
@@ -2384,27 +2376,28 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return seriesFileURLs;
 	}
 
-	public List<HashMap<String, String>> getSeriesInfoByUIDs(String patID,String studyUID) {
-		if (getNumOfSeries(patID, studyUID) < 1 ) {
+	public List<HashMap<String, String>> getSeriesInfoByUIDs(String patID, String studyUID) {
+		if (getNumOfSeries(patID, studyUID) < 1) {
 			return null;
 		}
 		Connection conn = openConnection();
-		List<HashMap<String, String>> seriesInfoList = new ArrayList<HashMap<String,String>>();
+		List<HashMap<String, String>> seriesInfoList = new ArrayList<HashMap<String, String>>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement("SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? order by SeriesNumber");
-			pstmt.setString(1, patID);//start from 1
+			pstmt = conn.prepareStatement(
+					"SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? order by SeriesNumber");
+			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(1000);
-			while(rset.next()) {
+			while (rset.next()) {
 				HashMap<String, String> map = new HashMap<>();
 				map.put("PatientID", patID);
 				map.put("SeriesDate", rset.getString("SeriesDate"));
@@ -2413,19 +2406,20 @@ public class DatabaseHandler {
 				map.put("InstitutionName", rset.getString("InstitutionName"));
 				map.put("ModelName", rset.getString("ModelName"));
 				map.put("SeriesNumber", rset.getString("SeriesNumber"));
-				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"), rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
+				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
+						rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				seriesInfoList.add(map);
 			}
-			if(seriesInfoList.isEmpty()) {
+			if (seriesInfoList.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return seriesInfoList;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2439,22 +2433,23 @@ public class DatabaseHandler {
 		return null;
 	}
 
-	public HashMap<String, String> getSeriesInfoByUIDs(String patID,String studyUID,String seriesUID) {
-		if (getNumOfSeries(patID, studyUID) < 1 ) {
+	public HashMap<String, String> getSeriesInfoByUIDs(String patID, String studyUID, String seriesUID) {
+		if (getNumOfSeries(patID, studyUID) < 1) {
 			return null;
 		}
 		Connection conn = openConnection();
-		HashMap<String, String> map = new HashMap<String,String>();
+		HashMap<String, String> map = new HashMap<String, String>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			pstmt = conn.prepareStatement("SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?");
-			pstmt.setString(1, patID);//start from 1
+			pstmt = conn.prepareStatement(
+					"SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?");
+			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			pstmt.setString(3, seriesUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				map.put("PatientID", patID);
 				map.put("SeriesDate", rset.getString("SeriesDate"));
 				map.put("SeriesDescription", rset.getString("SeriesDescription"));
@@ -2462,18 +2457,19 @@ public class DatabaseHandler {
 				map.put("InstitutionName", rset.getString("InstitutionName"));
 				map.put("ModelName", rset.getString("ModelName"));
 				map.put("SeriesNumber", rset.getString("SeriesNumber"));
-				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"), rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
+				map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
+						rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 			}
-			if(map.isEmpty()) {
+			if (map.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return map;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2491,8 +2487,9 @@ public class DatabaseHandler {
 		Connection conn = openConnection();
 		ArrayList<String> locations = new ArrayList<>();
 		try {
-			ResultSet seriesInfo = conn.createStatement().executeQuery(
-					"select SeriesInstanceUID from Series where StudyInstanceUID='" + studyUid + "' order by SeriesNumber");
+			ResultSet seriesInfo = conn.createStatement()
+					.executeQuery("select SeriesInstanceUID from Series where StudyInstanceUID='" + studyUid
+							+ "' order by SeriesNumber");
 			while (seriesInfo.next()) {
 				ResultSet location = conn.createStatement()
 						.executeQuery("select FileStoreUrl from image where StudyInstanceUID='" + studyUid
@@ -2514,13 +2511,13 @@ public class DatabaseHandler {
 			seriesInfo.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return locations;
 	}
 
-	public String getSeriesIUID(String patID,String studyIUID,String sopIUID) {
+	public String getSeriesIUID(String patID, String studyIUID, String sopIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
@@ -2532,12 +2529,12 @@ public class DatabaseHandler {
 			pstmt.setString(3, sopIUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				return rset.getString("SeriesInstanceUID");
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2549,32 +2546,33 @@ public class DatabaseHandler {
 		}
 		return null;
 	}
-	
+
 	public String getSeriesNo(String seriesUid) {
 		Connection conn = openConnection();
 		String SeriesNumber = null;
 		try {
 			ResultSet rs = conn.createStatement().executeQuery("select SeriesNumber" + " from SERIES"
 					+ " where SeriesInstanceUID" + " = '" + seriesUid.trim() + "'");
-			if(rs.next()) {
+			if (rs.next()) {
 				SeriesNumber = rs.getString("SeriesNumber");
 			}
 			conn.commit();
 			rs.close();
 		} catch (Exception e) {
 			return null;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return SeriesNumber;
 	}
-	
+
 	public ArrayList<String> getSeriesUidList(String patID, String studyUID) {
 		Connection conn = openConnection();
 		ArrayList<String> seriesUids = new ArrayList<String>();
 		try {
 			ResultSet rset = conn.createStatement()
-					.executeQuery("select SeriesInstanceUID from SERIES where PatientID='" + patID + "'" + "and StudyInstanceUID='" + studyUID+"'");
+					.executeQuery("select SeriesInstanceUID from SERIES where PatientID='" + patID + "'"
+							+ "and StudyInstanceUID='" + studyUID + "'");
 			while (rset.next()) {
 				seriesUids.add(rset.getString("SeriesInstanceUID"));
 			}
@@ -2583,29 +2581,36 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		} finally {
-				safeClose(conn);
+			safeClose(conn);
 		}
 		return seriesUids;
 	}
-	
-	public HashMap<String,Object> getServerNamed(String nickname) {
+
+	public HashMap<String, Object> getServerNamed(String nickname) {
 		Connection conn = openConnection();
-		HashMap<String,Object> nodeMaterials = null;
+		HashMap<String, Object> nodeMaterials = null;
 		try {
 			ResultSet serverInfo = conn.createStatement()
 					.executeQuery("select * from servers where logicalname='" + nickname + "'");
 			if (serverInfo.next()) {
 				nodeMaterials = new HashMap<>();
-				String logicalname = serverInfo.getString("logicalname") != null ? serverInfo.getString("logicalname"):"";
-				String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle"):"";
-				String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname"):"";
-				Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port"):null;
-				String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers"):"";
-				String retrievetype = serverInfo.getString("retrievetype") != null ? serverInfo.getString("retrievetype"):"";
-				String wadocontext = serverInfo.getString("wadocontext") != null ? serverInfo.getString("wadocontext"):"";
-				Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null ? serverInfo.getInt("wadoport"):null;
-				String wadoprotocol = serverInfo.getString("wadoprotocol") != null ? serverInfo.getString("wadoprotocol"):"";
-				String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets"):"";
+				String logicalname = serverInfo.getString("logicalname") != null ? serverInfo.getString("logicalname")
+						: "";
+				String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle") : "";
+				String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname") : "";
+				Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port") : null;
+				String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers") : "";
+				String retrievetype = serverInfo.getString("retrievetype") != null
+						? serverInfo.getString("retrievetype")
+						: "";
+				String wadocontext = serverInfo.getString("wadocontext") != null ? serverInfo.getString("wadocontext")
+						: "";
+				Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null ? serverInfo.getInt("wadoport")
+						: null;
+				String wadoprotocol = serverInfo.getString("wadoprotocol") != null
+						? serverInfo.getString("wadoprotocol")
+						: "";
+				String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets") : "";
 				nodeMaterials.put("logicalname", logicalname);
 				nodeMaterials.put("aetitle", aetitle);
 				nodeMaterials.put("hostname", hostname);
@@ -2622,19 +2627,20 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 			return null;
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return nodeMaterials;
 	}
-	
+
 	public String getSlicePosition(String studyUid, String seriesUid, String instanceUid) {
 		Connection conn = openConnection();
 		ResultSet sliceInfo = null;
 		String pos = null;
 		try {
-			sliceInfo = conn.createStatement().executeQuery("select SliceLocation from image where StudyInstanceUID='"
-					+ studyUid + "' and SeriesInstanceUID='" + seriesUid + "' and SOPInstanceUID='" + instanceUid + "'");
+			sliceInfo = conn.createStatement()
+					.executeQuery("select SliceLocation from image where StudyInstanceUID='" + studyUid
+							+ "' and SeriesInstanceUID='" + seriesUid + "' and SOPInstanceUID='" + instanceUid + "'");
 			sliceInfo.next();
 			pos = sliceInfo.getString("SliceLocation");
 		} catch (SQLException ex) {
@@ -2646,13 +2652,13 @@ public class DatabaseHandler {
 				logger.severe(ex.getMessage());
 			} catch (NullPointerException ex) {
 				// ignore
-			}finally {
+			} finally {
 				safeClose(conn);
 			}
 		}
 		return pos;
 	}
-	
+
 	public ArrayList<String> getStudyAndSeriesDescription(String studyUid, String seriesUid) {
 		Connection conn = openConnection();
 		ArrayList<String> descriptions = new ArrayList<>();
@@ -2660,7 +2666,7 @@ public class DatabaseHandler {
 		try {
 			ResultSet rs = conn.createStatement().executeQuery("select StudyDescription" + " from STUDY"
 					+ " where StudyInstanceUID" + " = '" + studyUid.trim() + "'");
-			if(rs.next()) {
+			if (rs.next()) {
 				descriptions.add(rs.getString("StudyDescription"));
 			}
 			rs.close();
@@ -2672,47 +2678,16 @@ public class DatabaseHandler {
 		try {
 			ResultSet rs = conn.createStatement().executeQuery("select SeriesDescription" + " from SERIES"
 					+ " where SeriesInstanceUID" + " = '" + seriesUid.trim() + "'");
-			if(rs.next()) {
+			if (rs.next()) {
 				descriptions.add(rs.getString("SeriesDescription"));
 			}
 			rs.close();
 		} catch (Exception e) {
 			return null;
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return descriptions;
-	}
-	
-	public ArrayList<String> getStudyAndSeriesUID(String sopUid) {
-		Connection conn = openConnection();
-		ArrayList<String> uids = new ArrayList<>();
-//		StudyUID
-		try {
-			ResultSet rs = conn.createStatement().executeQuery("select StudyInstanceUID" + " from IMAGE"
-					+ " where SOPInstanceUID" + " = '" + sopUid.trim() + "'");
-			if(rs.next()) {
-				uids.add(rs.getString("StudyInstanceUID"));
-			}
-			rs.close();
-			conn.commit();
-		} catch (Exception e) {
-			return null;
-		}
-//		SeriesUID
-		try {
-			ResultSet rs = conn.createStatement().executeQuery("select SeriesInstanceUID" + " from IMAGE"
-					+ " where SOPInstanceUID" + " = '" + sopUid.trim() + "'");
-			if(rs.next()) {
-				uids.add(rs.getString("SeriesInstanceUID"));
-			}
-			rs.close();
-		} catch (Exception e) {
-			return null;
-		}finally {
-			safeClose(conn);
-		}
-		return uids;
 	}
 
 //	public ScoutLineInfoModel[] getFirstAndLastInstances(String studyUid, String seriesUid) {
@@ -2774,24 +2749,55 @@ public class DatabaseHandler {
 //		return null;
 //	}
 
+	public ArrayList<String> getStudyAndSeriesUID(String sopUid) {
+		Connection conn = openConnection();
+		ArrayList<String> uids = new ArrayList<>();
+//		StudyUID
+		try {
+			ResultSet rs = conn.createStatement().executeQuery(
+					"select StudyInstanceUID" + " from IMAGE" + " where SOPInstanceUID" + " = '" + sopUid.trim() + "'");
+			if (rs.next()) {
+				uids.add(rs.getString("StudyInstanceUID"));
+			}
+			rs.close();
+			conn.commit();
+		} catch (Exception e) {
+			return null;
+		}
+//		SeriesUID
+		try {
+			ResultSet rs = conn.createStatement().executeQuery("select SeriesInstanceUID" + " from IMAGE"
+					+ " where SOPInstanceUID" + " = '" + sopUid.trim() + "'");
+			if (rs.next()) {
+				uids.add(rs.getString("SeriesInstanceUID"));
+			}
+			rs.close();
+		} catch (Exception e) {
+			return null;
+		} finally {
+			safeClose(conn);
+		}
+		return uids;
+	}
+
 	/*
 	 * for study node builder
 	 */
-	public HashMap<String, String> getStudyInfoByUIDs(String patID,String studyUID) {
+	public HashMap<String, String> getStudyInfoByUIDs(String patID, String studyUID) {
 		Connection conn = openConnection();
 		HashMap<String, String> map = new HashMap<>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
-			//study info
+			// study info
 			pstmt = conn.prepareStatement("SELECT * FROM STUDY WHERE PatientID=? AND StudyInstanceUID=?");
-			pstmt.setString(1, patID);//start from 1
+			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(3);//but, always only have one row.
-			if(rset.next()) {
+			rset.setFetchSize(3);// but, always only have one row.
+			if (rset.next()) {
 				map.put("PatientID", patID);
-				map.put("PatientAge", rset.getString("PatientAge"));//age is study level, not pat level.
+				map.put("PatientAge", rset.getString("PatientAge"));// age is study level, not pat level.
 				map.put("StudyDate", rset.getString("StudyDate"));
 				map.put("StudyTime", rset.getString("StudyTime"));
 				map.put("StudyID", rset.getString("StudyID"));
@@ -2802,15 +2808,15 @@ public class DatabaseHandler {
 				map.put("NumOfInstancesInStudy", String.valueOf(rset.getString("StudyInstanceUID")));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 			}
-			
-			if(map.isEmpty()) {
+
+			if (map.isEmpty()) {
 				return null;
-			}else {
+			} else {
 				return map;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2822,8 +2828,8 @@ public class DatabaseHandler {
 		}
 		return null;
 	}
-	
-	public String getStudyIUID(String patID,String seriesIUID,String sopIUID) {
+
+	public String getStudyIUID(String patID, String seriesIUID, String sopIUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
@@ -2836,13 +2842,13 @@ public class DatabaseHandler {
 			pstmt.setString(3, sopIUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				studyUID = rset.getString("StudyInstanceUID");
 			}
 			return studyUID;
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -2869,11 +2875,11 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		} finally {
-				safeClose(conn);
+			safeClose(conn);
 		}
 		return studyUids;
 	}
-	
+
 	public ArrayList<Integer> getTextAnnotationList() {
 		Connection conn = openConnection();
 		ArrayList<Integer> tagList = new ArrayList<>();
@@ -2888,54 +2894,10 @@ public class DatabaseHandler {
 			rs.close();
 		} catch (SQLException e) {
 			logger.severe(e.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return tagList;
-	}
-	
-	public ArrayList<String> getThemes() {
-		Connection conn = openConnection();
-		ArrayList<String> themeNames = new ArrayList<String>();
-		try {
-			ResultSet themeInfo = conn.createStatement().executeQuery("select name from theme");
-			while (themeInfo.next()) {
-				if (!themeInfo.getString("name").equals("System")) {
-					themeNames.add(themeInfo.getString("name"));
-				} else {
-					themeNames.add(System.getProperty("os.name"));
-				}
-			}
-			themeInfo.close();
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			safeClose(conn);
-		}
-		return themeNames;
-	}
-	
-	public int getTotalInstancesInStudy(String studyUid) {
-		Connection conn = openConnection();
-		int total = 0;
-		try {
-			ResultSet totalInstancesInfo = conn.createStatement().executeQuery(
-					"select count(SOPInstanceUID) from image where StudyInstanceUID='" + studyUid + "' and multiframe=false");
-			totalInstancesInfo.next();
-			total = totalInstancesInfo.getInt(1);
-			totalInstancesInfo = conn.createStatement().executeQuery(
-					"select count(SOPInstanceUID) from image where StudyInstanceUID='" + studyUid + "' and multiframe=true");
-			totalInstancesInfo.next();
-			total += totalInstancesInfo.getInt(1);
-			totalInstancesInfo.close();
-			conn.commit();
-			return total;
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}finally {
-			safeClose(conn);
-		}
-		return 0;
 	}
 
 	/*
@@ -2971,20 +2933,41 @@ public class DatabaseHandler {
 //		return svr;
 //	}
 
+	public ArrayList<String> getThemes() {
+		Connection conn = openConnection();
+		ArrayList<String> themeNames = new ArrayList<String>();
+		try {
+			ResultSet themeInfo = conn.createStatement().executeQuery("select name from theme");
+			while (themeInfo.next()) {
+				if (!themeInfo.getString("name").equals("System")) {
+					themeNames.add(themeInfo.getString("name"));
+				} else {
+					themeNames.add(System.getProperty("os.name"));
+				}
+			}
+			themeInfo.close();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		} finally {
+			safeClose(conn);
+		}
+		return themeNames;
+	}
+
 	public List<String[]> getUIDsByFileLocations(ArrayList<String> fileLocs) {
 		if (fileLocs == null) {
 			return null;
 		}
-		
+
 		List<String[]> idsetList = new ArrayList<String[]>();
-		for(int i=0;i<fileLocs.size();i++) {
+		for (int i = 0; i < fileLocs.size(); i++) {
 			Connection conn = openConnection();
 			ResultSet rset = null;
 			try {
 				PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM IMAGE WHERE FileStoreUrl=?");
-				pstmt.setString(1, fileLocs.get(i));//start from 1
+				pstmt.setString(1, fileLocs.get(i));// start from 1
 				rset = pstmt.executeQuery();
-				while(rset.next()) {
+				while (rset.next()) {
 					String idset[] = new String[4];
 					idset[0] = rset.getString("PatientID");
 					idset[1] = rset.getString("StudyInstanceUID");
@@ -2997,17 +2980,13 @@ public class DatabaseHandler {
 				conn.commit();
 			} catch (SQLException ex) {
 				logger.severe(ex.getMessage());
-			}finally {
-					safeClose(conn);
+			} finally {
+				safeClose(conn);
 			}
 		}
 		return idsetList;
 	}
 
-	public String getUserName() {
-		return username;
-	}
-	
 	private void insertDefaultListenerDetails() {
 		Connection conn = openConnection();
 		String sql = "insert into listener(aetitle,host,port,storagelocation) values( ? , ? , ? , ?)";
@@ -3018,10 +2997,10 @@ public class DatabaseHandler {
 			pstmt.setString(2, defaultHost);
 			pstmt.setString(3, defaultPort);
 			pstmt.setString(4, getArchiveDirectory());
-			pstmt.executeUpdate();//int num = pstmt.executeUpdate();
+			pstmt.executeUpdate();// int num = pstmt.executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			try {
 				pstmt.close();
 			} catch (SQLException e) {
@@ -3030,7 +3009,7 @@ public class DatabaseHandler {
 			safeClose(conn);
 		}
 	}
-	
+
 	public void insertDefaultLocales() throws SQLException {
 		Connection conn = openConnection();
 		conn.createStatement().execute(
@@ -3040,7 +3019,7 @@ public class DatabaseHandler {
 		conn.commit();
 		safeClose(conn);
 	}
-	
+
 	private void insertDefaultPresets() throws SQLException {
 		Connection conn = openConnection();
 		ResultSet rs = conn.createStatement().executeQuery("select pk from modality where shortname='CT'");
@@ -3064,14 +3043,14 @@ public class DatabaseHandler {
 		rs.close();
 		safeClose(conn);
 	}
-	
+
 	private void insertDefaultTextAnnotationList() throws SQLException {
 		Connection conn = openConnection();
 		// initial annotations
 		ArrayList<Integer> tags = new ArrayList<>();
 		tags.add(Tag.Patient​ID);
 		tags.add(Tag.Patient​Name);
-    	tags.add(Tag.Patient​Birth​Date);
+		tags.add(Tag.Patient​Birth​Date);
 		tags.add(Tag.Patient​Age);
 		tags.add(Tag.Patient​Sex);
 		tags.add(Tag.Institution​Name);
@@ -3097,118 +3076,117 @@ public class DatabaseHandler {
 
 	private void insertImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
-		
-			Connection conn = openConnection();
-			boolean multiframe = false;
-			int totalFrame = 0;
-			boolean encapsulatedPDF = false;
 
-			if (dataset.getString(Tag.SOP​Class​UID) != null
-					&& dataset.getString(Tag.SOP​Class​UID).equals(UID.EncapsulatedPDFStorage.uid())) {
-				encapsulatedPDF = true;
-			}
+		Connection conn = openConnection();
+		boolean multiframe = false;
+		int totalFrame = 0;
+		boolean encapsulatedPDF = false;
 
-			if (dataset.getString(Tag.Number​Of​Frames) != null
-					&& Integer.parseInt(dataset.getString(Tag.Number​Of​Frames)) > 1) {
-				multiframe = true;
-				totalFrame = dataset.getInt(Tag.Number​Of​Frames,-1);
-			}
-			String acquisitionNo = dataset.getString(Tag.Acquisition​Number) != null
-					? dataset.getString(Tag.Acquisition​Number)
-					: "";
-			java.util.Date acqDateTime = dataset.getDate(Tag.Acquisition​Date​Time);
-			java.sql.Time sqlAcqDateTime = DateUtils.toSQLTime(acqDateTime);			
+		if (dataset.getString(Tag.SOP​Class​UID) != null
+				&& dataset.getString(Tag.SOP​Class​UID).equals(UID.EncapsulatedPDFStorage.uid())) {
+			encapsulatedPDF = true;
+		}
 
-			String frameOfRefUid = dataset.getString(Tag.Frame​Of​Reference​UID) != null
-					? dataset.getString(Tag.Frame​Of​Reference​UID)
-					: "";
-			String imgPos = dataset.getBytes(Tag.Image​Position) != null
-					? new String(dataset.getBytes(Tag.Image​Position))
-					: "";
-			String imgOrientation = dataset.getBytes(Tag.Image​Orientation) != null
-					? new String(dataset.getBytes(Tag.Image​Orientation))
-					: "";
-			String pixelSpacing = dataset.getBytes(Tag.Pixel​Spacing) != null
-					? new String(dataset.getBytes(Tag.Pixel​Spacing))
-					: "";
-			int row = dataset.getInt(Tag.Rows, 0) != 0 ? dataset.getInt(Tag.Rows, 0) : 1;
-			int columns = dataset.getInt(Tag.Columns, 0) != 0 ? dataset.getInt(Tag.Columns, 0) : 1;
-			String referSopInsUid = "", image_type = "";
-			String sliceThickness = dataset.getBytes(Tag.Spacing​Between​Slices) != null
-					? new String(dataset.getBytes(Tag.Spacing​Between​Slices))
-					: "";
-			// To get the Referenced SOP Instance UID
-			DicomObject refImageSeq = dataset.getNestedDataset(Tag.Referenced​Image​Sequence);
-			if (refImageSeq != null) {
-				referSopInsUid = refImageSeq.getString(Tag.Referenced​SOP​Instance​UID);
-			}
-			// To get the Image Type (LOCALIZER / AXIAL / OTHER)
-			image_type = dataset.getBytes(Tag.Image​Type) != null ? new String(dataset.getBytes(Tag.Image​Type)) : "";
-			String[] imageTypes = image_type.split("\\\\");
-			if (imageTypes.length >= 3) {
-				image_type = imageTypes[2];
-			}
-			String[] imagePosition = dataset.getStrings(Tag.Image​Position);
-			String sliceLoc = imagePosition != null && imagePosition[2] != null ? imagePosition[2] : "0";
-			/* TSUID only can get from dicominputstream... */
-			String tsUID = DicomUtilities.getTransferSyntaxUID(filePath);
-			try {
-				PreparedStatement insertStmt = conn
-						.prepareStatement("insert into image values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-				insertStmt.setString(1, dataset.getString(Tag.SOP​Instance​UID));
-				insertStmt.setString(2, dataset.getString(Tag.SOP​Class​UID));
-				insertStmt.setInt(3, dataset.getInt(Tag.Instance​Number, 1));
-				insertStmt.setString(4, acquisitionNo);
-				insertStmt.setBoolean(5, multiframe);
-				insertStmt.setInt(6, totalFrame);
-				insertStmt.setString(7, "partial");//deprecated
-				insertStmt.setTime(8, sqlAcqDateTime);
-				insertStmt.setTime(9, null);//TODO ForwardDateTime//deprecated
-				insertStmt.setTime(10, null);//TODO ReceivedDateTime
-				insertStmt.setString(11, "partial");//ReceiveStatus//deprecated
-				insertStmt.setString(12, filePath);
-				insertStmt.setBoolean(13, saveAsLink);
-				insertStmt.setInt(14, Integer.parseInt(sliceLoc));
-				insertStmt.setBoolean(15, encapsulatedPDF);
-				insertStmt.setBoolean(16, false);//ThumbnailStatus//deprecated
-				insertStmt.setString(17, frameOfRefUid);//deprecated
-				insertStmt.setString(18, imgPos);//deprecated
-				insertStmt.setString(19, imgOrientation);//deprecated
-				insertStmt.setString(20, image_type);//deprecated
-				insertStmt.setString(21, pixelSpacing);//deprecated
-				insertStmt.setString(22, sliceThickness);//deprecated
-				insertStmt.setInt(23, row);//deprecated
-				insertStmt.setInt(24, columns);//deprecated
-				insertStmt.setString(25, referSopInsUid.trim());//deprecated
-				insertStmt.setString(26, tsUID);
-				insertStmt.setString(27, patientID);
-				insertStmt.setString(28, studyUid);
-				insertStmt.setString(29, seriesUid);
-				insertStmt.execute();
-				insertStmt.close();
-				conn.commit();
-			} catch (SQLException ex) {
-				logger.severe( "DatabaseHandler - Unable to save instance information\n"+ex.getMessage());
-				ex.printStackTrace();
-			}finally {
-				safeClose(conn);
-			}
+		if (dataset.getString(Tag.Number​Of​Frames) != null
+				&& Integer.parseInt(dataset.getString(Tag.Number​Of​Frames)) > 1) {
+			multiframe = true;
+			totalFrame = dataset.getInt(Tag.Number​Of​Frames, -1);
+		}
+		String acquisitionNo = dataset.getString(Tag.Acquisition​Number) != null
+				? dataset.getString(Tag.Acquisition​Number)
+				: "";
+		java.util.Date acqDateTime = dataset.getDate(Tag.Acquisition​Date​Time);
+		java.sql.Time sqlAcqDateTime = DateUtils.toSQLTime(acqDateTime);
+
+		String frameOfRefUid = dataset.getString(Tag.Frame​Of​Reference​UID) != null
+				? dataset.getString(Tag.Frame​Of​Reference​UID)
+				: "";
+		String imgPos = dataset.getBytes(Tag.Image​Position) != null ? new String(dataset.getBytes(Tag.Image​Position))
+				: "";
+		String imgOrientation = dataset.getBytes(Tag.Image​Orientation) != null
+				? new String(dataset.getBytes(Tag.Image​Orientation))
+				: "";
+		String pixelSpacing = dataset.getBytes(Tag.Pixel​Spacing) != null
+				? new String(dataset.getBytes(Tag.Pixel​Spacing))
+				: "";
+		int row = dataset.getInt(Tag.Rows, 0) != 0 ? dataset.getInt(Tag.Rows, 0) : 1;
+		int columns = dataset.getInt(Tag.Columns, 0) != 0 ? dataset.getInt(Tag.Columns, 0) : 1;
+		String referSopInsUid = "", image_type = "";
+		String sliceThickness = dataset.getBytes(Tag.Spacing​Between​Slices) != null
+				? new String(dataset.getBytes(Tag.Spacing​Between​Slices))
+				: "";
+		// To get the Referenced SOP Instance UID
+		DicomObject refImageSeq = dataset.getNestedDataset(Tag.Referenced​Image​Sequence);
+		if (refImageSeq != null) {
+			referSopInsUid = refImageSeq.getString(Tag.Referenced​SOP​Instance​UID);
+		}
+		// To get the Image Type (LOCALIZER / AXIAL / OTHER)
+		image_type = dataset.getBytes(Tag.Image​Type) != null ? new String(dataset.getBytes(Tag.Image​Type)) : "";
+		String[] imageTypes = image_type.split("\\\\");
+		if (imageTypes.length >= 3) {
+			image_type = imageTypes[2];
+		}
+		String[] imagePosition = dataset.getStrings(Tag.Image​Position);
+		String sliceLoc = imagePosition != null && imagePosition[2] != null ? imagePosition[2] : "0";
+		/* TSUID only can get from dicominputstream... */
+		String tsUID = DicomUtilities.getTransferSyntaxUID(filePath);
+		try {
+			PreparedStatement insertStmt = conn.prepareStatement(
+					"insert into image values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+			insertStmt.setString(1, dataset.getString(Tag.SOP​Instance​UID));
+			insertStmt.setString(2, dataset.getString(Tag.SOP​Class​UID));
+			insertStmt.setInt(3, dataset.getInt(Tag.Instance​Number, 1));
+			insertStmt.setString(4, acquisitionNo);
+			insertStmt.setBoolean(5, multiframe);
+			insertStmt.setInt(6, totalFrame);
+			insertStmt.setString(7, "partial");// deprecated
+			insertStmt.setTime(8, sqlAcqDateTime);
+			insertStmt.setTime(9, null);// TODO ForwardDateTime//deprecated
+			insertStmt.setTime(10, null);// TODO ReceivedDateTime
+			insertStmt.setString(11, "partial");// ReceiveStatus//deprecated
+			insertStmt.setString(12, filePath);
+			insertStmt.setBoolean(13, saveAsLink);
+			insertStmt.setInt(14, Integer.parseInt(sliceLoc));
+			insertStmt.setBoolean(15, encapsulatedPDF);
+			insertStmt.setBoolean(16, false);// ThumbnailStatus//deprecated
+			insertStmt.setString(17, frameOfRefUid);// deprecated
+			insertStmt.setString(18, imgPos);// deprecated
+			insertStmt.setString(19, imgOrientation);// deprecated
+			insertStmt.setString(20, image_type);// deprecated
+			insertStmt.setString(21, pixelSpacing);// deprecated
+			insertStmt.setString(22, sliceThickness);// deprecated
+			insertStmt.setInt(23, row);// deprecated
+			insertStmt.setInt(24, columns);// deprecated
+			insertStmt.setString(25, referSopInsUid.trim());// deprecated
+			insertStmt.setString(26, tsUID);
+			insertStmt.setString(27, patientID);
+			insertStmt.setString(28, studyUid);
+			insertStmt.setString(29, seriesUid);
+			insertStmt.execute();
+			insertStmt.close();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - Unable to save instance information\n" + ex.getMessage());
+			ex.printStackTrace();
+		} finally {
+			safeClose(conn);
+		}
 	}
 
 	private void insertLocale(String language, String country, String languagecode, String countrycode, String localeid)
 			throws SQLException {
 		Connection conn = openConnection();
 		conn.createStatement()
-		.execute("insert into locale(countrycode,country,languagecode,language,localeid,status) values('"
-				+ countrycode + "','" + country + "','" + languagecode + "','" + language + "','" + localeid
-				+ "',false)");
+				.execute("insert into locale(countrycode,country,languagecode,language,localeid,status) values('"
+						+ countrycode + "','" + country + "','" + languagecode + "','" + language + "','" + localeid
+						+ "',false)");
 		safeClose(conn);
 	}
-	
+
 	@SuppressWarnings("unused")
 	private void insertMiscellaneous() throws SQLException {
 		Connection conn = openConnection();
-		//tatsu
+		// tatsu
 //		if(conn ==null || conn.isClosed()) {
 //			
 //			// C-GET to C-MOVE
@@ -3223,7 +3201,7 @@ public class DatabaseHandler {
 //		}
 		safeClose(conn);
 	}
-	
+
 	private void insertModalities() throws SQLException {
 		Connection conn = openConnection();
 		String modality[] = { "CT", "MR", "XA", "CR", "SC", "NM", "RF", "DX", "US", "PX", "OT", "DR", "SR", "MG",
@@ -3248,69 +3226,41 @@ public class DatabaseHandler {
 				insertStmt.setString(4, dataset.getString(Tag.Patient​Sex));
 				insertStmt.execute();
 				insertStmt.close();
-				conn.commit();//fail safe
+				conn.commit();// fail safe
 			} catch (SQLException ex) {
-				logger.severe("DatabaseHandler - Unable to save patient information\n"+ex.getMessage());
-			}finally {
+				logger.severe("DatabaseHandler - Unable to save patient information\n" + ex.getMessage());
+			} finally {
 				safeClose(conn);
 			}
 		}
 	}
-	
-	public synchronized void insertRoi(HashMap<String,Object> roiCon){
-		insertRoi(
-				(String)roiCon.get("RoiID"),
-				(String)roiCon.get("Name"),
-				Integer.parseInt((String)roiCon.get("RoiType")),
-				(int)roiCon.get("OriginX"),
-				(int)roiCon.get("OriginY"),
-				(int)roiCon.get("Width"),
-				(int)roiCon.get("Height"),
-				(double[])roiCon.get("PointX"),
-				(double[])roiCon.get("PointY"),
-				(double[])roiCon.get("Shape"),
-				Integer.parseInt((String)roiCon.get("InstanceNo")),
-				roiCon.get("RoiGroup") == null ? -1:Integer.parseInt((String)roiCon.get("RoiGroup")),
-				(String)roiCon.get("RoiLabel"),
-				(String)roiCon.get("ObjectType"),
-				(String)roiCon.get("Organ"),
-				(String)roiCon.get("Description"),
-				(String)roiCon.get("PatientID"),
-				(String)roiCon.get("StudyInstanceUID"),
-				(String)roiCon.get("SeriesInstanceUID"),
-				(String)roiCon.get("SOPInstanceUID"));
+
+	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
+		insertRoi((String) roiCon.get("RoiID"), (String) roiCon.get("Name"),
+				Integer.parseInt((String) roiCon.get("RoiType")), (int) roiCon.get("OriginX"),
+				(int) roiCon.get("OriginY"), (int) roiCon.get("Width"), (int) roiCon.get("Height"),
+				(double[]) roiCon.get("PointX"), (double[]) roiCon.get("PointY"), (double[]) roiCon.get("Shape"),
+				Integer.parseInt((String) roiCon.get("InstanceNo")),
+				roiCon.get("RoiGroup") == null ? -1 : Integer.parseInt((String) roiCon.get("RoiGroup")),
+				(String) roiCon.get("RoiLabel"), (String) roiCon.get("ObjectType"), (String) roiCon.get("Organ"),
+				(String) roiCon.get("Description"), (String) roiCon.get("PatientID"),
+				(String) roiCon.get("StudyInstanceUID"), (String) roiCon.get("SeriesInstanceUID"),
+				(String) roiCon.get("SOPInstanceUID"));
 	}
-	
-	public void insertRoi(
-			String roiId,
-			String name,
-			int roiType,
-			int originX,
-			int originY,
-			int w,
-			int h,
-			double[] pointX,
-			double[] pointY,
-			double[] shapeArray,
-			int instNo,
-			int roiGroup,
-			String roilbl,
-			String objType,
-			String organ,
-			String txt,//description
-			String pid,
-			String studyUid,
-			String seriesUid,
-			String sopUid) {
-		if(pointX != null && pointY != null) {
-			if(pointX.length != pointY.length) {
-				System.out.println(getClass().getName()+":Can not save roi, pointXY is incorrect(count mismatch).");
+
+	public void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,
+			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
+			String objType, String organ, String txt, // description
+			String pid, String studyUid, String seriesUid, String sopUid) {
+		if (pointX != null && pointY != null) {
+			if (pointX.length != pointY.length) {
+				System.out.println(getClass().getName() + ":Can not save roi, pointXY is incorrect(count mismatch).");
 				return;
 			}
 		}
 		if (!(checkRecordExists("roi", "RoiID", roiId))) {
 			Connection conn = openConnection();
-			//get as byte
+			// get as byte
 			byte[] byteArrayX = null;
 			byte[] byteArrayY = null;
 			byte[] byteArrayShape = null;
@@ -3319,50 +3269,37 @@ public class DatabaseHandler {
 				for (int i = 0; i < pointX.length; i++) {
 					bbX.putDouble(pointX[i]);
 				}
-				//get as byte
+				// get as byte
 				byteArrayX = bbX.array();
 			}
-			if(pointY != null) {
+			if (pointY != null) {
 				ByteBuffer bbY = ByteBuffer.allocate(pointY.length * 8);
 				for (int i = 0; i < pointY.length; i++) {
 					bbY.putDouble(pointY[i]);
 				}
-				//get as byte
+				// get as byte
 				byteArrayY = bbY.array();
 			}
-			if(shapeArray != null) {
+			if (shapeArray != null) {
 				ByteBuffer bbS = ByteBuffer.allocate(shapeArray.length * 8);
 				for (int i = 0; i < shapeArray.length; i++) {
 					bbS.putDouble(shapeArray[i]);
 				}
-				//get as byte
+				// get as byte
 				byteArrayShape = bbS.array();
 			}
-			
+
 			try {
 				/*
-				 * RoiID varchar(255) NOT NULL CONSTRAINT RoiID_pk PRIMARY KEY, 
-				 * Roi name,
-				 * RoiType integer,
-				 * OriginX integer, 
-				 * OriginY integer, 
-				 * Width integer, 
-				 * Height integer, 
-				 * PointX blob,
-				 * PointY blob, 
-				 * Shape blob,
-				 * InstanceNo integer,
-				 * int roiGroup,
-				 * String roilbl,
-				 * String objType,
-				 * String organ,
-				 * Description
-				 * PatientID varchar(255),
-				 * StudyInstanceUID varchar(255), 
-				 * SeriesInstanceUID varchar(255), 
-				 * SOPInstanceUID varchar(255), 
+				 * RoiID varchar(255) NOT NULL CONSTRAINT RoiID_pk PRIMARY KEY, Roi name,
+				 * RoiType integer, OriginX integer, OriginY integer, Width integer, Height
+				 * integer, PointX blob, PointY blob, Shape blob, InstanceNo integer, int
+				 * roiGroup, String roilbl, String objType, String organ, Description PatientID
+				 * varchar(255), StudyInstanceUID varchar(255), SeriesInstanceUID varchar(255),
+				 * SOPInstanceUID varchar(255),
 				 */
-				PreparedStatement insertStmt = conn.prepareStatement("insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+				PreparedStatement insertStmt = conn
+						.prepareStatement("insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 				insertStmt.setString(1, roiId);
 				insertStmt.setString(2, name);
 				insertStmt.setInt(3, roiType);
@@ -3370,9 +3307,12 @@ public class DatabaseHandler {
 				insertStmt.setInt(5, originY);
 				insertStmt.setInt(6, w);
 				insertStmt.setInt(7, h);
-				insertStmt.setBlob(8, byteArrayX == null ? null:new ByteArrayInputStream(byteArrayX), byteArrayX == null ? 0: byteArrayX.length);
-				insertStmt.setBlob(9, byteArrayY == null ? null:new ByteArrayInputStream(byteArrayY), byteArrayY == null ? 0: byteArrayY.length);
-				insertStmt.setBlob(10, byteArrayShape == null ? null:new ByteArrayInputStream(byteArrayShape), byteArrayShape == null ? 0: byteArrayShape.length);
+				insertStmt.setBlob(8, byteArrayX == null ? null : new ByteArrayInputStream(byteArrayX),
+						byteArrayX == null ? 0 : byteArrayX.length);
+				insertStmt.setBlob(9, byteArrayY == null ? null : new ByteArrayInputStream(byteArrayY),
+						byteArrayY == null ? 0 : byteArrayY.length);
+				insertStmt.setBlob(10, byteArrayShape == null ? null : new ByteArrayInputStream(byteArrayShape),
+						byteArrayShape == null ? 0 : byteArrayShape.length);
 				insertStmt.setInt(11, instNo);
 				insertStmt.setInt(12, roiGroup);
 				insertStmt.setString(13, roilbl);
@@ -3387,33 +3327,18 @@ public class DatabaseHandler {
 				conn.commit();
 				insertStmt.close();
 			} catch (SQLException ex) {
-				logger.severe("DatabaseHandler - Unable to save patient information\n"+ex.getMessage());
-			}finally {
-					safeClose(conn);
+				logger.severe("DatabaseHandler - Unable to save patient information\n" + ex.getMessage());
+			} finally {
+				safeClose(conn);
 			}
-		//already exists
-		}else {
-			//updation
-			updateRoiInfo(
-					roiId,
-					name,
-					roiType,
-					originX,
-					originY,
-					w, h,
-					pointX,
-					pointY,
-					shapeArray,
-					instNo,
-					roiGroup,
-					roilbl,
-					objType,
-					organ,
-					txt,
-					pid, studyUid, seriesUid, sopUid);
+			// already exists
+		} else {
+			// updation
+			updateRoiInfo(roiId, name, roiType, originX, originY, w, h, pointX, pointY, shapeArray, instNo, roiGroup,
+					roilbl, objType, organ, txt, pid, studyUid, seriesUid, sopUid);
 		}
 	}
-	
+
 	private void insertSeriesInfo(final DicomObject dataset, String patientId, String studyUid, boolean saveAsLink) {
 		if (!checkRecordExists("SERIES", "SeriesInstanceUID", dataset.getString(Tag.Series​Instance​UID))) {
 			Connection conn = openConnection();
@@ -3422,10 +3347,11 @@ public class DatabaseHandler {
 			java.sql.Date sqlDate = DateUtils.toSQLDateObj(date);
 			/* Series Time */
 			java.util.Date time = dataset.getDate(Tag.Series​Time);
-			/*ignore milliseconds*/
+			/* ignore milliseconds */
 			java.sql.Time sqlTime = DateUtils.toSQLTime(time);
-			
-			int numImages = getNumOfInstanceInSeries(patientId, studyUid, dataset.getString(Tag.Series​Instance​UID))+1;
+
+			int numImages = getNumOfInstanceInSeries(patientId, studyUid, dataset.getString(Tag.Series​Instance​UID))
+					+ 1;
 
 			String institution = (dataset.getString(Tag.Institution​Name) != null
 					&& dataset.getString(Tag.Institution​Name).length() > 0) ? dataset.getString(Tag.Institution​Name)
@@ -3440,10 +3366,12 @@ public class DatabaseHandler {
 							? dataset.getString(Tag.Manufacturer​Model​Name)
 							: "";
 			String seriesDesc = (dataset.getString(Tag.Series​Description) != null
-					&& dataset.getString(Tag.Series​Description).length() > 0) ? dataset.getString(Tag.Series​Description)
+					&& dataset.getString(Tag.Series​Description).length() > 0)
+							? dataset.getString(Tag.Series​Description)
 							: "";
 			String bodyPartExamined = (dataset.getString(Tag.Body​Part​Examined) != null
-					&& dataset.getString(Tag.Body​Part​Examined).length() > 0) ? dataset.getString(Tag.Body​Part​Examined)
+					&& dataset.getString(Tag.Body​Part​Examined).length() > 0)
+							? dataset.getString(Tag.Body​Part​Examined)
 							: "";
 			try {
 				PreparedStatement insertStmt = conn
@@ -3464,40 +3392,40 @@ public class DatabaseHandler {
 				insertStmt.close();
 				conn.commit();
 			} catch (SQLException ex) {
-				logger.severe( "DatabaseHandler - Unable to save series information\n"+ex.getMessage());
+				logger.severe("DatabaseHandler - Unable to save series information\n" + ex.getMessage());
 			} finally {
-				update("study", "NoOfSeries", getNumOfSeries(patientId,studyUid), "StudyInstanceUID", studyUid);
+				update("study", "NoOfSeries", getNumOfSeries(patientId, studyUid), "StudyInstanceUID", studyUid);
 				safeClose(conn);
 			}
 		}
 	}
-	
+
 	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers) {
 		Connection conn = openConnection();
 		String statement = "INSERT INTO SERVERS (pk,logicalname,aetitle,hostname,port,ciphers,retrievetype,wadocontext,wadoport,wadoprotocol,retrievets) VALUES (default,?,?,?,?,?,?,?,?,?,?)";
 		PreparedStatement insertStmt = null;
 		try {
-			insertStmt = conn.prepareStatement(statement,Statement.RETURN_GENERATED_KEYS);
+			insertStmt = conn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);
 			insertStmt.setString(1, nickname);
 			insertStmt.setString(2, aet);
 			insertStmt.setString(3, hostname);
 			insertStmt.setInt(4, port);
 			insertStmt.setString(5, ciphers);
-			insertStmt.setString(6, null);//RetrieveType()
-			insertStmt.setString(7, null);//getWadoURL():wadocontext
-			insertStmt.setInt(8, -1);//getWadoPort():-1 is default no port number
-			insertStmt.setString(9, null);//getWadoProtocol()
-			insertStmt.setString(10, null);//getRetrieveTransferSyntax()
+			insertStmt.setString(6, null);// RetrieveType()
+			insertStmt.setString(7, null);// getWadoURL():wadocontext
+			insertStmt.setInt(8, -1);// getWadoPort():-1 is default no port number
+			insertStmt.setString(9, null);// getWadoProtocol()
+			insertStmt.setString(10, null);// getRetrieveTransferSyntax()
 			insertStmt.execute();
 			insertStmt.close();
 			conn.commit();
 		} catch (SQLException ex) {
-			logger.severe("DatabaseHandler:can not read sql...\n"+ex.getMessage());
-		}finally {
+			logger.severe("DatabaseHandler:can not read sql...\n" + ex.getMessage());
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
+
 //	
 //	public ArrayList<HashMap<String, String>> findPatientRecordWithoutPatID(String pname, String bod/*yyyy/MM/dd*/, String sex/*M,F,O*/) {
 //		Connection conn = openConnection();
@@ -3548,7 +3476,7 @@ public class DatabaseHandler {
 //		}
 //		return null;
 //	}
-	
+
 	private void insertStudyInfo(DicomObject dataset, boolean saveAsLink, String patientID) {
 		if (!checkRecordExists("STUDY", "StudyInstanceUID", dataset.getString(Tag.Study​Instance​UID))) {
 			Connection conn = openConnection();
@@ -3556,39 +3484,39 @@ public class DatabaseHandler {
 				/* Study date */
 				java.util.Date date = dataset.getDate(Tag.Study​Date);
 				java.sql.Date sqlDate = DateUtils.toSQLDateObj(date);
-				
-		       /* Study Time */
+
+				/* Study Time */
 				java.util.Date time = dataset.getDate(Tag.Study​Time);
-				/*ignore milliseconds in db, but it remains in dataset.*/
+				/* ignore milliseconds in db, but it remains in dataset. */
 				java.sql.Time sqlTime = DateUtils.toSQLTime(time);
 
 				java.util.Date birthOfDate = dataset.getDate(Tag.Patient​Birth​Date);
 				Integer age = Utils.calculateAge(birthOfDate, date);
-				//to avoid sql exception
-				if(age == null) {
+				// to avoid sql exception
+				if (age == null) {
 					age = -1;
 				}
 				String accessionNo = (dataset.getString(Tag.Accession​Number) != null
-						&& dataset.getString(Tag.Accession​Number).length() > 0) ? dataset.getString(Tag.Accession​Number)
+						&& dataset.getString(Tag.Accession​Number).length() > 0)
+								? dataset.getString(Tag.Accession​Number)
 								: "";
 				String refName = (dataset.getString(Tag.Referring​Physician​Name) != null
 						&& dataset.getString(Tag.Referring​Physician​Name).length() > 0)
 								? dataset.getString(Tag.Referring​Physician​Name)
 								: "";
 				String retAe = (dataset.getString(Tag.Retrieve​AE​Title) != null
-						&& dataset.getString(Tag.Retrieve​AE​Title).length() > 0) ? dataset.getString(Tag.Retrieve​AE​Title)
+						&& dataset.getString(Tag.Retrieve​AE​Title).length() > 0)
+								? dataset.getString(Tag.Retrieve​AE​Title)
 								: "";
 				String studyDesc = (dataset.getString(Tag.Study​Description) != null
 						&& dataset.getString(Tag.Study​Description).length() > 0)
 								? dataset.getString(Tag.Study​Description)
 								: "";
 				String studyId = (dataset.getString(Tag.Study​ID) != null
-										&& dataset.getString(Tag.Study​ID).length() > 0)
-												? dataset.getString(Tag.Study​ID)
-												: "";
-				int numOfSeries = getNumOfSeries(patientID, dataset.getString(Tag.Study​Instance​UID))+1;
-				int numOfInst = getNumOfInstancesInStudy(dataset.getString(Tag.Study​Instance​UID))+1;
-				
+						&& dataset.getString(Tag.Study​ID).length() > 0) ? dataset.getString(Tag.Study​ID) : "";
+				int numOfSeries = getNumOfSeries(patientID, dataset.getString(Tag.Study​Instance​UID)) + 1;
+				int numOfInst = getNumOfInstancesInStudy(dataset.getString(Tag.Study​Instance​UID)) + 1;
+
 				// 15 state, be careful
 				PreparedStatement insertStmt = conn
 						.prepareStatement("insert into study values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
@@ -3596,47 +3524,46 @@ public class DatabaseHandler {
 				insertStmt.setDate(2, sqlDate);
 				insertStmt.setTime(3, sqlTime);
 				insertStmt.setString(4, accessionNo);
-				insertStmt.setString(5, refName);//deprecated
+				insertStmt.setString(5, refName);// deprecated
 				insertStmt.setString(6, studyDesc);
 				insertStmt.setString(7, studyId);
 				insertStmt.setString(8, dataset.getString(Tag.Modalities​In​Study));
 				insertStmt.setInt(9, numOfSeries);
 				insertStmt.setInt(10, numOfInst);
-				insertStmt.setInt(11, 0);//RecdImgCnt//deprecated
-				insertStmt.setInt(12, 0);//SendImgCnt//deprecated
-				insertStmt.setString(13, retAe);//deprecated
-				insertStmt.setBoolean(14, false);//DownloadStatus
-				insertStmt.setInt(15,age);
+				insertStmt.setInt(11, 0);// RecdImgCnt//deprecated
+				insertStmt.setInt(12, 0);// SendImgCnt//deprecated
+				insertStmt.setString(13, retAe);// deprecated
+				insertStmt.setBoolean(14, false);// DownloadStatus
+				insertStmt.setInt(15, age);
 				insertStmt.setString(16, patientID);
 				insertStmt.execute();
 				insertStmt.close();
 				conn.commit();
 			} catch (SQLException ex) {
-				logger.severe("DatabaseHandler - Unable to save study information\n"+ex.getMessage());
+				logger.severe("DatabaseHandler - Unable to save study information\n" + ex.getMessage());
 			} finally {
 				safeClose(conn);
 			}
 		}
 	}
-	
+
 	public boolean isAlreadyRegisteredServer(String identicalNickname) {
-		if(identicalNickname == null) {
+		if (identicalNickname == null) {
 			return false;
 		}
 		int pk = getCommunicationServerPk(identicalNickname);
-		if(pk == -1) {
+		if (pk == -1) {
 			return false;
-		}else {
+		} else {
 			return true;
 		}
 	}
-	
-	
+
 	public boolean isConnectionStillActive(Connection conn) throws Exception {
 		try {
-			if(conn == null || conn.isClosed()) {
+			if (conn == null || conn.isClosed()) {
 				return false;
-			}else {
+			} else {
 				return true;
 			}
 		} catch (SQLException e) {
@@ -3644,7 +3571,7 @@ public class DatabaseHandler {
 			throw new Exception(e.getMessage());
 		}
 	}
-	
+
 	public boolean isDownloadPending(String studyUid) {
 		Connection conn = openConnection();
 		boolean pending = false;
@@ -3657,13 +3584,13 @@ public class DatabaseHandler {
 			pendingInfo.close();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-			//force close ?
+		} finally {
+			// force close ?
 			safeClose(conn);
 		}
 		return pending;
 	}
-	
+
 //	public ArrayList<HashMap<String, String>> findSeriesRecordWithoutSeriesIUID(String patID, String studyIUID, Attributes keys) {
 //		Connection conn = openConnection();
 //		String statement = "SELECT * FROM SERIES WHERE";
@@ -3756,16 +3683,16 @@ public class DatabaseHandler {
 //		}
 //		return null;
 //	}
-	
+
 	/*
 	 * get saveAsLink information from instance
 	 */
-	public boolean isInstanceSavedAsLink(String patID, String studyUID,String seriesUID, String sopUID) {
+	public boolean isInstanceSavedAsLink(String patID, String studyUID, String seriesUID, String sopUID) {
 		Connection conn = openConnection();
 		ResultSet rset = null;
 		boolean res = false;
 		try {
-			String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";		
+			String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
@@ -3773,7 +3700,7 @@ public class DatabaseHandler {
 			pstmt.setString(4, sopUID);
 			rset = pstmt.executeQuery();
 			rset.setFetchSize(3);
-			if(rset.next()) {
+			if (rset.next()) {
 				res = rset.getBoolean("isLink");
 			}
 			rset.close();
@@ -3781,13 +3708,13 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return res;
 	}
-	
-public boolean isModalityActive(String shortname) {
+
+	public boolean isModalityActive(String shortname) {
 		Connection conn = openConnection();
 		try {
 			ResultSet isActive = conn.createStatement()
@@ -3796,13 +3723,12 @@ public boolean isModalityActive(String shortname) {
 			return isActive.getBoolean("status");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 		return false;
 	}
-	
-	
+
 	public boolean isPreviewsEnabled(String serverName) {
 		Connection conn = openConnection();
 		boolean preview = false;
@@ -3816,25 +3742,25 @@ public boolean isModalityActive(String shortname) {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 			return false;
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return preview;
 	}
-	
-	public ArrayList<HashMap<String,String>> listStudies(String patientName, String patientID, String dob, String accNo,
-		String studyDate, String studyDesc, String modality) {
+
+	public ArrayList<HashMap<String, String>> listStudies(String patientName, String patientID, String dob,
+			String accNo, String studyDate, String studyDesc, String modality) {
 		Connection conn = openConnection();
-		ArrayList<HashMap<String,String>> result = new ArrayList<>();
-		HashMap<String,String> matchingStudies = new HashMap<String,String>();
+		ArrayList<HashMap<String, String>> result = new ArrayList<>();
+		HashMap<String, String> matchingStudies = new HashMap<String, String>();
 		ResultSet matchingInfo = null;
 		try {
 			matchingInfo = conn.createStatement().executeQuery(
 					"select * from patient inner join study on patient.PatientID=study.PatientID where upper(patient.PatientID) like '"
 							+ patientID + "' and upper(patient.PatientName) like '" + patientName
-							+ "' and patient.PatientBirthDate like '" + dob + "' and upper(study.AccessionNumber) like '"
-							+ accNo + "' and study.StudyDate like '" + studyDate
-							+ "' and upper(study.StudyDescription) like '" + studyDesc
+							+ "' and patient.PatientBirthDate like '" + dob
+							+ "' and upper(study.AccessionNumber) like '" + accNo + "' and study.StudyDate like '"
+							+ studyDate + "' and upper(study.StudyDescription) like '" + studyDesc
 							+ "' and upper(study.ModalitiesInStudy) like '" + modality + "'");
 			while (matchingInfo.next()) {
 				matchingStudies.put("PatientID", matchingInfo.getString("PatientName"));
@@ -3856,15 +3782,15 @@ public boolean isModalityActive(String shortname) {
 			logger.severe(ex.getMessage());
 		} catch (NumberFormatException nfe) {
 			logger.severe(nfe.getMessage());
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return result;
 	}
-	
-	public HashMap<String,Object> loadImageNodeMaterials(ResultSet imageInfo) {
+
+	public HashMap<String, Object> loadImageNodeMaterials(ResultSet imageInfo) {
 		Connection conn = openConnection();
-		HashMap<String,Object> nodeMaterial = new HashMap<String, Object>();
+		HashMap<String, Object> nodeMaterial = new HashMap<String, Object>();
 		try {
 			nodeMaterial.put("level", 4);
 			nodeMaterial.put("PatientID", imageInfo.getString("PatientID"));
@@ -3876,35 +3802,38 @@ public boolean isModalityActive(String shortname) {
 			nodeMaterial.put("SOPInstanceUID", imageInfo.getString("SOPInstanceUID"));
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return nodeMaterial;
 	}
-	
+
 	/**
 	 * load db directory and set dbdir.
+	 * 
 	 * @throws Exception
 	 */
 	public void loadLocalDBLocation() throws Exception {
 		try {
 			Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
-			if(prop == null) {
+			if (prop == null) {
 				throw new Exception("Can not load graphy.properties...");
-			}else {
+			} else {
 				String loc = prop.getProperty(GraphyProp.LocalDBLocation.name());
-				if(loc == null || loc.isBlank()) {
+				if (loc == null || loc.isBlank()) {
 					loc = Platform.getGraphyDirectory().getAbsolutePath();
-					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(), loc);
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(),
+							loc);
 				}
 				setDatabaseFolderPath(loc);
 			}
 		} catch (Exception e) {
 			logger.severe("can not find graphy.properties::DatabaseHandler::loadDBLocationFromProp");
-		} 
+		}
 	}
-	
-	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid, String sopUid) {
+
+	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid,
+			String sopUid) {
 		Connection conn = openConnection();
 		HashMap<String, Object> roiCon = new HashMap<>();
 		ResultSet rset = null;
@@ -3918,7 +3847,7 @@ public boolean isModalityActive(String shortname) {
 			pstmt.setString(4, sopUid);
 			pstmt.setString(5, roiId);
 			rset = pstmt.executeQuery();
-			if(rset.next()) {
+			if (rset.next()) {
 				roiCon.put("RoiID", rset.getString("RoiID"));
 				roiCon.put("RoiType", rset.getInt("RoiType"));
 				roiCon.put("OriginX", rset.getInt("OriginX"));
@@ -3940,7 +3869,7 @@ public boolean isModalityActive(String shortname) {
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -3950,16 +3879,17 @@ public boolean isModalityActive(String shortname) {
 				e.printStackTrace();
 			}
 		}
-		if(roiCon.size() > 0) {
+		if (roiCon.size() > 0) {
 			return roiCon;
-		}else {
+		} else {
 			return null;
 		}
 	}
-	
-	public ArrayList<HashMap<String,Object>> loadRoiContextFromInstance(String pid, String studyUid, String seriesUid, String sopUid) {
+
+	public ArrayList<HashMap<String, Object>> loadRoiContextFromInstance(String pid, String studyUid, String seriesUid,
+			String sopUid) {
 		Connection conn = openConnection();
-		ArrayList<HashMap<String,Object>> set = new ArrayList<HashMap<String,Object>>();
+		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
 		ResultSet rset = null;
 		PreparedStatement pstmt = null;
 		try {
@@ -3970,11 +3900,11 @@ public boolean isModalityActive(String shortname) {
 			pstmt.setString(3, seriesUid);
 			pstmt.setString(4, sopUid);
 			rset = pstmt.executeQuery();
-			while(rset.next()) {
+			while (rset.next()) {
 				HashMap<String, Object> roiCon = new HashMap<>();
 				roiCon.put("RoiID", rset.getString("RoiID"));
 				roiCon.put("Name", rset.getString("Name"));
-				roiCon.put("RoiType", rset.getInt("RoiType"));//int
+				roiCon.put("RoiType", rset.getInt("RoiType"));// int
 				roiCon.put("OriginX", rset.getInt("OriginX"));
 				roiCon.put("OriginY", rset.getInt("OriginY"));
 				roiCon.put("Width", rset.getInt("Width"));
@@ -3982,8 +3912,8 @@ public boolean isModalityActive(String shortname) {
 				roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
 				roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
 				roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-				roiCon.put("InstanceNo", rset.getInt("InstanceNo"));//int
-				roiCon.put("RoiGroup", rset.getInt("RoiGroup"));//int
+				roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
+				roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
 				roiCon.put("RoiLabel", rset.getString("RoiLabel"));
 				roiCon.put("ObjectType", rset.getString("ObjectType"));
 				roiCon.put("Organ", rset.getString("Organ"));
@@ -3996,7 +3926,7 @@ public boolean isModalityActive(String shortname) {
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rset.close();
 				pstmt.close();
@@ -4006,32 +3936,32 @@ public boolean isModalityActive(String shortname) {
 				e.printStackTrace();
 			}
 		}
-		if(set.size() > 0) {
+		if (set.size() > 0) {
 			return set;
-		}else {
+		} else {
 			return null;
 		}
 	}
-	
-	public HashMap<String,Object> loadSeriesNodeMaterial(ResultSet seriesInfo, HashMap<String,Object> studyMaterial) {
+
+	public HashMap<String, Object> loadSeriesNodeMaterial(ResultSet seriesInfo, HashMap<String, Object> studyMaterial) {
 		Connection conn = openConnection();
 		String modalityInStudy = (String) studyMaterial.get("ModalitiesInStudy");
 		try {
-			if(modalityInStudy == null || modalityInStudy.equals("")) {
+			if (modalityInStudy == null || modalityInStudy.equals("")) {
 				modalityInStudy = seriesInfo.getString("Modality");
-			}else {
+			} else {
 				String modality = seriesInfo.getString("Modality");
-				if(!modalityInStudy.contains(modality)) {
-					modalityInStudy = modalityInStudy+","+seriesInfo.getString("Modality");
+				if (!modalityInStudy.contains(modality)) {
+					modalityInStudy = modalityInStudy + "," + seriesInfo.getString("Modality");
 				}
 			}
 			studyMaterial.put("ModalitiesInStudy", modalityInStudy);
 		} catch (SQLException e1) {
 			e1.printStackTrace();
 		}
-		HashMap<String,Object> seriesNodeMaterial = new HashMap<String,Object>();
+		HashMap<String, Object> seriesNodeMaterial = new HashMap<String, Object>();
 		try {
-			seriesNodeMaterial.put("level", 3);//DICOMNode.SERIES
+			seriesNodeMaterial.put("level", 3);// DICOMNode.SERIES
 			seriesNodeMaterial.put("PatientID", seriesInfo.getString("PatientID"));
 			seriesNodeMaterial.put("SeriesDate", seriesInfo.getString("SeriesDate"));
 			seriesNodeMaterial.put("SeriesDescription", seriesInfo.getString("SeriesDescription"));
@@ -4039,42 +3969,43 @@ public boolean isModalityActive(String shortname) {
 			seriesNodeMaterial.put("InstitutionName", seriesInfo.getString("InstitutionName"));
 			seriesNodeMaterial.put("ModelName", seriesInfo.getString("ModelName"));
 			seriesNodeMaterial.put("SeriesNumber", seriesInfo.getString("SeriesNumber"));
-			seriesNodeMaterial.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(seriesInfo.getString("PatientID"), seriesInfo.getString("StudyInstanceUID"), seriesInfo.getString("SeriesInstanceUID"))));
+			seriesNodeMaterial.put("NumOfInstanceInSeries",
+					String.valueOf(getNumOfInstanceInSeries(seriesInfo.getString("PatientID"),
+							seriesInfo.getString("StudyInstanceUID"), seriesInfo.getString("SeriesInstanceUID"))));
 			seriesNodeMaterial.put("StudyInstanceUID", seriesInfo.getString("StudyInstanceUID"));
 			seriesNodeMaterial.put("SeriesInstanceUID", seriesInfo.getString("SeriesInstanceUID"));
-			
+
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}finally {
-			safeClose(conn);//DO NOT OPEN/CLOSE Connection
+		} finally {
+			safeClose(conn);// DO NOT OPEN/CLOSE Connection
 		}
 		return seriesNodeMaterial;
 	}
-	
+
 	public ArrayList<DicomCommunicationNode> loadServerList() {
 		// get server materials
-		ArrayList<HashMap<String,Object>>  serverMaterials= getCommunicationServerList();
+		ArrayList<HashMap<String, Object>> serverMaterials = getCommunicationServerList();
 		ArrayList<DicomCommunicationNode> serverList = new ArrayList<DicomCommunicationNode>();
-		for(HashMap<String,Object> nodeMaterials:serverMaterials) {
-			System.out.println((String)nodeMaterials.get("logicalname"));
+		for (HashMap<String, Object> nodeMaterials : serverMaterials) {
+			System.out.println((String) nodeMaterials.get("logicalname"));
 			serverList.add(new DicomCommunicationNode(nodeMaterials));
 		}
 		return serverList;
 	}
-	
+
 	/*
 	 * 項目になければNULLとして扱う
 	 */
 	/*
-	 * nodeにマテリアルを持たせて、
-	 * DICOMNodeBuilder(将来作るであろう)に渡す。
+	 * nodeにマテリアルを持たせて、 DICOMNodeBuilder(将来作るであろう)に渡す。
 	 */
-	public HashMap<String,Object> loadStudyNodeMaterial(ResultSet patientInfo, ResultSet studyInfo) {
+	public HashMap<String, Object> loadStudyNodeMaterial(ResultSet patientInfo, ResultSet studyInfo) {
 		Connection conn = openConnection();
-		HashMap<String,Object> studyNodeMaterial = new HashMap<String,Object>();
+		HashMap<String, Object> studyNodeMaterial = new HashMap<String, Object>();
 		try {
-			studyNodeMaterial.put("level", 2);//DICOMNode.Study
+			studyNodeMaterial.put("level", 2);// DICOMNode.Study
 			studyNodeMaterial.put("PatientName", patientInfo.getString("PatientName"));
 			studyNodeMaterial.put("PatientID", patientInfo.getString("PatientID"));
 			studyNodeMaterial.put("StudyDate", studyInfo.getString("StudyDate"));
@@ -4083,22 +4014,23 @@ public boolean isModalityActive(String shortname) {
 			studyNodeMaterial.put("ModalitiesInStudy", studyInfo.getString("ModalitiesInStudy"));
 			studyNodeMaterial.put("PatientSex", patientInfo.getString("PatientSex"));
 			studyNodeMaterial.put("PatientBirthDate", patientInfo.getString("PatientBirthDate"));
-			//Age
+			// Age
 			String age_str = studyInfo.getString("PatientAge");
 			age_str = (age_str != null && !age_str.equals("-1")) ? age_str : "";
-			studyNodeMaterial.put("PatientAge", age_str);//get from study info
+			studyNodeMaterial.put("PatientAge", age_str);// get from study info
 			studyNodeMaterial.put("AccessionNumber", studyInfo.getString("AccessionNumber"));
 			studyNodeMaterial.put("NumOfSeriesInStudy", String.valueOf(studyInfo.getString("StudyInstanceUID")));
-			studyNodeMaterial.put("NumOfInstancesInStudy", String.valueOf(getNumOfInstancesInStudy(studyInfo.getString("StudyInstanceUID"))));
+			studyNodeMaterial.put("NumOfInstancesInStudy",
+					String.valueOf(getNumOfInstancesInStudy(studyInfo.getString("StudyInstanceUID"))));
 			studyNodeMaterial.put("StudyInstanceUID", studyInfo.getString("StudyInstanceUID"));
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
-				safeClose(conn);
+		} finally {
+			safeClose(conn);
 		}
 		return studyNodeMaterial;
 	}
-	
+
 	private EmbeddedDataSource makeDataSource(String graphydir, boolean create) throws Throwable {
 		derby = new EmbeddedDataSource();
 		derby.setDatabaseName(graphydir + File.separator + databasename);
@@ -4112,10 +4044,11 @@ public boolean isModalityActive(String shortname) {
 
 	/**
 	 * auto commit basis handling
+	 * 
 	 * @return Connection
 	 */
 	private Connection openConnection() {
-		if(derby == null) {
+		if (derby == null) {
 			// logger.warning("Should be makeDataSource() first before open Connection.");
 			return null;
 		}
@@ -4123,7 +4056,7 @@ public boolean isModalityActive(String shortname) {
 		try {
 			Connection conn = derby.getConnection();
 			conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-			conn.setAutoCommit(true);//auto commit basis handling
+			conn.setAutoCommit(true);// auto commit basis handling
 			return conn;
 		} catch (SQLException e) {
 			logger.severe("connection can not established...");
@@ -4132,38 +4065,38 @@ public boolean isModalityActive(String shortname) {
 		return null;
 	}
 
-	public boolean overWriteSavedAsLinkRecord(DicomObject ds,boolean saveAsLinkWillImport) {
+	public boolean overWriteSavedAsLinkRecord(DicomObject ds, boolean saveAsLinkWillImport) {
 		boolean overWrite = false;
 		String patID = ds.getString(Tag.Patient​ID);
 		String studyUID = ds.getString(Tag.Study​Instance​UID);
 		String seriesUID = ds.getString(Tag.Series​Instance​UID);
 		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
-		if(checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
+		if (checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
 			/* check existing data is savedAsLink? */
-			if(isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID)) {
-				/*Is this import try to save local? */
-				if(!saveAsLinkWillImport) {
+			if (isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID)) {
+				/* Is this import try to save local? */
+				if (!saveAsLinkWillImport) {
 					overWrite = true;
 					return overWrite;
 				}
 			}
-		}else {
+		} else {
 			return overWrite;
 		}
 		return overWrite;
 	}
 
 	private boolean patientTableAlreadyExists() {
-		if(derby == null) {
+		if (derby == null) {
 			checkDBExists();
 		}
 		try {
 			Set<String> tbl = getDBTable(openConnection());
-			if(tbl.size() == 0) {
+			if (tbl.size() == 0) {
 				tbl = null;
 				return false;
-			}else {
+			} else {
 				tbl = null;
 				return true;
 			}
@@ -4172,7 +4105,7 @@ public boolean isModalityActive(String shortname) {
 			return false;
 		}
 	}
-	
+
 	private void readDBTable(Set<String> set, DatabaseMetaData dbmeta, String searchCriteria, String schema)
 			throws SQLException {
 		ResultSet rs = dbmeta.getTables(null, schema, null, new String[] { searchCriteria });
@@ -4181,12 +4114,13 @@ public boolean isModalityActive(String shortname) {
 		}
 	}
 
-	public void safeClose(Connection conn){
-		if(conn == null) return;
-		try(conn){
-			if(!isConnectionStillActive(conn)) {
+	public void safeClose(Connection conn) {
+		if (conn == null)
+			return;
+		try (conn) {
+			if (!isConnectionStillActive(conn)) {
 				return;
-			}else {
+			} else {
 				try {
 					conn.commit();
 				} catch (SQLException e) {
@@ -4200,31 +4134,32 @@ public boolean isModalityActive(String shortname) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/*
 	 * nodeにuserObjectとして各マテリアルをもたせる。
 	 */
-	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeys(String patID, String from, String to, ArrayList<String> modalities){
-		
+	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeys(String patID, String from, String to,
+			ArrayList<String> modalities) {
+
 		Connection conn = openConnection();
-		
+
 		ArrayList<String> keys = new ArrayList<>();
 		StringBuilder sb = new StringBuilder();
-		
-		if(patID == null && from ==null && to==null) {
+
+		if (patID == null && from == null && to == null) {
 			sb.append("SELECT * FROM STUDY");
-		}else {
+		} else {
 			sb.append("SELECT * FROM STUDY WHERE");
 		}
 		int basicStateLen = sb.length();
-		
-		if(patID != null) {
+
+		if (patID != null) {
 			sb.append(" PatientID=?");
 			keys.add(patID);
 		}
 
-		if(from != null && to != null) {
-			if(sb.length() > basicStateLen) {
+		if (from != null && to != null) {
+			if (sb.length() > basicStateLen) {
 				sb.append(" AND");
 				sb.append(" StudyDate");
 				sb.append(" BETWEEN");
@@ -4233,7 +4168,7 @@ public boolean isModalityActive(String shortname) {
 				sb.append(" AND");
 				sb.append(" ?");
 				keys.add(to.replace("/", "-"));
-			}else {
+			} else {
 				sb.append(" StudyDate");
 				sb.append(" BETWEEN");
 				sb.append(" ?");
@@ -4242,37 +4177,38 @@ public boolean isModalityActive(String shortname) {
 				sb.append(" ?");
 				keys.add(to.replace("/", "-"));
 			}
-		}else if(from != null && to == null) {
-			if(sb.length() > basicStateLen) {
+		} else if (from != null && to == null) {
+			if (sb.length() > basicStateLen) {
 				sb.append(" AND");
 				sb.append(" StudyDate");
 				sb.append(" >=");
 				sb.append(" ?");
 				keys.add(from.replace("/", "-"));
-			}else {
+			} else {
 				sb.append(" StudyDate");
 				sb.append(" >=");
 				sb.append(" ?");
 				keys.add(from.replace("/", "-"));
 			}
-		}else if(from == null && to != null) {
-			if(sb.length() > basicStateLen) {
+		} else if (from == null && to != null) {
+			if (sb.length() > basicStateLen) {
 				sb.append(" AND");
 				sb.append(" StudyDate");
 				sb.append(" <");
 				sb.append(" ?");
 				keys.add(to.replace("/", "-"));
-			}else {
+			} else {
 				sb.append(" StudyDate");
 				sb.append(" <");
 				sb.append(" ?");
 				keys.add(to.replace("/", "-"));
 			}
 		}
-		//sample
-		//select * from table where pid=? and pname=? and studydate between ? and ?
-		//select * from table where pid=? and pname=? and studydate >= ?
-		//select * from table where pid=? and pname=? and studydate < ?(e.g,'2006-11-30')
+		// sample
+		// select * from table where pid=? and pname=? and studydate between ? and ?
+		// select * from table where pid=? and pname=? and studydate >= ?
+		// select * from table where pid=? and pname=? and studydate <
+		// ?(e.g,'2006-11-30')
 		ArrayList<DefaultMutableTreeNode> studiesList = new ArrayList<DefaultMutableTreeNode>();
 		String statement = sb.toString();
 		ResultSet studyInfo = null;
@@ -4281,27 +4217,24 @@ public boolean isModalityActive(String shortname) {
 		ResultSet imageInfo = null;
 		try {
 			PreparedStatement pstmtStudy = conn.prepareStatement(statement);
-			for(int i=0;i<keys.size();i++) {
-				pstmtStudy.setString((i+1), keys.get(i));//the first parameter is 1
+			for (int i = 0; i < keys.size(); i++) {
+				pstmtStudy.setString((i + 1), keys.get(i));// the first parameter is 1
 			}
 			studyInfo = pstmtStudy.executeQuery();
-			while(studyInfo.next()) {
+			while (studyInfo.next()) {
 				String patIDInRecord = studyInfo.getString("PatientID");
 				String studyUID = studyInfo.getString("StudyInstanceUID");
 				patientInfo = conn.createStatement()
-							.executeQuery("select * from patient where PatientID='"
-									+ patIDInRecord + "'");
+						.executeQuery("select * from patient where PatientID='" + patIDInRecord + "'");
 				/*
-				 * here,
-				 * if patID is null,
-				 * we need get patient info from studyinfo.
+				 * here, if patID is null, we need get patient info from studyinfo.
 				 */
-				if(patientInfo.next()) {
+				if (patientInfo.next()) {
 					HashMap<String, Object> studyMaterial = loadStudyNodeMaterial(patientInfo, studyInfo);
-					DefaultMutableTreeNode studyNode = new DefaultMutableTreeNode(studyMaterial,true);
+					DefaultMutableTreeNode studyNode = new DefaultMutableTreeNode(studyMaterial, true);
 					String stmSeries = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?";
-					if(modalities != null && modalities.size()>0) {
-						for(int i=0; i<modalities.size();i++) {
+					if (modalities != null && modalities.size() > 0) {
+						for (int i = 0; i < modalities.size(); i++) {
 							String stmSeries_ = stmSeries + " AND " + "Modality=?";
 							stmSeries_ = stmSeries_ + " order by SeriesNumber";
 							PreparedStatement pstmtSeries = conn.prepareStatement(stmSeries_);
@@ -4310,8 +4243,9 @@ public boolean isModalityActive(String shortname) {
 							pstmtSeries.setString(3, modalities.get(i));
 							seriesInfo = pstmtSeries.executeQuery();
 							while (seriesInfo.next()) {
-								HashMap<String,Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo, studyMaterial);
-								DefaultMutableTreeNode series = new DefaultMutableTreeNode(seriesMaterial,true);
+								HashMap<String, Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo,
+										studyMaterial);
+								DefaultMutableTreeNode series = new DefaultMutableTreeNode(seriesMaterial, true);
 								String stmImage = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? order by InstanceNumber";
 								PreparedStatement pstmtImage = conn.prepareStatement(stmImage);
 								pstmtImage.setString(1, patIDInRecord);
@@ -4319,31 +4253,31 @@ public boolean isModalityActive(String shortname) {
 								pstmtImage.setString(3, seriesInfo.getString("SeriesInstanceUID"));
 								imageInfo = pstmtImage.executeQuery();
 								while (imageInfo.next()) {
-									HashMap<String,Object> imageMaterial = loadImageNodeMaterials(imageInfo);
-									DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial,false);
+									HashMap<String, Object> imageMaterial = loadImageNodeMaterials(imageInfo);
+									DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial, false);
 									series.add(image);
 								}
-								if(series.getChildCount() > 0) {
+								if (series.getChildCount() > 0) {
 									studyNode.add(series);
 								}
 								pstmtImage.close();
 							}
-							if(studyNode.getChildCount() > 0) {
-								if(!studiesList.contains(studyNode)) {
+							if (studyNode.getChildCount() > 0) {
+								if (!studiesList.contains(studyNode)) {
 									studiesList.add(studyNode);
 								}
 							}
 							pstmtSeries.close();
 						}
-					}else {
+					} else {
 						stmSeries = stmSeries + " order by SeriesNumber";
 						PreparedStatement pstmtSeries = conn.prepareStatement(stmSeries);
 						pstmtSeries.setString(1, patIDInRecord);
 						pstmtSeries.setString(2, studyUID);
 						seriesInfo = pstmtSeries.executeQuery();
 						while (seriesInfo.next()) {
-							HashMap<String,Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo, studyMaterial);
-							DefaultMutableTreeNode series = new DefaultMutableTreeNode(seriesMaterial,true);
+							HashMap<String, Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo, studyMaterial);
+							DefaultMutableTreeNode series = new DefaultMutableTreeNode(seriesMaterial, true);
 							String stmImage = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? order by InstanceNumber";
 							PreparedStatement pstmtImage = conn.prepareStatement(stmImage);
 							pstmtImage.setString(1, patIDInRecord);
@@ -4351,16 +4285,16 @@ public boolean isModalityActive(String shortname) {
 							pstmtImage.setString(3, seriesInfo.getString("SeriesInstanceUID"));
 							imageInfo = pstmtImage.executeQuery();
 							while (imageInfo.next()) {
-								HashMap<String,Object> imageMaterial = loadImageNodeMaterials(imageInfo);
-								DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial,false);
+								HashMap<String, Object> imageMaterial = loadImageNodeMaterials(imageInfo);
+								DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial, false);
 								series.add(image);
 							}
-							if(series.getChildCount() > 0) {
+							if (series.getChildCount() > 0) {
 								studyNode.add(series);
 							}
 							pstmtImage.close();
 						}
-						if(studyNode.getChildCount() > 0) {
+						if (studyNode.getChildCount() > 0) {
 							studiesList.add(studyNode);
 						}
 						pstmtSeries.close();
@@ -4368,38 +4302,38 @@ public boolean isModalityActive(String shortname) {
 				}
 			}
 			pstmtStudy.close();
-			if(imageInfo != null) {
+			if (imageInfo != null) {
 				imageInfo.close();
 			}
-			if(seriesInfo != null) {
+			if (seriesInfo != null) {
 				seriesInfo.close();
 			}
-			if(studyInfo != null) {
+			if (studyInfo != null) {
 				studyInfo.close();
 			}
-			if(patientInfo != null) {
+			if (patientInfo != null) {
 				patientInfo.close();
 			}
-			conn.commit();//fail safe
+			conn.commit();// fail safe
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
-		return studiesList;//DO NOT return NULL.
+		return studiesList;// DO NOT return NULL.
 	}
 
-	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeysUsingPatName(String patID, String patName, String from,
-			String to, ArrayList<String> modalities) {
-		
-		//debug
+	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeysUsingPatName(String patID, String patName,
+			String from, String to, ArrayList<String> modalities) {
+
+		// debug
 //		logger.info("Search performed...");
 //		System.out.println(patID);
 //		System.out.println(patName);
 //		System.out.println(from);
 //		System.out.println(to);
 //		System.out.println(modalities);
-		
+
 		/* Construct STUDY Query Statement */
 		ArrayList<String> keys = new ArrayList<>();
 		StringBuilder sb = new StringBuilder();
@@ -4501,8 +4435,8 @@ public boolean isModalityActive(String shortname) {
 				studyInfo = pstmtStudy.executeQuery();
 				while (studyInfo.next()) {
 					String studyUID = studyInfo.getString("StudyInstanceUID");
-					HashMap<String,Object> studyMaterial = loadStudyNodeMaterial(patientInfo, studyInfo);
-					DefaultMutableTreeNode studyNode = new DefaultMutableTreeNode(studyMaterial,true);
+					HashMap<String, Object> studyMaterial = loadStudyNodeMaterial(patientInfo, studyInfo);
+					DefaultMutableTreeNode studyNode = new DefaultMutableTreeNode(studyMaterial, true);
 					String stmSeries = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?";
 					if (modalities != null && modalities.size() > 0) {
 						for (int i = 0; i < modalities.size(); i++) {
@@ -4515,7 +4449,7 @@ public boolean isModalityActive(String shortname) {
 					}
 					stmSeries = stmSeries + " order by SeriesNumber";
 					PreparedStatement pstmtSeries = conn.prepareStatement(stmSeries);
-					pstmtSeries.setString(1, patIdInRecord);//DO NOT USE patID that already inputed.
+					pstmtSeries.setString(1, patIdInRecord);// DO NOT USE patID that already inputed.
 					pstmtSeries.setString(2, studyUID);
 					if (modalities != null && modalities.size() > 0) {
 						for (int i = 0; i < modalities.size(); i++) {
@@ -4524,7 +4458,7 @@ public boolean isModalityActive(String shortname) {
 					}
 					seriesInfo = pstmtSeries.executeQuery();
 					while (seriesInfo.next()) {
-						HashMap<String,Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo, studyMaterial);
+						HashMap<String, Object> seriesMaterial = loadSeriesNodeMaterial(seriesInfo, studyMaterial);
 						DefaultMutableTreeNode series = new DefaultMutableTreeNode(seriesMaterial, true);
 						String stmImage = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? order by InstanceNumber";
 						PreparedStatement pstmtImage = conn.prepareStatement(stmImage);
@@ -4534,15 +4468,15 @@ public boolean isModalityActive(String shortname) {
 						imageInfo = pstmtImage.executeQuery();
 						while (imageInfo.next()) {
 							HashMap<String, Object> imageMaterial = loadImageNodeMaterials(imageInfo);
-							DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial,false);
+							DefaultMutableTreeNode image = new DefaultMutableTreeNode(imageMaterial, false);
 							series.add(image);
 						}
-						if(series.getChildCount() > 0) {
+						if (series.getChildCount() > 0) {
 							studyNode.add(series);
 						}
 						pstmtImage.close();
 					}
-					if(studyNode.getChildCount() > 0) {
+					if (studyNode.getChildCount() > 0) {
 						studiesList.add(studyNode);
 					}
 					pstmtSeries.close();
@@ -4576,11 +4510,11 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
+
 	/**
 	 * 
 	 * @param p : parent folder path of db (without databasename).
@@ -4594,7 +4528,7 @@ public boolean isModalityActive(String shortname) {
 	}
 
 	public void shutdownDB() {
-		if(derby == null && dcmqrscp == null) {
+		if (derby == null && dcmqrscp == null) {
 			return;
 		}
 		try {
@@ -4611,7 +4545,7 @@ public boolean isModalityActive(String shortname) {
 				logger.info(getClass().getName() + ": shutdown correctly, " + databasename);
 			}
 			derby = null;
-			if(dcmqrscp != null) {
+			if (dcmqrscp != null) {
 				dcmqrscp.stop();
 				dcmqrscp = null;
 			}
@@ -4619,17 +4553,17 @@ public boolean isModalityActive(String shortname) {
 	}
 
 	public boolean startingUp() {
-		
+
 		try {
 			loadLocalDBLocation();
-			logger.info("Current DB location: "+dbdir);
+			logger.info("Current DB location: " + dbdir);
 			System.setProperty("derby.system.home", dbdir);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
 		}
-		
-		if(derby == null) {
+
+		if (derby == null) {
 			try {
 				makeDataSource(dbdir, true);
 			} catch (Throwable e) {
@@ -4637,7 +4571,7 @@ public boolean isModalityActive(String shortname) {
 				return false;
 			}
 		}
-		
+
 		boolean dbExists = checkDBExists();
 		try {
 			if (dbExists && !patientTableAlreadyExists()) {
@@ -4652,10 +4586,10 @@ public boolean isModalityActive(String shortname) {
 			logger.severe("Can not start DB because can not read SQL files ...");
 			return false;
 		}
-		
-		//check configuration file
+
+		// check configuration file
 		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
-		if(!recFac.exists()) {
+		if (!recFac.exists()) {
 			try {
 				File defRecFac = new File(Resources.RecordFactory.toURL().toURI());
 				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
@@ -4668,13 +4602,13 @@ public boolean isModalityActive(String shortname) {
 				return false;
 			}
 		}
-		
-		//start qrscp
+
+		// start qrscp
 		String details[] = getListenerDetails();
-    	String currentAet = details[0];
-    	String currentHost = details[1];
-    	String currentPort = details[2];
-    	String currentStorageDirPath = details[3];
+		String currentAet = details[0];
+		String currentHost = details[1];
+		String currentPort = details[2];
+		String currentStorageDirPath = details[3];
 		try {
 			dcmqrscp = new DcmQRSCP();
 			if (!useDicomDir) {
@@ -4683,15 +4617,14 @@ public boolean isModalityActive(String shortname) {
 						"--graphy-storage-dir", currentStorageDirPath,
 						/* FindSCU response value settings */
 						// https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
-						"--record-config", recFac.getAbsolutePath()};
+						"--record-config", recFac.getAbsolutePath() };
 				dcmqrscp.start(args);
 			} else {
 				/* dicomdir mode : debug purpose */
 				String dicomDirPath = details[3];
 				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
 //						"--all-storage",
-						"--dicomdir", dicomDirPath,
-						"--ae-config", aeProp };
+						"--dicomdir", dicomDirPath, "--ae-config", aeProp };
 				dcmqrscp.start(args);
 			}
 		} catch (IOException e) {
@@ -4750,7 +4683,7 @@ public boolean isModalityActive(String shortname) {
 					+ " where " + whereField + "='" + whereValue + "'");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -4762,7 +4695,7 @@ public boolean isModalityActive(String shortname) {
 					+ "' where " + whereField + "='" + whereValue + "'");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -4787,26 +4720,24 @@ public boolean isModalityActive(String shortname) {
 					+ " where " + whereField + "='" + whereValue + "'");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
 
-	public void update(String tableName, String fieldName, java.sql.Date fieldDateValue, String whereField, String whereValue) {
+	public void update(String tableName, String fieldName, java.sql.Date fieldDateValue, String whereField,
+			String whereValue) {
 		Connection conn = openConnection();
 		PreparedStatement pstmt = null;
 		try {
-			String statement = 
-					"UPDATE " + tableName +
-					" SET "+fieldName+"=?"+
-					" WHERE "+whereField +"=?";
+			String statement = "UPDATE " + tableName + " SET " + fieldName + "=?" + " WHERE " + whereField + "=?";
 			pstmt = conn.prepareStatement(statement);
 			pstmt.setDate(1, fieldDateValue);
 			pstmt.setString(2, whereValue);
 			pstmt.executeUpdate();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				pstmt.close();
 				safeClose(conn);
@@ -4824,7 +4755,7 @@ public boolean isModalityActive(String shortname) {
 					+ "' where " + whereField + "='" + whereValue + "'");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -4837,7 +4768,7 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -4861,7 +4792,7 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
@@ -4902,7 +4833,7 @@ public boolean isModalityActive(String shortname) {
 		}
 	}
 
-	//old
+	// old
 //	public void deleteLinkStudies() {
 //		try {
 //			ResultSet linkStudies = conn.createStatement()
@@ -4936,12 +4867,11 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	
+
 	public void updateListener(String aetitle, String port) {
 		Connection conn = openConnection();
 		ResultSet rs = null;
@@ -4950,39 +4880,39 @@ public boolean isModalityActive(String shortname) {
 			rs.next();
 			conn.createStatement().executeUpdate(
 					"update listener set aetitle='" + aetitle + "',port='" + port + "', where pk=" + rs.getInt("pk"));
-			
+
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				rs.close();
 			} catch (SQLException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}finally {
+			} finally {
 				safeClose(conn);
 			}
 		}
 	}
-	
-	public void updateListener(String aetitle, String host,String port, String storagelocation) {
+
+	public void updateListener(String aetitle, String host, String port, String storagelocation) {
 		Connection conn = openConnection();
 		ResultSet rs = null;
 		try {
 			rs = conn.createStatement().executeQuery("select * from listener");
 			rs.next();
-			conn.createStatement().executeUpdate(
-					"update listener set aetitle='" + aetitle + "',host='" + host +  "',port='" + port + "',storagelocation='"+storagelocation+ " where pk=" + rs.getInt("pk"));
+			conn.createStatement().executeUpdate("update listener set aetitle='" + aetitle + "',host='" + host
+					+ "',port='" + port + "',storagelocation='" + storagelocation + " where pk=" + rs.getInt("pk"));
 			rs.close();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
+
 	public void updateModalitiesStatus(String modality, boolean status) {
 		Connection conn = openConnection();
 		try {
@@ -4991,50 +4921,36 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	public void updateRoiInfo(
-			String roiId,
-			String name,
-			int roiType,
-			int originX,
-			int originY,
-			int w, int h,
-			double[] pointX,
-			double[] pointY,
-			double[] shapeArray,
-			int instNo,
-			int roiGroup,
-			String roilbl,
-			String objType,
-			String organ,
-			String txt,
-			String pid, String studyUid, String seriesUid, String sopUid) {
-		
+
+	public void updateRoiInfo(String roiId, String name, int roiType, int originX, int originY, int w, int h,
+			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
+			String objType, String organ, String txt, String pid, String studyUid, String seriesUid, String sopUid) {
+
 		Connection conn = openConnection();
-		
-		//get as byte
+
+		// get as byte
 		byte[] byteArrayX = null;
 		byte[] byteArrayY = null;
 		byte[] byteArrayShape = null;
-		if(pointX!=null) {
+		if (pointX != null) {
 			ByteBuffer bbX = ByteBuffer.allocate(pointX.length * 8);
 			for (int i = 0; i < pointX.length; i++) {
 				bbX.putDouble(pointX[i]);
 			}
 			byteArrayX = bbX.array();
 		}
-		if(pointY!=null) {
+		if (pointY != null) {
 			ByteBuffer bbY = ByteBuffer.allocate(pointY.length * 8);
 			for (int i = 0; i < pointY.length; i++) {
 				bbY.putDouble(pointY[i]);
 			}
 			byteArrayY = bbY.array();
 		}
-		if(shapeArray!=null) {
+		if (shapeArray != null) {
 			ByteBuffer bbS = ByteBuffer.allocate(shapeArray.length * 8);
 			for (int i = 0; i < shapeArray.length; i++) {
 				bbS.putDouble(shapeArray[i]);
@@ -5042,9 +4958,11 @@ public boolean isModalityActive(String shortname) {
 			byteArrayShape = bbS.array();
 		}
 		try {
-			String statement = "UPDATE ROI ";//need space at end
-			statement = statement + "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=? ";
-			statement = statement + "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
+			String statement = "UPDATE ROI ";// need space at end
+			statement = statement
+					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=? ";
+			statement = statement
+					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, name);
 			pstmt.setInt(2, roiType);
@@ -5052,9 +4970,12 @@ public boolean isModalityActive(String shortname) {
 			pstmt.setInt(4, originY);
 			pstmt.setInt(5, w);
 			pstmt.setInt(6, h);
-			pstmt.setBlob(7, byteArrayX != null ? new ByteArrayInputStream(byteArrayX):null, byteArrayX!=null ? byteArrayX.length:0);
-			pstmt.setBlob(8, byteArrayY != null ? new ByteArrayInputStream(byteArrayY):null, byteArrayY!=null ? byteArrayY.length:0);
-			pstmt.setBlob(9, byteArrayShape != null ? new ByteArrayInputStream(byteArrayShape):null, byteArrayShape!=null ? byteArrayShape.length:0);
+			pstmt.setBlob(7, byteArrayX != null ? new ByteArrayInputStream(byteArrayX) : null,
+					byteArrayX != null ? byteArrayX.length : 0);
+			pstmt.setBlob(8, byteArrayY != null ? new ByteArrayInputStream(byteArrayY) : null,
+					byteArrayY != null ? byteArrayY.length : 0);
+			pstmt.setBlob(9, byteArrayShape != null ? new ByteArrayInputStream(byteArrayShape) : null,
+					byteArrayShape != null ? byteArrayShape.length : 0);
 			pstmt.setInt(10, instNo);
 			pstmt.setString(11, txt);
 			pstmt.setInt(12, roiGroup);
@@ -5070,12 +4991,12 @@ public boolean isModalityActive(String shortname) {
 			pstmt.close();
 			conn.commit();
 		} catch (SQLException ex) {
-			logger.severe( "DatabaseHandler - Unable to update roi information\n"+ex.getMessage());
-		}finally {
-				safeClose(conn);
+			logger.severe("DatabaseHandler - Unable to update roi information\n" + ex.getMessage());
+		} finally {
+			safeClose(conn);
 		}
 	}
-	
+
 	/*
 	 * 更新する。このメソッドに合わせて。
 	 */
@@ -5083,46 +5004,43 @@ public boolean isModalityActive(String shortname) {
 		Connection conn = openConnection();
 		boolean duplicate = false;
 		try {
-			conn.createStatement().executeUpdate(
-					"update servers set logicalname='" + newServerModelMaterial.get("nickname")
-					+ "',aetitle='" + newServerModelMaterial.get("aet") 
-					+ "',hostname='" + newServerModelMaterial.get("hostname")
-					+ "',port="+ newServerModelMaterial.get("port")
-					+ ",retrievetype='" + newServerModelMaterial.get("retrievetype")
-					+ "',wadocontext='" + newServerModelMaterial.get("wadocontext")
-					+ "',wadoport="+ newServerModelMaterial.get("wadoport")
-					+ ",wadoprotocol='" + newServerModelMaterial.get("wadoprotocol")
-					+ "',retrievets='"+ newServerModelMaterial.get("retrievets")
-					+ "' where pk=" + getCommunicationServerPk(prevNickName));
+			conn.createStatement()
+					.executeUpdate("update servers set logicalname='" + newServerModelMaterial.get("nickname")
+							+ "',aetitle='" + newServerModelMaterial.get("aet") + "',hostname='"
+							+ newServerModelMaterial.get("hostname") + "',port=" + newServerModelMaterial.get("port")
+							+ ",retrievetype='" + newServerModelMaterial.get("retrievetype") + "',wadocontext='"
+							+ newServerModelMaterial.get("wadocontext") + "',wadoport="
+							+ newServerModelMaterial.get("wadoport") + ",wadoprotocol='"
+							+ newServerModelMaterial.get("wadoprotocol") + "',retrievets='"
+							+ newServerModelMaterial.get("retrievets") + "' where pk="
+							+ getCommunicationServerPk(prevNickName));
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-			duplicate = true;//fail safe
-		}finally {
+			duplicate = true;// fail safe
+		} finally {
 			safeClose(conn);
 		}
 		return duplicate;
 	}
-	
+
 	public void updateStudy(String studyUid) {
 		Connection conn = openConnection();
 		try {
 			conn.createStatement()
 					.execute("update study set DownloadStatus=true,NoOfInstances=" + getNumOfInstancesInStudy(studyUid)
-							+ ",NoOfSeries=" + getNumOfInstancesInStudy(studyUid) + " where StudyInstanceUID='" + studyUid
-							+ "'");
+							+ ",NoOfSeries=" + getNumOfInstancesInStudy(studyUid) + " where StudyInstanceUID='"
+							+ studyUid + "'");
 			conn.createStatement()
 					.execute("update image set ThumbnailStatus=true where StudyInstanceUID='" + studyUid + "'");
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	
-	
+
 	public void updateTheme(String themeName) {
 		Connection conn = openConnection();
 		ResultSet activeInfo = null;
@@ -5134,7 +5052,7 @@ public boolean isModalityActive(String shortname) {
 			conn.createStatement().executeUpdate("update theme set status=true where name='" + themeName + "'");
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			try {
 				activeInfo.close();
 				safeClose(conn);
@@ -5144,7 +5062,7 @@ public boolean isModalityActive(String shortname) {
 			}
 		}
 	}
-	
+
 	public void updateThumbnailStatus(String studyUid, String seriesUid, String sopUid) {
 		Connection conn = openConnection();
 		try {
@@ -5153,33 +5071,37 @@ public boolean isModalityActive(String shortname) {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		}finally {
+		} finally {
 			safeClose(conn);
 		}
 	}
-	
-	public synchronized void writeDatasetInfo(DicomObject dataset, String filePath) {
-		boolean overWrite = overWriteSavedAsLinkRecord(dataset,saveAsLink);
-		if(!checkCanImport(dataset) && !overWrite) {
-			return;
+
+	public synchronized boolean writeDatasetInfo(DicomObject dataset, String filePath) {
+		boolean overWrite = overWriteSavedAsLinkRecord(dataset, saveAsLink);
+		if (!checkCanImport(dataset) && !overWrite) {
+			return false;
 		}
 		try {
 			insertPatientInfo(dataset);
 			insertStudyInfo(dataset, saveAsLink, dataset.getString(Tag.Patient​ID));
 			insertSeriesInfo(dataset, dataset.getString(Tag.Patient​ID), dataset.getString(Tag.Study​Instance​UID),
 					saveAsLink);
-			if(!overWrite) {
+			if (!overWrite) {
 				insertImageInfo(dataset, filePath, dataset.getString(Tag.Patient​ID),
-						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),saveAsLink);
-			}else {
+						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),
+						saveAsLink);
+			} else {
 				updateImageInfo(dataset, filePath, dataset.getString(Tag.Patient​ID),
-						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),saveAsLink);
+						dataset.getString(Tag.Study​Instance​UID), dataset.getString(Tag.Series​Instance​UID),
+						saveAsLink);
 			}
+			return true;
 		} catch (Exception e) {
-			logger.severe( "DatabaseHandler - Failed to update patient information\n"+e.getMessage());
+			logger.severe("DatabaseHandler - Failed to update patient information\n" + e.getMessage());
 		}
+		return false;
 	}
-	
+
 	/*
 	 * 別のクラスへ移動！->QR class
 	 */

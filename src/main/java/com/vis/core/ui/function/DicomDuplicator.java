@@ -117,7 +117,7 @@ public class DicomDuplicator {
 					if (idset[1].equals(studyUID) && idset[2].equals(seriesUID)) {
 						String newSopInstUID = DBUtils.createNewUIDNoExistingInDB("IMAGE");
 						// org
-						String pid = idset[0];
+						//String pid = idset[0];
 						String sopUID = idset[3];
 
 						String orgPath = db.getFileLocation(studyUID, seriesUID, sopUID);
@@ -208,7 +208,7 @@ public class DicomDuplicator {
 		
 		for (DICOMNode node : imageNodes) {
 			// org
-			String pid = node.getData(DICOMNode.PatientID);
+			//String pid = node.getData(DICOMNode.PatientID);
 			String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
 			String sopUID = node.getData(DICOMNode.SOPInstanceUID);

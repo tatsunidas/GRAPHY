@@ -37,11 +37,17 @@
  */
 package com.vis.imageio;
 
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
 
+import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
+import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
@@ -53,9 +59,33 @@ import ij.process.ShortProcessor;
 public class TestPraparat {
 
 	public static void main(String[] args) {
+		
+		ConsoleHandler consoleHandler = new ConsoleHandler();
+        if (Utils.isDebug) {
+            consoleHandler.setLevel(Level.FINE);
+            Log.logger.setLevel(Level.FINE);
+        } else {
+            consoleHandler.setLevel(Level.INFO);
+            Log.logger.setLevel(Level.INFO);
+        }
+       Log.logger.addHandler(consoleHandler);
 //		singnedImageTest();
-//		show();
-		showUsingPixelDecoder();
+		show();
+//		showUsingPixelDecoder();
+	}
+	
+	static javax.swing.JFrame loadFrame(Praparat pp) {
+		javax.swing.JFrame frame = new javax.swing.JFrame("PraparatTest");
+		frame.addComponentListener(new ComponentAdapter() {
+			@Override
+            public void componentResized(ComponentEvent e) {
+				if(frame.isVisible()){
+					pp.repaint();
+				}
+            }
+        });
+		frame.add(pp);
+		return frame;
 	}
 	
 	static void unsined() {
@@ -66,23 +96,20 @@ public class TestPraparat {
 	}
 	
 	static void show() {
-		javax.swing.JFrame f = new javax.swing.JFrame();
-		f.setSize(300,300);
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		Praparat pp = new Praparat(ViewMode.Normal);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
 		pp.doSingleGridLayout();
+		javax.swing.JFrame f = loadFrame(pp);
+		f.setSize(300,300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
 		pp.showFirstImage();
-		f.add(pp);
 		f.setVisible(true);
 	}
 	
 	static void showUsingPixelDecoder() {
-		javax.swing.JFrame f = new javax.swing.JFrame();
-		f.setSize(300,300);
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
+
 		ArrayList<String> paths = new ArrayList<String>();
 		
 		//suidobashi test
@@ -99,7 +126,9 @@ public class TestPraparat {
 		pp.prepareSlideGlassesFromDcmObj(paths);
 		pp.doSingleGridLayout();
 		pp.showFirstImage();
-		f.add(pp);
+		javax.swing.JFrame f = loadFrame(pp);
+		f.setSize(300,300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
 	}
 	

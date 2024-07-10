@@ -109,6 +109,8 @@ import ij.process.LUT;
  */
 @SuppressWarnings("serial")
 public class Praparat extends JPanel {
+	
+	private Logger logger = Log.logger;
 
 	/*
 	 * single/grid view screen
@@ -118,7 +120,7 @@ public class Praparat extends JPanel {
 		int prevH;
 		
 		SlideGlassHolder(){
-			setOpaque(false);
+			setOpaque(false);//invisible
 			prevW = getWidth();
 			prevH = getHeight();
 		}
@@ -126,6 +128,7 @@ public class Praparat extends JPanel {
 		@Override
 		public void paintComponent(Graphics g){
 			super.paintComponent(g);
+			logger.fine("repaint SlideGlassHolder");
 			if(mode == ViewMode.Thumbnail) {
 				return;
 			}
@@ -159,12 +162,12 @@ public class Praparat extends JPanel {
 	// component
 	private PraparatViewControlPanel pvcp;
 	/**
-	 * You should not add all slideglasses on SlideGlassHolder.
+	 * You should not add all slideglasses on a single SlideGlassHolder.
 	 * This be able to cause JLayerUI conflict between glasses. 
 	 * In Praparat, shows slide one by one(add() and remove() handling).
 	 */
 	private JLayer<SlideGlassHolder> slideGlassHolder;//ImageScreen
-	private JScrollPane gridScrollPane;//gridView
+	private JScrollPane gridScrollPane;//gridViewScroll
 	
 	private CineSlider slider;
 	private Color studyColor = Color.CYAN;
@@ -198,8 +201,6 @@ public class Praparat extends JPanel {
 	private HashMap<Integer, JLayer<SlideGlass>> slides;
 	
 	final ViewMode mode;
-	
-	private Logger logger = Log.logger;
 	
 	public Praparat(ImagePlus stack, Color studyColor) {
 		this.mode = ViewMode.Normal;
@@ -310,7 +311,7 @@ public class Praparat extends JPanel {
 					sg_.lastOriginY = target.originY;
 					sg_.originX = target.originX;
 					sg_.originY = target.originY;
-//					System.out.println("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
+//					logger.fine("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
 				}
 			}
 		}
@@ -866,7 +867,6 @@ public class Praparat extends JPanel {
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
 		SlideGlassHolder slideGlassPane = new SlideGlassHolder();
-		slideGlassPane.setOpaque(false);//invisible
 		slideGlassHolder = new JLayer<SlideGlassHolder>(slideGlassPane);
 		slideGlassHolder.setUI(new PraparatUI(this));
 		JPanel viewPanel = new JPanel();
@@ -1399,10 +1399,10 @@ public class Praparat extends JPanel {
 	}
 
 	public void setSlideGlassHolderSize(int w, int h) {
-		// set JLayer size
-		slideGlassHolder.setSize(w, h);
-		slideGlassHolder.setBounds(0, 0, w, h);
-		slideGlassHolder.setPreferredSize(new Dimension(w, h));
+		// set JLayer<SlideGlassHolder> size
+		getSlideGlassHolder().setSize(w, h);
+		getSlideGlassHolder().setBounds(0, 0, w, h);
+		getSlideGlassHolder().setPreferredSize(new Dimension(w, h));
 		//set SlideGlassHolder(JLayeredPane) size
 		getSlideGlassHolder().getView().setSize(w, h);
 		getSlideGlassHolder().getView().setPreferredSize(new Dimension(w, h));
@@ -1488,5 +1488,13 @@ public class Praparat extends JPanel {
 		if(getViewMode() != ViewMode.Thumbnail) {
 			this.pvcp.setText2InfoLabel(x, y, value, scale, mag, rotate);
 		}
+	}
+	
+	@Override
+	public void paintComponent(Graphics g) {
+		//logger.fine("repaint pp");
+		super.paintComponent(g);
+//		getSlideGlassHolder().getView().repaint();//DO NOT USE
+		getSlideGlassHolder().getView().paintComponent(g);//SlideGlassHolder
 	}
 }

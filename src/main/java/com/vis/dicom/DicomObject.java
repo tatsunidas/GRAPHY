@@ -2,7 +2,6 @@ package com.vis.dicom;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.List;
 import java.util.TimeZone;
 
 import com.vis.dicom.dcm4cheImpl.DicomObjectChe;

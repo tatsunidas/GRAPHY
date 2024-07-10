@@ -41,12 +41,9 @@ import javax.swing.table.DefaultTableModel;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
-import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.util.PropertiesUtil;
 import com.vis.db.DatabaseHandler;
 
 public class DatabaseBrowser extends JDialog implements WindowListener {
@@ -79,10 +76,10 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 		if (!db.checkDBExists()) {
 			dispose();
 		}
-		username = db.getUserName();
-		password = db.getPassword();
-		driver = db.getDriverName();
-		protocol = db.getProtocolName();
+		username = db.getDerbyUserName();
+		password = db.getDerbyPassword();
+		driver = db.getDerbyDriverName();
+		protocol = db.getDerbyProtocolName();
 		databasename = db.getDatabaseName();
 		
 		openConnection(protocol + databasename + ";create=false", username, password);

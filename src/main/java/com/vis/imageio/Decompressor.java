@@ -40,9 +40,7 @@ package com.vis.imageio;
 import java.io.File;
 
 import com.vis.dicom.DICOMBackend;
-import com.vis.dicom.DicomObject;
 import com.vis.dicom.dcm4cheImpl.DecompressorChe;
-import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 import com.vis.dicom.image.DicomImage;
 
 public interface Decompressor {

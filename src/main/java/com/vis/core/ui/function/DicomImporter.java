@@ -82,6 +82,7 @@ public class DicomImporter implements Task {
 	protected boolean stopped;// same as cancel
 	protected boolean sleepScheduled;
 	protected boolean suspended;
+	
 	public final static int SLEEP_TIME = 50;
 
 	public DicomImporter(ArrayList<String> candidateFileList, String studyUID, boolean saveAsLink, boolean ignorePrivate) {
@@ -206,6 +207,7 @@ public class DicomImporter implements Task {
 				DatabaseHandler db = DatabaseHandler.getInstance();
 				db.setSaveAsLinkState(saveAsLink);
 				if (data != null && avoidPatientIDNUll(data)) {
+					
 					if (saveAsLink) {
 						synchronized(this){
 							db.writeDatasetInfo(data, candidate);
@@ -218,6 +220,7 @@ public class DicomImporter implements Task {
 				}
 				HashMap<String, Object> updation = new HashMap<>();
 				updation.put("CurrentIndex", count++);
+				//task context always update, even if failed import.
 				con.updateState(updation);
 				//update treetable
 				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();

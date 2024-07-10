@@ -40,8 +40,12 @@ package com.vis.core.ui.function;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
+import javax.swing.JOptionPane;
+
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
@@ -56,7 +60,8 @@ public class DeleteImage {
 
 	public static void deleteImages(ArrayList<DICOMNode> nodeList){
 		if(nodeList == null || nodeList.size() <1) {
-			Log.logger.info("DeleteImage :: please select row from DICOMTreeTable, return nothing to do.");
+			Log.logger.info("Please select node from TreeTable.");
+			PopUpMessage.showDialog(MainScreen.getInstance(), "Files not selected.", "Please select files to delete.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		ArrayList<String[]> deleteList = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(nodeList);

@@ -75,7 +75,7 @@ public class TreeIconCellRenderer extends DefaultTreeCellRenderer {
 			if(desc == null || desc.isBlank() || desc.isEmpty()) {
 				desc = "NO-STUDY-DESC";
 			}
-			iconLabel.setText(desc);
+			//iconLabel.setText(desc);
 		} else if (node.getLevel() == DICOMNode.SERIES) {
 			im = Resources.TreeSeriesLevelIcon.loadIconFromResource();			
 			if(im != null) {
@@ -87,7 +87,7 @@ public class TreeIconCellRenderer extends DefaultTreeCellRenderer {
 			if(desc == null || desc.isBlank() || desc.isEmpty()) {
 				desc = "NO-SERIES-DESC";
 			}
-			iconLabel.setText(desc);
+			//iconLabel.setText(desc);
 		} else if (node.getLevel() == DICOMNode.IMAGE) {
 			im = Resources.TreeImageLevelIcon.loadIconFromResource();			
 			if(im != null) {

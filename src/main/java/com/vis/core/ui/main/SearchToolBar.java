@@ -37,7 +37,6 @@
  */
 package com.vis.core.ui.main;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -52,19 +51,15 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Properties;
-import java.util.TimeZone;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.JToolBar;
-import javax.swing.border.Border;
 import javax.swing.border.EtchedBorder;
 import javax.swing.JFormattedTextField.AbstractFormatter;
 import javax.swing.event.DocumentEvent;
@@ -84,9 +79,11 @@ public class SearchToolBar extends JToolBar{
 	//debug
 	public static void main(String[] args) {
 		javax.swing.JFrame f = new javax.swing.JFrame();
+		f.setSize(400, 300);
 		SearchToolBar stb = new SearchToolBar();
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
-		f.add(stb);
+		f.setLayout(new java.awt.BorderLayout());
+		f.getContentPane().add(stb, java.awt.BorderLayout.NORTH);
 		f.pack();
 		f.setVisible(true);
 	}
@@ -113,16 +110,11 @@ public class SearchToolBar extends JToolBar{
 	}
 	
 	private void init() {
-		JScrollPane scrollPane = new JScrollPane();
-		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-		add(scrollPane);
-		
+			
 		panel = new JPanel();
 		int hgap = 3;
 		int vgap = hgap;
 		panel.setLayout(new FlowLayout(FlowLayout.LEFT, hgap, vgap));
-		scrollPane.setViewportView(panel);
 		
 		setSearchButton();
 		addSeparator();
@@ -132,7 +124,13 @@ public class SearchToolBar extends JToolBar{
 		addSeparator();
 		setModalities();
 		
-		scrollPane.setPreferredSize(new Dimension(700, datePickerFrom.getPreferredSize().height*2));
+		// after above, add jscrollpane.
+		JScrollPane scrollPane = new JScrollPane();
+		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.setViewportView(panel);
+		scrollPane.setPreferredSize(new Dimension(300/*dummy*/, datePickerFrom.getPreferredSize().height*2));
+		add(scrollPane);
 	}
 	
 	/*
@@ -268,16 +266,7 @@ public class SearchToolBar extends JToolBar{
 	public boolean isTodaySelected() {
 		return chckbxToday.isSelected();
 	}
-	
-	/**
-	 * for DatePicker
-	 * @return
-	 */
-	private Date getTodayDate() {
-		Calendar cl = Calendar.getInstance();
-		return cl.getTime();
-	}
-	
+		
 	private String getTodayString() {
 		Calendar cl = Calendar.getInstance();
 		return dateFormatter.format(cl.getTime());

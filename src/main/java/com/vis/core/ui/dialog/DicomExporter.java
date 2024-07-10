@@ -13,6 +13,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
@@ -60,6 +61,7 @@ public class DicomExporter extends JFrame implements Runnable {
 	public DicomExporter(ArrayList<DICOMNode> targetNodes) {
 		if (targetNodes == null || targetNodes.size() < 1) {
 			Log.logger.info("Please select node from TreeTable.");
+			PopUpMessage.showDialog(MainScreen.getInstance(), "Export files not selected.", "Please select files to export.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		th = new Thread(this);
@@ -113,9 +115,7 @@ public class DicomExporter extends JFrame implements Runnable {
 		ArrayList<String[]> exportSet = WindowManager.getMainScreen().getLocalTreeTable()
 				.createNoDuplicateImageList(getTargetNodes());
 		String[] selected = eop.getSelectedButtonsName();
-		if(Utils.isDebug) {
-			System.out.println("Export with Settings:" + selected[0] + " " + selected[1]);
-		}
+		Log.logger.fine("Export with Settings:" + selected[0] + " " + selected[1]);
 		// folder structure
 		if (!burnCD) {
 			switch (selected[0]) {

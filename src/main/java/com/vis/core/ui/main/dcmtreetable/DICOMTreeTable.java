@@ -57,9 +57,9 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 	protected DICOMNodeDragSourceListener sourceListener;
 	protected ArrayList<DICOMNode> draggedComponent;
 
-	//////////////////////////
+	//////////////////////////////
 	// Convenience routines //
-	//////////////////////////
+	/////////////////////////////
 
 	private boolean treeEditable = true;
 	private boolean showsIcons = true;

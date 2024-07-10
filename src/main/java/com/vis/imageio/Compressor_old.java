@@ -115,7 +115,6 @@ public class Compressor_old {
 	}
 	
 	
-	@SuppressWarnings("deprecation")
 	private final static byte[] compress(BufferedImage bi, UID toCompressTS, Float ratio, Boolean lossless) {
 		
 		if(toCompressTS == Codec.JPEGBase.uid()) {

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
@@ -43,9 +44,17 @@ public class ApplicationFacade{
 	private static LookAndFeels laf;
 	
 	public ApplicationFacade(HashMap<StartingUpConfigurations, String[]> args) {
-		if(Utils.isDebug) {
-			Log.logger.info("Running on debug mode.");
-		}
+
+		ConsoleHandler consoleHandler = new ConsoleHandler();
+        if (Utils.isDebug) {
+            consoleHandler.setLevel(Level.FINE);
+            Log.logger.setLevel(Level.FINE);
+            Log.logger.info("Running on debug mode.");
+        } else {
+            consoleHandler.setLevel(Level.INFO);
+            Log.logger.setLevel(Level.INFO);
+        }
+       Log.logger.addHandler(consoleHandler);
 		readyToStart(args.get(StartingUpConfigurations.no_splash) != null);
 		runMainScreen();
 	}

@@ -87,6 +87,8 @@ import org.dcm4che3.util.StringUtils;
 import org.dcm4che3.util.TagUtils;
 import org.xml.sax.SAXException;
 
+import com.vis.core.log.Log;
+
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
  * @author Michael Backhaus <michael.backhaus@agfa.com>
@@ -366,11 +368,11 @@ public class StoreSCU {
 				if(!echo) {
 					for(String absPath :argList) {
 						if(!new File(absPath).delete()) {
-							System.out.println("temp file deletion was failed");
+							Log.logger.fine("temp file deletion was failed");
 						}else {
-							System.out.println("*Temp Graphy Image File Deleted after stored*");
-							System.out.println(absPath);
-							System.out.println("*********************************************");
+							Log.logger.fine("*Temp Graphy Image File Deleted after stored*");
+							Log.logger.fine(absPath);
+							Log.logger.fine("*********************************************");
 						}
 					}
 				}
@@ -495,8 +497,6 @@ public class StoreSCU {
 	}
 
 	/**
-	 * 簡易的に、StoreSCUをそのまま使って、 ECHOする。
-	 * 
 	 * @param args
 	 */
 	public static boolean echo(String[] args) {
