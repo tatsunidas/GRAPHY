@@ -45,10 +45,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.logging.Level;
 
 import org.apache.commons.io.FileUtils;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.DBUtils;
@@ -193,8 +195,8 @@ public class DicomDuplicator {
 		try {
 			tempParent = Files.createTempDirectory(null);
 		} catch (IOException e) {
+			Log.logger.log(Level.SEVERE,"Cannot create TempDir to create duplicate dcm files.");
 			e.printStackTrace();
-			System.out.println("Cannot create TempDir to create duplicate dcm files.");
 			return;
 		}
 		File tempDir = tempParent.toFile();

@@ -282,9 +282,7 @@ public class BirdsEyeView extends JPanel{
 			db = DatabaseHandler.getInstance();
 		}
 		if(patId == null || studyUid == null) {
-			if(Utils.isDebug) {
-				logger.info("BirdsEyeView:showImages::Does not allow patId null or studyUid null. return.");
-			}
+			logger.fine("BirdsEyeView:showImages::Does not allow patId null or studyUid null. return.");
 			return;
 		}
 		ArrayList<String> allSeriesUIDList = db.getSeriesUidList(patId,studyUid);
@@ -434,6 +432,11 @@ public class BirdsEyeView extends JPanel{
 		}else {
 			currentSeriesUID = selectedSeriesUIDs.get(0);
 		}
+		//escape, such as separated new series.
+		if(seriesListView.numOfThumbnails() != allSeriesUIDList.size()) {
+			showImages(patId, studyUid, selectedSeriesUIDs, selectedSopUIDs);
+			return;
+		}
 		showImagesFromThumbnailAction(seriesListView.getThumbnail(currentSeriesUID));
 		highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
 	}
@@ -500,6 +503,10 @@ public class BirdsEyeView extends JPanel{
 					}
 				}
 			}
+		}
+		
+		int numOfThumbnails() {
+			return seriesListPanel.getComponents().length;
 		}
 	}	
 }

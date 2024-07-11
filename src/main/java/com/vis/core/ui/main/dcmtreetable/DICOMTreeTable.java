@@ -502,7 +502,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			if(node.isRoot()) {
 				continue;
 			}
-			//スタディノード内の全インスタンスUIDを取得
+			//Get all instanceUIDs in study
 			if(node.getLevelString().equals("STUDY")) {
 				String patID = node.getData(DICOMNode.PatientID);
 				String studyIUID = node.getData(DICOMNode.StudyInstanceUID);
@@ -512,7 +512,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 					String[] info = new String[] {patID,studyIUID,seriesIUID,sopUID};
 					infoSet.add(info);
 				}
-			//シリーズノード内の全インスタンスUIDを取得
+			//Get all instanceUIDs in series
 			}else if(node.getLevelString().equals("SERIES")) {
 				String patID = node.getData(DICOMNode.PatientID);
 				String studyIUID = node.getData(DICOMNode.StudyInstanceUID);
@@ -522,7 +522,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 					String[] info = new String[] {patID,studyIUID,seriesIUID,sopUID};
 					infoSet.add(info);
 				}
-			//イメージノードのインスタンスUIDを取得
+			//Image SOP instanceUID
 			}else if(node.getLevelString().equals("IMAGE")) {
 				String patID = node.getData(DICOMNode.PatientID);
 				String studyIUID = node.getData(DICOMNode.StudyInstanceUID);
@@ -532,22 +532,23 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 				infoSet.add(info);
 			}
 		}
-		/* 重複のチェック */
-		ArrayList<String> dicomuidlist = new ArrayList<>();
+		/* check no duplication */
+		ArrayList<String[]> noDupArray = new ArrayList<>();
 		for(int i=0;i<infoSet.size();i++) {
 			String[] info = infoSet.get(i);
-			String dicomuid = info[0]+info[1]+info[2]+info[3];
-			dicomuidlist.add(dicomuid);
-		}
-		//https://stackoverflow.com/questions/41095090/index-of-duplicates-items-in-java-arraylist
-		HashMap<String,List<Integer>> indices = new HashMap<>();
-		for (int i = 0; i < dicomuidlist.size(); i++) {
-		    indices.computeIfAbsent(dicomuidlist.get(i), c -> new ArrayList<>()).add(i);
-		}		
-		ArrayList<String[]> noDupArray = new ArrayList<>();
-		for(String dicomuid:indices.keySet()) {
-			/* 最初の１つめのみを取得する */
-			noDupArray.add(infoSet.get(indices.get(dicomuid).get(0)));
+			boolean exists = false;
+			for(int j=0; j<noDupArray.size();j++) {
+				String[] info_ = noDupArray.get(j);
+				if(info[0].equals(info_[0]) && info[1].equals(info_[1]) && info[2].equals(info_[2]) && info[3].equals(info_[3])) {
+					exists = true;
+					break;
+				}
+			}
+			if(exists) {
+				continue;
+			}else {
+				noDupArray.add(info);
+			}
 		}
 		return noDupArray;
 	}

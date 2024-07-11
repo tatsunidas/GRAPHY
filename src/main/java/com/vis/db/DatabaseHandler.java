@@ -2804,8 +2804,8 @@ public class DatabaseHandler {
 				map.put("StudyDescription", rset.getString("StudyDescription"));
 				map.put("ModalitiesInStudy", rset.getString("ModalitiesInStudy"));
 				map.put("AccessionNumber", rset.getString("AccessionNumber"));
-				map.put("NumOfSeriesInStudy", String.valueOf(rset.getString("StudyInstanceUID")));
-				map.put("NumOfInstancesInStudy", String.valueOf(rset.getString("StudyInstanceUID")));
+				map.put("NumOfSeriesInStudy", String.valueOf(rset.getString("NumOfSeriesInStudy")));
+				map.put("NumOfInstancesInStudy", String.valueOf(rset.getString("NumOfInstancesInStudy")));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 			}
 
@@ -4017,12 +4017,12 @@ public class DatabaseHandler {
 			// Age
 			String age_str = studyInfo.getString("PatientAge");
 			age_str = (age_str != null && !age_str.equals("-1")) ? age_str : "";
+			String studyUID = studyInfo.getString("StudyInstanceUID");
 			studyNodeMaterial.put("PatientAge", age_str);// get from study info
 			studyNodeMaterial.put("AccessionNumber", studyInfo.getString("AccessionNumber"));
-			studyNodeMaterial.put("NumOfSeriesInStudy", String.valueOf(studyInfo.getString("StudyInstanceUID")));
-			studyNodeMaterial.put("NumOfInstancesInStudy",
-					String.valueOf(getNumOfInstancesInStudy(studyInfo.getString("StudyInstanceUID"))));
-			studyNodeMaterial.put("StudyInstanceUID", studyInfo.getString("StudyInstanceUID"));
+			studyNodeMaterial.put("NumOfSeriesInStudy", String.valueOf(getNumOfSeriesInStudy(studyUID)));
+			studyNodeMaterial.put("NumOfInstancesInStudy",String.valueOf(getNumOfInstancesInStudy(studyUID)));
+			studyNodeMaterial.put("StudyInstanceUID", studyUID);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {

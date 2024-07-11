@@ -58,7 +58,7 @@ public class SeriesSeparator {
 	
 	public void separateSeries(ArrayList<DICOMNode> selected) {
 		if(!isSeparateReady(selected)) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Select images not ready to separate. Please select images from a series.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Not ready to separate. Please select images from a series.");
 			return;
 		}
 		this.selected = selected;
@@ -89,7 +89,6 @@ public class SeriesSeparator {
 				pid = node.getData(DICOMNode.PatientID);
 				studyUID = node.getData(DICOMNode.StudyInstanceUID);
 				seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-				continue;
 			}
 			//avoid something strange.
 			if(pid == null || studyUID == null || seriesUID == null) {

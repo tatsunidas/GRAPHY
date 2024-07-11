@@ -39,6 +39,7 @@ package com.vis.core.ui.function;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
@@ -49,6 +50,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.DateUtils;
@@ -98,10 +100,10 @@ public class PatientInfoEditor {
 			PopUpMessage.showDialog(WindowManager.getMainScreen(), "Patient Info Editor", "Please select same patient images.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		int res = JOptionPane.showConfirmDialog(null, constructPanel(), "Edit patient information", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), constructPanel(), "Edit patient information", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res == JOptionPane.OK_OPTION) {
 			if(previousPID == null || previousPID.length() == 0) {
-				System.out.println("patientID not found. return");
+				Log.logger.fine("patientID not found. return");
 				return;
 			}
 			String newPID = pidField.getText();
@@ -110,11 +112,11 @@ public class PatientInfoEditor {
 			String newSex = selectSexGroup.getSelection().getActionCommand();//Male, Female, Other
 			boolean editAllStudies = editAllStudy.isSelected();
 			if(newPID.length() == 0) {
-				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please input PatientID.");
+				JOptionPane.showMessageDialog(WindowManager.getMainScreen(),"PatientInfoEditor: Please input PatientID.");
 				return;
 			}
 			if(previousPID.equals(newPID) && previousPNAME.equals(newPNAME) && previousSEX.equals(newSex) && previousBOD.equals(newBOD)) {
-				System.out.println("Edit patient information : There is no changes, return.");
+				Log.logger.info("Edit patient information : There is no changes, return.");
 				return;
 			}
 			HashMap<String, String> pmap = new HashMap<>();
@@ -143,14 +145,18 @@ public class PatientInfoEditor {
 				return false;
 			}
 		}
+		/*
+		 * comment out. tatsuaki
+		 * On editing patient info, should be handle changing information in patient level. 
+		 */
 		// check whether has only one study uid.
-		String studyUID = selected.get(0).getData(DICOMNode.StudyInstanceUID);
-		for (int i = 1; i < selected.size(); i++) {
-			if (!studyUID.equals(selected.get(i).getData(DICOMNode.StudyInstanceUID))) {
-				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please select only single study.");
-				return false;
-			}
-		}
+//		String studyUID = selected.get(0).getData(DICOMNode.StudyInstanceUID);
+//		for (int i = 1; i < selected.size(); i++) {
+//			if (!studyUID.equals(selected.get(i).getData(DICOMNode.StudyInstanceUID))) {
+//				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please select only single study.");
+//				return false;
+//			}
+//		}
 		return true;
 	}
 	
@@ -248,25 +254,44 @@ public class PatientInfoEditor {
 		pmap.put("PatientBirthDate", bod);
 		pmap.put("PatientSex", sex);
 //		rewrite dicom data
-		/*
-		 * if pid was changed, should process [remain or remove] files
-		 */
+		
+		//case_1: to new patient
 		if(!previousPID.equals(pid)) {
-			//update UIDs and write to DB.
-			DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,pmap);
+			//search existing patient from DB.
+			HashMap<String, String> info = db.getPatientInfoByPatID(pid);
+			//if true, integrate it to.
+			if(info != null) {
+				Log.logger.info(pid+" is already exists, will integrate to.");
+				DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,info);
+			//else, to new one
+			}else {
+				//update UIDs and write to DB.
+				DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,pmap);
+			}
 			// delete
 			if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
-					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION) {
+					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_NO_OPTION) {
 				DeleteImage.deleteImagesByFilePath(files);
 			}
-		// if pid was not changed, overwrite.
+		//case_2: if pid was not changed, overwrite all of the studies.
 		}else {
 			if(editAllStudies) {
 				for (String f : files) {
 					overwritePatientAttributes(f, pmap);
 				}
 			}else {
-				PopUpMessage.showDialog(WindowManager.getMainScreen(), "Cannot Edit Information", "PID must be change...(in study level editting).", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				Log.logger.log(Level.WARNING, "You are trying to change patient information for only some studies.");
+				String msg = "You are trying to change patient information for only some studies.\n";
+				msg += "Basically, patient level information must be changed for all data.\n";
+				msg += "Would you like to continue?";
+				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(),"Continue edit all ?",msg, JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				if(res == JOptionPane.OK_OPTION) {
+					for (String f : files) {
+						overwritePatientAttributes(f, pmap);
+					}
+				}else {
+					return;
+				}
 			}
 		}
 	}

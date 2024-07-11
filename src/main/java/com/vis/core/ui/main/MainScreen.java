@@ -367,9 +367,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		}
 		if(studyCount > 1) {
-			if(Utils.isDebug) {
-				logger.info("showImagesOnBirdsEye(): Can not show multi studies on Bird's eye view.");
-			}
+			logger.fine("showImagesOnBirdsEye(): Can not show multi studies on Bird's eye view.");
 			return;
 		}
 		ArrayList<String> selectedSeriesUIDs = new ArrayList<>();
