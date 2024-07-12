@@ -180,14 +180,7 @@ public class MainScreenMenu extends JMenuBar{
 		mntmHelp.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				com.vis.core.ui.dialog.HelpDialog help = null;
-				try {
-					help = new HelpDialog();
-				} catch (URISyntaxException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				help.setLocationRelativeTo(WindowManager.getMainScreen());
+				new HelpDialog();
 			}
 		});
 		mnHelp.add(mntmHelp);

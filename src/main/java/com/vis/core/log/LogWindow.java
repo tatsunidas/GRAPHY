@@ -4,8 +4,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -15,6 +20,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
@@ -35,7 +41,7 @@ public class LogWindow extends JFrame{
 	}
 	
 	private static LogWindow logWin = new LogWindow();
-	public String save_log_file_name = "graphy_log_file";
+	public final String save_log_file_name = "graphy_log_file";
 	Log logUtil;
 	JTextArea logTextArea = null;
 	JScrollPane pane = null;
@@ -47,8 +53,7 @@ public class LogWindow extends JFrame{
 		}
 		
 		logTextArea = new JTextArea();
-		LogTextAreaHandler textHandler = new LogTextAreaHandler();
-		textHandler.setTextArea(logTextArea);
+		logTextArea.setEditable(false);
 		
 		JMenuBar menubar = new JMenuBar();
 		JMenu menu = new JMenu("File");
@@ -69,12 +74,23 @@ public class LogWindow extends JFrame{
 		menubar.add(menu);
 		setJMenuBar(menubar);
 		pane = new JScrollPane(logTextArea);
-		add(pane);
+		pane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+		
+		getContentPane().add(pane, java.awt.BorderLayout.CENTER);
 		setSize(400, 300);
 		setTitle("Log");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		validate();
-		repaint();
+		
+		 // 標準出力と標準エラー出力をリダイレクト
+        PrintStream printStream = new PrintStream(new CustomOutputStream(logTextArea));
+        System.setOut(printStream);
+        System.setErr(printStream);
+
+        // ロガーの出力をリダイレクト
+        Handler consoleHandler = new CustomLogHandler(logTextArea);
+        Log.logger.addHandler(consoleHandler);
+        Log.logger.setLevel(Level.ALL);
+        consoleHandler.setLevel(Level.ALL);
 	}
 	
 	public static LogWindow getInstance() {
@@ -101,11 +117,11 @@ public class LogWindow extends JFrame{
 			}
 
 			JFileChooser chooser = new JFileChooser();
-			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);// no file name mode
+			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			int res = chooser.showSaveDialog(this);
 			if (res == JFileChooser.APPROVE_OPTION) {
 				File dest = chooser.getSelectedFile();
-				String dest_path = dest.getAbsolutePath() + File.separator + titleWithoutExtension + ".txt";
+				String dest_path = dest.getAbsolutePath() + File.separator + titleWithoutExtension + ".log";
 				try (PrintWriter out = new PrintWriter(dest_path)) {
 					out.println(log);
 				} catch (FileNotFoundException e) {
@@ -124,5 +140,49 @@ public class LogWindow extends JFrame{
 			logTextArea.setText(null);
 		}
 	}
+	
+	class CustomOutputStream extends OutputStream {
+        private JTextArea textArea;
+        public CustomOutputStream(JTextArea textArea) {
+            this.textArea = textArea;
+        }
+
+        @Override
+        public void write(int b) {
+            textArea.append(String.valueOf((char) b));
+            textArea.setCaretPosition(textArea.getDocument().getLength());
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) {
+            textArea.append(new String(b, off, len));
+            textArea.setCaretPosition(textArea.getDocument().getLength());
+        }
+    }
+	
+	class CustomLogHandler extends ConsoleHandler {
+        private JTextArea textArea;
+        public CustomLogHandler(JTextArea textArea) {
+            this.textArea = textArea;
+        }
+
+        @Override
+        public void publish(LogRecord record) {
+            if (!isLoggable(record)) {
+                return;
+            }
+            String message = getFormatter().format(record);
+            SwingUtilities.invokeLater(() -> {
+                textArea.append(message);
+                textArea.setCaretPosition(textArea.getDocument().getLength());
+            });
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() throws SecurityException {}
+    }
 
 }

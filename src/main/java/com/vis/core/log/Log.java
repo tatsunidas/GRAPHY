@@ -9,10 +9,8 @@ import com.vis.configuration.ConfigInfo;
 /**
  * 
  * Log configuration class
- * log file is created in ApplicationContext.log_file_path.
- * 
- * https://qiita.com/Qui/items/40077ce9e33738dd3914
- * 
+ * log file location : ConfigInfo.log_file_path.
+ *  * 
  * @author tatsunidas
  * 
  */
@@ -34,7 +32,6 @@ public class Log {
     public static final String ANSI_WHITE = "\u001B[37m";
 	
 	public Log() {
-		Log.logger = Logger.getLogger(Log.class.getName());
 		addLogHandler(logger);
 	}
 	
@@ -99,7 +96,7 @@ public class Log {
 			return message;//to avoid garbled characters
 		}
 		String msg = null;
-		if(lv == Level.CONFIG) {
+		if(lv == Level.CONFIG || lv == Level.FINE) {
 			msg = ANSI_GREEN + message.toString() + ANSI_RESET;
 		}else if(lv == Level.INFO) {
 			msg = ANSI_BLUE + message.toString() + ANSI_RESET;
