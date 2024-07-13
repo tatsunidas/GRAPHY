@@ -151,7 +151,7 @@ public class DicomExporter extends JFrame implements Runnable {
 		
 	}
 
-	private void exportDICOM(boolean flatOutput, boolean decompress, File selectedDir, ArrayList<String[]> exportSet) {
+	private void exportDICOM(boolean flatOutput, boolean decompress, File selectedDir/*dest dir*/, ArrayList<String[]> exportSet) {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		ArrayList<String> patIDs = new ArrayList<String>();
 		ArrayList<String> studyIUIDs = new ArrayList<String>();
@@ -189,14 +189,14 @@ public class DicomExporter extends JFrame implements Runnable {
 						if (studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
 //							studyDesc = "no-studydesc";//to avoid duplication, use UID.
 							studyDesc = studyIUID;
-							System.out.println("studyDesc is null, uid used instead.");
+							Log.logger.fine("studyDesc is null, uid used instead.");
 						}
 						String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID,
 								seriesIUID);
 						if (seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
 //							seriesDesc = "no-seriesDesc";
 							seriesDesc = seriesIUID;
-							System.out.println("seriesDesc is null, uid used instead.");
+							Log.logger.fine("seriesDesc is null, uid used instead.");
 						}
 						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
 
@@ -209,8 +209,7 @@ public class DicomExporter extends JFrame implements Runnable {
 							}
 							String dest = destParent + File.separator + instNo + ".dcm";
 							// copy to temp
-							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID,
-									sopIUID);
+							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
 							File from = new File(dcmPath);
 							File to = new File(dest);
 							if (!from.exists()) {
@@ -230,18 +229,15 @@ public class DicomExporter extends JFrame implements Runnable {
 									return;
 								}
 							}
-							// flat
+						// flat
 						} else {
-							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator
-									+ studyDesc;
+							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator + studyDesc;
 							File destDirs = new File(destParent);
 							if (!destDirs.exists()) {
 								destDirs.mkdirs();
 							}
 							String dest = destParent + File.separator + instanceCount + ".dcm";
-							// copy to temp
-							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID,
-									sopIUID);
+							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
 							File from = new File(dcmPath);
 							File to = new File(dest);
 							if (!from.exists()) {
@@ -250,10 +246,11 @@ public class DicomExporter extends JFrame implements Runnable {
 							}
 							synchronized (to) {
 								try {
-									Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-									if (decompress) {
+									if(!decompress) {
+										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+									}else{
 										DICOMBackend backend = DICOMBackend.getCurrent();
-										Decompressor.newInstance(backend).decompress(to, to);
+										Decompressor.newInstance(backend).decompress(from, to);
 									}
 								} catch (IOException e) {
 									e.printStackTrace();
