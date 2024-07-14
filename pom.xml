@@ -79,17 +79,18 @@
 			<version>nrg-20200327-1</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed-imageio -->
+		<!--
 		<dependency>
 		    <groupId>com.dclunie</groupId>
 		    <artifactId>pixelmed-imageio</artifactId>
 		    <version>20200328</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed-codec -->
 		<dependency>
 		    <groupId>com.dclunie</groupId>
 		    <artifactId>pixelmed-codec</artifactId>
 		    <version>20200328</version>
 		</dependency>
+		-->
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
@@ -218,22 +219,18 @@
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>
-				org.dcm4che.tool</groupId>
+			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-getscu</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
             <groupId>org.dcm4che</groupId>
-            <artifactId>
-				dcm4che-dcmr</artifactId>
+            <artifactId>dcm4che-dcmr</artifactId>
             <version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
 		<dependency>
-		    <groupId>
-				org.dcm4che</groupId>
+		    <groupId>org.dcm4che</groupId>
 		    <artifactId>dcm4che-dict</artifactId>
 		    <version>${dcm4che-version}</version>
 		</dependency>

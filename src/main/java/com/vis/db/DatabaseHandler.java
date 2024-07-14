@@ -4049,7 +4049,6 @@ public class DatabaseHandler {
 	 */
 	private Connection openConnection() {
 		if (derby == null) {
-			// logger.warning("Should be makeDataSource() first before open Connection.");
 			return null;
 		}
 		/* Open connection */
@@ -4556,7 +4555,7 @@ public class DatabaseHandler {
 
 		try {
 			loadLocalDBLocation();
-			logger.info("Current DB location: " + dbdir);
+			Log.logger.info("Current DB location: " + dbdir);
 			System.setProperty("derby.system.home", dbdir);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -4628,6 +4627,7 @@ public class DatabaseHandler {
 				dcmqrscp.start(args);
 			}
 		} catch (IOException e) {
+			Log.logger.severe("Can not start DcmQRSCP...");
 			e.printStackTrace();
 			return false;
 		}

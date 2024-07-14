@@ -12,6 +12,8 @@ import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
 
+import org.opencv.osgi.OpenCVNativeLoader;
+
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.StartingUpConfigurations;
@@ -44,17 +46,6 @@ public class ApplicationFacade{
 	private static LookAndFeels laf;
 	
 	public ApplicationFacade(HashMap<StartingUpConfigurations, String[]> args) {
-
-		ConsoleHandler consoleHandler = new ConsoleHandler();
-        if (Utils.isDebug) {
-            consoleHandler.setLevel(Level.FINE);
-            Log.logger.setLevel(Level.FINE);
-            Log.logger.info("Running on debug mode.");
-        } else {
-            consoleHandler.setLevel(Level.INFO);
-            Log.logger.setLevel(Level.INFO);
-        }
-       Log.logger.addHandler(consoleHandler);
 		readyToStart(args.get(StartingUpConfigurations.no_splash) != null);
 		runMainScreen();
 	}
@@ -104,8 +95,8 @@ public class ApplicationFacade{
 					try {
 						Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
 					} catch (IOException e) {
-						Log.logger.severe(e.getMessage());
 						Log.logger.severe("Cannot copy default graphy properties file.");
+						Log.logger.severe(e.getMessage());
 					}
 					break;
 				default:
@@ -143,6 +134,17 @@ public class ApplicationFacade{
 		}
 		ApplicationFacade.locale = Locale.getDefault();
 		Locale.setDefault(ApplicationFacade.locale);
+	}
+	
+	@SuppressWarnings("unused")
+	private void loadNativeLibs() {
+		// opencv
+		/*
+		 * opencv natives are loaded automatically from javax.imageio.ImageIO.
+		 */
+		OpenCVNativeLoader loader = new OpenCVNativeLoader();
+		loader.init();
+		// add more...
 	}
 	
 	private void initPlugInShelf() {

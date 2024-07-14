@@ -11,6 +11,8 @@ import java.util.ResourceBundle;
 
 import javax.swing.ImageIcon;
 
+import com.vis.core.log.Log;
+
 import ij.plugin.LutLoader;
 
 public enum Resources {
@@ -135,6 +137,7 @@ public enum Resources {
 			try {
 				ico = new ImageIcon(javax.imageio.ImageIO.read(stream));
 			} catch (IOException e) {
+				Log.logger.severe("Cannot load Resources files...");
 				e.printStackTrace();
 				return null;
 			}

@@ -1,24 +1,49 @@
 package com.vis.core.log;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Locale;
-import java.util.logging.*;
+import java.io.PrintWriter;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.util.Utils;
 
 /**
- * 
- * Log configuration class
- * log file location : ConfigInfo.log_file_path.
- *  * 
  * @author tatsunidas
- * 
+ *
  */
-public class Log {
+@SuppressWarnings("serial")
+public class Log extends JFrame{
+	
+	private static Log logWin = new Log();
+	public final String save_log_file_name = ConfigInfo.LogFileName.toString();
+	JTextArea logTextArea = null;
+	JScrollPane pane = null;
 	
 	public static Logger logger = Logger.getLogger(Log.class.getName());
+	static CustomLogHandler logFileHandler;
+	private static boolean append_mode = false;
 	
-	Handler logFileHandler;
+	boolean isDebug = Utils.isDebug;
 	
 	// ANSI escape code
     public static final String ANSI_RESET = "\u001B[0m";
@@ -31,77 +56,170 @@ public class Log {
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_WHITE = "\u001B[37m";
 	
-	public Log() {
-		addLogHandler(logger);
-	}
-	
-	void setGlobalLogger(Logger logger){
-		Log.logger = logger;
-		if(Log.logger != null) {
-			addLogHandler(Log.logger);
+	private Log() {
+		
+		if(logger == null) {
+			logger = Logger.getLogger(Log.class.getName());
 		}
-	}
-	
-	/**
-	 * 
-	 * @param logFilePath
-	 * @param limit : if extended limit, last record leaving.(1000000000 means 1G (in byte), if 0, means no limit)
-	 * @param nLogFiles
-	 * @param append_mode : if true, append lines to existing log file 
-	 * @return
-	 */
-	Handler initHandler(String logFilePath, long limit, int nLogFiles, boolean append_mode) {
-		Handler logFileHandler = null;
+
+		initContents();
+
+		// add handler
 		try {
-			logFileHandler = new FileHandler(ConfigInfo.LogFilePath.toString(), limit, nLogFiles, append_mode);
-		} catch (SecurityException e) {
-			
+			logFileHandler = new CustomLogHandler(ConfigInfo.LogFilePath.toString(),
+					Integer.parseInt(ConfigInfo.LogFileLimit.toString()),
+					Integer.parseInt(ConfigInfo.LogFileCount.toString()), append_mode);
+			logFileHandler.setTextArea(logTextArea);
+			logger.addHandler(logFileHandler);
 		} catch (IOException e) {
-			
+			logger.log(Level.SEVERE, "Failed to initialize logging", e);
 		}
-		if(logFileHandler != null) {
-			Formatter formatter =  new SimpleFormatter();
-			logFileHandler.setFormatter(formatter);
+		
+		if (!isDebug) {
+			logger.setLevel(Level.INFO);// out greater or equal to INFO level
+		} else {
+			logger.setLevel(Level.ALL);
 		}
-		return logFileHandler;
+		logger.setUseParentHandlers(false);
 	}
 	
-	void addLogHandler(Logger logger) {
-		if(logFileHandler == null) {
-			/* if true, append lines to existing log file */
-			boolean append_mode = false;
-			// if extended limit, last record leaving.
-			long limit = 1000000000;// 1G (in byte), if 0, means no limit
-			int nLogFiles = 1;//num ber of log files for recording.
-			logFileHandler = initHandler(ConfigInfo.LogFilePath.toString(), limit, nLogFiles, append_mode);
+	public static Log getInstance() {
+		return Log.logWin;
+	}
+	
+	private void initContents() {
+		logTextArea = new JTextArea();
+		logTextArea.setEditable(false);
+		
+		JMenuBar menubar = new JMenuBar();
+		JMenu menu = new JMenu("File");
+		JMenuItem saveItem = new JMenuItem("Save");
+		saveItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				saveText(save_log_file_name);
+			}
+		});
+		JMenuItem clearItem = new JMenuItem("Clear");
+		clearItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				clearText();
+			}
+		});
+		menu.add(saveItem);
+		menu.add(clearItem);
+		menubar.add(menu);
+		setJMenuBar(menubar);
+		pane = new JScrollPane(logTextArea);
+		pane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+		
+		getContentPane().add(pane, java.awt.BorderLayout.CENTER);
+		setSize(400, 300);
+		setTitle("Log");
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+	}
+	
+	public void saveText(String titleWithoutExtension) {
+		if (logTextArea != null) {
+			Document text = logTextArea.getDocument();
+			if (text.getLength() == 0) {
+				JOptionPane.showConfirmDialog(this, "There is empty text...");
+				return;
+			}
+			String log = null;
+			try {
+				log = text.getText(0, text.getLength());
+			} catch (BadLocationException e1) {
+				e1.printStackTrace();
+				Log.logger.warning("can not save log file...");
+				return;
+			}
+
+			JFileChooser chooser = new JFileChooser();
+			chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			int res = chooser.showSaveDialog(this);
+			if (res == JFileChooser.APPROVE_OPTION) {
+				File dest = chooser.getSelectedFile();
+				String dest_path = dest.getAbsolutePath() + File.separator + titleWithoutExtension + ".log";
+				try (PrintWriter out = new PrintWriter(dest_path)) {
+					out.println(log);
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+					logger.warning("Can not find destination file location, can not save text file.");
+				}
+			}
+			chooser = null;
+			text = null;
 		}
-		if(logFileHandler != null) {
-			logger.removeHandler(logFileHandler);
-			logger.addHandler(logFileHandler);
+	}
+	
+	public void clearText() {
+		if(logTextArea !=null) {
+			logTextArea.setText(null);
+		}
+	}
+	
+	class CustomLogHandler extends FileHandler {
+
+		public CustomLogHandler(String pattern, long limit, int count, boolean append) throws IOException {
+			super(pattern, limit, count, append);
+			if (!isDebug) {
+				setLevel(Level.INFO);// out greater or equal to INFO level
+			} else {
+				setLevel(Level.ALL);
+			}
+			setFormatter(new SimpleFormatter());
+		}
+
+		private JTextArea textArea;
+
+		void setTextArea(JTextArea textArea) {
+			this.textArea = textArea;
+		}
+
+		@Override
+		public void publish(LogRecord record) {
+			if (!isLoggable(record)) {
+				return;
+			}
+			super.publish(record);
+			String message = getFormatter().format(record);
+			System.out.println(message(record.getLevel(), message));
+			SwingUtilities.invokeLater(() -> {
+				textArea.append(message);
+				textArea.setCaretPosition(textArea.getDocument().getLength());
+			});
+		}
+
+		@Override
+		public void flush() {
+			super.flush();
+		}
+
+		@Override
+		public void close() throws SecurityException {
+			super.close();
 		}
 	}
 	
 	/**
-	 * If locale is japan, return as-is. because ansi string will be garbled characters.
-	 * 
 	 * @param lv logger level
 	 * @param message message text string
 	 * @return
 	 */
 	public static String message(Level lv, String message) {
 		if(message == null || message.length() < 1) {
-			return null;
+			return message;
 		}
-		if(Locale.getDefault() == Locale.JAPAN) {
-			return message;//to avoid garbled characters
-		}
+//		if(Locale.getDefault() == Locale.JAPAN) {
+//			return message;//to avoid garbled characters
+//		}
 		String msg = null;
 		if(lv == Level.CONFIG || lv == Level.FINE) {
 			msg = ANSI_GREEN + message.toString() + ANSI_RESET;
 		}else if(lv == Level.INFO) {
-			msg = ANSI_BLUE + message.toString() + ANSI_RESET;
+			msg = ANSI_BLACK + message.toString() + ANSI_RESET;
 		}else if(lv == Level.WARNING) {
-			msg = ANSI_PURPLE + message.toString() + ANSI_RESET;
+			msg = ANSI_YELLOW + message.toString() + ANSI_RESET;
 		}else if(lv == Level.SEVERE) {
 			msg = ANSI_RED + message.toString() + ANSI_RESET;
 		}else {
@@ -109,4 +227,5 @@ public class Log {
 		}
 		return msg;
 	}
+
 }

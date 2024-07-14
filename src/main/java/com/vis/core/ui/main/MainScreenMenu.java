@@ -52,7 +52,7 @@ import javax.swing.JOptionPane;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
-import com.vis.core.log.LogWindow;
+import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
 import com.vis.core.ui.dialog.HelpDialog;
@@ -159,7 +159,7 @@ public class MainScreenMenu extends JMenuBar{
 		mntmSys.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				LogWindow logWin = LogWindow.getInstance();
+				Log logWin = Log.getInstance();
 				if(!logWin.isVisible()) {
 					logWin.setVisible(true);
 				}else {

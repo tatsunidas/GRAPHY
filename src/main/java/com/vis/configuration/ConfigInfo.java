@@ -24,6 +24,8 @@ public enum ConfigInfo {
 	// log files
 	LogFileName("graphy.log"),
 	LogFilePath("./" + LogDirName.toString() + "/" + LogFileName.toString()),
+	LogFileLimit("1048576"/*1024 * 1024 bytes*/),
+	LogFileCount("3"),
 	
 	// db
 	DefaultDBLocation(Utils.getGraphyDir().getAbsolutePath()),

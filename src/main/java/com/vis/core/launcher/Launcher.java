@@ -51,6 +51,7 @@ import org.apache.commons.cli.ParseException;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
+import com.vis.core.log.Log;
 
 /**
  * GRAPHY launcher
@@ -65,6 +66,7 @@ public class Launcher {
 	}
 	
 	public Launcher(String[] args) {
+		Log.getInstance();//this method also do Log.init();
 		new ApplicationFacade(parseArgs(args));
 	}
 	
