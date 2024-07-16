@@ -38,6 +38,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 	private JRadioButton rdbtnMale;
 	private JRadioButton rdbtnFemale;
 	private JRadioButton rdbtnOther;
+	
 	private JRadioButton rdbtnImportToStudy;
 	private JRadioButton rdbtnImportNew;
 	
@@ -125,42 +126,42 @@ public class ImportNonDicomImagePanel extends JPanel{
 		btnGroupMode.add(rdbtnImportToStudy);
 		btnGroupMode.add(rdbtnImportNew);
 		
-		JLabel lblPatientname = new JLabel("PatientName*");
-		GridBagConstraints gbc_lblPatientname = new GridBagConstraints();
-		gbc_lblPatientname.insets = new Insets(0, 0, 5, 5);
-		gbc_lblPatientname.anchor = GridBagConstraints.EAST;
-		gbc_lblPatientname.gridx = 0;
-		gbc_lblPatientname.gridy = 1;
-		add(lblPatientname, gbc_lblPatientname);
+		JLabel lblPatientId = new JLabel("PatientID*");
+		GridBagConstraints gbc_lblPatientId = new GridBagConstraints();
+		gbc_lblPatientId.insets = new Insets(0, 0, 5, 5);
+		gbc_lblPatientId.anchor = GridBagConstraints.EAST;
+		gbc_lblPatientId.gridx = 0;
+		gbc_lblPatientId.gridy = 1;
+		add(lblPatientId, gbc_lblPatientId);
 		
-		textField_pname = new JTextField();
+		textField_pid = new JTextField();
 		GridBagConstraints gbc_textField = new GridBagConstraints();
 		gbc_textField.gridwidth = 2;
 		gbc_textField.insets = new Insets(0, 0, 5, 5);
 		gbc_textField.fill = GridBagConstraints.HORIZONTAL;
 		gbc_textField.gridx = 1;
 		gbc_textField.gridy = 1;
-		add(textField_pname, gbc_textField);
-		textField_pname.setColumns(10);
+		add(textField_pid, gbc_textField);
+		textField_pid.setColumns(10);
 		
 		
-		JLabel lblPatientid = new JLabel("PatientID*");
-		GridBagConstraints gbc_lblPatientid = new GridBagConstraints();
-		gbc_lblPatientid.anchor = GridBagConstraints.EAST;
-		gbc_lblPatientid.insets = new Insets(0, 0, 5, 5);
-		gbc_lblPatientid.gridx = 0;
-		gbc_lblPatientid.gridy = 2;
-		add(lblPatientid, gbc_lblPatientid);
+		JLabel lblPatientname = new JLabel("PatientName*");
+		GridBagConstraints gbc_lblPatientname = new GridBagConstraints();
+		gbc_lblPatientname.anchor = GridBagConstraints.EAST;
+		gbc_lblPatientname.insets = new Insets(0, 0, 5, 5);
+		gbc_lblPatientname.gridx = 0;
+		gbc_lblPatientname.gridy = 2;
+		add(lblPatientname, gbc_lblPatientname);
 		
-		textField_pid = new JTextField();
+		textField_pname = new JTextField();
 		GridBagConstraints gbc_textField_1 = new GridBagConstraints();
 		gbc_textField_1.gridwidth = 2;
 		gbc_textField_1.insets = new Insets(0, 0, 5, 5);
 		gbc_textField_1.fill = GridBagConstraints.HORIZONTAL;
 		gbc_textField_1.gridx = 1;
 		gbc_textField_1.gridy = 2;
-		add(textField_pid, gbc_textField_1);
-		textField_pid.setColumns(10);
+		add(textField_pname, gbc_textField_1);
+		textField_pname.setColumns(10);
 		
 		JLabel lblPatientdateofbirth = new JLabel("DateOfBirth(yyyy/MM/dd)*");
 		GridBagConstraints gbc_lblPatientdateofbirth = new GridBagConstraints();
@@ -259,9 +260,8 @@ public class ImportNonDicomImagePanel extends JPanel{
 		DateTextKeyListener dobTextListener = new DateTextKeyListener();
 		
 		textField_pid.addKeyListener(pidTextListener);
-		
-		textField_dob.addKeyListener(dobTextListener);
 		textField_pname.addKeyListener(pnameTextListener);
+		textField_dob.addKeyListener(dobTextListener);
 		
 		/*
 		 * when starting up, set "import to study" mode

@@ -40,8 +40,8 @@ import ij.process.ImageProcessor;
  * 
  * convart consumer format image/video/pdf to dicom
  * 
- * basic way to do this(Premise);
- * In general, the motivation for importing a general image is saving as a secondary capture.
+ * Premise;
+ * The motivation for importing a general image is saving it as secondary capture.
  * Integration into the existing Dicom series is not recommended.
  * 
  * Functions:

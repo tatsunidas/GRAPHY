@@ -177,7 +177,7 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					/**
-					 * Can do only Home Dock.
+					 * only work when browsing on Home Dock.
 					 */
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					new DicomExporter(selected);
