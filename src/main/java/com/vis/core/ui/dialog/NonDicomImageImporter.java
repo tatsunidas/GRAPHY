@@ -6,12 +6,11 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 
-import com.vis.core.facade.WindowManager;
-import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.log.Log;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
@@ -41,8 +40,8 @@ import ij.process.ImageProcessor;
  * convart consumer format image/video/pdf to dicom
  * 
  * Premise;
- * The motivation for importing a general image is saving it as secondary capture.
- * Integration into the existing Dicom series is not recommended.
+ * Motivation to import a general image/video is saving it as a secondary capture.
+ * Integration into the existing Dicom series is not recommended.(but this can do by integrate series function)
  * 
  * Functions:
  * Integrate general images into an existing study as a new series
@@ -52,7 +51,7 @@ import ij.process.ImageProcessor;
  *
  */
 @SuppressWarnings("serial")
-public class NonDicomImageImporter extends JFrame implements Runnable{
+public class NonDicomImageImporter extends JDialog implements Runnable{
 	
 	JFileChooser jfc;
 	ImportNonDicomImagePanel panel;
@@ -65,23 +64,23 @@ public class NonDicomImageImporter extends JFrame implements Runnable{
 	final String NoName = "NoName";//OOMUNE^SOUDAROU
 	final String NoPID = "0000000000";//10 digits
 	
-	public NonDicomImageImporter() {
+	public NonDicomImageImporter(JFrame parent, boolean modal) {
+		super(parent, modal);
 		if(db == null) {
-			System.out.println(" NonDicomImageImporter()::DB does not exists");
-			throw new NullPointerException();
+			Log.logger.severe(" NonDicomImageImporter()::DB does not exists");
+			return;
 		}
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		//ImportNonDicomImagePanel
 		panel = new ImportNonDicomImagePanel();
-		//add to JFileChooser like as Exporter.
+		//add to JFileChooser
 		jfc = new JFileChooser();
-		jfc.setDialogTitle("Non Dicom Image Importer-select files(without folder)-");
+		jfc.setDialogTitle("Non Dicom Image Importer-select files(no folder)-");
 		jfc.setFileSelectionMode(JFileChooser.FILES_ONLY);//NO DIR
 		jfc.setMultiSelectionEnabled(true);
 		jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
 		jfc.setAccessory(panel);
 		jfc.setApproveButtonText(approveButtonText);
-		jfc.setApproveButtonToolTipText(approveToolTip);
+//		jfc.setApproveButtonToolTipText(approveToolTip);
 		doAction(jfc.showOpenDialog(this));
 	}
 	
@@ -95,35 +94,9 @@ public class NonDicomImageImporter extends JFrame implements Runnable{
 	}
 	
 	void doImport() {
-		boolean importToExistingStudy = panel.doImportToStudy();
+		boolean importNewStudy = panel.isImportNew();
 		HashMap<String,String> inputs = panel.getInputs();
 		
-		if(!importToExistingStudy && !panel.dateValidation(inputs.get("BirthOfDate"))) {
-			JOptionPane.showMessageDialog(this, "please input date of birth correctly (e.g, 2016/05/05).");
-			return;
-		}
-		
-		//get selected study (only one study)
-		ArrayList<DICOMNode> nodes = WindowManager.getMainScreen().getSelectedNode();
-		// check single study was selected.
-		if(importToExistingStudy) {
-			int numOfStudy = 0;
-			for(DICOMNode node :nodes) {
-				int level = node.getLevel();
-				if(level == DICOMNode.STUDY) {
-					numOfStudy++;
-				}
-			}
-			if(numOfStudy > 1) {
-				JOptionPane.showMessageDialog(this, "Please select only one study node(table row)");
-				return;
-			}
-		}
-		
-		/*
-		 * do not include both image and movie at same time
-		 * a movie (avi or mpeg) is always packed in one series.
-		 */
 		File[] files = jfc.getSelectedFiles();
 		ArrayList<File> videos = new ArrayList<>();
 		ArrayList<File> images = new ArrayList<>();
@@ -145,15 +118,16 @@ public class NonDicomImageImporter extends JFrame implements Runnable{
 		
 		Calendar now = Calendar.getInstance();
 		File dirInTemp = Utils.createNewDirInTemp();
-		if(importToExistingStudy) {
+		if(!importNewStudy) {
 			/*
 			 * get study uid
 			 */
-			String pname = nodes.get(0).getData(DICOMNode.PatientName);
-			String pid = nodes.get(0).getData(DICOMNode.PatientID);
-			String sex = nodes.get(0).getData(DICOMNode.Sex);
-			String dob = nodes.get(0).getData(DICOMNode.BirthDate);
-			String studyUID = nodes.get(0).getData(DICOMNode.StudyInstanceUID);
+			String pname = inputs.get("PatientName");
+			String pid = inputs.get("PatientID");
+			String sex = inputs.get("PatientSex");
+			String dob = inputs.get("DateOfBirth");
+			String studyUID = inputs.get("StudyInstanceUID");
+			
 			Date dob_ = null;
 			if(dob.contains("-")) {
 				dob_ = DateUtils.toDateObj(dob, "-");

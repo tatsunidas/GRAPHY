@@ -2,14 +2,29 @@ package com.vis.dicom.dimse;
 
 import java.awt.Window;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomCommunicationNode;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
+import com.vis.dicom.DicomWriter;
+import com.vis.dicom.Tag;
+import com.vis.dicom.TagDict;
+import com.vis.dicom.VR;
 
 /**
  * @author tatsunidas
@@ -39,6 +54,43 @@ public class DimseUtilities {
 		if(win !=null) {
 			MainScreen main = (MainScreen) win;
 			main.loadLocalStudiesBySearchKey();
+		}
+	}
+	
+	public static synchronized void editBeforeSend(File dcm, HashMap<Integer, Object> info) {
+		Path tempDir = null;
+		Path tempFile = null;
+		try {
+			// Edit
+			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
+			reader.read(dcm.getAbsolutePath());
+			DicomObject dobj = reader.getCore();
+			DicomObject fmi = reader.getFileMetaInfomation();
+			for (int tag : info.keySet()) {
+				dobj.setValue(tag, TagDict.vrType(tag)[0], info.get(tag));
+			}
+			// create temp dir and save
+			tempDir = Files.createTempDirectory(ConfigInfo.AppName.toString(), new FileAttribute<?>[0]);
+			DicomWriter writer = DicomWriter.newDicomWriter();
+			writer.write(dobj, fmi.getString(Tag.Transfer​Syntax​UID), tempDir.toFile().getAbsolutePath()+File.separator+dcm.getName());
+			// set temp file path
+			tempFile = new File(tempDir.toFile().getAbsolutePath()+File.separator+dcm.getName()).toPath();
+			Log.logger.fine("File copied to temporary file");
+			// send from temp file
+			sendMe(new File[] {tempFile.toFile()});
+			// delete file
+			Files.delete(tempFile);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (tempDir != null && Files.exists(tempDir)) {
+					Files.delete(tempDir);
+					Log.logger.fine("Temporary directory deleted");
+				}
+			} catch (IOException e) {
+				Log.logger.severe(e.getMessage());
+			}
 		}
 	}
 	

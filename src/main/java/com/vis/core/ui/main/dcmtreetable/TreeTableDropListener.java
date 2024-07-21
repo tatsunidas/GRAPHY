@@ -94,14 +94,9 @@ public class TreeTableDropListener implements DropTargetListener{
 			collec.collectCandidates();
 			boolean saveAsLink = false;
 			if(collec.getNumOfTotalDcmFiles()>0) {
-				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "DICOM import from dropping", "Save as link ?", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
-				if(res == JOptionPane.OK_OPTION) {
-					saveAsLink = true;
-				}
-				boolean ignorePrivate = false;//TODO
 				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
-					DicomImporter importer = new DicomImporter(candidateList,willImportStudyUID,saveAsLink,ignorePrivate);
+					DicomImporter importer = new DicomImporter(candidateList,willImportStudyUID);
 //					int total = candidateList.size();
 					//As Thread Manager of importer.
 //					DICOMTreeTable mainTreeTable = ApplicationContext.getInstance().getMainScreen().getTreeTable();

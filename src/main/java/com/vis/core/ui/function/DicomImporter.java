@@ -68,13 +68,11 @@ import javax.swing.SwingUtilities;
  */
 public class DicomImporter implements Task {
 
-	boolean saveAsLink = false;//TODO :: this specified from chooser GUI
-	boolean ignorePrivate = false;// TODO :: this specified from chooser GUI
+	boolean ignorePrivate = false;
 	private ArrayList<String> candidateList;// Dicom Files exclude dicomdir
+	private HashMap<Integer,Object> willEditTo;//data will be edited this patient information.
 	TaskContext con;
 
-//	boolean isVideo = false;//TODO
-	
 	int total = -1;
 	
 	Thread thisThread;
@@ -85,11 +83,21 @@ public class DicomImporter implements Task {
 	
 	public final static int SLEEP_TIME = 50;
 
-	public DicomImporter(ArrayList<String> candidateFileList, String studyUID, boolean saveAsLink, boolean ignorePrivate) {
-		this.saveAsLink = saveAsLink;
-		this.ignorePrivate = ignorePrivate;
-		this.candidateList = candidateFileList;
+	/**
+	 * Import dicom files AS-IS.
+	 * @param candidateFileList
+	 * @param studyUID
+	 * @param saveAsLink
+	 * @param ignorePrivate
+	 */
+	public DicomImporter(ArrayList<String> candidate, String studyUID) {
+		this(candidate, null, studyUID);
+	}
+	
+	public DicomImporter(ArrayList<String> candidate, HashMap<Integer,Object> info, String studyUID) {
+		this.candidateList = candidate;
 		total = candidateList.size();
+		this.willEditTo = info;
 		// create new thread and add to main importer thread group.
 		thisThread = new Thread(this);
 		stopped = false;
@@ -102,70 +110,17 @@ public class DicomImporter implements Task {
 		tm.addTask(thisThread.getId(), con);
 	}
 	
-	public void setSaveAsLink(boolean isLink) {
-		this.saveAsLink = isLink;
-	}
-	
-	void setIgnorePrivateAttr(boolean ignorePrivate) {
-		this.ignorePrivate = ignorePrivate;
-	}
-
-	/*
-	 * obtain bool value to setting save as link or not.
-	 * for drag and drop
-	 */
-	public int isLink() {
-//		int select = JOptionPane.showOptionDialog(ApplicationContext.getInstance().getMainScreen(),
-//				ApplicationContext.currentBundle.getString("MainScreen.importConfirmation.text"),
-//				ApplicationContext.currentBundle.getString("MainScreen.importConfirmation.title.text"),
-//				JOptionPane.OK_CANCEL_OPTION, JOptionPane.YES_NO_CANCEL_OPTION, null,
-//				new String[] { ApplicationContext.currentBundle.getString("MainScreen.import.copy.text"),
-//						ApplicationContext.currentBundle.getString("MainScreen.import.link.text") },
-//				"default");
-		
-		int select = JOptionPane.showOptionDialog(WindowManager.getMainScreen(),
-				"Dicom Import",
-				"Execute Import Dicoms ?",
-				JOptionPane.OK_CANCEL_OPTION, JOptionPane.YES_NO_CANCEL_OPTION, null,
-				new String[] { "Copy","Link" },	"default");
-		
-		switch (select) {
-		case 0:// copy
-			saveAsLink = false;
-			break;
-		case 1:// link
-			saveAsLink = true;
-			break;
-		default:// others, -1
-			System.out.println("import canceled");
-			break;
-		}
-		return select;
-	}
-
 	private void showImportResult() {
 		
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
 				// show import result
-				/* when run multi studies import only show last import dialog */
-				
 //				String msg = ApplicationContext.currentBundle.getString("MainScreen.import.filesCopied.text")
 				String msg = "imported !";
 				
 				new AnimatingSheet(con.currentIndex()+1+"/"+totalSize() + " "
 						+ msg, JOptionPane.INFORMATION_MESSAGE);
-
-				/*
-				 * No AnimatingSheet methods
-				 */
-				//				JOptionPane.showOptionDialog(mediator.getMainScreen(),
-//						getCandidateFilesList().size() + " "
-//								+ ApplicationContext.currentBundle.getString("MainScreen.import.filesCopied.text"),
-//						ApplicationContext.currentBundle.getString("MainScreen.importMenuItem.text"),
-//						JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE, null,
-//						new String[] { ApplicationContext.currentBundle.getString("OkButtons.text") }, "default");
 			}
 		});
 	}
@@ -205,16 +160,13 @@ public class DicomImporter implements Task {
 				reader.read(new File(candidate).getAbsolutePath());
 				DicomObject data = reader.getCore();
 				DatabaseHandler db = DatabaseHandler.getInstance();
-				db.setSaveAsLinkState(saveAsLink);
-				if (data != null && avoidPatientIDNUll(data)) {
-					
-					if (saveAsLink) {
-						synchronized(this){
-							db.writeDatasetInfo(data, candidate);
-						}
-					} else {// store image file to DB
-						synchronized(this){
+				db.setSaveAsLinkState(false);//never use saveAsLink
+				if (data != null) {
+					synchronized(this){
+						if(willEditTo == null) {
 							DimseUtilities.store(candidate, false/*deleteAfterStored*/);
+						}else {
+							DimseUtilities.editBeforeSend(new File(candidate), willEditTo);
 						}
 					}
 				}
@@ -225,19 +177,19 @@ public class DicomImporter implements Task {
 				//update treetable
 				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 			} catch (Exception e) {
-				Log.logger.severe("DicomImporter::performImport():Unable to import file. Stoped import...\n"+e.getMessage());
+				Log.logger.severe("DicomImporter::perform():Unable to import file. Stoped import...\n"+e.getMessage());
 				return;
 			}
 		} // while loop end
 		done();
 	}
 
-	private boolean avoidPatientIDNUll(DicomObject data) {
-		String patID = data.getString(Tag.Patient​ID);
-		if(patID == null || patID.equals("")) {
-			data.setString(Tag.Patient​ID, VR.LO, "null");
-		}
-		return true;
+	private void editPatientInfo(DicomObject data) {
+		//keywords are defined by DicomImporterPanel 
+		data.setString(Tag.Patient​ID, VR.LO, (String)willEditTo.get(Tag.Patient​ID));
+		data.setString(Tag.Patient​Name, VR.PN, (String)willEditTo.get(Tag.Patient​Name));
+		data.setString(Tag.Patient​Birth​Date, VR.DA, (String)willEditTo.get(Tag.Patient​Birth​Date));
+		data.setString(Tag.Patient​Sex, VR.CS, (String)willEditTo.get(Tag.Patient​Sex));
 	}
 
 	@Override

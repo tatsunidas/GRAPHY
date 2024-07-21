@@ -188,7 +188,7 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					new NonDicomImageImporter();
+					new NonDicomImageImporter(WindowManager.getMainScreen(), false);
 				}
 			});
 			break;

@@ -2804,8 +2804,8 @@ public class DatabaseHandler {
 				map.put("StudyDescription", rset.getString("StudyDescription"));
 				map.put("ModalitiesInStudy", rset.getString("ModalitiesInStudy"));
 				map.put("AccessionNumber", rset.getString("AccessionNumber"));
-				map.put("NumOfSeriesInStudy", String.valueOf(rset.getString("NumOfSeriesInStudy")));
-				map.put("NumOfInstancesInStudy", String.valueOf(rset.getString("NumOfInstancesInStudy")));
+				map.put("NumOfSeriesInStudy", String.valueOf(getNumOfSeriesInStudy(studyUID)));
+				map.put("NumOfInstancesInStudy", String.valueOf(getNumOfInstancesInStudy(studyUID)));
 				map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 			}
 

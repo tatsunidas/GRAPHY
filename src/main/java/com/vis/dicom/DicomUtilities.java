@@ -46,7 +46,7 @@ public class DicomUtilities {
 				fileinstream.close();
 			} catch (IOException e) {
 				e.printStackTrace();
-				logger.severe("Reading file...:isDicomFile\n"+e);
+				logger.severe("Fail to read file...:isDicomFile\n"+e);
 			}
 		}
 		return false;
@@ -188,6 +188,29 @@ public class DicomUtilities {
 		return new String((byte[])getDicomElement(path, Tag.PatientID));
 	}
 	
+	public static String[] getPatientInfo(String path) {
+		String[] ids = new String[4];
+		DicomInputStream dis = null;
+		try {
+			dis = new DicomInputStream(new File(path));
+			final Attributes dataset = dis.readDatasetUntilPixelData();
+			ids[0] = dataset.getString(Tag.PatientID);
+			ids[1] = dataset.getString(Tag.PatientName);
+			ids[2] = dataset.getString(Tag.PatientBirthDate);
+			ids[3] = dataset.getString(Tag.PatientSex);
+			return ids;
+		}catch(DicomStreamException dse) {
+			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse);
+			return null;
+		} catch (IOException e) {
+			e.printStackTrace();
+			logger.severe("Reading dicom file...:getDicomAttribute\n"+e);
+			return null;
+		}finally {
+			SafeClose.close(dis);
+		}
+	}
+	
 	public static String getStudyInstanceUID(String path) {
 		return new String((byte[])getDicomElement(path, Tag.StudyInstanceUID));
 	}
@@ -208,24 +231,43 @@ public class DicomUtilities {
 		return (String) getDicomElement(path, Tag.TransferSyntaxUID);
 	}
 	
+	public static String[] getUIDSet(String path) {
+		String[] ids = new String[4];
+		DicomInputStream dis = null;
+		try {
+			dis = new DicomInputStream(new File(path));
+			final Attributes dataset = dis.readDatasetUntilPixelData();
+			ids[0] = dataset.getString(Tag.PatientID);
+			ids[1] = dataset.getString(Tag.StudyInstanceUID);
+			ids[2] = dataset.getString(Tag.SeriesInstanceUID);
+			ids[3] = dataset.getString(Tag.SOPInstanceUID);
+			//ids[x] = dis.getTransferSyntax();
+			//ids[x] = dataset.getString(Tag.TransferSyntaxUID)
+			return ids;
+		}catch(DicomStreamException dse) {
+			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse);
+			return null;
+		} catch (IOException e) {
+			e.printStackTrace();
+			logger.severe("Reading dicom file...:getDicomAttribute\n"+e);
+			return null;
+		}finally {
+			SafeClose.close(dis);
+		}
+	}
+	
 	/*
-	 * DBにコピーしていればいいが、リンクの場合はこれではNG？
+	 * DO NOT USE saveAsLink.
 	 * Directory Records
 	 * ReferencedFileID=DICOM/study hash/series hash/instance hash
-	 * ReferencedFileIDはDicomDirにとって必要なものだと思う。
-	 * QRやFindなどの、こちらがSCPとなりサービス提供する際は不要と思われる。
 	 */
 	public static String convertAbsPath2ReferencedFileID(String absPath, boolean isLink) {
 		if(isLink) {
-			/* この対応が正しいかテストしないといけない */ //see DatabaseHandler::findInstanceRecord**
-			/* RetrieveTaskではFile.toURI().toString()で返している */
-			/* エラー検知のためNULLに?? */
-//			return null;
 			return absPath;
 		}
 		String sep = File.separator;
-		String searchString = sep+".GRAPHY"+sep+"archive"+sep+"DICOM";
-		int last = absPath.lastIndexOf(sep+".GRAPHY"+sep+"archive"+sep+"DICOM");
+		String searchString = sep+"archive"+sep+"DICOM";
+		int last = absPath.lastIndexOf(sep+"archive"+sep+"DICOM");
 		String ReferencedFileID = absPath.substring(last+searchString.length()-5, absPath.length());
 		return ReferencedFileID;
 	}
@@ -254,34 +296,4 @@ public class DicomUtilities {
 			return;
 		}
 	}
-	
-////public static ImagePlus readUncompressedSingleFrameDcmAsImagePlus(Attributes dcm) {
-////Object pixelData = dcm.getValue(Tag.PixelData);
-////Fragments pixelDataFragments = null;
-////if(pixelData instanceof Fragments) {
-////	pixelDataFragments = (Fragments) pixelData;
-////}else {
-////	/* this image need not decompression? */
-////	logger.info(" this image does not need decompression? return null.");
-////	return null;
-////}
-////Object frag = pixelData;//frame number started from 1
-////byte[] pixels = null;
-////if (frag instanceof BulkData) {
-////	try {
-////		pixels = ((BulkData) frag).toBytes(VR.OB, false);
-////	} catch (IOException e) {
-////		// TODO Auto-generated catch block
-////		e.printStackTrace();
-////		return null;
-////	}
-////}else if(frag instanceof byte[]) {
-////	pixels = (byte[])frag;
-////}else {
-////	/* I do not know how to handle other objects */
-////	logger.info(" I do not know how to handle this file (other objects type). return null.");
-////	return null;//return
-////}
-////
-////}
 }

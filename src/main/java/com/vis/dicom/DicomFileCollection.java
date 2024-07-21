@@ -41,23 +41,27 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.logging.Level;
 
 import com.vis.core.log.Log;
-import com.vis.core.util.Utils;
 
-
+/**
+ * Collect information will import.
+ * @author tatsunidas
+ *
+ */
 public class DicomFileCollection {
 	
-	boolean isDebug = Utils.isDebug;
-	
-	boolean ignorePrivate = false;
 	private File[] files;
 	private ArrayList<File> dicomdirCandidate;// to search DicomDir
 	private ArrayList<File> no_dcm_files;
-	private HashMap<String, String> dcmFileCandidate;// path and studyUID
-	private HashMap<String, Integer> numOfInstances;
+	private HashMap<String, String[]> dcmFileCandidate;// path and infoset
+	private int numOfPatient;
+	private HashMap<String, Integer> numOfInstancesPerStudy;
+	
+	boolean ignorePrivate = false;
 	
 	public DicomFileCollection(File[] files){
 		setSelectedFiles(files);
@@ -65,21 +69,24 @@ public class DicomFileCollection {
 	
 	private void addImportCandidate(File dcmimage) {
 		if(!this.dcmFileCandidate.keySet().contains(dcmimage.getAbsolutePath())) {
-			String studyUID = DicomUtilities.getStudyInstanceUID(dcmimage.getAbsolutePath());
-			this.dcmFileCandidate.put(dcmimage.getAbsolutePath(), studyUID);
+			String[] info = DicomUtilities.getUIDSet(dcmimage.getAbsolutePath());
+			this.dcmFileCandidate.put(dcmimage.getAbsolutePath(), info);
 		}
 	}
 	
-	private void calcSizeOfStudies() {
-		numOfInstances = new HashMap<>();
+	private void calcSize() {
+		HashSet<String> patients = new HashSet<>();
+		numOfInstancesPerStudy = new HashMap<>();
 		for(String p : dcmFileCandidate.keySet()) {
-			String uid = dcmFileCandidate.get(p);
-			if(!numOfInstances.containsKey(uid)) {
-				numOfInstances.put(uid, 1);
+			String[] ids = dcmFileCandidate.get(p);
+			patients.add(ids[0]);
+			if(!numOfInstancesPerStudy.containsKey(ids[1])) {
+				numOfInstancesPerStudy.put(ids[1], 1);
 				continue;
 			}
-			numOfInstances.put(uid, numOfInstances.get(uid)+1);
+			numOfInstancesPerStudy.put(ids[1], numOfInstancesPerStudy.get(ids[1])+1);
 		}
+		numOfPatient = patients.size();
 	}
 
 	/**
@@ -88,11 +95,11 @@ public class DicomFileCollection {
 	 */
 	public boolean collectCandidates() {
 		if (files == null) {
-			if(isDebug) Log.logger.info("Selectd file is null, return.");
+			Log.logger.fine("Files are null, return.");
 			return false;
 		}
 		if (files.length == 0) {
-			if(isDebug) Log.logger.info("Files is not selected, return.");
+			Log.logger.fine("Files are not selected, return.");
 			return false;
 		}
 		// init
@@ -103,8 +110,8 @@ public class DicomFileCollection {
 		try {
 			readAllDICOMFiles(files);
 		} catch (IOException e) {
-			e.printStackTrace();
-			Log.logger.log(Level.SEVERE, "Error occured when reading Dicom files...", e);
+			Log.logger.severe("Error occured when reading Dicom files...");
+			Log.logger.log(Level.SEVERE, e.getMessage());
 			return false;
 		}
 		if (dicomdirCandidate.size() > 0) {
@@ -116,39 +123,36 @@ public class DicomFileCollection {
 				return false;
 			}
 		}
-		calcSizeOfStudies();
+		calcSize();
 		// output result
-		if(isDebug) Log.logger.info("Number of dicomdir is " + dicomdirCandidate.size() + " found");
-		if(isDebug) Log.logger.info("Number of instances is " + dcmFileCandidate.size() + " found");
+		Log.logger.fine("Number of dicomdir is " + dicomdirCandidate.size() + " found");
+		Log.logger.fine("Number of instances is " + dcmFileCandidate.size() + " found");
 		return true;
 	}
 
-	/*
-	 * ref::weasis:DcmDirLoader
-	 * https://github.com/nroduit/Weasis/blob/master/weasis-dicom/weasis-dicom-
-	 * explorer/src/main/java/org/weasis/dicom/explorer/DicomDirLoader.java
-	 */
-	
 	private ArrayList<File> getDicomDirs() {
 		return this.dicomdirCandidate;
 	}
 	
+	public int getNumOfPatients() {
+		return numOfPatient;
+	}
 
 	// for grouping studies when import
 	public ArrayList<String> getNoSubstituteStudyUIDList() {
 		ArrayList<String> studyUIDs = new ArrayList<>();
 		for(String p : dcmFileCandidate.keySet()) {
-			studyUIDs.add(dcmFileCandidate.get(p));
+			studyUIDs.add(dcmFileCandidate.get(p)[1]);
 		}
 		// no duplicate
 		return new ArrayList<String>(new LinkedHashSet<>(studyUIDs));
 	}
 
 	public int getNumOfInstancesInStudy(String studyUID) {
-		if(numOfInstances == null) {
+		if(numOfInstancesPerStudy == null) {
 			return -1;
 		}
-		Integer num = numOfInstances.get(studyUID);
+		Integer num = numOfInstancesPerStudy.get(studyUID);
 		return num != null ? num:-1;
 	}
 
@@ -196,19 +200,17 @@ public class DicomFileCollection {
 					}
 				}
 			} else {// single file
-				if (folderOrFile.isFile()) {
-					if (!DicomUtilities.namedDICOMDIR(folderOrFile)) {
-						if (DicomUtilities.isDicomFile(folderOrFile)) {
-							addImportCandidate(folderOrFile);
-						}else {
-							no_dcm_files.add(folderOrFile);
-						}
-					}else { //dicomdir
-						if (DicomUtilities.isDicomFile(folderOrFile)) {
-							dicomdirCandidate.add(folderOrFile);
-						}else {
-							no_dcm_files.add(folderOrFile);
-						}
+				if (!DicomUtilities.namedDICOMDIR(folderOrFile)) {
+					if (DicomUtilities.isDicomFile(folderOrFile)) {
+						addImportCandidate(folderOrFile);
+					} else {
+						no_dcm_files.add(folderOrFile);
+					}
+				} else { // dicomdir
+					if (DicomUtilities.isDicomFile(folderOrFile)) {
+						dicomdirCandidate.add(folderOrFile);
+					} else {
+						no_dcm_files.add(folderOrFile);
 					}
 				}
 			}
@@ -253,7 +255,7 @@ public class DicomFileCollection {
 												addImportCandidate(file);
 											} else {
 												Log.message(Level.SEVERE, "File : " + file.getAbsolutePath()
-														+ " not exist that specified in dicomdir...");
+														+ " is not exists at this location specified in dicomdir...");
 											}
 										}
 										// ignorePrivate is true on following process
@@ -274,7 +276,8 @@ public class DicomFileCollection {
 	public ArrayList<String> selectCandidateUsingStudyUID(String willImportStudyUID) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String p2dcm : dcmFileCandidate.keySet()) {
-			if (willImportStudyUID.equals(dcmFileCandidate.get(p2dcm))) {
+			String[] info = dcmFileCandidate.get(p2dcm);
+			if (willImportStudyUID.equals(info[1])) {
 				list.add(p2dcm);
 			}
 		}

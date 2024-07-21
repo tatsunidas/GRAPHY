@@ -1,14 +1,217 @@
-7月 15, 2024 9:03:23 午前 com.vis.core.plugin.PluginShelf loadPlugins
+7月 21, 2024 12:17:08 午後 com.vis.core.plugin.PluginShelf loadPlugins
 情報: Loading PlugIns...
-7月 15, 2024 9:03:23 午前 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+7月 21, 2024 12:17:09 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST START*************
-7月 15, 2024 9:03:23 午前 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+7月 21, 2024 12:17:09 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST END**************
-7月 15, 2024 9:03:24 午前 com.vis.db.DatabaseHandler startingUp
+7月 21, 2024 12:17:09 午後 com.vis.db.DatabaseHandler startingUp
 情報: Current DB location: /home/tatsunidas/graphy-workspace3/graphy
-7月 15, 2024 9:03:29 午前 com.vis.core.ui.main.TabDock ancestorAdded
+7月 21, 2024 12:17:16 午後 com.vis.core.ui.main.TabDock ancestorAdded
 情報: debug : In Main Frame: HOME
-7月 15, 2024 5:25:43 午後 com.vis.core.facade.ApplicationFacade exitApp
+7月 21, 2024 12:17:28 午後 com.vis.core.ui.dialog.DicomImporterPanel searchInDB
+普通: PID key listener is working!:LGG-104_LGG-104_null_F
+7月 21, 2024 12:17:30 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of dicomdir is 0 found
+7月 21, 2024 12:17:30 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of instances is 1 found
+7月 21, 2024 12:19:10 午後 com.vis.dicom.dimse.DimseUtilities editBeforeSend
+普通: File copied to temporary file
+7月 21, 2024 12:19:15 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(1),/home/tatsunidas/graphy-workspace3/graphy/archive/2.25.262838029993259257132844752072870160889
+7月 21, 2024 12:19:16 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(1), /home/tatsunidas/graphy-workspace3/graphy/archive/2.25.262838029993259257132844752072870160889, /home/tatsunidas/graphy-workspace3/graphy/archive/DICOM/317F62D4/48B049F8/8DE393BD/CA8638C8
+7月 21, 2024 12:19:17 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(1)
+7月 21, 2024 12:19:23 午後 com.vis.dicom.dimse.DimseUtilities editBeforeSend
+普通: Temporary directory deleted
+7月 21, 2024 12:19:40 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
+情報: QR Pane : Home
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 11 ,compXY: 64, 64
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:19:48 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 52 4 ,compXY: 429, 252
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 52 4 ,compXY: 429, 252
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:05 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 52 4 ,compXY: 429, 252
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 52 4 ,compXY: 429, 252
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:08 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:32 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:38 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 11 ,compXY: 64, 64
+7月 21, 2024 12:20:38 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:38 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:38 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:20:38 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:20:41 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:09 午後 com.vis.core.facade.ApplicationFacade exitApp
 情報: Shutting down graphy...
-7月 15, 2024 5:25:55 午後 com.vis.db.DatabaseHandler shutdownDB
+7月 21, 2024 12:21:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 11 ,compXY: 64, 64
+7月 21, 2024 12:21:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:21:13 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 53 4 ,compXY: 429, 250
+7月 21, 2024 12:21:13 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 64, 64
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 0 0 ,compXY: 0, 0
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 93 4 ,compXY: 429, 250
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlass calcDefaultImageOriginAndReset
+情報: calcDefaultImageOriginAndReset: Reset CurrentOriginXY: 4 4 ,compXY: 174, 174
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:36 午後 com.vis.core.view.D2.ui.glasses.Praparat$SlideGlassHolder paintComponent
+普通: repaint SlideGlassHolder
+7月 21, 2024 12:21:49 午後 com.vis.core.facade.ApplicationFacade exitApp
+情報: Shutting down graphy...
+7月 21, 2024 12:21:51 午後 com.vis.db.DatabaseHandler shutdownDB
 情報: com.vis.db.DatabaseHandler: shutdown correctly, graphydb

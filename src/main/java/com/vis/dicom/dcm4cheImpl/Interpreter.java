@@ -72,7 +72,7 @@ public class Interpreter {
 		}
 	}
 
-	static org.dcm4che3.data.VR vrChe(com.vis.dicom.VR vr){
+	public static org.dcm4che3.data.VR vrChe(com.vis.dicom.VR vr){
 		return org.dcm4che3.data.VR.valueOf(vr.code());
 	}
 	

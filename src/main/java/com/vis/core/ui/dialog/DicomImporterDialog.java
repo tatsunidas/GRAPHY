@@ -3,16 +3,14 @@ package com.vis.core.ui.dialog;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.function.DicomImporter;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.dicom.DicomFileCollection;
+import com.vis.dicom.DicomUtilities;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 
-import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
@@ -29,15 +27,14 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 	public static final int RET_OK = 1;// return status code
 	private int returnStatus = RET_CANCEL;
 	private javax.swing.JFileChooser fileChooser;
-	DICOMTreeTable mainTreeTable;
-	private JCheckBox chckbxSaveAsLink;
+	// private JCheckBox chckbxSaveAsLink; //never use
+	private DicomImporterPanel infoPanel;
 
 	/**
 	 * Creates new form FileChooserDialog
 	 */
 	public DicomImporterDialog(JFrame parent, boolean modal) {
 		super(parent, modal);
-		this.mainTreeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		initComponents();
 		setTitle(ResourceBundle.getBundle("i18n.i18n").getString("DicomImporterDialog.title"));
 		setCurrentDirectory();
@@ -60,26 +57,34 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 	}
 
 	private void initComponents() {
-
 		fileChooser = new javax.swing.JFileChooser();
 		setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 		fileChooser.setFileSelectionMode(javax.swing.JFileChooser.FILES_AND_DIRECTORIES);
 		fileChooser.setMultiSelectionEnabled(true);//IMPORTANT for avoid return selectedFiles null.
+		infoPanel = new DicomImporterPanel();
+		fileChooser.setAccessory(infoPanel);
+		fileChooser.setApproveButtonText("Import");
+		// add listener
 		fileChooser.addActionListener(new java.awt.event.ActionListener() {
 			@Override
 			public void actionPerformed(java.awt.event.ActionEvent evt) {
 				fileChooserActionPerformed(evt);
 			}
 		});
-		getContentPane().setLayout(new BorderLayout(0, 0));
+		fileChooser.addPropertyChangeListener(evt -> {
+			if (javax.swing.JFileChooser.SELECTED_FILE_CHANGED_PROPERTY.equals(evt.getPropertyName())) {
+				File selectedFile = fileChooser.getSelectedFile();
+				if (selectedFile != null && DicomUtilities.isDicomFile(selectedFile)) {
+					 String[] info = DicomUtilities.getPatientInfo(selectedFile.getAbsolutePath());
+					 infoPanel.setInputs(info);
+				}else {
+					String[] info = new String[] {null,null,null,null};
+					 infoPanel.setInputs(info);
+				}
+			}
+		});
+		getContentPane().setLayout(new BorderLayout());
 		getContentPane().add(fileChooser);
-		
-		JPanel saveTypePanel = new JPanel();
-		getContentPane().add(saveTypePanel, BorderLayout.SOUTH);
-		
-		chckbxSaveAsLink = new JCheckBox("Save as link");
-		saveTypePanel.add(chckbxSaveAsLink);
-
 		pack();
 	}
 
@@ -97,23 +102,26 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 						JOptionPane.ERROR_MESSAGE);
 				return;
 			}
-			if (selectedFiles.length == 0) {
-				return;
-			}
 			DicomFileCollection collec = new DicomFileCollection(selectedFiles);
 			collec.collectCandidates();
 			//if no dcm files exists, show popup
 			if(collec.getNoDcmFiles().size()>0) {
+				/*
+				 * if non dicom file are included, continue import.
+				 * here, to avoid interruption by popmesg, use swingutil.
+				 */
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						PopUpMessage.showDialog(null, "None dicom file found !", "Dicom Importer can not import non dicom files.\nIf you would like to import non dicom, use Non Dcm Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+						PopUpMessage.showDialog(WindowManager.getMainScreen(), "Non dicom file found !", "Dicom Importer can not import non dicom files. Only dicom files will be imported. \nIf you would like to import non dicom, use Non Dcm Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+						//still continue
 					}
 				});
 			}
 			// If large dataset > 10000
+			int res = -1;
 			if (filesTooLarge(collec)) {
-				int res = PopUpMessage.showDialog(this, "Large dataset",
+				res = PopUpMessage.showDialog(this, "Large dataset",
 						Resources.i18n("DicomImporterDialog.importWarning.largeFilesToImport"),
 						JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 				if (res == JOptionPane.CANCEL_OPTION || res == JOptionPane.CLOSED_OPTION) {
@@ -121,12 +129,37 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 					return;
 				}
 			}
-			boolean saveAsLink = chckbxSaveAsLink.isSelected();
-			// import of each study.
-			for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
-				ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
-				DicomImporter importer = new DicomImporter(candidateList, willImportStudyUID,saveAsLink, false);
-				importer.start();
+			//if inputs multiple patients
+			res = -1;
+			if(collec.getNumOfPatients()>1) {
+				String msg = "Will you continue to import without editing patient info ?\n";
+				msg += "if (Yes), import all data AS-IS(ignore editing patient info), \n";
+				msg += "else (No) imports all data with the specified patient info as a single patient.\n";
+				msg += "(study/series descriptions will be ignored)";
+				res = PopUpMessage.showDialog(
+						WindowManager.getMainScreen(), 
+						"Multiple patient dataset found !", 
+						msg,
+						JOptionPane.YES_NO_CANCEL_OPTION, 
+						JOptionPane.INFORMATION_MESSAGE);
+				if(res == JOptionPane.CANCEL_OPTION) {doClose(RET_OK);}
+				// import each study.
+				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+					if(res == JOptionPane.YES_OPTION) {
+						DicomImporter importer = new DicomImporter(candidateList, willImportStudyUID);
+						importer.start();
+					}else {
+						DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
+						importer.start();
+					}
+				}
+			}else {
+				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+					DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
+					importer.start();
+				}
 			}
 		}
 		doClose(RET_OK);

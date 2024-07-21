@@ -38,9 +38,329 @@
 package com.vis.core.ui.dialog;
 
 import javax.swing.JPanel;
+import java.awt.GridBagLayout;
+import javax.swing.JLabel;
+
+import java.awt.GridBagConstraints;
+import javax.swing.JTextField;
+
+import org.dcm4che3.data.Tag;
+
+import com.vis.core.log.Log;
+import com.vis.core.ui.listener.AlphanumericTextKeyListener;
+import com.vis.core.ui.listener.DateTextKeyListener;
+import com.vis.db.DatabaseHandler;
+
+import java.awt.Insets;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.awt.Component;
+
+import javax.swing.AbstractButton;
+import javax.swing.Box;
+import javax.swing.ButtonGroup;
+
+import java.awt.Dimension;
+import javax.swing.JRadioButton;
 
 public class DicomImporterPanel extends JPanel{
-	public DicomImporterPanel() {
-	}
 
+	private static final long serialVersionUID = 1L;
+	
+	private JTextField textField_pid;
+	private JTextField textField_pname;
+	private JTextField textField_dob;
+	private ButtonGroup btnGroupSex;
+	
+	String currentStudyUID = null;
+	
+	DatabaseHandler db = DatabaseHandler.getInstance();
+	
+	public DicomImporterPanel() {
+		GridBagLayout gridBagLayout = new GridBagLayout();
+		gridBagLayout.columnWidths = new int[]{0, 0, 231, 0, 0};
+		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 31, 0, 0};
+		gridBagLayout.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		setLayout(gridBagLayout);
+		
+		Component rigidArea = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea = new GridBagConstraints();
+		gbc_rigidArea.insets = new Insets(0, 0, 5, 5);
+		gbc_rigidArea.gridx = 0;
+		gbc_rigidArea.gridy = 0;
+		add(rigidArea, gbc_rigidArea);
+		
+		Component rigidArea_1 = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea_1 = new GridBagConstraints();
+		gbc_rigidArea_1.insets = new Insets(0, 0, 5, 0);
+		gbc_rigidArea_1.gridx = 3;
+		gbc_rigidArea_1.gridy = 0;
+		add(rigidArea_1, gbc_rigidArea_1);
+		
+		Component horizontalStrut = Box.createHorizontalStrut(20);
+		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
+		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
+		gbc_horizontalStrut.gridx = 0;
+		gbc_horizontalStrut.gridy = 1;
+		add(horizontalStrut, gbc_horizontalStrut);
+		
+		JLabel lblPatientId = new JLabel("Patient ID");
+		GridBagConstraints gbc_lblPatientId = new GridBagConstraints();
+		gbc_lblPatientId.insets = new Insets(0, 0, 5, 5);
+		gbc_lblPatientId.anchor = GridBagConstraints.EAST;
+		gbc_lblPatientId.gridx = 1;
+		gbc_lblPatientId.gridy = 1;
+		add(lblPatientId, gbc_lblPatientId);
+		
+		textField_pid = new JTextField();
+		GridBagConstraints gbc_textField_pid = new GridBagConstraints();
+		gbc_textField_pid.insets = new Insets(0, 0, 5, 5);
+		gbc_textField_pid.fill = GridBagConstraints.HORIZONTAL;
+		gbc_textField_pid.gridx = 2;
+		gbc_textField_pid.gridy = 1;
+		add(textField_pid, gbc_textField_pid);
+		//textField_pid.setColumns(30);
+		// Add a key adapter to the text field
+		textField_pid.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				int keyCode = e.getKeyCode();
+				if(keyCode == KeyEvent.VK_ENTER) {
+					Log.logger.fine("Key Pressed: " + KeyEvent.getKeyText(keyCode));
+					searchInDB();
+				}
+			}
+			@Override
+			public void keyReleased(KeyEvent e) {
+				searchInDB();
+			}
+		});
+		
+		JLabel lblPatientName = new JLabel("Patient Name");
+		GridBagConstraints gbc_lblPatientName = new GridBagConstraints();
+		gbc_lblPatientName.anchor = GridBagConstraints.EAST;
+		gbc_lblPatientName.insets = new Insets(0, 0, 5, 5);
+		gbc_lblPatientName.gridx = 1;
+		gbc_lblPatientName.gridy = 2;
+		add(lblPatientName, gbc_lblPatientName);
+		
+		textField_pname = new JTextField();
+		GridBagConstraints gbc_textField_pname = new GridBagConstraints();
+		gbc_textField_pname.insets = new Insets(0, 0, 5, 5);
+		gbc_textField_pname.fill = GridBagConstraints.HORIZONTAL;
+		gbc_textField_pname.gridx = 2;
+		gbc_textField_pname.gridy = 2;
+		add(textField_pname, gbc_textField_pname);
+		//textField_pname.setColumns(30);
+		
+		JLabel lblBirthOfDate = new JLabel("Date Of Birth (yyyy/MM/dd)");
+		GridBagConstraints gbc_lblBirthOfDate = new GridBagConstraints();
+		gbc_lblBirthOfDate.anchor = GridBagConstraints.EAST;
+		gbc_lblBirthOfDate.insets = new Insets(0, 0, 5, 5);
+		gbc_lblBirthOfDate.gridx = 1;
+		gbc_lblBirthOfDate.gridy = 3;
+		add(lblBirthOfDate, gbc_lblBirthOfDate);
+		
+		textField_dob = new JTextField();
+		GridBagConstraints gbc_textField_dob = new GridBagConstraints();
+		gbc_textField_dob.insets = new Insets(0, 0, 5, 5);
+		gbc_textField_dob.fill = GridBagConstraints.HORIZONTAL;
+		gbc_textField_dob.gridx = 2;
+		gbc_textField_dob.gridy = 3;
+		add(textField_dob, gbc_textField_dob);
+		textField_dob.setColumns(10);
+		
+		JLabel lblPatientSex = new JLabel("Patient Sex");
+		GridBagConstraints gbc_lblPatientSex = new GridBagConstraints();
+		gbc_lblPatientSex.anchor = GridBagConstraints.EAST;
+		gbc_lblPatientSex.insets = new Insets(0, 0, 5, 5);
+		gbc_lblPatientSex.gridx = 1;
+		gbc_lblPatientSex.gridy = 4;
+		add(lblPatientSex, gbc_lblPatientSex);
+		
+		JPanel panel = new JPanel();
+		GridBagConstraints gbc_panel = new GridBagConstraints();
+		gbc_panel.insets = new Insets(0, 0, 5, 5);
+		gbc_panel.fill = GridBagConstraints.BOTH;
+		gbc_panel.gridx = 2;
+		gbc_panel.gridy = 4;
+		add(panel, gbc_panel);
+		
+		JRadioButton rdbtnMale = new JRadioButton("Male");
+		rdbtnMale.setActionCommand("Male");
+		panel.add(rdbtnMale);
+		
+		JRadioButton rdbtnFemale = new JRadioButton("Female");
+		rdbtnFemale.setActionCommand("Female");
+		panel.add(rdbtnFemale);
+		
+		JRadioButton rdbtnOther = new JRadioButton("Other");
+		rdbtnOther.setActionCommand("Other");
+		panel.add(rdbtnOther);
+		
+		JRadioButton rdbtnNone = new JRadioButton("None");
+		rdbtnNone.setActionCommand("None");
+		panel.add(rdbtnNone);
+		
+		btnGroupSex = new ButtonGroup();
+		btnGroupSex.add(rdbtnMale);
+		btnGroupSex.add(rdbtnFemale);
+		btnGroupSex.add(rdbtnOther);
+		btnGroupSex.add(rdbtnNone);
+		
+		Component rigidArea_2 = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea_2 = new GridBagConstraints();
+		gbc_rigidArea_2.insets = new Insets(0, 0, 0, 5);
+		gbc_rigidArea_2.gridx = 0;
+		gbc_rigidArea_2.gridy = 5;
+		add(rigidArea_2, gbc_rigidArea_2);
+		
+		Component rigidArea_3 = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea_3 = new GridBagConstraints();
+		gbc_rigidArea_3.gridx = 3;
+		gbc_rigidArea_3.gridy = 5;
+		add(rigidArea_3, gbc_rigidArea_3);
+		
+		//listener
+		AlphanumericTextKeyListener pnameTextListener = new AlphanumericTextKeyListener(64,
+				AlphanumericTextKeyListener.pname_acceptables);
+		AlphanumericTextKeyListener pidTextListener = new AlphanumericTextKeyListener(64,
+				AlphanumericTextKeyListener.pid_acceptables);
+		DateTextKeyListener dobTextListener = new DateTextKeyListener();
+
+		textField_pid.addKeyListener(pidTextListener);
+		textField_pname.addKeyListener(pnameTextListener);
+		textField_dob.addKeyListener(dobTextListener);
+		
+	}
+	
+	public void searchInDB() {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (textField_pid != null && db != null) {
+			String pid = textField_pid.getText();
+			if (pid != null && pid.strip().length()!=0) {
+				HashMap<String, String> info = db.getPatientInfoByPatID(pid);
+				if (info != null) {
+					textField_pname.setText(info.get("PatientName"));
+					textField_dob.setText(info.get("PatientBirthDate"));
+					String sex = info.get("PatientSex");
+					
+					Log.logger.fine("PID key listener is working!"+":"+pid+"_"+info.get("PatientName")+"_"+info.get("PatientBirthDate")+"_"+sex);
+					
+					if (sex != null) {
+						Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
+						while (iter.hasNext()) {
+							AbstractButton currentButton = iter.next();
+							if (sex.equals("M")) {
+								if (currentButton.getActionCommand().equals("Male")) {
+									btnGroupSex.setSelected(currentButton.getModel(), true);
+									break;
+								}
+							} else if (sex.equals("F")) {
+								if (currentButton.getActionCommand().equals("Female")) {
+									btnGroupSex.setSelected(currentButton.getModel(), true);
+									break;
+								}
+							} else if (sex.equals("O")) {
+								if (currentButton.getActionCommand().equals("Other")) {
+									btnGroupSex.setSelected(currentButton.getModel(), true);
+									break;
+								}
+							} else {//for anonymized data
+								if (currentButton.getActionCommand().equals("None")) {
+									btnGroupSex.setSelected(currentButton.getModel(), true);
+									break;
+								}
+							}
+						}
+					}else {
+						Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
+						while (iter.hasNext()) {
+							AbstractButton currentButton = iter.next();
+							if (currentButton.getActionCommand().equals("None")) {
+								btnGroupSex.setSelected(currentButton.getModel(), true);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+		
+	public HashMap<Integer, Object> getInputs() {
+		String pid = textField_pid.getText();
+		String pname = textField_pname.getText();
+		String dob = textField_dob.getText();
+		String sex = btnGroupSex.getSelection().getActionCommand();
+		if(sex.equals("Male")) {
+			sex = "M";
+		}else if(sex.equals("Female")) {
+			sex = "F";
+		}else if(sex.equals("Other")) {
+			sex = "O";
+		}else if(sex.equals("None")) {
+			sex = null;
+		}
+		HashMap<Integer,Object> info = new HashMap<>();
+		info.put(Tag.PatientID, pid);
+		info.put(Tag.PatientName, pname);
+		info.put(Tag.PatientBirthDate, dob);
+		info.put(Tag.PatientSex, sex);
+		return info;
+	}
+	
+	/**
+	 * See, DicomUtilities.getPatientInfo
+	 * 	ids[0] = dataset.getString(Tag.PatientID);
+	 * ids[1] = dataset.getString(Tag.PatientName);
+	 * ids[2] = dataset.getString(Tag.PatientBirthDate);
+	 * ids[3] = dataset.getString(Tag.PatientSex);
+	 * @param info
+	 */
+	public void setInputs(String[] info) {
+		textField_pid.setText(info[0]);
+		textField_pname.setText(info[1]);
+		textField_dob.setText(info[2]);
+		if (info[3] != null) {
+			Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
+			while (iter.hasNext()) {
+				AbstractButton currentButton = iter.next();
+				if (info[3].equals("M")) {
+					if (currentButton.getActionCommand().equals("Male")) {
+						btnGroupSex.setSelected(currentButton.getModel(), true);
+						break;
+					}
+				} else if (info[3].equals("F")) {
+					if (currentButton.getActionCommand().equals("Female")) {
+						btnGroupSex.setSelected(currentButton.getModel(), true);
+						break;
+					}
+				} else if (info[3].equals("O")) {
+					if (currentButton.getActionCommand().equals("Other")) {
+						btnGroupSex.setSelected(currentButton.getModel(), true);
+						break;
+					}
+				} else {//for anonymized data
+					if (currentButton.getActionCommand().equals("None")) {
+						btnGroupSex.setSelected(currentButton.getModel(), true);
+						break;
+					}
+				}
+			}
+		}else {
+			Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
+			while (iter.hasNext()) {
+				AbstractButton currentButton = iter.next();
+				if (currentButton.getActionCommand().equals("None")) {
+					btnGroupSex.setSelected(currentButton.getModel(), true);
+					break;
+				}
+			}
+		}
+		searchInDB();
+	}
 }
