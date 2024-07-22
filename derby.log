@@ -1,6 +1,6 @@
 ----------------------------------------------------------------
-Sun Jul 21 12:17:11 JST 2024:
-Booting Derby version The Apache Software Foundation - Apache Derby - 10.14.2.0 - (1828579): instance a816c00e-0190-d34b-120b-00000cb2db96 
+Mon Jul 22 12:42:46 JST 2024:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.14.2.0 - (1828579): instance a816c00e-0190-d888-dac1-00000cb2db96 
 on database directory /home/tatsunidas/graphy-workspace3/graphy/graphydb with class loader jdk.internal.loader.ClassLoaders$AppClassLoader@6a6824be 
 Loaded from file:/home/tatsunidas/.m2/repository/org/apache/derby/derby/10.14.2.0/derby-10.14.2.0.jar
 java.vendor=Eclipse Adoptium
@@ -11,6 +11,3 @@ os.arch=amd64
 os.version=6.5.0-44-generic
 derby.system.home=/home/tatsunidas/graphy-workspace3/graphy
 Database Class Loader started - derby.database.classpath=''
-----------------------------------------------------------------
-Sun Jul 21 12:21:51 JST 2024:
-Shutting down instance a816c00e-0190-d34b-120b-00000cb2db96 on database directory /home/tatsunidas/graphy-workspace3/graphy/graphydb with class loader jdk.internal.loader.ClassLoaders$AppClassLoader@6a6824be 

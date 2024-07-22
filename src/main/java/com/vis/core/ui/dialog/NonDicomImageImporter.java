@@ -1,6 +1,10 @@
 package com.vis.core.ui.dialog;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -9,7 +13,9 @@ import java.util.HashMap;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.core.log.Log;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.ImageUtils;
@@ -95,7 +101,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 	
 	void doImport() {
 		boolean importNewStudy = panel.isImportNew();
-		HashMap<String,String> inputs = panel.getInputs();
+		HashMap<Integer,String> inputs = panel.getInputs();
 		
 		File[] files = jfc.getSelectedFiles();
 		ArrayList<File> videos = new ArrayList<>();
@@ -107,53 +113,77 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			}
 			if(ImageUtils.isImageFile(f.getAbsolutePath())) {
 				images.add(f);
+				continue;
 			}
 			if(ImageUtils.isVideoFile(f.getAbsolutePath())) {
 				videos.add(f);
+				continue;
 			}
 			if(ImageUtils.isPDF(f.getAbsolutePath())) {
 				pdfs.add(f);
+				continue;
 			}
 		}
 		
 		Calendar now = Calendar.getInstance();
-		File dirInTemp = Utils.createNewDirInTemp();
-		if(!importNewStudy) {
-			/*
-			 * get study uid
-			 */
-			String pname = inputs.get("PatientName");
-			String pid = inputs.get("PatientID");
-			String sex = inputs.get("PatientSex");
-			String dob = inputs.get("DateOfBirth");
-			String studyUID = inputs.get("StudyInstanceUID");
-			
-			Date dob_ = null;
-			if(dob.contains("-")) {
-				dob_ = DateUtils.toDateObj(dob, "-");
-			}else {
-				dob_ = DateUtils.toDateObj(dob, "/");
+		
+		String pname = inputs.get(Tag.Patient​Name);
+		String pid = inputs.get(Tag.Patient​ID);
+		String sex = inputs.get(Tag.Patient​Sex);
+		String dob = inputs.get(Tag.Patient​Birth​Date);
+		String studyDesc = inputs.get(Tag.Study​Description);
+		String seriesDesc = inputs.get(Tag.Series​Description);
+		String studyUID = inputs.get(Tag.Study​Instance​UID);
+		
+		if(pid == null || pid.trim().length()==0) {
+			int res = PopUpMessage.showDialog(
+					this, 
+					"PatientID is blank", 
+					"You have to input PatientID.\nIf you'd like to continue no PatientID, PatientID will set to NoPID.", 
+					JOptionPane.INFORMATION_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION);
+			if(res != JOptionPane.OK_OPTION) {
+				Thread.interrupted();
+				return;
 			}
-			
+		}
+		
+		if(pname == null || pname.trim().length()==0) {
+			pname = NoName;
+		}
+		
+		Date dob_ = null;
+		if(dob.contains("-")) {
+			dob_ = DateUtils.toDateObj(dob, "-");
+		}else {
+			dob_ = DateUtils.toDateObj(dob, "/");
+		}
+		
+		Path tempDir = null;
+		try {
+			tempDir = Files.createTempDirectory(ConfigInfo.AppName.toString(), new FileAttribute<?>[0]);
+		} catch (IOException e) {
+			Log.logger.severe(e.getMessage());
+			Thread.interrupted();
+			return;
+		}
+		
+		if(!importNewStudy) {
 			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(pid, studyUID);
 			int numOfSeries = db.getNumOfSeriesInStudy(studyUID);
 			String studyID = studyInfo.get("StudyID");
 			String studyDate = studyInfo.get("StudyDate");
 			String studyTime = studyInfo.get("StudyTime");
-			String studyDesc = db.getStudyInfoByUIDs(pid, studyUID).get("StudyDescription");
 			
 			Date studyDate_ = DateUtils.toDateObj(studyDate, "/");
 			Date studyTime_ = DateUtils.toTimeObj(studyTime, ":");
 
-			HashMap<String,String> keys = panel.getInputs();
-			String seriesDesc = keys.get("SeriesDesc");
 			String seriesUID = UIDUtils.createUID();
 			
 			Date contentDateTime = now.getTime();
 			
 			createDcmImages(
 					images,//as one series
-					dirInTemp,
+					tempDir.toFile(),
 					pname,
 					pid,
 					sex,
@@ -173,13 +203,13 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			numOfSeries = images.size() == 0 ? numOfSeries+1:numOfSeries+2;/*images deal with one series*/
 			createDcmVideos(
 					videos, 
-					dirInTemp, 
+					tempDir.toFile(), 
 					pname, 
 					pid, 
 					sex, 
 					dob_, 
 					studyUID, 
-					studyID, 
+					studyID,
 					studyDesc, 
 					studyDate_, 
 					studyTime_, 
@@ -191,7 +221,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			numOfSeries = videos.size() == 0 ? numOfSeries+1:numOfSeries+videos.size();
 			createDcmPDF(
 					pdfs, 
-					dirInTemp, 
+					tempDir.toFile(), 
 					pname, 
 					pid, 
 					sex, 
@@ -209,21 +239,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			/*
 			 * import as new study
 			 */
-			HashMap<String,String> keys = panel.getInputs();
-			String pname = keys.get("PatientName");
-			if(pname == null || pname.trim().length()==0) {
-				pname = NoName;
-			}
-			String pid = keys.get("PatientID");
-			if(pid == null || pid.trim().length()==0) {
-				pid = NoPID;
-			}
-			String dob = keys.get("BirthOfDate");
-			String sex = keys.get("Sex");
-			String studyDesc = keys.get("StudyDesc");
-			String seriesDesc = keys.get("SeriesDesc");
-			
-//			//create new study/series uids
+			//create new study/series uids
 			String studyInstUID = UIDUtils.createUID();
 			String seriesInstUID = UIDUtils.createUID();
 			int numOfSeries = 1;//first series in new study
@@ -232,7 +248,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			
 			createDcmImages(
 					images,
-					dirInTemp,
+					tempDir.toFile(),
 					pname,
 					pid,
 					sex,
@@ -254,7 +270,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			numOfSeries = images.size() == 0 ? numOfSeries:numOfSeries+1;/*images deal with one series*/
 			createDcmVideos(
 					videos, 
-					dirInTemp, 
+					tempDir.toFile(),
 					pname, 
 					pid, 
 					sex, 
@@ -272,7 +288,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			numOfSeries = videos.size() == 0 ? numOfSeries:numOfSeries+videos.size();
 			createDcmPDF(
 					pdfs, 
-					dirInTemp, 
+					tempDir.toFile(),
 					pname, 
 					pid, 
 					sex, 
@@ -288,8 +304,23 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 					numOfSeries);
 		}
 		//send to graphy db...
-		if (dirInTemp.listFiles() != null && dirInTemp.listFiles().length > 0) {
-			DimseUtilities.sendMe(dirInTemp.listFiles());
+		if (tempDir.toFile().listFiles() != null && tempDir.toFile().listFiles().length > 0) {
+			DimseUtilities.sendMe(tempDir.toFile().listFiles());
+			for(File f : tempDir.toFile().listFiles()) {
+				try {
+					Files.delete(f.toPath());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		if (tempDir != null && Files.exists(tempDir)) {
+			try {
+				Files.delete(tempDir);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			Log.logger.fine("Temporary directory deleted");
 		}
 	}
 	
@@ -400,8 +431,9 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 				try {
 					reader.read(f);
 				} catch (Exception e) {
-					e.printStackTrace();
+					Log.logger.warning(e.getMessage());
 					reader.close();
+					// skip this video
 					continue;
 				}
 				ImagePlus imp = reader.convert2ImagePlus();

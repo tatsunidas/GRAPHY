@@ -48,6 +48,9 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.listener.AlphanumericTextKeyListener;
 import com.vis.core.ui.listener.DateTextKeyListener;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Tag;
+import com.vis.dicom.UIDUtils;
 
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
@@ -377,15 +380,15 @@ public class ImportNonDicomImagePanel extends JPanel{
 	}
 	
 	String getSelectedStudyIUID() {
-		StudyContext item = (StudyContext)comboBoxStudies.getSelectedItem();
+		Object item = comboBoxStudies.getSelectedItem();
 		if(item == null) {
 			return null;
-		}else {
-			return item.getUID();
 		}
+		StudyContext item_ = (StudyContext)item;
+		return item_.getUID();
 	}
 	
-	public HashMap<String,String> getInputs() {
+	public HashMap<Integer,String> getInputs() {
 		String pid = textField_pid.getText();
 		String pname = textField_pname.getText();
 		String dob = textField_dob.getText();
@@ -400,13 +403,25 @@ public class ImportNonDicomImagePanel extends JPanel{
 			sex = null;
 		}
 		String study_uid = getSelectedStudyIUID();
-		HashMap<String,String> info = new HashMap<>();
-		info.put("PatientID", pid);
-		info.put("PatientName", pname);
-		info.put("DateOfBirth", dob);
-		info.put("PatientSex", sex);
+		String study_desc = null;
+		String series_desc = null;
+		if(isImportNew()) {
+			study_desc = textField_study.getText();
+			series_desc = textField_series.getText();
+			study_uid = UIDUtils.createUID();
+		}else {
+			study_desc = DatabaseHandler.getInstance().getParticularInfoFromStudy("StudyDescription", pid, study_uid);
+			series_desc = textField_series.getText();
+		}
 		
-		info.put("StudyInstanceUID", study_uid);
+		HashMap<Integer,String> info = new HashMap<>();
+		info.put(Tag.Patient​ID, pid);
+		info.put(Tag.Patient​Name, pname);
+		info.put(Tag.Patient​Birth​Date, dob);
+		info.put(Tag.Patient​Sex, sex);
+		info.put(Tag.Study​Description, study_desc);
+		info.put(Tag.Series​Description, series_desc);
+		info.put(Tag.Study​Instance​UID, study_uid);
 		return info;
 	}
 	
