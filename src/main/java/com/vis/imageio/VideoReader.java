@@ -37,225 +37,83 @@
  */
 package com.vis.imageio;
 
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.net.URLConnection;
 
-import javax.media.ControllerEvent;
-import javax.media.ControllerListener;
-import javax.media.Manager;
-import javax.media.MediaLocator;
-import javax.media.NoProcessorException;
-import javax.media.Player;
-import javax.media.PrefetchCompleteEvent;
-import javax.media.RealizeCompleteEvent;
-import javax.media.control.FrameGrabbingControl;
-import javax.media.control.FramePositioningControl;
-import javax.media.util.BufferToImage;
-
+import com.vis.core.log.Log;
 import com.vis.core.util.ImageUtils;
-import com.vis.core.util.Platform;
 
 import ij.ImagePlus;
-import ij.ImageStack;
-import ij.process.ByteProcessor;
-import ij.process.ColorProcessor;
-import ij.process.ImageProcessor;
-import ij.process.ShortProcessor;
 
-/**
- * Audio data was ignored when a video has no supported audio format data.
- * @author tatsunidas
- *
- */
-public class VideoReader implements ControllerListener {
+public interface VideoReader {
 	
-	Player reader;
-	FramePositioningControl framePositioningControl; 
-	FrameGrabbingControl frameGrabbingControl;
-	Integer numOfFrames;
-	Integer flops;
-	String fileName;
+	// lib IDs
+	final int IJ = 0;//ImageJ
+	final int JMF = 1;
+	final int JC = 2;//JCodec
 	
-	public VideoReader() {}
-	
-	public void read(File video) throws Exception {
-		if(!ImageUtils.isVideoFile(video.getAbsolutePath())) {
-			throw new Exception("No video file inputed !");
-		}
-		if(!readableFormat(video.getAbsolutePath())) {
-			System.out.println("This video file is not readable.");
-			return;
-		}
-		constractPlayer(video);
-		if(reader == null) {
-			System.out.println("Sorry, cannot load this video file...Please check video file.");
-		}
-		numOfFrames = getFrameCount();
-		flops = (int) Math.rint(numOfFrames/reader.getDuration().getSeconds());
-		fileName = video.getName();
-	}
-	
-	private void constractPlayer(File videoFile) {
+	public static VideoReader load(File video){
 		try {
-			MediaLocator locator = new MediaLocator(videoFile.toURI().toURL());
-			javax.media.protocol.DataSource source = Manager.createDataSource(locator);
-			reader = Manager.createRealizedPlayer(source);
-			// realize call will launch a chain of events,
-			reader.addControllerListener(this);
-			reader.prefetch();
-			updateControls();
+			if (ImageUtils.isVideoFile(video.getAbsolutePath())) {
+				String MIMETYPE = URLConnection.guessContentTypeFromName(video.getAbsolutePath());
+				int lib_id = selectLib(MIMETYPE);
+				if (lib_id == IJ) {
+					return (VideoReader) new VideoReaderIJ(MIMETYPE, video);
+				}else if (lib_id == JMF) {
+					return (VideoReader) new VideoReaderJMF(MIMETYPE, video);
+				}else if (lib_id == JC) {
+					return (VideoReader) new VideoReaderJCodec(MIMETYPE, video);
+				}else {
+					return null;
+				}
+			}
 		} catch (Exception e) {
-			System.out.println("Could not create VideoSource!");
-			e.printStackTrace();
-			if(reader !=null) {
-				reader.close();
-			}
-		}
-	}
-	
-	private Integer getFrameCount() {
-		if (reader == null) {
-			return null;
-		}
-		return framePositioningControl.mapTimeToFrame(reader.getDuration()); 
-	}
-	
-	/**
-	 * Video : avi, mpg, mov
-	 * @param path
-	 * @return
-	 */
-	public static boolean readableFormat(String path) {
-		
-		try {
-			Manager.createProcessor(new MediaLocator(new File(path).toURI().toURL()));
-		} catch (NoProcessorException | IOException e) {
-			/*
-			 * if NoProcessException occurred, can not read that file.
-			 */
-			return false;
-		}
-
-		String mimeType = URLConnection.guessContentTypeFromName(path);
-		if (mimeType.endsWith("mpeg")) {
-			if (Platform.getCurrentPlatform() == Platform.MAC) {
-				System.out.println("Sorry, you have to use win/linux OS to decode MPEG...");
-				return false;
-			}
-		}
-		if (path.endsWith(".avi") || path.endsWith(".mpg") || path.endsWith(".mov")) {
-			return true;
-		}
-		return false;
-	}
-	
-	public BufferedImage getFrame(int index) {
-		if (reader == null || index < 0 || index > numOfFrames) {
-			return null;
-		}
-		framePositioningControl.seek(index);//set position
-		javax.media.Buffer buffer = frameGrabbingControl.grabFrame();
-		Image img = new BufferToImage((javax.media.format.VideoFormat) buffer.getFormat()).createImage(buffer);
-		if (img != null) {
-			BufferedImage bi = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
-			Graphics2D g = bi.createGraphics();
-			g.drawImage(img, 0, 0, null);
-			return bi;
+			Log.logger.warning("This file is not video format.:\n" + e.getMessage());
 		}
 		return null;
 	}
 	
+	public ImagePlus read();
+	public ImagePlus getImagePlus();
+	public int getNumOfFrames();
+	public double getFrameRate();
+	public String mimeType();
+
 	/**
-	 * flops : fps
+	 * ImageJ: avi application/x-troff-msvideo
+	 * 
+	 * JMF: Supported format: https://www.oracle.com/java/technologies/javase/jmf-211-formats.html
+	 * 
+	 * [Video]
+	 * AVI(.avi) without compress
+	 * MPEG-1 Video(.mpg)
+	 * QuickTime (.mov)
+	 * [Audio]
+	 * AIFF(.aiff)
+	 * GSM(.gsm)
+	 * HotMedia(.mvr)
+	 * MIDI(.mid)
+	 * MPEG Layer II Audio (.mp2)
+	 * Sun Audio (.au)
+	 * Wave (.wav)
+	 * 
+	 * JCodec
+	 * [Video]
+	 * MP4-AVC, MP4-H.264, ISO BMF, Quicktime container
+	 * 
+	 * @param path
 	 * @return
 	 */
-	public Integer getFrameRate() {
-		if(reader == null) {
-			return null;
+	private static int selectLib(String MIMETYPE) {
+		if(MIMETYPE.endsWith("msvideo") || MIMETYPE.endsWith("avi")) {
+			return IJ;
 		}
-		return flops;
-	}
-	
-	public Double getDurationSeconds() {
-		if(reader == null) {
-			return null;
+		if(MIMETYPE.endsWith("mpeg") || MIMETYPE.endsWith("quicktime")) {
+			return JMF;
 		}
-		return reader.getDuration().getSeconds();
-	}
-	
-	public Integer getNumberOfFrames() {
-		return numOfFrames;
-	}
-	
-	public Integer getWidth() {
-		if(reader == null) {
-			return null;
+		if(MIMETYPE.endsWith("mp4")) {
+			return JC;
 		}
-		return getFrame(0).getWidth();
-	}
-	
-	public Integer getHeight() {
-		if(reader == null) {
-			return null;
-		}
-		return getFrame(0).getHeight();
-	}
-	
-	public ImagePlus convert2ImagePlus() {
-		if(reader == null) {
-			return null;
-		}
-		ImageStack stack = new ImageStack();
-		for(int i=0;i<numOfFrames;i++) {
-			BufferedImage bi = getFrame(i);
-			int type = bi.getType();
-			ImageProcessor ip;
-			if(type == BufferedImage.TYPE_BYTE_GRAY || type == BufferedImage.TYPE_BYTE_BINARY) {
-				ip = new ByteProcessor(bi);
-			}else if(type == BufferedImage.TYPE_USHORT_GRAY) {
-				ip = new ShortProcessor(bi);
-			}else {
-				ip = new ColorProcessor(bi);
-			}
-			stack.addSlice(ip);
-		}
-		ImagePlus imp = new ImagePlus(fileName, stack);
-		if(getFrameRate() != null) {
-			imp.getCalibration().fps = (double)getFrameRate();
-		}
-		return imp;
-	}
-	
-	private void updateControls() {
-		framePositioningControl = (FramePositioningControl) reader
-				.getControl("javax.media.control.FramePositioningControl");
-		if (framePositioningControl == null) {
-			System.out.println("Error: FramePositioningControl!");
-			return;
-		}
-		frameGrabbingControl = (FrameGrabbingControl) reader.getControl("javax.media.control.FrameGrabbingControl");
-		if (frameGrabbingControl == null) {
-			System.out.println("Error: FrameGrabbingControl!");
-			return;
-		}
-	}
-	
-	public void close() {
-		if(reader != null) {
-			reader.close();
-		}
-	}
-
-	@Override
-	public void controllerUpdate(ControllerEvent e) {
-		if (e instanceof RealizeCompleteEvent) {
-			reader.prefetch();
-		} else if (e instanceof PrefetchCompleteEvent) {
-			updateControls();
-		}
+		return -1;
 	}
 }

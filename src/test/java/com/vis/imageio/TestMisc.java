@@ -75,11 +75,9 @@ public class TestMisc {
 		String webm = "/home/tatsunidas/ビデオ/Kazam_screencast_00000.webm";
 		
 		File f = new File(avi2);
-		
-		VideoReader reader = new VideoReader();
 		try {
-			reader.read(f);
-			ImagePlus imp = reader.convert2ImagePlus();
+			VideoReader reader = VideoReader.load(f);
+			ImagePlus imp = reader.read();
 			imp.show();
 		} catch (Exception e) {
 			e.printStackTrace();

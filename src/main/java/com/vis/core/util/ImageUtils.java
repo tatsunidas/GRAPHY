@@ -54,16 +54,12 @@ import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
-import com.vis.dicom.Tag;
-import com.vis.dicom.UID;
-import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.ImagePlusToDicomImage;
 
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
 import ij.process.ImageStatistics;
-import ij.util.DicomTools;
 
 public class ImageUtils {
 
@@ -88,7 +84,8 @@ public class ImageUtils {
 		if(mimeType.startsWith("video")) {
 			return true;
 		}
-		if(mimeType.contains("video") && path.endsWith(".avi")) {
+		// catch-up IJ's AVI
+		if(mimeType.endsWith("msvideo")) {
 			return true;
 		}
 		return false;

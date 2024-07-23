@@ -74,7 +74,8 @@
 		https://mvnrepository.com/artifact/net.ihe.gazelle.pixelmed.validator/Pixelmed-jar -->
 		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed -->
 		<dependency>
-			<groupId>com.dclunie</groupId>
+			<groupId>
+				com.dclunie</groupId>
 			<artifactId>pixelmed</artifactId>
 			<version>nrg-20200327-1</version>
 		</dependency>
@@ -92,24 +93,28 @@
 		</dependency>
 		-->
 		<dependency>
-			<groupId>org.jogamp.gluegen</groupId>
+			<groupId>
+				org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
 			<version>2.3.2</version>
 		</dependency>
 		<dependency>
-			<groupId>org.jogamp.jogl</groupId>
+			<groupId>
+				org.jogamp.jogl</groupId>
 			<artifactId>jogl-all-main</artifactId>
 			<version>2.3.2</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/sc.fiji/3D_Viewer -->
 		<dependency>
-			<groupId>sc.fiji</groupId>
+			<groupId>
+				sc.fiji</groupId>
 			<artifactId>3D_Viewer</artifactId>
 			<version>4.0.5</version>
 			<exclusions>
 				<exclusion>
 					<groupId>net.imagej</groupId>
-					<artifactId>ij</artifactId>
+					<artifactId>
+						ij</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -118,119 +123,150 @@
 
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derby -->
 		<dependency>
-			<groupId>org.apache.derby</groupId>
+			<groupId>
+				org.apache.derby</groupId>
 			<artifactId>derby</artifactId>
 			<version>${derby-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derbyclient -->
 		<dependency>
-			<groupId>org.apache.derby</groupId>
+			<groupId>
+				org.apache.derby</groupId>
 			<artifactId>derbyclient</artifactId>
-			<version>${derby-version}</version>
+			<version>
+				${derby-version}</version>
 		</dependency>
 
 		<!-- DICOM LIBRARIES -->
 		
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>dcm4che-core</artifactId>
+			<artifactId>
+				dcm4che-core</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio-rle -->
 		<dependency>
-			<groupId>org.dcm4che</groupId>
+			<groupId>
+				org.dcm4che</groupId>
 			<artifactId>dcm4che-imageio-rle</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>dcm4che-imageio</artifactId>
+			<artifactId>
+				dcm4che-imageio</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.sun.media</groupId>
+			<groupId>
+				com.sun.media</groupId>
 			<artifactId>jai_imageio</artifactId>
 			<version>1.2-pre-dr-b04</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.sun.media/clib_jiio -->
 		<dependency>
-		    <groupId>com.sun.media</groupId>
+		    <groupId>
+				com.sun.media</groupId>
 		    <artifactId>clib_jiio</artifactId>
 		    <version>1.2-pre-dr-b04</version>
-		    <type>pom</type>
+		    <type>
+				pom</type>
 		</dependency>
 		<dependency>
 		    <groupId>com.sun.media</groupId>
-		    <artifactId>clibwrapper_jiio</artifactId>
+		    <artifactId>
+				clibwrapper_jiio</artifactId>
 		    <version>1.2-pre-dr-b04</version>
 		    <type>pom</type>
 		</dependency>
 		<!-- when use open-cv, set run comfigration -Djava.library.path="E:/Dropbox/Graphy-WorkSpace2/graphy-parent/graphy-imageio/image-io-nativelib/windows-x86-64/" -->
 		<dependency>
-			<groupId>org.dcm4che</groupId>
+			<groupId>
+				org.dcm4che</groupId>
 			<artifactId>dcm4che-imageio-opencv</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-emf -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>dcm4che-emf</artifactId>
+			<artifactId>
+				dcm4che-emf</artifactId>
 			<version>5.23.1</version><!-- keep this version -->
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-common -->
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-common</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-storescu -->
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-storescu</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-dcmqrscp -->
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-dcmqrscp</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-net -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>dcm4che-net</artifactId>
+			<artifactId>
+				dcm4che-net</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-dcm2xml -->
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-dcm2xml</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-dcmdir</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-movescu</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.dcm4che.tool</groupId>
+			<groupId>
+				org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-getscu</artifactId>
-			<version>${dcm4che-version}</version>
+			<version>
+				${dcm4che-version}</version>
 		</dependency>
 		<dependency>
             <groupId>org.dcm4che</groupId>
-            <artifactId>dcm4che-dcmr</artifactId>
+            <artifactId>
+				dcm4che-dcmr</artifactId>
             <version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
 		<dependency>
-		    <groupId>org.dcm4che</groupId>
+		    <groupId>
+				org.dcm4che</groupId>
 		    <artifactId>dcm4che-dict</artifactId>
 		    <version>${dcm4che-version}</version>
 		</dependency>
@@ -239,60 +275,83 @@
 		<!-- MISC LIBRARIES -->
 		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
 		<dependency>
-		    <groupId>commons-io</groupId>
+		    <groupId>
+				commons-io</groupId>
 		    <artifactId>commons-io</artifactId>
-		    <version>${apache-commons-io-version}</version>
+		    <version>
+				${apache-commons-io-version}</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/org.pushing-pixels/radiance-substance -->
 		<dependency>
-		    <groupId>org.pushing-pixels</groupId>
+		    <groupId>
+				org.pushing-pixels</groupId>
 		    <artifactId>radiance-substance</artifactId>
-		    <version>${radiance-substance-version}</version>
+		    <version>
+				${radiance-substance-version}</version>
 		</dependency>
 		
 		<!-- PDF -->
 		<dependency>
-			<groupId>org.apache.pdfbox</groupId>
+			<groupId>
+				org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.pdfbox</groupId>
+			<groupId>
+				org.apache.pdfbox</groupId>
 			<artifactId>pdfbox-tools</artifactId>
-			<version>${pdfbox-version}</version>
+			<version>
+				${pdfbox-version}</version>
 		</dependency>
 		
 		<dependency>
 			<groupId>org.jdatepicker</groupId>
-			<artifactId>jdatepicker</artifactId>
+			<artifactId>
+				jdatepicker</artifactId>
 			<version>1.3.4</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/org.joml/joml -->
 		<dependency>
-		    <groupId>org.joml</groupId>
+		    <groupId>
+				org.joml</groupId>
 		    <artifactId>joml</artifactId>
 		    <version>${joml-version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.github.stephenc.java-iso-tools</groupId>
+			<groupId>
+				com.github.stephenc.java-iso-tools</groupId>
 			<artifactId>iso9660-writer</artifactId>
-			<version>2.1.0</version>
+			<version>
+				2.1.0</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
 		<dependency>
 		    <groupId>org.apache.commons</groupId>
-		    <artifactId>commons-math3</artifactId>
+		    <artifactId>
+				commons-math3</artifactId>
 		    <version>3.6.1</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/javax.media/jmf -->
 		<dependency>
-		    <groupId>javax.media</groupId>
+		    <groupId>
+				javax.media</groupId>
 		    <artifactId>jmf</artifactId>
 		    <version>2.1.1e</version>
 		</dependency>
-
+		<dependency>
+			<groupId>
+				org.jcodec</groupId>
+			<artifactId>jcodec</artifactId>
+			<version>0.2.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jcodec</groupId>
+			<artifactId>jcodec-javase</artifactId>
+			<version>0.2.5</version>
+		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<!--

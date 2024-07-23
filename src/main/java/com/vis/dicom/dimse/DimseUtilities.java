@@ -5,8 +5,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,7 +22,6 @@ import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomWriter;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
-import com.vis.dicom.VR;
 
 /**
  * @author tatsunidas

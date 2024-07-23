@@ -19,7 +19,6 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.core.log.Log;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.ImageUtils;
-import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
@@ -51,9 +50,9 @@ import ij.process.ImageProcessor;
  * 
  * Functions:
  * Integrate general images into an existing study as a new series
- * Imports as new studies not yet available. TODO 20231102
+ * If new patient, will import as a new studies not yet available in DB.
  * 
- * @author tatsu
+ * @author tatsunidas
  *
  */
 @SuppressWarnings("serial")
@@ -68,7 +67,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 	Thread t;
 	
 	final String NoName = "NoName";//OOMUNE^SOUDAROU
-	final String NoPID = "0000000000";//10 digits
+	final String NoPID = "NoPID";
 	
 	public NonDicomImageImporter(JFrame parent, boolean modal) {
 		super(parent, modal);
@@ -145,6 +144,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 				Thread.interrupted();
 				return;
 			}
+			pid = "NoPID";
 		}
 		
 		if(pname == null || pname.trim().length()==0) {
@@ -426,17 +426,16 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			byte[] bulk = null;
 			double duration;
 			boolean isColor;
-			if (VideoReader.readableFormat(f.getAbsolutePath())) {
-				VideoReader reader = new VideoReader();
+			VideoReader reader = VideoReader.load(f);
+			if (reader != null) {
+				ImagePlus imp = null;
 				try {
-					reader.read(f);
+					imp = reader.read();
 				} catch (Exception e) {
 					Log.logger.warning(e.getMessage());
-					reader.close();
 					// skip this video
 					continue;
 				}
-				ImagePlus imp = reader.convert2ImagePlus();
 				/*
 				 * imageplus will ignore alpha.
 				 */
@@ -447,7 +446,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 				frames = imp.getNSlices();
 				isColor = (c > 1 || bits >= 24);
 				flops = imp.getCalibration().fps;
-				duration = reader.getDurationSeconds();
+				duration = Math.rint(frames * flops);
 				int len = w * h * c * bits / 8;
 				bulk = new byte[frames*len];
 				for (int k = 0; k < frames; k++) {
@@ -471,9 +470,8 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 						}
 					}
 				}
-				reader.close();
-			}else {//compressed type mpeg2, mp4
-				//TODO
+			}else {
+				//cannot handle format
 				continue;
 			}
 			DicomObject core = DicomObject.newDicomObject();
