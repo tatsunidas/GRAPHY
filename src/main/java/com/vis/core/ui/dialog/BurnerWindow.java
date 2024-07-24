@@ -1,7 +1,46 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.dialog;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.swing.JFrame;
 import javax.swing.JComboBox;
@@ -22,8 +61,10 @@ import org.apache.commons.io.FileUtils;
 import com.vis.cdw.cdrecord.BurnCD;
 import com.vis.cdw.common.CDRToolsProperties;
 import com.vis.cdw.common.DriveUtil;
-import com.vis.cdw.common.FileDelete;
 import com.vis.cdw.common.MediaCreationException;
+import com.vis.configuration.ConfigInfo;
+import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 
 import java.awt.FlowLayout;
 import javax.swing.JCheckBox;
@@ -34,6 +75,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 
 @SuppressWarnings("serial")
 public class BurnerWindow extends JFrame implements WindowListener{
@@ -52,7 +99,11 @@ public class BurnerWindow extends JFrame implements WindowListener{
 
 	// debug
 	public static void main(String[] args) {
-		new BurnerWindow(new File("temp/DICOM-CD-TEST"), true);
+		//new BurnerWindow(new File("temp/DICOM-CD-TEST"), true);
+		
+		//resource copy test
+		
+		
 	}
 
 	/*
@@ -68,8 +119,8 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		this.simulate = debug;
 
 		if (!burnFileInTemp.exists()) {
-			JOptionPane.showConfirmDialog(null, "Could not find the burn target folder, please re-try.",
-					"Something strange about burn media..?? return null", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showConfirmDialog(MainScreen.getInstance(), "Could not find the burn target folder, please re-try.",
+					"Something strange about burn target media..?? return", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -294,11 +345,15 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		String device = getDeviveScsi((String) comboBoxDrive.getSelectedItem());
 		boolean eject = chckbxEject.isSelected();
 		if (withViewer()) {
-			
 			try {
 				FileUtils.copyDirectory(burnFileInTemp, new File("weasis-portable"));
-				//DO NOT USE
-//				java.nio.file.Files.copy(new File("weasis-portable").toPath(), burnFileInTemp.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				try {
+					Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
+					Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
+				} catch (IOException e) {
+					Log.logger.severe("Cannot copy default graphy properties file.");
+					Log.logger.severe(e.getMessage());
+				}
 			} catch (IOException e) {
 				System.out.println(e);
 				JOptionPane.showConfirmDialog(null, "Could not create the burn target folder, please re-try.",
@@ -339,12 +394,15 @@ public class BurnerWindow extends JFrame implements WindowListener{
 	}
 
 	private void cancel() {
-		
 		// delete burnFileInTemp
-		File[] files = new File("graphy_tmp").listFiles();
+		File[] files = new File(ConfigInfo.getPath(ConfigInfo.TemporalDirName)).listFiles();
 		if (files != null && files.length > 0) {
 			for (File del : files) {
-				new FileDelete().deleteDir(del);
+				try {
+					FileUtils.deleteDirectory(del);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 		if(anonymizer != null) {

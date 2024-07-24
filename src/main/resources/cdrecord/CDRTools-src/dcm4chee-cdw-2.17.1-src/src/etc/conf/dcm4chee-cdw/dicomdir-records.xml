@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<records>
+  <!-- Patient Directory Record -->
+  <record type="PATIENT">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Patient's Name -->
+    <attr tag="(0010,0010)"/>
+    <!-- Patient ID -->
+    <attr tag="(0010,0020)"/>
+    <!-- Patient s Birth Date -->
+    <attr tag="(0010,0030)"/>
+    <!-- Patient s Sex -->
+    <attr tag="(0010,0040)"/>
+  </record>
+  <!-- Study Directory Record -->
+  <record type="STUDY">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Study Date -->
+    <attr tag="(0008,0020)"/>
+    <!-- Study Time -->
+    <attr tag="(0008,0030)"/>
+    <!-- Accession Number -->
+    <attr tag="(0008,0050)"/>
+    <!-- Referring Physician s Name -->
+    <attr tag="(0008,0090)"/>
+    <!-- Study Description -->
+    <attr tag="(0008,1030)"/>
+    <!-- Study Instance UID -->
+    <attr tag="(0020,000D)"/>
+    <!-- Study ID -->
+    <attr tag="(0020,0010)"/>
+  </record>
+  <!-- Series Directory Record -->
+  <record type="SERIES">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Series Date -->
+    <attr tag="(0008,0021)"/>
+    <!-- Series Time -->
+    <attr tag="(0008,0031)"/>
+    <!-- Modality -->
+    <attr tag="(0008,0060)"/>
+    <!-- Manufacturer -->
+    <attr tag="(0008,0070)"/>
+    <!-- Institution Name -->
+    <attr tag="(0008,0080)"/>
+    <!-- Institution Address -->
+    <attr tag="(0008,0081)"/>
+    <!-- Performing Physicians  Name -->
+    <attr tag="(0008,1050)"/>
+    <!-- Manufacturer's Model Name -->
+    <attr tag="(0008,1090)"/>
+    <!-- Referenced Performed Procedure Step Sequence -->
+    <attr tag="(0008,1111)"/>
+    <!-- Series Instance UID -->
+    <attr tag="(0020,000E)"/>
+    <!-- Series Number -->
+    <attr tag="(0020,0011)"/>
+    <!-- Performed Procedure Step Start Date -->
+    <attr tag="(0040,0244)"/>
+    <!-- Performed Procedure Step Start Time -->
+    <attr tag="(0040,0245)"/>
+  </record>
+  <!-- Image Directory Record -->
+  <record type="IMAGE">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Image Type -->
+    <attr tag="(0008,0008)"/>
+    <!-- Acquisition Date -->
+    <attr tag="(0008,0022)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Acquisition Datetime -->
+    <attr tag="(0008,002A)"/>
+    <!-- Acquisition Time -->
+    <attr tag="(0008,0032)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Referenced Image Sequence -->
+    <attr tag="(0008,1140)"/>
+    <!-- Acquisition Time Synchronized -->
+    <attr tag="(0018,1800)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Image Position (Patient) -->
+    <attr tag="(0020,0032)"/>
+    <!-- Image Orientation (Patient) -->
+    <attr tag="(0020,0037)"/>
+    <!-- Frame of Reference UID -->
+    <attr tag="(0020,0052)"/>
+    <!-- Synchronization Frame of Reference UID -->
+    <attr tag="(0020,0200)"/>
+    <!-- Number of Frames -->
+    <attr tag="(0028,0008)"/>
+    <!-- Rows -->
+    <attr tag="(0028,0010)"/>
+    <!-- Columns -->
+    <attr tag="(0028,0011)"/>
+    <!-- Pixel Spacing -->
+    <attr tag="(0028,0030)"/>
+    <!-- Image Compression -->
+    <attr tag="(0028,2110)"/>
+    <!-- Calibration Image -->
+    <attr tag="(0050,0004)"/>
+  </record>
+  <!-- Standalone overlay Directory Record -->
+  <record type="OVERLAY">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Overlay Number -->
+    <attr tag="(0020,0022)"/>
+  </record>
+  <!-- Standalone modality LUT Directory Record -->
+  <record type="MODALITY LUT">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Lookup table Number -->
+    <attr tag="(0020,0026)"/>
+  </record>
+  <!-- Standalone VOI LUT Directory Record -->
+  <record type="VOI LUT">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Lookup table Number -->
+    <attr tag="(0020,0026)"/>
+  </record>
+  <!-- Standalone curve Directory Record -->
+  <record type="CURVE">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Curve Number -->
+    <attr tag="(0020,0024)"/>
+  </record>
+  <!-- RT Dose Directory Record -->
+  <record type="RT DOSE">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Dose Comment -->
+    <attr tag="(3004,0006)"/>
+    <!-- Dose Summation Type -->
+    <attr tag="(3004,000A)"/>
+  </record>
+  <!-- RT Structure Set Directory Record -->
+  <record type="RT STRUCTURE SET">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Structure Set Label -->
+    <attr tag="(3006,0002)"/>
+    <!-- Structure Set Date -->
+    <attr tag="(3006,0008)"/>
+    <!-- Structure Set Time -->
+    <attr tag="(3006,0009)"/>
+  </record>
+  <!-- RT Plan Directory Record -->
+  <record type="RT PLAN">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- RT Plan Label -->
+    <attr tag="(300A,0002)"/>
+    <!-- RT Plan Date -->
+    <attr tag="(300A,0006)"/>
+    <!-- RT Plan Time -->
+    <attr tag="(300A,0007)"/>
+  </record>
+  <!-- RT Treatment Record Directory Record -->
+  <record type="RT TREATMENT RECORD">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Treatment Date -->
+    <attr tag="(3008,0250)"/>
+    <!-- Treatment Time -->
+    <attr tag="(3008,0251)"/>
+  </record>
+  <!-- Presentation State Directory Record -->
+  <record type="PRESENTATION">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Referenced Series Sequence -->
+    <attr tag="(0008,1115)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Content Label -->
+    <attr tag="(0070,0080)"/>
+    <!-- Content Description -->
+    <attr tag="(0070,0081)"/>
+    <!-- Content Creator's Name -->
+    <attr tag="(0070,0084)"/>
+    <!-- Content Creator's Identification Sequence -->
+    <attr tag="(0070,0086)"/>
+  </record>
+  <!-- Waveform Directory Record -->
+  <record type="WAVEFORM">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+  </record>
+  <!-- SR Document Directory Record -->
+  <record type="SR DOCUMENT">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Verification DateTime -->
+    <attr tag="(0040,A030)"/>
+    <!-- Concept Name Code Sequence -->
+    <attr tag="(0040,A043)"/>
+    <!-- Completion Flag -->
+    <attr tag="(0040,A491)"/>
+    <!-- Verification Flag -->
+    <attr tag="(0040,A493)"/>
+  </record>
+  <!-- Key Object Document Directory Record -->
+  <record type="KEY OBJECT DOC">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Concept Name Code Sequence -->
+    <attr tag="(0040,A043)"/>
+  </record>
+  <!-- Spectroscopy Directory Record -->
+  <record type="SPECTROSCOPY">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Image Type -->
+    <attr tag="(0008,0008)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Referenced Image Evidence Sequence -->
+    <attr tag="(0008,9092)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Number of Frames -->
+    <attr tag="(0028,0008)"/>
+    <!-- Rows -->
+    <attr tag="(0028,0010)"/>
+    <!-- Columns -->
+    <attr tag="(0028,0011)"/>
+    <!-- Data Point Rows -->
+    <attr tag="(0028,9001)"/>
+    <!-- Data Point Columns -->
+    <attr tag="(0028,9002)"/>
+  </record>
+  <!-- Raw Data Directory Record -->
+  <record type="RAW DATA">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+  </record>
+  <!-- Spatial Registration Record -->
+  <record type="REGISTRATION">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Content Label -->
+    <attr tag="(0070,0080)"/>
+    <!-- Content Description -->
+    <attr tag="(0070,0081)"/>
+    <!-- Content Creator's Name -->
+    <attr tag="(0070,0084)"/>
+    <!-- Content Creator's Identification Sequence -->
+    <attr tag="(0070,0086)"/>
+  </record>
+  <!-- Spatial Fiducials Directory Record -->
+  <record type="FIDUCIAL">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Content Label -->
+    <attr tag="(0070,0080)"/>
+    <!-- Content Description -->
+    <attr tag="(0070,0081)"/>
+    <!-- Content Creator's Name -->
+    <attr tag="(0070,0084)"/>
+    <!-- Content Creator's Identification Sequence -->
+    <attr tag="(0070,0086)"/>
+  </record>
+  <!-- Encapsulated Document Directory Record -->
+  <record type="ENCAP DOC">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Concept Name Code Sequence -->
+    <attr tag="(0040,A043)"/>
+    <!-- Verification Flag -->
+    <attr tag="(0040,A493)"/>
+    <!-- Document Title -->
+    <attr tag="(0042,0010)"/>
+  </record>
+  <!-- Real World Value Mapping Directory Record -->
+  <record type="VALUE MAP">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+    <!-- Content Label -->
+    <attr tag="(0070,0080)"/>
+    <!-- Content Description -->
+    <attr tag="(0070,0081)"/>
+    <!-- Content Creator's Name -->
+    <attr tag="(0070,0084)"/>
+    <!-- Content Creator's Identification Sequence -->
+    <attr tag="(0070,0086)"/>
+  </record>
+  <!-- Stereometric Relationship Directory Record -->
+  <record type="STEREOMETRIC">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+  </record>
+  <!-- Private Directory Record -->
+  <record type="PRIVATE" privateRecordUID="1.2.40.0.13.1.1.3.10">
+    <!-- Specific Character Set -->
+    <attr tag="(0008,0005)"/>
+    <!-- Content Date -->
+    <attr tag="(0008,0023)"/>
+    <!-- Content Time -->
+    <attr tag="(0008,0033)"/>
+    <!-- Instance Number -->
+    <attr tag="(0020,0013)"/>
+  </record>
+</records>

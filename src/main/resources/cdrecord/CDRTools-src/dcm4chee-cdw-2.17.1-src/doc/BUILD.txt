@@ -1,0 +1,50 @@
+BUILD INSTRUCTIONS FOR DCM4CHEE MEDIA CREATOR (DCM4CHEE-CDW):
+===========================================================
+
+In order to build dcm4chee Media Creator application you also have to download
+and install:
+
+- Ant 1.7.0 [http://ant.apache.org]
+
+- JBoss Application Server 4.2.3.GA [http://labs.jboss.com/jbossas/downloads]
+
+- Apache FOP 0.95 [http://xmlgraphics.apache.org/fop/]
+
+dcm4chee-cdw-2.17.0 also relies on
+
+- dcm4che-1.4.29 : dcm4che DICOM Library
+
+which binary and source distribution package is also available at
+http://sourceforge.net/projects/dcm4che. The binary package is sufficient to
+build dcm4chee-cdw. If you download the source package, you have to build
+all components of dcm4che-1.4.28 (ant release) before building dcm4chee-cdw.
+
+Create an environment variable pointing to the Ant home directory (ANT_HOME)
+and add the $ANT_HOME/bin directory to your PATH.
+
+The build script (dcm4jboss-all/dcm4jboss-cdw/build.xml) assumes following
+locations of dcm4che-1.4.28, JBoss and Apache FOP:
+
+dcm4che14.home=${user.home}/dcm4che14/build/dcm4che-1.4.19
+jboss.home=${user.home}/jboss-4.2.3.GA
+fop.home=${user.home}/fop-0.20.5
+
+Instead of modifying the build scripts directly, you may adjust these values
+to your build environment by renaming file 
+
+dcm4jboss-all/dcm4jboss-cdw/build.properties.default
+to
+dcm4jboss-all/dcm4jboss-cdw/build.properties
+
+and adjust these values there.
+
+Change the working directory:
+>cd dcm4jboss-all/dcm4jboss-cdw
+
+and invoke:
+>ant dist
+
+to build
+
+target/dcm4chee-cdw-<version>.zip
+.

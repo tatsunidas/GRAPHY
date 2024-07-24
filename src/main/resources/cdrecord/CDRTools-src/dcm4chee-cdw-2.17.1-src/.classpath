@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src/java"/>
+	<classpathentry kind="src" path="/dcm4che14"/>
+	<classpathentry kind="var" path="JBOSS_HOME/lib/jboss-common.jar"/>
+	<classpathentry kind="var" path="JBOSS_HOME/lib/jboss-jmx.jar"/>
+	<classpathentry kind="var" path="JBOSS_HOME/lib/jboss-system.jar"/>
+	<classpathentry kind="var" path="JBOSS_HOME/server/default/lib/jboss-j2ee.jar"/>
+	<classpathentry kind="var" path="JBOSS_HOME/server/default/lib/servlet-api.jar"/>
+	<classpathentry kind="lib" path="D:/Users/aprta/Documents/GitHub/dcm4che-1.4.33/build/dcm4che-1.4.33/lib/slf4j-api-1.6.1.jar"/>
+	<classpathentry kind="lib" path="D:/Users/aprta/Documents/GitHub/dcm4che-1.4.33/build/dcm4che-1.4.33/lib/slf4j-log4j12-1.6.1.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="owner.project.facets" value="java"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="D:/Users/aprta/fop.jar"/>
+	<classpathentry kind="var" path="JBOSS_HOME"/>
+	<classpathentry kind="output" path="target/classes"/>
+</classpath>

@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-spooldir-xmbean.xml 18290 2014-05-06 12:27:53Z hesham-elbadawi $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>Spool Directory</description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.SpoolDirService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>SpoolDirService</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="getArchiveDirPath"
+      setMethod="setArchiveDirPath">
+      <description>Path of Archive Spool Directory, where the DICOM
+      Storage SCP files received DICOM instances. Relative path names will be
+      resolved against directory $DCM4CHEE_HOME/server/default/data/."
+      </description>
+      <name>ArchiveDirPath</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="cdw.spool" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getNumberOfArchiveBuckets"
+      setMethod="setNumberOfArchiveBuckets">
+      <description>Number of Sub Directories in Archive Spool Directory.      
+      </description>
+      <name>NumberOfArchiveBuckets</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="337" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only"
+      getMethod="getArchiveDiskUsage">
+      <description>Estimated current Disk Usage in Archive Spool Directory.
+      Calculated by accumulation of length of files, but ignoring allocation
+      of disk space by directories. 1MB = 1000000 Byte, 1GB = 1000MB. 
+      </description>
+      <name>ArchiveDiskUsage</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <descriptor name="persistPolicy" value="Never"/>
+      </descriptors>           
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getArchiveHighWaterMark"
+      setMethod="setArchiveHighWaterMark">
+      <description>High Water Mark for Archive Disk Usage.
+      Format #.#MB or #.#GB. 1MB = 1000000 Byte, 1GB = 1000MB.
+      Storage of further Objects by DICOM Storage SCP will be
+      rejected, as long ArchiveDiskUsage > ArchiveHighWaterMark.
+      ATTENTION: The actual maximal used disk space is higher than this value,
+      because the current ArchiveDiskUsage must EXCEED the configured
+      HighWaterMark, to cause DICOM Storage SCP to reject further storage 
+      requests.
+      </description>
+      <name>ArchiveHighWaterMark</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="10GB" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only"
+      getMethod="isArchiveHighWater">
+      <description>True if ArchiveDiskUsage > ArchiveHighWaterMark.
+      </description>
+      <name>ArchiveHighWater</name>
+      <type>boolean</type>      
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getArchiveDiskUsageRefreshInterval"
+      setMethod="setArchiveDiskUsageRefreshInterval">
+      <description>Interval between (re)calculating of ArchiveDiskUsage
+      in days (##d), hours (##h) or minutes (##m). Corrects possible
+      inaccuracy of incremental updates of ArchiveDiskUsage.
+      </description>
+      <name>ArchiveDiskUsageRefreshInterval</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="1h" />
+      </descriptors>
+   </attribute>   
+   <attribute access="read-write"
+      getMethod="getPurgeArchiveDirAfter"
+      setMethod="setPurgeArchiveDirAfter">
+      <description>Maximal persistence duration for Instances in Archive
+      Spool Directory in days (##d), hours (##h) or minutes (##m).
+      0 = Infinite Persistenz.
+      </description>
+      <name>PurgeArchiveDirAfter</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="2h" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getEmulateRequestDirPath"
+      setMethod="setEmulateRequestDirPath">
+      <description>Path of Spool Directory, where the DICOM Storage SCP
+      accumulates SOP Instance and SOP Class UIDs of DICOM objects received
+      from Storage SCUs, for which a Media Creation Request Emulator Service
+      is deployed. Relative path names will be resolved against directory
+      $DCM4CHEE_HOME/server/default/data/."
+      </description>
+      <name>EmulateRequestDirPath</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="emulate" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getFilesetDirPath"
+      setMethod="setFilesetDirPath">
+      <description>Path of File-set Spool Directory, where the File-set Composer
+      Service prepares media content directories and the Make ISO Image
+      Service stores generated ISO image files. Relative path names will
+      be resolved against directory $DCM4CHEE_HOME/server/default/data/."
+      </description>
+      <name>FilesetDirPath</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="fileset" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only"
+      getMethod="getFilesetDiskUsage">
+      <description>Estimated current Disk Usage in File-set Spool Directory.
+      Calculated by accumulation of length of files, but ignoring allocation
+      of disk space by directories. 1MB = 1000000 Byte, 1GB = 1000MB. 
+      </description>
+      <name>FilesetDiskUsage</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <descriptor name="persistPolicy" value="Never"/>
+      </descriptors>           
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getFilesetHighWaterMark"
+      setMethod="setFilesetHighWaterMark">
+      <description>High Water Mark for File-set Disk Usage.
+      Format #.#MB or #.#GB. 1MB = 1000000 Byte, 1GB = 1000MB.
+      Initiation of further Media Creation via N-ACTION RQ will be rejected by
+      the DICOM Media Creation Mgt. SCP, as long 
+      FilesetDiskUsage > FilesetHighWaterMark.
+      ATTENTION: The actual maximal used disk space is notable higher
+      - ~ 2x capacity of media; in case of media splitting even higher - than
+      this value, because the current FilesetDiskUsage must EXCEED the 
+      configured HighWaterMark, to cause DICOM Media Creation Mgt SCP to reject
+      further Media Creation Initiation requests.
+      </description>
+      <name>FilesetHighWaterMark</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="10GB" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only"
+      getMethod="isFilesetHighWater">
+      <description>True if FilesetDiskUsage > FilesetHighWaterMark.
+      </description>
+      <name>FilesetHighWater</name>
+      <type>boolean</type>      
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getFilesetDiskUsageRefreshInterval"
+      setMethod="setFilesetDiskUsageRefreshInterval">
+      <description>Interval between (re)calculating of FilesetDiskUsage
+      in days (##d), hours (##h) or minutes (##m). Corrects possible
+      inaccuracy of incremental updates of FilesetDiskUsage.
+      </description>
+      <name>FilesetDiskUsageRefreshInterval</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="1h" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getPurgeFilesetDirAfter"
+      setMethod="setPurgeFilesetDirAfter">
+      <description>Maximal persistence duration of residual File-set directories
+      and ISO image files in File-set Spool Directory in days (##d), hours (##h)
+      or minutes (##m). 0 = Infinite Persistenz.
+      </description>
+      <name>PurgeFilesetDirAfter</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="2h" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getRequestDirPath"
+      setMethod="setRequestDirPath">
+      <description>Path of Directory where received Media Creation Requests
+      are stored. Relative path names will be resolved against directory
+      $DCM4CHEE_HOME/server/default/data/."
+      </description>
+      <name>RequestDirPath</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="request" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getPurgeMediaCreationRequestsAfter"
+      setMethod="setPurgeMediaCreationRequestsAfter">
+      <description>Persistence duration for Media Creation Requests
+      in days (##d), hours (##h) or minutes (##m). 0 = Infinite Persistenz.
+      </description>
+      <name>PurgeMediaCreationRequestsAfter</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="1d" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getLabelDirPath"
+      setMethod="setLabelDirPath">
+      <description>Path of Directory where created Disk Label Files
+      are stored. Relative path names will be resolved against directory
+      $DCM4CHEE_HOME/server/default/data/."
+      </description>
+      <name>LabelDirPath</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="label" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getPurgeLabelDirAfter"
+      setMethod="setPurgeLabelDirAfter">
+      <description>Persistence duration of residual Disk Labels in Label Spool
+      Directory in days (##d), hours (##h) or minutes (##m).
+      0 = Infinite Persistence.
+      </description>
+      <name>PurgeLabelDirAfter</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="1h" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getPurgeInterval"
+      setMethod="setPurgeInterval">
+      <description>Interval in hours (##h), minutes (##m) or seconds (##s) to
+      check the Spool Directory for expired files.
+      </description>
+      <name>PurgeInterval</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="1m" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSchedulerServiceName"
+      setMethod="setSchedulerServiceName">
+      <description>Used internally. Do NOT modify.
+      </description>
+      <name>SchedulerServiceName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>  
+   &defaultAttributes;
+   
+   <!-- Operations -->
+   <operation impact="ACTION">
+      <description>(Re-)Calculate estimated Archive Disk Usage</description>
+      <name>refreshArchiveDiskUsage</name>
+      <return-type>java.lang.String</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>(Re-)Calculate estimated Fileset Disk Usage</description>
+      <name>refreshFilesetDiskUsage</name>
+      <return-type>java.lang.String</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Purge all Spool Directories from expired/residual objects.
+      </description>
+      <name>purge</name>
+   </operation>
+   <operation impact="ACTION">
+      <description>Purge Expired Media Creation Requests</description>
+      <name>purgeExpiredMediaCreationRequests</name>
+   </operation>
+   <operation impact="ACTION">
+      <description>Purge Expired Preserved or Residual Instances in 
+      Archive Spool Directory</description>
+      <name>purgeArchiveDir</name>
+   </operation>
+   <operation impact="ACTION">
+      <description>Purge Residual File-set directories and ISO Image Files in
+      File-set Spool Directory</description>
+      <name>purgeFilesetDir</name>
+   </operation>
+   <operation impact="ACTION">
+      <description>Purge Residual Disk Label Files in Label Spool Directory</description>
+      <name>purgeLabelDir</name>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Instance File - Used Internally</description>
+      <name>getInstanceFile</name>
+      <parameter>
+         <description>SOP Instance UID</description>
+         <name>iuid</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.io.File</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Emulate Request File - Used Internally</description>
+      <name>getEmulateRequestFile</name>
+      <parameter>
+         <description>Source AET</description>
+         <name>aet</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <parameter>
+         <description>SpoolDir Pattern</description>
+         <name>pattern</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.io.File</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Emulate Request Files - Used Internally</description>
+      <name>getEmulateRequestFiles</name>
+      <parameter>
+         <description>Source AET</description>
+         <name>aet</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <parameter>
+         <description>last modified before in ms</description>
+         <name>before</name>
+         <type>long</type>
+      </parameter>
+      <return-type>[Ljava.io.File;</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Delete Instance File - Used Internally</description>
+      <name>deleteInstanceFile</name>
+      <parameter>
+         <description>SOP Instance UID</description>
+         <name>iuid</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Media Creation Request File - Used internally</description>
+      <name>getMediaCreationRequestFile</name>
+      <parameter>
+         <description>SOP Instance UID</description>
+         <name>iuid</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.io.File</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Label File - Used internally</description>
+      <name>getLabelFile</name>
+      <parameter>
+         <description>Storage Media File-Set UID</description>
+         <name>iuid</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <parameter>
+         <description>File extension</description>
+         <name>ext</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.io.File</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Get Media File-Set Root Directory - Used internally</description>
+      <name>getMediaFilesetRootDir</name>
+      <parameter>
+         <description>Storage Media File-Set UID</description>
+         <name>iuid</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.io.File</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Register Directory/File - Used internally</description>
+      <name>register</name>
+      <parameter>
+         <description>File/Directory</description>
+         <name>file</name>
+         <type>java.io.File</type>
+      </parameter>
+   </operation>
+   <operation impact="ACTION">
+      <description>Delete File/Directory - Used internally</description>
+      <name>delete</name>
+      <parameter>
+         <description>File/Directory</description>
+         <name>file</name>
+         <type>java.io.File</type>
+      </parameter>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Move File/Directory - Used internally</description>
+      <name>move</name>
+      <parameter>
+         <description>Source</description>
+         <name>src</name>
+         <type>java.io.File</type>
+      </parameter>
+      <parameter>
+         <description>Destination</description>
+         <name>dest</name>
+         <type>java.io.File</type>
+      </parameter>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Copy File/Directory - Used internally</description>
+      <name>copy</name>
+      <parameter>
+         <description>Source</description>
+         <name>src</name>
+         <type>java.io.File</type>
+      </parameter>
+      <parameter>
+         <description>Destination</description>
+         <name>dest</name>
+         <type>java.io.File</type>
+      </parameter>
+      <parameter>
+         <description>Byte Buffer</description>
+         <name>buffer</name>
+         <type>[B</type>
+      </parameter>
+      <return-type>boolean</return-type>
+   </operation>
+   &defaultOperations;
+</mbean>

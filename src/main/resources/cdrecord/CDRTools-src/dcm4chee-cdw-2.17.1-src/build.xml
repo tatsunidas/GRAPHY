@@ -1,0 +1,236 @@
+<project name="dcm4chee-cdw" default="dist">
+
+    <!-- Allow override from local properties file -->
+    <property file="build.properties" />
+    <property file="../build.properties" />
+
+    <property name="version" value="2.17.1"/>
+
+    <property name="javac.debug" value="on"/>
+    <property name="javac.deprecation" value="off"/>
+    <property name="javac.optimize" value="on"/>
+    <property name="javac.source" value="1.5"/>
+    <property name="javac.target" value="1.5"/>
+
+    <!-- Override with your JBoss server bundle dist location -->
+    <property name="jboss.home" value="${user.home}/jboss-4.2.3.GA"/>
+    <property name="jboss.dtd" value="${jboss.home}/docs/dtd"/>
+
+    <!-- Override with your FOP dist location -->
+    <property name="fop.home" value="${user.home}/fop-0.95"/>
+
+    <!-- Override with your dcm4che-1.4.x dist location -->
+	<property name="dcm4che14.home" value="${user.home}/dcm4che14/build/dcm4che-1.4.34"/>
+	<property name="dcm4che.jar" value="${dcm4che14.home}/lib/dcm4che.jar"/>
+
+    <property name="src.dir" value="${basedir}/src/java"/>
+    <property name="src.resources" value="${basedir}/src/resources"/>
+    <property name="src.etc" value="${basedir}/src/etc"/>
+    <property name="target.dir" value="${basedir}/target"/>
+    <property name="build.classes.dir" value="${target.dir}/classes"/>
+    <property name="dist.dir" value="${target.dir}/${dist.name}"/>
+
+    <path id="build.path">
+        <pathelement location="${dcm4che.jar}"/>
+        <pathelement location="${fop.home}/build/fop.jar"/>
+        <pathelement location="${jboss.home}/lib/jboss-common.jar"/>
+        <pathelement location="${jboss.home}/lib/jboss-system.jar"/>
+        <pathelement location="${jboss.home}/lib/jboss-jmx.jar"/>
+        <pathelement location="${jboss.home}/server/default/lib/log4j.jar"/>
+        <pathelement location="${jboss.home}/server/default/lib/jboss-j2ee.jar"/>
+        <pathelement location="${build.classes.dir}"/>
+    </path>
+
+    <target name="compile">
+      <mkdir dir="${build.classes.dir}"/>
+      <javac srcdir="${src.dir}"
+           destdir="${build.classes.dir}"
+           classpathref="build.path"
+           debug="${javac.debug}"
+           deprecation="${javac.deprecation}"
+           optimize="${javac.optimize}"
+           source="${javac.source}"
+           target="${javac.target}"
+      >
+           <include name="org/dcm4chex/**" />
+      </javac>
+    </target>
+
+   <target name="jar" depends="compile">
+      <mkdir dir="${target.dir}/lib"/>
+      <jar destfile="${target.dir}/lib/dcm4chee-cdw.jar">
+         <fileset dir="${build.classes.dir}"
+            includes="org/dcm4chex/cdw/common/**"
+         />
+      </jar>
+   </target>
+   
+   <target name="sar" depends="compile">
+      <mkdir dir="${target.dir}/deploy"/>
+      <zip destfile="${target.dir}/deploy/dcm4chee-cdw.sar">
+         <fileset dir="${src.resources}"
+            includes="META-INF/jboss-service.xml"
+         />
+         <fileset dir="${build.classes.dir}"
+            includes="org/dcm4chex/cdw/mbean/**"
+         />
+      </zip>
+      <zip destfile="${target.dir}/deploy/dcm4chee-cdrecord.sar">
+         <zipfileset dir="${src.resources}"
+            fullpath="META-INF/jboss-service.xml"
+            includes="META-INF/cdrecord-service.xml"
+         />
+         <fileset dir="${build.classes.dir}"
+            includes="org/dcm4chex/cdw/cdrecord/**"
+         />
+      </zip>
+    <zip destfile="${target.dir}/deploy/dcm4chee-nerocmd.sar">
+       <zipfileset dir="${src.resources}"
+          fullpath="META-INF/jboss-service.xml"
+          includes="META-INF/nerocmd-service.xml"
+       />
+       <fileset dir="${build.classes.dir}"
+          includes="org/dcm4chex/cdw/nerocmd/**"
+       />
+    </zip>
+   </target>
+
+    <target name="clean">
+        <delete dir="${target.dir}"/>
+    </target>
+
+    <!-- =================================================================== -->
+   	<!-- Pack distributions                                                  -->
+   	<!-- =================================================================== -->
+  <target name="fixcrlf">
+    <mkdir dir="${target.dir}/bin"/>
+    <mkdir dir="${target.dir}/doc"/>
+  	<fixcrlf srcdir="${src.etc}" includes="bin/*.sh,bin/*.conf"
+  		destdir="${target.dir}" eol="lf"/>
+  	<fixcrlf srcdir="${src.etc}" includes="bin/*.bat,bin/*.xml"
+  		destdir="${target.dir}" eol="crlf"/>
+  	<fixcrlf srcdir="${basedir}" includes="doc/*.txt,doc/*.dtd"
+  		destdir="${target.dir}" eol="crlf"/>
+  </target>
+
+  <target name="dist" depends="jar,sar,fixcrlf,auditlog-conf">
+    <property name="dist.db" value="dcm4chee-cdw-${version}"/>
+    <property name="dist.db.config" value="${dist.db}/server/default"/>
+    <zip destfile="${target.dir}/${dist.db}.zip">
+      <zipfileset dir="${dcm4che14.home}" prefix="${dist.db.config}">
+        <include name="lib/dcm4che.jar"/>
+      </zipfileset>
+      <zipfileset dir="${dcm4che14.home}" prefix="${dist.db.config}">
+        <include name="lib/dcm4che-imageio-rle-2.0.25.jar"/>
+        <include name="lib/jai_imageio.jar"/>
+        <include name="lib/clibwrapper_jiio.jar"/>
+        <include name="lib/slf4j-api-1.6.1.jar"/>
+        <include name="lib/slf4j-log4j12-1.6.1.jar"/>
+      </zipfileset>
+      <zipfileset dir="${dcm4che14.home}/bin" prefix="${dist.db}/bin/native">
+        <include name="libclib_jiio.so"/>
+        <include name="clib_jiio*.dll"/>
+      </zipfileset>
+      <zipfileset dir="." prefix="${dist.db}">
+        <include name="bin/JavaService.exe"/>
+        <include name="doc/fig1.png"/>
+      </zipfileset>
+      <zipfileset dir="${target.dir}" prefix="${dist.db}">
+        <include name="bin/*"/>
+      	<exclude name="bin/*.sh"/>
+        <include name="doc/**"/>
+      </zipfileset>
+      <zipfileset dir="${target.dir}" prefix="${dist.db}" filemode="755">
+        <include name="bin/*.sh"/>
+      </zipfileset>
+      <zipfileset dir="${target.dir}" prefix="${dist.db.config}">
+        <include name="conf/**"/>
+        <include name="lib/*"/>
+        <include name="deploy/*"/>
+      </zipfileset>
+      <zipfileset dir="${src.etc}" prefix="${dist.db.config}">
+        <exclude name="bin/**"/>
+      </zipfileset>
+      <zipfileset dir="${fop.home}/build" prefix="${dist.db.config}/lib">
+        <include name="fop.jar"/>
+      </zipfileset>
+      <zipfileset dir="${fop.home}" prefix="${dist.db.config}">
+        <include name="lib/avalon-framework-4.2.0.jar"/>
+        <include name="lib/batik-all-1.7.jar"/>
+        <include name="lib/commons-io-1.3.1.jar"/>
+        <include name="lib/xmlgraphics-commons-1.3.1.jar"/>
+      </zipfileset>
+    </zip>
+  </target>
+  <target name="auditlog-conf">
+    <property name="xmdesc.dir" value="src/etc/conf/xmdesc"/>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-spooldir-xmbean.xml"/>
+      <param name="out" value="cdw-spooldir-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=SpoolDir"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-scheduler-xmbean.xml"/>
+      <param name="out" value="cdw-scheduler-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=Scheduler"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-dcmsrv-xmbean.xml"/>
+      <param name="out" value="cdw-dcmsrv-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=DcmServer"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-storescp-xmbean.xml"/>
+      <param name="out" value="cdw-storescp-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=StoreSCP"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-mcmscp-xmbean.xml"/>
+      <param name="out" value="cdw-mcmscp-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=MediaCreationMgtSCP"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-mcmemulator-xmbean.xml"/>
+      <param name="out" value="cdw-mcmemulator-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=MediaCreationRequestEmulator"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-composer-xmbean.xml"/>
+      <param name="out" value="cdw-composer-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=MediaComposer"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-mkisofs-xmbean.xml"/>
+      <param name="out" value="cdw-mkisofs-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=MakeIsoImage"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-labelprint-xmbean.xml"/>
+      <param name="out" value="cdw-labelprint-xmbean.xml"/>
+      <param name="mbean" value="dcm4chee.cdw:service=LabelPrint"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-cdrecord-xmbean.xml"/>
+      <param name="out" value="cdw-cdrecord-xmbean.xml"/>
+      <param name="mbean"
+        value="dcm4chee.cdw:service=MediaWriter,name=CDRecord"/>
+    </antcall>
+    <antcall target="xslt">
+      <param name="in" value="${xmdesc.dir}/dcm4chee-cdw-nerocmd-xmbean.xml"/>
+      <param name="out" value="cdw-nerocmd-xmbean.xml"/>
+      <param name="mbean"
+        value="dcm4chee.cdw:service=MediaWriter,name=NeroCmd"/>
+    </antcall>
+  </target>
+  <target name="xslt">
+    <xslt style="dcm4chee-auditlog.xsl" in="${in}"
+      out="${target.dir}/conf/dcm4chee-auditlog/${out}">
+      <xmlcatalog>
+       <dtd
+         publicId="-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+         location="${jboss.dtd}/jboss_xmbean_1_1.dtd"/>
+      </xmlcatalog>
+      <param name="mbean" expression="${mbean}"/>
+    </xslt>
+  </target>
+</project>

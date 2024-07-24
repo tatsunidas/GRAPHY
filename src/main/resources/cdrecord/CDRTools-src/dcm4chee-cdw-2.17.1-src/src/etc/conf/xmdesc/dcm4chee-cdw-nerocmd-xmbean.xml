@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-nerocmd-xmbean.xml 6700 2008-08-01 13:13:49Z arnold_mad $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>Media Writer Service for using Nero(tm)
+   [http://www.nero.com/]
+   </description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.nerocmd.NeroCmdService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>NeroCmdService</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="getExecutable"
+      setMethod="setExecutable">
+      <description>Executable command to invoke Nero(tm).
+      </description>
+      <name>Executable</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="nerocmd" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDriveId"
+      setMethod="setDriveId">
+      <description>Drive ID(e.g.: "0,0"). Check with nerocmd --list-drives
+      </description>
+      <name>DriveId</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="0,0" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDriveLetter"
+      setMethod="setDriveLetter">
+      <description>Drive Letter(e.g.: "X").
+      </description>
+      <name>DriveLetter</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="X" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMediaType"
+      setMethod="setMediaType">
+      <description>Used Media-Type. Possible values are: cd,dvd,hd-dvd,bd
+      </description>
+      <name>MediaType</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="cd" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getWriteSpeed"
+      setMethod="setWriteSpeed">
+      <description>Speed factor of the writing process.
+      -1 = use drive specific default speed.
+      </description>
+      <name>WriteSpeed</name>
+      <type>int</type>
+      <descriptors>
+         <value value="-1" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isSimulate"
+      setMethod="setSimulate">
+      <description>Only simulate write process (laser is turned off).
+      </description>
+      <name>Simulate</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isMultiSession"
+      setMethod="setMultiSession">
+      <description>Generate a TOC that allows multi session.
+      </description>
+      <name>MultiSession</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isAppendEnabled"
+      setMethod="setAppendEnabled">
+      <description>Allow to append already existing session.
+      </description>
+      <name>AppendEnabled</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getNumberOfRetries"
+      setMethod="setNumberOfRetries">
+      <description>Number of retries, if out of supplies.
+      </description>
+      <name>NumberOfRetries</name>
+      <type>int</type>
+      <descriptors>
+         <value value="5" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getRetryInterval"
+      setMethod="setRetryInterval">
+      <description>Interval of retries in seconds.
+      </description>
+      <name>RetryInterval</name>
+      <type>int</type>
+      <descriptors>
+         <value value="60" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMountTime"
+      setMethod="setMountTime">
+      <description>Wait time[s] before read-access after reloading media.
+      </description>
+      <name>MountTime</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="10" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isVerify"
+      setMethod="setVerify">
+      <description>Check MD5 sums of written files or - if MD5_SUMS was not
+      included - compare files on media with source files after write process.
+      </description>
+      <name>Verify</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+    <attribute access="read-write"
+      getMethod="isAutoLoad"
+      setMethod="setAutoLoad">
+      <description>Load disk before write process automatically.
+      </description>
+      <name>AutoLoad</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isEject"
+      setMethod="setEject">
+      <description>Eject disk after write process.
+      </description>
+      <name>Eject</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getPauseTime"
+      setMethod="setPauseTime">
+      <description>Minimal Pause time between successive writes. Useful in case
+      of media splitting and multiple copies, to have time for manual
+      media exchange.
+      </description>
+      <name>PauseTime</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="10" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isPrintLabel"
+      setMethod="setPrintLabel">
+      <description>Print Label after successful burn (and optional verify)
+      of media. Attention: Label File creation by FilesetComposer Service must
+      activated by setting its attribute "LabelFileFormat" = "PDF" or "PS".
+      S.a. Label Print Service for Printing Configuration.
+      </description>
+      <name>PrintLabel</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getKeepLabelFiles"
+      setMethod="setKeepLabelFiles">
+      <description>Controls persistence of created Label files.
+      Enumerated Values: YES|NO|IF_NOT_PRINTED
+      </description>
+      <name>KeepLabelFiles</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="IF_NOT_PRINTED" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isKeepSpoolFiles"
+      setMethod="setKeepSpoolFiles">
+      <description>Keep spool files (for debugging).
+      </description>
+      <name>KeepSpoolFiles</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isLogEnabled"
+      setMethod="setLogEnabled">
+      <description>Log to server/default/log/cdrecord.log.
+      </description>
+      <name>LogEnabled</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getLabelPrintName"
+      setMethod="setLabelPrintName">
+      <description>Reference to Label Print Service - do NOT modify.
+      </description>
+      <name>LabelPrintName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSpoolDirName"
+      setMethod="setSpoolDirName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>SpoolDirName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>
+   &defaultAttributes;
+   
+   <!-- Operations -->
+   &defaultOperations;
+   <operation impact="ACTION">
+      <description>Check Drive</description>
+      <name>checkDrive</name>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Check Disk</description>
+      <name>checkDisk</name>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Query Media Content</description>
+      <name>hasTOC</name>
+      <return-type>boolean</return-type>
+   </operation>
+   <operation impact="ACTION">
+      <description>Eject Media</description>
+      <name>eject</name>
+   </operation>
+   <operation impact="ACTION">
+      <description>Load Media</description>
+      <name>load</name>
+   </operation>
+   
+   <!-- Notifications -->
+   
+</mbean>

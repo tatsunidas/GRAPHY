@@ -1,0 +1,264 @@
+INSTALL INSTRUCTIONS FOR DCM4CHEE MEDIA CREATOR:
+===============================================
+
+Minimum System Requirements
+JDK 5 or higher.
+512 MB RAM
+2(10) GB hard disk space for CD(DVD) media creation   
+400 MHz CPU
+
+dcm4chee-cdw relies on Joerg Schilling's cdrtools
+[http://freshmeat.net/projects/cdrecord], in particular on mkisofs to
+generate iso9660 filesystems, and on cdrecord to write CD/DVD media on a
+CD/DVD-Recorder. Precompiled binaries for Windows, including the necessary
+cygwin.dll are (e.g) available at http://www.student.tugraz.at/thomas.plank/.
+If cdrecord fails to detect the CD drive on Windows, try Nero ASPI Library
+(wnaspi32.dll) by Ahead Software AG (free download from nero.com) instead your
+system default ASPI driver.
+On Unix/Linux, you have to take care, that the user as which JBoss is running
+has the permission to execute cdrecord.
+It is also recommended to add the directory containing mkisofs[.exe] and
+cdrecord[.exe] to your PATH.
+On Windows, alternatively to cdrecord, commandline utility nerocmd.exe from
+commercial Nero Burning ROM software by Nero AG can be used for controlling
+the CD/DVD recorder.
+
+For Label printing on Windows Printer without Postscript support
+dcm4chee-cdw needs Acrobat Reader (free download from adobe.com).
+
+For testing media creation by dcm4chee-cdw, you may use command line utility
+mcmscu.jar of the dcm4che14 package available at Sourceforge
+(http://www.sourceforge.net/projects/dcm4che), which implements a DICOM Media
+Creation Management SCU, to send Media Creation requests to the DICOM
+Creation Management SCP of dcm4chee-cdw.
+ 
+For image decompression (only needed for web content generation with compressed
+DICOM images), dcm4chee-cdw 2.17.0 utilize Sun's Java Advanced Imaging Image
+I/O Tools 1.2. The binary distribution packages of dcm4chee-cdw 2.17.0 already
+includes necessary JARs and native libraries for Windows and Linux i586. For
+Linux-amd64 or Solaris, you have to download the SW package from Sun
+[https://jai-imageio.dev.java.net/binary-builds.html] yourself and replace the
+Linux version of libclib_jiio.so in dcm4chee-cdw-2.17.0/bin/native from the
+JAI Image IO package for Linux-amd64 or Solaris.
+
+Installation Procedure:
+
+1. Extract the binary distribution package of dcm4chee-cdw. Avoid using a
+   directory that has a name that contains spaces as installation directory.
+
+2. Download the binary distribution package of JBoss Application Server 4.2.3.GA
+   from http://labs.jboss.com/jbossas/downloads and extract it into a different
+   directory.
+
+3. Move to the dcm4chee-cdw-2.17.0/bin directory and execute the
+   install_jboss.bat or install_jboss.sh script, as appropriate for your
+   operating system, with the path of your JBoss AS installation directory as
+   parameter.
+
+4. Set environment variable JAVA_HOME to JDK location.
+
+5. Adjust maximum allocation of heap memory:
+
+   [Windows]: dcm4chee-cdw-2.17.0/bin/run.bat:
+   rem Sun JVM memory allocation pool parameters. Modify as appropriate.
+   set JAVA_OPTS=%JAVA_OPTS% -Xms128m -Xmx512m
+
+   [Linux/Unix]: dcm4chee-cdw-2.17.0/bin/run.conf
+   # Specify options to pass to the Java VM.
+   if [ "x$JAVA_OPTS" = "x" ]; then
+     JAVA_OPTS="-Xms128m -Xmx512m ..
+   fi
+
+   according available RAM and memory requirements of other processes on this
+   node. E.g.: if only 512 MB RAM are available, you should decrease the default
+   value -Xmx512m to (e.g.) -Xmx300.
+
+6. To test your installation, move to the dcm4chee-cdw-2.17.0/bin directory
+   and execute the run.bat or run.sh script, as appropriate for your operating
+   system. To enable remote access to jboss services, in particular to the
+   JMX console (http://HOST:8080/jmx-console) and the JBoss Web console
+   (http://HOST:8080/web-console), you have to invoke the start script with
+   parameter '-b 0.0.0.0'! Your output should look like the following and
+   contain no error or exception messages:
+
+  =========================================================================
+
+    JBoss Bootstrap Environment
+
+    JBOSS_HOME: /home/gunter/dcm4chee-cdw-2.17.0
+
+    JAVA: /usr/lib/jvm/java-6-sun/bin/java
+
+    JAVA_OPTS: -Dprogram.name=run.sh -server -Xms128m -Xmx256m
+     -Dsun.rmi.dgc.client.gcInterval=3600000
+     -Dsun.rmi.dgc.server.gcInterval=3600000 -Djava.net.preferIPv4Stack=true
+     -Djava.library.path=/home/gunter/dcm4chee-cdw-2.17.0/bin/native
+
+    CLASSPATH: /home/gunter/dcm4chee-cdw-2.17.0/bin/run.jar:
+     /usr/lib/jvm/java-6-sun/lib/tools.jar
+
+  =========================================================================
+
+  18:01:13,908 INFO  [Server] Starting JBoss (MX MicroKernel)...
+  18:01:13,908 INFO  [Server] Release ID: JBoss [Trinity] 4.2.3.GA
+   (build: SVNTag=JBoss_4_2_3_GA date=200807181439)
+  :
+  18:01:22,571 INFO  [Server] JBoss (MX MicroKernel) [4.2.3.GA
+   (build: SVNTag=JBoss_4_2_3_GA date=200807181439)] Started in 8s:659ms
+
+7. Open the JBoss Administration Console http://localhost:8080/jmx-console with
+   any Web Browser. Scroll down to section "dcm4chee.cdw" and follow the link
+   of the section title to only show entires for dcm4chee-cdw specific services:
+ 
+    * name=CDRecord,service=MediaWriter
+    * name=CDRecord,service=Queue
+    * name=MakeIsoImage,service=Queue
+    * name=MediaComposer,service=Queue
+    * name=NeroCmd,service=MediaWriter
+    * name=NeroCmd,service=Queue
+    * service=DcmServer
+    * service=LabelPrint
+    * service=MakeIsoImage
+    * service=MediaComposer
+    * service=MediaCreationMgtSCP
+    * service=SpoolDir
+    * service=SpoolDirScheduler
+    * service=StoreSCP
+ 
+8.  Follow the link to the Media Writer Service for usage of cdrecord
+    (->"name=CDRecord,service=MediaWriter") and adjust the value of attribute:
+    
+    Device="0,0,0"
+    
+    to the SCSI address (Syntax: scsibus,target,lun) of the CD/DVD-Recorder on
+    your system. If cdrecord is not on your PATH you have also configure its
+    absolute path as value of attribute
+    
+    Executable="cdrecord"
+    
+    . - In that case you may also have to configure an absolute path for
+    invoking mkisofs by the MakeIsoImage service (->"service=MakeIsoImage").
+    
+    Test if the CDRecord service can control your CD Drive by invoking operation
+    
+    eject()
+    
+    from its configuration page.
+    
+9.  For usage of Acrobat Reader as external print utility for label print on
+    Windows Printer you have to adjust the command path in batch file
+    
+    dcm4chee-cdw-xxx/bin/acroread.bat
+    
+    and set Label Print Service (->"service=LabelPrint") attribute 
+    
+    UseExternalPrintUtility=true.
+    
+    Label creation and printing is deactivated by default configuration.
+    To activate it, you have to modify attribute
+    
+    LableFileFormat=NO
+    
+    of the Media Composer Service (->"service=MediaComposer") and set the
+    CDRecord service attribute
+    
+    PrintLabel=true
+    
+
+10. Test dcm4chee-cdw using dcmsnd.jar and mcmscu.jar command line utilities of
+    the dcm4che14 package available at
+    http://www.sourceforge.net/projects/dcm4che :
+
+ a. Run
+    
+    java -jar dcm4che-1.4.28/bin/dcmsnd.jar dicom://CDRECORD@localhost:10104 \
+        FILE|DIRECTORY...
+    
+    to send DICOM objects - specified by FILE or DIRECTORY - to the server,
+    using DICOM Storage Services.
+    
+ b. Run      
+ 
+    java -jar dcm4che-1.4.28/bin/mcmscu.jar -ca \
+       --create=IncludeNonDICOMObjects:FOR_PHYSICIAN \
+       dicom://CDRECORD@localhost:10104 FILE|DIRECTORY...
+    
+    to create a Media Creation Request refering the transmitted DICOM objects 
+    and requesting the generation of web content
+    (IncludeNonDICOMObjects:FOR_PHYSICIAN), and immediately inititate (-a)
+    the Media Creation at the server.
+    
+    In the server console you should see logging messages documenting the
+    process of the Media Creation:
+    
+    01:39:45,167 INFO  [MediaComposerService] Start Composing media for MCRQ
+    01:40:20,361 INFO  [MediaComposerService] Start Creating HTML content for MCRQ
+    01:40:29,364 INFO  [MediaComposerService] Finished Creating HTML content for MCRQ
+    01:40:31,092 INFO  [MediaComposerService] Finished Composing media for MCRQ
+    01:40:31,093 INFO  [MediaComposerService] Schedule Creating ISO image for MCRQ
+    01:40:31,204 INFO  [MakeIsoImageService] Start Creating ISO 9660 image for MCRQ
+    01:40:34,885 INFO  [MakeIsoImageService] Schedule Creating Media for MCRQ
+    01:40:34,952 INFO  [CDRecordService] Start Creating Media for MCRQ
+    01:40:52,067 INFO  [CDRecordService] Burning MCRQ
+    01:41:29,777 INFO  [CDRecordService] Burned MCRQ
+    01:41:39,790 INFO  [CDRecordService] Finished Creating Media for MCRQ
+
+ c. Run
+
+    java -jar mcmscu.jar --help
+    
+    and look into configuration file mcmscu.cfg for other available options.
+
+11. If that works, you may stop the Media Creation Server by Ctrl+C in the
+    console you have started it, and 
+    [Windows]: install it as Windows service executing install_service.bat
+    or 
+    [Redhat Linux]: copy the init script jboss_init_redhat.sh to /etc/init.d/
+    and adjust it according your installation location of the archive and the
+    JDK and under which user the archive application shall run.  
+
+
+MODIFY THE LAYOUT OF GENERATED INDEX.HTM, WEB CONTENT AND/OR MEDIA LABEL:
+=========================================================================
+    dcm4chee-cdw creates INDEX.HTM, HTML pages and Media Label by applying
+    XSL stylesheets, located at default/conf/dcm4chee-cdw/, to a XMLized version
+    of the DICOM directory (DICOMDIR) content. So you can change the layout
+    by modifying the XSL stylesheets.
+    
+    Setting Media Composer Service (->"service=MediaComposer") attribute
+    
+    LogXml=true
+    
+    causes dcm4chee-cdw to dump the DICOMDIR xml version into
+        
+    dcm4chee-cdw-2.x/default/log/dicomdir.xml .
+    
+    Then the XSLT transformation can be applied manually:
+    
+    To generate INDEX.HTM in the disk root directory (assuming 
+    dcm4chee-cdw-2.x/bin as working directory) run:
+    
+    [Windows]    xalan -IN ..\server\default\log\dicomdir.xml ^
+                       -XSL ..\server\default\conf\dcm4chee-cdw\index.xsl ^
+                       -OUT INDEX.HTM
+    [Unix/Linux] ./xalan.sh -IN ../server/default/log/dicomdir.xml \
+                       -XSL ../server/default/conf/dcm4chee-cdw/index.xsl \
+                       -OUT INDEX.HTM
+    
+    To generate the the Web Presentation run:
+    
+    [Windows]    xalan -IN ..\server\default\log\dicomdir.xml ^
+                       -XSL ..\server\default\conf\dcm4chee-cdw\web.xsl ^
+                       -OUT INDEX.HTM
+    [Unix/Linux] ./xalan.sh -IN ../server/default/log/dicomdir.xml \
+                       -XSL ../server/default/conf/dcm4chee-cdw/web.xsl \
+                       -OUT INDEX.HTM
+                    
+    To generate the Disk Label, using Apaches FOP:
+    
+    [Windows]    fop -xml ..\server\default\log\dicomdir.xml ^
+                     -xsl ..\server\default\conf\dcm4chee-cdw\label.xsl ^
+                     -pdf label.pdf
+    [Unix/Linux] ./fop.sh -xml ../server/default/log/dicomdir.xml \
+                     -xsl ../server/default/conf/dcm4chee-cdw/label.xsl \
+                     -pdf label.pdf

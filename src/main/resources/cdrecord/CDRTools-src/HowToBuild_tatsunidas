@@ -1,0 +1,9 @@
+CDRecord  memo
+
+ソースからビルド（各OS向けに）して、次の二つのライブラリを利用する
+cdrecord : burn to cd-r/dvd-r/blueray
+mkisofs : create iso file from folder
+
+ビルドは簡単。
+ソースの親フォルダでmakeするのみ。
+各モジュールのOBJフォルダ内に実行ファイルが作られる。

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT records (record*)>
+<!ELEMENT record (attr*)>
+<!ELEMENT attr EMPTY>
+<!ATTLIST record type  CDATA  #REQUIRED>
+<!ATTLIST attr tag CDATA  #REQUIRED>

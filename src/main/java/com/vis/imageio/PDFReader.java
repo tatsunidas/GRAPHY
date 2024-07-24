@@ -12,7 +12,6 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Calendar;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -26,7 +25,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
-import com.vis.core.util.Platform;
+import com.vis.core.log.Log;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
@@ -40,15 +39,12 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ImageProcessor;
 
+/**
+ * Please close this instance using close(). 
+ * @author tatsunidas
+ *
+ */
 public class PDFReader implements Closeable, KeyListener{
-
-	public static void main(String[] args) {
-		Calendar cal = Calendar.getInstance();
-		cal.set(Calendar.YEAR, 1984);
-		cal.set(Calendar.MONTH, Calendar.DECEMBER);
-		cal.set(Calendar.DAY_OF_MONTH, 10);
-		System.out.println(cal.getTime());
-	}
 
 	private static final long MAX_FILE_SIZE = 0x7FFFFFFE;
 	int currentPage = 0;
@@ -57,12 +53,11 @@ public class PDFReader implements Closeable, KeyListener{
 	int dpi = 300;
 	
 	/**
-	 * please close this instance using close(). 
 	 * @param pdfOrDcm
 	 */
 	public PDFReader(File pdfOrDcm) {
 		if(pdfOrDcm == null || !pdfOrDcm.exists()) {
-			System.out.println(getClass().getName()+" : This PDF file does not exists.return null...");
+			Log.logger.warning(getClass().getName()+" : This PDF file does not exists.return null...");
 			return;
 		}
 		boolean isDcm = DicomUtilities.isDicomFile(pdfOrDcm);
@@ -72,7 +67,7 @@ public class PDFReader implements Closeable, KeyListener{
 			DicomObject dcm = reader.getCore();
 			String sopUID = dcm.getString(Tag.SOP​Class​UID);
 			if(!sopUID.equals(UID.EncapsulatedPDFStorage.uid())) {
-				System.out.println("PDFReader:This dicom file is not PDF, return ...");
+				Log.logger.warning("PDFReader:This dicom file is not PDF, return ...");
 				return;
 			}
 			this.doc = dcm2pdf(dcm);
@@ -98,12 +93,14 @@ public class PDFReader implements Closeable, KeyListener{
 		try {
 			doc = PDDocument.load(srcPDF);
 		} catch (IOException e) {
-			e.printStackTrace();
-			System.out.println("PDFReader:This PDF not readable, return null...");
+			Log.logger.warning("PDFReader:This PDF not readable, return null...\n"+e.getMessage());
 			return null;
 		}
 		if(doc.isEncrypted()) {
 			System.out.println("PDFReader:This PDF is encrypted..., return null...");
+			// if you want set password for decryption
+//          StandardDecryptionMaterial decryptionMaterial = new StandardDecryptionMaterial(password);
+//          doc.openProtection(decryptionMaterial);
 			return null;
 		}
 		return doc;
@@ -179,10 +176,9 @@ public class PDFReader implements Closeable, KeyListener{
 		File tempFile = null;
 		try {
 			tempFile = File.createTempFile("temp_consumer_pdf", ".pdf");
-//		      System.out.println("tempFile.getPath() =  " + tempFile.getPath());
 			doc.save(tempFile);
 		} catch (IOException ex) {
-			System.err.println(ex.getMessage());
+			Log.logger.severe(ex.getMessage());
 			return;
 		}
 		if(tempFile != null && tempFile.exists() && tempFile.getAbsolutePath().endsWith("pdf")) {
@@ -198,20 +194,11 @@ public class PDFReader implements Closeable, KeyListener{
 	 * https://stackoverflow.com/questions/7024031/java-open-a-file-windows-mac
 	 */
 	public void showPDF(File pdf) {
-		Runtime rt = Runtime.getRuntime();
-		String dest = pdf.getAbsolutePath();
 		try {
-			if (Platform.getCurrentPlatform() == Platform.WINDOWS) {
-				rt.exec("rundll32 url.dll, FileProtocolHandler " + dest);
-			} else if (Platform.getCurrentPlatform() == Platform.MAC) {
-				rt.exec("open " + dest);
-			} else if (Platform.getCurrentPlatform() == Platform.LINUX) {
-				rt.exec("xdg-open " + dest);
+			if (Desktop.isDesktopSupported()) {
+				Desktop.getDesktop().open(pdf);
 			}else {
-				// Unknown OS, try with desktop
-	            if (Desktop.isDesktopSupported()) {
-	                Desktop.getDesktop().open(pdf);
-	            }
+				Log.logger.warning("Cannot show PDF, Desktop not supported.");
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -394,7 +381,6 @@ public class PDFReader implements Closeable, KeyListener{
 			try {
 				doc.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -405,7 +391,6 @@ public class PDFReader implements Closeable, KeyListener{
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		// TODO Auto-generated method stub
 		if(e.getKeyCode() == KeyEvent.VK_DOWN) {
 			//upper page
 			currentPage = currentPage+1;

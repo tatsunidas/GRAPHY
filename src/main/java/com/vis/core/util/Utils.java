@@ -2,9 +2,16 @@ package com.vis.core.util;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
@@ -13,6 +20,7 @@ import java.util.Calendar;
 import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.log.Log;
 
 public class Utils {
 
@@ -48,7 +56,7 @@ public class Utils {
 			try {
 				tempDirPath = Files.createTempDirectory(root, tempDirName);
 				if(tempDirPath == null) {
-					System.out.println("temp dir creation failed...:NonDicomImport");
+					Log.logger.severe("temp dir creation failed...:NonDicomImport");
 					throw new NullPointerException("Can not create Temp Folder to create dcm.");
 				}
 				return tempDirPath.toFile();
@@ -58,6 +66,34 @@ public class Utils {
 		}
 		return null;
 	}
+	
+	public static void copyResource(String res, String dest, Class<?> c) throws IOException {
+	    InputStream src = c.getResourceAsStream(res);
+	    Files.copy(src, Paths.get(dest), StandardCopyOption.REPLACE_EXISTING);
+	}
+	
+//	public static void copyResource(Path from, Path to) {
+//		final URI jarFileUri = URI.create("jar:file:" + from);
+//		final FileSystem fs = FileSystems.newFileSystem(jarFileUri., Utils.class.getClassLoader());
+//		try (final Stream<Path> sources = Files.walk(from)) {
+//		     sources.forEach(src -> {
+//		         final Path dest = to.resolve(from.relativize(src).toString());
+//		         try {
+//		            if (Files.isDirectory(from)) {
+//		               if (Files.notExists(to)) {
+//		                   log.trace("Creating directory {}", to);
+//		                   Files.createDirectories(to);
+//		               }
+//		            } else {
+//		                log.trace("Extracting file {} to {}", from, to);
+//		                Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
+//		            }
+//		       } catch (IOException e) {
+//		           throw new RuntimeException("Failed to unzip file.", e);
+//		       }
+//		     });
+//		}
+//	}
 
 	/**
 	 * delete temp dir and included files
@@ -67,34 +103,12 @@ public class Utils {
 		if (tmp.exists()) {
 			if (tmp.listFiles().length > 0) {
 				try {
+					/*
+					 * delete all dirs and files
+					 */
 					FileUtils.deleteDirectory(tmp);
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
-				}
-			}
-		}
-	}
-	
-	public static void eraseTemporalDirContents() {
-		File tmp = new File("./" + ConfigInfo.TemporalDirName.toString());
-		if (tmp.exists()) {
-			if (tmp.listFiles().length > 0) {
-				File[] tmp_files = tmp.listFiles();
-				for(File f : tmp_files) {
-					if(f.isFile()) {
-						try {
-							FileUtils.delete(f);
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}else {
-						try {
-							FileUtils.deleteDirectory(f);
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}
 				}
 			}
 		}

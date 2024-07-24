@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-storescp-xmbean.xml 18686 2017-01-27 13:12:33Z javawilli $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>DICOM Storage SCP</description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.StoreScpService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>StoreScpService</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="getGeneratePatientID"
+      setMethod="setGeneratePatientID">
+      <description>Generate Patient ID from hash of Patient Name and
+          Birth Date, if there is no Patient ID in the received object.
+          If there is also no value for Patient Name, the hash of the
+          Study Instance UID is used to generate different Patient IDs for
+          different studies in that case.
+          &lt;br&gt;Use ### as placeholder for decimal hash value.
+          &lt;br&gt;NONE = do not generate Patient IDs -> Media Creation will fail.
+      </description>
+      <name>GeneratePatientID</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="DCMCDW-##########" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getIssuerOfPatientID"
+      setMethod="setIssuerOfPatientID">
+      <description>Add Issuer Of PatientID if the Patient ID is generated.
+      </description>
+      <name>IssuerOfPatientID</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="DCMCDW" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedImageSOPClasses"
+      setMethod="setAcceptedImageSOPClasses">
+      <description><![CDATA[
+        List of image SOP Classes that the Store SCP service accepts.
+        Use either the SOP Class UID value, or the name specified in 
+        DICOM Part 6, Annex A Registry of DICOM unique identifiers,
+        concatenating individual words without spaces.]]>
+      </description>
+      <name>AcceptedImageSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           ComputedRadiographyImageStorage
+           DigitalXRayImageStorageForPresentation
+           DigitalXRayImageStorageForProcessing
+           DigitalMammographyXRayImageStorageForPresentation
+           DigitalMammographyXRayImageStorageForProcessing
+           DigitalIntraoralXRayImageStorageForPresentation
+           DigitalIntraoralXRayImageStorageForProcessing
+           CTImageStorage
+           EnhancedCTImageStorage
+           UltrasoundMultiframeImageStorage
+           MRImageStorage
+           EnhancedMRImageStorage
+           UltrasoundImageStorage
+           SecondaryCaptureImageStorage
+           MultiframeSingleBitSecondaryCaptureImageStorage
+           MultiframeGrayscaleByteSecondaryCaptureImageStorage
+           MultiframeGrayscaleWordSecondaryCaptureImageStorage
+           MultiframeTrueColorSecondaryCaptureImageStorage
+           XRayAngiographicImageStorage
+           EnhancedXRayAngiographicImageStorage
+           XRayRadiofluoroscopicImageStorage
+           EnhancedXRayRadiofluoroscopicImageStorage
+           NuclearMedicineImageStorage
+           VLEndoscopicImageStorage
+           VLMicroscopicImageStorage
+           VLSlideCoordinatesMicroscopicImageStorage
+           VLPhotographicImageStorage
+           OphthalmicPhotography8BitImageStorage
+           OphthalmicPhotography16BitImageStorage
+           PositronEmissionTomographyImageStorage
+           RTImageStorage
+           HardcopyGrayscaleImageStorage
+           HardcopyColorImageStorage
+           NuclearMedicineImageStorageRetired
+           UltrasoundMultiframeImageStorageRetired
+           UltrasoundImageStorageRetired
+           XRayAngiographicBiPlaneImageStorageRetired
+           VLImageStorageRetired
+           VLMultiframeImageStorageRetired
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntaxForImageSOPClasses"
+      setMethod="setAcceptedTransferSyntaxForImageSOPClasses">
+      <description><![CDATA[
+        List of Transfer Syntaxes for Image SOP Classes that Store SCP
+        service accepts. Order defines selection preference. Use either the 
+        Transfer Syntaxes UID value or following defined symbolic names: 
+        ImplicitVRLittleEndian,
+        ExplicitVRLittleEndian,
+        DeflatedExplicitVRLittleEndian,
+        ExplicitVRBigEndian,
+        JPEGBaseline,
+        JPEGExtended,
+        JPEGLossless (=Process 14 [Selection Value 1]),
+        JPEGLossless14,
+        JPEGLSLossless,
+        JPEGLSLossy,
+        JPEG2000Lossless,
+        JPEG2000Lossy,
+        RLELossless        
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntaxForImageSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+         JPEGLossless
+         JPEGLossless14
+         JPEGLSLossless
+         RLELossless
+         JPEG2000Lossless
+         JPEG2000Lossless
+         ExplicitVRLittleEndian
+         ImplicitVRLittleEndian
+         JPEGBaseline
+         JPEGExtended
+         JPEGLSLossy
+         JPEG2000Lossy"/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedVideoSOPClasses"
+      setMethod="setAcceptedVideoSOPClasses">
+      <description><![CDATA[
+        List of Video SOP Classes that the Store SCP service accepts.
+        Use either the SOP Class UID value, or the name specified in 
+        DICOM Part 6, Annex A Registry of DICOM unique identifiers,
+        concatenating individual words without spaces.]]>
+      </description>
+      <name>AcceptedVideoSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           VideoEndoscopicImageStorage
+           VideoMicroscopicImageStorage
+           VideoPhotographicImageStorage"/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntaxForVideoSOPClasses"
+      setMethod="setAcceptedTransferSyntaxForVideoSOPClasses">
+      <description><![CDATA[
+        List of Transfer Syntaxes for Video SOP Classes that Store SCP
+        service accepts. Order defines selection preference. Use either the 
+        Transfer Syntaxes UID value or following defined symbolic names:
+        JPEGBaseline,
+        MPEG2        
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntaxForVideoSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           JPEGBaseline
+           MPEG2"/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedWaveformSOPClasses"
+      setMethod="setAcceptedWaveformSOPClasses">
+      <description><![CDATA[
+        List of Waveform SOP Classes that the Store SCP service accepts.
+        Use either the SOP Class UID value, or the name specified in 
+        DICOM Part 6, Annex A Registry of DICOM unique identifiers,
+        concatenating individual words without spaces.]]>
+      </description>
+      <name>AcceptedWaveformSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           TwelveLeadECGWaveformStorage
+           GeneralECGWaveformStorage
+           AmbulatoryECGWaveformStorage
+           HemodynamicWaveformStorage
+           CardiacElectrophysiologyWaveformStorage
+           BasicVoiceAudioWaveformStorage
+           StructuredReportAudioStorageRetired
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntaxForWaveformSOPClasses"
+      setMethod="setAcceptedTransferSyntaxForWaveformSOPClasses">
+      <description><![CDATA[
+        List of Transfer Syntaxes for Waveform SOP Classes that Store SCP
+        service accepts. Order defines selection preference. Use either the 
+        Transfer Syntaxes UID value or following defined symbolic names: 
+        ImplicitVRLittleEndian,
+        ExplicitVRLittleEndian,
+        DeflatedExplicitVRLittleEndian,
+        ExplicitVRBigEndian
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntaxForWaveformSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           ExplicitVRLittleEndian
+           ImplicitVRLittleEndian
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedSRSOPClasses"
+      setMethod="setAcceptedSRSOPClasses">
+      <description><![CDATA[
+        List of Structured Report Document SOP Classes that the 
+        Store SCP service accepts.
+        Use either the SOP Class UID value, or the name specified in 
+        DICOM Part 6, Annex A Registry of DICOM unique identifiers,
+        concatenating individual words without spaces.]]>
+      </description>
+      <name>AcceptedSRSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           BasicTextSR
+           EnhancedSR
+           ComprehensiveSR
+           ProcedureLogStorage
+           MammographyCADSR
+           KeyObjectSelectionDocument
+           ChestCADSR
+           XRayRadiationDoseSR
+           StructuredReportTextStorageRetired
+           StructuredReportDetailStorageRetired
+           StructuredComprehensiveStorageRetired
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntaxForSRSOPClasses"
+      setMethod="setAcceptedTransferSyntaxForSRSOPClasses">
+      <description><![CDATA[
+        List of Transfer Syntaxes for Structured Report Document SOP Classes 
+        that Store SCP service accepts. Order defines selection preference.
+        Use either the Transfer Syntaxes UID value or following defined 
+        symbolic names: 
+        ImplicitVRLittleEndian,
+        ExplicitVRLittleEndian,
+        DeflatedExplicitVRLittleEndian,
+        ExplicitVRBigEndian
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntaxForSRSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           DeflatedExplicitVRLittleEndian
+           ExplicitVRLittleEndian
+           ImplicitVRLittleEndian
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedOtherSOPClasses"
+      setMethod="setAcceptedOtherSOPClasses">
+      <description><![CDATA[
+        List of other (than Image, Video, Waveform, Structured Report) SOP
+        Classes that the Store SCP service accepts.
+        Use either the SOP Class UID value, or the name specified in 
+        DICOM Part 6, Annex A Registry of DICOM unique identifiers,
+        concatenating individual words without spaces.]]>
+      </description>
+      <name>AcceptedOtherSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           MRSpectroscopyStorage
+           GrayscaleSoftcopyPresentationStateStorage
+           ColorSoftcopyPresentationStateStorage
+           PseudoColorSoftcopyPresentationStateStorage
+           BlendingSoftcopyPresentationStateStorage
+           RawDataStorage
+           SpatialRegistrationStorage
+           SpatialFiducialsStorage
+           DeformableSpatialRegistrationStorage
+           SegmentationStorage
+           RealWorldValueMappingStorage
+           StereometricRelationshipStorage
+           EncapsulatedPDFStorage
+           RTDoseStorage
+           RTStructureSetStorage
+           RTBeamsTreatmentRecordStorage
+           RTPlanStorage
+           RTBrachyTreatmentRecordStorage
+           RTTreatmentSummaryRecordStorage
+           RTIonPlanStorage
+           RTIonBeamsTreatmentRecordStorage
+           StandaloneOverlayStorage
+           StandaloneCurveStorage
+           StandaloneModalityLUTStorage
+           StandaloneVOILUTStorage
+           StandalonePETCurveStorage
+           AgfaAttributePresentationState
+           SiemensCSANonImageStorage
+           "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntax"
+      setMethod="setAcceptedTransferSyntax">
+      <description><![CDATA[
+        List of Transfer Syntaxes for other (than Image, Video, Waveform,
+        Structured Report) SOP Classes that Store SCP service accepts. Order 
+        defines selection preference. Use either the 
+        Transfer Syntaxes UID value or following defined symbolic names: 
+        ImplicitVRLittleEndian,
+        ExplicitVRLittleEndian,
+        DeflatedExplicitVRLittleEndian,
+        ExplicitVRBigEndian
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntaxForOtherSOPClasses</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           ExplicitVRLittleEndian
+           ImplicitVRLittleEndian
+         "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getTransformationMode"
+      setMethod="setTransformationMode">
+      <description><![CDATA[
+        Transformation mode of objects with uncompressed Transfersyntax.<br />
+        <dl><dt>Possible values:</dt> 
+        <dd>original  Use transfer syntax from object.</dd>
+        <dd>EVRLE     Use Explicit VR little endian. (IHE)</dd>
+        <dd>IVRLE     Use Implicit VR little endian.</dd>
+        </dl>
+        Note: Default transformation is EVRLE to fulfill the requirements of IHE 'Portable Data for Imaging (PDI)' profile.<br/>
+        This transformation mode is only used for uncompressed objects.
+        ]]>
+      </description>
+      <name>TransformationMode</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="EVRLE"/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getBufferSize"
+      setMethod="setBufferSize">
+      <description>Size of buffer used to copy data from TCP channel to spool file.
+      No need to change default value: 512.
+      </description>
+      <name>BufferSize</name>
+      <type>int</type>
+      <descriptors>
+         <value value="512" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMediaCreationRequestEmulatorServiceName"
+      setMethod="setMediaCreationRequestEmulatorServiceName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>MediaCreationRequestEmulatorServiceName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDcmServerName"
+      setMethod="setDcmServerName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>DcmServerName</name>
+      <type>javax.management.ObjectName</type>      
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSpoolDirName"
+      setMethod="setSpoolDirName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>SpoolDirName</name>
+      <type>javax.management.ObjectName</type>      
+   </attribute>
+   &defaultAttributes;
+   
+   <!-- Operations -->
+   &defaultOperations;
+</mbean>

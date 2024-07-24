@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-mcmscp-xmbean.xml 8787 2008-12-16 12:29:11Z gunterze 
+  $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+  <description>DICOM Media Creation Request Emulator</description>
+
+  <descriptors>
+    <persistence persistPolicy="OnUpdate" />
+    <persistence-manager
+      value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+  </descriptors>
+
+  <class>org.dcm4chex.cdw.mbean.MediaCreationRequestEmulatorService</class>
+
+  <constructor>
+    <description>The default constructor</description>
+    <name>MediaCreationRequestEmulatorService</name>
+  </constructor>
+
+  <!-- Attributes -->
+  &defaultAttributes;
+  <attribute access="read-write" getMethod="getSourceAETitles"
+    setMethod="setSourceAETitles">
+    <description><![CDATA[AE titles of Storage SCUs for which Media Creation
+        Requests shall be emulated. Multiple distinct AE titles or groups of AE titles 
+        are separated by new line. For each AE title or group of AE titles, a minimum delay time between 
+        the time the last object of a patient is received and the emulation of the Media
+        Creation Request for all objects belonging to the patient can be
+        explicit specified. If no delay is specified, a default delay of 1
+        minute is used.
+        <br/>One Source format: <i>aeTitle</i>[:<i>delay</i>]
+        <br/>Group format: <i>groupName</i>;<i>aeTitle</i>[:<i>delay</i>] 
+        <br/><i>delay</i> can be specified in seconds (##s) or minutes (##m).
+        <br>Sample single AE title: DCMSND:2m
+        <br>Sample group of AE titles: GROUP1;AETitle1,AETitle2:1m]]>
+    </description>
+    <name>Groups/SourceAETitles</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="GROUP1;TESTSCU1,TESTSCU2:90s" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getSpoolFileNamePattern"
+    setMethod="setSpoolFileNamePattern">
+    <description><![CDATA[Defines the spool file name pattern.
+      Makes it possible to include various identifiers into the spool file name in a set order.
+      <br/>Possible patterns (pattern:description):<br/>
+      <ul><li>PID: Patient ID</li><li>FN: Family name</li><li>GN: Given name</li><li>MN: Middle name</li>
+      <li>DB: Date of birth</li><li>IID: Issuer of patient ID</li><li>PS: Patient Gender</li></ul>
+      If no pattern containing a PID is specified the default pattern {PID}.{IID} is used. 
+        <br>Sample pattern: {PID}.{IID}.{BD}.{PS}]]>
+    </description>
+    <name>SpoolFileNamePattern</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="{PID}.{IID}" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getPollInterval"
+    setMethod="setPollInterval">
+    <description>Interval in minutes (##m) or seconds (##s) between
+      checks
+      for received objects from specified Source AE Title, for
+      which Media
+      Creation Requests shall be emulated.
+    </description>
+    <name>PollInterval</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="1m" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getMediaApplicationProfile"
+    setMethod="setMediaApplicationProfile">
+    <description><![CDATA[Value of attribute <i>Requested Media Application
+Profile (2200,000C)</i> in items of the <i>Referenced SOP Sequence
+(0008,1199)</i> in emulated Media Creation requests.]]>
+    </description>
+    <name>MediaApplicationProfile</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="STD-GEN-CD" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getFilesetID"
+    setMethod="setFilesetID">
+    <description><![CDATA[Value of attribute <i>Storage Media File-Set ID
+ (0088,0130)</i> in emulated Media Creation requests. 0 or # will be replaced
+ by <b>NextFilesetIDSeqno</b>.]]>
+    </description>
+    <name>FilesetID</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="DISK_000" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getNextFilesetIDSeqno"
+    setMethod="setNextFilesetIDSeqno">
+    <description><![CDATA[Used with <b>FilesetID</b> to generate the value of
+attribute <i>Storage Media File-Set ID (0088,0130)</i> in emulated Media
+Creation requests. Will automatic incremented for each generated Fileset ID.]]>
+    </description>
+    <name>NextFilesetIDSeqno</name>
+    <type>int</type>
+    <descriptors>
+      <value value="1" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getRequestPriority"
+    setMethod="setRequestPriority">
+    <description><![CDATA[Value of attribute <i>Request Priority
+(2200,0020)</i> in emulated Media Creation requests.
+Enumerated values: HIGH, MED, LOW.]]>
+    </description>
+    <name>RequestPriority</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="LOW" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getNumberOfCopies"
+    setMethod="setNumberOfCopies">
+    <description><![CDATA[Value of attribute <i>Number of Copies
+(2200,0010)</i> in emulated Media Creation requests.]]>
+    </description>
+    <name>NumberOfCopies</name>
+    <type>int</type>
+    <descriptors>
+      <value value="1" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write"
+    getMethod="isLabelUsingInformationExtractedFromInstances" setMethod="setLabelUsingInformationExtractedFromInstances">
+    <description><![CDATA[Controls value (true -> YES, false -> NO) of
+ attribute <i>Label Using Information Extracted From Instances (2200,0001)</i>
+ in emulated Media Creation requests.]]>
+    </description>
+    <name>LabelUsingInformationExtractedFromInstances</name>
+    <type>boolean</type>
+    <descriptors>
+      <value value="true" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getLabelText"
+    setMethod="setLabelText">
+    <description><![CDATA[Value of attribute <i>Label Text (2200,0002)</i>
+in emulated Media Creation requests.]]>
+    </description>
+    <name>LabelText</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getLabelStyleSelection"
+    setMethod="setLabelStyleSelection">
+    <description><![CDATA[Value of attribute <i>Label Style Selection
+(2200,0003)</i> in emulated Media Creation requests.]]>
+    </description>
+    <name>LabelStyleSelection</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="isAllowMediaSplitting"
+    setMethod="setAllowMediaSplitting">
+    <description><![CDATA[Controls value (true -> YES, false -> NO) of
+attribute <i>Allow Media Splitting (2200,0007)</i> in emulated Media Creation
+requests.]]>
+    </description>
+    <name>AllowMediaSplitting</name>
+    <type>boolean</type>
+    <descriptors>
+      <value value="true" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="isAllowLossyCompression"
+    setMethod="setAllowLossyCompression">
+    <description><![CDATA[Controls value (true -> YES, false -> NO) of
+attribute <i>Allow Lossy Compression (2200,000F)</i> in emulated Media Creation
+requests.  (As long the Media Composer Service does not support lossy
+compression, allowing lossy compression will not have any effect.)]]>
+    </description>
+    <name>AllowLossyCompression</name>
+    <type>boolean</type>
+    <descriptors>
+      <value value="false" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getIncludeNonDICOMObjects"
+    setMethod="setIncludeNonDICOMObjects">
+    <description><![CDATA[Value of attribute <i>Include Non-DICOM Objects
+(2200,0008)</i> in emulated Media Creation requests.]]>
+    </description>
+    <name>IncludeNonDICOMObjects</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="NO" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="isIncludeDisplayApplication"
+    setMethod="setIncludeDisplayApplication">
+    <description><![CDATA[Controls value (true -> YES, false -> NO) of
+attribute <i>Include Display Application (2200,0009)</i> in emulated Media
+Creation requests.]]>
+    </description>
+    <name>IncludeDisplayApplication</name>
+    <type>boolean</type>
+    <descriptors>
+      <value value="false" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="isPreserveInstances"
+    setMethod="setPreserveInstances">
+    <description><![CDATA[Controls value (true -> YES, false -> NO) of
+attribute <i>Preserve Composite Instances After Media Creation (2200,000A)</i>
+in emulated Media Creation requests.]]>
+    </description>
+    <name>PreserveInstances</name>
+    <type>boolean</type>
+    <descriptors>
+      <value value="false" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getTimerID"
+    setMethod="setTimerID">
+    <description>Used internally. Do NOT modify.
+    </description>
+    <name>TimerID</name>
+    <type>java.lang.String</type>
+  </attribute>
+  <attribute access="read-write" getMethod="getMediaComposerQueueName"
+    setMethod="setMediaComposerQueueName">
+    <description>Used internally - do NOT modify.
+    </description>
+    <name>MediaComposerQueueName</name>
+    <type>java.lang.String</type>
+    <descriptors>
+      <value value="MediaComposer" />
+    </descriptors>
+  </attribute>
+  <attribute access="read-write" getMethod="getSpoolDirName"
+    setMethod="setSpoolDirName">
+    <description>Used internally - do NOT modify.
+    </description>
+    <name>SpoolDirName</name>
+    <type>javax.management.ObjectName</type>
+  </attribute>
+  <attribute access="read-write" getMethod="getSchedulerServiceName"
+    setMethod="setSchedulerServiceName">
+    <description>Used internally. Do NOT modify.
+    </description>
+    <name>SchedulerServiceName</name>
+    <type>javax.management.ObjectName</type>
+  </attribute>
+
+  <!-- Operations -->
+  &defaultOperations;
+  <operation impact="INFO">
+    <description>Determines if Media Creation Requests shall be emulated
+      for
+      objects received by the Storage SCU with the specified AE
+      title.
+    </description>
+    <name>containsSourceAETitle</name>
+    <parameter>
+      <description>AE title</description>
+      <name>aet</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <return-type>boolean</return-type>
+  </operation>
+  <operation impact="INFO">
+    <description>returns group name for sourceAET included within a
+      group.
+    </description>
+    <name>getGroupAET</name>
+    <parameter>
+      <description>AE title</description>
+      <name>aet</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <return-type>java.lang.String</return-type>
+  </operation>
+  <operation impact="INFO">
+    <description>returns decoded file name for current pattern.
+    </description>
+    <name>getDecodedPattern</name>
+    <parameter>
+      <description>Patient ID</description>
+      <name>pid</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Issuer of Patient ID</description>
+      <name>iid</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Patient Given Name</description>
+      <name>gn</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Patient Middle Name</description>
+      <name>mn</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Patient Family Name</description>
+      <name>fn</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Patient birth Date</description>
+      <name>bd</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <parameter>
+      <description>Patient Gender</description>
+      <name>ps</name>
+      <type>java.lang.String</type>
+    </parameter>
+    <return-type>java.lang.String</return-type>
+  </operation>
+</mbean>

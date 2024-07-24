@@ -1,0 +1,26 @@
+DICOM-CDRの作り方
+
+必要なもの
+weasis-portable(ver 3.7.0)の中身
+jdk8（java version "1.8.0_281"）内のjre/bin, jre/libフォルダを、weasis-portable/jre/os name/にコピー
+DICOMデータ（DICOMというフォルダにまとめる）
+DICOMDIR（上のDICOMフォルダをターゲットにして作る）
+
+構成例
+DICOM
+DICOMDIR
+weasis
+jre/windows/bin(win-jdkのjreのbinのコピー)※→javaがないマシンで動かすため
+		   /lib
+   /linux/bin(linux-jdkのjreのbinのコピー)
+		 /lib
+   /macOS/bin(macOS-jdkのjreのbinのコピー)
+   		 /lib
+Autorun
+viewer-win32.exe
+viewer-win32.l4j
+viewer-linux.sh(最初にカレントディレクトリに移動するスクリプトを追加しておく必要あり?)
+
+これを OSごとにパターン分けしてCDにコピー?→現状はいっしょくた。
+
+windows10の場合は、OSの設定>デバイス>自動再生の設定を、「毎回動作を確認する」にしておくと、起動アプリケーションにWeasisがリストされる。（これがオートランとして動く。）

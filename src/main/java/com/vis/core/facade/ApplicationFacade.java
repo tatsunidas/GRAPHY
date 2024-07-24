@@ -93,6 +93,7 @@ public class ApplicationFacade{
 					new File("./"+name.toString()).mkdirs();
 					try {
 						Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
+						Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
 					} catch (IOException e) {
 						Log.logger.severe("Cannot copy default graphy properties file.");
 						Log.logger.severe(e.getMessage());
@@ -107,8 +108,16 @@ public class ApplicationFacade{
 						try {
 							Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
 						} catch (IOException e) {
-							Log.logger.severe(e.getMessage());
 							Log.logger.severe("Cannot copy default graphy properties file.");
+							Log.logger.severe(e.getMessage());
+						}
+					}
+					if(!new File("./"+name.toString()+"/cdrecord.properties").exists()) {
+						try {
+							Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
+						} catch (IOException e) {
+							Log.logger.severe("Cannot copy default graphy properties file.");
+							Log.logger.severe(e.getMessage());
 						}
 					}
 				}
@@ -204,7 +213,7 @@ public class ApplicationFacade{
 				if(db != null) {
 					db.shutdownDB();
 				}
-				Utils.eraseTemporalDirContents();
+				Utils.eraseTemporalDir();
 				WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 //				System.exit(0);
 			}else if(res == JOptionPane.CANCEL_OPTION || res == JOptionPane.NO_OPTION) {
@@ -216,7 +225,7 @@ public class ApplicationFacade{
 			if(db != null) {
 				db.shutdownDB();
 			}
-			Utils.eraseTemporalDirContents();
+			Utils.eraseTemporalDir();
 			WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 			System.exit(Level.SEVERE.intValue());
 		}

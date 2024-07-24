@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-mcmscp-xmbean.xml 9897 2009-02-20 09:28:16Z gunterze $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>DICOM Media Creation Management SCP</description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.MediaCreationMgtScpService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>MediaCreationMgtScpService</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="isKeepSpoolFiles"
+      setMethod="setKeepSpoolFiles">
+      <description>Keep spool files (for debugging) in failure case.
+      </description>
+      <name>KeepSpoolFiles</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAcceptedTransferSyntax"
+      setMethod="setAcceptedTransferSyntax">
+      <description><![CDATA[
+        List of accepted Transfer Syntaxes. Order defines selection preference.
+        Use either the  Transfer Syntaxes UID value or following defined
+        symbolic names: 
+        ImplicitVRLittleEndian,
+        ExplicitVRLittleEndian,
+        DeflatedExplicitVRLittleEndian,
+        ExplicitVRBigEndian
+        ]]>
+      </description>
+      <name>AcceptedTransferSyntax</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="
+           ExplicitVRLittleEndian
+           ImplicitVRLittleEndian
+         "/>
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDefaultMediaApplicationProfile"
+      setMethod="setDefaultMediaApplicationProfile">
+      <description><![CDATA[The Media Application Profile to be used for
+SOP Instances, for which no value for attribute <i>Requested Media Application
+Profile (2200,000C)</i> is specified in the corresponding item of the
+<i>Referenced SOP Sequence (0008,1199)</i> in the received Media Creation
+Management N-Create request.]]>
+      </description>
+      <name>DefaultMediaApplicationProfile</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="STD-GEN-CD" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDefaultFilesetID"
+      setMethod="setDefaultFilesetID">
+      <description>Used, if no Fileset ID is specified in the received
+      Media Creation request. 0 or # will be replaced by 
+      NextDefaultFilesetIDSeqno.
+      </description>
+      <name>DefaultFilesetID</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="DISK_000" />
+      </descriptors>
+   </attribute>   
+   <attribute access="read-write"
+      getMethod="getNextDefaultFilesetIDSeqno"
+      setMethod="setNextDefaultFilesetIDSeqno">
+      <description>Used with DefaultFilesetID to generate the Fileset ID, if
+      no Fileset ID is specified in the received Media Creation request.
+      Will automatic incremented for each generated Fileset ID.
+      </description>
+      <name>NextDefaultFilesetIDSeqno</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="1" />
+      </descriptors>
+   </attribute>   
+   <attribute access="read-write"
+      getMethod="getDefaultRequestPriority"
+      setMethod="setDefaultRequestPriority">
+      <description>Used, if no Request Priority is specified in the received
+      Initiate Media Creation N-Action command.
+      Enumerated values: HIGH, MED, LOW.
+      </description>
+      <name>DefaultRequestPriority</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="LOW" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMaxNumberOfCopies"
+      setMethod="setMaxNumberOfCopies">
+      <description><![CDATA[Maximum value of attribute <i>Number Of Copies
+(2200,0010)</i> specified in the received Initiate Media Creation N-Action
+requests. Initiate Media Creation N-Action requests with higher values for
+attribute <i>Number Of Copies (2200,0010)</i> will be rejected with failure
+status code: <i>0115H - Invalid argument value</i>.]]>
+      </description>
+      <name>MaxNumberOfCopies</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="10" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isDefaultLabelUsingInformationExtractedFromInstances"
+      setMethod="setDefaultLabelUsingInformationExtractedFromInstances">
+      <description><![CDATA[Specifies whether or not to extract label
+information from the instances. Only effectiv, if no value for attribute
+<i>Label Using Information Extracted From Instances (2200,0001)</i> is
+specified in the received Media Creation Management N-Create request.]]>
+      </description>
+      <name>DefaultLabelUsingInformationExtractedFromInstances</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDefaultLabelText"
+      setMethod="setDefaultLabelText">
+      <description><![CDATA[Unformatted free text to include in the label
+instead of or in addition to information extracted from the instances. Only
+effective if no value for attribute <i>Label Text (2200,0002)</i> is specified
+in the received Media Creation Management N-Create request.]]>
+      </description>
+      <name>DefaultLabelText</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDefaultLabelStyleSelection"
+      setMethod="setDefaultLabelStyleSelection">
+      <description><![CDATA[An implementation-dependent code string that may
+be used as a hint to select a particular layout or format of label. Only
+effective, if no value for attribute <i>Label Style Selection (2200,0003)</i>
+is specified in the received Media Creation Management N-Create request.]]>
+      </description>
+      <name>DefaultLabelStyleSelection</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isDefaultAllowMediaSplitting"
+      setMethod="setDefaultAllowMediaSplitting">
+      <description><![CDATA[Specifies whether or not the Media Composer Service
+is allowed to split the request over more than one piece of media. Only
+effective if no value for attribute <i>Allow Media Splitting (2200,0007)</i>
+is specified in the received Media Creation Management N-Create request.]]>
+      </description>
+      <name>DefaultAllowMediaSplitting</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isDefaultAllowLossyCompression"
+      setMethod="setDefaultAllowLossyCompression">
+      <description><![CDATA[Specifies whether or not the Media Composer Service
+is allowed to perform lossy compression. Only effective if no value for
+attribute <i>Allow Lossy Compression (2200,000F)</i> is specified in the
+received Media Creation Management N-Create request. (As long the Media
+Composer Service does not support lossy compression, allowing lossy compression
+will not have any effect.)]]>
+      </description>
+      <name>DefaultAllowLossyCompression</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDefaultIncludeNonDICOMObjects"
+      setMethod="setDefaultIncludeNonDICOMObjects">
+      <description><![CDATA[A flag indicating if the Media Composer Service
+should include additional Non-DICOM information/objects on the media. Only
+effective, if no value for attribute <i>Include Non-DICOM Objects
+(2200,0008)</i> is specified in the received Media Creation Management
+N-Create request.]]>
+      </description>
+      <name>DefaultIncludeNonDICOMObjects</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="NO" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isDefaultIncludeDisplayApplication"
+      setMethod="setDefaultIncludeDisplayApplication">
+      <description><![CDATA[A flag indicating if the Media Composer Service
+should include a DICOM Instance Display Application on the media. Only
+effective, if no value for attribute <i>Include Display Application
+(2200,0009)</i> is specified in the received Media Creation Management
+N-Create request.]]>
+      </description>
+      <name>DefaultIncludeDisplayApplication</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isDefaultPreserveInstances"
+      setMethod="setDefaultPreserveInstances">
+      <description><![CDATA[A flag indicating if the Media Composer Service
+shall not delete instances from the spool directory after including them into
+the DICOM File Set which is put on media. Only effective, if no value for
+attribute <i>Preserve Composite Instances After Media Creation (2200,000A)</i>
+is specified in the received Media Creation Management N-Create request.]]>
+      </description>
+      <name>DefaultPreserveInstances</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isAllowCancelAlreadyCreating"
+      setMethod="setAllowCancelAlreadyCreating">
+      <description>Accepts Cancel Requests for Media Creation Requests
+      even if the actual burning of media already started.
+      </description>
+      <name>AllowCancelAlreadyCreating</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isTolerateDuplicateRefSOPInstances"
+      setMethod="setTolerateDuplicateRefSOPInstances">
+      <description>Tolerate incorrect Media Creation Request with duplicated
+      referenced SOP Instances.
+      </description>
+      <name>TolerateDuplicateRefSOPInstances</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMaxReadRequestRetries"
+      setMethod="setMaxReadRequestRetries">
+      <description>Maximal Number of Retries to read a Request File to serve
+      a N-GET RQ, before returning an error response.
+      </description>
+      <name>MaxReadRequestRetries</name>
+      <type>int</type>
+      <descriptors>
+         <value value="2" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getReadRequestRetryInterval"
+      setMethod="setReadRequestRetryInterval">
+      <description>Interval in ms between two Retries to read a Request File.
+      </description>
+      <name>ReadRequestRetryInterval</name>
+      <type>long</type>
+      <descriptors>
+         <value value="500" />
+      </descriptors>
+   </attribute>   
+   <attribute access="read-write"
+      getMethod="getDcmServerName"
+      setMethod="setDcmServerName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>DcmServerName</name>
+      <type>javax.management.ObjectName</type>      
+   </attribute>
+  <attribute access="read-write"
+      getMethod="getMediaComposerQueueName"
+      setMethod="setMediaComposerQueueName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>MediaComposerQueueName</name>
+      <type>java.lang.String</type>
+     <descriptors>
+         <value value="MediaComposer" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSpoolDirName"
+      setMethod="setSpoolDirName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>SpoolDirName</name>
+      <type>javax.management.ObjectName</type>      
+   </attribute>
+   &defaultAttributes;
+   
+   <!-- Operations -->
+   &defaultOperations;
+</mbean>

@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+
+<!-- $Id: cdrecord-service.xml 12680 2010-01-26 11:13:58Z gunterze $ -->
+
+<!DOCTYPE server PUBLIC
+   "-//JBoss//DTD MBean Service 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd"
+>
+<server>
+  <mbean code="org.jboss.jms.server.destination.QueueService"
+    name="dcm4chee.cdw:service=Queue,name=CDRecord"
+    xmbean-dd="xmdesc/Queue-xmbean.xml">
+      <depends optional-attribute-name="ServerPeer">jboss.messaging:service=ServerPeer</depends>
+      <depends>jboss.messaging:service=PostOffice</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.cdrecord.CDRecordService"
+    name="dcm4chee.cdw:service=MediaWriter,name=CDRecord"
+    xmbean-dd="xmdesc/dcm4chee-cdw-cdrecord-xmbean.xml">
+    <depends>jboss.messaging.connectionfactory:service=ConnectionFactory</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=CDRecord</depends>
+    <depends optional-attribute-name="LabelPrintName"
+      >dcm4chee.cdw:service=LabelPrint</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+  </mbean>
+</server>

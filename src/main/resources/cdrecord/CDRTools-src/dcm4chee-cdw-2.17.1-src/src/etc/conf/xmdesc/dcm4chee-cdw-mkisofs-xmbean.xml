@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-mkisofs-xmbean.xml 15528 2011-06-01 11:39:26Z javawilli $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>Make Iso Image
+   </description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.MakeIsoImage</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>MakeIsoImage</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="getExecutable"
+      setMethod="setExecutable">
+      <description>Executable command to invoke mkisofs.
+      </description>
+      <name>Executable</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="mkisofs" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getConfigDir"
+      setMethod="setConfigDir">
+      <description>Path to configuration file 
+      mkisofs.sort (Sorting rules for files/folders in ISO image)
+      </description>
+      <name>ConfigDirPath</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="conf/dcm4chee-cdw" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isKeepSpoolFiles"
+      setMethod="setKeepSpoolFiles">
+      <description>Keep spool files (for debugging) in failure case.
+      </description>
+      <name>KeepSpoolFiles</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getIsoLevel"
+      setMethod="setIsoLevel">
+      <description>ISO 9660 conformance level (1..3) or 4 for ISO9660 version 2.
+      </description>
+      <name>IsoLevel</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="1" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isRockRidge"
+      setMethod="setRockRidge">
+      <description>Generate rationalized Rock Ridge directory information.
+      </description>
+      <name>RockRidge</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isJoliet"
+      setMethod="setJoliet">
+      <description>Generate Joliet directory information.
+      </description>
+      <name>Joliet</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isUdf"
+      setMethod="setUdf">
+      <description>Generate UDF file system.
+      </description>
+      <name>Udf</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isVolsetInfoEnabled"
+      setMethod="setVolsetInfoEnabled">
+      <description>Set Volumne set ID, size and sequence number.
+      </description>
+      <name>VolsetInfoEnabled</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isPadding"
+      setMethod="setPadding">
+      <description>Pad output to a multiple of 32k.
+      </description>
+      <name>Padding</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isSortEnabled"
+      setMethod="setSortEnabled">
+      <description>Sort file content locations according to rules in
+      [ConfigDirPath]/mkisofs.sort.
+      </description>
+      <name>SortEnabled</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isLogEnabled"
+      setMethod="setLogEnabled">
+      <description>Log to server/default/log/mkisofs.log.
+      </description>
+      <name>LogEnabled</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSpoolDirName"
+      setMethod="setSpoolDirName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>SpoolDirName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>
+   &defaultAttributes;
+   
+   <!-- Operations -->
+   &defaultOperations;
+</mbean>

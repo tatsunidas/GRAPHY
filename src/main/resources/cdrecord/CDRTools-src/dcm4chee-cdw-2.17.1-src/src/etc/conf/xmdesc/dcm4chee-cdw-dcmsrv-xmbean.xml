@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>DICOM Server</description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.DcmServerService</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>DcmServerService</name>
+   </constructor>
+
+   <!-- Attributes -->
+   <attribute access="read-write"
+      getMethod="getPort"
+      setMethod="setPort">
+      <!-- Network -->
+      <description>TCP listening port.
+      </description>
+      <name>Port</name>
+      <type>int</type>
+      <descriptors>
+         <value value="10104" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getAETofMediaWriter"
+      setMethod="setAETofMediaWriter">
+      <description>Associate accepted Called AETs to Media Writer Names.
+      Use ',' to separate multiple entries.
+      </description>
+      <name>AETofMediaWriter</name>
+      <type>java.lang.String</type>
+      <descriptors>
+         <value value="CDRECORD=CDRecord,NEROCMD=NeroCmd" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getCallingAETs"
+      setMethod="setCallingAETs">
+      <description>Accepted Calling AETs. "ANY" = accept any.
+      </description>
+      <name>CallingAETs</name>
+      <type>[Ljava.lang.String;</type>
+      <descriptors>
+         <value value="ANY" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getDimseTimeout"
+      setMethod="setDimseTimeout">
+      <description>DIMSE message timeout in ms. 0 = no timeout.
+      </description>
+      <name>DimseTimeout</name>
+      <type>int</type>
+      <descriptors>
+         <value value="60000" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getRqTimeout"
+      setMethod="setRqTimeout">
+      <description>A-ASSOCIATE RQ timeout in ms. 0 = no timeout.
+      </description>
+      <name>RqTimeout</name>
+      <type>int</type>
+      <descriptors>
+         <value value="5000" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSoCloseDelay"
+      setMethod="setSoCloseDelay">
+      <description>Socket close delay in ms after A-RELEASE RSP.
+      </description>
+      <name>SoCloseDelay</name>
+      <type>int</type>
+      <descriptors>
+         <value value="500" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMaxPDULength"
+      setMethod="setMaxPDULength">
+      <description>Maximal PDU package length for receiving PDUs.
+      </description>
+      <name>MaxPDULength</name>
+      <type>int</type>
+      <descriptors>
+         <value value="16352" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMaxClients"
+      setMethod="setMaxClients">
+      <description>Maximal number of simultaneously connected DICOM clients.
+      </description>
+      <name>MaxClients</name>
+      <type>int</type>
+      <descriptors>
+         <value value="10" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-only"
+      getMethod="getNumClients">
+      <description>Current number of connected DICOM clients.
+      </description>
+      <name>NumClients</name>
+      <type>int</type>
+      <descriptors>
+         <descriptor name="persistPolicy" value="Never"/>
+      </descriptors>           
+   </attribute>
+   &defaultAttributes;
+
+   <!-- Operations -->
+   &defaultOperations;
+   <operation impact="INFO">
+      <description>Used internally</description>
+      <name>dcmHandler</name>
+      <return-type>org.dcm4che.server.DcmHandler</return-type>
+   </operation>
+   <operation impact="INFO">
+      <description>Used internally</description>
+      <name>lookupMediaWriterName</name>
+      <parameter>
+         <description>Called AET</description>
+         <name>aet</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.lang.String</return-type>
+   </operation>
+</mbean>

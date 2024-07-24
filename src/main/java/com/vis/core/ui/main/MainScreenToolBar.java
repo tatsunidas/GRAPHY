@@ -54,6 +54,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.BurnerWindow;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
@@ -146,7 +147,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Delete, Resources.MenuBarDeleteIcon.loadIconFromResource());
 		map.put(Tool.Metadata,  Resources.MenuBarMetadataIcon.loadIconFromResource());
 		map.put(Tool.Send, Resources.MenuBarSendIcon.loadIconFromResource());
-////		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
+//		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
 		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
@@ -222,7 +223,7 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent arg) {
 					if(Platform.getCurrentPlatform() != Platform.WINDOWS) {
-						System.out.println("Cannot run BurnCD function in this OS.");
+						Log.logger.warning("Cannot run BurnCD function in this OS.");
 						return;
 					}
 					File burnFileInTemp = Utils.createNewDirInTemp();
@@ -234,9 +235,6 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					/*
-					 * only allow localtreetable
-					 */
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					if (selected == null || selected.size() < 1) {
 						return;

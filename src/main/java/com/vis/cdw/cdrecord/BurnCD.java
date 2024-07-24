@@ -19,8 +19,26 @@ import com.vis.cdw.common.ExecutionStatusInfo;
 import com.vis.cdw.common.MediaCreationException;
 
 /**
+ * cdrtools (32-bit recommended, 64-bit has BUG)
+ * https://opensourcepack.blogspot.com/p/cdrtools.html
  * 
- * @author tatsu
+ * Version
+ * windows-cdrtools-3.02a01_mingw
+ * mac → needs to build from src on macOS.
+ * linux → needs to build from src on linux
+ * 
+ * build cdrtools from src
+ * require following external libs.
+ * cdrecord : To burn cd-r/dvd-r/blueray
+ * mkisofs : To create iso file from folder
+ * 
+ * How to build > do "make" command on parent of src dir.
+ * then, executables will be created in OBJ folder.
+ * 
+ * Issue
+ * - Cannot execute mkisofs from JVM. Use ISOCreationTool instead.(UDF unsupported)
+ * 
+ * @author tatsunidas
  *
  */
 public class BurnCD {

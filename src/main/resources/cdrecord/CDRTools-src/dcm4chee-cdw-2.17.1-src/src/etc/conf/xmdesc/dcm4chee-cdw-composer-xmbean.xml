@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dcm4chee-cdw-composer-xmbean.xml 15528 2011-06-01 11:39:26Z javawilli $ -->
+
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.1//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_1.dtd">
+
+<mbean>
+   <description>Media Composer
+   </description>
+
+   <descriptors>
+      <persistence persistPolicy="OnUpdate"/>
+      <persistence-manager value="org.jboss.mx.persistence.DelegatingPersistenceManager" />
+   </descriptors>
+
+   <class>org.dcm4chex.cdw.mbean.MediaComposer</class>
+
+   <constructor>
+      <description>The default constructor</description>
+      <name>MediaComposer</name>
+   </constructor>
+
+   <!-- Attributes -->
+  <attribute access="read-write"
+      getMethod="getConfigDir"
+      setMethod="setConfigDir">
+      <description><![CDATA[Path to configuration files: </br> 
+      dicomdir-records.xml (Rules for DICOM DIR Creation), </br>
+      index.xsl (Stylesheet for INDEX.HTM creation), </br>
+      web.xsl (Stylesheet for web content creation), </br>
+      label.xsl (Stylesheet for Media Label creation).
+      ]]>
+      </description>
+      <name>ConfigDirPath</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="conf/dcm4chee-cdw" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMediaCapacity"
+      setMethod="setMediaCapacity">
+      <description>Media Capacity. Format: ##.#GB|##.#MB. 
+      1MB = 1000000 Bytes, 1GB = 1000MB.
+      </description>
+      <name>MediaCapacity</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="700MB" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getLabelFileFormat"
+      setMethod="setLabelFileFormat">
+      <description>Defines Format of created Label file. 
+      NO(=no Label File), PNG, TIFF, PDF or PS(=Postscript).
+      </description>
+      <name>LabelFileFormat</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="NO" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getLabelResolution"
+      setMethod="setLabelResolution">
+      <description>Label resolution in dpi (dots/pixels per inch) for
+      bitmap label file formats PNG and TIFF.
+      </description>
+      <name>LabelResolution</name>
+      <type>float</type>
+      <descriptors>
+         <value value="300" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getFileSetDescriptorFile"
+      setMethod="setFileSetDescriptorFile">
+      <description>File-set Descriptor File (a "README" file).
+      "NO"= no File-set Descriptor File.
+      </description>
+      <name>FileSetDescriptorFilename</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="NO" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getCharsetOfFileSetDescriptorFile"
+      setMethod="setCharsetOfFileSetDescriptorFile">
+      <description>Character set used in the File-set Descriptor File.
+      </description>
+      <name>CharsetOfFileSetDescriptorFile</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="ISO_IR 100" />
+      </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultStudyID"
+     setMethod="setDefaultStudyID">
+     <description><![CDATA[
+Value of <code>Study ID</code> used in DICOMDIR records, if there is no
+value for <code>Study ID</code> in the referenced DICOM file.
+"<code>{#..0..}</code>" will be replaced by the hash value of the
+<code>Study Instance UID</code>, where the number of "0" characters defines
+the minimal, and the total number of "#" and "0" characters, the maximal number
+of used digits.]]>
+     </description>
+     <name>DefaultStudyID</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="S{0000000000}" />
+      </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultStudyDate"
+     setMethod="setDefaultStudyDate">
+     <description><![CDATA[
+Value of <code>Study Date</code> used in DICOMDIR records, if there is no
+value for <code>Study Date</code> in the referenced DICOM file.]]>
+     </description>
+     <name>DefaultStudyDate</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="19000101" />
+      </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultStudyTime"
+     setMethod="setDefaultStudyTime">
+     <description><![CDATA[
+Value of <code>Study Time</code> used in DICOMDIR records, if there is no
+value for <code>Study Time</code> in the referenced DICOM file.]]>
+     </description>
+     <name>DefaultStudyTime</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="000000" />
+      </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultModality"
+     setMethod="setDefaultModality">
+     <description><![CDATA[
+Value of <code>Modality</code> used in DICOMDIR records, if there is no
+value for <code>Modality</code> in the referenced DICOM file.]]>
+     </description>
+     <name>DefaultModality</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="OT" />
+      </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultSeriesNumber"
+     setMethod="setDefaultSeriesNumber">
+     <description><![CDATA[
+Value of <code>Series Number</code> used in DICOMDIR records, if there is no
+value for <code>Series Number</code> in the referenced DICOM file.]]>
+     </description>
+     <name>DefaultSeriesNumber</name>
+     <type>int</type>
+     <descriptors>
+       <value value="0" />
+     </descriptors>
+   </attribute>
+
+   <attribute access="read-write" getMethod="getDefaultInstanceNumber"
+     setMethod="setDefaultInstanceNumber">
+     <description><![CDATA[
+Value of <code>Instance Number</code> used in DICOMDIR records, if there is no
+value for <code>Instance Number</code> in the referenced DICOM file.]]>
+     </description>
+     <name>DefaultInstanceNumber</name>
+     <type>int</type>
+     <descriptors>
+       <value value="0" />
+     </descriptors>
+   </attribute>
+
+   <attribute access="read-write"
+      getMethod="getValuesForIndexFile"
+      setMethod="setValuesForIndexFile">
+      <description>Comma separated list of values of flag
+      "Include Non-DICOM Objects" (2200,0008), to include
+      INDEX.HTM in root directory on media.
+      </description>
+      <name>ValuesForIndexFile</name>
+      <type>[Ljava.lang.String;</type>      
+      <descriptors>
+         <value value="NO,FOR_PHYSICIAN,FOR_PATIENT,FOR_TEACHING,FOR_RESEARCH" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getValuesForCreateIcons"
+      setMethod="setValuesForCreateIcons">
+      <description>Comma separated list of values of flag
+      "Include Non-DICOM Objects" (2200,0008), to create
+      icons for DICOMDIR, if no icon is provided in the
+      Media Creation Request.
+      </description>
+      <name>ValuesForCreateIcons</name>
+      <type>[Ljava.lang.String;</type>      
+      <descriptors>
+         <value value="NO,FOR_PHYSICIAN,FOR_PATIENT,FOR_TEACHING,FOR_RESEARCH" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getIconWidth"
+      setMethod="setIconWidth">
+      <description>Maximal Width of generated icons.
+      </description>
+      <name>IconWidth</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="64" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getIconHeight"
+      setMethod="setIconHeight">
+      <description>Maximal Height of generated icons.
+      </description>
+      <name>IconHeight</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="64" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getValuesForIncludeMd5Sums"
+      setMethod="setValuesForIncludeMd5Sums">
+      <description>Comma separated list of values of flag
+      "Include Non-DICOM Objects" (2200,0008), to include
+      MD5 checksums.
+      </description>
+      <name>ValuesForIncludeMd5Sums</name>
+      <type>[Ljava.lang.String;</type>      
+      <descriptors>
+         <value value="MD5_SUMS" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getValuesForIncludeWeb"
+      setMethod="setValuesForIncludeWeb">
+      <description>Comma separated list of values of flag
+      "Include Non-DICOM Objects" (2200,0008), to include
+      Web presentations.
+      </description>
+      <name>ValuesForIncludeWeb</name>
+      <type>[Ljava.lang.String;</type>      
+      <descriptors>
+         <value value="FOR_PHYSICIAN,FOR_PATIENT,FOR_TEACHING,FOR_RESEARCH" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getHyperlinkCase"
+      setMethod="setHyperlinkCase">
+      <description>Defines case of letters in hyperlinks ('UPPER' or 'lower') in
+        generated XHTML files. Should be set to 'lower' for pure ISO9660 
+        filesystem without Rock Ridge or Joliet extensions (configurable by
+        attributes of MakeIsoImage service), to promote interoperability across
+        O/S Platforms.
+      </description>
+      <name>HyperlinkCase</name>
+      <type>java.lang.String</type>      
+      <descriptors>
+         <value value="lower" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getJpegWidth"
+      setMethod="setJpegWidth">
+      <description>Maximal Width of generated JPEG images for web representation.
+      </description>
+      <name>JpegWidth</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="512" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getJpegHeight"
+      setMethod="setJpegHeight">
+      <description>Maximal Height of generated JPEG images for web representation.
+      </description>
+      <name>JpegHeight</name>
+      <type>int</type>      
+      <descriptors>
+         <value value="512" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isIncludeDisplayApplicationOnAllMedia"
+      setMethod="setIncludeDisplayApplicationOnAllMedia">
+      <description>Controls if in the case of Media Splitting an
+      included Display Application is only burned on the first 
+      media or on all.
+      </description>
+      <name>IncludeDisplayApplicationOnAllMedia</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMergeDirPath"
+      setMethod="setMergeDirPath">
+      <description>Path to generic (additional) content
+      to be added to the Media.
+      Relative configured path is resolved towards server's home dir. 
+      </description>
+      <name>MergeDirPath</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="data/mergedir" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMergeDirViewerPath"
+      setMethod="setMergeDirViewerPath">
+      <description>Path to CD Viewer Application
+      to be added to the Media.
+      Relative configured path is resolved towards server's home dir.
+      </description>
+      <name>MergeDirViewerPath</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="data/mergedir-viewer" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMergeDirWebPath"
+      setMethod="setMergeDirWebPath">
+      <description>Path to additional Web content
+      to be added to the Media.
+      Relative configured path is resolved towards server's home dir.
+      </description>
+      <name>MergeDirWebPath</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="data/mergedir-web" />
+      </descriptors>
+   </attribute>
+   <!-- PutNewestStudyOnFirstMedia -->
+   <attribute access="read-write"
+      getMethod="isPutNewestStudyOnFirstMedia"
+      setMethod="setPutNewestStudyOnFirstMedia">
+      <description>Controls if in the case of Media Splitting the newest
+      study of one patient is put on the first media, or if studies of one
+      patient are ordered chronological.
+      </description>
+      <name>PutNewestStudyOnFirstMedia</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isMakeIsoImage"
+      setMethod="setMakeIsoImage">
+      <description>Activates creation of ISO 9660 image file before the
+      media creation request is processed by the Media Writer Service.
+      </description>
+      <name>MakeIsoImage</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="true" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isKeepSpoolFiles"
+      setMethod="setKeepSpoolFiles">
+      <description>Keep spool files (for debugging) in failure case.
+      </description>
+      <name>KeepSpoolFiles</name>
+      <type>boolean</type>
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="isLogXml"
+      setMethod="setLogXml">
+      <description>Log XML representation of DICOMDIR to 
+      server/default/log/dicomdir.xml. 
+      </description>
+      <name>LogXml</name>
+      <type>boolean</type>      
+      <descriptors>
+         <value value="false" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getBufferSize"
+      setMethod="setBufferSize">
+      <description>Size of buffer used to copy files.
+      No need to change default value: 512.
+      </description>
+      <name>BufferSize</name>
+      <type>int</type>
+      <descriptors>
+         <value value="512" />
+      </descriptors>
+   </attribute>      
+   <attribute access="read-write"
+      getMethod="getQueueName"
+      setMethod="setQueueName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>QueueName</name>
+      <type>java.lang.String</type>      
+     <descriptors>
+         <value value="MediaComposer" />
+      </descriptors>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getMakeIsoImageServiceName"
+      setMethod="setMakeIsoImageServiceName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>MakeIsoImageServiceName</name>
+      <type>javax.management.ObjectName</type>
+   </attribute>
+   <attribute access="read-write"
+      getMethod="getSpoolDirName"
+      setMethod="setSpoolDirName">
+      <description>Used internally - do NOT modify.
+      </description>
+      <name>SpoolDirName</name>
+      <type>javax.management.ObjectName</type>      
+   </attribute>
+	&defaultAttributes;
+   
+   <!-- Operations -->
+   &defaultOperations;
+</mbean>

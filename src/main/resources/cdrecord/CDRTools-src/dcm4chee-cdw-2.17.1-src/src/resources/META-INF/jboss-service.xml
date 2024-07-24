@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+
+<!-- $Id: jboss-service.xml 12680 2010-01-26 11:13:58Z gunterze $ -->
+
+<!DOCTYPE server PUBLIC
+   "-//JBoss//DTD MBean Service 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd"
+>
+<server>
+  <mbean code="org.jboss.jms.server.destination.QueueService"
+    name="dcm4chee.cdw:service=Queue,name=MediaComposer"
+    xmbean-dd="xmdesc/Queue-xmbean.xml">
+      <depends optional-attribute-name="ServerPeer">jboss.messaging:service=ServerPeer</depends>
+      <depends>jboss.messaging:service=PostOffice</depends>
+  </mbean>
+  <mbean code="org.jboss.jms.server.destination.QueueService"
+    name="dcm4chee.cdw:service=Queue,name=MakeIsoImage"
+    xmbean-dd="xmdesc/Queue-xmbean.xml">
+      <depends optional-attribute-name="ServerPeer">jboss.messaging:service=ServerPeer</depends>
+      <depends>jboss.messaging:service=PostOffice</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.SpoolDirService"
+    name="dcm4chee.cdw:service=SpoolDir"
+    xmbean-dd="xmdesc/dcm4chee-cdw-spooldir-xmbean.xml">
+    <depends optional-attribute-name="SchedulerServiceName"
+      >dcm4chee.cdw:service=Scheduler</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.SchedulerService"
+    name="dcm4chee.cdw:service=Scheduler"
+    xmbean-dd="xmdesc/dcm4chee-cdw-scheduler-xmbean.xml"/>
+  <mbean code="org.dcm4chex.cdw.mbean.DcmServerService"
+    name="dcm4chee.cdw:service=DcmServer"
+    xmbean-dd="xmdesc/dcm4chee-cdw-dcmsrv-xmbean.xml"/>
+  <mbean code="org.dcm4chex.cdw.mbean.StoreScpService"
+    name="dcm4chee.cdw:service=StoreSCP"
+    xmbean-dd="xmdesc/dcm4chee-cdw-storescp-xmbean.xml">
+    <depends optional-attribute-name="MediaCreationRequestEmulatorServiceName"
+      >dcm4chee.cdw:service=MediaCreationRequestEmulator</depends>
+    <depends optional-attribute-name="DcmServerName"
+      >dcm4chee.cdw:service=DcmServer</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.MediaCreationMgtScpService"
+    name="dcm4chee.cdw:service=MediaCreationMgtSCP"
+    xmbean-dd="xmdesc/dcm4chee-cdw-mcmscp-xmbean.xml">
+    <depends>jboss.messaging.connectionfactory:service=ConnectionFactory</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=MediaComposer</depends>
+    <depends optional-attribute-name="DcmServerName"
+      >dcm4chee.cdw:service=DcmServer</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.MediaCreationRequestEmulatorService"
+    name="dcm4chee.cdw:service=MediaCreationRequestEmulator"
+    xmbean-dd="xmdesc/dcm4chee-cdw-mcmemulator-xmbean.xml">
+    <attribute name="TimerID">MediaCreationRequestEmulatorTimer</attribute>
+    <depends>jboss.messaging.connectionfactory:service=ConnectionFactory</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=MediaComposer</depends>
+    <depends optional-attribute-name="SchedulerServiceName"
+      >dcm4chee.cdw:service=Scheduler</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.MediaComposerService"
+    name="dcm4chee.cdw:service=MediaComposer"
+    xmbean-dd="xmdesc/dcm4chee-cdw-composer-xmbean.xml">
+    <depends>jboss.messaging.connectionfactory:service=ConnectionFactory</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=MediaComposer</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=MakeIsoImage</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+    <depends optional-attribute-name="MakeIsoImageServiceName"
+      >dcm4chee.cdw:service=MakeIsoImage</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.MakeIsoImageService"
+    name="dcm4chee.cdw:service=MakeIsoImage"
+    xmbean-dd="xmdesc/dcm4chee-cdw-mkisofs-xmbean.xml">
+    <depends>jboss.messaging.connectionfactory:service=ConnectionFactory</depends>
+    <depends>dcm4chee.cdw:service=Queue,name=MakeIsoImage</depends>
+    <depends optional-attribute-name="SpoolDirName"
+      >dcm4chee.cdw:service=SpoolDir</depends>
+  </mbean>
+  <mbean code="org.dcm4chex.cdw.mbean.LabelPrintService"
+    name="dcm4chee.cdw:service=LabelPrint"
+    xmbean-dd="xmdesc/dcm4chee-cdw-labelprint-xmbean.xml"/>
+</server>
