@@ -58,11 +58,13 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.BurnerWindow;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
+import com.vis.core.ui.dialog.DicomPostman;
 import com.vis.core.ui.dialog.DicomTagsViewer;
 import com.vis.core.ui.dialog.NonDicomImageImporter;
 import com.vis.core.ui.function.DatabaseBrowser;
 import com.vis.core.ui.function.DeleteImage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.ui.settings.PreferencesWin;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 
@@ -224,7 +226,11 @@ public class MainScreenToolBar extends JToolBar {
 				public void actionPerformed(ActionEvent arg) {
 					if(Platform.getCurrentPlatform() != Platform.WINDOWS) {
 						Log.logger.warning("Cannot run BurnCD function in this OS.");
-						return;
+						if(!Utils.isDebug) {
+							return;
+						}else {
+							Log.logger.fine("Continue in debug mode.");
+						}
 					}
 					File burnFileInTemp = Utils.createNewDirInTemp();
 					new BurnerWindow(burnFileInTemp, false /*with dicomdir*/);
@@ -260,8 +266,7 @@ public class MainScreenToolBar extends JToolBar {
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
-							//TODO 20230906
-//							new DicomPostman(selected);
+							new DicomPostman(selected);
 						}
 					});
 				}
@@ -301,8 +306,7 @@ public class MainScreenToolBar extends JToolBar {
 							}
 						}
 					}
-					// TODO 20230906
-//					new PreferencesWin();
+					new PreferencesWin();
 				}
 			});
 		default:

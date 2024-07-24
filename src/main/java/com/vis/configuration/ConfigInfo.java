@@ -56,7 +56,7 @@ public enum ConfigInfo {
 	LogDirName("log"),
 	TemporalDirName("temp"),
 	PluginDirName("plugins"),
-	DBDirName("graphydb"),
+	//DBDirName("graphydb"),
 	
 	// log files
 	LogFileName("graphy.log"),
@@ -67,11 +67,18 @@ public enum ConfigInfo {
 	// db
 	DefaultDBLocation(Utils.getGraphyDir().getAbsolutePath()),
 	
+	/*
+	 * Files used from a working folder directly under the application should be
+	 * relative paths, and those obtained by streaming from a JAR resource should be
+	 * paths in the resource.
+	 */
 	GRAPHY_Props("./conf/graphy.properties"),
 	CDRTOOL_Props("./conf/cdrecord.properties"),
 	
+	WEASIS("/weasis/weasis-portable/"),// resource in jar, must handle in stream.
 	RecordFactory("RecordFactory.xml"),
 	AEProp("ae.properties"),
+	
 	SERVER_AE_Props("./conf/ae.properties"),
 	SERVER_QRSOPCLASSES_Props("./conf/query-sop-classes.properties"),
 	SERVER_RecordFactory_Props("./conf/RecordFactory.xml"),
@@ -96,7 +103,7 @@ public enum ConfigInfo {
 		}else if(name == RecordFactory || name == AEProp) {
 			return "./conf/" + name.toString();
 		}
-		return "./" + name.toString()+"/";
+		return "./" + name.toString();
 	}
 	
 }

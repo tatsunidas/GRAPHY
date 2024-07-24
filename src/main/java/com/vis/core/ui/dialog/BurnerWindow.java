@@ -65,6 +65,7 @@ import com.vis.cdw.common.MediaCreationException;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.util.Utils;
 
 import java.awt.FlowLayout;
 import javax.swing.JCheckBox;
@@ -346,47 +347,21 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		boolean eject = chckbxEject.isSelected();
 		if (withViewer()) {
 			try {
-				FileUtils.copyDirectory(burnFileInTemp, new File("weasis-portable"));
-				try {
-					Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
-					Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
-				} catch (IOException e) {
-					Log.logger.severe("Cannot copy default graphy properties file.");
-					Log.logger.severe(e.getMessage());
-				}
+				Utils.copyResourceFromJAR(ConfigInfo.WEASIS.toString(), burnFileInTemp.getAbsolutePath());
 			} catch (IOException e) {
-				System.out.println(e);
-				JOptionPane.showConfirmDialog(null, "Could not create the burn target folder, please re-try.",
-						"Something wrong ..?? return null", JOptionPane.WARNING_MESSAGE);
-				return;
+				e.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
 				BurnCD burner = new BurnCD(device, speed, eject, false, debug);
-				if (!debug) {
-					burner.setSimulate(false);
-					try {
-						burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));// isoRoot,
-																											// iso,
-																											// which iso
-																											// , need
-																											// end with
-																											// .iso...
-																											// please
-																											// check. i
-																											// do not
-																											// have time
-					} catch (MediaCreationException e) {
-						e.printStackTrace();
-					}
-				} else {
-					burner.setSimulate(true);
-					try {
-						burner.burn(burnFileInTemp, new File("graphy_tmp/" + burnFileInTemp.getName() + ".iso"));
-					} catch (MediaCreationException e) {
-						e.printStackTrace();
-					}
+				burner.setSimulate(false);
+				try {
+					burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));
+				} catch (MediaCreationException e) {
+					e.printStackTrace();
 				}
 				cleanUp();
 			}

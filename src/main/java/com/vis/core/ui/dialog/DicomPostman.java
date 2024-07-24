@@ -1,13 +1,11 @@
 package com.vis.core.ui.dialog;
 
 import java.awt.BorderLayout;
-import java.awt.SystemColor;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,14 +62,15 @@ public class DicomPostman extends JDialog implements Runnable{
 	
 	public DicomPostman(ArrayList<DICOMNode> selectedNodes) {
 		if(selectedNodes == null || selectedNodes.size() < 1) {
-			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "You should select data from home treetable.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "You should select data from home treetable.");
 			return;
 		}
 		db = DatabaseHandler.getInstance();
-		//送信可能な(server)があるか。無い場合は起動しない。
+		
+		//check servers
 		ArrayList<HashMap<String,Object>> serverMaterials = db.getCommunicationServerList();
 		if(serverMaterials == null || serverMaterials.isEmpty()) {
-			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Can not detect communicationable remote servers.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Can not detect communicationable remote servers.");
 			return;
 		}
 		servers = new ArrayList<DicomCommunicationNode>();
@@ -104,7 +103,7 @@ public class DicomPostman extends JDialog implements Runnable{
 		JPanel panel_1 = new JPanel();
 		panel.add(panel_1, BorderLayout.SOUTH);
 		
-		btnSend = new JButton("send");
+		btnSend = new JButton("Send");
 //		btnSend.setBackground(SystemColor.info);
 		btnSend.addActionListener(new ActionListener() {
 			@Override
@@ -271,12 +270,12 @@ public class DicomPostman extends JDialog implements Runnable{
 	 * TODO 20231007
 	 */
 	public void setCandidateFilesList(ArrayList<DICOMNode> selectedNodes){
-//		candidateList = new ArrayList<String>();
-//		exportSet = WindowManager.getMainScreen().getTreeTable().createNoDuplicateImageList(selectedNodes);
-//		DatabaseHandler db = DatabaseHandler.getInstance();
-//		for(String[] dcminfo:exportSet) {
-//			candidateList.add(db.getFileLocation(dcminfo[0], dcminfo[1], dcminfo[2], dcminfo[3]));//path2dcm
-//		}
+		candidateList = new ArrayList<String>();
+		exportSet = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(selectedNodes);
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		for(String[] dcminfo:exportSet) {
+			candidateList.add(db.getFileLocation(dcminfo[1], dcminfo[2], dcminfo[3]));//path2dcm
+		}
 	}
 	
 	ArrayList<String> getCandidateFilesList(){
@@ -318,7 +317,6 @@ public class DicomPostman extends JDialog implements Runnable{
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				// TODO Auto-generated method stub
 				progressBar.setMaximum(candidateList.size());
 			}
 		});
@@ -328,7 +326,6 @@ public class DicomPostman extends JDialog implements Runnable{
 				try {
 					Thread.sleep(SLEEP_TIME);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -415,21 +412,4 @@ public class DicomPostman extends JDialog implements Runnable{
 	public void stopSending() {
 		thisThread.interrupt();
 	}
-
-	/*
-	 * all time do single thread,
-	 * AllAndWait never call...maybe. tatsu
-	 */
-//	public static void cancelAllAndWait() {
-//		int count = ApplicationContext.importerThreadGroup.activeCount();
-//		Thread[] threads = new Thread[count];
-//		count = ApplicationContext.importerThreadGroup.enumerate(threads);
-//		ApplicationContext.importerThreadGroup.interrupt();
-//		for (int i = 0; i < count; i++) {
-//			try {
-//				threads[i].join();
-//			} catch (InterruptedException ie) {
-//			}
-//		}
-//	}
 }

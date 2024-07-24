@@ -51,7 +51,6 @@ import org.apache.commons.cli.ParseException;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
-import com.vis.core.log.Log;
 
 /**
  * GRAPHY launcher

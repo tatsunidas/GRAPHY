@@ -8,18 +8,27 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.security.CodeSource;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
 
 public class Utils {
@@ -36,6 +45,41 @@ public class Utils {
 		// NOT USE
 		final File appDir = new File(Paths.get("").toAbsolutePath().toString());
 		return appDir;
+	}
+	
+	/**
+	 * The DB location can be changed as desired.
+	 * However, you cannot change the other configuration folders (conf, temp, etc), so do not confuse them.
+     * @return current graphy db location (this is different from current app directory)
+     */
+	public static File getGraphyDBLocation() {
+		try {
+			Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
+			if (prop == null) {
+				throw new Exception("Can not load graphy.properties...");
+			} else {
+				String loc = prop.getProperty(GraphyProp.LocalDBLocation.name());
+				if (loc == null || loc.isBlank()) {
+					loc = System.getProperty("user.home")+File.separator+".GRAPHY";
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(),loc);
+				}
+				return new File(loc);
+			}
+		} catch (Exception e) {
+			Log.logger.severe("can not find graphy.properties::DatabaseHandler::loadDBLocationFromProp");
+		}
+		return null;
+	}
+	
+	public static Path getJarPath() throws URISyntaxException {
+		CodeSource codeSource = Utils.class.getProtectionDomain().getCodeSource();
+		if (codeSource != null) {
+			URL jarUrl = codeSource.getLocation();
+			if (jarUrl != null) {
+				return Paths.get(jarUrl.toURI()).toAbsolutePath();
+			}
+		}
+		return null;
 	}
 
 	public static String getConfSubDirPath(ConfigInfo dirNameType) {
@@ -67,33 +111,92 @@ public class Utils {
 		return null;
 	}
 	
-	public static void copyResource(String res, String dest, Class<?> c) throws IOException {
-	    InputStream src = c.getResourceAsStream(res);
+	/**
+	 * For file system
+	 * @param sourceDir
+	 * @param destinationDir
+	 * @throws IOException
+	 */
+	public static void copyDirectoryRecursively(Path sourceDir, Path destinationDir) throws IOException {
+        Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Path targetPath = destinationDir.resolve(sourceDir.relativize(dir));
+                if (!Files.exists(targetPath)) {
+                    Files.createDirectories(targetPath);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.copy(file, destinationDir.resolve(sourceDir.relativize(file)), StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+	
+	public static void copyResource(String resource, String dest, Class<?> c) throws IOException {
+	    InputStream src = c.getResourceAsStream(resource);
 	    Files.copy(src, Paths.get(dest), StandardCopyOption.REPLACE_EXISTING);
+	    src.close();
 	}
 	
-//	public static void copyResource(Path from, Path to) {
-//		final URI jarFileUri = URI.create("jar:file:" + from);
-//		final FileSystem fs = FileSystems.newFileSystem(jarFileUri., Utils.class.getClassLoader());
-//		try (final Stream<Path> sources = Files.walk(from)) {
-//		     sources.forEach(src -> {
-//		         final Path dest = to.resolve(from.relativize(src).toString());
-//		         try {
-//		            if (Files.isDirectory(from)) {
-//		               if (Files.notExists(to)) {
-//		                   log.trace("Creating directory {}", to);
-//		                   Files.createDirectories(to);
-//		               }
-//		            } else {
-//		                log.trace("Extracting file {} to {}", from, to);
-//		                Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
-//		            }
-//		       } catch (IOException e) {
-//		           throw new RuntimeException("Failed to unzip file.", e);
-//		       }
-//		     });
-//		}
-//	}
+	/**
+	 * Copy file from resource in Jar.
+	 * 
+	 * e.g., 
+	 * resourcename = /resources/weasis/weasis-portable
+	 * to = /home/tatsunidas
+	 * as a result : /home/tatsunidas/contents of resources
+	 * 
+	 * @param resourcename : e.g., /resources/weasis/weasis-portable
+	 * @param to : e.g., /home/tatsunidas/
+	 * @throws Exception
+	 */
+	public static void copyResourceFromJAR(String resourcename, String to) throws Exception {
+		
+		//resourcename must start with "/resources".
+		if(!resourcename.startsWith("/resources")) {
+			if(!resourcename.startsWith("/")) {
+				resourcename = "/resources" + resourcename;
+			}else {
+				resourcename = "/resources/" + resourcename;
+			}
+		}
+		
+		final String name = resourcename;//to handle in walkFileTree.
+
+		Path jar = getJarPath();//full path. 
+
+		final URI jarFileUri = URI.create("jar:file:" + jar);
+
+		Map<String, String> env = new HashMap<>();//empty map
+		
+		final FileSystem fs = FileSystems.newFileSystem(jarFileUri, env);
+		Path root = fs.getPath(name);
+
+		// recursive
+		Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				InputStream is = Utils.class.getResourceAsStream(file.toString());
+				//remove /resource/name from destination path
+				Files.copy(is, Paths.get(to + file.toString().substring(name.length())));
+				is.close();
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				//remove /resource/name from destination path
+				if (!Files.exists(Paths.get(to + dir.toString().substring(name.length())), LinkOption.NOFOLLOW_LINKS)) {
+					Files.createDirectories(Paths.get(to + dir.toString().substring(name.length())));
+				}
+				return FileVisitResult.CONTINUE;
+			}
+		});
+	}
 
 	/**
 	 * delete temp dir and included files

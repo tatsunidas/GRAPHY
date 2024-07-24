@@ -50,6 +50,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
+import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -1772,6 +1773,11 @@ public class DatabaseHandler {
 		return detail;
 	}
 
+	/**
+	 * The DB location can be changed as desired.
+	 * However, you cannot change the other configuration folders (conf, temp, etc), so do not confuse them.
+	 * @return
+	 */
 	public String getLocalDBLocation() {
 		if (dbdir == null || dbdir.isBlank()) {
 			try {
@@ -3851,21 +3857,11 @@ public class DatabaseHandler {
 	 * @throws Exception
 	 */
 	public void loadLocalDBLocation() throws Exception {
-		try {
-			Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
-			if (prop == null) {
-				throw new Exception("Can not load graphy.properties...");
-			} else {
-				String loc = prop.getProperty(GraphyProp.LocalDBLocation.name());
-				if (loc == null || loc.isBlank()) {
-					loc = Platform.getGraphyDirectory().getAbsolutePath();
-					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(),
-							loc);
-				}
-				setDatabaseFolderPath(loc);
-			}
-		} catch (Exception e) {
-			logger.severe("can not find graphy.properties::DatabaseHandler::loadDBLocationFromProp");
+		String loc = Utils.getGraphyDBLocation().getAbsolutePath();
+		if(loc == null) {
+			throw new Exception("Can not load graphy.properties...");
+		}else {
+			setDatabaseFolderPath(loc);
 		}
 	}
 

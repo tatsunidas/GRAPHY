@@ -71,7 +71,11 @@ public class DimseUtilities {
 			DicomWriter writer = DicomWriter.newDicomWriter();
 			writer.write(dobj, fmi.getString(Tag.Transfer​Syntax​UID), tempDir.toFile().getAbsolutePath()+File.separator+dcm.getName());
 			// set temp file path
-			tempFile = new File(tempDir.toFile().getAbsolutePath()+File.separator+dcm.getName()).toPath();
+			String fname = dcm.getName();
+			if(!fname.endsWith(".dcm")) {
+				fname += ".dcm";
+			}
+			tempFile = new File(tempDir.toFile().getAbsolutePath()+File.separator+fname).toPath();
 			Log.logger.fine("File copied to temporary file");
 			// send from temp file
 			sendMe(new File[] {tempFile.toFile()});

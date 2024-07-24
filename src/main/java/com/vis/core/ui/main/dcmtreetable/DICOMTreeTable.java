@@ -493,7 +493,7 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 	 */
 	public ArrayList<String[]> createNoDuplicateImageList(ArrayList<DICOMNode> nodeList){
 		if(nodeList == null) {
-			Log.logger.info("please select row at DICOMTreeTable");
+			Log.logger.info("Please select row at TreeTable");
 			return null;
 		}
 		/* uid set */

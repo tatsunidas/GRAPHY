@@ -63,6 +63,11 @@ public class Log extends JFrame{
 		}
 
 		initContents();
+		
+		File logDir = new File(ConfigInfo.getPath(ConfigInfo.LogDirName));
+		if (!logDir.exists()) {
+			logDir.mkdirs();
+		}
 
 		// add handler
 		try {

@@ -5,9 +5,11 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.function.DicomImporter;
 import com.vis.dicom.DicomFileCollection;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Tag;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.ResourceBundle;
 
 import javax.swing.SwingUtilities;
@@ -143,22 +145,55 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 						JOptionPane.YES_NO_CANCEL_OPTION, 
 						JOptionPane.INFORMATION_MESSAGE);
 				if(res == JOptionPane.CANCEL_OPTION) {doClose(RET_OK);}
-				// import each study.
-				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
-					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
-					if(res == JOptionPane.YES_OPTION) {
+				
+				if(res == JOptionPane.YES_OPTION) {
+					// import each study AS-IS.
+					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 						DicomImporter importer = new DicomImporter(candidateList, willImportStudyUID);
 						importer.start();
-					}else {
-						DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
+					}
+				}else if(res == JOptionPane.NO_OPTION) {
+					HashMap<Integer, Object> info = infoPanel.getInputs();
+					String pid = (String)info.get(Tag.Patient​ID);
+					if(pid == null || pid.length() < 1) {
+						PopUpMessage.showDialog(
+								WindowManager.getMainScreen(), 
+								"Cannot import !", 
+								"Please set PatientID.",
+								JOptionPane.YES_NO_CANCEL_OPTION, 
+								JOptionPane.INFORMATION_MESSAGE);
+						return;
+					}
+					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+						DicomImporter importer = new DicomImporter(candidateList, info, willImportStudyUID);
 						importer.start();
 					}
 				}
 			}else {
-				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
-					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
-					DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
-					importer.start();
+				HashMap<Integer, Object> info = infoPanel.getInputs();
+				String pid = (String)info.get(Tag.Patient​ID);
+				if(pid == null || pid.length() < 1) {
+					res = PopUpMessage.showDialog(
+							WindowManager.getMainScreen(), 
+							"Will continue import ?", 
+							"When PatientID is NULL, AS-IS PatirntID will used for import.",
+							JOptionPane.YES_NO_CANCEL_OPTION, 
+							JOptionPane.INFORMATION_MESSAGE);
+					if(res == JOptionPane.OK_OPTION) {
+						for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+							ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+							DicomImporter importer = new DicomImporter(candidateList, null, willImportStudyUID);
+							importer.start();
+						}
+					}
+				}else {
+					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
+						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
+						DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
+						importer.start();
+					}
 				}
 			}
 		}
