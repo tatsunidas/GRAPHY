@@ -37,6 +37,7 @@
  */
 package com.vis.core.facade;
 
+import java.awt.Font;
 import java.awt.Window;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -44,6 +45,7 @@ import java.util.Map.Entry;
 import javax.swing.JFrame;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.ui.FontSettings;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.MainScreen;
 
@@ -110,6 +112,13 @@ public class WindowManager {
 			((JFrame) window).setState(JFrame.NORMAL);
 		}
 		window.toFront();
+	}
+	
+	public static void updateFont(Font fon) {
+		for(String k : wins.keySet()) {
+			Window w = wins.get(k);
+			FontSettings.changeFont(w, fon);
+		}
 	}
 	
 	public static void updateLookAndFeels(LookAndFeels lafObj) {

@@ -15,6 +15,7 @@ import javax.swing.plaf.FontUIResource;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.PropertiesUtil;
 
 public class FontSettings {
@@ -100,13 +101,15 @@ public class FontSettings {
 				changeFont(child, font);
 			}
 		}
-		SwingUtilities.updateComponentTreeUI(WindowManager.getMainScreen());//IMPORTANT
-		/* Adjust TreeTable Row height */
-		WindowManager.getMainScreen().getLocalTreeTable().setRowHeight(font.getSize() + 5);
+		SwingUtilities.updateComponentTreeUI(component);
+		if(component instanceof MainScreen) {
+			MainScreen ms = (MainScreen)component;
+			ms.getLocalTreeTable().setRowHeight(font.getSize() + 5);
+		}
 	}
 	
 	/*
-	 * main screenが起動する前に実行
+	 * run this method before start main screen.
 	 */
 	public static void setUIFont(javax.swing.plaf.FontUIResource font) {
 		Enumeration<Object> keys = UIManager.getDefaults().keys();

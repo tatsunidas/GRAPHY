@@ -178,7 +178,7 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 					res = PopUpMessage.showDialog(
 							WindowManager.getMainScreen(), 
 							"Will continue import ?", 
-							"When PatientID is NULL, AS-IS PatirntID will used for import.",
+							"When PatientID is NULL, AS-IS PatientID will be used to import.",
 							JOptionPane.YES_NO_CANCEL_OPTION, 
 							JOptionPane.INFORMATION_MESSAGE);
 					if(res == JOptionPane.OK_OPTION) {

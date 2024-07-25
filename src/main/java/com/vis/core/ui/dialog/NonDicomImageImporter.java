@@ -134,6 +134,11 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		String seriesDesc = inputs.get(Tag.Series​Description);
 		String studyUID = inputs.get(Tag.Study​Instance​UID);
 		
+		/*
+		 * The DicomImporter already contains information in the file it reads. However,
+		 * since general format files do not contain such information, the PID is
+		 * allowed to be treated as a NoPID.
+		 */
 		if(pid == null || pid.trim().length()==0) {
 			int res = PopUpMessage.showDialog(
 					this, 

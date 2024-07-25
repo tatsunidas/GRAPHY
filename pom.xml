@@ -259,8 +259,7 @@
 		</dependency>
 		<dependency>
             <groupId>org.dcm4che</groupId>
-            <artifactId>
-				dcm4che-dcmr</artifactId>
+            <artifactId>dcm4che-dcmr</artifactId>
             <version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-dict -->
@@ -275,20 +274,16 @@
 		<!-- MISC LIBRARIES -->
 		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
 		<dependency>
-		    <groupId>
-				commons-io</groupId>
+		    <groupId>commons-io</groupId>
 		    <artifactId>commons-io</artifactId>
-		    <version>
-				${apache-commons-io-version}</version>
+		    <version>${apache-commons-io-version}</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/org.pushing-pixels/radiance-substance -->
 		<dependency>
-		    <groupId>
-				org.pushing-pixels</groupId>
+		    <groupId>org.pushing-pixels</groupId>
 		    <artifactId>radiance-substance</artifactId>
-		    <version>
-				${radiance-substance-version}</version>
+		    <version>${radiance-substance-version}</version>
 		</dependency>
 		
 		<!-- PDF -->

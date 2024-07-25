@@ -61,6 +61,11 @@ public class DBUtils {
 		}
 	}
 	
+	/**
+	 * Use DatabaseHandler.getLocalDBLocation
+	 * @return
+	 */
+	@Deprecated
 	public static String getCurrentDBLocation() {
 		return PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation);
 	}

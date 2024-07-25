@@ -306,7 +306,7 @@ public class MainScreenToolBar extends JToolBar {
 							}
 						}
 					}
-					new PreferencesWin();
+					PreferencesWin.getInstance().setVisible(true);
 				}
 			});
 		default:

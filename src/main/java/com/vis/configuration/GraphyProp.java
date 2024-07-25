@@ -2,22 +2,28 @@ package com.vis.configuration;
 
 public enum GraphyProp {
 	Locale,
+	Xms,//memory heap
+	Xmx,
 	GraphyDBDir,
+	UseDefaultLocalDBLocation,
+	LocalDBLocation,
+	NO_SPLASH,
+	
 	DICOMBackEnd,
+	
 	RoiFillColor,
 	RoiStrokeColor,
 	RoiStrokeWidth,
 	RoiHandleColor,
 	RoiBrushSize,
 	RoiBrushType,
+	
 	MainScreenX,
 	MainScreenDeviceID,
-	LocalDBLocation,
 	MainScreenHeight,
 	MainScreenY,
 	Viewer2DScreenDeviceID,
 	MainTreeTableKeepTopTitle,
-	DefaultLocalDBLocation,
 	Viewer2DScreenX,
 	Viewer2DScreenHeight,
 	Viewer2DScreenY,
@@ -27,6 +33,6 @@ public enum GraphyProp {
 	MainScreenWidth,
 	FontSize,
 	TextFont,
-	UseDefaultLocalDBLocation,
+	
 	ColumnOrder;
 }

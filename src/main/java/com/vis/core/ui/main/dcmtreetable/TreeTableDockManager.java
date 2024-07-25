@@ -235,13 +235,13 @@ public class TreeTableDockManager extends JTabbedPane {
 		}
 	}
 	
-	public void setAndStartRefreshQRTableTimer() {
+	public void startRefreshQRTableTimer() {
 		boolean refreshOn = Boolean.parseBoolean(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn));
 		if(this.updater == null && refreshOn && docks.size() > 1) {
 			this.updater = new QRUpdater();//run
 		}else if (this.updater != null && refreshOn){
 			stopRefreshQRTableTimer();
-			setAndStartRefreshQRTableTimer();
+			startRefreshQRTableTimer();
 		}
 	}
 	

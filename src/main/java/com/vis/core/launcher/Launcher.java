@@ -37,7 +37,11 @@
  */
 package com.vis.core.launcher;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Level;
 
 import org.apache.commons.cli.CommandLine;
@@ -48,9 +52,13 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
+import com.vis.core.util.Platform;
+import com.vis.core.util.PropertiesUtil;
 
 /**
  * GRAPHY launcher
@@ -67,6 +75,57 @@ public class Launcher {
 	public Launcher(String[] args) {
 		Log.getInstance();//this method also do Log.init();
 		new ApplicationFacade(parseArgs(args));
+	}
+	
+	public static void restart() {
+		// JVM
+		String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+		// main class
+		String jarFilePath = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getPath())
+				.getAbsolutePath();
+
+		// build command
+		List<String> command = new ArrayList<>();
+		command.add(java);
+		String xms = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xms);
+		String xmx = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xmx);
+		command.add("-Xms" + ((xms != null && !xms.isBlank()) ? "1g" : xms)); // 初期ヒープサイズを設定
+		command.add("-Xmx" + ((xmx != null && !xmx.isBlank()) ? "10g" : xmx)); // 最大ヒープサイズを設定
+		command.add("-Djava.library.path=" + Platform.getOpenCVNativeLibLocation());
+		command.add("-cp");
+		command.add(jarFilePath);
+		command.add(Launcher.class.getName());
+		
+		//this following code also can use for instead -cp.
+//		command.add("-jar");
+//		command.add(jarFilePath);
+
+		// add original commands
+		ArrayList<String> orgCmd = new ArrayList<>();
+		boolean no_splash = Boolean.valueOf(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH));
+		if(no_splash) {
+			orgCmd.add(StartingUpConfigurations.no_splash.name());
+		}
+		
+		command.addAll(orgCmd);
+		
+		ProcessBuilder builder = new ProcessBuilder(command);
+
+		try {
+			builder.start();
+		} catch (IOException e) {
+			e.printStackTrace();
+			Log.logger.severe("Sorry, something happened when restarting, this process will close automatically. After that, you can restart GRAPHY by manualy...");
+			try {
+				Thread.sleep(1000 * 5);
+			} catch (InterruptedException e1) {
+				System.exit(0);
+			}
+			System.exit(0);
+		}
+
+		// close current process
+		System.exit(0);
 	}
 	
 	private HashMap<StartingUpConfigurations, String[]> parseArgs(String[] args){

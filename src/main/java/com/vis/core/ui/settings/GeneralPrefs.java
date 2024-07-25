@@ -1,7 +1,45 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.settings;
 
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.io.File;
 import java.util.ArrayList;
 
 import javax.swing.JPanel;
@@ -12,17 +50,22 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+
 import java.awt.Insets;
-import javax.swing.SwingConstants;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.launcher.Launcher;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.core.util.DBUtils;
 import com.vis.core.util.PropertiesUtil;
+import com.vis.db.DatabaseHandler;
 
 import java.awt.Component;
 import javax.swing.Box;
@@ -31,220 +74,350 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import javax.swing.JTextField;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class GeneralPrefs extends JPanel{
 	
-	/**
-	 * TODO 20231008 needed entire codes checking.
-	 */
 	private static final long serialVersionUID = 5828583604993199622L;
+	JButton btnNewButton;//DB loc select
 	
-	LookAndFeels laf;
-	int currentTextSize = 12;
-	String currentLAF = LookAndFeels.defaultLAF;
-	JPanel genPrefPanel = this;
-	public boolean refreshOn = true;
-
-	private DefaultComboBoxModel<String> lafmodel;
-
-	private JComboBox<String> comboBoxLAF;
-
-	private JCheckBox chckbxNewCheckBox; 
-
+	private JTextField textField_db;
+	JCheckBox chckbxSetDefault;
+	JComboBox<Integer> comboBox_font;
+	JComboBox<String> comboBox_laf;
+	JButton btnSetDefault;
+	JCheckBox chckbxOn;
+	
+	LookAndFeels laf = ApplicationFacade.getLookAndFeels();
+	final Integer defaultFontSize = 12;
+	final String defaultLAF = LookAndFeels.defaultLAF;
+	final Integer[] fontSizes = { 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32};
+	final String defaultLoc = ConfigInfo.DefaultDBLocation.toString();
+	
+	Integer currentFontSize;
+	String currentLAF;
+	
 	public GeneralPrefs() {
-		
-		laf = ApplicationFacade.getCurrentLookAndFeels();
-		currentLAF = laf.getCurrentLAF();
-		String fontSizeString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);
-		if(fontSizeString != null && fontSizeString.length() !=0) {
-			try {
-				currentTextSize = Integer.parseInt(fontSizeString);
-			}catch(NumberFormatException e) {
-				// do nothing
-			}
-		}
-		
 		GridBagLayout gridBagLayout = new GridBagLayout();
-		gridBagLayout.columnWidths = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 0, 0};
-		gridBagLayout.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
-		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		gridBagLayout.columnWidths = new int[]{0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 0, 48, 97, 0, 0};
+		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0};
+		gridBagLayout.columnWeights = new double[]{0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		setLayout(gridBagLayout);
 		
-		Component verticalStrut = Box.createVerticalStrut(20);
-		GridBagConstraints gbc_verticalStrut = new GridBagConstraints();
-		gbc_verticalStrut.insets = new Insets(0, 0, 5, 5);
-		gbc_verticalStrut.gridx = 1;
-		gbc_verticalStrut.gridy = 0;
-		add(verticalStrut, gbc_verticalStrut);
+		Component rigidArea = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea = new GridBagConstraints();
+		gbc_rigidArea.insets = new Insets(0, 0, 5, 5);
+		gbc_rigidArea.gridx = 0;
+		gbc_rigidArea.gridy = 0;
+		add(rigidArea, gbc_rigidArea);
 		
-		Component horizontalStrut = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
-		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalStrut.gridx = 0;
-		gbc_horizontalStrut.gridy = 1;
-		add(horizontalStrut, gbc_horizontalStrut);
+		Component rigidArea_1 = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea_1 = new GridBagConstraints();
+		gbc_rigidArea_1.insets = new Insets(0, 0, 5, 0);
+		gbc_rigidArea_1.gridx = 13;
+		gbc_rigidArea_1.gridy = 0;
+		add(rigidArea_1, gbc_rigidArea_1);
 		
 		JLabel lblGeneral = new JLabel("General");
 		GridBagConstraints gbc_lblGeneral = new GridBagConstraints();
-		gbc_lblGeneral.anchor = GridBagConstraints.WEST;
 		gbc_lblGeneral.insets = new Insets(0, 0, 5, 5);
 		gbc_lblGeneral.gridx = 1;
 		gbc_lblGeneral.gridy = 1;
 		add(lblGeneral, gbc_lblGeneral);
-		Integer[] fontSizes = { 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 48, 64 };
+		
+		JLabel lblLocalDb = new JLabel("Local DB");
+		GridBagConstraints gbc_lblLocalDb = new GridBagConstraints();
+		gbc_lblLocalDb.insets = new Insets(0, 0, 5, 5);
+		gbc_lblLocalDb.anchor = GridBagConstraints.EAST;
+		gbc_lblLocalDb.gridx = 2;
+		gbc_lblLocalDb.gridy = 2;
+		add(lblLocalDb, gbc_lblLocalDb);
+		
+		textField_db = new JTextField();
+		GridBagConstraints gbc_textField = new GridBagConstraints();
+		gbc_textField.gridwidth = 9;
+		gbc_textField.insets = new Insets(0, 0, 5, 5);
+		gbc_textField.fill = GridBagConstraints.HORIZONTAL;
+		gbc_textField.gridx = 3;
+		gbc_textField.gridy = 2;
+		add(textField_db, gbc_textField);
+		textField_db.setColumns(10);
+		textField_db.setEditable(false);
+		
+		btnNewButton = new JButton("Select");
+		GridBagConstraints gbc_btnNewButton = new GridBagConstraints();
+		gbc_btnNewButton.fill = GridBagConstraints.HORIZONTAL;
+		gbc_btnNewButton.insets = new Insets(0, 0, 5, 5);
+		gbc_btnNewButton.gridx = 12;
+		gbc_btnNewButton.gridy = 2;
+		add(btnNewButton, gbc_btnNewButton);
+		
+		chckbxSetDefault = new JCheckBox("Set default");
+		chckbxSetDefault.setToolTipText("user_home/.GRAPHY");
+		GridBagConstraints gbc_chckbxSetDefault = new GridBagConstraints();
+		gbc_chckbxSetDefault.gridwidth = 9;
+		gbc_chckbxSetDefault.fill = GridBagConstraints.HORIZONTAL;
+		gbc_chckbxSetDefault.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxSetDefault.gridx = 3;
+		gbc_chckbxSetDefault.gridy = 3;
+		add(chckbxSetDefault, gbc_chckbxSetDefault);
+		
+		JLabel lblFontSize = new JLabel("Font Size");
+		GridBagConstraints gbc_lblFontSize = new GridBagConstraints();
+		gbc_lblFontSize.anchor = GridBagConstraints.EAST;
+		gbc_lblFontSize.insets = new Insets(0, 0, 5, 5);
+		gbc_lblFontSize.gridx = 2;
+		gbc_lblFontSize.gridy = 4;
+		add(lblFontSize, gbc_lblFontSize);
+		
+		comboBox_font = new JComboBox<>();
+		GridBagConstraints gbc_comboBox = new GridBagConstraints();
+		gbc_comboBox.gridwidth = 4;
+		gbc_comboBox.insets = new Insets(0, 0, 5, 5);
+		gbc_comboBox.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboBox.gridx = 3;
+		gbc_comboBox.gridy = 4;
+		add(comboBox_font, gbc_comboBox);
+		
 		DefaultComboBoxModel<Integer> fontCombModel = new DefaultComboBoxModel<>(fontSizes);
+		comboBox_font.setModel((ComboBoxModel<Integer>) fontCombModel);
 		
-		Component horizontalStrut_2 = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut_2 = new GridBagConstraints();
-		gbc_horizontalStrut_2.gridwidth = 7;
-		gbc_horizontalStrut_2.insets = new Insets(0, 0, 5, 0);
-		gbc_horizontalStrut_2.gridx = 2;
-		gbc_horizontalStrut_2.gridy = 1;
-		add(horizontalStrut_2, gbc_horizontalStrut_2);
+		JLabel lblLookAndFeel = new JLabel("Look and Feel");
+		GridBagConstraints gbc_lblLookAndFeel = new GridBagConstraints();
+		gbc_lblLookAndFeel.anchor = GridBagConstraints.EAST;
+		gbc_lblLookAndFeel.insets = new Insets(0, 0, 5, 5);
+		gbc_lblLookAndFeel.gridx = 2;
+		gbc_lblLookAndFeel.gridy = 5;
+		add(lblLookAndFeel, gbc_lblLookAndFeel);
 		
-		Component horizontalGlue = Box.createHorizontalGlue();
-		GridBagConstraints gbc_horizontalGlue = new GridBagConstraints();
-		gbc_horizontalGlue.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalGlue.gridx = 0;
-		gbc_horizontalGlue.gridy = 2;
-		add(horizontalGlue, gbc_horizontalGlue);
-		
-		JLabel lblFontSize = new JLabel("Set Font Size");
-		lblFontSize.setHorizontalAlignment(SwingConstants.LEFT);
-		GridBagConstraints gbc_lblNewLabel = new GridBagConstraints();
-		gbc_lblNewLabel.anchor = GridBagConstraints.WEST;
-		gbc_lblNewLabel.insets = new Insets(0, 0, 5, 5);
-		gbc_lblNewLabel.gridx = 1;
-		gbc_lblNewLabel.gridy = 2;
-		add(lblFontSize, gbc_lblNewLabel);
-		
-		lafmodel = new DefaultComboBoxModel<String>();
-		ArrayList<String> names = laf.getInstalledLAF();
+		comboBox_laf = new JComboBox<>();
+		GridBagConstraints gbc_comboBox_1 = new GridBagConstraints();
+		gbc_comboBox_1.gridwidth = 9;
+		gbc_comboBox_1.insets = new Insets(0, 0, 5, 5);
+		gbc_comboBox_1.fill = GridBagConstraints.HORIZONTAL;
+		gbc_comboBox_1.gridx = 3;
+		gbc_comboBox_1.gridy = 5;
+		add(comboBox_laf, gbc_comboBox_1);
+		DefaultComboBoxModel<String> lafmodel = new DefaultComboBoxModel<String>();
+		/*
+		 * this is a just short name of laf.
+		 * You have to use long name laf to change UI.
+		 * laf.getInstalledLAFMap().get(selectItem);//selectItem is short name. 
+		 */
+		ArrayList<String> names = laf.getInstalledLAFShortName();
 		for(String laf_name:names) {
 			lafmodel.addElement(laf_name);
 		}
-//		/* Get current LAF and set item location */
-//		String currentLAF = ApplicationContext.activeTheme;
-//		for(String key:LookAndFeels.lafmap.keySet()) {
-//			if(currentLAF.contains(key)) {
-//				int pos = lafmodel.getIndexOf(key);
-//				if(pos != -1) {
-//					comboBoxLAF.setSelectedIndex(pos);
-//				}
-//			}
-//		}
+		comboBox_laf.setModel(lafmodel);
+		
+		btnSetDefault = new JButton("Set default");
+		btnSetDefault.setToolTipText("Back to default settings font and look nad feels.");
+		GridBagConstraints gbc_btnSetDefault = new GridBagConstraints();
+		gbc_btnSetDefault.fill = GridBagConstraints.HORIZONTAL;
+		gbc_btnSetDefault.insets = new Insets(0, 0, 5, 5);
+		gbc_btnSetDefault.gridx = 12;
+		gbc_btnSetDefault.gridy = 5;
+		add(btnSetDefault, gbc_btnSetDefault);
+		
+		JLabel lblRefleshQr = new JLabel("Reflesh QR");
+		GridBagConstraints gbc_lblRefleshQr = new GridBagConstraints();
+		gbc_lblRefleshQr.anchor = GridBagConstraints.EAST;
+		gbc_lblRefleshQr.insets = new Insets(0, 0, 5, 5);
+		gbc_lblRefleshQr.gridx = 2;
+		gbc_lblRefleshQr.gridy = 6;
+		add(lblRefleshQr, gbc_lblRefleshQr);
+		
+		chckbxOn = new JCheckBox("On");
+		chckbxOn.setToolTipText("Reflesh QR tables every 20 seconds");
+		GridBagConstraints gbc_chckbxOn = new GridBagConstraints();
+		gbc_chckbxOn.anchor = GridBagConstraints.WEST;
+		gbc_chckbxOn.gridwidth = 4;
+		gbc_chckbxOn.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxOn.gridx = 3;
+		gbc_chckbxOn.gridy = 6;
+		add(chckbxOn, gbc_chckbxOn);
+		
+		String refreshOnString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn);
+		if(refreshOnString !=null) {
+			//if "true", return true. no exception.
+			boolean refreshOn = Boolean.parseBoolean(refreshOnString.toLowerCase());
+			if(refreshOn) {
+				chckbxOn.setSelected(true);
+			}else {
+				chckbxOn.setSelected(false);
+			}
+		}
+		
+		Component rigidArea_2 = Box.createRigidArea(new Dimension(20, 20));
+		GridBagConstraints gbc_rigidArea_2 = new GridBagConstraints();
+		gbc_rigidArea_2.insets = new Insets(0, 0, 0, 5);
+		gbc_rigidArea_2.gridx = 0;
+		gbc_rigidArea_2.gridy = 7;
+		add(rigidArea_2, gbc_rigidArea_2);
+		
+		//finally
+		init();
+	}
+	
+	private void init() {
+		//set local db location to field
+		String useDefaultDBLoc = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation);
+		String currentLoc = DatabaseHandler.getInstance().getLocalDBLocation();
+		//if default location, set default On
+		if(defaultLoc.equals(currentLoc) || useDefaultDBLoc.equals("true")) {
+			chckbxSetDefault.setSelected(true);
+			btnNewButton.setEnabled(false);
+		}else {
+			chckbxSetDefault.setSelected(false);
+			btnNewButton.setEnabled(true);
+		}
+		textField_db.setText(currentLoc);
+		
+		String fontSizeString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);
+		if(fontSizeString != null && !fontSizeString.isBlank()) {
+			try {
+				currentFontSize = Integer.parseInt(fontSizeString);
+				comboBox_font.setSelectedItem(currentFontSize);
+			}catch(NumberFormatException e){
+				currentFontSize = defaultFontSize.intValue();
+				comboBox_font.setSelectedItem(currentFontSize);
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize, String.valueOf(currentFontSize));
+			}
+		}
+		currentLAF = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.LookAndFeels);
+		if(currentLAF != null && !currentLAF.isBlank() && laf.isInstalled(currentLAF)) {
+			comboBox_laf.setSelectedItem(currentLAF);
+		}else {
+			currentLAF = defaultLAF.toString();
+			comboBox_laf.setSelectedItem(currentLAF);
+			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LookAndFeels, currentLAF);
+		}
 		/*
-		 * SHOULD be add listener AFTER comboBoxLAF.setSelectedIndex.
+		 * Then, add listeners
 		 */
 		
-		setMinimumSize(new Dimension(150,100));
-		
-		JComboBox<Integer> comboBoxFontSize = new JComboBox<>();
-		GridBagConstraints gbc_comboBox = new GridBagConstraints();
-		gbc_comboBox.insets = new Insets(0, 0, 5, 5);
-		gbc_comboBox.anchor = GridBagConstraints.WEST;
-		gbc_comboBox.gridx = 2;
-		gbc_comboBox.gridy = 2;
-		add(comboBoxFontSize, gbc_comboBox);
-		comboBoxFontSize.setModel((ComboBoxModel<Integer>) fontCombModel);
-		comboBoxFontSize.setSelectedItem(currentTextSize);
-		comboBoxFontSize.addItemListener(new ItemListener() {
+		/**
+		 * back to default loc db.
+		 */
+		chckbxSetDefault.addItemListener(new ItemListener() {
 			@Override
-			public void itemStateChanged(ItemEvent ie) {
-				 Font f = new Font(Font.SANS_SERIF,Font.PLAIN,(Integer)ie.getItem());//name style size
-				 com.vis.core.ui.FontSettings.changeFontAllComps(f);
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() == ItemEvent.SELECTED) {
+					String textLoc = textField_db.getText();
+					if(textLoc.equals(defaultLoc)) {
+						btnNewButton.setEnabled(false);
+						return;
+					}
+					textField_db.setText(defaultLoc);
+					btnNewButton.setEnabled(false);
+					//restart
+					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
+					if(res ==JOptionPane.OK_OPTION) {
+						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, defaultLoc);
+						Launcher.restart();
+					}else {
+						return;
+					}
+				} else {
+					btnNewButton.setEnabled(true);
+				}
 			}
 		});
 		
-		Component horizontalStrut_1 = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut_1 = new GridBagConstraints();
-		gbc_horizontalStrut_1.insets = new Insets(0, 0, 5, 0);
-		gbc_horizontalStrut_1.gridwidth = 4;
-		gbc_horizontalStrut_1.gridx = 5;
-		gbc_horizontalStrut_1.gridy = 2;
-		add(horizontalStrut_1, gbc_horizontalStrut_1);
-		
-		Component horizontalStrut_3 = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut_3 = new GridBagConstraints();
-		gbc_horizontalStrut_3.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalStrut_3.gridx = 0;
-		gbc_horizontalStrut_3.gridy = 3;
-		add(horizontalStrut_3, gbc_horizontalStrut_3);
-		
-		JLabel lblLAF = new JLabel("Look and Feels");
-		GridBagConstraints gbc_lblNewLabel_1 = new GridBagConstraints();
-		gbc_lblNewLabel_1.anchor = GridBagConstraints.WEST;
-		gbc_lblNewLabel_1.insets = new Insets(0, 0, 5, 5);
-		gbc_lblNewLabel_1.gridx = 1;
-		gbc_lblNewLabel_1.gridy = 3;
-		add(lblLAF, gbc_lblNewLabel_1);
-		
-		comboBoxLAF = new JComboBox<>();
-		GridBagConstraints gbc_comboBox_1 = new GridBagConstraints();
-		gbc_comboBox_1.insets = new Insets(0, 0, 5, 5);
-		gbc_comboBox_1.fill = GridBagConstraints.HORIZONTAL;
-		gbc_comboBox_1.gridx = 2;
-		gbc_comboBox_1.gridy = 3;
-		add(comboBoxLAF, gbc_comboBox_1);
-		comboBoxLAF.setModel(lafmodel);
-		comboBoxLAF.addItemListener(new ItemListener() {
+		//local db location
+		btnNewButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(chckbxSetDefault.isSelected()) {
+					return;
+				}
+				JFileChooser jfc = new JFileChooser();
+				jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+				jfc.setMultiSelectionEnabled(false);
+				int res= jfc.showDialog(PreferencesWin.getInstance(), "Select DB Folder");
+				if(res==JFileChooser.APPROVE_OPTION) {
+					File selectDir = jfc.getSelectedFile();
+					if(selectDir == null) {
+						return;
+					}
+					String selectPath = selectDir.getAbsolutePath();
+					if(selectPath.equals(defaultLoc)) {
+						chckbxSetDefault.setSelected(true);
+						return;
+					}
+					String dbDir = DatabaseHandler.getInstance().getLocalDBLocation();
+					if(selectPath.equals(dbDir)) {
+						return;
+					}else {
+						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
+						if(res_sub==JOptionPane.OK_OPTION) {
+							PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, selectPath);
+							Launcher.restart();
+						}else {
+							return;
+						}
+					}
+				}else {
+					return;
+				}
+			}
+		});
+		comboBox_font.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent ie) {
+				Integer size = (Integer) ie.getItem();
+				if (size.intValue() == currentFontSize.intValue()) {
+					return;
+				} else {
+					currentFontSize = size;
+				}
+				Font f = new Font(Font.SANS_SERIF, Font.PLAIN, currentFontSize);// name, style, size
+				WindowManager.updateFont(f);
+			}
+		});
+		comboBox_laf.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				String select = (String) e.getItem();
-				laf.setLookAndFeel(laf.getInstalledLAFMap().get(select));
-				WindowManager.getMainScreen().refreshLookAndFeels();
-				PreferencesWin.refreshOwnLookAndFeels();
+				String laf_ = laf.getInstalledLAFMap().get(select);
+				if(laf_.equals(currentLAF)) {
+					return;
+				}else {
+					currentLAF = laf_;
+				}
+				laf.setLookAndFeel(currentLAF);
+				WindowManager.updateLookAndFeels(laf);
+			}
+		});
+		btnSetDefault.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				comboBox_font.setSelectedItem(defaultFontSize);
+				comboBox_laf.setSelectedItem(defaultLAF);
+				currentFontSize = defaultFontSize.intValue();
+				currentLAF = defaultLAF.toString();
+				Font f = new Font(Font.SANS_SERIF,Font.PLAIN,currentFontSize);//name style size
+				WindowManager.updateFont(f);
+				laf.setLookAndFeel(currentLAF);
+				WindowManager.updateLookAndFeels(laf);
 			}
 		});
 		
-		JButton btnBackToDefault = new JButton("back to default");
-		btnBackToDefault.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				laf.setDefaultTheme();
-				/* update all component */
-				laf.updateLookAndFeels(WindowManager.getMainScreen());
-				/* own component reflech here */
-				PreferencesWin.refreshOwnLookAndFeels();
-			}
-		});
-		GridBagConstraints gbc_btnBackToDefault = new GridBagConstraints();
-		gbc_btnBackToDefault.insets = new Insets(0, 0, 5, 5);
-		gbc_btnBackToDefault.gridx = 4;
-		gbc_btnBackToDefault.gridy = 3;
-		add(btnBackToDefault, gbc_btnBackToDefault);
-		
-		Component horizontalStrut_4 = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut_4 = new GridBagConstraints();
-		gbc_horizontalStrut_4.insets = new Insets(0, 0, 5, 0);
-		gbc_horizontalStrut_4.gridwidth = 3;
-		gbc_horizontalStrut_4.gridx = 6;
-		gbc_horizontalStrut_4.gridy = 3;
-		add(horizontalStrut_4, gbc_horizontalStrut_4);
-		
-		chckbxNewCheckBox = new JCheckBox("Refresh QR Table (every 20 sec)");
-		String refreshOnString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn);
-		refreshOn = false;
-		if(refreshOnString !=null) {
-			refreshOn = Boolean.parseBoolean(refreshOnString);
-		}
-		chckbxNewCheckBox.setSelected(refreshOn);
-		GridBagConstraints gbc_chckbxNewCheckBox = new GridBagConstraints();
-		gbc_chckbxNewCheckBox.anchor = GridBagConstraints.WEST;
-		gbc_chckbxNewCheckBox.gridwidth = 4;
-		gbc_chckbxNewCheckBox.insets = new Insets(0, 0, 0, 5);
-		gbc_chckbxNewCheckBox.gridx = 1;
-		gbc_chckbxNewCheckBox.gridy = 4;
-		add(chckbxNewCheckBox, gbc_chckbxNewCheckBox);
-		chckbxNewCheckBox.addItemListener(new ItemListener() {
+		chckbxOn.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange() == ItemEvent.SELECTED) {
 					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn, "true");
 					WindowManager.getMainScreen().qrAutoRefreshOn = true;
 					TreeTableDockManager dttm = WindowManager.getMainScreen().getCurrentTreeTableManager();
-					dttm.setAndStartRefreshQRTableTimer();
-				} else {// checkbox has been deselected
+					dttm.startRefreshQRTableTimer();
+				} else {
 					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn, "false");
 					WindowManager.getMainScreen().qrAutoRefreshOn = false;
 					TreeTableDockManager dttm = WindowManager.getMainScreen().getCurrentTreeTableManager();
@@ -252,20 +425,5 @@ public class GeneralPrefs extends JPanel{
 				}
 			}
 		});
-		
-		initSetting();
-	}
-	
-	void initSetting(){
-		/* Get current LAF and set item location */
-		String currentLAF = laf.getCurrentLAF();
-		for(String key:laf.getInstalledLAFMap().keySet()) {
-			if(currentLAF.contains(key)) {
-				int pos = lafmodel.getIndexOf(key);
-				if(pos != -1) {
-					comboBoxLAF.setSelectedIndex(pos);
-				}
-			}
-		}
 	}
 }

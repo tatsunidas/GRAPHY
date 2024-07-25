@@ -37,7 +37,7 @@
  */
 package com.vis.configuration;
 
-import com.vis.core.util.Utils;
+import java.io.File;
 
 public enum ConfigInfo {
 	//version
@@ -65,7 +65,7 @@ public enum ConfigInfo {
 	LogFileCount("3"),
 	
 	// db
-	DefaultDBLocation(Utils.getGraphyDir().getAbsolutePath()),
+	DefaultDBLocation(System.getProperty("user.home")+File.separator+".GRAPHY"),
 	
 	/*
 	 * Files used from a working folder directly under the application should be

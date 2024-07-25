@@ -97,7 +97,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	// debug
 	boolean isDebug = Utils.isDebug;
 	//singleton
-	private static final MainScreen mainScreen = new MainScreen();
+	private static MainScreen mainScreen;
 	
 	public static boolean importing = false;
 	public boolean qrAutoRefreshOn = false;
@@ -145,7 +145,14 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public static MainScreen getInstance() {
-		return MainScreen.mainScreen;
+		if (mainScreen == null) {
+			synchronized (MainScreen.class) {
+				if (mainScreen == null) {
+					mainScreen = new MainScreen();
+				}
+			}
+		}
+		return mainScreen;
 	}
 	
 	private static GraphicsConfiguration loadLastGraphicConfiguration() {
@@ -344,7 +351,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 					e.printStackTrace();
 				}
 			}
-			tabDockManager.setAndStartRefreshQRTableTimer();
+			tabDockManager.startRefreshQRTableTimer();
 		}
 	}
 	
@@ -467,7 +474,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		}
 		// Add 20231003
-		tabDockManager.setAndStartRefreshQRTableTimer();
+		tabDockManager.startRefreshQRTableTimer();
 		/*
 		 * searchDBUsingThisConditions() updation ?? TODO
 		 */
@@ -893,7 +900,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * reflesh laf all components
 	 */
 	public void refreshLookAndFeels() {
-		LookAndFeels laf = ApplicationFacade.getCurrentLookAndFeels();
+		LookAndFeels laf = ApplicationFacade.getLookAndFeels();
 		laf.updateLookAndFeels(mainScreen);
 	}
 	
