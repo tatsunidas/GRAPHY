@@ -113,13 +113,14 @@ public final class LookAndFeels {
 		List<String> systemDefault = new ArrayList<>();
 		for (LookAndFeelInfo i : UIManager.getInstalledLookAndFeels()) {
 			systemDefault.add(i.getName());
+			lafmap.put(i.getName(), i.getClassName());
 			tmp.add(new ReadableLookAndFeelInfo(i.getName(), i.getClassName()));
-		}
-		for (int i = 0; i < lafmap.size(); i++) {
-			tmp.add(new ReadableLookAndFeelInfo(names.get(i), lafmap.get(names.get(i))));
 		}
 		systemDefault.addAll(names);
 		names = (ArrayList<String>) systemDefault;
+		for (int i = 0; i < lafmap.size(); i++) {
+			tmp.add(new ReadableLookAndFeelInfo(names.get(i), lafmap.get(names.get(i))));
+		}
 		UIManager.setInstalledLookAndFeels(tmp.toArray(new LookAndFeelInfo[tmp.size()]));
 	}
 

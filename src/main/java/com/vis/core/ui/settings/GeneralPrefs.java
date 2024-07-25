@@ -385,6 +385,7 @@ public class GeneralPrefs extends JPanel{
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				String select = (String) e.getItem();
+				System.out.println(select);
 				String laf_ = laf.getInstalledLAFMap().get(select);
 				if(laf_.equals(currentLAF)) {
 					return;
