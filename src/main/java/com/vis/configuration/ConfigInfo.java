@@ -56,7 +56,20 @@ public enum ConfigInfo {
 	LogDirName("log"),
 	TemporalDirName("temp"),
 	PluginDirName("plugins"),
+	LutDirName("luts"),
 	//DBDirName("graphydb"),
+	
+	//natives
+	OpenCVLinux32("./conf/native/native_opencv/linux-x86"),
+	OpenCVLinux64("./conf/native/native_opencv/linux-x86-64"),
+	OpenCVSolaris32("./conf/native/native_opencv/solaris-x86"),
+	OpenCVSolaris64("./conf/native/native_opencv/solaris-x86-64"),
+	OpenCVMacOS("./conf/native/native_opencv/macosx-x86-64"),
+	OpenCVWindows32("./conf/native/native_opencv/windows-x86"),
+	OpenCVWindows64("./conf/native/native_opencv/windows-x86-64"),
+	CDRToolsLinux("./conf/native/native_cdrtools/linux"),
+	CDRToolsMac("./conf/native/native_cdrtools/mac"),
+	CDRToolsWindows("./conf/native/native_cdrtools/windows"),
 	
 	// log files
 	LogFileName("graphy.log"),
@@ -73,7 +86,7 @@ public enum ConfigInfo {
 	 * paths in the resource.
 	 */
 	GRAPHY_Props("./conf/graphy.properties"),
-	CDRTOOL_Props("./conf/cdrecord.properties"),
+	CDRTOOL_Props("./conf/native/native_cdrtools/cdrecord.properties"),
 	
 	WEASIS("/weasis/weasis-portable/"),// resource in jar, must handle in stream.
 	RecordFactory("RecordFactory.xml"),

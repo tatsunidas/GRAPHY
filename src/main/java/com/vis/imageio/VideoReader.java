@@ -104,7 +104,7 @@ public interface VideoReader {
 	 * @param path
 	 * @return
 	 */
-	private static int selectLib(String MIMETYPE) {
+	static int selectLib(String MIMETYPE) {
 		if(MIMETYPE.endsWith("msvideo") || MIMETYPE.endsWith("avi")) {
 			return IJ;
 		}

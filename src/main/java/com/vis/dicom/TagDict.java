@@ -109,7 +109,7 @@ public class TagDict {
 	
 	private static HashMap<Integer, TagContext> loadDict() {
 		rejectedTag = new HashMap<>();
-		final Properties tagDictProp = PropertiesUtil.loadProperties(Resources.DicomDict.toURL());
+		final Properties tagDictProp = PropertiesUtil.loadProperties(Resources.DicomDict.tempFile().getAbsolutePath());
 		HashMap<Integer, TagContext> temp = new HashMap<>();
 		Set<Object> keys = tagDictProp.keySet();
 		for(Object key : keys) {

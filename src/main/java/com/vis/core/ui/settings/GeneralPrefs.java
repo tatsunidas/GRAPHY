@@ -61,9 +61,9 @@ import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.launcher.Launcher;
+import com.vis.core.log.Log;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
-import com.vis.core.util.DBUtils;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.db.DatabaseHandler;
 
@@ -97,12 +97,17 @@ public class GeneralPrefs extends JPanel{
 	final Integer defaultFontSize = 12;
 	final String defaultLAF = LookAndFeels.defaultLAF;
 	final Integer[] fontSizes = { 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32};
-	final String defaultLoc = ConfigInfo.DefaultDBLocation.toString();
+	/*
+	 * default db location is "user_home/.GRAPHY"
+	 */
+	final String defaultLoc; //needs abs path
 	
 	Integer currentFontSize;
 	String currentLAF;
 	
 	public GeneralPrefs() {
+		File defaultDBDir = new File(ConfigInfo.DefaultDBLocation.toString());
+		defaultLoc = defaultDBDir.getAbsolutePath();
 		GridBagLayout gridBagLayout = new GridBagLayout();
 		gridBagLayout.columnWidths = new int[]{0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 0, 48, 97, 0, 0};
 		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -210,7 +215,7 @@ public class GeneralPrefs extends JPanel{
 		 * You have to use long name laf to change UI.
 		 * laf.getInstalledLAFMap().get(selectItem);//selectItem is short name. 
 		 */
-		ArrayList<String> names = laf.getInstalledLAFShortName();
+		ArrayList<String> names = laf.getAllInstalledLAFShortName();
 		for(String laf_name:names) {
 			lafmodel.addElement(laf_name);
 		}
@@ -269,7 +274,7 @@ public class GeneralPrefs extends JPanel{
 		//set local db location to field
 		String useDefaultDBLoc = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation);
 		String currentLoc = DatabaseHandler.getInstance().getLocalDBLocation();
-		//if default location, set default On
+		//if default location true
 		if(defaultLoc.equals(currentLoc) || useDefaultDBLoc.equals("true")) {
 			chckbxSetDefault.setSelected(true);
 			btnNewButton.setEnabled(false);
@@ -299,7 +304,7 @@ public class GeneralPrefs extends JPanel{
 			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LookAndFeels, currentLAF);
 		}
 		/*
-		 * Then, add listeners
+		 * add listeners
 		 */
 		
 		/**
@@ -309,22 +314,27 @@ public class GeneralPrefs extends JPanel{
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange() == ItemEvent.SELECTED) {
-					String textLoc = textField_db.getText();
-					if(textLoc.equals(defaultLoc)) {
+					String dbPath = textField_db.getText();
+					if(dbPath.equals(defaultLoc)/*abs path*/ && defaultLoc.equals(currentLoc)) {
+						//already set to default.
+						//this case do not need restart.
 						btnNewButton.setEnabled(false);
 						return;
 					}
 					textField_db.setText(defaultLoc);
 					btnNewButton.setEnabled(false);
 					//restart
-					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
+					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart (You have to re-open) ?");
 					if(res ==JOptionPane.OK_OPTION) {
 						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, defaultLoc);
+						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation, "true");
 						Launcher.restart();
 					}else {
 						return;
 					}
 				} else {
+					Log.logger.fine("Another DB location will set...");
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation, "false");
 					btnNewButton.setEnabled(true);
 				}
 			}
@@ -348,14 +358,14 @@ public class GeneralPrefs extends JPanel{
 					}
 					String selectPath = selectDir.getAbsolutePath();
 					if(selectPath.equals(defaultLoc)) {
-						chckbxSetDefault.setSelected(true);
+						chckbxSetDefault.setSelected(true);//activate itemlistener
 						return;
 					}
 					String dbDir = DatabaseHandler.getInstance().getLocalDBLocation();
 					if(selectPath.equals(dbDir)) {
 						return;
 					}else {
-						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
+						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart (You have to re-open) ?");
 						if(res_sub==JOptionPane.OK_OPTION) {
 							PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, selectPath);
 							Launcher.restart();
@@ -385,7 +395,7 @@ public class GeneralPrefs extends JPanel{
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				String select = (String) e.getItem();
-				System.out.println(select);
+				Log.logger.fine(select);
 				String laf_ = laf.getInstalledLAFMap().get(select);
 				if(laf_.equals(currentLAF)) {
 					return;
@@ -399,12 +409,13 @@ public class GeneralPrefs extends JPanel{
 		btnSetDefault.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				comboBox_font.setSelectedItem(defaultFontSize);
-				comboBox_laf.setSelectedItem(defaultLAF);
-				currentFontSize = defaultFontSize.intValue();
-				currentLAF = defaultLAF.toString();
-				Font f = new Font(Font.SANS_SERIF,Font.PLAIN,currentFontSize);//name style size
-				WindowManager.updateFont(f);
+//				comboBox_font.setSelectedItem(defaultFontSize);
+//				currentFontSize = defaultFontSize.intValue();
+//				Font f = new Font(Font.SANS_SERIF,Font.PLAIN,currentFontSize);//name style size
+//				WindowManager.updateFont(f);
+				//save properties 
+				comboBox_laf.setSelectedItem(laf.getShortName(defaultLAF));
+				currentLAF = defaultLAF.toString();//copy
 				laf.setLookAndFeel(currentLAF);
 				WindowManager.updateLookAndFeels(laf);
 			}

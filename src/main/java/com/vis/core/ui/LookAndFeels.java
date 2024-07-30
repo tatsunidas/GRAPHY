@@ -58,8 +58,8 @@ import com.vis.configuration.GraphyProp;
 import com.vis.core.util.PropertiesUtil;
 
 public final class LookAndFeels {
-	
-	//debug
+
+	// debug
 	public static void main(String[] args) {
 		new LookAndFeels();
 	}
@@ -67,13 +67,14 @@ public final class LookAndFeels {
 	private ArrayList<String> names;
 	private HashMap<String, String> lafmap;
 	private String currentLAF;
-	
+
 	public static final String defaultLAF = "javax.swing.plaf.metal.MetalLookAndFeel";
-	
+
 	public LookAndFeels() {
 		installSubstanceLookAndFeels();
-		currentLAF = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LookAndFeels.name());
-		if(currentLAF == null || currentLAF.isBlank() || !names.contains(currentLAF)) {
+		currentLAF = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(),
+				GraphyProp.LookAndFeels.name());
+		if (currentLAF == null || currentLAF.isBlank() || !names.contains(currentLAF)) {
 			currentLAF = defaultLAF.toString();
 		}
 		setLookAndFeel(currentLAF);
@@ -88,6 +89,9 @@ public final class LookAndFeels {
 		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		final URL root = classLoader.getResource(resourceName);
 
+		/*
+		 * load substance laf
+		 */
 		try (JarFile jarFile = ((JarURLConnection) root.openConnection()).getJarFile()) {
 			Iterator<JarEntry> entries = jarFile.entries().asIterator();
 			while (entries.hasNext()) {
@@ -97,8 +101,14 @@ public final class LookAndFeels {
 					String fullname = name.replace('/', '.').replaceAll(".class$", "");
 					try {
 						Class<?> c = classLoader.loadClass(fullname);
-						names.add(c.getSimpleName());
-						lafmap.put(c.getSimpleName(), c.getName());
+						String sname = c.getSimpleName();
+						/*
+						 * Class loading fails for LAFs other than Substance.
+						 */
+						if (sname.startsWith("Substance")) {
+							names.add(sname);
+							lafmap.put(c.getSimpleName(), c.getName());
+						}
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 						return;
@@ -108,7 +118,7 @@ public final class LookAndFeels {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		
+
 		List<LookAndFeelInfo> tmp = new ArrayList<>();
 		List<String> systemDefault = new ArrayList<>();
 		for (LookAndFeelInfo i : UIManager.getInstalledLookAndFeels()) {
@@ -150,8 +160,12 @@ public final class LookAndFeels {
 		}
 	}
 
+	/**
+	 * set current LAF and save properties
+	 * @param LAF
+	 */
 	public void setLookAndFeel(String LAF) {
-		if(LAF == null || LAF.isBlank()) {
+		if (LAF == null || LAF.isBlank()) {
 			setDefaultTheme();
 			return;
 		}
@@ -163,33 +177,51 @@ public final class LookAndFeels {
 	public void setDefaultTheme() {
 		setLookAndFeel(defaultLAF);
 	}
-	
+
 	public String getCurrentLAF() {
-		if(this.currentLAF == null) {
+		if (this.currentLAF == null) {
 			this.currentLAF = defaultLAF;
 		}
 		return this.currentLAF;
 	}
 	
-	public ArrayList<String> getInstalledLAFShortName(){
+	public String getShortName(String full_laf_name) {
+		for(String shortName : lafmap.keySet()) {
+			if(lafmap.get(shortName).equals(full_laf_name)) {
+				return shortName;
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * 
+	 * @param short_name look and feels nick name
+	 * @return look and feels class name
+	 */
+	public String getLongName(String short_name) {
+		return lafmap.get(short_name);
+	}
+
+	public ArrayList<String> getAllInstalledLAFShortName() {
 		return this.names;
 	}
-	
-	public boolean isInstalled(String laf /*full name laf*/) {
+
+	public boolean isInstalled(String laf /* full laf name */) {
 		return getInstalledLAFMap().get(laf) != null;
 	}
-	
-	public HashMap<String, String> getInstalledLAFMap(){
+
+	public HashMap<String, String> getInstalledLAFMap() {
 		return this.lafmap;
 	}
-	
+
 	public void updateLookAndFeels(Component con) {
-		if(currentLAF == null) {
+		if (currentLAF == null) {
 			setDefaultTheme();
 		}
 		updateLookAndFeels(currentLAF, con);
 	}
-	
+
 	private void updateLookAndFeels(String laf, Component con) {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override

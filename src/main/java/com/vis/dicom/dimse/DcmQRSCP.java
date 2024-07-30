@@ -729,7 +729,7 @@ public class DcmQRSCP implements DicomServer{
 		String storage_dir = DatabaseHandler.getInstance().getDatabaseFolderPath(false);
 		if (cl.hasOption("graphy-storage-dir")) {
 			String p = cl.getOptionValue("graphy-storage-dir");
-			if(p == null || p.isBlank()) {
+			if(p == null || p.isEmpty()) {
 				p = storage_dir;
 			}
 			File f = new File(p);

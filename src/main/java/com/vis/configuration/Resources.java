@@ -3,9 +3,8 @@ package com.vis.configuration;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.ResourceBundle;
 
@@ -15,6 +14,14 @@ import com.vis.core.log.Log;
 
 import ij.plugin.LutLoader;
 
+/**
+ * Handle resources.
+ * This class has a role of handling resources.
+ * Main purpose is copy resources to configuration folders when starting-up.
+ * 
+ * @author tatsunidas
+ *
+ */
 public enum Resources {
 	
 	Splash("icon/splash.png"),
@@ -103,7 +110,7 @@ public enum Resources {
 	RecordFactory("dcmqrscp/RecordFactory.xml"),
 	
 	//LUT
-	LUT_FIRE("NucMed_Image_LUTs/Fire-1.lut"),
+	LUT_FIRE("luts/Fire-1.lut"),
 	; 
 	
 	private String pathInResource;
@@ -111,28 +118,45 @@ public enum Resources {
 		this.pathInResource = path;
 	}
 	
+	/**
+	 * path in resource
+	 * E.g., /conf/graphy.properties
+	 * @return file path in resources
+	 */
 	public String path() {
 		return pathInResource;
 	}
-	
-	public String absolutePath() {
-		URL l = toURL();
-		try {
-			return new File(l.toURI()).getAbsolutePath();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
+		
+	public File tempFile() {
+		InputStream is = Resources.class.getClassLoader().getResourceAsStream(pathInResource);
+		if (is == null) {
+			Log.logger.warning("This resource file is not exists.:" + pathInResource);
 			return null;
 		}
-	}
-	
-	public URL toURL() {
-		return Thread.currentThread().getContextClassLoader().getResource(pathInResource);
+		File tempFile;
+		try {
+			tempFile = File.createTempFile("GRAPHY_temp", null, new File(ConfigInfo.TemporalDirName.toString()));
+			tempFile.deleteOnExit();
+			// out temp file
+			java.io.FileOutputStream outputStream = new java.io.FileOutputStream(tempFile);
+			byte[] buffer = new byte[1024];
+			int bytesRead;
+			while ((bytesRead = is.read(buffer)) != -1) {
+				outputStream.write(buffer, 0, bytesRead);
+			}
+			is.close();
+			outputStream.close();
+			return tempFile;
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
 	public ImageIcon loadIconFromResource(){
 		if(pathInResource.endsWith("png") || pathInResource.endsWith("jpg") || pathInResource.endsWith("jpeg")) {
-			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
-//			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);//DO NOT USE
+//			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
+			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);//DO NOT USE
 			ImageIcon ico = null;
 			try {
 				ico = new ImageIcon(javax.imageio.ImageIO.read(stream));
@@ -146,29 +170,33 @@ public enum Resources {
 		return null;
 	}
 	
-	public ij.process.LUT loadLUTFromResource(){
+	public ij.process.LUT loadLUT(){
 		if(pathInResource.endsWith("lut")) {
-			URI lutURI = null;
-			try {
-				lutURI = Thread.currentThread().getContextClassLoader().getResource(pathInResource).toURI();
-			} catch (URISyntaxException e) {
-				e.printStackTrace();
+			if(new File("./"+pathInResource).exists()) {
+				return LutLoader.openLut(new File("./"+pathInResource).getAbsolutePath());
+			}else {
+				if(!new File("./luts").exists()) {
+					new File("./luts").mkdirs();
+				}
+				File tempFile = tempFile();
+				try {
+					Files.copy(tempFile.toPath(), new File("./"+pathInResource).toPath(), StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					e.printStackTrace();
+					return null;
+				}
+				return LutLoader.openLut(new File("./"+pathInResource).getAbsolutePath());
 			}
-			ij.process.LUT lut = LutLoader.openLut(new File(lutURI).getAbsolutePath());
-			return lut;
 		}
 		return null;
 	}
 	
 	public static HashMap<String,ij.process.LUT> loadAllLUT() {
-		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
-		URI lutDirURI = null;
-		try {
-			lutDirURI = Thread.currentThread().getContextClassLoader().getResource("NucMed_Image_LUTs/").toURI();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
+		if(!new File("./luts").exists()) {
+			return null;
 		}
-		File parent = new File(lutDirURI);
+		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
+		File parent = new File("./luts");
 		File[] lutFileList = parent.listFiles();
 		for(File l:lutFileList) {
 			String name = l.getName();

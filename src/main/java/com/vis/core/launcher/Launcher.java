@@ -39,10 +39,17 @@ package com.vis.core.launcher;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
+
+import javax.swing.JOptionPane;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -57,6 +64,7 @@ import com.vis.configuration.GraphyProp;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 
@@ -77,29 +85,33 @@ public class Launcher {
 		new ApplicationFacade(parseArgs(args));
 	}
 	
+	/**
+	 * When testing on Jar, cannot restart. 
+	 */
 	public static void restart() {
 		// JVM
-		String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
-		// main class
-		String jarFilePath = new File(Launcher.class.getProtectionDomain().getCodeSource().getLocation().getPath())
-				.getAbsolutePath();
+		String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";		
+		File currentJar = null;
+		try {
+			URI uri = Launcher.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+			currentJar = new File(URLDecoder.decode(uri.getPath(), StandardCharsets.UTF_8.name()));
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
 
 		// build command
 		List<String> command = new ArrayList<>();
 		command.add(java);
 		String xms = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xms);
 		String xmx = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xmx);
-		command.add("-Xms" + ((xms != null && !xms.isBlank()) ? "1g" : xms)); // 初期ヒープサイズを設定
-		command.add("-Xmx" + ((xmx != null && !xmx.isBlank()) ? "10g" : xmx)); // 最大ヒープサイズを設定
+		command.add("-Xms=" + ((xms != null && !xms.isBlank()) ? "1g" : xms));
+		command.add("-Xmx=" + ((xmx != null && !xmx.isBlank()) ? "10g" : xmx));
 		command.add("-Djava.library.path=" + Platform.getOpenCVNativeLibLocation());
-		command.add("-cp");
-		command.add(jarFilePath);
-		command.add(Launcher.class.getName());
+		command.add(currentJar.getAbsolutePath());
+		command.add("restart");
 		
-		//this following code also can use for instead -cp.
-//		command.add("-jar");
-//		command.add(jarFilePath);
-
 		// add original commands
 		ArrayList<String> orgCmd = new ArrayList<>();
 		boolean no_splash = Boolean.valueOf(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH));
@@ -109,23 +121,29 @@ public class Launcher {
 		
 		command.addAll(orgCmd);
 		
+		Log.logger.info("GRAPHY will restart...");
+		Log.logger.info(command.toString());
+		
+		System.out.println("GRAPHY will restart...");
+		System.out.println(command.toString());
+		
 		ProcessBuilder builder = new ProcessBuilder(command);
 
 		try {
 			builder.start();
+			//close current process
+			System.exit(0);
 		} catch (IOException e) {
 			e.printStackTrace();
 			Log.logger.severe("Sorry, something happened when restarting, this process will close automatically. After that, you can restart GRAPHY by manualy...");
+			PopUpMessage.showDialog(null, "You need restart manualy...", "Sorry, something happened when restarting, this process will close automatically. After that, you can restart GRAPHY by manualy.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			try {
-				Thread.sleep(1000 * 5);
+				Thread.sleep(1000 * 10);
+				System.exit(0);
 			} catch (InterruptedException e1) {
 				System.exit(0);
 			}
-			System.exit(0);
 		}
-
-		// close current process
-		System.exit(0);
 	}
 	
 	private HashMap<StartingUpConfigurations, String[]> parseArgs(String[] args){

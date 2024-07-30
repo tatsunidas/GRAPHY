@@ -44,8 +44,8 @@ public class ArchiveCellRendererableEditor extends DefaultCellEditor implements 
 		linkLabel.setIcon(Resources.LinkIcon.loadIconFromResource());
 		linkLabel.setEnabled(false);
 		//merge icon
-		ImagePlus localImg = new ImagePlus(Resources.ArchivedIcon.absolutePath());
-		ImagePlus linkImg = new ImagePlus(Resources.LinkIcon.absolutePath());
+		ImagePlus localImg = new ImagePlus("", Resources.ArchivedIcon.loadIconFromResource().getImage());
+		ImagePlus linkImg = new ImagePlus("", Resources.LinkIcon.loadIconFromResource().getImage());
 		BufferedImage merge = ImageUtils.merge(localImg, linkImg);
 		bothLabel.setIcon(new ImageIcon(merge));
 		bothLabel.setEnabled(false);

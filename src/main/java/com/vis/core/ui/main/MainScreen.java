@@ -341,7 +341,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(qrTreeTableModel, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
-					if(keepTopTitle != null && !keepTopTitle.isBlank()) {
+					if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
 						if (keepTopTitle.equals(svr.getNickname())) {
 							tabDockManager.setTopTab(keepTopTitle);
 							break;

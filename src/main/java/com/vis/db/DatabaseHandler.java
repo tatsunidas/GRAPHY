@@ -315,22 +315,23 @@ public class DatabaseHandler {
 		if (conn == null) {
 			return;
 		}
+				
 		try (Statement statement = conn.createStatement(); conn) {
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PATIENT.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_STUDY.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_SERIES.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_IMAGE.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LISTENER.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_AE.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_THEME.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_MODALITY.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PRESET.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LOCALE.toURL().getPath()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PATIENT.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_STUDY.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_SERIES.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_IMAGE.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LISTENER.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_AE.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_THEME.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_MODALITY.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PRESET.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LOCALE.tempFile()).get(0));
 			statement
-					.executeUpdate(new SQLReader().createQueries(Resources.SQL_MISCELLANEOUS.toURL().getPath()).get(0));
+					.executeUpdate(new SQLReader().createQueries(Resources.SQL_MISCELLANEOUS.tempFile()).get(0));
 			statement.executeUpdate(
-					new SQLReader().createQueries(Resources.SQL_TEXTANNOTATION.toURL().getPath()).get(0));
-			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_ROI.toURL().getPath()).get(0));
+					new SQLReader().createQueries(Resources.SQL_TEXTANNOTATION.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_ROI.tempFile()).get(0));
 		} catch (SQLException ex) {
 			logger.severe("DatabaseHandler, can not read SQL correctly..\n" + ex.getMessage());
 		}
@@ -4623,13 +4624,13 @@ public class DatabaseHandler {
 		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
 		if (!recFac.exists()) {
 			try {
-				File defRecFac = new File(Resources.RecordFactory.toURL().toURI());
+				File defRecFac = Resources.RecordFactory.tempFile();
 				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
 				Path src = Paths.get(defRecFac.toURI());
 				Path out = Paths.get(recFac.toURI());
 				Files.copy(src, out);
 				recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
-			} catch (URISyntaxException | IOException e1) {
+			} catch (IOException e1) {
 				e1.printStackTrace();
 				return false;
 			}

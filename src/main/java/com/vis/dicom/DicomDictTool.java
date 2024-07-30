@@ -118,7 +118,7 @@ final class DicomDictTool {
 			for (String str : lines) {
 				itr++;
 				str = str.trim();
-				if (str == null || str.length() < 1 || str.isBlank() || str.isEmpty() || str.equals("\n")) {
+				if (str == null || str.length() < 1 || str.isEmpty() || str.equals("\n")) {
 					if (total == itr) {
 						// end of txt
 						if (findTag) {
@@ -237,7 +237,7 @@ final class DicomDictTool {
 			}
 			for (String str : lines) {
 				str = str.trim();
-				if (str == null || str.length() < 1 || str.isBlank() || str.isEmpty() || str.equals("\n")) {
+				if (str == null || str.length() < 1 || str.isEmpty() || str.equals("\n")) {
 					continue;
 				}
 				tags.add(str);

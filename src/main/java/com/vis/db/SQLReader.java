@@ -20,11 +20,15 @@ public class SQLReader {
 	 * @return List of query strings
 	 */
 	public List<String> createQueries(String path) {
+		return createQueries(new File(path));
+	}
+	
+	public List<String> createQueries(File sql) {
 		String queryLine = new String();
 		StringBuffer sBuffer = new StringBuffer();
 		List<String> listOfQueries = new ArrayList<String>();
 
-		try (FileReader fr = new FileReader(new File(path));
+		try (FileReader fr = new FileReader(sql);
 			 BufferedReader br = new BufferedReader(fr);
 				)
 		{

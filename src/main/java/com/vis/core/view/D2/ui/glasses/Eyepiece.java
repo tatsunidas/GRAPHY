@@ -254,7 +254,7 @@ public class Eyepiece extends JLayeredPane implements ComponentListener{
 	}
 	
 	public Color allocateStudyColor() {
-		ij.process.LUT studyColors = Resources.LUT_FIRE.loadLUTFromResource();
+		ij.process.LUT studyColors = Resources.LUT_FIRE.loadLUT();
 		byte index = goneOutStudyColorPos;
 		byte increment = 10;
  		index = (byte) (index + increment);//-128 ~ 127
