@@ -90,7 +90,7 @@ import ij.process.ImageProcessor;
 import ij.process.LUT;
 
 /**
- * image screen and overlays
+ * image and overlays
  * 
  * @author tatsunidas
  */
@@ -1261,7 +1261,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public int getViewer2DToolTypeInSlideGlassUI() {
-		return layerUI.getViewer2DToolType();
+		return LayerUISupport.getViewer2DToolType();
 	}
 
 	public boolean handleRoiMouseDragged(MouseEvent me) {
@@ -1319,7 +1319,7 @@ public class SlideGlass extends JLayeredPane {
 		setFocusable(true);// for keylistener
 		setRequestFocusEnabled(true);
 		setOriginalImage(new ImagePlus("", dcmImg.getImageProcessor(0)));
-		initImageInfo(header);// execute before setUpGlasses
+		initImageInfo(header);// execute before Glasses
 		setUpGlassLayer(header);
 		loadRoiFromDB();
 		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
@@ -2150,10 +2150,6 @@ public class SlideGlass extends JLayeredPane {
 		slide = new JLayer<SlideGlass>(this, layerUI);
 		slide.setOpaque(true);// IMPORTANT
 		slide.setBackground(Color.BLACK);
-	}
-		
-	public void setViewer2DToolType(int toolType) {
-		layerUI.setViewer2DToolType(toolType);
 	}
 	
 	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {

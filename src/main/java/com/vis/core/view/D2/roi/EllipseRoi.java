@@ -54,7 +54,6 @@ public class EllipseRoi extends PolygonRoi {
         double x2 = sg.onImageX(sx);
         double y2 = sg.onImageY(sy);
         makeEllipse(x1, y1, x2, y2);
-        sg.repaint();
     }
         
     void makeEllipse(double x1, double y1, double x2, double y2) {
@@ -118,7 +117,6 @@ public class EllipseRoi extends PolygonRoi {
             case KeyEvent.VK_RIGHT: x2+=inc; break;
         }
         makeEllipse(x1, y1, x2, y2);
-        sg.repaint();
         notifyListeners(RoiListener.MOVED);
         showStatus();
     }

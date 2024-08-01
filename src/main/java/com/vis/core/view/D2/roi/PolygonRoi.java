@@ -595,7 +595,7 @@ public class PolygonRoi extends RoiObj {
 		} 
 //		else
 //			imp.draw(xmin - margin, ymin - margin, (xmax - xmin) + margin * 2, (ymax - ymin) + margin * 2);
-		sg.repaint();
+		slide.getObservables().repaint();
 	}
 
 	void finishPolygon() {
@@ -1005,7 +1005,7 @@ public class PolygonRoi extends RoiObj {
 		setPolygon(points2);
 		if (splineFit)
 			fitSpline(splinePoints);
-		sg.repaint();
+		slide.getObservables().repaint();
 	}
 
 	private void setPolygon(FloatPolygon p2) {

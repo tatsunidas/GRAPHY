@@ -37,7 +37,7 @@ public class TextOverlayGlass extends JPanel{
 	int parentWidth;
 	int parentHeight;
 	
-	DicomObject header;
+	final DicomObject header;
 	
 	//upper left
 	private JLabel lbl1_1;
@@ -68,34 +68,11 @@ public class TextOverlayGlass extends JPanel{
 	private HashMap<String, JLabel> directions = null;
 	boolean invert = false;
 	
-	// debug
-	public static void main(String args[]) {
-//		DicomObject header = new DicomObject(path, false);
-//		JLayeredPane p = new JLayeredPane();
-//		JPanel p1 = new JPanel();
-//		p1.setBackground(Color.BLACK);
-//		p1.setSize(502, 482);//MUST
-//		p.add(p1);
-//		p.setLayer(p1, 0);
-//		TextOverlayGlass to = new TextOverlayGlass(header);
-//		p.add(to);
-//		p.setLayer(to, 1);
-//		JFrame f = new JFrame();
-//		f.setSize(512,512);//MUST
-//		f.setContentPane(p);
-//		f.setVisible(true);
-//		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//		System.out.println(f.getContentPane().getSize().getWidth());
-//		System.out.println(f.getContentPane().getSize().getHeight());
-//		JFrame f2 = new JFrame();
-//		f2.add(p.getComponentsInLayer(0)[0]);
-//		f2.setSize(512,512);//MUST
-//		f2.setContentPane(p);
-//		f2.setVisible(true);
-	}
+	private final String sopUID;
 
 	public TextOverlayGlass(DicomObject header) {
 		this.header = header;
+		this.sopUID = header.getString(Tag.SOP​Instance​UID);
 		initComponents();
 //		this.textOverlayParam = new TextOverlayParam();//future work
 		loadAnnotationList(header);
@@ -353,6 +330,10 @@ public class TextOverlayGlass extends JPanel{
 	}
 
 	private void setTextOverlay() {
+	}
+	
+	public String sopInstanceUID() {
+		return sopUID;
 	}
 	
 	public void resizeHandler() {

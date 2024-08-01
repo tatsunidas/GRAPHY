@@ -406,7 +406,7 @@ public class TextRoi extends RoiObj {
         if (justification<0 || justification>RIGHT)
             justification = LEFT;
         globalJustification = justification;
-        sg.repaint();
+        sg.getObservables().repaint();
 //        ImagePlus imp = WindowManager.getCurrentImage();
 //        if (imp!=null) {
 //            RoiObj roi = imp.getRoi();
@@ -428,7 +428,7 @@ public class TextRoi extends RoiObj {
             justification = LEFT;
         this.justification = justification;
         updateBounds();
-        getSlideGlass().repaint();
+        getSlideGlass().getObservables().repaint();
 //        if (imp!=null)
 //            imp.draw();
     }
@@ -581,7 +581,7 @@ public class TextRoi extends RoiObj {
     void updateText() {
     	setProperty(RoiContextKeySet.Description.name(), flatString());
     	updateClipRect(getSlideGlass());
-    	getSlideGlass().repaint();
+    	getSlideGlass().getObservables().repaint();
 //        if (imp!=null) {
 //            updateClipRect(sg);
 //            if (angle!=0.0)

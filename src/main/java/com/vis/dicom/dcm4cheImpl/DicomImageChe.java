@@ -127,6 +127,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		return core.getInt(Tag.Rows, 0);
 	}
 
+	/**
+	 * return imageprocessor (without calibration)
+	 * if you want calibrated imageplus, see also ImagePlusDicomTagTools.dcmImgToImagePlus. 
+	 * 0 to N-1
+	 */
 	@Override
 	public ImageProcessor getImageProcessor(int frame) {
 		if(Codec.isCompressed(getTSUID())) {

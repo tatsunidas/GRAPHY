@@ -170,7 +170,7 @@ public class Line extends RoiObj {
 		}
 		updateCoordinates(xstart, ystart, xend, yend);
 		updateClipRect(slide);
-		slide.repaint();
+		slide.getObservables().repaint();
 	}
 
 	void move(int sx, int sy, SlideGlass sg) {
@@ -191,7 +191,7 @@ public class Line extends RoiObj {
 		bounds = new Rectangle2D.Double(x, y, width, height);
 		clipboard = null;
 		updateClipRect(sg);
-		sg.repaint();
+		slide.getObservables().repaint();
 	}
 
 	protected void moveHandle(int sx, int sy) {
@@ -411,7 +411,7 @@ public class Line extends RoiObj {
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		slide.repaint();
+		slide.getObservables().repaint();
 	}
 
 	public void mouseDownInHandle(int handle, int sx, int sy, SlideGlass sg) {

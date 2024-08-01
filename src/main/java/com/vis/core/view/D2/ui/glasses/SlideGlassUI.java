@@ -4,6 +4,7 @@ import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Graphics;
+import java.awt.Window;
 import java.awt.event.FocusEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
@@ -17,10 +18,13 @@ import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.JLayer;
+import javax.swing.JLayeredPane;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.plaf.LayerUI;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -30,18 +34,13 @@ import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
 @SuppressWarnings("serial")
-public class SlideGlassUI extends LayerUI<SlideGlass> {
+public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISupport{
 	
 	private SlideGlass slide;
 	private Praparat pp;
 	private Eyepiece prapManager;
 	private int viewerToolType = Viewer2DToolBar.Windowing;
 	private Logger logger = Log.logger;
-	
-	private final static Cursor defaultCursor = new Cursor(Cursor.DEFAULT_CURSOR);
-	private final static Cursor handCursor = new Cursor(Cursor.HAND_CURSOR);
-	private final static Cursor moveCursor = new Cursor(Cursor.MOVE_CURSOR);
-	private final static Cursor crosshairCursor = new Cursor(Cursor.CROSSHAIR_CURSOR);
 	
 	/*
 	 * currently pressed keys
@@ -55,27 +54,6 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 		//to sync series
 		prapManager = pp.getEyepieceAsPraparatManager();
 	}
-	
-	protected int getViewer2DToolType() {
-		Viewer2DScreen viewer2d = Viewer2DScreen.getInstance();
-		if(viewer2d != null) {
-			if(viewer2d.getDatabase() != null) {
-				setViewer2DToolType(viewer2d.getCurrentToolType());
-			}
-		}
-		return viewerToolType;
-	}
-	
-	public void setViewer2DToolType(int toolType) {
-		this.viewerToolType=toolType;
-	}
-
-	@Override
-	public void paint(Graphics g, JComponent c) {
-		// paint slide glass as-is
-		super.paint(g, c);
-	}
-
 	
 	@Override
 	public void installUI(JComponent c) {
@@ -145,7 +123,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 		}
 		
 		/*
-		 * KEY TYPED
+		 * KEY TYPED (Activated by both PRESSED and RELEASED)
 		 */
 		if(e.getID() == KeyEvent.KEY_TYPED) {
 	        System.out.println("key typed");
@@ -252,10 +230,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 						logger.info("origin when mouse was pressed (x,y):"+slide.originX+" "+slide.originY);
 					}else {
 						synchronized (this) {
-							HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+							HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 							for (Integer key : slides.keySet()) {
-								JLayer<SlideGlass> sl = slides.get(key);
-								SlideGlass sg = sl.getView();
+								SlideGlass sg = slides.get(key);
 								sg.lastX = e.getX();
 								sg.lastY = e.getY();
 								sg.lastOriginX = sg.originX;
@@ -292,10 +269,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 					slide.lastOriginX = slide.originX;
 					slide.lastOriginY = slide.originY;
 				}else {
-					HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for(Integer key:slides.keySet()) {
-						JLayer<SlideGlass> sl = slides.get(key);
-						SlideGlass sg = sl.getView();
+						SlideGlass sg = slides.get(key);
 						sg.lastX = e.getX();
 						sg.lastY = e.getY();
 						sg.lastOriginX = sg.originX;
@@ -322,10 +298,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 					slide.releasePanning();
 				}
 				synchronized (this) {
-					HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
-						JLayer<SlideGlass> sl = slides.get(key);
-						SlideGlass sg = sl.getView();
+						SlideGlass sg = slides.get(key);
 						if(sg.panningInAction) {
 							sg.releasePanning();
 						}
@@ -384,7 +359,7 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 				return;//attention
 			}
 			
-			viewerToolType = getViewer2DToolType();
+			viewerToolType = LayerUISupport.getViewer2DToolType();
 			if(pp.getViewMode() == ViewMode.Thumbnail) {
 				viewerToolType = Viewer2DToolBar.Windowing;
 			}
@@ -421,10 +396,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 					if (!pp.isProcessSeries()) {
 						slide.adjustWindowFromMouseAction(x, y);
 					} else {
-						HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+						HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 						for (Integer key : slides.keySet()) {
-							JLayer<SlideGlass> sl = slides.get(key);
-							SlideGlass sg = sl.getView();
+							SlideGlass sg = slides.get(key);
 							sg.adjustWindowFromMouseAction(x, y);
 						}
 					}
@@ -452,11 +426,10 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 					slide.lastDraggedX = e.getX();
 					slide.lastDraggedY = currentDragY;
 				}else {
-					HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					double newMag = -1;
 					for(Integer key:slides.keySet()) {
-						JLayer<SlideGlass> sl = slides.get(key);
-						SlideGlass sg = sl.getView();
+						SlideGlass sg = slides.get(key);
 						double diffY = sg.lastDraggedY - currentDragY;
 						// get current mag
 						double mag = sg.getMagnification();
@@ -487,10 +460,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 				} else {
 					// process series
 					synchronized (this) {
-						HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+						HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 						for (Integer key : slides.keySet()) {
-							JLayer<SlideGlass> sl = slides.get(key);
-							SlideGlass sg = sl.getView();
+							SlideGlass sg = slides.get(key);
 							sg.panning(moveX, moveY);
 						}
 					}
@@ -529,10 +501,9 @@ public class SlideGlassUI extends LayerUI<SlideGlass> {
 			if(!pp.isProcessSeries()) {
 				this.slide.rotate(rotation);
 			}else {
-				HashMap<Integer, JLayer<SlideGlass>> slides = pp.getAllSlides();
+				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 				for(Integer key:slides.keySet()) {
-					JLayer<SlideGlass> sl = slides.get(key);
-					SlideGlass sg = sl.getView();
+					SlideGlass sg = slides.get(key);
 					sg.rotate(rotation);
 				}
 			}

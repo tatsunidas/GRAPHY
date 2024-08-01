@@ -45,9 +45,10 @@ import ij.process.FloatPolygon;
  */
 public class CanvasGlass extends javax.swing.JPanel {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 775809436040950583L;
 	private Praparat pp;
 	private SlideGlass sg;
+	private final String sopUID;
 	public boolean paintSizeCaliper = true;
 	private RoiObj currentRoi = null;
 	private RoiObj previousRoi = null;
@@ -61,18 +62,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private java.util.List<java.awt.geom.Point2D> localizerGeo = null;
 	private Color localizerColor = new Color(255, 0, 0, 127);
 	private int localizerStrokeSize = 3;
-	
-	private int currentWidth = -1;
-	private int currentHeight = -1;
-	
-	private long mousePressedTime;
 
-	/**
-	 * Creates new form DateFormatPanel
-	 */
-	public CanvasGlass(SlideGlass sg) {
+	public CanvasGlass(String sopInstUID, SlideGlass sg) {
 		setOpaque(false);
 		setLayout(null);
+		this.sopUID = sopInstUID;
 		this.pp = sg.getPraparat();
 		this.sg = sg;
 	}
@@ -124,6 +118,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public void setPaintCaliper(boolean show) {
 		this.paintSizeCaliper = show;
 	}
+	
+	public String sopInstanceUID() {
+		return sopUID;
+	}
 
 //	protected boolean waitForImage(Image image) {
 //		MediaTracker tracker = new MediaTracker(this);
@@ -136,7 +134,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //	}
 
 	private void showCaliper(Graphics gs) {
-		setSize(sg.getSize().width, sg.getSize().height);
+		setSize(sg.getWidth(), sg.getHeight());
 		// 100 mm scale bar
 		gs.drawRect(0, 0, getWidth() - 1, getHeight() - 1);
 		if (sg != null) {
@@ -245,7 +243,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 		int ix = sg.onImageX(screenX);
 		int iy = sg.onImageY(screenY);
-		ArrayList<RoiObj> rois = sg.getRois();
+		ArrayList<RoiObj> rois = sg.getRois(sopUID);
 		int handle = -1;
 		boolean found = false;
 		if (rois != null && rois.size() > 0) {
@@ -341,7 +339,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		sg.lastY = sy;
 //		int ox = sg.onImageX(sx);
 //		int oy = sg.onImageY(sy);
-		mousePressedTime = System.currentTimeMillis();
+		long mousePressedTime = System.currentTimeMillis();
 		switch (toolID) {
 //		case Viewer2DToolBar.MAGNIFIER:
 //			if (IJ.shiftKeyDown())
@@ -732,7 +730,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 	private void drawRoi(Graphics g) {
 
-		ArrayList<RoiObj> rois = sg.getRois();
+		ArrayList<RoiObj> rois = sg.getRois(sopUID);
 		for (int i = 0; i < rois.size(); i++) {
 			RoiObj roiObj = rois.get(i);
 			roiObj.draw(g, sg);
@@ -748,7 +746,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	private void drawReferenceLine(Graphics g) {
-		if (sg == null || sg.getRois() == null || sg.getRois().size() < 1) {
+		if (sg == null || sg.getRois(sopUID) == null || sg.getRois(sopUID).size() < 1) {
 			if (pp.getReferenceLine() != null) {
 				ReferenceLine refLine = pp.getReferenceLine();
 				refLine.draw(g, sg);

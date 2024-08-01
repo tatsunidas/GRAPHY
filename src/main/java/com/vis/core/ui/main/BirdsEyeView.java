@@ -59,7 +59,6 @@ import javax.swing.JSplitPane;
 
 import com.vis.core.log.Log;
 import com.vis.core.ui.MissingIcon;
-import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -75,7 +74,7 @@ public class BirdsEyeView extends JPanel{
 	JPanel waitingPanel1;
 	JPanel waitingPanel2;
 	JSplitPane patInfoAndBirdsEyeSplit;
-	JSplitPane birdsEyeSplit;//Thumbnail and filmAndSingleGridSplit  
+	JSplitPane birdsEyeSplit; // Thumbnail and filmAndSingleGridSplit  
 	JSplitPane filmAndSingleGridSplit; 
 	JPanel filmGridPane;
 	JPanel singleGridPane;
@@ -339,7 +338,7 @@ public class BirdsEyeView extends JPanel{
 		boolean isMultiFrame = thumbnail.isMultiFrame();
 		boolean isPDF = thumbnail.isPDF();
 		currentSeriesUID = (String)thumbnail.getUIDs()[2];
-		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
 		 * single grid view
@@ -373,7 +372,7 @@ public class BirdsEyeView extends JPanel{
 		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
 			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
-			filmGridView.doFilmGridLayout(5);
+			filmGridView.doFilmGridLayout(null);
 			filmGridView.setTextVisible(false);
 			filmGridView.setAnnotationVisible(false);
 			setFilmGridView();
@@ -383,7 +382,7 @@ public class BirdsEyeView extends JPanel{
 		birdsEyeSplit.setDividerLocation(thumbnailSize);
 		seriesListView.highlightSelectedThumbnail(currentSeriesUID);
 		/*SlideGlass has set cross-hair cursor as default*/
-		thumbnail.getCurrentSlide().getView().setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+		thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		seriesListView.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
 	
@@ -392,10 +391,10 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		//show top slide at selectedSopUIDsInItsSeries.get(0)
-		HashMap<Integer,JLayer<SlideGlass>> slides = singleGridView.getAllSlides();
+		HashMap<Integer,SlideGlass> slides = singleGridView.getAllSlides();
 		Set<Integer> keys = slides.keySet();
 		for(int i : keys) {
-			SlideGlass sg = slides.get(i).getView();
+			SlideGlass sg = slides.get(i);
 			if(sg.getSOPInstanceUID().equals(selectedSopUIDsInItsSeriesOnTreeTable.get(0))) {
 				singleGridView.setImagePositionUsingSlider(i);
 				break;
@@ -407,7 +406,7 @@ public class BirdsEyeView extends JPanel{
 		}
 		keys = slides.keySet();
 		for(int i : keys) {
-			SlideGlass sg = slides.get(i).getView();
+			SlideGlass sg = slides.get(i);
 			for(String uid : selectedSopUIDsInItsSeriesOnTreeTable) {
 				if(sg.getSOPInstanceUID().equals(uid)) {
 					sg.setSelectionState(true);

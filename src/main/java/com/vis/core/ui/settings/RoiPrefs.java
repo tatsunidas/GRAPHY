@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.settings;
 
 import javax.swing.JPanel;
@@ -22,181 +59,175 @@ import java.awt.Font;
 
 /**
  * 
+ * Role of this class move to ROI toolbar.
+ * 
  * @author tatsunidas
  *
  */
 @SuppressWarnings("serial")
-public class RoiPrefs extends JPanel implements ItemListener{
-	
-	int currentTextSize = 12;
-	Integer defaultStrokeWidth = 1;
-	String defaultStrokeColor = "orange";
-	String defaultFillColor = "orange";
-	String defaultHandleColor = "white";
-//	String defaultRoiBrush = "Circle";
-	Integer defaultBrushSize = 10;
-	
-	/*
-	 * Roi stroke color
-	 * Roi stroke witdh
-	 * Roi fill color
-	 * Roi brush type circle or rect
-	 * Roi brush size in pixels
-	 */
-	
-public RoiPrefs() {
-		
-		currentTextSize = FontSettings.getCurrentTextSize();
-		
+@Deprecated
+public class RoiPrefs extends JPanel implements ItemListener {
+
+	int currentTextSize = FontSettings.getCurrentTextSize();//FontSettings.defaultFontSize;
+	final Integer defaultStrokeWidth = 1;
+	final String defaultStrokeColor = "orange";
+	final String defaultFillColor = "orange";
+	final String defaultHandleColor = "white";
+//	final String defaultRoiBrush = "Circle";
+	final Integer defaultBrushSize = 10;
+
+	public RoiPrefs() {
+
 		GridBagLayout gridBagLayout = new GridBagLayout();
-		gridBagLayout.columnWidths = new int[]{0, 0, 0, 0};
-		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 0, 0, 0, 0};
-		gridBagLayout.columnWeights = new double[]{0.0, 1.0, 1.0, Double.MIN_VALUE};//左右均等に配置
-		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		gridBagLayout.columnWidths = new int[] { 0, 0, 0, 0 };
+		gridBagLayout.rowHeights = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
+		gridBagLayout.columnWeights = new double[] { 0.0, 1.0, 1.0, Double.MIN_VALUE };// 左右均等に配置
+		gridBagLayout.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
 		setLayout(gridBagLayout);
-		
+
 		GridBagConstraints gbc = new GridBagConstraints();
-//        gbc.fill = GridBagConstraints.NONE;
 		gbc.anchor = GridBagConstraints.WEST;
 		gbc.insets = new Insets(0, 0, 5, 5);
-        
+
 		JLabel lblNewLabel = new JLabel(" Roi settings");
 		lblNewLabel.setFont(new Font("MS UI Gothic", Font.BOLD, 14));
 		lblNewLabel.setBackground(Color.LIGHT_GRAY);
-		
+
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 		add(lblNewLabel, gbc);
-		
+
 		JLabel strokeColorLabel = new JLabel(" Roi stroke color");
 		gbc.gridx = 0;
 		gbc.gridy = 1;
 		add(strokeColorLabel, gbc);
-		
+
 		JComboBox<String> strokeColorCombo = new JComboBox<String>(colors());
 		strokeColorCombo.setName("RoiStrokeColorCombo");
 		String currentColor = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeColor);
-		if(currentColor == null) {
+		if (currentColor == null) {
 			strokeColorCombo.setSelectedItem(defaultStrokeColor);
-		}else {
+		} else {
 			strokeColorCombo.setSelectedItem(currentColor);
 		}
 		gbc.gridx = 1;
 		gbc.gridy = 1;
 		add(strokeColorCombo, gbc);
-		
+
 		JLabel strokeWidthLabel = new JLabel(" Roi stroke width");
 		gbc.gridx = 0;
 		gbc.gridy = 2;
 		add(strokeWidthLabel, gbc);
-		
+
 		JComboBox<Integer> strokeWidthCombo = new JComboBox<Integer>(widths());
 		strokeWidthCombo.setName("RoiStrokeWidthCombo");
 		String currentWidth = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeWidth);
-		if(currentWidth == null) {
+		if (currentWidth == null) {
 			strokeWidthCombo.setSelectedItem(defaultStrokeWidth);
-		}else {
+		} else {
 			strokeWidthCombo.setSelectedItem(Integer.valueOf(currentWidth.trim()));
 		}
 		gbc.gridx = 1;
 		gbc.gridy = 2;
 		add(strokeWidthCombo, gbc);
-		
+
 		JLabel fillColorLabel = new JLabel(" Roi fill color");
 		gbc.gridx = 0;
 		gbc.gridy = 3;
 		add(fillColorLabel, gbc);
-		
+
 		JComboBox<String> fillColorCombo = new JComboBox<String>(colors());
 		fillColorCombo.setName("RoiFillColorCombo");
 		String currentFillColor = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiFillColor);
-		if(currentFillColor == null) {
+		if (currentFillColor == null) {
 			fillColorCombo.setSelectedItem(defaultFillColor);
-		}else {
+		} else {
 			fillColorCombo.setSelectedItem(currentFillColor.trim());
 		}
 		gbc.gridx = 1;
 		gbc.gridy = 3;
 		add(fillColorCombo, gbc);
-		
+
 		JLabel handleColorLabel = new JLabel(" Roi handle color");
 		gbc.gridx = 0;
 		gbc.gridy = 4;
 		add(handleColorLabel, gbc);
-		
+
 		JComboBox<String> handleColorCombo = new JComboBox<String>(colors());
 		handleColorCombo.setName("RoiHandleColorCombo");
 		String currentHandleColor = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiHandleColor);
-		if(currentHandleColor == null) {
+		if (currentHandleColor == null) {
 			handleColorCombo.setSelectedItem(defaultHandleColor);
-		}else {
+		} else {
 			handleColorCombo.setSelectedItem(currentHandleColor.trim());
 		}
 		gbc.gridx = 1;
 		gbc.gridy = 4;
 		add(handleColorCombo, gbc);
-		
+
 		JLabel lblNewLabel_1 = new JLabel(" Roi brush");
 		lblNewLabel_1.setFont(new Font("MS UI Gothic", Font.BOLD, 14));
 		lblNewLabel_1.setBackground(Color.LIGHT_GRAY);
 		gbc.gridx = 0;
 		gbc.gridy = 5;
 		add(lblNewLabel_1, gbc);
-		
+
 		JLabel brushTypeLabel = new JLabel(" Roi brush type");
 		gbc.gridx = 0;
 		gbc.gridy = 6;
 		add(brushTypeLabel, gbc);
-		
+
 		JRadioButton circleRadioButton = new JRadioButton("Circle");
 		circleRadioButton.setName("Circle");
 		gbc.gridx = 1;
 		gbc.gridy = 6;
 		add(circleRadioButton, gbc);
-		
+
 		JRadioButton squareRadioButton = new JRadioButton("Square");
 		squareRadioButton.setName("Square");
 		gbc.gridx = 2;
 		gbc.gridy = 6;
 		add(squareRadioButton, gbc);
-		
+
 		ButtonGroup bgroup = new ButtonGroup();
 		bgroup.add(circleRadioButton);
 		bgroup.add(squareRadioButton);
 		// set current
 		String currentType = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType);
-		if(currentType == null) {
+		if (currentType == null) {
 			circleRadioButton.setSelected(true);
-		}else {
-			if(currentType.trim().equals("Circle")) {
+		} else {
+			if (currentType.trim().equals("Circle")) {
 				circleRadioButton.setSelected(true);
-			}else if(currentType.trim().equals("Square")){
+			} else if (currentType.trim().equals("Square")) {
 				squareRadioButton.setSelected(true);
 			}
 		}
-				
+
 		JLabel brushSizeLabel = new JLabel(" Roi brush size");
 		brushSizeLabel.setToolTipText("(In pixels)");
 		gbc.gridx = 0;
 		gbc.gridy = 7;
-		/** IMPORTANT : last row component set anchor to GridBagConstraints.NORTHWEST**/
+		/**
+		 * IMPORTANT : last row component set anchor to GridBagConstraints.NORTHWEST
+		 **/
 		gbc.anchor = GridBagConstraints.NORTHWEST;
 		add(brushSizeLabel, gbc);
-		
+
 		JComboBox<Integer> brushSizeCombo = new JComboBox<Integer>(brushSizes());
 		brushSizeCombo.setName("RoiBrushSizeCombo");
 		String currentSize = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize);
-		if(currentSize == null) {
+		if (currentSize == null) {
 			brushSizeCombo.setSelectedItem(defaultBrushSize);
-		}else {
+		} else {
 			brushSizeCombo.setSelectedItem(Integer.valueOf(currentSize.trim()));
 		}
 		gbc.gridx = 1;
 		gbc.gridy = 7;
 		gbc.anchor = GridBagConstraints.NORTHWEST;
 		add(brushSizeCombo, gbc);
-		
-		//add listener
+
+		// add listener
 		strokeColorCombo.addItemListener(this);
 		strokeWidthCombo.addItemListener(this);
 		fillColorCombo.addItemListener(this);
@@ -205,51 +236,38 @@ public RoiPrefs() {
 		squareRadioButton.addItemListener(this);
 		handleColorCombo.addItemListener(this);
 	}
-	
+
 	private String[] colors() {
-		String[] c = new String[] {
-				"yellow",
-				"orange",
-				"blue",
-				"green",
-				"cyan",
-				"magenta",
-				"pink",
-				"red",
-				"white",
-				"black"
-		};
+		String[] c = new String[] { "yellow", "orange", "blue", "green", "cyan", "magenta", "pink", "red", "white",
+				"black" };
 		return c;
 	}
-	
+
 	private Integer[] widths() {
-		Integer[] w = new Integer[] {
-				1,3,5,7,10,12,15
-		};
+		Integer[] w = new Integer[] { 1, 3, 5, 7, 10, 12, 15 };
 		return w;
 	}
-	
+
 	private Integer[] brushSizes() {
-		Integer[] s = new Integer[] {
-				3,5,7,10,12,15,17,20,25,30,35,40,50,70
-		};
+		Integer[] s = new Integer[] { 3, 5, 7, 10, 12, 15, 17, 20, 25, 30, 35, 40, 50, 70 };
 		return s;
 	}
-	
+
 	private Color colorFromString(String colorName) {
-		if(colorName == null) {
+		if (colorName == null) {
 			return Color.orange;
 		}
-		Color color = null;;
+		Color color = null;
+		;
 		try {
 			java.lang.reflect.Field field = Class.forName("java.awt.Color").getField(colorName.trim());
-		    color = (Color)field.get(null);
+			color = (Color) field.get(null);
 		} catch (Exception e) {
-		    color = null; // Not defined
+			color = null; // Not defined
 		}
-		if(color == null) {
+		if (color == null) {
 			return Color.orange;
-		}else {
+		} else {
 			return color;
 		}
 	}
@@ -257,28 +275,34 @@ public RoiPrefs() {
 	@Override
 	public void itemStateChanged(ItemEvent e) {
 		Object obj = e.getSource();
-		if(obj instanceof JComboBox) {
+		if (obj instanceof JComboBox) {
 			@SuppressWarnings("rawtypes")
-			JComboBox c = (JComboBox)obj;
-			if(c.getName().equals("RoiStrokeColorCombo")) {
-				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeColor, (String)c.getSelectedItem());
-			}else if(c.getName().equals("RoiStrokeWidthCombo")) {
-				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeWidth, String.valueOf((Integer)c.getSelectedItem()));
-			}else if(c.getName().equals("RoiFillColorCombo")) {
-				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiFillColor, (String)c.getSelectedItem());
-			}else if(c.getName().equals("RoiBrushSizeCombo")) {
-				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize, String.valueOf((Integer)c.getSelectedItem()));
-			}else if(c.getName().equals("RoiHandleColorCombo")) {
-				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiHandleColor, (String)c.getSelectedItem());
+			JComboBox c = (JComboBox) obj;
+			if (c.getName().equals("RoiStrokeColorCombo")) {
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeColor,
+						(String) c.getSelectedItem());
+			} else if (c.getName().equals("RoiStrokeWidthCombo")) {
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeWidth,
+						String.valueOf((Integer) c.getSelectedItem()));
+			} else if (c.getName().equals("RoiFillColorCombo")) {
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiFillColor,
+						(String) c.getSelectedItem());
+			} else if (c.getName().equals("RoiBrushSizeCombo")) {
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize,
+						String.valueOf((Integer) c.getSelectedItem()));
+			} else if (c.getName().equals("RoiHandleColorCombo")) {
+				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiHandleColor,
+						(String) c.getSelectedItem());
 			}
-		}else if(obj instanceof JRadioButton) {
-			JRadioButton btn = (JRadioButton)obj;
+		} else if (obj instanceof JRadioButton) {
+			JRadioButton btn = (JRadioButton) obj;
 			String name = btn.getName();
-			if(name.equals("Circle")) {
+			if (name.equals("Circle")) {
 				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType, "Circle");
-			}else {
+			} else {
 				PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType, "Square");
 			}
 		}
 	}
 }
+

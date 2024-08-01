@@ -563,14 +563,14 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
     	}
     	putRoiPopup(roiCanvas, sx, sy);
     	setVisibleRoiPopup(true);
-    	slide.repaint();
+    	slide.getObservables().repaint();
     }
     
     public void showRoiPopupOnCanvasAt(int sx, int sy) {
     	CanvasGlass roiCanvas = (CanvasGlass) slide.getGlassAt(slide.ROI_CANVAS_LAYER);
     	putRoiPopup(roiCanvas, sx, sy);
     	setVisibleRoiPopup(true);
-    	slide.repaint();
+    	slide.getObservables().repaint();
     }
     
     public void putRoiPopup(JComponent panel, int sx, int sy) {
@@ -1345,7 +1345,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		updateClipRect(slide);
 		bounds = new java.awt.geom.Rectangle2D.Double(x, y, width, height);
-		slide.repaint();
+		slide.getObservables().repaint();
 	}
 
 	private void growConstrained(int xNew, int yNew,SlideGlass sg) {
@@ -1570,7 +1570,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		bounds = new Rectangle2D.Double(x, y, width, height);
 		
 		updateClipRect(slide);
-		slide.repaint();//re-show roi
+		slide.getObservables().repaint();//re-show roi
 		oldX=x; 
 		oldY=y;
 		oldWidth=width; 
@@ -1643,7 +1643,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 //			imp.draw();
 //		else
 //			imp.draw(clipX, clipY, clipWidth, clipHeight);
-		slide.repaint();
+		slide.getObservables().repaint();
 	}
 
 	/** Nudge ROI one pixel on arrow key press. */
@@ -1918,7 +1918,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		g.setColor(handleColor);
 		width -= 2;
 		g.fillOval(x,y,width,width);
-		sg.repaint();
+		sg.getObservables().repaint();
 	}
 	
 	public void drawHandleRect(Graphics g, int x, int y, SlideGlass sg) {
@@ -1960,7 +1960,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		g.setColor(handleColor);
 		width -= 2;
 		g.fillRect(x,y,width,width);
-		sg.repaint();
+		sg.getObservables().repaint();
 	}
 	
 	/**

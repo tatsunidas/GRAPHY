@@ -62,6 +62,7 @@ import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.launcher.Launcher;
 import com.vis.core.log.Log;
+import com.vis.core.ui.FontSettings;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.PropertiesUtil;
@@ -387,8 +388,8 @@ public class GeneralPrefs extends JPanel{
 				} else {
 					currentFontSize = size;
 				}
-				Font f = new Font(Font.SANS_SERIF, Font.PLAIN, currentFontSize);// name, style, size
-				WindowManager.updateFont(f);
+				Font f = new Font(FontSettings.getCurrentTextFont(), Font.PLAIN, currentFontSize);// name, style, size
+				WindowManager.updateFont(f);//update laf and save font
 			}
 		});
 		comboBox_laf.addItemListener(new ItemListener() {

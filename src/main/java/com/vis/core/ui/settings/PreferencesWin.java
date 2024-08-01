@@ -38,14 +38,11 @@
 package com.vis.core.ui.settings;
 
 import java.awt.Dimension;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
@@ -79,7 +76,6 @@ public class PreferencesWin extends JFrame{
 
 	private void setContents() {
 		tabPane = new JTabbedPane();
-		/* construct panels */
 		/* General */
 		GeneralPrefs general = new GeneralPrefs();
 		tabPane.add(general);
@@ -90,9 +86,14 @@ public class PreferencesWin extends JFrame{
 		tabPane.setIconAt(1, Resources.PrefsPACSIcon.loadIconFromResource());
 
 		/* Roi Prefs */
-		RoiPrefs roiPref = new RoiPrefs();
-		tabPane.add(roiPref);
-		tabPane.setIconAt(2, Resources.PrefsROIIcon.loadIconFromResource());
+		/*
+		 * deprecate from 2024/07/31
+		 * ROI setting should be done with the ROI toolbar.
+		 */
+//		RoiPrefs roiPref = new RoiPrefs();
+//		tabPane.add(roiPref);
+//		tabPane.setIconAt(2, Resources.PrefsROIIcon.loadIconFromResource());
+		
 		scrPane = new JScrollPane(tabPane);
 		getContentPane().add(scrPane);
 		

@@ -64,6 +64,7 @@ import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.db.DatabaseHandler.DatabaseHandlerBuilder;
+import com.vis.dicom.DICOMBackend;
 
 /**
  * Manage starting-up process.
@@ -83,6 +84,7 @@ public class ApplicationFacade{
 	private static PluginShelf pluginShelf;
 	private static DatabaseHandler db; 
 	private static LookAndFeels laf;
+	public static final DICOMBackend backend = DICOMBackend.getCurrent();
 	
 	public ApplicationFacade(HashMap<StartingUpConfigurations, String[]> args) {
 		readyToStart(args.get(StartingUpConfigurations.no_splash) != null);

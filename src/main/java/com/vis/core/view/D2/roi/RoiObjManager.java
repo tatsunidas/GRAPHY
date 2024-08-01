@@ -346,9 +346,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			String seriesUID = (String) uids[2];
 			String[] sopUIDSet = (String[]) uids[3];
 			Praparat prap = stage.getEyepiece().getPraparatAt(patID, studyUID, seriesUID, sopUIDSet);
-			HashMap<Integer,JLayer<SlideGlass>> slides = prap.getAllSlides();
+			HashMap<Integer,SlideGlass> slides = prap.getAllSlides();
 			for (Integer readPos : slides.keySet()) {
-				SlideGlass sg = slides.get(readPos).getView();
+				SlideGlass sg = slides.get(readPos);
 				ArrayList<RoiObj> rois = sg.getRois();
 				if (rois != null && rois.size() > 0) {
 					for(RoiObj r:rois) {
@@ -912,8 +912,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			// here, roi set to slide which has same instanceNo.
 			Set<Integer> keys = prap.getAllSlides().keySet();
 			for (Integer readNumber : keys) {
-				JLayer<SlideGlass> sl = prap.getAllSlides().get(readNumber);
-				SlideGlass s = sl.getView();
+				SlideGlass s = prap.getAllSlides().get(readNumber);
 				if (s.getInstanceNo() == roiFrameNo) {
 					// set image and attributes
 					roiObj.setSlideGlass(s);
@@ -1180,7 +1179,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			imp.updateImage();
 			imp.deleteRoi();
 			slide.setOriginalImage(imp);
-			slide.repaint();
+			slide.getObservables().repaint();
 		}
 	}
 	

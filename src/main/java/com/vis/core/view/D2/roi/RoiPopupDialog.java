@@ -5,8 +5,6 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
-
-import javax.swing.JComponent;
 import javax.swing.JTextArea;
 
 import com.vis.core.view.D2.ui.glasses.*;
@@ -18,7 +16,7 @@ import ij.process.ImageStatistics;
 public class RoiPopupDialog extends JTextArea{
 
 	private RoiObj roi;
-	private SlideGlass owner; //SlideGlass
+	private SlideGlass owner; //SlideGlass.getObserbables
 	// on slideglass x,y
 	private int lastPressX = 0;
 	private int lastPressY = 0;
@@ -31,12 +29,10 @@ public class RoiPopupDialog extends JTextArea{
 	//setBounds
 	//setPreferredSize
 	
-	public RoiPopupDialog(JComponent owner, RoiObj roi) {
+	public RoiPopupDialog(SlideGlass owner, RoiObj roi) {
 		super();
 		this.roi = roi;
-		if(owner != null && owner instanceof SlideGlass) {
-			this.owner = (SlideGlass)owner;
-		}
+		this.owner = owner;
 		setUp();
 	}
 

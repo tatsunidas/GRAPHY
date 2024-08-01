@@ -110,10 +110,11 @@ import ij.process.LUT;
 @SuppressWarnings("serial")
 public class Praparat extends JPanel {
 	
+	final int minimumGridCol = 5;
 	private Logger logger = Log.logger;
 
 	/*
-	 * single/grid view screen
+	 * JLayer for series screen
 	 */
 	class SlideGlassHolder extends JLayeredPane{
 		int prevW;
@@ -138,7 +139,7 @@ public class Praparat extends JPanel {
 				if(!isShowGridViewOn()) {
 					adjustSlideHolderSize();
 				}else {
-					adjustGridViewSize();
+					//adjustGridViewSize();
 				}
 				prevW = currentW;
 				prevH = currentH;
@@ -157,16 +158,14 @@ public class Praparat extends JPanel {
 	public final String KEY_PadID = "Patient​ID";
 	public final String KEY_StudyUID = "StudyInstanceUID";
 	public final String KEY_SeriesUID = "SeriesInstanceUID";
-
 	public final String KEY_SopUIDs = "SOPInstanceUIDs";
+	
+	JLayer<SlideGlassHolder> slideGlassHolder;
+	
 	// component
 	private PraparatViewControlPanel pvcp;
-	/**
-	 * You should not add all slideglasses on a single SlideGlassHolder.
-	 * This be able to cause JLayerUI conflict between glasses. 
-	 * In Praparat, shows slide one by one(add() and remove() handling).
-	 */
-	private JLayer<SlideGlassHolder> slideGlassHolder;//ImageScreen
+
+	private JLayer<Praparat> seriesScreen;
 	private JScrollPane gridScrollPane;//gridViewScroll
 	
 	private CineSlider slider;
@@ -198,7 +197,10 @@ public class Praparat extends JPanel {
 	String[] sopUIDs;
 	String modality = null;
 	
-	private HashMap<Integer, JLayer<SlideGlass>> slides;
+	int prevW;
+	int prevH;
+	
+	private HashMap<Integer, SlideGlass> slides;
 	
 	final ViewMode mode;
 	
@@ -249,7 +251,7 @@ public class Praparat extends JPanel {
 				return;
 			}
 			/*
-			 * set slide glass holder size to show grid view on. 
+			 * update slide glass holder size. 
 			 */
 			int screenSizeW = getSlideHolderWidth();
 			int screenSizeH = getSlideHolderHeight();
@@ -257,8 +259,6 @@ public class Praparat extends JPanel {
 			if(screenSizeW <= 0 && screenSizeH <= 0) {
 				return;
 			}
-			
-			setSlideGlassHolderSize(screenSizeW, screenSizeH);
 			
 			JPanel gridView = (JPanel) comp;
 			GridLayout gl = (GridLayout) gridView.getLayout();
@@ -278,8 +278,8 @@ public class Praparat extends JPanel {
 			int gridY = gridX;//grids are showed square
 			int s = getNumberOfImages();
 			for (int i = 0; i < s; i++) {
-				JLayer<SlideGlass> slide = slides.get(i);
-				slide.getView().adjustGlassesSize(gridX, gridY);
+				SlideGlass slide = slides.get(i);
+				slide.adjustGlassesSize(gridX, gridY);
 			}
 		}
 	}
@@ -293,24 +293,22 @@ public class Praparat extends JPanel {
 		}
 		setSlideGlassHolderSize(getSlideHolderWidth(), getSlideHolderHeight());
 		if(!processSeries) {
-			SlideGlass target = slides.get(currentSlice).getView();
+			SlideGlass target = slides.get(currentSlice);
 			target.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
 		}else {
 			for (Integer key : slides.keySet()) {
-				JLayer<SlideGlass> sl = slides.get(key);
-				SlideGlass sg_ = sl.getView();
-				sg_.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
+				SlideGlass sl = slides.get(key);
+				sl.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
 			}
-			SlideGlass target = slides.get(currentSlice).getView();
+			SlideGlass target = slides.get(currentSlice);
 			//set origin all slides
 			for (Integer key : slides.keySet()) {
-				JLayer<SlideGlass> sl = slides.get(key);
-				SlideGlass sg_ = sl.getView();
-				if (target != null && !target.panningFlag && !sg_.panningFlag) {
-					sg_.lastOriginX = target.originX;
-					sg_.lastOriginY = target.originY;
-					sg_.originX = target.originX;
-					sg_.originY = target.originY;
+				SlideGlass sl = slides.get(key);
+				if (target != null && !target.panningFlag && !sl.panningFlag) {
+					sl.lastOriginX = target.originX;
+					sl.lastOriginY = target.originY;
+					sl.originX = target.originX;
+					sl.originY = target.originY;
 //					logger.fine("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
 				}
 			}
@@ -350,20 +348,20 @@ public class Praparat extends JPanel {
 		ArrayList<Praparat> praps = prapmng.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
 		//remove previous localizers
 		for(Praparat p:praps) {
-			HashMap<Integer, JLayer<SlideGlass>> slides = p.slides;
+			HashMap<Integer, SlideGlass> slides = p.slides;
 			for(Integer k:slides.keySet()) {
-				JLayer<SlideGlass> s = slides.get(k);
-				s.getView().drawLocalizer(null);
+				SlideGlass s = slides.get(k);
+				s.drawLocalizer(null);
 			}
 		}
 		// show localizer on slideglass
-		SlideGlass target = getCurrentSlide().getView(); 
+		SlideGlass target = getCurrentSlide(); 
 		for(Praparat p:praps) {
 			//if self, skip
 			if(p == this) {
 				continue;
 			}
-			SlideGlass src = p.getCurrentSlide().getView();
+			SlideGlass src = p.getCurrentSlide();
 			List<Point2D> loca_geo = null;
 			try {
 				loca_geo = calcLocalizer(src, target);
@@ -376,10 +374,10 @@ public class Praparat extends JPanel {
 	}
 	
 	public void clearCrossLines() {
-		HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
+		HashMap<Integer,SlideGlass> slides = getAllSlides();
 		for(Integer sglKey : slides.keySet()) {
-			JLayer<SlideGlass> sgl = slides.get(sglKey);
-			CanvasGlass cg = (CanvasGlass) sgl.getView().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			SlideGlass sgl = slides.get(sglKey);
+			CanvasGlass cg = (CanvasGlass) sgl.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			cg.setCrossLine(null);
 		}
 	}
@@ -394,7 +392,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		// init
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		slides = new HashMap<Integer, SlideGlass>();
 		/*
 		 * as a premise, image files were sorted by inst No before loading.
 		 */
@@ -424,8 +422,7 @@ public class Praparat extends JPanel {
 					DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
 					img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
 					SlideGlass sg = new SlideGlass(this, img);
-					JLayer<SlideGlass> ly = sg.getSlide();
-					slides.put(0, ly);
+					slides.put(0, sg);
 				}else {
 					for (int j = 0; j < pdfStack.getNSlices(); j++) {
 						ImageProcessor instIp = pdfStack.getStack().getProcessor(j + 1);
@@ -438,8 +435,7 @@ public class Praparat extends JPanel {
 						DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
 						img.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
 						SlideGlass sg = new SlideGlass(this, img);
-						JLayer<SlideGlass> ly = sg.getSlide();
-						slides.put(j, ly);
+						slides.put(j, sg);
 					}
 				}
 				pdfReader.close();
@@ -455,8 +451,7 @@ public class Praparat extends JPanel {
 					Decompressor.newInstance(dcmimg).decompress();
 				}
 				SlideGlass sg = new SlideGlass(this, dcmimg);
-				JLayer<SlideGlass> sli = sg.getSlide();
-				slides.put(i, sli);
+				slides.put(i, sg);
 			}else {
 				/*
 				 * multiframe to one series.
@@ -480,8 +475,7 @@ public class Praparat extends JPanel {
 					DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
 					frame.setPixelData(j, w, h, c, bits, videoDcm.getImageProcessor(j).getPixels());
 					SlideGlass sg = new SlideGlass(this, frame);
-					JLayer<SlideGlass> l = sg.getSlide();
-					slides.put(j, l);
+					slides.put(j, sg);
 				}
 				video_reader_ = null;
 				/*
@@ -503,12 +497,11 @@ public class Praparat extends JPanel {
 		}
 		// init
 		getSlideGlassHolder().getView().removeAll();
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		slides = new HashMap<Integer, SlideGlass>();
 		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, false/*treat as secondary*/);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
-			JLayer<SlideGlass> l = sg.getSlide();
-			slides.put(i, l);
+			slides.put(i, sg);
 		}
 	}
 
@@ -516,22 +509,21 @@ public class Praparat extends JPanel {
 		if(p == null) {
 			return;
 		}
-		HashMap<Integer, JLayer<SlideGlass>> slides = p.getAllSlides();
+		HashMap<Integer, SlideGlass> slides = p.getAllSlides();
 		if (slides == null || slides.size() < 1) {
 			System.out.println("Slides have no images...");
 			return;
 		}
 		// init
 		removeSlide(currentSlice);
-		this.slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		this.slides = new HashMap<Integer, SlideGlass>();
 		
 		Set<Integer> keys = slides.keySet();
 		for(Integer k : keys) {
 			//init slide from another slides to set this praparat.
-			SlideGlass sg = slides.get(k).getView();
+			SlideGlass sg = slides.get(k);
 			SlideGlass newsg = new SlideGlass(this, sg.getDicomImage());
-			JLayer<SlideGlass> ly = newsg.getSlide();
-			this.slides.put(k, ly);
+			this.slides.put(k, newsg);
 		}
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
@@ -539,7 +531,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public ImagePlus cropRectangle(boolean show) {
-		SlideGlass sg = getCurrentSlide().getView();
+		SlideGlass sg = getCurrentSlide();
 		RoiObj roi = sg.findCurrentRoi();
 		if(roi == null) {
 			return null;
@@ -549,15 +541,14 @@ public class Praparat extends JPanel {
 		if(res != JOptionPane.YES_OPTION) {
 			crop = sg.processCropRect(roi);
 		}else {
-			HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
+			HashMap<Integer,SlideGlass> slides = getAllSlides();
 			Set<Integer> keys = slides.keySet();
 			int size = keys.size();
 			int pos = 1;
 			ImageStack cropStack = null;
 			Calibration cal = null;
 			for(Integer k : keys) {
-				JLayer<SlideGlass> l = slides.get(k);
-				SlideGlass slide = l.getView();
+				SlideGlass slide = slides.get(k);
 				ImagePlus c = slide.processCropRect(roi);
 				if(c == null) {
 					System.err.println("something happened...crop failed.");
@@ -591,7 +582,10 @@ public class Praparat extends JPanel {
 		return crop;
 	}
 
-	public void doFilmGridLayout(int col) {
+	public void doFilmGridLayout(Integer col) {
+		if(col == null) {
+			col = minimumGridCol;//5
+		}
 		if(this.mode != ViewMode.FilmGrid && this.mode != ViewMode.Normal) {
 			logger.warning("You are not able to show gridView in this mode::"+this.mode);
 			gridViewOn(false);
@@ -615,8 +609,8 @@ public class Praparat extends JPanel {
 		getSlideGlassHolder().getView().add(gridScrollPane,0);
 		for (int i = 0; i < row*col; i++) {
 			if(i<numOfImage) {
-				JLayer<SlideGlass> slide = slides.get(i);
-				gridView.add(slide);
+				SlideGlass slide = slides.get(i);
+				gridView.add(slide.getObservables());
 			}else {
 				JPanel emptyP = new JPanel();
 				emptyP.setBackground(Color.BLACK);
@@ -637,7 +631,7 @@ public class Praparat extends JPanel {
 		setImagePositionUsingSlider(currentSlice);
 	}
 	
-	public HashMap<Integer,JLayer<SlideGlass>> getAllSlides() {
+	public HashMap<Integer, SlideGlass> getAllSlides() {
 		if (currentSlice == -1) {
 			return null;
 		}
@@ -651,7 +645,7 @@ public class Praparat extends JPanel {
 		return pvcp;
 	}
 	
-	public JLayer<SlideGlass> getCurrentSlide() {
+	public SlideGlass getCurrentSlide() {
 		if (currentSlice == -1) {
 			return null;
 		}
@@ -686,13 +680,13 @@ public class Praparat extends JPanel {
 		if(slides == null || slides.size() < 1) {
 			return null;
 		}
-		ImagePlus ref_imp = slides.get(0).getView().convertToImagePlus();
+		ImagePlus ref_imp = slides.get(0).convertToImagePlus();
 		Calibration cal = ref_imp.getCalibration().copy();
 		int size = getNumberOfImages();
 		ImageStack stack = new ImageStack(ref_imp.getWidth(), ref_imp.getHeight(), size);
-		HashMap<Integer,JLayer<SlideGlass>> all_slides = getAllSlides();
+		HashMap<Integer,SlideGlass> all_slides = getAllSlides();
 		for(int i=0; i<size; i++) {
-			ImagePlus imp = all_slides.get(i).getView().convertToImagePlus();
+			ImagePlus imp = all_slides.get(i).convertToImagePlus();
 			ImagePlus imp2 = new Duplicator().run(imp);
 			String header = imp.getInfoProperty();//imp.getStack().getSliceLabel(1);
 //			imp2.setProperty("Info", header);
@@ -787,13 +781,13 @@ public class Praparat extends JPanel {
 		return slideGlassHolder.getWidth();
 	}
 
-	public int getSlidePosition(JLayer<SlideGlass> slide) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+	public int getSlidePosition(SlideGlass slide) {
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return -1;
 		}
 		for(int p : slides.keySet()) {
-			JLayer<SlideGlass> sg = slides.get(p);
+			SlideGlass sg = slides.get(p);
 			if(slide == sg) {
 				return p;
 			}
@@ -808,13 +802,12 @@ public class Praparat extends JPanel {
 //	}
 
 	public int getSlidePosition(String sopUID) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return -1;
 		}
 		for(int p : slides.keySet()) {
-			JLayer<SlideGlass> g = slides.get(p);
-			SlideGlass sg = g.getView();
+			SlideGlass sg = slides.get(p);
 			String sopUID_ = sg.getSOPInstanceUID();
 			if(sopUID.equals(sopUID_)) {
 				return p;
@@ -851,8 +844,12 @@ public class Praparat extends JPanel {
 		}
 		if(this.mode == ViewMode.Normal) {
 			this.showGridViewOn = show;
+			if(show == false) {
+				gridScrollPane = null;
+			}
 		}else {
 			this.showGridViewOn = false;
+			gridScrollPane = null;
 		}
 	}
 	
@@ -860,15 +857,18 @@ public class Praparat extends JPanel {
 		if(this.mode == null) {
 			throw new NullPointerException();
 		}
+		setOpaque(true);//visible
+		prevW = getWidth();
+		prevH = getHeight();
 		//common
-		slides = new HashMap<Integer, JLayer<SlideGlass>>();
+		slides = new HashMap<Integer, SlideGlass>();
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
-		SlideGlassHolder slideGlassPane = new SlideGlassHolder();
-		slideGlassHolder = new JLayer<SlideGlassHolder>(slideGlassPane);
-		slideGlassHolder.setUI(new PraparatUI(this));
+		//TODO
+//		seriesScreen = new JLayer<P>(this);
+//		seriesScreen.setUI(new PraparatUI(this));
 		JPanel viewPanel = new JPanel();
 		viewPanel.setBackground(Color.BLACK);//debug purpose
 		viewPanel.setLayout(new GridLayout(1, 1));
@@ -947,7 +947,7 @@ public class Praparat extends JPanel {
 	}
 
 	public void loadRoiFromDB() {
-		SlideGlass sg = getCurrentSlide().getView();
+		SlideGlass sg = getCurrentSlide();
 		sg.loadRoiFromDB();
 	}
 
@@ -1065,7 +1065,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public void processCut() {
-		SlideGlass sg = getCurrentSlide().getView();
+		SlideGlass sg = getCurrentSlide();
 		RoiObj currentRoi = sg.findCurrentRoi();
 		if(currentRoi == null ) {
 			return;
@@ -1077,27 +1077,25 @@ public class Praparat extends JPanel {
 		}
 		int res = JOptionPane.showConfirmDialog(this, "process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res == JOptionPane.YES_OPTION) {
-			HashMap<Integer,JLayer<SlideGlass>> slides = getAllSlides();
+			HashMap<Integer,SlideGlass> slides = getAllSlides();
 			Set<Integer> keys = slides.keySet();
 			for(Integer k : keys) {
-				JLayer<SlideGlass> l = slides.get(k);
-				SlideGlass s = l.getView();
+				SlideGlass s = slides.get(k);
 				s.processCut(currentRoi);
 			}
 		}else {
-			JLayer<SlideGlass> l = getCurrentSlide();
-			SlideGlass s = l.getView();
+			SlideGlass s = getCurrentSlide();
 			s.processCut(currentRoi);
 		}
 	}
 
 	public void processFlipHF() {
 		if(!isProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
+			SlideGlass sg = getCurrentSlide();
 			sg.flipHF();
 		}else {
 			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
+				SlideGlass sg = slides.get(key);
 				sg.flipHF();
 			}
 		}
@@ -1105,11 +1103,11 @@ public class Praparat extends JPanel {
 
 	public void processFlipLR() {
 		if(!isProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
+			SlideGlass sg = getCurrentSlide();
 			sg.flipLR();
 		}else {
 			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
+				SlideGlass sg = slides.get(key);
 				sg.flipLR();
 			}
 		}
@@ -1117,11 +1115,11 @@ public class Praparat extends JPanel {
 
 	public void processInvertImages() {
 		if(!isProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
+			SlideGlass sg = getCurrentSlide();
 			sg.invert();
 		}else {
 			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
+				SlideGlass sg = slides.get(key);
 				sg.invert();
 			}
 		}
@@ -1154,18 +1152,18 @@ public class Praparat extends JPanel {
 	}
 
 	public void removeSlide(int target) {
-		JLayer<SlideGlass> s = this.slides.get(target);
+		SlideGlass s = this.slides.get(target);
 		if (s != null) {
 			removeSlide(s);
 		}
 	}
 
-	private void removeSlide(JLayer<SlideGlass> slide) {
+	private void removeSlide(SlideGlass slide) {
 		if (isShowGridViewOn()) {
 			//do nothing
 		} else {
 			if (slide != null) {
-				getSlideGlassHolder().getView().remove(slide);
+				getSlideGlassHolder().remove(slide.getObservables());
 //				getSlideGlassHolder().getView().removeAll();
 			}
 		}
@@ -1230,17 +1228,17 @@ public class Praparat extends JPanel {
 	}
 
 	public void setAndShowPixelValue(int X, int Y) {
-		SlideGlass currentSlide = getCurrentSlide().getView();
+		SlideGlass currentSlide = getCurrentSlide();
 		double scale = currentSlide.getScaleFactor();
 		double mag = currentSlide.getMagnification();
 		double rotate = currentSlide.getRotateAngle();
 		if(!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
+			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromDisplay(X, Y);
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
 			updateInfoLabel(X, Y, raw_v+"("+calibrated_v+")",scale,mag,rotate);
 		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getView().getPixelValueFromDisplay(X, Y);
+			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromDisplay(X, Y);
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
@@ -1251,23 +1249,23 @@ public class Praparat extends JPanel {
 	}
 
 	public void setAnnotationVisible(boolean v) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return;
 		}
 		if (isShowGridViewOn()) {
 			for (Integer k : slides.keySet()) {
-				JLayer<SlideGlass> s = slides.get(k);
-				s.getView().setAnnotationVisible(v);
+				SlideGlass s = slides.get(k);
+				s.setAnnotationVisible(v);
 			}
 		} else {
 			if(processSeries) {
 				for (Integer k : slides.keySet()) {
-					JLayer<SlideGlass> s = slides.get(k);
-					s.getView().setAnnotationVisible(v);
+					SlideGlass s = slides.get(k);
+					s.setAnnotationVisible(v);
 				}
 			}else {
-				getCurrentSlide().getView().setAnnotationVisible(v);
+				getCurrentSlide().setAnnotationVisible(v);
 			}
 		}
 	}
@@ -1308,10 +1306,10 @@ public class Praparat extends JPanel {
 			prevSlice = currentSlice;
 			currentSlice = sliceIndex;
 		}
-		JLayer<SlideGlass> currentGlass = this.slides.get(currentSlice);
+		SlideGlass currentGlass = this.slides.get(currentSlice);
 		final int top = 0;
 		getSlideGlassHolder().getView().removeAll();
-		getSlideGlassHolder().getView().add(currentGlass, top);
+		getSlideGlassHolder().getView().add(currentGlass.getObservables(), top);
 		currentGlass.requestFocus();//IMPORTANT for key listener
 		getSlideGlassHolder().getView().repaint();
 	}
@@ -1319,7 +1317,7 @@ public class Praparat extends JPanel {
 	public void setImagePositionTo(SlideGlass sg) {
 		Set<Integer> keys = slides.keySet();
 		for(Integer key : keys) {
-			SlideGlass slide = slides.get(key).getView();
+			SlideGlass slide = slides.get(key);
 			if(sg == slide) {
 				setImagePosition(key);
 				break;
@@ -1345,11 +1343,11 @@ public class Praparat extends JPanel {
 	
 	public void setLUT(LUT lut) {
 		if(!isProcessSeries()) {
-			SlideGlass sg = getCurrentSlide().getView();
+			SlideGlass sg = getCurrentSlide();
 			sg.setLUT(lut);
 		}else {
 			for(Integer key:slides.keySet()) {
-				SlideGlass sg = slides.get(key).getView();
+				SlideGlass sg = slides.get(key);
 				sg.setLUT(lut);
 			}
 		}
@@ -1416,23 +1414,23 @@ public class Praparat extends JPanel {
 	}
 
 	public void setTextVisible(boolean v) {
-		HashMap<Integer, JLayer<SlideGlass>> slides = getAllSlides();
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return;
 		}
 		if (isShowGridViewOn()) {
 			for (Integer k : slides.keySet()) {
-				JLayer<SlideGlass> s = slides.get(k);
-				s.getView().setTextVisible(v);
+				SlideGlass s = slides.get(k);
+				s.setTextVisible(v);
 			}
 		} else {
 			if(isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
-					JLayer<SlideGlass> s = slides.get(k);
-					s.getView().setTextVisible(v);
+					SlideGlass s = slides.get(k);
+					s.setTextVisible(v);
 				}
 			}else {
-				getCurrentSlide().getView().setTextVisible(v);
+				getCurrentSlide().setTextVisible(v);
 			}
 		}
 	}

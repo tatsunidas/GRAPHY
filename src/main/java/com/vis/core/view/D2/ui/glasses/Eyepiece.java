@@ -75,9 +75,8 @@ public class Eyepiece extends JLayeredPane implements ComponentListener{
 			//load all sopUID of instances in series
 			ArrayList<String> sopUIDList = db.getInstanceUidList(patID,studyUID, seriesUID);
 			sopUIDs = sopUIDList.toArray(new String[sopUIDList.size()]);
-//			images = db.getFileLocations(patID, studyUID, seriesUID);
 		}
-		//load particular instances
+		//load instances
 		ArrayList<String> p2images = new ArrayList<String>();
 		for(String sopUID:sopUIDs) {
 			String p2img = db.getFileLocation(studyUID, seriesUID, sopUID);

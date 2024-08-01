@@ -20,8 +20,8 @@ import com.vis.core.util.PropertiesUtil;
 
 public class FontSettings {
 	
-	final static String defaultTextFont = Font.SANS_SERIF;
-	final static int defaultFontSize = 12;
+	final public static String defaultTextFont = Font.SANS_SERIF;
+	final public static int defaultFontSize = 12;
 	
 	public static void setFont2Component(Component comp,String fontName, int fontStyle, int fontSize){
 //		final Font currentFont = comp.getFont();//do something ?

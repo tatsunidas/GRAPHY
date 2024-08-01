@@ -119,6 +119,7 @@ public class WindowManager {
 			Window w = wins.get(k);
 			FontSettings.changeFont(w, fon);
 		}
+		FontSettings.saveFont(fon);
 	}
 	
 	public static void updateLookAndFeels(LookAndFeels lafObj) {
