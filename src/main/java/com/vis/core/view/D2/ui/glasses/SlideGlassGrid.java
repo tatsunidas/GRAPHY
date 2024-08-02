@@ -37,46 +37,130 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
+import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.util.HashMap;
 
 import javax.swing.JLayer;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 
-public class SlideGlassGrid extends JPanel{
+public class SlideGlassGrid extends JScrollPane{
 	
-	private HashMap<Integer, SlideGlass> slides;
+	private final HashMap<Integer, SlideGlass> slides;
 	private int rows;
 	private int cols;
+	private final int numOfImage;
+	private final int defaultCol = 5;
+	private final int defaultPanelSize = 200;
+	private final int minimumCellSize = 64;
+	private int padding = 3;
+	private final JPanel view;
+	private final boolean useGridLayout; 
 	
-	public SlideGlassGrid(HashMap<Integer, SlideGlass> slides, int rows, int cols) {
+	int prevParentW = 0;
+	
+	public SlideGlassGrid(Praparat pp, boolean useGridLayout) {
+		this.slides = pp.getAllSlides();
+		cols = defaultCol;
+		rows = calcRows(cols);
+		numOfImage = slides.size();
+		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
+		view.setBackground(Color.black);
+		this.useGridLayout = useGridLayout;
+	}
+	
+	public SlideGlassGrid(HashMap<Integer, SlideGlass> slides, int rows, int cols, boolean useGridLayout) {
 		this.slides = slides;
 		this.rows = rows;
 		this.cols = cols;
-		
-		setLayout(new GridLayout(rows, cols, 1/*hgap*/, 1/*vgap*/));
-		
+		numOfImage = slides.size();
+		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
+		view.setBackground(Color.black);
+		this.useGridLayout = useGridLayout;
+	}
+	
+	private int calcRows(int cols) {
+		int numOfImage = slides.size();
+		if(numOfImage <= cols) {
+			return 1;
+		}else {
+			if (numOfImage % cols > 0) {
+				return (int) (numOfImage / cols) + 1;
+			} else {
+				return (int) (numOfImage / cols);
+			}
+		}
+	}
+	
+	private void init() {
+		int cellSize = defaultPanelSize;
+		if (!useGridLayout) {
+			for (int r = 0; r < rows; r++) {
+				for (int c = 0; c < cols; c++) {
+					if((r*c)<numOfImage) {
+						SlideGlass sg = slides.get((r*cols) + c);
+						sg.adjustGlassesSize(cellSize, cellSize);
+						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+								cellSize, cellSize);
+						view.add(sg);
+					}else {
+						JPanel emptyP = new JPanel();
+						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+						emptyP.setBackground(Color.BLACK);
+						emptyP.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+								cellSize, cellSize);
+						view.add(emptyP);
+					}
+				}
+			}
+		} else {
+			for (int r = 0; r < rows; r++) {
+				for (int c = 0; c < cols; c++) {
+					if((r*c)<numOfImage) {
+						SlideGlass sg = slides.get((r*cols) + c);
+						sg.adjustGlassesSize(cellSize, cellSize);
+						view.add(sg);
+					}else {
+						JPanel emptyP = new JPanel();
+						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+						emptyP.setBackground(Color.BLACK);
+						view.add(emptyP);
+					}
+				}
+			}
+		}
+		int viewW = cellSize * cols + (padding * (cols + 1));
+		int viewH = cellSize * rows + (padding * (rows + 1));
+		view.setPreferredSize(new Dimension(viewW, viewH));
+		setViewportView(view);
 	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        int panelWidth = getWidth();
-        int panelHeight = getHeight();
-        int cellSize = Math.min(panelWidth / cols, panelHeight / rows);
-
-        for (int row = 0; row < rows; row++) {
-            for (int col = 0; col < cols; col++) {
-                int index = row * cols + col;
-                if (index < slides.size()) {
-                    int x = col * cellSize;
-                    int y = row * cellSize;
-//                    Image scaledImage = images[index].getScaledInstance(cellSize, cellSize, Image.SCALE_SMOOTH);
-//                    g.drawImage(scaledImage, x, y, cellSize, cellSize, this);
-                }
-            }
-        }
-    }
-	
+		super.paintComponent(g);
+		int panelWidth = getParent().getWidth();
+		int panelHeight = getParent().getHeight();
+		setBounds(0, 0, panelWidth, panelHeight);
+		if (useGridLayout) {
+			if(prevParentW == panelWidth) return;
+			int cellSize = panelWidth / cols;
+			if (cellSize < minimumCellSize) cellSize = minimumCellSize; 
+			for (int row = 0; row < rows; row++) {
+				for (int col = 0; col < cols; col++) {
+					int index = row * cols + col;
+					if (index < numOfImage) {
+						SlideGlass sg = slides.get(index);
+						sg.adjustGlassesSize(cellSize, cellSize);
+						sg.setBounds(0, 0, cellSize, cellSize);
+					}
+				}
+			}
+			int viewW = cellSize * cols + (padding * (cols + 1));
+			int viewH = cellSize * rows + (padding * (rows + 1));
+			view.setPreferredSize(new Dimension(viewW, viewH));
+		}
+	}
 }

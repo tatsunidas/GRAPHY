@@ -1179,7 +1179,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			imp.updateImage();
 			imp.deleteRoi();
 			slide.setOriginalImage(imp);
-			slide.getObservables().repaint();
+			slide.repaint();
 		}
 	}
 	

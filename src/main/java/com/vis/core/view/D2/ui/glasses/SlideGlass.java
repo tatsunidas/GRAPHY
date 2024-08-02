@@ -57,7 +57,6 @@ import java.util.logging.Logger;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
-import javax.swing.JLayer;
 import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
 import javax.swing.border.Border;
@@ -101,8 +100,8 @@ public class SlideGlass extends JLayeredPane {
 	public final static int IMAGE_LAYER = JLayeredPane.DEFAULT_LAYER;
 	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
 	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
-	// main layer component
-	private JLayer<SlideGlass> slide;// main component
+	public final static int MOUSE_LAYER = JLayeredPane.DRAG_LAYER;
+	
 	private Praparat pp;// series viewer
 	private DicomObject header;
 	private DicomImage dcmImg;
@@ -111,7 +110,8 @@ public class SlideGlass extends JLayeredPane {
 	private ImageSpecimenGlass imageSpecimen;
 	private TextOverlayGlass textOverlay;
 	private CanvasGlass roiOverlay;
-	private SlideGlassUI layerUI;
+	private MouseEventGlass coverGlass;
+	
 	//Border
 	Color focusColor = Color.WHITE;
 	Color selectionColor = Color.MAGENTA;
@@ -167,38 +167,6 @@ public class SlideGlass extends JLayeredPane {
 	// for pixel scale (praparatview vs original)
 	private double scale = 1.0d; // (fit to comp size)/(original)
 
-	/* will need test related ColorModels... */
-	// ColorModel variables
-//    private ColorModelParam cmParam = null;
-//    private static final ColorModelFactory cmFactory = new ColorModelFactory();//tatsu
-////    private ColorModel cm = null;
-//    private PaletteColorModel cm = null;//tatsu
-
-	// TextOverlay
-//    private TextOverlayParam textOverlayParam;
-//    private float floatAspectRatio;
-	// Scout Param
-//    ScoutLineInfoModel currentScoutDetails;
-//    private String orientationLabel = "";
-//    private boolean isLocalizer = false, isEncapsulatedDocument = false;
-//    private static boolean displayScout = false;
-//    private int scoutLine1X1, scoutLine1Y1, scoutLine1X2, scoutLine1Y2, scoutLine2X1, scoutLine2Y1, scoutLine2X2, scoutLine2Y2;
-//    private int boundaryLine1X1, boundaryLine1Y1, boundaryLine1X2, boundaryLine1Y2, boundaryLine2X1, boundaryLine2Y1, boundaryLine2X2, boundaryLine2Y2;
-//    double slope1, slope2;
-//    private int thumbWidth = 512, thumbHeight = 512, maxHeight = 512, maxWidth = 512;
-//    private double thumbRatio, currentScaleFactor = 1;
-//    private int axis1LeftX, axis1LeftY, axis1RightX, axis1RightY, axis2LeftX, axis2LeftY, axis2RightX, axis2RightY, axisLeftX, axisLeftY, axisRightX, axisRightY;
-//    public static boolean synchornizeTiles = false;
-//    private PDFFile curFile = null;
-//    private PDDocument curFile = null;
-//    private int curpage = -1;
-//    SeriesAnnotations currentSeriesAnnotation = null;
-//    public Buffer buffer = null;//future work??
-//    boolean isNormal = false;
-//    public boolean setHints = true;
-//    int multiframePtr = 0;
-//    PDPage pg = null;
-
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	private ImageProcessing imgProcess = new ImageProcessing();
 	private ArrayList<RoiObj> roiset;
@@ -239,11 +207,12 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	void adjustGlassesSize(int compW, int compH) {
-		setGlassSize(this, compW, compH);
-		setGlassSize(slide, compW, compH);
+//		setGlassSize(this, compW, compH);
+		setPreferredSize(new Dimension(compW, compH));
 		setGlassSize(imageSpecimen, compW, compH);
 		setGlassSize(textOverlay, compW, compH);
 		setGlassSize(roiOverlay, compW, compH);
+		setGlassSize(coverGlass, compW, compH);
 		updateScale();
 		displayImageWithCurrentCondition();
 		initPrapInfoLabel();
@@ -631,33 +600,30 @@ public class SlideGlass extends JLayeredPane {
 			calcDefaultImageOriginAndReset(getCurrentDisplayImagePlus().getWidth(),
 					getCurrentDisplayImagePlus().getHeight(), getWidth(), getHeight());
 		}
-		imageSpecimen.repaint();
-		textOverlay.repaint();
-		roiOverlay.repaint();
 	}
 
 	public void drawCross(MouseEvent e) {
 		Point currentScreenPos = e.getPoint();
 		GeneralPath path = new GeneralPath();
-    	int sx = currentScreenPos.x;
-    	int sy = currentScreenPos.y;
-        path.moveTo(0f, sy);
-        path.lineTo(slide.getWidth(), sy);
-        path.moveTo(sx, 0f);
-        path.lineTo(sx, slide.getHeight());
-        roiOverlay.setCrossLine(path);
-        //do not return
-        repaint();
-    }
+		int sx = currentScreenPos.x;
+		int sy = currentScreenPos.y;
+		path.moveTo(0f, sy);
+		path.lineTo(getWidth(), sy);
+		path.moveTo(sx, 0f);
+		path.lineTo(sx, getHeight());
+		roiOverlay.setCrossLine(path);
+		// do not return
+		repaint();
+	}
 
 	public void drawCross(Point onOrgImageCoordinatePoint) {
     	GeneralPath path = new GeneralPath();
     	int sx = screenX(onOrgImageCoordinatePoint.x);
     	int sy = screenY(onOrgImageCoordinatePoint.y);
         path.moveTo(0f, sy);
-        path.lineTo(slide.getWidth(), sy);
+        path.lineTo(getWidth(), sy);
         path.moveTo(sx, 0f);
-        path.lineTo(sx, slide.getHeight());
+        path.lineTo(sx, getHeight());
         roiOverlay.setCrossLine(path);
         //do not return
         repaint();
@@ -1082,170 +1048,6 @@ public class SlideGlass extends JLayeredPane {
 
 	public String getSeriesInstanceUID() {
 		return header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID"):null;
-	}
-
-//	private void setIsNormal() {
-//        if (!multiframe && !isEncapsulatedDocument && !isPDF) {
-//            isNormal = true;
-//        }
-//    }
-//	
-//    private void openPDFByteBuffer(ByteBuffer buf, String path, String name) {
-//        PDDocument newfile = null;
-//        try {
-//            newfile = PDDocument.load(buf.array());//tatsu, need test!
-//        } catch (IOException ioe) {
-//            return;
-//        }
-//        curFile = newfile;
-//        forceGotoPage(0);
-//    }
-//    
-//    public void forceGotoPage(int pagenum) {
-//        Image loadedImage = null;
-//        ImageIcon imageIcon = null;
-//        if (pagenum <= 0) {
-//            pagenum = 0;
-//        } else if (pagenum >= curFile.getNumberOfPages()) {
-//            pagenum = curFile.getNumberOfPages() - 1;
-//        }
-//        PDFRenderer pdfRenderer = new PDFRenderer(curFile);
-//        totalInstance = curFile.getNumberOfPages();
-//        curpage = pagenum;
-//        pg = curFile.getPage(pagenum + 1);
-//        Rectangle rect = new Rectangle(0, 0,
-//                (int) pg.getBBox().getWidth(),
-//                (int) pg.getBBox().getHeight());
-//
-//        //generate the image
-////        Image current = pg.getImage(
-////                rect.width, rect.height, //width & height
-////                rect, // clip rect
-////                null, // null for the ImageObserver
-////                true, // fill background with white
-////                true // block until drawing is done
-////        );
-//        
-//      //generate the image
-//        BufferedImage current = null;
-//		try {
-//			current = pdfRenderer.renderImage(pagenum);
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-//        
-//        imageIcon = new ImageIcon();
-//        imageIcon.setImage(current);
-//        loadedImage = imageIcon.getImage();
-//        currentbufferedimage = new BufferedImage(loadedImage.getWidth(null), loadedImage.getHeight(null), BufferedImage.TYPE_INT_RGB);
-//        Graphics2D g2 = currentbufferedimage.createGraphics();
-//        g2.drawImage(loadedImage, 0, 0, null);
-//        image = null;
-//    }
-//
-//    public ArrayList createPDFArray() {
-//        ImageIcon imageIcon = null;
-//        ArrayList<BufferedImage> temp = new ArrayList<BufferedImage>();
-//        PDFRenderer pdfRenderer = new PDFRenderer(curFile);
-//        for (int pagenum = 0; pagenum < curFile.getNumberOfPages(); pagenum++) {
-//            PDPage pdfPage = curFile.getPage(pagenum + 1);
-//            Rectangle rect = new Rectangle(0, 0,
-//                    (int) pdfPage.getBBox().getWidth(),
-//                    (int) pdfPage.getBBox().getHeight());
-//
-//            //generate the image
-////            Image current = pdfPage.getImage(
-////                    rect.width, rect.height, //width & height
-////                    rect, // clip rect
-////                    null, // null for the ImageObserver
-////                    true, // fill background with white
-////                    true // block until drawing is done
-////            );
-//            
-//          //generate the image
-//            BufferedImage current = null;
-//    		try {
-//    			current = pdfRenderer.renderImage(pagenum);
-//    		} catch (IOException e) {
-//    			// TODO Auto-generated catch block
-//    			e.printStackTrace();
-//    		}
-//            
-//            imageIcon = new ImageIcon();
-//            imageIcon.setImage(current);
-//            Image tempImage = imageIcon.getImage();
-//            BufferedImage tempBufferedImage = new BufferedImage(tempImage.getWidth(null), tempImage.getHeight(null), BufferedImage.TYPE_INT_RGB);
-//            Graphics2D g2 = tempBufferedImage.createGraphics();
-//            g2.drawImage(tempImage, 0, 0, null);
-//            temp.add(tempBufferedImage);
-//        }
-//        return temp;
-//    }
-
-//    private void findOrientation() {
-//        String imageOrientationArray[];
-//        if (!currentScoutDetails.getImageOrientation().equalsIgnoreCase("null")) {
-//            imageOrientationArray = currentScoutDetails.getImageOrientation().split("\\\\");
-//            float _imgRowCosx = Float.parseFloat(imageOrientationArray[0]);
-//            float _imgRowCosy = Float.parseFloat(imageOrientationArray[1]);
-//            float _imgRowCosz = Float.parseFloat(imageOrientationArray[2]);
-//            float _imgColCosx = Float.parseFloat(imageOrientationArray[3]);
-//            float _imgColCosy = Float.parseFloat(imageOrientationArray[4]);
-//            float _imgColCosz = Float.parseFloat(imageOrientationArray[5]);
-//            orientationLabel = getOrientationLabelFromImageOrientation(_imgRowCosx, _imgRowCosy, _imgRowCosz, _imgColCosx, _imgColCosy, _imgColCosz);
-//            if (orientationLabel.equalsIgnoreCase("CORONAL") || orientationLabel.equalsIgnoreCase("SAGITTAL")) {
-//                isLocalizer = true;
-//            }
-//        }
-//    }
-//    
-//    public String getOrientationLabelFromImageOrientation(double rowX, double rowY, double rowZ, double colX, double colY, double colZ) {
-//        String label = null;
-//        String ColumnRight = ImageOrientation.getOrientation(rowX, rowY, rowZ);
-//        String rowDown = ImageOrientation.getOrientation(colX, colY, colZ);
-//        String axis1 = ColumnRight.substring(0, 1);
-//        String axis2 = rowDown.substring(0, 1);
-//        /*
-//         * please check strictly
-//         */
-////        if ((axis1 != null) && (axis2 != null)) {
-////            if ((((axis1.equals("right"))) || (axis1.equals("left"))) && (((axis2.equals("anterior").substring(0, 1))) || (axis2.equals("posterior").substring(0, 1)))))) {
-////                label = "AXIAL";
-////            } else if ((((axis2.equals("right"))) || (axis2.equals("left")))) && (((axis1.equals("anterior").substring(0, 1))) || (axis1.equals("posterior").substring(0, 1)))))) {
-////                label = "AXIAL";
-////            } else if ((((axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.right"))) || (axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.left"))))) && (((axis2.equals("head").substring(0, 1))) || (axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.foot").substring(0, 1)))))) {
-////                label = "CORONAL";
-////            } else if ((((axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.right"))) || (axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.left"))))) && (((axis1.equals("head").substring(0, 1))) || (axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.foot").substring(0, 1)))))) {
-////                label = "CORONAL";
-////            } else if ((((axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.anterior").substring(0, 1))) || (axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.posterior").substring(0, 1))))) && (((axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.head").substring(0, 1))) || (axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.foot").substring(0, 1)))))) {
-////                label = "SAGITTAL";
-////            } else if ((((axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.anterior").substring(0, 1))) || (axis2.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.posterior").substring(0, 1))))) && (((axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.head").substring(0, 1))) || (axis1.equals(ApplicationContext.currentBundle.getString("ImageView.imageOrientation.foot").substring(0, 1)))))) {
-////                label = "SAGITTAL";
-////            }
-////        } else {
-////            label = "OBLIQUE";
-////        }
-//        return label;
-//    }
-
-//	/**
-//	 * IMPORTTANT
-//	 * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
-//	 */
-//	@Override
-//	protected void paintComponent(Graphics g) {
-////		super.paintComponent(g);//Needed?
-//		Graphics2D g2d = (Graphics2D) g;
-//		g2d.drawImage(this.img, originX, originY, null);
-//	}
-
-	/**
-	 * Get SlideGlass as JLayer
-	 * @return JLayer<SlideGlass>
-	 */
-	public JLayer<SlideGlass> getSlide() {
-		return slide;
 	}
 
 	public String getSOPInstanceUID() {
@@ -1771,10 +1573,13 @@ public class SlideGlass extends JLayeredPane {
 		}
 	}
 
-//	public ArrayList<RoiObj> getRoiSet() {
-//		return this.roiset;
-//	}
+	public ArrayList<RoiObj> getRoiSet() {
+		return this.roiset;
+	}
 	
+	/**
+	 * SlideGlass reflect self.
+	 */
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
@@ -1792,9 +1597,13 @@ public class SlideGlass extends JLayeredPane {
 			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
 			 */
 			imageSpecimen.updateImage(originX, originY, getCurrentDisplayImagePlus());
+		}else {
+			imageSpecimen.repaint();
 		}
+		//imageSpecimen.repaint();//done in imageSpecimen.updateImage
 		textOverlay.repaint();
-		updateRoiCanvas();// show roi
+		roiOverlay.repaint();
+		coverGlass.repaint();
 	}
 
 	/*
@@ -1999,7 +1808,6 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	private void setGlassSize(JComponent comp, int compW, int compH) {
-		comp.setSize(new Dimension(compW, compH));
 		comp.setPreferredSize(new Dimension(compW, compH));
 		/*************************************************************************************/
 		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
@@ -2138,18 +1946,15 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	private void setUpGlassLayer(DicomObject header) {
-		imageSpecimen = new ImageSpecimenGlass();
+		imageSpecimen = new ImageSpecimenGlass(this);
 		roiOverlay = new CanvasGlass(this);
 		textOverlay = new TextOverlayGlass(header);
+		coverGlass = new MouseEventGlass();
 		int top_in_its_layers = 0;
 		add(imageSpecimen, IMAGE_LAYER, top_in_its_layers);
 		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);
 		add(textOverlay, TEXT_LAYER, top_in_its_layers);
-		// finally, add LayerUI for Actions
-		layerUI = new SlideGlassUI(this);
-		slide = new JLayer<SlideGlass>(this, layerUI);
-		slide.setOpaque(true);// IMPORTANT
-		slide.setBackground(Color.BLACK);
+		add(coverGlass, MOUSE_LAYER, top_in_its_layers);
 	}
 	
 	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {

@@ -203,7 +203,7 @@ public class RotatedRectRoi extends PolygonRoi {
                 break;
         }
         makeRectangle(x1, y1, x2, y2);
-        sg.getObservables().repaint();
+        sg.repaint();
     }
     
     public int isHandle(int sx, int sy) {

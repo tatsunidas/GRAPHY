@@ -38,13 +38,10 @@
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.AlphaComposite;
-import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import javax.swing.JPanel;
 
-import com.vis.core.util.ByteUtils;
-import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
@@ -78,16 +75,15 @@ public class ImageSpecimenGlass extends JPanel{
 	private boolean transparent = true;
 	private float alpha = 1.0f;
 	
-	public ImageSpecimenGlass(SlideGlass sg, DicomImage dcmImg /*single frame*/) {
+	public ImageSpecimenGlass(SlideGlass sg /*single frame*/) {
 		this.sg = sg;
-		this.dcmImg = dcmImg;
+		this.dcmImg = sg.getDicomImage();
 		this.sopUID = dcmImg.getCore().getString(Tag.SOP​Instance​UID);
 		/* No calibrated imageplus */
 		this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
 		orgCols = orgImg.getWidth();
 		orgRows = orgImg.getHeight();
 		setOpaque(false);
-		initImageInfo(dcmImg.getCore());
 		orgCal = orgImg.getCalibration();
 	}
 	
@@ -115,93 +111,93 @@ public class ImageSpecimenGlass extends JPanel{
 		return sopUID;
 	}
 	
-	/**
-	 * Calibrate original image
-	 * 
-	 * @param dataset
-	 */
-	private void initImageInfo(DicomObject dataset) {
-		Calibration originalCal = orgImg.getCalibration();
-		/*
-		 * TODO load lut from dicom tag ?
-		 */
-		sg.setLUT(orgImg.getProcessor().getLut());
-		sg.isRGB = orgImg.getType() == ImagePlus.COLOR_RGB;// choice suitable one.
-		if (sg.isRGB()) {
-			orgImg.getProcessor().snapshot();
-		}
-
-		/*
-		 * Spatial calibrations
-		 */
-		// x-y-z
-		double pixelSpacingX = 1.0;
-		double pixelSpacingY = 1.0;
-		double pixelSpacingZ = 1.0;
-		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
-		double[] pixelSpacing = dataset.getDoubles(com.vis.dicom.Tag.Pixel​Spacing);
-		double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
-		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-			pixelSpacingX = pixelSpacing[1];// column
-			pixelSpacingY = pixelSpacing[0];// row
-			if (spacingBetweenSlices != -1) {
-				pixelSpacingZ = spacingBetweenSlices;
-			} else {
-				double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
-				if (sliceThickness != -1) {
-					pixelSpacingZ = sliceThickness;
-				}
-			}
-			/*
-			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-			 * definition.
-			 */
-			originalCal.setUnit("mm");//
-		}
-		// then, set to cal
-		originalCal.pixelWidth = pixelSpacingX;
-		originalCal.pixelHeight = pixelSpacingY;
-		originalCal.pixelDepth = pixelSpacingZ;
-
-		/*
-		 * density calibration
-		 */
-		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
-		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
-		Boolean signed = (dataset.getInt(Tag.Pixel​Representation, -1) == 1);
-		String modality = sg.getModality();
-		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
-			if (!intercept.isNaN() && !slope.isNaN()) {
-				// y = a + bx
-				double[] coeff = new double[2];// [a,b]
-				coeff[0] = intercept - 32768;
-				coeff[1] = slope;
-				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-				// add another modalities unit...
-			} else {
-				originalCal.setSigned16BitCalibration();
-			}
-			originalCal.getCTable();// to make cTable.
-			if (modality != null && modality.equals("CT")) {
-				originalCal.setValueUnit("HU");
-			}
-		} else if (intercept != 0.0 && slope == 1.0) {
-			double[] coeff = new double[2];
-			coeff[0] = intercept;
-			coeff[1] = slope;
-			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-			originalCal.getCTable();// to make cTable.
-		}
-		// adjust WW/WL
-		int WL = dataset.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-		int WW = dataset.getInt(Tag.Window​Width, Integer.MIN_VALUE);
-		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
-			sg.autoWindow();
-		} else {
-			sg.changeWindow(WL, WW);
-		}
-		sg.setOriginalCalibration(originalCal.copy());
-	}
+//	/**
+//	 * Calibrate original image
+//	 * 
+//	 * @param dataset
+//	 */
+//	private void initImageInfo(DicomObject dataset) {
+//		Calibration originalCal = orgImg.getCalibration();
+//		/*
+//		 * TODO load lut from dicom tag ?
+//		 */
+//		sg.setLUT(orgImg.getProcessor().getLut());
+//		sg.isRGB = orgImg.getType() == ImagePlus.COLOR_RGB;// choice suitable one.
+//		if (sg.isRGB()) {
+//			orgImg.getProcessor().snapshot();
+//		}
+//
+//		/*
+//		 * Spatial calibrations
+//		 */
+//		// x-y-z
+//		double pixelSpacingX = 1.0;
+//		double pixelSpacingY = 1.0;
+//		double pixelSpacingZ = 1.0;
+//		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
+//		double[] pixelSpacing = dataset.getDoubles(com.vis.dicom.Tag.Pixel​Spacing);
+//		double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
+//		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
+//			pixelSpacingX = pixelSpacing[1];// column
+//			pixelSpacingY = pixelSpacing[0];// row
+//			if (spacingBetweenSlices != -1) {
+//				pixelSpacingZ = spacingBetweenSlices;
+//			} else {
+//				double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
+//				if (sliceThickness != -1) {
+//					pixelSpacingZ = sliceThickness;
+//				}
+//			}
+//			/*
+//			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
+//			 * definition.
+//			 */
+//			originalCal.setUnit("mm");//
+//		}
+//		// then, set to cal
+//		originalCal.pixelWidth = pixelSpacingX;
+//		originalCal.pixelHeight = pixelSpacingY;
+//		originalCal.pixelDepth = pixelSpacingZ;
+//
+//		/*
+//		 * density calibration
+//		 */
+//		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
+//		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
+//		Boolean signed = (dataset.getInt(Tag.Pixel​Representation, -1) == 1);
+//		String modality = sg.getModality();
+//		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
+//			if (!intercept.isNaN() && !slope.isNaN()) {
+//				// y = a + bx
+//				double[] coeff = new double[2];// [a,b]
+//				coeff[0] = intercept - 32768;
+//				coeff[1] = slope;
+//				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+//				// add another modalities unit...
+//			} else {
+//				originalCal.setSigned16BitCalibration();
+//			}
+//			originalCal.getCTable();// to make cTable.
+//			if (modality != null && modality.equals("CT")) {
+//				originalCal.setValueUnit("HU");
+//			}
+//		} else if (intercept != 0.0 && slope == 1.0) {
+//			double[] coeff = new double[2];
+//			coeff[0] = intercept;
+//			coeff[1] = slope;
+//			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+//			originalCal.getCTable();// to make cTable.
+//		}
+//		// adjust WW/WL
+//		int WL = dataset.getInt(Tag.Window​Center, Integer.MIN_VALUE);
+//		int WW = dataset.getInt(Tag.Window​Width, Integer.MIN_VALUE);
+//		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+//			sg.autoWindow();
+//		} else {
+//			sg.changeWindow(WL, WW);
+//		}
+//		sg.setOriginalCalibration(originalCal.copy());
+//	}
 	
 	public void transparent(boolean on) {
 		this.transparent = on;
@@ -225,14 +221,6 @@ public class ImageSpecimenGlass extends JPanel{
 			return;
 		}
 		this.alpha = alpha;
-	}
-	
-	/*
-	 * call when component resized.
-	 */
-	public void updateScale() {
-		Dimension d = sg.calcImageSize2FitComponent();
-		sg.scale = (double) d.width / (double) orgCols;
 	}
 	
 	/*

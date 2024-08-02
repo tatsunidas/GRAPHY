@@ -228,7 +228,7 @@ public class OvalRoi extends RoiObj {
 		oldWidth=width; oldHeight=height;
 		cachedMask = null;
 		bounds = null;
-		slide.getObservables().repaint();
+		slide.repaint();
 	}
 
 	public void draw(Graphics g, SlideGlass sg) {

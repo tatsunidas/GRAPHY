@@ -387,7 +387,7 @@ public class PraparatUI extends LayerUI<JLayeredPane> {
 			} else {// showGridViewOn
 				try {
 					Component t = e.getComponent();
-					Component c = pp.getSlideGlassHolder().getView().getComponent(0);
+					Component c = pp.getViewPanel().getComponent(0);
 					if (c instanceof JScrollPane && !c.equals(t)) {
 						JScrollPane gridPane = (JScrollPane) c;
 						MouseEvent me = SwingUtilities.convertMouseEvent(t, e, gridPane);

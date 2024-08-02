@@ -63,10 +63,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private Color localizerColor = new Color(255, 0, 0, 127);
 	private int localizerStrokeSize = 3;
 
-	public CanvasGlass(String sopInstUID, SlideGlass sg) {
+	public CanvasGlass(SlideGlass sg) {
 		setOpaque(false);
 		setLayout(null);
-		this.sopUID = sopInstUID;
+		this.sopUID = sg.getSOPInstanceUID();
 		this.pp = sg.getPraparat();
 		this.sg = sg;
 	}
@@ -243,7 +243,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 		int ix = sg.onImageX(screenX);
 		int iy = sg.onImageY(screenY);
-		ArrayList<RoiObj> rois = sg.getRois(sopUID);
+		ArrayList<RoiObj> rois = sg.getRois();
 		int handle = -1;
 		boolean found = false;
 		if (rois != null && rois.size() > 0) {
@@ -730,7 +730,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 	private void drawRoi(Graphics g) {
 
-		ArrayList<RoiObj> rois = sg.getRois(sopUID);
+		ArrayList<RoiObj> rois = sg.getRois();
 		for (int i = 0; i < rois.size(); i++) {
 			RoiObj roiObj = rois.get(i);
 			roiObj.draw(g, sg);
@@ -746,7 +746,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	private void drawReferenceLine(Graphics g) {
-		if (sg == null || sg.getRois(sopUID) == null || sg.getRois(sopUID).size() < 1) {
+		if (sg == null || sg.getRois() == null || sg.getRois().size() < 1) {
 			if (pp.getReferenceLine() != null) {
 				ReferenceLine refLine = pp.getReferenceLine();
 				refLine.draw(g, sg);

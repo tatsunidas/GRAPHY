@@ -42,7 +42,10 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.geom.Point2D;
 import java.io.File;
@@ -137,7 +140,7 @@ public class Praparat extends JPanel {
 			int currentH = getParent().getHeight();
 			if(prevW != currentW || prevH != currentH) {
 				if(!isShowGridViewOn()) {
-					adjustSlideHolderSize();
+					adjustSlideGlassSize();
 				}else {
 					//adjustGridViewSize();
 				}
@@ -159,14 +162,14 @@ public class Praparat extends JPanel {
 	public final String KEY_StudyUID = "StudyInstanceUID";
 	public final String KEY_SeriesUID = "SeriesInstanceUID";
 	public final String KEY_SopUIDs = "SOPInstanceUIDs";
-	
-	JLayer<SlideGlassHolder> slideGlassHolder;
-	
+		
 	// component
 	private PraparatViewControlPanel pvcp;
-
-	private JLayer<Praparat> seriesScreen;
 	private JScrollPane gridScrollPane;//gridViewScroll
+	private JPanel viewPanel;
+	
+	int prevViewPanelW = 0;
+	int prevViewPanelH = 0;
 	
 	private CineSlider slider;
 	private Color studyColor = Color.CYAN;
@@ -253,16 +256,16 @@ public class Praparat extends JPanel {
 			/*
 			 * update slide glass holder size. 
 			 */
-			int screenSizeW = getSlideHolderWidth();
-			int screenSizeH = getSlideHolderHeight();
+			int screenSizeW = getViewPanelWidth();
+			int screenSizeH = getViewPanelHeight();
 			
 			if(screenSizeW <= 0 && screenSizeH <= 0) {
 				return;
 			}
 			
 			JPanel gridView = (JPanel) comp;
-			GridLayout gl = (GridLayout) gridView.getLayout();
-//			gridScrollPane.setPreferredSize(new Dimension(screenSizeW, screenSizeH));
+//			GridLayout gl = (GridLayout) gridView.getLayout();
+			gridScrollPane.setPreferredSize(new Dimension(screenSizeW, screenSizeH));
 			gridScrollPane.setBounds(0, 0, screenSizeW, screenSizeH);
 			
 			int margin = 4;/*to avoid horizontal scroll bar shown*/
@@ -270,10 +273,10 @@ public class Praparat extends JPanel {
 			if(scrollBarWidth <= margin) {
 				scrollBarWidth = 15/*default bar width*/+margin;
 			}
-			gridView.setSize(screenSizeW-scrollBarWidth, screenSizeH);
+//			gridView.setSize(screenSizeW-scrollBarWidth, screenSizeH);
 			//DO NOT set setPreferedSize to avoid collapsing squared GridLayout
 			gridView.setBounds(0, 0, screenSizeW-scrollBarWidth, screenSizeH);
-			int cols = gl.getColumns();
+			int cols = getFilmGridColumns();//gl.getColumns();
 			int gridX = gridView.getWidth() / cols;
 			int gridY = gridX;//grids are showed square
 			int s = getNumberOfImages();
@@ -287,29 +290,31 @@ public class Praparat extends JPanel {
 	/**
 	 * Run after componentResized()
 	 */
-	public void adjustSlideHolderSize() {
+	public void adjustSlideGlassSize() {
+		//setViewPanelSize(getViewPanelWidth(), getViewPanelHeight());
 		if(slides == null || slides.size() == 0) {
 			return;
 		}
-		setSlideGlassHolderSize(getSlideHolderWidth(), getSlideHolderHeight());
 		if(!processSeries) {
 			SlideGlass target = slides.get(currentSlice);
-			target.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
+			target.adjustGlassesSize(getViewPanelWidth(), getViewPanelHeight());
+			target.repaint();
 		}else {
-			for (Integer key : slides.keySet()) {
-				SlideGlass sl = slides.get(key);
-				sl.adjustGlassesSize(getSlideHolderWidth(), getSlideHolderHeight());
-			}
 			SlideGlass target = slides.get(currentSlice);
+			target.adjustGlassesSize(getViewPanelWidth(), getViewPanelHeight());
+			target.repaint();
 			//set origin all slides
 			for (Integer key : slides.keySet()) {
 				SlideGlass sl = slides.get(key);
+				if(sl == target) continue;
+				sl.adjustGlassesSize(getViewPanelWidth(), getViewPanelHeight());
 				if (target != null && !target.panningFlag && !sl.panningFlag) {
 					sl.lastOriginX = target.originX;
 					sl.lastOriginY = target.originY;
 					sl.originX = target.originX;
 					sl.originY = target.originY;
 //					logger.fine("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
+					sl.repaint();
 				}
 			}
 		}
@@ -496,7 +501,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		// init
-		getSlideGlassHolder().getView().removeAll();
+		viewPanel.removeAll();
 		slides = new HashMap<Integer, SlideGlass>();
 		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, false/*treat as secondary*/);
 		for (int i = 0; i < ds.size(); i++) {
@@ -594,29 +599,38 @@ public class Praparat extends JPanel {
 		gridViewOn(true);
 		setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		setFilmGridColumns(col);
-		getSlideGlassHolder().getView().removeAll();
+		viewPanel.removeAll();
 		// calc num of row
 		int row = 1;
 		int numOfImage = slides.size();
-		if (numOfImage % col > 0) {
-			row = (int) (numOfImage / col) + 1;
-		} else {
-			row = (int) (numOfImage / col);
-		}
-		JPanel gridView = new JPanel();
-		gridView.setLayout(new GridLayout(row, col));
-		gridScrollPane = new JScrollPane(gridView);
-		getSlideGlassHolder().getView().add(gridScrollPane,0);
-		for (int i = 0; i < row*col; i++) {
-			if(i<numOfImage) {
-				SlideGlass slide = slides.get(i);
-				gridView.add(slide.getObservables());
-			}else {
-				JPanel emptyP = new JPanel();
-				emptyP.setBackground(Color.BLACK);
-				gridView.add(emptyP);
+		if(numOfImage <= col) {
+			row = 1;
+		}else {
+			if (numOfImage % col > 0) {
+				row = (int) (numOfImage / col) + 1;
+			} else {
+				row = (int) (numOfImage / col);
 			}
 		}
+		
+		JPanel gridView = new JPanel();
+		gridView.setLayout(new GridLayout(row, col));
+		
+		for (int r = 0; r< row; r++) {
+			for (int c = 0; c < col; c++) {
+				if((r*c)<numOfImage) {
+					SlideGlass slide = slides.get((r*col) + c);
+					gridView.add(slide);
+				}else {
+					JPanel emptyP = new JPanel();
+					emptyP.setBackground(Color.BLACK);
+					gridView.add(emptyP);
+				}
+			}
+		}
+		
+		gridScrollPane = new JScrollPane(gridView);
+		viewPanel.add(gridScrollPane,0);
 		adjustGridViewSize();
 		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
@@ -627,7 +641,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		gridViewOn(false);
-		adjustSlideHolderSize();
+		adjustSlideGlassSize();
 		setImagePositionUsingSlider(currentSlice);
 	}
 	
@@ -703,11 +717,11 @@ public class Praparat extends JPanel {
 	}
 	
 	public int getImageScreenSizeX() {
-		return getSlideHolderWidth();
+		return getViewPanelWidth();
 	}
 	
 	public int getImageScreenSizeY() {
-		return getSlideHolderHeight();
+		return getViewPanelHeight();
 	}
 	
 	public HashMap<String,Object> getInfoSet() {
@@ -735,50 +749,32 @@ public class Praparat extends JPanel {
 //		if(slides == null || slides.size() == 0) {
 //			return;
 //		}
-//		if(getSlideHolderWidth() == 0 || getSlideHolderHeight() == 0) {
+//		if(getViewPanelWidth() == 0 || getViewPanelHeight() == 0) {
 //			return;
 //		}
 //		for(int i=0;i<slides.size();i++) {
 //			SlideGlass sg = slides.get(i).getView();
-////			sg.fitImg2Comp(new_size[0], new_size[1], getSlideHolderWidth(), getSlideHolderHeight());
+////			sg.fitImg2Comp(new_size[0], new_size[1], getViewPanelWidth(), getViewPanelHeight());
 //			sg.fit2Praparat();
 //		}
 //		viewPane.validate();
 //		viewPane.repaint();
 //	}
 	
-	public JLayer<SlideGlassHolder> getSlideGlassHolder() {
-		return slideGlassHolder;
-	}
-	
 	/**
 	 * PraparatViewPane(JLayeredPane) Height
 	 * @return
 	 */
-	int getSlideHolderHeight() {
-		if(slideGlassHolder == null) {
-			return -1;
-		}
-		return slideGlassHolder.getHeight();
+	int getViewPanelHeight() {
+		return viewPanel.getHeight();
 	}
 
-	public int[] getSlideHolderLocation() {
-		return new int[] { getSlideGlassHolder().getView().getX(), getSlideGlassHolder().getView().getY() };
-	}
-
-	public Point getSlideHolderLocationOnScreen() {
-		return getSlideGlassHolder().getView().getLocationOnScreen();
+	int getViewPanelWidth() {
+		return viewPanel.getWidth();
 	}
 	
-	/**
-	 * PraparatViewPane(JLayeredPane) Width
-	 * @return
-	 */
-	int getSlideHolderWidth() {
-		if(slideGlassHolder == null) {
-			return -1;
-		}
-		return slideGlassHolder.getWidth();
+	JPanel getViewPanel() {
+		return viewPanel;
 	}
 
 	public int getSlidePosition(SlideGlass slide) {
@@ -866,13 +862,9 @@ public class Praparat extends JPanel {
 		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
-		//TODO
-//		seriesScreen = new JLayer<P>(this);
-//		seriesScreen.setUI(new PraparatUI(this));
-		JPanel viewPanel = new JPanel();
+		viewPanel = new JPanel();
 		viewPanel.setBackground(Color.BLACK);//debug purpose
 		viewPanel.setLayout(new GridLayout(1, 1));
-		viewPanel.add(slideGlassHolder);
 		add(viewPanel, BorderLayout.CENTER);
 		
 		if(mode == ViewMode.Normal) {
@@ -903,7 +895,7 @@ public class Praparat extends JPanel {
 		
 		if(mode == ViewMode.Thumbnail) {
 			/*No controller and slider*/
-			setSlideGlassHolderSize(ThumbnailSize, ThumbnailSize);
+			setViewPanelSize(ThumbnailSize, ThumbnailSize);
 			setFocusable(true);
 			setRequestFocusEnabled(true);
 		}
@@ -967,7 +959,7 @@ public class Praparat extends JPanel {
 			logger.warning("prap needs path to images..., return.");
 			return;
 		}
-		slideGlassHolder.getView().removeAll();
+		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromPraparat(p);
 		prevSlice = -1;// IMPORTANT
@@ -1011,7 +1003,7 @@ public class Praparat extends JPanel {
 			System.out.println("prap needs path to images..., return.");
 			return;
 		}
-		slideGlassHolder.getView().removeAll();
+		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
 		if(slider != null) {
@@ -1129,7 +1121,7 @@ public class Praparat extends JPanel {
 		if (imp == null) { return; }
 		prepareSlideGlassesUsingImagePlus(imp);
 		if(!isShowGridViewOn()) {
-			adjustSlideHolderSize();
+			adjustSlideGlassSize();
 			doSingleGridLayout();
 		}else {
 			doFilmGridLayout(filmGridColumns);
@@ -1163,8 +1155,8 @@ public class Praparat extends JPanel {
 			//do nothing
 		} else {
 			if (slide != null) {
-				getSlideGlassHolder().remove(slide.getObservables());
-//				getSlideGlassHolder().getView().removeAll();
+//				getSlideGlassHolder().remove(slide);
+				viewPanel.removeAll();
 			}
 		}
 		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
@@ -1194,7 +1186,7 @@ public class Praparat extends JPanel {
 		}
 		
 		if(mode == ViewMode.SingleGrid) {
-			getSlideGlassHolder().getView().removeAll();
+			viewPanel.removeAll();
 			prevSlice = -1;
 			currentSlice = 0;
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
@@ -1208,7 +1200,7 @@ public class Praparat extends JPanel {
 		}
 		
 		if(mode == ViewMode.FilmGrid) {
-			getSlideGlassHolder().getView().remove(gridScrollPane);
+			viewPanel.remove(gridScrollPane);
 			prevSlice = -1;
 			currentSlice = 0;
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
@@ -1270,6 +1262,10 @@ public class Praparat extends JPanel {
 		}
 	}
 	
+	public int getFilmGridColumns() {
+		return this.filmGridColumns;
+	}
+	
 	public void setFilmGridColumns(int num) {
 		this.filmGridColumns = num;
 	}
@@ -1308,10 +1304,10 @@ public class Praparat extends JPanel {
 		}
 		SlideGlass currentGlass = this.slides.get(currentSlice);
 		final int top = 0;
-		getSlideGlassHolder().getView().removeAll();
-		getSlideGlassHolder().getView().add(currentGlass.getObservables(), top);
+		viewPanel.removeAll();
+		viewPanel.add(currentGlass, top);
 		currentGlass.requestFocus();//IMPORTANT for key listener
-		getSlideGlassHolder().getView().repaint();
+		viewPanel.repaint();
 	}
 	
 	public void setImagePositionTo(SlideGlass sg) {
@@ -1396,15 +1392,14 @@ public class Praparat extends JPanel {
 		this.crossLineCursorMode = crossMode;
 	}
 
-	public void setSlideGlassHolderSize(int w, int h) {
-		// set JLayer<SlideGlassHolder> size
-		getSlideGlassHolder().setSize(w, h);
-		getSlideGlassHolder().setBounds(0, 0, w, h);
-		getSlideGlassHolder().setPreferredSize(new Dimension(w, h));
-		//set SlideGlassHolder(JLayeredPane) size
-		getSlideGlassHolder().getView().setSize(w, h);
-		getSlideGlassHolder().getView().setPreferredSize(new Dimension(w, h));
-		getSlideGlassHolder().getView().setBounds(0, 0, w, h);
+	/**
+	 * for thumbnail
+	 * @param w
+	 * @param h
+	 */
+	public void setViewPanelSize(int w, int h) {
+		viewPanel.setPreferredSize(new Dimension(w, h));
+		viewPanel.setBounds(0, 0, w, h);
 	}
 
 	public void setStudyColor(Color color) {
@@ -1474,7 +1469,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public void showFirstImage() {
-		adjustSlideHolderSize();
+		adjustSlideGlassSize();
 		slider.initContext();//slider setValue -1.
 		// position range is 0 to n-1
 		prevSlice = -1;
@@ -1490,9 +1485,21 @@ public class Praparat extends JPanel {
 	
 	@Override
 	public void paintComponent(Graphics g) {
-		//logger.fine("repaint pp");
 		super.paintComponent(g);
-//		getSlideGlassHolder().getView().repaint();//DO NOT USE
-		getSlideGlassHolder().getView().paintComponent(g);//SlideGlassHolder
+		int currentW = getViewPanelWidth();
+		int currentH = getViewPanelHeight();
+		if(prevViewPanelW != currentW || prevViewPanelH != currentH) {
+			Log.logger.fine("viewPanel: "+viewPanel.getWidth()+" , "+viewPanel.getHeight());
+			if(mode==ViewMode.Thumbnail) {
+				//do nothing
+			}else if(mode==ViewMode.Normal || mode==ViewMode.SingleGrid || mode==ViewMode.MPR) {
+				getCurrentSlide().adjustGlassesSize(viewPanel.getWidth(), viewPanel.getHeight());
+			}else {
+				// grid view
+				adjustGridViewSize();
+			}
+			prevViewPanelW = currentW;
+			prevViewPanelH = currentH;
+		}
 	}
 }

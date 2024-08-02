@@ -213,7 +213,7 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		if (singleGridView != null && singleGridView.isVisible()) {
-			singleGridView.adjustSlideHolderSize();
+			singleGridView.adjustSlideGlassSize();
 			singleGridView.revalidate();
 			singleGridView.repaint();
 		}
