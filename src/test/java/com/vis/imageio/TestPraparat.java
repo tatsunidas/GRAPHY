@@ -70,7 +70,8 @@ public class TestPraparat {
         }
        Log.logger.addHandler(consoleHandler);
 //		singnedImageTest();
-		show();
+//		show();
+		showGrid();
 //		showUsingPixelDecoder();
 	}
 	
@@ -101,6 +102,19 @@ public class TestPraparat {
 		Praparat pp = new Praparat(ViewMode.Normal);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
 		pp.doSingleGridLayout();
+		javax.swing.JFrame f = loadFrame(pp);
+		f.setSize(300,300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
+		pp.showFirstImage();
+		f.setVisible(true);
+	}
+	
+	static void showGrid() {
+		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
+		Praparat pp = new Praparat(ViewMode.FilmGrid);
+		pp.prepareSlideGlassesUsingImagePlus(imp);
+		pp.doFilmGridLayout(5);
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		

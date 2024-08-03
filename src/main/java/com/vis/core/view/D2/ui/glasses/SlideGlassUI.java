@@ -223,11 +223,11 @@ public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISuppor
 					if(!pp.isProcessSeries()) {
 						slide.lastX = e.getX();
 						slide.lastY = e.getY();
-						slide.lastOriginX = slide.originX;
-						slide.lastOriginY = slide.originY;
+						slide.lastOriginX = slide.imageSpecimen.originX;
+						slide.lastOriginY = slide.imageSpecimen.originY;
 						slide.lastMin = slide.getCurrentDisplayImagePlus().getDisplayRangeMin();
 						slide.lastMax = slide.getCurrentDisplayImagePlus().getDisplayRangeMax();
-						logger.info("origin when mouse was pressed (x,y):"+slide.originX+" "+slide.originY);
+//						logger.info("origin when mouse was pressed (x,y):"+slide.originX+" "+slide.originY);
 					}else {
 						synchronized (this) {
 							HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
@@ -235,8 +235,8 @@ public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISuppor
 								SlideGlass sg = slides.get(key);
 								sg.lastX = e.getX();
 								sg.lastY = e.getY();
-								sg.lastOriginX = sg.originX;
-								sg.lastOriginY = sg.originY;
+								sg.lastOriginX = sg.imageSpecimen.originX;
+								sg.lastOriginY = sg.imageSpecimen.originY;
 								sg.lastMin = sg.getCurrentDisplayImagePlus().getDisplayRangeMin();
 								sg.lastMax = sg.getCurrentDisplayImagePlus().getDisplayRangeMax();
 							}
@@ -266,16 +266,16 @@ public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISuppor
 					slide.lastY = e.getY();//for move position
 					slide.lastDraggedX = e.getX();//for cappulate mag
 					slide.lastDraggedY = e.getY();//for cappulate mag
-					slide.lastOriginX = slide.originX;
-					slide.lastOriginY = slide.originY;
+					slide.lastOriginX = slide.imageSpecimen.originX;
+					slide.lastOriginY = slide.imageSpecimen.originY;
 				}else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for(Integer key:slides.keySet()) {
 						SlideGlass sg = slides.get(key);
 						sg.lastX = e.getX();
 						sg.lastY = e.getY();
-						sg.lastOriginX = sg.originX;
-						sg.lastOriginY = sg.originY;
+						sg.lastOriginX = sg.imageSpecimen.originX;
+						sg.lastOriginY = sg.imageSpecimen.originY;
 						sg.lastDraggedX = e.getX();
 						sg.lastDraggedY = e.getY();
 					}

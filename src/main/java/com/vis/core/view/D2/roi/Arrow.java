@@ -81,11 +81,11 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         int xbase = 0;
         int ybase = 0;
         if(sg.panningFlag) {
-        	xbase = (int)(sg.originX/mag);
-            ybase = (int)(sg.originY/mag);
+        	xbase = (int)(sg.imageSpecimen.originX/mag);
+            ybase = (int)(sg.imageSpecimen.originY/mag);
         }else {
-			xbase = (int) (sg.originX / mag / scale);
-			ybase = (int) (sg.originY / mag / scale);
+			xbase = (int) (sg.imageSpecimen.originX / mag / scale);
+			ybase = (int) (sg.imageSpecimen.originY / mag / scale);
         }
         
         at.setTransform(mag*scale, 0.0, 0.0, mag*scale, (xbase)*mag*scale, (ybase)*mag*scale); //0.5: int coordinate at pixel center

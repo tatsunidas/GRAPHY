@@ -38,15 +38,21 @@
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.AlphaComposite;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
+
 import javax.swing.JPanel;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.process.ColorProcessor;
+import ij.process.ImageProcessor;
 
 /**
  * 
@@ -65,12 +71,12 @@ public class ImageSpecimenGlass extends JPanel{
 	private final String sopUID;
 	private final SlideGlass sg;
 	public ImagePlus displayImg;
+	// display image origin
+	public int originX;
+	public int originY;
 	
-	private int originX;
-	private int originY;
-	
-	private final int orgCols;
-	private final int orgRows;
+	final int orgCols;
+	final int orgRows;
 	
 	private boolean transparent = true;
 	private float alpha = 1.0f;
@@ -85,6 +91,133 @@ public class ImageSpecimenGlass extends JPanel{
 		orgRows = orgImg.getHeight();
 		setOpaque(false);
 		orgCal = orgImg.getCalibration();
+		displayImg = createInitialDisplayImage();//init display image
+	}
+	
+	/**
+	 * create image to display, it was fitted prap size without zoom/pan/rotation/windowing.
+	 * @return
+	 */
+	private ImagePlus createInitialDisplayImage() {
+//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
+		ImagePlus imp = getOriginalImage().createImagePlus();
+		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
+		ip.setInterpolationMethod(sg.INTERPOLATION_METHOD);
+		if(sg.isRGB && ip instanceof ColorProcessor) {
+			ip.snapshot();//keep original pixels
+		}
+		imp.setProcessor(ip);
+		imp.setTitle("replica");
+		// resize to comp size
+		Dimension d = calcImageSize2FitComponent();
+		if (d != null) {
+			imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
+		}
+		return imp;
+	}
+	
+	private ImagePlus getCurrentStateImageFreshCopy() {
+		ImagePlus dup = createInitialDisplayImage();
+		if (sg.isFlipped()) {
+			dup.getProcessor().flipHorizontal();
+		}
+		if (sg.isZoomed()) {
+			double mag = sg.getMagnification();
+			dup = sg.imgProcess.zoom(dup, mag);
+		}
+		if (sg.isRotated()) {
+			sg.imgProcess.rotate(dup, sg.getRotateAngle());
+		}
+		dup.setLut(sg.currentLUT);
+		if (sg.isInverted()) {
+			sg.imgProcess.invert(dup);
+		}
+		/*
+		 * skip panning, to delegate slideglass::updateImage
+		 */
+		// window
+		if (sg.windowing) {
+			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
+		}
+		return dup;
+	}
+	
+	void resetDisplayImage() {
+		this.displayImg = createInitialDisplayImage();
+		calcDefaultImageOriginAndReset(displayImg.getWidth(), displayImg.getHeight(), getWidth(), getHeight());
+		repaint();
+	}
+	
+	void updateDisplayImageWithCurrentCondition() {
+		this.displayImg = getCurrentStateImageFreshCopy();
+		if (!sg.panningFlag) {
+			calcDefaultImageOriginAndReset(displayImg.getWidth(),displayImg.getHeight(), getWidth(), getHeight());
+		}
+	}
+	
+	private void calcDefaultImageOriginAndReset(int newImgW, int newImgH, int prapViewWidth, int prapViewHeight) {
+		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH, prapViewWidth, prapViewHeight);
+		this.originX = defaultOrigin.x;
+		this.originY = defaultOrigin.y;
+		// set false force.
+		if (sg.panningFlag) {
+			sg.panningFlag = false;
+		}
+		Log.logger.fine("calcDefaultImageOriginAndReset: Reset CurrentOriginXY: " + originX + " " + originY
+				+ " ,compXY: " + prapViewWidth + ", " + prapViewHeight);
+	}
+	
+	Point calcDefaultImageOrigin(int newImgW, int newImgH, int compWidth, int compHeight) {
+		/*
+		 * width basis
+		 */
+		if (compWidth <= newImgW && compHeight <= newImgH) {
+			return new Point(0, 0);
+		}
+		int x = 0;
+		int y = 0;
+		int diffX = compWidth - newImgW;
+		int diffY = compHeight - newImgH;
+		if (!(diffX < 0)) {
+			x = (int) ((double) diffX / 2d);
+		}
+		if (!(diffY < 0)) {
+			y = (int) ((double) diffY / 2d);
+		}
+		return new Point(x, y);
+	}
+	
+	/*
+	 * fit size to slide
+	 */
+	Dimension calcImageSize2FitComponent() {
+		int bound_width = getWidth()-(sg.BORDER_SIZE*2);
+		int bound_height = getHeight()-(sg.BORDER_SIZE*2);
+		if (bound_width < 1 || bound_height < 1) {
+			return null;
+		}
+		int original_width = orgCols;
+		int original_height = orgRows;
+		// first, adjust new component size
+		int new_width = bound_width;
+		// scale height to maintain aspect ratio
+		int new_height = (new_width * original_height) / original_width;
+		// then check if we need to scale width
+		if (original_width > bound_width) {
+			// scale width to fit
+			new_width = bound_width;
+			// scale height to maintain aspect ratio
+			new_height = (new_width * original_height) / original_width;
+		}
+		// then check if we need to scale even with the new height
+		if (new_height > bound_height) {
+			// scale height to fit instead
+			new_height = bound_height;
+			// scale width to maintain aspect ratio
+			new_width = (new_height * original_width) / original_height;
+		}
+//		System.out.println("Fit slide to prap : new dim = "+new_width+" "+new_height);
+		return new Dimension(new_width, new_height);
 	}
 	
 	public DicomImage getDicomImage() {
@@ -93,6 +226,14 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	public ImagePlus getOriginalImage() {
 		return this.orgImg;
+	}
+	
+	int getDisplayOriginX() {
+		return originX;
+	}
+	
+	int getDisplayOriginY() {
+		return originY;
 	}
 	
 	public Calibration getOriCalibration() {
@@ -226,25 +367,42 @@ public class ImageSpecimenGlass extends JPanel{
 	/*
 	 * without component(prapview) scale
 	 */
-	public void updateImage(int originX, int originY, ImagePlus displayImp) {
-		this.displayImg = displayImp;
-		this.originX = originX;
-		this.originY = originY;
-		repaint();//call paintComponent() and show img.
+	public void updateImage(int originX, int originY) {
+		updateImage(originX, originY, null);
 	}
 	
 	/*
 	 * with component(prapview) scale
 	 */
-	public void updateImage(int originX, int originY, double scale, ImagePlus displayImp) {
-		this.displayImg = displayImp;
-		this.originX = (int)((double)originX * scale);
-		this.originY = (int)((double)originY * scale);
-		repaint();//call paintComponent() and show img.
+	public void updateImage(int originX, int originY, Double scale) {
+		if(scale == null) {
+			this.originX = originX;
+			this.originY = originY;
+		}else {
+			this.originX = (int)((double)originX * scale);
+			this.originY = (int)((double)originY * scale);
+		}
 	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
+		if (sg.panningFlag) {
+			/*
+			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する
+			 */
+			if (!sg.panningInAction) {
+				updateImage(originX, originY);
+			} else {
+				updateImage(originX, originY, sg.getScaleFactor());
+			}
+		} else if (!sg.panningFlag && !sg.panningInAction) {
+			/*
+			 * pannされていない場合は、コンポーネントサイズにリサイズされた画像を表示する
+			 */
+			updateImage(originX, originY);
+		}else {
+			updateImage(originX, originY);
+		}
 	    Graphics2D g2d = (Graphics2D) g.create();
 	    if(transparent) {
 	    	g2d.setComposite(AlphaComposite.getInstance(

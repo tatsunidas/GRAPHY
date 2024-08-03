@@ -133,9 +133,13 @@ public enum Resources {
 			Log.logger.warning("This resource file is not exists.:" + pathInResource);
 			return null;
 		}
-		File tempFile;
+		File tempFile = null;
 		try {
-			tempFile = File.createTempFile("GRAPHY_temp", null, new File(ConfigInfo.TemporalDirName.toString()));
+			if(new File(ConfigInfo.TemporalDirName.toString()).exists()) {
+				tempFile = File.createTempFile("GRAPHY_temp", null, new File(ConfigInfo.TemporalDirName.toString()));
+			}else{
+				tempFile = File.createTempFile("GRAPHY_temp", null);
+			}
 			tempFile.deleteOnExit();
 			// out temp file
 			java.io.FileOutputStream outputStream = new java.io.FileOutputStream(tempFile);

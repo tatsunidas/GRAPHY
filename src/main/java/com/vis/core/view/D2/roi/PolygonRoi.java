@@ -366,8 +366,8 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	protected void updatePolygon(SlideGlass sg) {
-		int basex = sg.originX; 
-		int basey = sg.originY;
+		int basex = sg.imageSpecimen.originX; 
+		int basey = sg.imageSpecimen.originY;
 		
 		//update roi popup
 		setBasicStatistics2Popup();

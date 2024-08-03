@@ -43,12 +43,12 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.util.HashMap;
 
-import javax.swing.JLayer;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
 public class SlideGlassGrid extends JScrollPane{
-	
+
+	private static final long serialVersionUID = 1002582639306789967L;
 	private final HashMap<Integer, SlideGlass> slides;
 	private int rows;
 	private int cols;
@@ -70,6 +70,7 @@ public class SlideGlassGrid extends JScrollPane{
 		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
 		view.setBackground(Color.black);
 		this.useGridLayout = useGridLayout;
+		init();
 	}
 	
 	public SlideGlassGrid(HashMap<Integer, SlideGlass> slides, int rows, int cols, boolean useGridLayout) {
@@ -80,6 +81,7 @@ public class SlideGlassGrid extends JScrollPane{
 		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
 		view.setBackground(Color.black);
 		this.useGridLayout = useGridLayout;
+		init();
 	}
 	
 	private int calcRows(int cols) {
@@ -95,14 +97,25 @@ public class SlideGlassGrid extends JScrollPane{
 		}
 	}
 	
+	private int calcCellSize(int parentW) {
+		int gap_size = (cols+1) * padding;
+		int space = parentW - gap_size;
+		int newW = space/cols;
+		if(newW < minimumCellSize) {
+			return minimumCellSize;
+		}else {
+			return newW;
+		}
+	}
+	
 	private void init() {
 		int cellSize = defaultPanelSize;
 		if (!useGridLayout) {
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((r*c)<numOfImage) {
+					if(((r+1)*(c+1))<=numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
-						sg.adjustGlassesSize(cellSize, cellSize);
+						sg.setSize(cellSize, cellSize);
 						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
 								cellSize, cellSize);
 						view.add(sg);
@@ -119,9 +132,53 @@ public class SlideGlassGrid extends JScrollPane{
 		} else {
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((r*c)<numOfImage) {
+					if(((r+1)*(c+1))<=numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
-						sg.adjustGlassesSize(cellSize, cellSize);
+						sg.setSize(cellSize, cellSize);
+						view.add(sg);
+					}else {
+						JPanel emptyP = new JPanel();
+						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+						emptyP.setBackground(Color.BLACK);
+						view.add(emptyP);
+					}
+				}
+			}
+		}
+		int viewW = cellSize * cols + (padding * (cols + 1));
+		int viewH = cellSize * rows + (padding * (rows + 1));
+		view.setPreferredSize(new Dimension(viewW, viewH));
+		setViewportView(view);
+	}
+	
+	public void update(int parentW) {
+		int cellSize = calcCellSize(parentW);
+		view.removeAll();
+		if (!useGridLayout) {
+			for (int r = 0; r < rows; r++) {
+				for (int c = 0; c < cols; c++) {
+					if(((r+1)*(c+1))<=numOfImage) {
+						SlideGlass sg = slides.get((r*cols) + c);
+						sg.setSize(cellSize, cellSize);
+						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+								cellSize, cellSize);
+						view.add(sg);
+					}else {
+						JPanel emptyP = new JPanel();
+						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+						emptyP.setBackground(Color.BLACK);
+						emptyP.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+								cellSize, cellSize);
+						view.add(emptyP);
+					}
+				}
+			}
+		} else {
+			for (int r = 0; r < rows; r++) {
+				for (int c = 0; c < cols; c++) {
+					if(((r+1)*(c+1))<=numOfImage) {
+						SlideGlass sg = slides.get((r*cols) + c);
+						sg.setSize(cellSize, cellSize);
 						view.add(sg);
 					}else {
 						JPanel emptyP = new JPanel();
@@ -143,24 +200,9 @@ public class SlideGlassGrid extends JScrollPane{
 		super.paintComponent(g);
 		int panelWidth = getParent().getWidth();
 		int panelHeight = getParent().getHeight();
+		// set bounds of slideglassgrid to same as pp.viewPanel.
 		setBounds(0, 0, panelWidth, panelHeight);
-		if (useGridLayout) {
-			if(prevParentW == panelWidth) return;
-			int cellSize = panelWidth / cols;
-			if (cellSize < minimumCellSize) cellSize = minimumCellSize; 
-			for (int row = 0; row < rows; row++) {
-				for (int col = 0; col < cols; col++) {
-					int index = row * cols + col;
-					if (index < numOfImage) {
-						SlideGlass sg = slides.get(index);
-						sg.adjustGlassesSize(cellSize, cellSize);
-						sg.setBounds(0, 0, cellSize, cellSize);
-					}
-				}
-			}
-			int viewW = cellSize * cols + (padding * (cols + 1));
-			int viewH = cellSize * rows + (padding * (rows + 1));
-			view.setPreferredSize(new Dimension(viewW, viewH));
-		}
+		update(panelWidth);
+		view.repaint();
 	}
 }
