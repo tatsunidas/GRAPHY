@@ -46,6 +46,8 @@ import java.util.HashMap;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
+import com.vis.core.log.Log;
+
 public class SlideGlassGrid extends JScrollPane{
 
 	private static final long serialVersionUID = 1002582639306789967L;
@@ -153,8 +155,10 @@ public class SlideGlassGrid extends JScrollPane{
 	
 	public void update(int parentW) {
 		int cellSize = calcCellSize(parentW);
+		Log.logger.fine("FilmGridCellSize: "+ cellSize);
 		view.removeAll();
 		if (!useGridLayout) {
+			System.out.println("Yes ! cell size:"+cellSize);
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
 					if(((r+1)*(c+1))<=numOfImage) {
@@ -163,6 +167,7 @@ public class SlideGlassGrid extends JScrollPane{
 						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
 								cellSize, cellSize);
 						view.add(sg);
+						sg.repaint();
 					}else {
 						JPanel emptyP = new JPanel();
 						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
@@ -192,6 +197,7 @@ public class SlideGlassGrid extends JScrollPane{
 		int viewW = cellSize * cols + (padding * (cols + 1));
 		int viewH = cellSize * rows + (padding * (rows + 1));
 		view.setPreferredSize(new Dimension(viewW, viewH));
+		view.setBounds(0, 0, viewW, viewH);
 		setViewportView(view);
 	}
 	

@@ -1,0 +1,212 @@
+8月 05, 2024 10:20:30 午後 com.vis.core.plugin.PluginShelf loadPlugins
+情報: Loading PlugIns...
+8月 05, 2024 10:20:30 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+情報: ************PLUGINS LIST START*************
+8月 05, 2024 10:20:30 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+情報: ************PLUGINS LIST END**************
+8月 05, 2024 10:20:31 午後 com.vis.db.DatabaseHandler startingUp
+情報: Current DB location: /home/tatsunidas/TEST_DB2
+8月 05, 2024 10:20:36 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+8月 05, 2024 10:20:41 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
+情報: QR Pane : Home
+8月 05, 2024 10:20:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 05, 2024 10:20:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 05, 2024 10:20:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:210 156 ,imageXY:32 152
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:218 150 ,imageXY:40 146
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:222 146 ,imageXY:44 142
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:225 143 ,imageXY:47 139
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:229 137 ,imageXY:51 133
+8月 05, 2024 10:20:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:231 133 ,imageXY:53 129
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:231 131 ,imageXY:53 127
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:231 130 ,imageXY:53 126
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:20:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:232 129 ,imageXY:54 125
+8月 05, 2024 10:21:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:324 41 ,imageXY:146 37
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:293 73 ,imageXY:115 69
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:290 88 ,imageXY:112 84
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:291 103 ,imageXY:113 99
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:294 114 ,imageXY:116 110
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:21:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:296 124 ,imageXY:118 120
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:298 133 ,imageXY:120 129
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 137 ,imageXY:121 133
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 140 ,imageXY:121 136
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 142 ,imageXY:121 138
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 144 ,imageXY:121 140
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 145 ,imageXY:121 141
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:300 145 ,imageXY:122 141
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 145 ,imageXY:121 141
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 144 ,imageXY:121 140
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 144 ,imageXY:121 140
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 142 ,imageXY:121 138
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 141 ,imageXY:121 137
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:298 141 ,imageXY:120 137
+8月 05, 2024 10:22:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:298 141 ,imageXY:120 137
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:298 141 ,imageXY:120 137
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 142 ,imageXY:121 138
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 143 ,imageXY:121 139
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 142 ,imageXY:121 138
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 143 ,imageXY:121 139
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 143 ,imageXY:121 139
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 143 ,imageXY:121 139
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 143 ,imageXY:121 139
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 145 ,imageXY:121 141
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 146 ,imageXY:121 142
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 147 ,imageXY:121 143
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:300 147 ,imageXY:122 143
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 147 ,imageXY:121 143
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 147 ,imageXY:121 143
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 146 ,imageXY:121 142
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:299 146 ,imageXY:121 142
+8月 05, 2024 10:22:14 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:14 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:301 145 ,imageXY:123 141
+8月 05, 2024 10:22:14 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: originXY:178 4
+8月 05, 2024 10:22:14 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+情報: slideXY:316 85 ,imageXY:138 81
+8月 05, 2024 10:22:15 午後 com.vis.core.facade.ApplicationFacade exitApp
+情報: Shutting down graphy...
+8月 05, 2024 10:22:18 午後 com.vis.db.DatabaseHandler shutdownDB
+情報: com.vis.db.DatabaseHandler: shutdown correctly, graphydb

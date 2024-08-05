@@ -41,11 +41,12 @@ import java.awt.AlphaComposite;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Insets;
 import java.awt.Point;
 
 import javax.swing.JPanel;
 
-import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
@@ -111,8 +112,9 @@ public class ImageSpecimenGlass extends JPanel{
 		// resize to comp size
 		Dimension d = calcImageSize2FitComponent();
 		if (d != null) {
-			imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
+			
 		}
+		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
 		return imp;
 	}
 	
@@ -144,55 +146,75 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	void resetDisplayImage() {
 		this.displayImg = createInitialDisplayImage();
-		calcDefaultImageOriginAndReset(displayImg.getWidth(), displayImg.getHeight(), getWidth(), getHeight());
+		resetImageOrigin(displayImg.getWidth(), displayImg.getHeight());
 		repaint();
 	}
 	
 	void updateDisplayImageWithCurrentCondition() {
 		this.displayImg = getCurrentStateImageFreshCopy();
 		if (!sg.panningFlag) {
-			calcDefaultImageOriginAndReset(displayImg.getWidth(),displayImg.getHeight(), getWidth(), getHeight());
+			resetImageOrigin(displayImg.getWidth(), displayImg.getHeight());
+//			calcDefaultImageOriginAndReset(displayImg.getWidth(), displayImg.getHeight(), getWidth(), getHeight());
 		}
 	}
 	
-	private void calcDefaultImageOriginAndReset(int newImgW, int newImgH, int prapViewWidth, int prapViewHeight) {
-		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH, prapViewWidth, prapViewHeight);
+	/**
+	 * Set no pannning origin.
+	 * 
+	 * @param newImgW
+	 * @param newImgH
+	 * @param prapViewWidth
+	 * @param prapViewHeight
+	 */
+	private void resetImageOrigin(int newImgW, int newImgH) {
+		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH);
 		this.originX = defaultOrigin.x;
 		this.originY = defaultOrigin.y;
 		// set false force.
 		if (sg.panningFlag) {
 			sg.panningFlag = false;
 		}
-		Log.logger.fine("calcDefaultImageOriginAndReset: Reset CurrentOriginXY: " + originX + " " + originY
-				+ " ,compXY: " + prapViewWidth + ", " + prapViewHeight);
 	}
 	
-	Point calcDefaultImageOrigin(int newImgW, int newImgH, int compWidth, int compHeight) {
-		/*
-		 * width basis
-		 */
-		if (compWidth <= newImgW && compHeight <= newImgH) {
-			return new Point(0, 0);
-		}
-		int x = 0;
-		int y = 0;
-		int diffX = compWidth - newImgW;
-		int diffY = compHeight - newImgH;
-		if (!(diffX < 0)) {
-			x = (int) ((double) diffX / 2d);
-		}
-		if (!(diffY < 0)) {
-			y = (int) ((double) diffY / 2d);
-		}
+	/**
+	 * calc origin xy on image specimen ( which has same size of view panel).
+	 * Ignored pannning.
+	 * 
+	 * @param newImgW
+	 * @param newImgH
+	 * @param compWidth
+	 * @param compHeight
+	 * @return
+	 */
+	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
+//		if (compWidth <= newImgW && compHeight <= newImgH) {
+//			return new Point(0, 0);
+//		}
+		Insets insets = sg.getInsets();
+       int x = (getWidth() - insets.left - insets.right - newImgW) / 2 + insets.left;
+       int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 + insets.top;
 		return new Point(x, y);
 	}
 	
 	/*
 	 * fit size to slide
+	 * image will be small with BORDER size.
 	 */
 	Dimension calcImageSize2FitComponent() {
-		int bound_width = getWidth()-(sg.BORDER_SIZE*2);
-		int bound_height = getHeight()-(sg.BORDER_SIZE*2);
+		/*
+		 * The size of the border is calculated using Insets.
+		 */
+		if(sg.getPraparat().getViewMode() == ViewMode.Thumbnail) {
+			System.out.println();
+		}
+		
+		Insets insets = sg.getInsets();
+		int drawableWidth = getWidth() - insets.left - insets.right;
+		int drawableHeight = getHeight() - insets.top - insets.bottom;
+		
+		int bound_width = drawableWidth;
+		int bound_height = drawableHeight;
+		
 		if (bound_width < 1 || bound_height < 1) {
 			return null;
 		}

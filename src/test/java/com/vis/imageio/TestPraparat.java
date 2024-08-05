@@ -37,6 +37,8 @@
  */
 package com.vis.imageio;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
@@ -44,6 +46,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
+
+import javax.swing.BorderFactory;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.border.Border;
 
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
@@ -69,10 +76,10 @@ public class TestPraparat {
             Log.logger.setLevel(Level.INFO);
         }
        Log.logger.addHandler(consoleHandler);
-//		singnedImageTest();
-//		show();
-		showGrid();
-//		showUsingPixelDecoder();
+		show();
+//		showGrid();
+//		showThumbnail();
+//		borderTest();
 	}
 	
 	static javax.swing.JFrame loadFrame(Praparat pp) {
@@ -104,8 +111,7 @@ public class TestPraparat {
 		pp.doSingleGridLayout();
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
-		pp.showFirstImage();
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
 	}
 	
@@ -117,9 +123,27 @@ public class TestPraparat {
 		pp.doFilmGridLayout(5);
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
-		pp.showFirstImage();
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
+	}
+	
+	static void showThumbnail() {
+		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		Praparat pp = new Praparat(ViewMode.Thumbnail);
+		pp.prepareSlideGlassesUsingImagePlus(imp);
+		pp.setTextVisible(false);
+		pp.setAnnotationVisible(false);
+		pp.doSingleGridLayout();
+		
+		javax.swing.JFrame f = new javax.swing.JFrame("PraparatTest");
+		f.setSize(300,300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
+		f.setVisible(true);
+		
+		JPanel base = new JPanel(null);
+		f.add(base, BorderLayout.CENTER);
+		base.add(pp);
+		pp.showBorder();
 	}
 	
 	static void showUsingPixelDecoder() {
@@ -181,6 +205,25 @@ public class TestPraparat {
 		ImageProcessor ip2 = new ShortProcessor(imp.getWidth(), imp.getHeight(), shortArray, null);
 		new ImagePlus("",ip2).show();
 		System.out.println("replica2 isSigned16Bit "+ip2.isSigned16Bit());//false
+	}
+	
+	static void borderTest() {
+		JFrame frame = new JFrame("Border Example");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(300, 200);
+        
+        JPanel panel = new JPanel();
+        panel.setBackground(Color.CYAN);
+        
+        Border border = BorderFactory.createLineBorder(Color.BLACK, 10); // 幅10ピクセルの黒いボーダー
+        panel.setBorder(border);
+        
+        frame.add(panel);
+        frame.setVisible(true);
+        
+     // インセットの確認
+        System.out.println("Frame insets: " + frame.getInsets());
+        System.out.println("Panel size: " + panel.getSize());
 	}
 
 }

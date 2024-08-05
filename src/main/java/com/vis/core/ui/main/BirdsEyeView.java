@@ -207,22 +207,23 @@ public class BirdsEyeView extends JPanel{
 		filmGridPane.add(waitingPanel1);
 	}
 	
+	//TODO 20240805
 	public void updateViewSize() {
-		Dimension dr = filmAndSingleGridSplit.getRightComponent().getSize();
-		if(lastSingleGridViewSize.width == dr.width && lastSingleGridViewSize.height == dr.height) {
-			return;
-		}
-		if (singleGridView != null && singleGridView.isVisible()) {
-			singleGridView.adjustSlideGlassSize();
-			singleGridView.revalidate();
-			singleGridView.repaint();
-		}
-		if (filmGridView != null && filmGridView.isVisible()) {
-			filmGridView.adjustGridViewSize();
-			filmGridView.revalidate();
-			filmGridView.repaint();
-		}
-		lastSingleGridViewSize = dr;
+//		Dimension dr = filmAndSingleGridSplit.getRightComponent().getSize();
+//		if(lastSingleGridViewSize.width == dr.width && lastSingleGridViewSize.height == dr.height) {
+//			return;
+//		}
+//		if (singleGridView != null && singleGridView.isVisible()) {
+//			singleGridView.adjustSlideGlassSize();
+//			singleGridView.revalidate();
+//			singleGridView.repaint();
+//		}
+//		if (filmGridView != null && filmGridView.isVisible()) {
+//			filmGridView.adjustGridViewSize();
+//			filmGridView.revalidate();
+//			filmGridView.repaint();
+//		}
+//		lastSingleGridViewSize = dr;
 	}
 	
 	public void setPatientInfo(HashMap<String,String> infoset) {
@@ -313,7 +314,7 @@ public class BirdsEyeView extends JPanel{
 				th.prepareSlideGlasses(patId, studyUid, series, sopUids);
 				th.setTextVisible(false);
 				th.setAnnotationVisible(false);
-				th.showFirstImage();
+				th.doSingleGridLayout();
 				addSeries(th);
 			}else {
 				addSeries(null);
@@ -355,6 +356,7 @@ public class BirdsEyeView extends JPanel{
 			String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
 			singleGridView.prepareSlideGlasses(padId, studyUid, seriesUid, sopUids);
 		}
+		singleGridView.doSingleGridLayout();
 		singleGridView.showFirstImage();
 		//after set first image
 		singleGridView.getController().showInfoText(false);
@@ -458,7 +460,7 @@ public class BirdsEyeView extends JPanel{
 		
 		void addSeries(Praparat praparat) {
 			if(praparat == null) {
-				JLabel l = new JLabel(new MissingIcon(Color.RED, 64, 64));
+				JLabel l = new JLabel(new MissingIcon(Color.RED, Praparat.ThumbnailSize, Praparat.ThumbnailSize));
 				seriesListPanel.add(l);
 			}else {
 				seriesListPanel.add(praparat);

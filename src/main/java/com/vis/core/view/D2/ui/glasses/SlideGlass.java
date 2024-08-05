@@ -59,7 +59,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 
@@ -117,7 +116,7 @@ public class SlideGlass extends JLayeredPane {
 	Color focusColor = Color.WHITE;
 	Color selectionColor = Color.MAGENTA;
 	Color clearColor = new Color(0,0,0,255);
-	final int BORDER_SIZE = 4;
+	static final int BORDER_SIZE = 4;
 	Border focusBorder = BorderFactory.createLineBorder(focusColor, BORDER_SIZE);
 	Border selectionBorder = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE);
 
@@ -203,32 +202,25 @@ public class SlideGlass extends JLayeredPane {
 		}
 	}
 	
+	/**
+	 * set slideglass size and update image specimen
+	 */
 	@Override
 	public void setSize(int compW, int compH) {
 		/*
 		 * SlideGlass-self's bounds is free (to locate any place in a component.)
 		 */
 //		setGlassSize(this, compW, compH);//to avoid setBounds(0,0, w, h,).
-		setPreferredSize(new Dimension(compW, compH));
+		super.setSize(compW, compH);//for updateScale()
+		super.setPreferredSize(new Dimension(compW, compH));
 		setGlassSize(imageSpecimen, compW, compH);
 		setGlassSize(textOverlay, compW, compH);
 		setGlassSize(roiOverlay, compW, compH);
 		setGlassSize(coverGlass, compW, compH);
 		updateScale();
 		initPrapInfoLabel();
+		imageSpecimen.updateDisplayImageWithCurrentCondition();
 		repaint();
-	}
-	
-	/**
-	 * SlideGlass that is just stacked does not get a ViewPanel by getParent(). Here, explicit arguments are passed for processing.
-	 * @param parent　viewPanel in prap.
-	 */
-	void adjustToParentComponent(JPanel parent) {
-		if(isVisible() && parent != null) {
-			setSize(parent.getWidth(), parent.getHeight());
-			imageSpecimen.updateDisplayImageWithCurrentCondition();
-			repaint();
-		}
 	}
 	
 	void adjustWindow2Current() {
@@ -935,6 +927,7 @@ public class SlideGlass extends JLayeredPane {
 		return roiOverlay.handleRoiMouseDragged(me, this);
 	}
 
+	//todo
 	public void handleRoiMouseMoved(MouseEvent me) {
 		mouseActionFlag = me.getModifiersEx();
 		roiOverlay.mouseMoved(me);
@@ -985,6 +978,10 @@ public class SlideGlass extends JLayeredPane {
 		initImageInfo(header);// execute before Glasses
 		loadRoiFromDB();
 		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+		SlideGlassMouseListener sgml = new SlideGlassMouseListener(this);
+		addMouseListener(sgml);
+		addMouseMotionListener(sgml);
+		addMouseWheelListener(sgml);
 	}
 
 	/**
@@ -1632,12 +1629,13 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	/**
-	 * 
+	 * Adjust to ViewPanel full size.
 	 * @param comp: ImageSpecimen, RoiOverlay, TextOverlay, MouseOverlay
 	 * @param compW
 	 * @param compH
 	 */
 	private void setGlassSize(JComponent comp, int compW, int compH) {
+		comp.setSize(compW, compH);
 		comp.setPreferredSize(new Dimension(compW, compH));
 		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
 	}
@@ -1813,7 +1811,7 @@ public class SlideGlass extends JLayeredPane {
 		if (d == null) {
 			return;
 		}
-		Point defOrigin = imageSpecimen.calcDefaultImageOrigin(d.width, d.height, getWidth(), getHeight());
+		Point defOrigin = imageSpecimen.calcDefaultImageOrigin(d.width, d.height);
 		if ((imageSpecimen.originX == defOrigin.x) && (imageSpecimen.originY == defOrigin.y)) {
 			panningFlag = false;
 		} else {
@@ -1903,6 +1901,10 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null) {
 			return;
 		}
+		/*
+		 * if component show yet, this will return 0.
+		 * To avoid this situation, setSize(w,h) before do this.
+		 */
 		if (getWidth() < 1 || getHeight() < 1) {
 			return;
 		}
