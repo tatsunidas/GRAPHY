@@ -179,7 +179,29 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		
+		//roi
+		slide.handleRoiMouseUp(e);
+		//release panning
+		if(!pp.isProcessSeries()) {
+			if(slide.panningInAction) {
+				slide.releasePanning();
+			}
+		} else {
+			// process series
+			Log.logger.fine("panning series released !! mouse released.");
+			if(slide.panningInAction) {
+				slide.releasePanning();
+			}
+			synchronized (this) {
+				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+				for (Integer key : slides.keySet()) {
+					SlideGlass sg = slides.get(key);
+					if(sg.panningInAction) {
+						sg.releasePanning();
+					}
+				}
+			}
+		}
 	}
 
 	@Override
