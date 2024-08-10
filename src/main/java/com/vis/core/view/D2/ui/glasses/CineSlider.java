@@ -80,6 +80,7 @@ public class CineSlider extends JPanel implements ActionListener {
 		}
 		int sliderPos = ind + 1;//slider value is 1 to n
 		slider.setValue(sliderPos);
+		pp.repaint();
 	}
 
 	public void initContext() {

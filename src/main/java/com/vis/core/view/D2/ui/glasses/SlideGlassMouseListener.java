@@ -78,7 +78,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		// paging
 		if ((mod & InputEvent.CTRL_DOWN_MASK) == 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0) {
 			if (!pp.isShowGridViewOn()) {// single grid true
-				System.out.println("OK");
 				ArrayList<Praparat> syncingPraps = null;
 				if (prapManager != null) {
 					syncingPraps = prapManager.getSelectingPraparats();
@@ -86,53 +85,29 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if (syncingPraps != null) {
 					if (syncingPraps.size() > 1) {
 						for (Praparat prap : syncingPraps) {
-							int pos = 0;
+							int pos = prap.getCurrentSlidePos();
 							if (rotation < 0) {
-								pos = prap.getCurrentSlidePos();
-								pos = pos - 1;
-								if (pos < 0) {
-									pos = prap.getNumberOfImages() - 1;
-								}
+								pos -= 1;
 							} else {
-								pos = prap.getCurrentSlidePos();
-								pos = pos + 1;
-								if (pos >= prap.getNumberOfImages()) {
-									pos = 0;
-								}
+								pos += 1;
 							}
 							prap.setImagePositionUsingSlider(pos);// work with slider
 						}
 					} else {
-						int pos = 0;
+						int pos = pp.getCurrentSlidePos();
 						if (rotation < 0) {
-							pos = pp.getCurrentSlidePos();
-							pos = pos - 1;
-							if (pos < 0) {
-								pos = pp.getNumberOfImages() - 1;
-							}
+							pos -= 1;
 						} else {
-							pos = pp.getCurrentSlidePos();
-							pos = pos + 1;
-							if (pos >= pp.getNumberOfImages()) {
-								pos = 0;
-							}
+							pos += 1;
 						}
 						pp.setImagePositionUsingSlider(pos);// work with slider
 					}
 				} else {
-					int pos = 0;
+					int pos = pp.getCurrentSlidePos();
 					if (rotation < 0) {
-						pos = pp.getCurrentSlidePos();
-						pos = pos - 1;
-						if (pos < 0) {
-							pos = pp.getNumberOfImages() - 1;
-						}
+						pos -= 1;
 					} else {
-						pos = pp.getCurrentSlidePos();
-						pos = pos + 1;
-						if (pos >= pp.getNumberOfImages()) {
-							pos = 0;
-						}
+						pos += 1;
 					}
 					if (pp.getViewMode() != ViewMode.FilmGrid) {
 						pp.setImagePositionUsingSlider(pos);// work with slider
@@ -144,7 +119,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					Component t = e.getComponent();
 					Component c = pp.getViewPanel().getComponent(0);
 					if (c instanceof SlideGlassGrid) {
-						JScrollPane gridPane = (JScrollPane) c;
+						SlideGlassGrid gridPane = (SlideGlassGrid) c;
 						MouseEvent me = SwingUtilities.convertMouseEvent(t, e, gridPane);
 						gridPane.dispatchEvent(me);
 						e.consume();/*consume after dispatch*/
@@ -154,12 +129,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 			}
 		//rotate
-		} else if ((mod & InputEvent.CTRL_DOWN_MASK) != 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0) {
+		} else if ((mod & InputEvent.CTRL_DOWN_MASK) != 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0 && (mod & InputEvent.ALT_DOWN_MASK) == 0) {
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				return;
 			}
-			if (Utils.isDebug)
-				System.out.println("rotate! " + rotation);
+			logger.fine("rotate! " + rotation);
 			this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 			if (!pp.isProcessSeries()) {
 				this.slide.rotate(rotation);
@@ -170,6 +144,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					sg.rotate(rotation);
 				}
 			}
+			this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		}
 	}
 
@@ -204,20 +179,17 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
-		
+		slide.setFocusGained(true);
 	}
 
 	@Override
 	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
-		
+		slide.setFocusGained(false);
 	}
 
 }

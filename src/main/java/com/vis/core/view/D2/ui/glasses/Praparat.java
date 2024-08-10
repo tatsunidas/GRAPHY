@@ -120,11 +120,11 @@ public class Praparat extends JPanel {
 	private Logger logger = Log.logger;
 	
 	public enum ViewMode{
-		Normal,
-		Thumbnail,
-		SingleGrid,//for bird's eye
-		FilmGrid,//for bird's eye
-		MPR,
+		Normal,/*Switch-able mode, both single view and film grid view*/
+		Thumbnail,/*Thumbnail mode ( has limit some features)*/
+		SingleGrid,/*Single grid view, film grid view no acceptable.(for bird's eye)*/
+		FilmGrid,/*Film grid view, single grid view no acceptable. (for bird's eye)*/
+		MPR,/*Allow showing crosslines. Its features are same as Normal mode.*/
 	}
 	//patient info set keys
 	public final String KEY_PadID = "Patient​ID";
@@ -579,7 +579,7 @@ public class Praparat extends JPanel {
 		setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		setFilmGridColumns(col);
 		viewPanel.removeAll();
-		gridScrollPane = new SlideGlassGrid(this, false/*GridLayer*/);
+		gridScrollPane = new SlideGlassGrid(this, col, false/*GridLayer*/);
 		viewPanel.add(gridScrollPane,0);
 		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
@@ -1254,8 +1254,9 @@ public class Praparat extends JPanel {
 		final int top = 0;
 		viewPanel.removeAll();
 		viewPanel.add(currentGlass, top);
-		currentGlass.requestFocus();//IMPORTANT for key listener
-		viewPanel.repaint();
+		currentGlass.requestFocus();
+		currentGlass.setFocusGained(true);//for key listener
+		currentGlass.repaint();
 	}
 	
 	public void setImagePositionTo(SlideGlass sg) {
@@ -1460,5 +1461,16 @@ public class Praparat extends JPanel {
 		}
 		prevViewPanelW = currentW;
 		prevViewPanelH = currentH;
+	}
+	
+	@Override
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		if(slides != null) {
+			for(int instNo : slides.keySet()) {
+				SlideGlass sg = slides.get(instNo);
+				sg.repaint();
+			}
+		}
 	}
 }

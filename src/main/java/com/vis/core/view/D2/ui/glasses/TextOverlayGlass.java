@@ -2,6 +2,7 @@ package com.vis.core.view.D2.ui.glasses;
 
 import javax.swing.JPanel;
 
+import com.vis.core.ui.FontSettings;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.SubjectOrientation;
 import com.vis.db.DatabaseHandler;
@@ -24,19 +25,14 @@ import org.joml.Vector3d;
 
 @SuppressWarnings("serial")
 public class TextOverlayGlass extends JPanel{
-
-//	private TextOverlayParam textOverlayParam;
-	private boolean textOverlay = true;
 	
-	String font = "Arial";
-	int fontSize = 14;
+	String font = FontSettings.getCurrentTextFont();
+	int fontSize = FontSettings.getCurrentTextSize();
 	java.awt.Color lblColor = new java.awt.Color(255,255,255);//white
 	java.awt.Color lblColorInvert = new java.awt.Color(50,50,50);//gray
 	java.awt.Color directionLabelColor = new java.awt.Color(255,20,20);
 	
-	int parentWidth;
-	int parentHeight;
-	
+	final SlideGlass sg;
 	final DicomObject header;
 	
 	//upper left
@@ -66,16 +62,15 @@ public class TextOverlayGlass extends JPanel{
 	private ArrayList<JLabel> listOfLabels;
 	
 	private HashMap<String, JLabel> directions = null;
-	boolean invert = false;
 	
 	private final String sopUID;
 
-	public TextOverlayGlass(DicomObject header) {
-		this.header = header;
+	public TextOverlayGlass(SlideGlass sg) {
+		this.header = sg.getHeader();
 		this.sopUID = header.getString(Tag.SOP​Instance​UID);
+		this.sg = sg;
 		initComponents();
-//		this.textOverlayParam = new TextOverlayParam();//future work
-		loadAnnotationList(header);
+		loadText(header);
 		loadDirection(header);
 		setOpaque(false);
 	}
@@ -84,7 +79,7 @@ public class TextOverlayGlass extends JPanel{
 	 * set information labels
 	 */
 	private void initComponents() {
-		// TODO Auto-generated method stub
+		
 		lbl1_1 = new JLabel("");
 		lbl1_1.setHorizontalAlignment(SwingConstants.LEFT);
 
@@ -218,7 +213,7 @@ public class TextOverlayGlass extends JPanel{
 		for (JLabel lbl : listOfLabels) {
 			lbl.setOpaque(false);
 			lbl.setFont(new java.awt.Font(font, 0, fontSize));
-			if(!invert) {
+			if(!sg.isInverted()) {
 				lbl.setForeground(lblColor);
 			}else {
 				lbl.setForeground(lblColorInvert);
@@ -226,7 +221,7 @@ public class TextOverlayGlass extends JPanel{
 		}
 	}
 
-	private void loadAnnotationList(DicomObject header) {
+	private void loadText(DicomObject header) {
 		if(header == null) {
 			return;
 		}
@@ -294,10 +289,10 @@ public class TextOverlayGlass extends JPanel{
 		directions.get("TOP").setVerticalAlignment(SwingConstants.TOP);
 		directions.get("BOTTOM").setHorizontalAlignment(SwingConstants.CENTER);
 		directions.get("BOTTOM").setVerticalAlignment(SwingConstants.BOTTOM);
-		setDirectionLabelsFacade();
+		initDirectionLabels();
 	}
 	
-	public void setDirectionLabelsFacade() {
+	private void initDirectionLabels() {
 		if(directions == null) {
 			return;
 		}
@@ -309,7 +304,7 @@ public class TextOverlayGlass extends JPanel{
 	}
 	
 	public void setInvertState(boolean invert) {
-		if (this.invert == false) {//if current state is no invert, set invert color
+		if (invert == false) {//if current state is no invert, set invert color
 			if (listOfLabels != null) {
 				for (JLabel lbl : listOfLabels) {
 					lbl.setForeground(lblColorInvert);
@@ -322,24 +317,66 @@ public class TextOverlayGlass extends JPanel{
 				}
 			}
 		}
-		this.invert = invert;
 	}
 
-	private void setTextOverlayToNull() {
-		
-	}
-
-	private void setTextOverlay() {
+	private void drawTextOverlay() {
+		removeAll();
+		setLayout(null);
+		GroupLayout groupLayout = new GroupLayout(this);
+		groupLayout.setHorizontalGroup(groupLayout.createParallelGroup(Alignment.LEADING).addGroup(groupLayout
+				.createSequentialGroup().addContainerGap()
+				.addGroup(groupLayout.createParallelGroup(Alignment.LEADING)
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl1_1)
+								.addPreferredGap(ComponentPlacement.RELATED, 394, Short.MAX_VALUE).addComponent(lbl2_1))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl1_2)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl2_2))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl1_3)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl2_3))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl1_4)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl2_4))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl1_5)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl2_5))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl3_5)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl4_5))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl3_4)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl4_4))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl3_3)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl4_3))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl3_2)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE).addComponent(lbl4_2))
+						.addGroup(groupLayout.createSequentialGroup().addComponent(lbl3_1)
+								.addPreferredGap(ComponentPlacement.RELATED, 350, Short.MAX_VALUE)
+								.addComponent(lbl4_1)))
+				.addContainerGap()));
+		groupLayout.setVerticalGroup(groupLayout.createParallelGroup(Alignment.LEADING).addGroup(groupLayout
+				.createSequentialGroup().addContainerGap()
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl1_1).addComponent(lbl2_1))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl1_2).addComponent(lbl2_2))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl1_3).addComponent(lbl2_3))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl1_4).addComponent(lbl2_4))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl1_5).addComponent(lbl2_5))
+				.addPreferredGap(ComponentPlacement.RELATED, 260, Short.MAX_VALUE)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_1).addComponent(lbl4_1))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_2).addComponent(lbl4_2))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_3).addComponent(lbl4_3))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_4).addComponent(lbl4_4))
+				.addPreferredGap(ComponentPlacement.RELATED)
+				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_5).addComponent(lbl4_5))
+				.addContainerGap()));
+		setLayout(groupLayout);
 	}
 	
 	public String sopInstanceUID() {
 		return sopUID;
 	}
-	
-	public void resizeHandler() {
-        repaint();
-    }
-	
+		
 	private void drawDirection(Graphics g) {
 		if(directions == null) {
 			return;
@@ -374,13 +411,11 @@ public class TextOverlayGlass extends JPanel{
 	}
 
 	@Override
-	public void paint(Graphics g) {
-		super.paint(g);
-		if (textOverlay) {
-			setTextOverlay();
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		if (sg.isTextOvelayVisible()) {
+			drawTextOverlay();
 			drawDirection(g);
-		} else {
-			setTextOverlayToNull();
 		}
 	}
 }

@@ -39,16 +39,12 @@ package com.vis.core.view.D2.ui.glasses;
 
 import javax.swing.JPanel;
 
-/**
- * 
- * @author tatsunidas
- *
- */
-@SuppressWarnings("serial")
-public class MouseEventGlass extends JPanel{
+public class EventGlass extends JPanel{
 	
-	public MouseEventGlass() {
+	private static final long serialVersionUID = 7710077045453881915L;
+
+	public EventGlass() {
 		setOpaque(false);
+		setFocusable(true);
 	}
-	
 }

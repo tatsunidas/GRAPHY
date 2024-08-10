@@ -100,7 +100,7 @@ public class SlideGlass extends JLayeredPane {
 	public final static int IMAGE_LAYER = JLayeredPane.DEFAULT_LAYER;
 	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
 	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
-	public final static int MOUSE_LAYER = JLayeredPane.DRAG_LAYER;
+	public final static int EVENT_LAYER = JLayeredPane.DRAG_LAYER;
 	
 	private Praparat pp;// series viewer
 	private DicomObject header;
@@ -110,7 +110,7 @@ public class SlideGlass extends JLayeredPane {
 	public ImageSpecimenGlass imageSpecimen;
 	private TextOverlayGlass textOverlay;
 	private CanvasGlass roiOverlay;
-	private MouseEventGlass coverGlass;
+	private EventGlass coverGlass;/*KeyListener*/
 	
 	//Border
 	Color focusColor = Color.WHITE;
@@ -121,7 +121,7 @@ public class SlideGlass extends JLayeredPane {
 	Border selectionBorder = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE);
 
 	// flags
-	private boolean focusFlag = false;
+	//private boolean focusFlag = false;
 	private boolean selectedFlag = false;
 	public boolean panningFlag = false;
 	public boolean panningInAction = false; //
@@ -208,7 +208,7 @@ public class SlideGlass extends JLayeredPane {
 	@Override
 	public void setSize(int compW, int compH) {
 		/*
-		 * SlideGlass-self's bounds is free (to locate any place in a component.)
+		 * keep default bounds of SlideGlass-self.
 		 */
 //		setGlassSize(this, compW, compH);//to avoid setBounds(0,0, w, h,).
 		super.setSize(compW, compH);//for updateScale()
@@ -972,8 +972,6 @@ public class SlideGlass extends JLayeredPane {
 		this.header = dcmImg.getCore();
 		setBorder(BorderFactory.createLineBorder(clearColor, BORDER_SIZE));
 		setOpaque(false);
-		setFocusable(true);// for keylistener
-		setRequestFocusEnabled(true);
 		setUpGlassLayer(header);
 		initImageInfo(header);// execute before Glasses
 		loadRoiFromDB();
@@ -982,6 +980,7 @@ public class SlideGlass extends JLayeredPane {
 		addMouseListener(sgml);
 		addMouseMotionListener(sgml);
 		addMouseWheelListener(sgml);
+		coverGlass.addKeyListener(new SlideGlassKeyListener(this));
 	}
 
 	/**
@@ -1193,8 +1192,12 @@ public class SlideGlass extends JLayeredPane {
 		return flipFlag;
 	}
 
+	/**
+	 * Whether have keybord event focus.
+	 * @return
+	 */
 	public boolean isFocusGained() {
-		return focusFlag;
+		return coverGlass.isFocusOwner();
 	}
 
 	public boolean isHereRoiPopup(MouseEvent e) {
@@ -1423,7 +1426,7 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.repaint();
 		textOverlay.repaint();
 		roiOverlay.repaint();
-		coverGlass.repaint();
+		//coverGlass.repaint();
 	}
 
 	/*
@@ -1443,7 +1446,6 @@ public class SlideGlass extends JLayeredPane {
 		if(Utils.isDebug) logger.info("Panning : originX " + imageSpecimen.originX + " ," + " originY " + imageSpecimen.originY);
 		panningFlag = true;// fail safe
 		panningInAction = true;// 敢えてここでハンドリングする
-//		System.out.println("panning in action "+panningInAction);
 		updatePanningState();
 		repaint();
 	}
@@ -1616,11 +1618,8 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	public void setFocusGained(boolean focusGained) {
-		this.focusFlag = focusGained;
-		if(pp.getViewMode()==ViewMode.Thumbnail) {
-			this.focusFlag = false;
-			showBorder();
-			return;
+		if(focusGained) {
+			coverGlass.requestFocus();//enable key event
 		}
 		if(pp.isShowGridViewOn()) {
 			pp.setImagePositionTo(this);
@@ -1768,13 +1767,13 @@ public class SlideGlass extends JLayeredPane {
 	private void setUpGlassLayer(DicomObject header) {
 		imageSpecimen = new ImageSpecimenGlass(this);
 		roiOverlay = new CanvasGlass(this);
-		textOverlay = new TextOverlayGlass(header);
-		coverGlass = new MouseEventGlass();
-		int top_in_its_layers = 0;
+		textOverlay = new TextOverlayGlass(this);
+		coverGlass = new EventGlass();
+		final int top_in_its_layers = 0;
 		add(imageSpecimen, IMAGE_LAYER, top_in_its_layers);
 		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);
 		add(textOverlay, TEXT_LAYER, top_in_its_layers);
-		add(coverGlass, MOUSE_LAYER, top_in_its_layers);
+		add(coverGlass, EVENT_LAYER, top_in_its_layers);
 	}
 	
 	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {
@@ -1794,6 +1793,10 @@ public class SlideGlass extends JLayeredPane {
 		Border b = constructBorder();
 		setBorder(b);
 		repaint();
+	}
+	
+	public boolean isTextOvelayVisible() {
+		return showText;
 	}
 
 	public void showRoiPopupOf(RoiObj roi) {
@@ -1842,8 +1845,8 @@ public class SlideGlass extends JLayeredPane {
 					int imageX = slideX - scaledOriginX;
 					int imageY = slideY - scaledOriginY;
 					pp.setAndShowPixelValue(imageX, imageY);
-					logger.info("scaledOriginXY:" + scaledOriginX + " " + scaledOriginY);
-					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + imageX + " " + imageY);
+					logger.fine("scaledOriginXY:" + scaledOriginX + " " + scaledOriginY);
+					logger.fine("slideXY:" + slideX + " " + slideY + " ,imageXY:" + imageX + " " + imageY);
 				}
 			}
 		} else {
@@ -1855,8 +1858,8 @@ public class SlideGlass extends JLayeredPane {
 					int dispImageX = slideX - currentOrigin.x;
 					int dispImageY = slideY - currentOrigin.y;
 					pp.setAndShowPixelValue(dispImageX, dispImageY);
-					logger.info("originXY:" + currentOrigin.x + " " + currentOrigin.y);
-					logger.info("slideXY:" + slideX + " " + slideY + " ,imageXY:" + dispImageX + " " + dispImageY);
+					logger.fine("originXY:" + currentOrigin.x + " " + currentOrigin.y);
+					logger.fine("slideXY:" + slideX + " " + slideY + " ,imageXY:" + dispImageX + " " + dispImageY);
 				}
 			}
 		}

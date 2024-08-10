@@ -29,8 +29,8 @@ import java.util.ArrayList;
 /*
  * Praparat north panel
  * show x,y pixel value
- * enable show annotation/roi
- * set grid of film view
+ * enable show text and roi
+ * switch single view or film view
  */
 public class PraparatViewControlPanel extends JPanel implements ItemListener{
 

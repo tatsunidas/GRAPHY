@@ -52,8 +52,8 @@ public class SlideGlassGrid extends JScrollPane{
 
 	private static final long serialVersionUID = 1002582639306789967L;
 	private final HashMap<Integer, SlideGlass> slides;
-	private int rows;
-	private int cols;
+	private int rows = -1;
+	private int cols = -1;
 	private final int numOfImage;
 	private final int defaultCol = 5;
 	private final int defaultPanelSize = 200;
@@ -64,9 +64,13 @@ public class SlideGlassGrid extends JScrollPane{
 	
 	int prevParentW = 0;
 	
-	public SlideGlassGrid(Praparat pp, boolean useGridLayout) {
+	public SlideGlassGrid(Praparat pp, int cols, boolean useGridLayout) {
 		this.slides = pp.getAllSlides();
-		cols = defaultCol;
+		if(cols < 0) {
+			Log.logger.info("Cols must be larger than 0. it to be set default cols(5).");
+			cols = defaultCol;
+		}
+		this.cols = cols;
 		rows = calcRows(cols);
 		numOfImage = slides.size();
 		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
