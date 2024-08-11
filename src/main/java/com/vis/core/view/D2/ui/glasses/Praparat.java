@@ -139,7 +139,7 @@ public class Praparat extends JPanel {
 	private Color studyColor = Color.CYAN;
 	
 	private final int BORDER_SIZE = SlideGlass.BORDER_SIZE;//keeps with same of slideglass border size.
-	public static final int ThumbnailSize = 64;
+	public static final int ThumbnailSize = 80;
 	private int currentSlice = 0;
 	private int prevSlice = -1;
 
@@ -822,7 +822,6 @@ public class Praparat extends JPanel {
 			setFocusable(true);
 			setRequestFocusEnabled(true);
 			pvcp.getFilmGridBtn().setEnabled(false);
-			pvcp.enableProcessSeries(false);
 		}
 		
 		if(mode == ViewMode.FilmGrid){

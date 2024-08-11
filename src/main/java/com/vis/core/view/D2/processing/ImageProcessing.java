@@ -16,20 +16,11 @@ public class ImageProcessing {
 		imp.updateImage();
 	}
 	
-	/*
-	 * pannning is not image processing task,
-	 * which is done by display task.
-	 */
-	@Deprecated
-	public void pann(int x, int y) {
-		
-	}
-	
 	public void windowing(ImagePlus imp, double currentMin, double currentMax) {
 		if(imp.getType() == ImagePlus.COLOR_RGB) {
 			//fail safe
 			if(imp.getProcessor().getSnapshotPixels() == null) {
-				imp.getProcessor().snapshot();//see also SlideGlass::loadImageThatFittedPrap()
+				imp.getProcessor().snapshot();
 			}
 			imp.getProcessor().reset();
 		}

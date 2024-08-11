@@ -118,7 +118,7 @@ public class ImageSpecimenGlass extends JPanel{
 		return imp;
 	}
 	
-	private ImagePlus getCurrentStateImageFreshCopy() {
+	ImagePlus getCurrentStateImageFreshCopy() {
 		ImagePlus dup = createInitialDisplayImage();
 		if (sg.isFlipped()) {
 			dup.getProcessor().flipHorizontal();

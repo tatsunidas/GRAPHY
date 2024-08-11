@@ -37,6 +37,7 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
+import java.awt.Cursor;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
@@ -101,7 +102,9 @@ public class SlideGlassKeyListener implements KeyListener{
 			if (shift && ctrl) {
 				if (pressedKeys.contains(KeyEvent.VK_R)) {
 					if(Utils.isDebug) System.out.println("reset pressed.");
+					sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 					pp.resetView();
+					sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 				}
 			}
 

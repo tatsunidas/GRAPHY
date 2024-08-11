@@ -59,6 +59,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 
@@ -115,10 +116,11 @@ public class SlideGlass extends JLayeredPane {
 	//Border
 	Color focusColor = Color.WHITE;
 	Color selectionColor = Color.MAGENTA;
-	Color clearColor = new Color(0,0,0,255);
+	final Color clearColor = new Color(0,0,0,255);
 	static final int BORDER_SIZE = 4;
 	Border focusBorder = BorderFactory.createLineBorder(focusColor, BORDER_SIZE);
 	Border selectionBorder = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE);
+	Border clearBorder = BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
 
 	// flags
 	//private boolean focusFlag = false;
@@ -235,7 +237,7 @@ public class SlideGlass extends JLayeredPane {
 		changeWindowing((int) currentLevel, (int) currentWindow);
 	}
 
-	void adjustWindowFromMouseAction(int locX, int locY) {
+	void adjustContrastFromMouseAction(int locX, int locY) {
 		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
 				- getCurrentDisplayImagePlus().getDisplayRangeMin();
 		int xDiff = locX - this.lastX;
@@ -337,40 +339,35 @@ public class SlideGlass extends JLayeredPane {
 		return currentbufferedimage;
 	}
 
-	private Border constructBorder() {
-		if(pp.getViewMode()==ViewMode.SingleGrid) {
-			if(!isSelected() && isFocusGained()) {
-				return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-			}else if(isSelected() && !isFocusGained()) {
+	private Border constructBorder(boolean mouseEntered) {
+		
+		if(pp.isShowGridViewOn() || pp.getViewMode()==ViewMode.FilmGrid)  {
+			if(!isSelected() && mouseEntered) {
+				return focusBorder;
+			}else if(isSelected() && !mouseEntered) {
 				return selectionBorder;
-			}else if(isSelected() && isFocusGained()) {
-				return selectionBorder;
+			}else if(isSelected() && mouseEntered) {
+				Border focus = BorderFactory.createLineBorder(focusColor, BORDER_SIZE/2);
+				Border select = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE/2);
+				return new CompoundBorder(focus, select);
 			}else {
 				return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
 			}
 		}
-		if(pp.getViewMode()==ViewMode.Normal && !pp.isShowGridViewOn())  {
-			if(!isSelected() && isFocusGained()) {
-				return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-			}else if(isSelected() && !isFocusGained()) {
+		
+		if((pp.getViewMode()==ViewMode.SingleGrid || pp.getViewMode()==ViewMode.Normal || pp.getViewMode()==ViewMode.MPR) && !pp.isShowGridViewOn()) {
+			if(isSelected()) {
 				return selectionBorder;
-			}else if(isSelected() && isFocusGained()) {
-				return selectionBorder;
-			}else {
-				return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
+			}else{
+				return clearBorder;
 			}
 		}
-		if(!isSelected() && isFocusGained()) {
-			return focusBorder;
-		}else if(isSelected() && !isFocusGained()) {
-			return selectionBorder;
-		}else if(isSelected() && isFocusGained()) {
-			Border focus = BorderFactory.createLineBorder(focusColor, BORDER_SIZE/2);
-			Border select = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE/2);
-			return new CompoundBorder(focus, select);
-		}else {
-			return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
+		
+		if(pp.getViewMode()==ViewMode.Thumbnail) {
+			return clearBorder;
 		}
+		
+		return clearBorder;
 	}
 
 	public ImagePlus convertToImagePlus() {
@@ -974,16 +971,16 @@ public class SlideGlass extends JLayeredPane {
 		this.roiset = new ArrayList<RoiObj>();
 		this.dcmImg = dcmImg;
 		this.header = dcmImg.getCore();
-		setBorder(BorderFactory.createLineBorder(clearColor, BORDER_SIZE));
+		setBorder(clearBorder);
 		setOpaque(false);
 		setUpGlassLayer(header);
 		initImageInfo(header);// execute before Glasses
 		loadRoiFromDB();
 		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		SlideGlassMouseListener sgml = new SlideGlassMouseListener(this);
-		addMouseListener(sgml);
-		addMouseMotionListener(sgml);
-		addMouseWheelListener(sgml);
+		coverGlass.addMouseListener(sgml);
+		coverGlass.addMouseMotionListener(sgml);
+		coverGlass.addMouseWheelListener(sgml);
 		coverGlass.addKeyListener(new SlideGlassKeyListener(this));
 	}
 
@@ -1192,6 +1189,32 @@ public class SlideGlass extends JLayeredPane {
 
 	/**
 	 * Whether have keybord event focus.
+	 * 
+	 * Not all code executes synchronously. Some code get added to the end of the
+	 * Event Dispatch Thread (EDT). It appears that this is the case for focus
+	 * requests. So when the if statements are executed, focus has not yet been
+	 * placed on the component.
+	 * 
+	 * The solution is to wrap your code with a SwingUtilties.invokeLater() so the
+	 * code gets added to the end of the EDT, so it can execute after the component
+	 * has received focus:
+	 * 
+	 * coverGlass.requestFocusInWindow();
+	 * 
+	 * SwingUtilities.invokeLater(new Runnable(){ 
+	 * 		public void run() {
+	 * 		// First - Always returns false if(frame.getFocusOwner() instanceof JButton)
+	 * { JButton focusedButton = (JButton) frame.getFocusOwner();
+	 * focusedButton.doClick(); System.out.println("In focus?"); } else {
+	 * System.out.println("Apparently not"); }
+	 * 
+	 * // Second - Also always returns false if(b2.isFocusOwner()) {
+	 * System.out.println("In focus..."); } else { System.out.println("Not in
+	 * focus"); } } });
+	 * 
+	 * Use state of mouseEntered instead.
+	 * 
+	 * @deprecated
 	 * @return
 	 */
 	public boolean isFocusGained() {
@@ -1560,7 +1583,6 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	void rotate(int changeAngle) {
-
 		double willRotateAngle = getRotateAngle() + changeAngle;
 		if (willRotateAngle >= 360) {
 			willRotateAngle = willRotateAngle - 360;
@@ -1568,6 +1590,9 @@ public class SlideGlass extends JLayeredPane {
 			willRotateAngle = willRotateAngle + 360;
 		}
 		setRotateAngle((int) willRotateAngle);
+		ImagePlus dup = imageSpecimen.getCurrentStateImageFreshCopy();
+		imgProcess.rotate(dup, willRotateAngle);
+		imageSpecimen.setDisplayImage(dup);
 		repaint();
 	}
 	
@@ -1615,14 +1640,16 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.setDisplayImage(dispImg);
 	}
 	
-	public void setFocusGained(boolean focusGained) {
-		if(focusGained) {
-			coverGlass.requestFocus();//enable key event
+	public void setFocusGained(boolean mouseEntered) {
+		if(mouseEntered) {
+			coverGlass.requestFocusInWindow();//enable key event
+		}else {
+			coverGlass.requestFocus(false);
 		}
 		if(pp.isShowGridViewOn()) {
 			pp.setImagePositionTo(this);
 		}
-		showBorder();
+		showBorder(mouseEntered);
 	}
 	
 	/**
@@ -1746,7 +1773,7 @@ public class SlideGlass extends JLayeredPane {
 	// list selection action
 	public void setSelectionState(boolean select) {
 		this.selectedFlag = select;
-		showBorder();
+		showBorder(true /*mouseEntered*/);
 		repaint();
 	}
 
@@ -1787,10 +1814,9 @@ public class SlideGlass extends JLayeredPane {
 		this.windowing = windowing;
 	}
 	
-	public void showBorder() {
-		Border b = constructBorder();
+	public void showBorder(boolean mouseEntered) {
+		Border b = constructBorder(mouseEntered);
 		setBorder(b);
-		repaint();
 	}
 	
 	public boolean isTextOvelayVisible() {

@@ -52,7 +52,9 @@ import java.util.logging.Logger;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
@@ -207,12 +209,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
 				// WW/WL left button
 				if (!pp.isProcessSeries()) {
-					slide.adjustWindowFromMouseAction(x, y);
+					slide.adjustContrastFromMouseAction(x, y);
 				} else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
-						sg.adjustWindowFromMouseAction(x, y);
+						sg.adjustContrastFromMouseAction(x, y);
 					}
 				}
 			}
@@ -295,8 +297,21 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
-		// TODO Auto-generated method stub
+		// handle select event
+		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
+			pp.setSelectionState();
+		}
 
+		// handle double click event.
+		if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && !e.isConsumed()) {
+			e.consume();
+			if (pp.getViewMode() == ViewMode.Thumbnail) {
+				MainScreen ms = WindowManager.getMainScreen();
+				if (ms != null) {
+					ms.showImagesOnBirdsEye(pp);
+				}
+			}
+		}
 	}
 
 	@Override

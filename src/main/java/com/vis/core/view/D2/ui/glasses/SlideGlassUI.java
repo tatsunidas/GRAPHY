@@ -394,12 +394,12 @@ public class SlideGlassUI extends LayerUI<JLayeredPane>{
 				if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
 					// WW/WL left button
 					if (!pp.isProcessSeries()) {
-						slide.adjustWindowFromMouseAction(x, y);
+						slide.adjustContrastFromMouseAction(x, y);
 					} else {
 						HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 						for (Integer key : slides.keySet()) {
 							SlideGlass sg = slides.get(key);
-							sg.adjustWindowFromMouseAction(x, y);
+							sg.adjustContrastFromMouseAction(x, y);
 						}
 					}
 				}
