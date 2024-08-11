@@ -43,11 +43,8 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Insets;
-import java.awt.Point;
+import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.geom.Point2D;
@@ -59,15 +56,14 @@ import java.util.Set;
 import java.util.logging.*;
 
 import javax.swing.BorderFactory;
-import javax.swing.JLayer;
-import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
@@ -87,7 +83,6 @@ import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
 import com.vis.dicom.VR;
-//import com.vis.mediareader.PDFReader;
 import com.vis.dicom.image.DicomImage;
 import com.vis.imageio.Codec;
 import com.vis.imageio.Decompressor;
@@ -154,10 +149,8 @@ public class Praparat extends JPanel {
 	private boolean selected = false;
 	private boolean focusGained = false;
 	private boolean showGridViewOn = false;//filemGridView
-	
-	private boolean processSeries = true;
-	//mpr
-	private boolean crossLineCursorMode = false;
+		
+	private boolean crossLineCursorMode = false;//mpr
 
 	private ReferenceLine refLine;
 
@@ -274,7 +267,7 @@ public class Praparat extends JPanel {
 		if(slides == null || slides.size() == 0) {
 			return;
 		}
-		if(!processSeries) {
+		if(!pvcp.processSeries()) {
 			SlideGlass target = slides.get(currentSlice);
 			target.setSize(w, h);
 			target.repaint();
@@ -292,7 +285,6 @@ public class Praparat extends JPanel {
 					sl.lastOriginY = target.imageSpecimen.getDisplayOriginY();
 					sl.imageSpecimen.originX = target.imageSpecimen.originX;
 					sl.imageSpecimen.originY = target.imageSpecimen.originY;
-//					logger.fine("default origin adjusted !!! :"+sg_.originX+" "+sg_.originY);
 					sl.repaint();
 				}
 			}
@@ -767,6 +759,15 @@ public class Praparat extends JPanel {
 		return this.mode;
 	}
 	
+	public int getViewer2DToolType() {
+		Window win = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.name());
+		if(win != null) {
+			Viewer2DScreen viewer2d = (Viewer2DScreen)win;
+			return viewer2d.getCurrentToolType();
+		}
+		return -1;//means "None"
+	}
+	
 	public void gridViewOn(boolean show) {
 		if(this.mode == ViewMode.FilmGrid) {
 			this.showGridViewOn = true;
@@ -1162,6 +1163,18 @@ public class Praparat extends JPanel {
 		}
 		
 	}
+	
+	public void resetWindow() {
+		if(pvcp.processSeries()) {
+			for(int i : slides.keySet()) {
+				SlideGlass sg = slides.get(i);
+				sg.autoWindowing();
+			}
+		}else {
+			SlideGlass sg = getCurrentSlide();
+			sg.autoWindowing();
+		}
+	}
 
 	public void setAndShowPixelValue(int X, int Y) {
 		SlideGlass currentSlide = getCurrentSlide();
@@ -1199,7 +1212,7 @@ public class Praparat extends JPanel {
 				s.setAnnotationVisible(v);
 			}
 		} else {
-			if(processSeries) {
+			if(pvcp.processSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
 					s.setAnnotationVisible(v);
@@ -1305,19 +1318,7 @@ public class Praparat extends JPanel {
 	public void setPreviousSlice() {
 		setImagePositionUsingSlider(currentSlice-1);
 	}
-	
-	/*
-	 * ??
-	 */
-	public void setProcessSeries(boolean v) {
-		if (showGridViewOn) {
-			//same-as
-			this.processSeries = v;
-		} else {
-			this.processSeries = v;
-		}
-	}
-	
+		
 	public void setReferenceLine(ReferenceLine refLine) {
 		this.refLine = refLine;
 	}

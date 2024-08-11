@@ -227,7 +227,9 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 			pp.setTextVisible(isShowInfo());
 		}else if(name.equals("series")) {
 			if(Utils.isDebug) System.out.println("process series changed "+processSeries());
-			pp.setProcessSeries(processSeries());
+			if(processSeries()) {
+				pp.resetWindow();
+			}
 		}
 	}
 }

@@ -153,8 +153,8 @@ public class SlideGlass extends JLayeredPane {
 	public int lastY = -1;// last clicked mouse position Y on slideglass
 	public int lastDraggedX = 0;
 	public int lastDraggedY = 0;
-	public int mouseX = 0;// current mouse loc on slideglass
-	public int mouseY = 0;// current mouse loc on slideglass
+	public int mouseX = 0;// current mouse loc on slideglass (same as viewPanel coordinates)
+	public int mouseY = 0;// current mouse loc on slideglass (same as viewPanel coordinates)
 	
 	public int lastOriginX = 0;// for pann&zoom
 	public int lastOriginY = 0;// for pann&zoom
@@ -232,7 +232,7 @@ public class SlideGlass extends JLayeredPane {
 		// current settings
 		double currentWindow = currentMax - currentMin;
 		double currentLevel = currentMin + (.5 * currentWindow);
-		changeWindow((int) currentLevel, (int) currentWindow);
+		changeWindowing((int) currentLevel, (int) currentWindow);
 	}
 
 	void adjustWindowFromMouseAction(int locX, int locY) {
@@ -276,13 +276,13 @@ public class SlideGlass extends JLayeredPane {
 		// change
 		double newWindow = currentWindow + xDifference;
 		double newLevel = currentLevel + yDifference;
-		changeWindow((int) newLevel, (int) newWindow);
+		changeWindowing((int) newLevel, (int) newWindow);
 	}
 
 	/**
 	 * see also ImageUtils.autoContrast()
 	 */
-	public void autoWindow() {
+	public void autoWindowing() {
 		if(getOriginalImage() == null || getCurrentDisplayImagePlus() == null) {
 			return;
 		}
@@ -295,10 +295,7 @@ public class SlideGlass extends JLayeredPane {
 		imgProcess.windowing(imageSpecimen.getDisplayImage(), this.currentMin, this.currentMax);
 	}
 
-
-	
-
-	public void changeWindow(int WL, int WW) {
+	public void changeWindowing(int WL, int WW) {
 		double newMin = WL - (.5 * WW);
 		double newMax = WL + (.5 * WW);
 		if (newMin > newMax) {
@@ -311,6 +308,17 @@ public class SlideGlass extends JLayeredPane {
 		if(Utils.isDebug)logger.info("change ww/wl : newMin "+newMin+" newMax "+newMax);
 		imgProcess.windowing(imageSpecimen.getDisplayImage(), newMin, newMax);
 		repaint();
+	}
+	
+	public void resetWindowing() {
+		// adjust WW/WL
+		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
+		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);
+		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+			autoWindowing();
+		} else {
+			changeWindowing(WL, WW);
+		}
 	}
 
 	/**
@@ -914,11 +922,7 @@ public class SlideGlass extends JLayeredPane {
 	public String getUID(int tag) {
 		return header != null ? header.getString(tag):null;
 	}
-
-	public int getViewer2DToolTypeInSlideGlassUI() {
-		return LayerUISupport.getViewer2DToolType();
-	}
-
+	
 	public boolean handleRoiMouseDragged(MouseEvent me) {
 		if(pp.isShowCrossLineMode()) {
 			drawCross(me);
@@ -1071,13 +1075,7 @@ public class SlideGlass extends JLayeredPane {
 			originalCal.getCTable();//to make cTable.
 		}
 		// adjust WW/WL
-		int WL = dataset.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-		int WW = dataset.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
-		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
-			autoWindow();
-		} else {
-			changeWindow(WL, WW);
-		}
+		resetWindowing();
 		setOriginalCalibration(originalCal.copy());
 	}
 

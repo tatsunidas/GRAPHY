@@ -104,7 +104,7 @@ public class TestPraparat {
 	}
 	
 	static void show() {
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		Praparat pp = new Praparat(ViewMode.Normal);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
@@ -116,7 +116,7 @@ public class TestPraparat {
 	}
 	
 	static void showGrid() {
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		Praparat pp = new Praparat(ViewMode.FilmGrid);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
@@ -128,7 +128,7 @@ public class TestPraparat {
 	}
 	
 	static void showThumbnail() {
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 		Praparat pp = new Praparat(ViewMode.Thumbnail);
 		pp.prepareSlideGlassesUsingImagePlus(imp);
 		pp.setTextVisible(false);
@@ -153,7 +153,7 @@ public class TestPraparat {
 		//suidobashi test
 //		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");//Signed
 //		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/CT_LEE_IR87a.dcm");//Signed
-		paths.add("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MG_CC_L_LEE_IR87a.dcm");//Unsigned
+		paths.add("/home/tatsunidas/graphy_test_images/dicom_samples/JIRA_DICOM/MG_CC_L_LEE_IR87a.dcm");//Unsigned
 		
 //		File[] lists = new File("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151").listFiles();
 //		for(int i=0; i<lists.length; i++) {

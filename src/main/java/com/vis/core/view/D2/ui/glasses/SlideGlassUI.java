@@ -34,7 +34,7 @@ import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
 @SuppressWarnings("serial")
-public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISupport{
+public class SlideGlassUI extends LayerUI<JLayeredPane>{
 	
 	private SlideGlass slide;
 	private Praparat pp;
@@ -359,7 +359,7 @@ public class SlideGlassUI extends LayerUI<JLayeredPane> implements LayerUISuppor
 				return;//attention
 			}
 			
-			viewerToolType = LayerUISupport.getViewer2DToolType();
+			viewerToolType = pp.getViewer2DToolType();
 			if(pp.getViewMode() == ViewMode.Thumbnail) {
 				viewerToolType = Viewer2DToolBar.Windowing;
 			}

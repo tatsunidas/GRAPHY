@@ -331,8 +331,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mousePressed(MouseEvent e) {
-//		int toolID = sg.getPraparat().getCurrentViewerToolType();
-		int toolID = sg.getViewer2DToolTypeInSlideGlassUI();
+		int toolID = pp.getViewer2DToolType();
 		int sx = e.getX();
 		int sy = e.getY();
 		sg.lastX = sx; 
@@ -407,8 +406,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
-//		int roiType = pp.getCurrentViewerToolType();
-		int roiType = sg.getViewer2DToolTypeInSlideGlassUI();
+		int roiType = pp.getCurrentViewerToolType();
 		if(referenceLineHereAt(sx,sy)!=null) {
 			ReferenceLine refLine = referenceLineHereAt(sx,sy);
 			int handle = refLine.isHandle(sx, sy, sg);
@@ -456,8 +454,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		/*
 		 * drag roi or popup
 		 */
-//		int roiType = pp.getCurrentViewerToolType();//from viewer2d
-		int roiType = sg.getViewer2DToolTypeInSlideGlassUI();
+		int roiType = pp.getCurrentViewerToolType();//from viewer2d
 		if(roiType == Viewer2DToolBar.Brush) {
 			if(brushTool != null) {
 				brushTool.createBrush(e);
