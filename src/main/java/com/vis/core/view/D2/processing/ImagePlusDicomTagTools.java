@@ -333,12 +333,15 @@ public class ImagePlusDicomTagTools extends DICOM{
 		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
 		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
 		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+			// do nothing
+		}else {
 			double newMin = WL - (.5 * WW);
 			double newMax = WL + (.5 * WW);
 			if (newMin > newMax) {
 				logger.log(Level.WARNING,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
+			}else {
+				imp.setDisplayRange(newMin, newMax);
 			}
-			imp.setDisplayRange(newMin, newMax);
 		}
 		imp.setCalibration(originalCal);
 	}

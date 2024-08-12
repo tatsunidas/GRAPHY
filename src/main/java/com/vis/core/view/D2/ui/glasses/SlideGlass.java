@@ -59,7 +59,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 
@@ -126,7 +125,6 @@ public class SlideGlass extends JLayeredPane {
 	//private boolean focusFlag = false;
 	private boolean selectedFlag = false;
 	public boolean panningFlag = false;
-	public boolean panningInAction = false; //
 	public boolean rotatedFlag = false, flipHorizontalFlag = false, flipVerticalFlag = false, zoomFlag = false;
 	private boolean invertFlag = false;
 	private boolean flipFlag = false;
@@ -148,18 +146,18 @@ public class SlideGlass extends JLayeredPane {
 	public int currentRotateAngle = 0;
 	public int lastRotateAngle = 0;
 	// zoom
-	private double magnification = 1.0d;// magnification ratio of showing slideglass size (not to original)
-	private double lastMagnification = 1.0d;
+	private double magnification = 1.0d;// zoom ratio 1 to N
+	
 	// mouse settings
-	public int lastX = -1;// last clicked mouse position X on slideglass
-	public int lastY = -1;// last clicked mouse position Y on slideglass
+	/*
+	 * Coordinates on SlideGlass(same as viewPanel coordinates). These are not the coordinate system of the
+	 * original image, but the coordinates on the SlideGlass fitted to the current
+	 * ViewPanel.
+	 */
 	public int lastDraggedX = 0;
 	public int lastDraggedY = 0;
-	public int mouseX = 0;// current mouse loc on slideglass (same as viewPanel coordinates)
-	public int mouseY = 0;// current mouse loc on slideglass (same as viewPanel coordinates)
-	
-	public int lastOriginX = 0;// for pann&zoom
-	public int lastOriginY = 0;// for pann&zoom
+	public int mouseX = 0;// current mouse loc on slideglass
+	public int mouseY = 0;// current mouse loc on slideglass
 	LUT currentLUT;//null-able, if null set grayscale
 
 	// for pixel scale (praparatview vs original)
@@ -240,8 +238,8 @@ public class SlideGlass extends JLayeredPane {
 	void adjustContrastFromMouseAction(int locX, int locY) {
 		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
 				- getCurrentDisplayImagePlus().getDisplayRangeMin();
-		int xDiff = locX - this.lastX;
-		int yDiff = locY - this.lastY;
+		int xDiff = locX - mouseX;
+		int yDiff = locY - mouseY;
 		int totalWidth = pp.getImageScreenSizeX();
 		int totalHeight = pp.getImageScreenSizeY();
 		double xRatio = ((double) xDiff) / ((double) totalWidth);
@@ -605,8 +603,8 @@ public class SlideGlass extends JLayeredPane {
 	 * mouse position on slide glass XY location
 	 */
 	public Point getCursorLoc() {
-		Point pointOnScreen = new Point(this.mouseX, this.mouseY);
-		return pointOnScreen;
+		Point pointOnViewPanel = new Point(mouseX, mouseY);
+		return pointOnViewPanel;
 	}
 
 	public DicomImage getDicomImage() {
@@ -1163,7 +1161,7 @@ public class SlideGlass extends JLayeredPane {
 		repaint();
 	}
 	
-	public boolean isChangedWLWW() {
+	public boolean isWLWWChanged() {
 		return windowing;
 	}
 
@@ -1250,27 +1248,7 @@ public class SlideGlass extends JLayeredPane {
 		return zoomFlag;
 	}
 
-
-//    private void zoom() {
-//    	//create reference image (component size).
-//    	ImagePlus rep = getReplicaFreshCopy(isFlipped(),false, rotatedFlag, windowing);//zoom,rotate,window
-//    	int refW = rep.getWidth();
-//    	int refH = rep.getHeight();
-//    	//zoom
-//    	double mag = getMagnification();
-//    	ImageProcessor zoomed = rep.getProcessor().resize((int)(refW*mag), (int)(refH*mag));
-//    	displayImp = new ImagePlus("", zoomed);//necessary, reset image
-//    	displayImp.setCalibration(originalCal);
-////    	replica.updateImage();
-////    	updateGlass();
-//    	repaint();
-//    }
-
 	public void loadRoiFromDB() {
-//		Viewer2DScreen viewer = Viewer2DScreen.getInstance();
-//		if (viewer == null){
-//			return;//maybe, never be null, but fail safe. for mpr view
-//		}
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db == null) {//if not starting from GRAPHY Launcher, return false.
 			return;//for mpr view
@@ -1450,54 +1428,42 @@ public class SlideGlass extends JLayeredPane {
 		//coverGlass.repaint();
 	}
 
-	/*
-	 * パンニングは単純に表示画像原点位置の移動。 Zoomやスケールは無視。
+	/**
+	 * Panning is simply a movement of the display image origin position. Zoom is ignored.
+	 * 
+	 * moveX : Amount to be moved on X axis
+	 * moveY : Amount to be moved on Y axis
 	 */
 	void panning(double moveX, double moveY) {
-		if (panningFlag && !panningInAction) {
-			// pann状態の場合、先に原点をスケールさせる
-			imageSpecimen.originX = (int) (lastOriginX * getScaleFactor()) - (int) moveX;
-			imageSpecimen.originY = (int) (lastOriginY * getScaleFactor()) - (int) moveY;
-			lastOriginX = imageSpecimen.originX;
-			lastOriginY = imageSpecimen.originY;
-		} else {
-			imageSpecimen.originX = this.lastOriginX - (int) moveX;
-			imageSpecimen.originY = this.lastOriginY - (int) moveY;
-		}
-		if(Utils.isDebug) logger.info("Panning : originX " + imageSpecimen.originX + " ," + " originY " + imageSpecimen.originY);
-		panningFlag = true;// fail safe
-		panningInAction = true;// 敢えてここでハンドリングする
+		panningFlag = true;
+		imageSpecimen.originX = imageSpecimen.originX - (int) moveX;
+		imageSpecimen.originY = imageSpecimen.originY - (int) moveY;
+		logger.fine("Panning : originX " + imageSpecimen.originX + " ," + " originY " + imageSpecimen.originY);
 		updatePanningState();
-		repaint();
 	}
 	
-	protected void releasePanning() {
-		/*
-		 * pann中はscalingOriginが基本。 pann中はスケールさせずに表示するが、あくまでもスケールしている見せかけの状態。
-		 * pann操作後、ずれを修正しておく。
-		 */
-//		System.out.println("Released Panning pre:"+originX+"  "+originY);
-		if (panningInAction) {
-			// https://stackoverflow.com/questions/2654839/rounding-a-double-to-turn-it-into-an-int-java
-			double reverseToNoScaleOriginX = imageSpecimen.originX / getScaleFactor();
-			double reverseToNoScaleOriginY = imageSpecimen.originY / getScaleFactor();
-			if (reverseToNoScaleOriginX >= 0) {
-				imageSpecimen.originX = (int) (reverseToNoScaleOriginX + 0.5);
-			} else {
-				imageSpecimen.originX = (int) (reverseToNoScaleOriginX - 0.5);
-			}
-			if (reverseToNoScaleOriginY >= 0) {
-				imageSpecimen.originY = (int) (reverseToNoScaleOriginY + 0.5);
-			} else {
-				imageSpecimen.originY = (int) (reverseToNoScaleOriginY - 0.5);
-			}
-			// update lastOrigin
-			lastOriginX = imageSpecimen.originX;
-			lastOriginY = imageSpecimen.originY;
-		}
-		this.panningInAction = false;
-		System.out.println("panning released, in action ? " + panningInAction);
-	}
+//	void releasePanning() {
+//		if (panningInAction) {
+//			// https://stackoverflow.com/questions/2654839/rounding-a-double-to-turn-it-into-an-int-java
+//			double reverseToNoScaleOriginX = imageSpecimen.originX / getScaleFactor();
+//			double reverseToNoScaleOriginY = imageSpecimen.originY / getScaleFactor();
+//			if (reverseToNoScaleOriginX >= 0) {
+//				imageSpecimen.originX = (int) (reverseToNoScaleOriginX + 0.5);
+//			} else {
+//				imageSpecimen.originX = (int) (reverseToNoScaleOriginX - 0.5);
+//			}
+//			if (reverseToNoScaleOriginY >= 0) {
+//				imageSpecimen.originY = (int) (reverseToNoScaleOriginY + 0.5);
+//			} else {
+//				imageSpecimen.originY = (int) (reverseToNoScaleOriginY - 0.5);
+//			}
+//			// update lastOrigin
+//			lastOriginX = imageSpecimen.originX;
+//			lastOriginY = imageSpecimen.originY;
+//		}
+//		this.panningInAction = false;
+//		System.out.println("panning released, in action ? " + panningInAction);
+//	}
 
 	public void removeRoiPopupDialogOnCanvas(RoiPopupDialog rpd) {
 		if (rpd != null && roiOverlay != null) {
@@ -1530,22 +1496,13 @@ public class SlideGlass extends JLayeredPane {
 
 	public void reset() {
 		imageSpecimen.resetDisplayImage();
-		// reset window range
-//		this.currentMin = this.replica.getDisplayRangeMin();
-//		this.currentMax = this.replica.getDisplayRangeMax();
-		// reset manification
 		setMagnification(1.0d);
-		// reset rotate angle
 		setRotateAngle(0);
-		// set image position for origin and resize
-//		Dimension d = calcImageSize4FitComponent(original.getWidth(), original.getHeight());//initReplica
-//		replica.getProcessor().resize(d.width, d.height);//initReplica
 		setFlipState(false);
 		zoomFlag = false;
 		windowing = false;
 		rotatedFlag = false;
 		panningFlag = false;
-		panningInAction = false;
 		initRoiSet();
 		repaint();
 	}
@@ -1594,6 +1551,7 @@ public class SlideGlass extends JLayeredPane {
 		imgProcess.rotate(dup, willRotateAngle);
 		imageSpecimen.setDisplayImage(dup);
 		repaint();
+		updatePrapInfoLabel(mouseX, mouseY);
 	}
 	
 	public void saveCurrentRoiSate() {
@@ -1681,9 +1639,8 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	public void setMagnification(double mag) {
-		this.lastMagnification = getMagnification();
 		this.magnification = mag;
-		if (mag == 0.0d) {
+		if (mag == 1.0d) {
 			zoomFlag = false;
 		} else {
 			zoomFlag = true;
@@ -1844,6 +1801,7 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			panningFlag = true;
 		}
+		repaint();
 	}
 
 	/*
@@ -1853,15 +1811,12 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null || pp.getViewMode()==ViewMode.Thumbnail) {
 			return;
 		}
-		// 画像の原点座標を取得する
+		// get image origin
 		Point currentOrigin = getDisplayImageLocationXY();
-		// 画像のディメンションを取得する
+		// get image dimension
 		Dimension currentDimension = getDisplayImageDimension();
-		// ディメンション内のとき、ピクセル値を出力する
+		// Output pixel values when in dimension
 		if (panningFlag) {
-			/*
-			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する see,ImageSpecimen.paintComponent()
-			 */
 			int scaledOriginX = (int) (currentOrigin.x * getScaleFactor());
 			int scaledOriginY = (int) (currentOrigin.y * getScaleFactor());
 			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDimension.width)) {
@@ -1874,9 +1829,6 @@ public class SlideGlass extends JLayeredPane {
 				}
 			}
 		} else {
-			/*
-			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
-			 */
 			if (currentOrigin.x <= slideX && slideX < (currentOrigin.x + currentDimension.width)) {
 				if (currentOrigin.y <= slideY && slideY < (currentOrigin.y + currentDimension.height)) {
 					int dispImageX = slideX - currentOrigin.x;
@@ -1887,6 +1839,7 @@ public class SlideGlass extends JLayeredPane {
 				}
 			}
 		}
+		pp.repaint();
 	}
 
 	/**
@@ -1921,16 +1874,15 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	/*
-	 * call when component resized.
+	 * called when component resized.
 	 */
 	public void updateScale() {
-		// DO NOT USE displayImp directly.
 		if (pp == null) {
 			return;
 		}
 		/*
-		 * if component show yet, this will return 0.
-		 * To avoid this situation, setSize(w,h) before do this.
+		 * if component not visible, this will return 0.
+		 * To avoid this situation, should do setSize(w,h) before do it.
 		 */
 		if (getWidth() < 1 || getHeight() < 1) {
 			return;
@@ -1949,22 +1901,33 @@ public class SlideGlass extends JLayeredPane {
 	 * 
 	 * @param magnification : zoom scale(0.2<, <7.0)
 	 */
-	void zoom(double mag) {
+	void zoom(double mag, boolean zoomUp) {
 		// set magnification min max
-		if (mag < 0.2) {
-			mag = 0.2;
-		} else if (mag > 7.0) {
-			mag = 7.0;
+		if (mag < 0.1) {
+			mag = 0.1;
+			logger.info("Zoom: magnification is too small, keep 0.1.");
+		} else if (mag > 30) {
+			mag = 30.0;
+			logger.info("Zoom: magnification is too large, not up to 30.");
 		}
-		// save last mag
 		setMagnification(mag);
-//    	System.out.println("Prev mag:"+lastMagnification+" "+"New mag:"+ mag);
+		//update origin
+		if (zoomUp) {
+			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag - .1)) + mouseX);
+			imageSpecimen.originY = (int) ((imageSpecimen.originY - mouseY) * (mag / (mag - .1)) + mouseY);
+		} else {
+			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag + .1)) + mouseX);
+			imageSpecimen.originY = (int) ((imageSpecimen.originY - mouseY) * (mag / (mag + .1)) + mouseY);
+		}
+		
+		imageSpecimen.updateDisplayImageWithCurrentCondition();
 		repaint();
 
-		// TODO
-//    	if(mag != 1.0 && !panningFlag) {
-//    		panningFlag = true;//because, image origin shifted by focuse zoom.
-//    	}
+    	if(mag != 1.0 && !panningFlag) {
+    		panningFlag = true;//because, image origin shifted by focuse zoom.
+    	}
+    	
+    	updatePrapInfoLabel(mouseX, mouseY);
 
 		// adjust image origin, keep last pressed point(on screen) to center
 //    	スクリーン中心

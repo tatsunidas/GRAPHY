@@ -46,7 +46,6 @@ import java.awt.Point;
 
 import javax.swing.JPanel;
 
-import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
@@ -100,7 +99,9 @@ public class ImageSpecimenGlass extends JPanel{
 	 * @return
 	 */
 	private ImagePlus createInitialDisplayImage() {
-//		ImagePlus imp = getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
+		/*
+		 * getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
+		 */
 		ImagePlus imp = getOriginalImage().createImagePlus();
 		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
 		ip.setInterpolationMethod(sg.INTERPOLATION_METHOD);
@@ -110,10 +111,6 @@ public class ImageSpecimenGlass extends JPanel{
 		imp.setProcessor(ip);
 		imp.setTitle("replica");
 		// resize to comp size
-		Dimension d = calcImageSize2FitComponent();
-		if (d != null) {
-			
-		}
 		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
 		return imp;
 	}
@@ -154,7 +151,6 @@ public class ImageSpecimenGlass extends JPanel{
 		this.displayImg = getCurrentStateImageFreshCopy();
 		if (!sg.panningFlag) {
 			resetImageOrigin(displayImg.getWidth(), displayImg.getHeight());
-//			calcDefaultImageOriginAndReset(displayImg.getWidth(), displayImg.getHeight(), getWidth(), getHeight());
 		}
 	}
 	
@@ -187,9 +183,6 @@ public class ImageSpecimenGlass extends JPanel{
 	 * @return
 	 */
 	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
-//		if (compWidth <= newImgW && compHeight <= newImgH) {
-//			return new Point(0, 0);
-//		}
 		Insets insets = sg.getInsets();
        int x = (getWidth() - insets.left - insets.right - newImgW) / 2 + insets.left;
        int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 + insets.top;
@@ -204,10 +197,6 @@ public class ImageSpecimenGlass extends JPanel{
 		/*
 		 * The size of the border is calculated using Insets.
 		 */
-		if(sg.getPraparat().getViewMode() == ViewMode.Thumbnail) {
-			System.out.println();
-		}
-		
 		Insets insets = sg.getInsets();
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
@@ -233,12 +222,9 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		// then check if we need to scale even with the new height
 		if (new_height > bound_height) {
-			// scale height to fit instead
 			new_height = bound_height;
-			// scale width to maintain aspect ratio
 			new_width = (new_height * original_width) / original_height;
 		}
-//		System.out.println("Fit slide to prap : new dim = "+new_width+" "+new_height);
 		return new Dimension(new_width, new_height);
 	}
 	
@@ -274,94 +260,6 @@ public class ImageSpecimenGlass extends JPanel{
 		return sopUID;
 	}
 	
-//	/**
-//	 * Calibrate original image
-//	 * 
-//	 * @param dataset
-//	 */
-//	private void initImageInfo(DicomObject dataset) {
-//		Calibration originalCal = orgImg.getCalibration();
-//		/*
-//		 * TODO load lut from dicom tag ?
-//		 */
-//		sg.setLUT(orgImg.getProcessor().getLut());
-//		sg.isRGB = orgImg.getType() == ImagePlus.COLOR_RGB;// choice suitable one.
-//		if (sg.isRGB()) {
-//			orgImg.getProcessor().snapshot();
-//		}
-//
-//		/*
-//		 * Spatial calibrations
-//		 */
-//		// x-y-z
-//		double pixelSpacingX = 1.0;
-//		double pixelSpacingY = 1.0;
-//		double pixelSpacingZ = 1.0;
-//		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
-//		double[] pixelSpacing = dataset.getDoubles(com.vis.dicom.Tag.Pixel​Spacing);
-//		double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
-//		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-//			pixelSpacingX = pixelSpacing[1];// column
-//			pixelSpacingY = pixelSpacing[0];// row
-//			if (spacingBetweenSlices != -1) {
-//				pixelSpacingZ = spacingBetweenSlices;
-//			} else {
-//				double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
-//				if (sliceThickness != -1) {
-//					pixelSpacingZ = sliceThickness;
-//				}
-//			}
-//			/*
-//			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-//			 * definition.
-//			 */
-//			originalCal.setUnit("mm");//
-//		}
-//		// then, set to cal
-//		originalCal.pixelWidth = pixelSpacingX;
-//		originalCal.pixelHeight = pixelSpacingY;
-//		originalCal.pixelDepth = pixelSpacingZ;
-//
-//		/*
-//		 * density calibration
-//		 */
-//		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
-//		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
-//		Boolean signed = (dataset.getInt(Tag.Pixel​Representation, -1) == 1);
-//		String modality = sg.getModality();
-//		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
-//			if (!intercept.isNaN() && !slope.isNaN()) {
-//				// y = a + bx
-//				double[] coeff = new double[2];// [a,b]
-//				coeff[0] = intercept - 32768;
-//				coeff[1] = slope;
-//				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//				// add another modalities unit...
-//			} else {
-//				originalCal.setSigned16BitCalibration();
-//			}
-//			originalCal.getCTable();// to make cTable.
-//			if (modality != null && modality.equals("CT")) {
-//				originalCal.setValueUnit("HU");
-//			}
-//		} else if (intercept != 0.0 && slope == 1.0) {
-//			double[] coeff = new double[2];
-//			coeff[0] = intercept;
-//			coeff[1] = slope;
-//			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//			originalCal.getCTable();// to make cTable.
-//		}
-//		// adjust WW/WL
-//		int WL = dataset.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-//		int WW = dataset.getInt(Tag.Window​Width, Integer.MIN_VALUE);
-//		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
-//			sg.autoWindow();
-//		} else {
-//			sg.changeWindow(WL, WW);
-//		}
-//		sg.setOriginalCalibration(originalCal.copy());
-//	}
-	
 	public void transparent(boolean on) {
 		this.transparent = on;
 	}
@@ -386,45 +284,26 @@ public class ImageSpecimenGlass extends JPanel{
 		this.alpha = alpha;
 	}
 	
-	/*
-	 * without component(prapview) scale
+	/**
+	 * update origin with display coordinates system.
 	 */
-	public void updateImage(int originX, int originY) {
-		updateImage(originX, originY, null);
+	public void updateOrigin(int originX, int originY) {
+		this.originX = originX;
+		this.originY = originY;
 	}
 	
-	/*
-	 * with component(prapview) scale
+	/**
+	 * For handle ROI.
+	 * If origin is an original coordinate system basis,
+	 * this method will convert it to display coordinates.
 	 */
-	public void updateImage(int originX, int originY, Double scale) {
-		if(scale == null) {
-			this.originX = originX;
-			this.originY = originY;
-		}else {
-			this.originX = (int)((double)originX * scale);
-			this.originY = (int)((double)originY * scale);
-		}
+	public void updateOrigin(int originalScaleOriginX, int originalScaleOriginY, double scale) {
+		this.originX = (int)((double)originalScaleOriginX * scale);
+		this.originY = (int)((double)originalScaleOriginY * scale);
 	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
-		if (sg.panningFlag) {
-			/*
-			 * pannされている場合は、pann済みのオリジンにスケールをかけて表示位置を補正する
-			 */
-			if (!sg.panningInAction) {
-				updateImage(originX, originY);
-			} else {
-				updateImage(originX, originY, sg.getScaleFactor());
-			}
-		} else if (!sg.panningFlag && !sg.panningInAction) {
-			/*
-			 * pannされていない場合は、コンポーネントサイズにリサイズされた画像を表示する
-			 */
-			updateImage(originX, originY);
-		}else {
-			updateImage(originX, originY);
-		}
 	    Graphics2D g2d = (Graphics2D) g.create();
 	    if(transparent) {
 	    	g2d.setComposite(AlphaComposite.getInstance(

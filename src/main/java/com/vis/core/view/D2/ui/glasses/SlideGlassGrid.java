@@ -210,9 +210,14 @@ public class SlideGlassGrid extends JScrollPane{
 		super.paintComponent(g);
 		int panelWidth = getParent().getWidth();
 		int panelHeight = getParent().getHeight();
+		if(prevParentW == panelWidth) {
+			view.repaint();
+			return;
+		}
 		// set bounds of slideglassgrid to same as pp.viewPanel.
 		setBounds(0, 0, panelWidth, panelHeight);
 		update(panelWidth);
 		view.repaint();
+		prevParentW = panelWidth;
 	}
 }

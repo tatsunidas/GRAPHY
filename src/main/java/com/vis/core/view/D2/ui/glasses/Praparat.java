@@ -65,6 +65,7 @@ import javax.swing.border.CompoundBorder;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.BirdsEyeView;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.ReferenceLine;
@@ -100,7 +101,6 @@ import com.vis.imageio.PDFReader;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
-import ij.plugin.Duplicator;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
@@ -139,7 +139,7 @@ public class Praparat extends JPanel {
 	private Color studyColor = Color.CYAN;
 	
 	private final int BORDER_SIZE = SlideGlass.BORDER_SIZE;//keeps with same of slideglass border size.
-	public static final int ThumbnailSize = 80;
+	public static final int ThumbnailSize = BirdsEyeView.thumbnailSize;
 	private int currentSlice = 0;
 	private int prevSlice = -1;
 
@@ -281,8 +281,8 @@ public class Praparat extends JPanel {
 				if(sl == target) continue;
 				sl.setSize(w,h);
 				if (target != null && !target.panningFlag && !sl.panningFlag) {
-					sl.lastOriginX = target.imageSpecimen.getDisplayOriginX();
-					sl.lastOriginY = target.imageSpecimen.getDisplayOriginY();
+//					sl.lastImageOriginX = target.imageSpecimen.getDisplayOriginX();
+//					sl.lastImageOriginY = target.imageSpecimen.getDisplayOriginY();
 					sl.imageSpecimen.originX = target.imageSpecimen.originX;
 					sl.imageSpecimen.originY = target.imageSpecimen.originY;
 					sl.repaint();
@@ -578,11 +578,6 @@ public class Praparat extends JPanel {
 
 	public void doSingleGridLayout() {
 		gridViewOn(false);
-//		if(this.mode == ViewMode.Thumbnail) {
-//			adjustSlideGlassSize(ThumbnailSize, ThumbnailSize);
-//		}else {
-//			adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
-//		}
 		adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
 		setImagePositionUsingSlider(currentSlice);
 	}
@@ -633,25 +628,24 @@ public class Praparat extends JPanel {
 	 * @return imageplus
 	 */
 	public ImagePlus getImagePlus() {
-		if(slides == null || slides.size() < 1) {
+		if (slides == null || slides.size() < 1) {
 			return null;
 		}
-		ImagePlus ref_imp = slides.get(0).convertToImagePlus();
-		Calibration cal = ref_imp.getCalibration().copy();
 		int size = getNumberOfImages();
-		ImageStack stack = new ImageStack(ref_imp.getWidth(), ref_imp.getHeight(), size);
-		HashMap<Integer,SlideGlass> all_slides = getAllSlides();
-		for(int i=0; i<size; i++) {
-			ImagePlus imp = all_slides.get(i).convertToImagePlus();
-			ImagePlus imp2 = new Duplicator().run(imp);
-			String header = imp.getInfoProperty();//imp.getStack().getSliceLabel(1);
-//			imp2.setProperty("Info", header);
-			ImageProcessor ip = imp2.getProcessor();
-			if(ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
-				ip.snapshot();//keep original pixels
+		ImageStack stack = new ImageStack(getCurrentSlide().getOriginalImage().getWidth(),
+				getCurrentSlide().getOriginalImage().getHeight(), size);
+		Calibration cal = getCurrentSlide().getOriginalImage().getCalibration().copy();
+		for (int arrayOrder : slides.keySet()) {
+			SlideGlass sg = slides.get(arrayOrder);
+			ImagePlus imp = sg.convertToImagePlus();//to get SOP Class UID
+			ImageProcessor ip = imp.getProcessor();
+			if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
+				ip.snapshot();// keep original pixels
 			}
-			stack.setProcessor(ip, i+1);//1<=N<=slices
-			stack.setSliceLabel(header, i+1);
+			String header = imp.getInfoProperty();// imp.getStack().getSliceLabel(1);
+//			imp.setProperty("Info", header);//use setSliceLabel instead.
+			stack.setSliceLabel(header, arrayOrder + 1);// 1<=N<=slices
+			stack.setProcessor(ip, arrayOrder + 1);// 1<=N<=slices
 		}
 		ImagePlus stacked = new ImagePlus("stack-series", stack);
 		stacked.setCalibration(cal);
@@ -950,9 +944,6 @@ public class Praparat extends JPanel {
 		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
-		if(slider != null) {
-			slider.initContext();
-		}
 		prevSlice = -1;// IMPORTANT
 		currentSlice = 0;
 		if(slider != null) {
@@ -1065,7 +1056,6 @@ public class Praparat extends JPanel {
 		if (imp == null) { return; }
 		prepareSlideGlassesUsingImagePlus(imp);
 		if(!isShowGridViewOn()) {
-			adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
 			doSingleGridLayout();
 		}else {
 			doFilmGridLayout(filmGridColumns);
@@ -1099,7 +1089,6 @@ public class Praparat extends JPanel {
 			//do nothing
 		} else {
 			if (slide != null) {
-//				getSlideGlassHolder().remove(slide);
 				viewPanel.removeAll();
 			}
 		}
@@ -1117,36 +1106,26 @@ public class Praparat extends JPanel {
 			if (isShowGridViewOn()) {
 				showGridViewOn = false;
 			}
-			prevSlice = -1;
-			currentSlice = 0;
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
 			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			slider.initContext();
-			doSingleGridLayout();
 			setTextVisible(pvcp.isShowInfo());
 			setAnnotationVisible(pvcp.isShowRoi());
+			doSingleGridLayout();
 			return;
 		}
 		
 		if(mode == ViewMode.SingleGrid) {
-			viewPanel.removeAll();
-			prevSlice = -1;
-			currentSlice = 0;
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
 			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 			setTextVisible(pvcp.isShowInfo());
 			setAnnotationVisible(pvcp.isShowRoi());
-			slider.initContext();
-			showFirstImage();
+			doSingleGridLayout();
 			return;
 		}
 		
 		if(mode == ViewMode.FilmGrid) {
-			viewPanel.removeAll();
-			prevSlice = -1;
-			currentSlice = 0;
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
 			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
@@ -1472,5 +1451,6 @@ public class Praparat extends JPanel {
 				sg.repaint();
 			}
 		}
+		pvcp.repaint();
 	}
 }

@@ -44,6 +44,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
@@ -84,7 +86,7 @@ public class BirdsEyeView extends JPanel{
 	
 	Dimension lastSingleGridViewSize = new Dimension(0, 0);
 	
-	final int thumbnailSize = 64 + 24;
+	public static final int thumbnailSize = 64 + 24;//88
 	
 	Logger logger = Log.logger;
 	
@@ -138,29 +140,12 @@ public class BirdsEyeView extends JPanel{
 			public void propertyChange(PropertyChangeEvent evt) {
 				String propertyName = evt.getPropertyName();
 				if (propertyName.equals(JSplitPane.LAST_DIVIDER_LOCATION_PROPERTY)) {
-					Dimension dl = birdsEyeSplit.getLeftComponent().getSize();
-					System.out.println("BirdsEyeSplit:"+dl);
-					if(dl.height < 90) {
-						birdsEyeSplit.setDividerLocation(90);
-					}
-					updateViewSize();
+					keepDividerInPlace();
 				}
 			}
 		};
-		
-		PropertyChangeListener pcl = new PropertyChangeListener() {
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				// JSplitPane sourceSplitPane = (JSplitPane) evt.getSource();
-				String propertyName = evt.getPropertyName();
-				if (propertyName.equals(JSplitPane.DIVIDER_LOCATION_PROPERTY) || propertyName.equals(JSplitPane.LAST_DIVIDER_LOCATION_PROPERTY)) {
-					updateViewSize();
-				}
-			}
-		};
-		
+				
 		birdsEyeSplit.addPropertyChangeListener(pcl_thumb);
-		filmAndSingleGridSplit.addPropertyChangeListener(pcl);
 		
 		add(patInfoAndBirdsEyeSplit, BorderLayout.CENTER);
 		db = DatabaseHandler.getInstance();
@@ -192,7 +177,8 @@ public class BirdsEyeView extends JPanel{
 		filmGridPane.add(waitingPanel1);
 		singleGridPane.add(waitingPanel2);
 		
-		birdsEyeSplit.setDividerLocation(thumbnailSize);
+		Insets ins = seriesListView.getInsets();
+		birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom);
 		int w = filmAndSingleGridSplit.getWidth();
 		filmAndSingleGridSplit.setDividerLocation(w-(int)(w/3));
 		revalidate();
@@ -207,23 +193,22 @@ public class BirdsEyeView extends JPanel{
 		filmGridPane.add(waitingPanel1);
 	}
 	
-	//TODO 20240805
-	public void updateViewSize() {
-//		Dimension dr = filmAndSingleGridSplit.getRightComponent().getSize();
-//		if(lastSingleGridViewSize.width == dr.width && lastSingleGridViewSize.height == dr.height) {
-//			return;
-//		}
-//		if (singleGridView != null && singleGridView.isVisible()) {
-//			singleGridView.adjustSlideGlassSize();
-//			singleGridView.revalidate();
-//			singleGridView.repaint();
-//		}
-//		if (filmGridView != null && filmGridView.isVisible()) {
-//			filmGridView.adjustGridViewSize();
-//			filmGridView.revalidate();
-//			filmGridView.repaint();
-//		}
-//		lastSingleGridViewSize = dr;
+	private void keepDividerInPlace() {
+		int h = birdsEyeSplit.getLastDividerLocation();
+		Insets ins = seriesListView.getInsets();
+		int gap = seriesListView.getVGap();
+//		System.out.println("divider loc : "+h);
+		/*
+		 * Originally, twice the Gap would be correct. However, the size does not match.
+		 * Maybe it is due to the Insets relationship of the component. Here, we adjust
+		 * the size by 4 times.
+		 */
+		if(h < thumbnailSize+ins.top+ins.bottom+gap*4) {
+			birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom+gap*4);
+			birdsEyeSplit.repaint();
+//			System.out.println("new divider size "+(thumbnailSize+ins.top+ins.bottom+gap*4));
+//			System.out.println("series list view size:"+seriesListView.getHeight());
+		}
 	}
 	
 	public void setPatientInfo(HashMap<String,String> infoset) {
@@ -508,6 +493,15 @@ public class BirdsEyeView extends JPanel{
 		
 		int numOfThumbnails() {
 			return seriesListPanel.getComponents().length;
+		}
+		
+		int getVGap() {
+			FlowLayout l = (FlowLayout)seriesListPanel.getLayout();
+			return l.getVgap();
+		}
+		
+		int getPanelHeight() {
+			return seriesListPanel.getHeight();
 		}
 	}	
 }

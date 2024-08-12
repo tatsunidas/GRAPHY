@@ -334,8 +334,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int toolID = pp.getViewer2DToolType();
 		int sx = e.getX();
 		int sy = e.getY();
-		sg.lastX = sx; 
-		sg.lastY = sy;
+		sg.mouseX = sx; 
+		sg.mouseY = sy;
 //		int ox = sg.onImageX(sx);
 //		int oy = sg.onImageY(sy);
 		long mousePressedTime = System.currentTimeMillis();

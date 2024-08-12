@@ -27,7 +27,7 @@ public class ColorBar extends JLabel implements ComponentListener{
 	public ColorBar(Praparat pp, int w, int h) {
 		super();
 		this.pp = pp;
-		setPreferredSize(new Dimension(w,h));//MUST NEED!(To set bLayout_North)
+		setPreferredSize(new Dimension(w,h));//MUST
 		setOpaque(true);
 		addMouseListener(new MouseAdapter() {
 			@Override
@@ -36,7 +36,7 @@ public class ColorBar extends JLabel implements ComponentListener{
 				p.setLocationRelativeTo(pp);
 				LUT lut = p.run();
 				setColor(lut);
-				pp.setLUT(lut);
+				praparat().setLUT(lut);
 			}
 		});
 		setColor(null);
@@ -102,6 +102,10 @@ public class ColorBar extends JLabel implements ComponentListener{
 			steps[i] = interval * i;
 		}
 		return steps;
+	}
+	
+	private Praparat praparat() {
+		return pp;
 	}
 	
 	@Override

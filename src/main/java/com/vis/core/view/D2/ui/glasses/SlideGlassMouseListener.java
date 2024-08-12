@@ -48,15 +48,11 @@ import java.awt.event.MouseWheelListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Logger;
-
-import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
-import com.vis.core.util.Utils;
-import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
@@ -66,6 +62,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private Praparat pp;
 	private Eyepiece prapManager;
 	private int viewerToolType = Viewer2DToolBar.Windowing;
+	
+	private int wheelRotationAccumulator = 0;
+	private final int wheelThreshold = 2;
+	
 	private Logger logger = Log.logger;
 
 	public SlideGlassMouseListener(SlideGlass slide) {
@@ -78,8 +78,13 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		int rotation = e.getWheelRotation();
 		int mod = e.getModifiersEx();
+		
+		slide.mouseX = e.getX();
+		slide.mouseY = e.getY();
+		
+		wheelRotationAccumulator += rotation;
 		// paging
-		if ((mod & InputEvent.CTRL_DOWN_MASK) == 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0) {
+		if ((mod & InputEvent.CTRL_DOWN_MASK) == 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0 && (mod & InputEvent.ALT_DOWN_MASK) == 0) {
 			if (!pp.isShowGridViewOn()) {// single grid true
 				ArrayList<Praparat> syncingPraps = null;
 				if (prapManager != null) {
@@ -149,6 +154,36 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 			}
 			this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+			// zoom
+		} else if ((mod & InputEvent.CTRL_DOWN_MASK) == 0 && (mod & InputEvent.SHIFT_DOWN_MASK) != 0
+				&& (mod & InputEvent.ALT_DOWN_MASK) == 0) {
+			if (pp.getViewMode() == ViewMode.Thumbnail) {
+				return;
+			}
+			if (Math.abs(wheelRotationAccumulator) >= wheelThreshold) {
+				logger.fine("zoom! " + rotation);
+				this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
+				double currentMag = slide.getMagnification();
+				double change = 0.1;
+				boolean zoomUp = false;
+				if (wheelRotationAccumulator > 0) { // Turn the wheel down to reduce
+					currentMag -= change;
+				} else { // ホイールを上に回すと拡大
+					currentMag += change;
+					zoomUp = true;
+				}
+				if (!pp.isProcessSeries()) {
+					slide.zoom(currentMag, zoomUp);
+				} else {
+					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					for (Integer key : slides.keySet()) {
+						SlideGlass sg = slides.get(key);
+						sg.zoom(currentMag, zoomUp);
+					}
+				}
+				this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+				wheelRotationAccumulator = 0;
+			}
 		}
 	}
 
@@ -157,8 +192,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 		int x = e.getX();
 		int y = e.getY();
-		slide.mouseX = x;
-		slide.mouseY = y;
 
 		// MPR
 		/*
@@ -187,7 +220,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		}
 		// roi
 		if (Viewer2DToolBar.isRoiTool(viewerToolType)) {
-			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown() && !e.isShiftDown()) {
+			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown() && !e.isShiftDown() && !e.isAltDown()) {
 				if (slide.handleRoiMouseDragged(e)) {
 					return;
 				}
@@ -220,55 +253,21 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 
-		// zoom
 		if (SwingUtilities.isMiddleMouseButton(e)) {
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				return;
 			}
-			/*
-			 * only calcurate mag
-			 */
-			int currentDragY = e.getY();
-			if (!pp.isProcessSeries()) {
-				// lastDraggedYはEnter時に更新されている
-				double diffY = slide.lastDraggedY - currentDragY;
-				double change = 0.005 * diffY;// 緩やかに拡大させるために小さく
-				double currentMag = slide.getMagnification();
-				double newMag = currentMag + change;
-				logger.info("dragging to zoom : lastY " + slide.lastY + " NowDragging:" + currentDragY + " mag:"
-						+ newMag + " diffY:" + diffY);
-				slide.zoom(newMag);
-				slide.lastDraggedX = e.getX();
-				slide.lastDraggedY = currentDragY;
-			} else {
-				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-				double newMag = -1;
-				for (Integer key : slides.keySet()) {
-					SlideGlass sg = slides.get(key);
-					double diffY = sg.lastDraggedY - currentDragY;
-					// get current mag
-					double mag = sg.getMagnification();
-					double magFactor = 0.005 * diffY;// 緩やかに拡大させるために小さくする
-					newMag = mag + magFactor;
-					sg.zoom(newMag);
-					sg.lastDraggedX = e.getX();
-					sg.lastDraggedY = currentDragY;
-				}
-				System.out.println("zooming : mag:" + newMag);
-			}
+			//do something
 		}
 
 		// panning
-		/*
-		 * panning中は、実寸サイズと表示サイズの比を考慮したscaled originで考える。 pannnig後は、バックスケールする
-		 */
-		if (SwingUtilities.isLeftMouseButton(e) && e.isControlDown()) {
+		if (SwingUtilities.isLeftMouseButton(e) && e.isControlDown() && !e.isShiftDown() && !e.isAltDown()) {
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				return;
 			}
 			slide.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-			double moveX = slide.lastX - e.getX();
-			double moveY = slide.lastY - e.getY();
+			double moveX = slide.mouseX - x;
+			double moveY = slide.mouseY - y;
 			if (!pp.isProcessSeries()) {
 				slide.panning(moveX, moveY);
 			} else {
@@ -281,6 +280,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					}
 				}
 			}
+			slide.mouseX = x;
+			slide.mouseY = y;
+			slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		}
 	}
 
@@ -299,9 +301,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	public void mouseClicked(MouseEvent e) {
 		// handle select event
 		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
+			slide.setSelectionState();
 			pp.setSelectionState();
 		}
-
+		
 		// handle double click event.
 		if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && !e.isConsumed()) {
 			e.consume();
@@ -317,15 +320,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	@Override
 	public void mousePressed(MouseEvent e) {
 		// set start point for ww/wl, panning, roi
-		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown() && !e.isControlDown() && !e.isAltDown()) {
+		/*
+		 * Anyway, always update mouse locations when pressed mouse left button.
+		 */
+		if (SwingUtilities.isLeftMouseButton(e)) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
 			viewerToolType = pp.getViewer2DToolType();
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				viewerToolType = Viewer2DToolBar.Windowing;
-			}else {
-				if(viewerToolType == Viewer2DToolBar.NONE) {
-					viewerToolType = Viewer2DToolBar.Windowing;
-				}
 			}
 			
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
@@ -333,34 +335,24 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				return;
 			}
 			
-			if (viewerToolType == Viewer2DToolBar.Windowing) {
-				// WW/WL
+			if (viewerToolType == Viewer2DToolBar.NONE || viewerToolType == Viewer2DToolBar.Windowing) {
 				if (!pp.isProcessSeries()) {
-					slide.lastX = e.getX();
-					slide.lastY = e.getY();
-					slide.lastOriginX = slide.imageSpecimen.originX;
-					slide.lastOriginY = slide.imageSpecimen.originY;
+					slide.mouseX = e.getX();
+					slide.mouseY = e.getY();
 					slide.lastMin = slide.getCurrentDisplayImagePlus().getDisplayRangeMin();
 					slide.lastMax = slide.getCurrentDisplayImagePlus().getDisplayRangeMax();
 				} else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
-						sg.lastX = e.getX();
-						sg.lastY = e.getY();
-						sg.lastOriginX = sg.imageSpecimen.originX;
-						sg.lastOriginY = sg.imageSpecimen.originY;
+						sg.mouseX = e.getX();
+						sg.mouseY = e.getY();
 						sg.lastMin = sg.getCurrentDisplayImagePlus().getDisplayRangeMin();
 						sg.lastMax = sg.getCurrentDisplayImagePlus().getDisplayRangeMax();
 					}
 				}
 			} // ww/wl end
 		} // left btn down end
-
-		// select current slideglass
-		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
-			slide.setSelectionState();
-		}
 
 		// zoom
 		if (SwingUtilities.isMiddleMouseButton(e)) {
@@ -373,20 +365,16 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 			logger.info("zoom : middle mouse btn pressed!!");
 			if (!pp.isProcessSeries()) {
-				slide.lastX = e.getX();// for move position
-				slide.lastY = e.getY();// for move position
+				slide.mouseX = e.getX();// for move position
+				slide.mouseY = e.getY();// for move position
 				slide.lastDraggedX = e.getX();// for cappulate mag
 				slide.lastDraggedY = e.getY();// for cappulate mag
-				slide.lastOriginX = slide.imageSpecimen.originX;
-				slide.lastOriginY = slide.imageSpecimen.originY;
 			} else {
 				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 				for (Integer key : slides.keySet()) {
 					SlideGlass sg = slides.get(key);
-					sg.lastX = e.getX();
-					sg.lastY = e.getY();
-					sg.lastOriginX = sg.imageSpecimen.originX;
-					sg.lastOriginY = sg.imageSpecimen.originY;
+					sg.mouseX = e.getX();
+					sg.mouseY = e.getY();
 					sg.lastDraggedX = e.getX();
 					sg.lastDraggedY = e.getY();
 				}
@@ -399,26 +387,31 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		// roi
 		slide.handleRoiMouseUp(e);
 		// release panning
-		if (!pp.isProcessSeries()) {
-			if (slide.panningInAction) {
-				slide.releasePanning();
-			}
-		} else {
-			// process series
-			Log.logger.fine("panning series released !! mouse released.");
-			if (slide.panningInAction) {
-				slide.releasePanning();
-			}
-			synchronized (this) {
-				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-				for (Integer key : slides.keySet()) {
-					SlideGlass sg = slides.get(key);
-					if (sg.panningInAction) {
-						sg.releasePanning();
-					}
-				}
-			}
-		}
+		/*
+		 * PanningFlag indicates that the image has been panned; PanningInAction
+		 * indicates that it is currently being panned; PanningInAction may be useful to
+		 * avoid conflicts with other operations, but is not used here.
+		 */
+//		if (!pp.isProcessSeries()) {
+//			if (slide.panningInAction) {
+//				slide.releasePanning();
+//			}
+//		} else {
+//			// process series
+//			Log.logger.fine("panning series released !! mouse released.");
+//			if (slide.panningInAction) {
+//				slide.releasePanning();
+//			}
+//			synchronized (this) {
+//				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+//				for (Integer key : slides.keySet()) {
+//					SlideGlass sg = slides.get(key);
+//					if (sg.panningInAction) {
+//						sg.releasePanning();
+//					}
+//				}
+//			}
+//		}
 	}
 
 	@Override

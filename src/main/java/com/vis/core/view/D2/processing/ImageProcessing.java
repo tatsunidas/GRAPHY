@@ -29,20 +29,18 @@ public class ImageProcessing {
 	}
 	
 	public ImagePlus zoom(ImagePlus imp, double mag) {
-		Calibration cal = imp.getCalibration().copy();
-//		ImagePlus imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "bicubic");//too slow? 
-		ImageProcessor ip = imp.getProcessor().duplicate();
-//		ip.setInterpolationMethod(ImageProcessor.BICUBIC);//slow ?
-		ip.setInterpolationMethod(ImageProcessor.BILINEAR);
-		ip = ip.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag));
-		ImagePlus imp2= new ImagePlus("display", ip);
-		if (cal.scaled()) {
-			cal.pixelWidth *= 1.0/(imp2.getWidth()/imp.getWidth());
-			cal.pixelHeight *= 1.0/(imp2.getHeight()/imp.getHeight());
-		}
-		imp2.setCalibration(cal);
-//		System.out.println("zoom result::"+imp2.getWidth()+"  "+imp2.getHeight());
-		imp = null;//.flush();
+//		Calibration cal = imp.getCalibration().copy();
+		ImagePlus imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "nearest");//too slow? 
+//		ImageProcessor ip = imp.getProcessor().duplicate();
+//		ip.setInterpolationMethod(ImageProcessor.NEAREST_NEIGHBOR);
+//		ip = ip.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag));
+//		ImagePlus imp2= new ImagePlus("display", ip);
+//		if (cal.scaled()) {
+//			cal.pixelWidth *= 1.0/(imp2.getWidth()/imp.getWidth());
+//			cal.pixelHeight *= 1.0/(imp2.getHeight()/imp.getHeight());
+//		}
+//		imp2.setCalibration(cal);
+//		imp = null;//.flush();
 		return imp2;
 	}
 	

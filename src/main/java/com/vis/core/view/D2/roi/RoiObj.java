@@ -1319,20 +1319,20 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		
 		double mag = slide.getMagnification();
 		double scale = slide.getScaleFactor();
-		double widthOnOrg = Math.abs(sx - slide.lastX)/mag/scale;
-		double heightOnOrg = Math.abs(sy - slide.lastY)/mag/scale;
+		double widthOnOrg = Math.abs(sx - slide.mouseX)/mag/scale;
+		double heightOnOrg = Math.abs(sy - slide.mouseY)/mag/scale;
 		
 		width = (int)widthOnOrg;
 		height = (int)heightOnOrg;
 		
-		System.out.println("slide last clicked:"+slide.lastX+" "+slide.lastY);
+		System.out.println("slide last clicked:"+slide.mouseX+" "+slide.mouseY);
 		System.out.println("rectangle size on original (w,h):"+width+" "+height);
 		
 		/*
 		 * update roi location on org image
 		 */
-		x = (sx>=slide.lastX) ? x : slide.onImageX(slide.lastX) - width;
-		y = (sy>=slide.lastY) ? y : slide.onImageY(slide.lastY) - height;
+		x = (sx>=slide.mouseX) ? x : slide.onImageX(slide.mouseX) - width;
+		y = (sy>=slide.mouseY) ? y : slide.onImageY(slide.mouseY) - height;
 //		System.out.println("Growing result info: "+x+" "+y+" "+width+" "+height);
 		
 		if (type==RECTANGLE) {
@@ -1582,8 +1582,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		oldX = x;
 		oldY = y;
 		
-		int lastSX = slide.lastX;//image origin at left btn press
-		int lastSY = slide.lastY;
+		int lastSX = slide.mouseX;//image origin at left btn press
+		int lastSY = slide.mouseY;
 		int dx = sx - lastSX;
 		int dy = sy - lastSY;
 		if (dx==0 && dy==0) {

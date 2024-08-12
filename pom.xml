@@ -31,8 +31,7 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>
-					maven-jar-plugin</artifactId>
+				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.4.2</version>
 				<configuration>
 					<archive>
@@ -44,10 +43,8 @@
 					</archive>
 				</configuration>
 			</plugin>
-			<!-- 依存関係をlibフォルダにコピーするためのプラグイン -->
 			<plugin>
-				<groupId>
-					org.apache.maven.plugins</groupId>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
 				<version>3.1.2</version>
 				<executions>
@@ -58,8 +55,7 @@
 							<goal>copy-dependencies</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>
-								${project.build.directory}/lib</outputDirectory>
+							<outputDirectory>${project.build.directory}/lib</outputDirectory>
 						</configuration>
 					</execution>
 				</executions>
@@ -86,13 +82,30 @@
 							</resources>
 						</configuration>
 					</execution>
+					<execution>
+						<id>copy-luts</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/luts</outputDirectory>
+							<resources>
+								<resource>
+									<directory>./luts</directory>
+									<includes>
+										<include>**/*</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
 		</plugins>
 		<resources>
 			<resource>
-				<directory>
-					src/main/resources</directory>
+				<directory>src/main/resources</directory>
 				<includes>
 					<include>**/*</include>
 				</includes>

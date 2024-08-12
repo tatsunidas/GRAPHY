@@ -179,8 +179,8 @@ public class Line extends RoiObj {
 		/*
 		 * mouse moved 
 		 */
-		int refX = sg.onImageX(sg.lastX);
-		int refY = sg.onImageX(sg.lastY);
+		int refX = sg.onImageX(sg.mouseX);
+		int refY = sg.onImageX(sg.mouseY);
 		int xNew = sg.onImageX(sx);
 		int yNew = sg.onImageY(sy);
 		/*
