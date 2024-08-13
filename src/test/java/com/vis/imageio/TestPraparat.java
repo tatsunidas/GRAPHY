@@ -143,7 +143,6 @@ public class TestPraparat {
 		JPanel base = new JPanel(null);
 		f.add(base, BorderLayout.CENTER);
 		base.add(pp);
-		pp.showBorder();
 	}
 	
 	static void showUsingPixelDecoder() {

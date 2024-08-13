@@ -46,7 +46,8 @@ public class ImageProcessing {
 	
 	public void rotate(ImagePlus imp, double angle) {
 		imp.getProcessor().rotate(angle);
-		imp.updateImage();
+		imp.updateAndDraw();
+//		imp.updateImage();
 	}
 	
 	public ImagePlus rotateRight(ImagePlus imp, double currentAngle) {

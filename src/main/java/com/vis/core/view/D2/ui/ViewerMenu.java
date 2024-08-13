@@ -10,6 +10,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 
+import com.vis.core.ui.dialog.HelpDialog;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
 //import com.vis.dimse.delegate.DicomDuplicator;//TODO 20231006
@@ -64,16 +65,8 @@ public class ViewerMenu extends JMenuBar {
 		mntmHelp.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				// TODO Auto-generated method stub
-				HelpDialog help = null;
-				try {
-					help = new HelpDialog();
-					help.setLocationRelativeTo(Viewer2DScreen.getInstance());
-				} catch (URISyntaxException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					return;
-				}
+				HelpDialog help = new HelpDialog();
+				help.setLocationRelativeTo(Viewer2DScreen.getInstance());
 			}
 		});
 		mnHelp.add(mntmHelp);

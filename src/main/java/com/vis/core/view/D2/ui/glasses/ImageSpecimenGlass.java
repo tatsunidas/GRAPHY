@@ -38,6 +38,7 @@
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.AlphaComposite;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -112,6 +113,20 @@ public class ImageSpecimenGlass extends JPanel{
 		imp.setTitle("replica");
 		// resize to comp size
 		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
+		/*
+		 * to fill black background after rotation.
+		 * https://forum.image.sc/t/set-background-color-for-rotation-of-a-16-bit-image-shortprocessor-miss-bgcolor-attribute/20585/10
+		 */
+		if(imp.getBitDepth() == 8) {
+			imp.getProcessor().setBackgroundValue(0);
+		}else if(imp.getBitDepth() == 16) {
+			imp.getProcessor().setBackgroundValue(32768);
+		}else if(imp.getBitDepth() == 32) {
+			imp.getProcessor().setBackgroundValue(0.5);
+		}else {
+			imp.getProcessor().setBackgroundValue(0);
+			imp.getProcessor().setBackgroundColor(Color.BLACK);
+		}
 		return imp;
 	}
 	
@@ -138,6 +153,7 @@ public class ImageSpecimenGlass extends JPanel{
 		if (sg.windowing) {
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
 		}
+		
 		return dup;
 	}
 	

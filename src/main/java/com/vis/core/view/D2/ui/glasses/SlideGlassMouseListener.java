@@ -79,8 +79,17 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int rotation = e.getWheelRotation();
 		int mod = e.getModifiersEx();
 		
-		slide.mouseX = e.getX();
-		slide.mouseY = e.getY();
+		if (!pp.isProcessSeries()) {
+			slide.mouseX = e.getX();
+			slide.mouseY = e.getY();
+		} else {
+			HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+			for (Integer key : slides.keySet()) {
+				SlideGlass sg = slides.get(key);
+				sg.mouseX = e.getX();
+				sg.mouseY = e.getY();
+			}
+		}
 		
 		wheelRotationAccumulator += rotation;
 		// paging
@@ -135,6 +144,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				} catch (ArrayIndexOutOfBoundsException aioobe) {
 					// do nothing
 				}
+				e.consume();
 			}
 		// rotate
 		} else if ((mod & InputEvent.CTRL_DOWN_MASK) != 0 && (mod & InputEvent.SHIFT_DOWN_MASK) == 0
@@ -154,21 +164,22 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 			}
 			this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-			// zoom
+			e.consume();
+		// zoom
 		} else if ((mod & InputEvent.CTRL_DOWN_MASK) == 0 && (mod & InputEvent.SHIFT_DOWN_MASK) != 0
 				&& (mod & InputEvent.ALT_DOWN_MASK) == 0) {
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				return;
 			}
 			if (Math.abs(wheelRotationAccumulator) >= wheelThreshold) {
-				logger.fine("zoom! " + rotation);
+				logger.fine("zoom!");
 				this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 				double currentMag = slide.getMagnification();
 				double change = 0.1;
 				boolean zoomUp = false;
 				if (wheelRotationAccumulator > 0) { // Turn the wheel down to reduce
 					currentMag -= change;
-				} else { // ホイールを上に回すと拡大
+				} else { // Turn the wheel up to large
 					currentMag += change;
 					zoomUp = true;
 				}
@@ -184,6 +195,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 				wheelRotationAccumulator = 0;
 			}
+			e.consume();
 		}
 	}
 
@@ -302,7 +314,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		// handle select event
 		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
 			slide.setSelectionState();
-			pp.setSelectionState();
+			if (pp.getViewMode() != ViewMode.Thumbnail) {
+				pp.setSelectionState(true);
+			}
 		}
 		
 		// handle double click event.
@@ -417,11 +431,13 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	@Override
 	public void mouseEntered(MouseEvent e) {
 		slide.setFocusGained(true);
+		pp.setFocusGained(true);
 	}
 
 	@Override
 	public void mouseExited(MouseEvent e) {
 		slide.setFocusGained(false);
+		pp.setFocusGained(false);
 	}
 
 }

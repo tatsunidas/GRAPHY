@@ -698,7 +698,7 @@ public class QueryRetrieve implements Runnable {
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
 		if (anchorTreeTableTitle.equals("HOME")) {
-			if(Utils.isDebug) Log.logger.info("QR Pane : Home");
+			Log.logger.fine("QR Pane : Home");
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
 //			if(selectedStudiesMaterials == null || selectedStudiesMaterials.size() < 1) {

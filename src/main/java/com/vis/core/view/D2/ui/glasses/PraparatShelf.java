@@ -4,23 +4,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.vis.core.util.Utils;
-
 public class PraparatShelf {
 	
 	/*
-	 * Manage Praparats by study level.
+	 * Manage Praparats on study level.
 	 */
-	ArrayList<PraparatContext> praparats = null; //praparat shelf
+	ArrayList<PraparatContext> praparats = null;
 	
 	public PraparatShelf() {
 		praparats = new ArrayList<PraparatContext>();
 	}
 	
 	public void addPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs, String refUID, Praparat pp) {
-		if(praparats == null) {
-			return;
-		}
 		if(patID==null || studyUID==null || seriesUID==null || sopUIDs==null || refUID==null || pp==null) {
 			return;
 		}
@@ -57,15 +52,7 @@ public class PraparatShelf {
 		String prevStudyUID = (String)uids[1];
 		String prevSeriesUID = (String)uids[2];
 		String prevSopUIDs[] = (String[])uids[3];
-		PraparatContext pcon = getPraparatContext(prevPatID, prevStudyUID, prevSeriesUID, prevSopUIDs);
-		if(Utils.isDebug){
-			System.out.println("updatePraparatContext, previous: "+pcon.getContextUIDs()[2]);
-		}
-		pcon.updateContext(newPatID, newStudyUID, newSeriesUID, newSopUIDs, newRefUID);
-		//to check
-//		for(PraparatContext pcon0:getAllShelfContents()) {
-//			System.out.println(pcon0.getContextUIDs()[2]);
-//		}
+//		pcon.updateContext(newPatID, newStudyUID, newSeriesUID, newSopUIDs, newRefUID);
 	}
 	
 	/*
@@ -136,16 +123,11 @@ public class PraparatShelf {
 			this.frameOfReferenceUID = frameOfReferenceUID;
 		}
 		
-		public void updateContext(String patID, String studyUID, String seriesUID, String[] sopUIDs, String frameOfReferenceUID) {
-			if(patID == null || studyUID == null || seriesUID == null || sopUIDs == null || frameOfReferenceUID == null) {
+		public void updateContext(String[] sopUIDs, String frameOfReferenceUID) {
+			if(sopUIDs == null || frameOfReferenceUID == null) {
 				return;
 			}
-			this.patID = patID;
-			this.studyUID = studyUID;
-			this.seriesUID = seriesUID;
-			if(sopUIDs != null) {
-				this.sopUIDs = Arrays.asList(sopUIDs);//array
-			}
+			this.sopUIDs = Arrays.asList(sopUIDs);
 			this.frameOfReferenceUID = frameOfReferenceUID;
 			getPraparat().reloadSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 		}

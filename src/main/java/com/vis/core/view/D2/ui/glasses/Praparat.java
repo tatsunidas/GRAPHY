@@ -50,6 +50,8 @@ import java.awt.event.ComponentEvent;
 import java.awt.geom.Point2D;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -72,6 +74,7 @@ import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
+import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
@@ -104,6 +107,7 @@ import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
+import ij.util.DicomTools;
 
 /**
  * SeriesViewer
@@ -138,7 +142,6 @@ public class Praparat extends JPanel {
 	private CineSlider slider;
 	private Color studyColor = Color.CYAN;
 	
-	private final int BORDER_SIZE = SlideGlass.BORDER_SIZE;//keeps with same of slideglass border size.
 	public static final int ThumbnailSize = BirdsEyeView.thumbnailSize;
 	private int currentSlice = 0;
 	private int prevSlice = -1;
@@ -160,6 +163,7 @@ public class Praparat extends JPanel {
 	String studyUID;
 	String seriesUID;
 	String[] sopUIDs;
+	String frameOfReferenceUID;
 	String modality = null;
 	
 	int prevW;
@@ -179,6 +183,16 @@ public class Praparat extends JPanel {
 		if(studyColor != null) {
 			this.studyColor = studyColor;
 		}
+		String patID = DicomTools.getTag(stack, "00100010");
+		String studyUID = DicomTools.getTag(stack, "0020000D");
+		String seriesUID = DicomTools.getTag(stack, "0020000E");
+		String[] sopUIDs = new String[stack.getNSlices()];
+		for(int i = 1; i <= stack.getNSlices(); i++) {
+			stack.setPosition(i);
+			sopUIDs[i-1] = DicomTools.getTag(stack, "00080018");
+		}
+		String refUID = DicomTools.getTag(stack, "00200052");
+		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null);
 		init();
 		prepareSlideGlassesUsingImagePlus(stack);
 	}
@@ -200,8 +214,24 @@ public class Praparat extends JPanel {
 		this.prapManager = manager;
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
 		init();
+		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
+		if(mode != ViewMode.FilmGrid) {
+			doSingleGridLayout();
+		}else {
+			doFilmGridLayout(null);
+		}
 	}
 
+	/**
+	 * Only used for Birds Eye View.
+	 * 
+	 * e.g.,
+	 * Praparat pp = new Praparat(ViewMode.Normal);
+	 * pp.prepareSlideGlassesUsingImagePlus(imp);
+	 * pp.doSingleGridLayout();
+	 * 
+	 * @param mode
+	 */
 	public Praparat(ViewMode mode) {
 		if(mode == null) {
 			this.mode = ViewMode.Normal;
@@ -281,8 +311,6 @@ public class Praparat extends JPanel {
 				if(sl == target) continue;
 				sl.setSize(w,h);
 				if (target != null && !target.panningFlag && !sl.panningFlag) {
-//					sl.lastImageOriginX = target.imageSpecimen.getDisplayOriginX();
-//					sl.lastImageOriginY = target.imageSpecimen.getDisplayOriginY();
 					sl.imageSpecimen.originX = target.imageSpecimen.originX;
 					sl.imageSpecimen.originY = target.imageSpecimen.originY;
 					sl.repaint();
@@ -746,7 +774,30 @@ public class Praparat extends JPanel {
 		uids[1] = studyUID;
 		uids[2] = seriesUID;
 		uids[3] = sopUIDs;// String[]
+		uids[4] = frameOfReferenceUID;
 		return uids;
+	}
+	
+	private String concatenationOfUIDStrings() {
+		Object[] uids = getUIDs();
+		String str = "";
+		for(Object u : uids) {
+			if(u == null) {
+				continue;
+			}
+			if(u instanceof String) {
+				str += u;
+			}else if(u instanceof String[]) {
+				List<String> sopUIDs = Arrays.asList((String[])u);
+				Collections.sort(sopUIDs);
+				for(String s : sopUIDs) {
+					if(s != null) {
+						str += s;
+					}
+				}
+			}
+		}
+		return str.length()==0 ? null : str;
 	}
 	
 	public ViewMode getViewMode() {
@@ -788,7 +839,7 @@ public class Praparat extends JPanel {
 		//init slides
 		slides = new HashMap<Integer, SlideGlass>();
 		setLayout(new BorderLayout());
-		setBorder(BorderFactory.createLineBorder(getBackground()/*DO NOT USE clearColor*/, BORDER_SIZE));
+		setBorder(BorderMaker.make(this, false));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
 		viewPanel = new JPanel();
@@ -847,6 +898,26 @@ public class Praparat extends JPanel {
 			pvcp.getFilmGridBtn().setEnabled(false);
 		}
 	}
+	
+	public void initSlideGlassSize(int w , int h) {
+		if(slides == null || slides.size() == 0) {
+			return;
+		}
+		SlideGlass target = slides.get(currentSlice);
+		target.setSize(w,h);
+		target.repaint();
+		//set origin all slides
+		for (Integer key : slides.keySet()) {
+			SlideGlass sl = slides.get(key);
+			if(sl == target) continue;
+			sl.setSize(w,h);
+			if (target != null && !target.panningFlag && !sl.panningFlag) {
+				sl.imageSpecimen.originX = target.imageSpecimen.originX;
+				sl.imageSpecimen.originY = target.imageSpecimen.originY;
+				sl.repaint();
+			}
+		}
+	}
 
 	public boolean isFocusGained() {
 		return focusGained;
@@ -874,6 +945,10 @@ public class Praparat extends JPanel {
 
 	public boolean isShowGridViewOn() {
 		return this.showGridViewOn;
+	}
+	
+	public boolean isShowing2DViewerOn() {
+		return prapManager != null;
 	}
 
 	public void loadRoiFromDB() {
@@ -942,6 +1017,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		viewPanel.removeAll();
+		
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
 		prevSlice = -1;// IMPORTANT
@@ -1098,6 +1174,8 @@ public class Praparat extends JPanel {
 	public void resetView() {
 		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
 			ImagePlus imp = getImagePlus();
+			pvcp.setProcessSeries(true);//to show all images after reset
+			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			reloadSlideGlasses(imp);
 			return;
 		}
@@ -1106,6 +1184,7 @@ public class Praparat extends JPanel {
 			if (isShowGridViewOn()) {
 				showGridViewOn = false;
 			}
+			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
 			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
@@ -1116,6 +1195,7 @@ public class Praparat extends JPanel {
 		}
 		
 		if(mode == ViewMode.SingleGrid) {
+			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
 			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
@@ -1212,7 +1292,7 @@ public class Praparat extends JPanel {
 	public void setFocusGained(boolean focusGained) {
 		this.focusGained = focusGained;
 		if(getViewMode()!=ViewMode.SingleGrid && getViewMode()!=ViewMode.FilmGrid) {
-			showBorder();
+			showBorder(focusGained);
 		}
 	}
 	
@@ -1270,10 +1350,20 @@ public class Praparat extends JPanel {
 	}
 	
 	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		String frameOfRefUID = null;
+		if(db != null) {
+			frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
+		}
+		setInfo(patID, studyUID, seriesUID, sopUIDs, frameOfRefUID, pathToImages);
+	}
+	
+	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID, ArrayList<String> pathToImages) {
 		this.patID = patID;
 		this.studyUID = studyUID;
 		this.seriesUID = seriesUID;
 		this.sopUIDs = sopUIDs;
+		this.frameOfReferenceUID = refUID;
 		setImageFileLocations(pathToImages);
 	}
 	
@@ -1301,19 +1391,24 @@ public class Praparat extends JPanel {
 		this.refLine = refLine;
 	}
 	
-	// mouse action
-	public void setSelectionState() {
-		if (isSelected()) {
-			setSelectionState(false);
-		} else {
-			setSelectionState(true);
-		}
-	}
-	
-	// list selection action
+	/**
+	 * True if any one of the SlideGlasses is in the selected state.
+	 */
 	public void setSelectionState(boolean select) {
-		this.selected = select;
-		showBorder();
+		if(mode == ViewMode.Thumbnail) {
+			this.selected = select;
+			showBorder(false/*focusGained*/);
+			return;
+		}
+		this.selected = false;
+		for(int i : slides.keySet()) {
+			SlideGlass sg = slides.get(i);
+			if(sg.isSelected()) {
+				this.selected = true;
+				break;
+			}
+		}
+		showBorder(isFocusGained());
 	}
 	
 	public void setShowCrossLineMode(boolean crossMode) {
@@ -1363,42 +1458,9 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public void showBorder() {
-		if(this.mode==ViewMode.FilmGrid || this.mode == ViewMode.SingleGrid) {
-			setBorder(BorderFactory.createLineBorder(getBackground(), BORDER_SIZE));
-			return;
-		}
-		if(this.mode == ViewMode.Thumbnail) {
-			if (isSelected()) {/*DO NOT USE forcusGained here.*/
-				Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE);
-				setBorder(selectionBorder);
-			}else {
-				setBorder(BorderFactory.createLineBorder(getBackground(), BORDER_SIZE));
-			}
-			return;
-		}
-		
-		if (isSelected() && !isFocusGained()) {// show border force
-			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE);
-			setBorder(selectionBorder);
-		} else if (!isSelected() && isFocusGained()) {
-			Border focusBorder = BorderFactory.createLineBorder(studyColor, BORDER_SIZE);
-			setBorder(focusBorder);
-		} else if (isSelected() && isFocusGained()) {
-			//if you want 3 color border
-//			Border studyBorder = BorderFactory.createLineBorder(studyColor, 2);
-//			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), 1);
-//			Border focusBorder = BorderFactory.createLineBorder(Color.CYAN, 1);
-//			Border compBorder1 = new CompoundBorder(focusBorder, selectionBorder);
-//			Border compBorder2 = new CompoundBorder(compBorder1, studyBorder);
-//			setBorder(compBorder2);
-			Border focusBorder = BorderFactory.createLineBorder(studyColor, BORDER_SIZE/2);
-			Border selectionBorder = BorderFactory.createLineBorder(new Color(0, 50, 240, 100), BORDER_SIZE/2);
-			Border compBorder = new CompoundBorder(selectionBorder, focusBorder);
-			setBorder(compBorder);
-		} else {
-			setBorder(BorderFactory.createLineBorder(getBackground(), BORDER_SIZE));
-		}
+	public void showBorder(boolean show) {
+		Border b = BorderMaker.make(this, isFocusGained());
+		setBorder(b);
 	}
 	
 	public void showFirstImage() {
@@ -1440,6 +1502,22 @@ public class Praparat extends JPanel {
 		}
 		prevViewPanelW = currentW;
 		prevViewPanelH = currentH;
+	}
+	
+	@Override
+	public boolean equals(Object pp) {
+		if(pp == null) {
+			return false;
+		}
+		if(!(pp instanceof Praparat)) {
+			return false;
+		}
+		String srcConcatedUIDs = concatenationOfUIDStrings();
+		String tarConcatedUIDs = ((Praparat)pp).concatenationOfUIDStrings();
+		if(srcConcatedUIDs==null && tarConcatedUIDs==null) {
+			return this == pp;
+		}
+		return srcConcatedUIDs.equals(tarConcatedUIDs);
 	}
 	
 	@Override

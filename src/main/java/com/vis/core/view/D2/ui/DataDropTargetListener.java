@@ -61,7 +61,7 @@ public class DataDropTargetListener implements DropTargetListener{
 			eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere((String)uids.get(0));
 			if(eye != null) {
 				com.vis.core.view.D2.ui.glasses.Praparat prap = eye.getPraparatOnEyeAt(e.getLocation());
-				Viewer2DScreen.getInstance().getStageViewAt(patID).updatePraparatOnStage(prap, patID, studyUID, seriesUID, sopUIDs, refUID);
+				Viewer2DScreen.getInstance().getStageViewAt(patID).updatePraparatOnEye(prap, patID, studyUID, seriesUID, sopUIDs, refUID);
 			}
 		} catch (Exception ex) {
 			// TODO: handle exception

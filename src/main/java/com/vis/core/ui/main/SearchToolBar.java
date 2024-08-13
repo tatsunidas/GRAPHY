@@ -74,20 +74,12 @@ import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.StringUtils;
 import com.vis.dicom.Modality;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class SearchToolBar extends JToolBar{
-	
-	//debug
-	public static void main(String[] args) {
-		javax.swing.JFrame f = new javax.swing.JFrame();
-		f.setSize(400, 300);
-		SearchToolBar stb = new SearchToolBar();
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
-		f.setLayout(new java.awt.BorderLayout());
-		f.getContentPane().add(stb, java.awt.BorderLayout.NORTH);
-		f.pack();
-		f.setVisible(true);
-	}
-
 	/**
 	 * 
 	 */

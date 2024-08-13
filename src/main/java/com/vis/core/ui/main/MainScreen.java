@@ -305,15 +305,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				setExtendedState(JFrame.MAXIMIZED_BOTH);
 				toFront(); // brings to front without setAlwaysOnTop
 				requestFocus();
-				/*
-				 * Or...
-				 */
-//				GraphicsConfiguration gcon = ApplicationContext.getInstance().getMainScreenGraphicsConfiguration();
-//				int screen_width = gcon.getBounds().width;
-//		       int screen_height = gcon.getBounds().height;
-//				setLocation(0, 0);
-//				setSize(screen_width, screen_height));
-//				setBounds(0,0,screen_width, screen_height);
 			}
 		});
 	}

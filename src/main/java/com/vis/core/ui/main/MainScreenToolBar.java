@@ -67,6 +67,7 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.settings.PreferencesWin;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 
 //import com.vis.ui.form.dialog.BurnerWindow;
 //import com.vis.function.DatabaseBrowser2;
@@ -276,17 +277,11 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					
-					//TODO 20230901
-					
-//					Viewer2DFrame viewer = mediator.getViewer2DFrame();
-//					if(viewer != null) {
-//						SwingUtilities.invokeLater(new Runnable() {
-//							public void run() {
-//								viewer.loadImagesOnSatge();
-//							}
-//						});
-//					}
+					Viewer2DScreen viewer = Viewer2DScreen.getInstance();
+					if(viewer != null) {
+						viewer.loadImagesOnStage();
+						viewer.setVisible(true);
+					}
 				}	
 			});
 			break;

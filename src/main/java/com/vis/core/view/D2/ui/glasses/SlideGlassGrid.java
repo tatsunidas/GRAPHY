@@ -162,7 +162,7 @@ public class SlideGlassGrid extends JScrollPane{
 		Log.logger.fine("FilmGridCellSize: "+ cellSize);
 		view.removeAll();
 		if (!useGridLayout) {
-			System.out.println("Yes ! cell size:"+cellSize);
+			Log.logger.fine("cell size:"+cellSize);
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
 					if(((r+1)*(c+1))<=numOfImage) {

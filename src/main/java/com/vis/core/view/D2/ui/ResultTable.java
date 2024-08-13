@@ -18,11 +18,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
@@ -38,7 +35,6 @@ labeled and resizable columns. It is based on the hGrid
 class at
     http://www.lynx.ch/contacts/~/thomasm/Grid/index.html.
 */
-@SuppressWarnings("serial")
 public class ResultTable implements MouseListener, KeyListener,  ClipboardOwner, ActionListener, TableModelListener {
 
 	static final int DOUBLE_CLICK_THRESHOLD = 650;

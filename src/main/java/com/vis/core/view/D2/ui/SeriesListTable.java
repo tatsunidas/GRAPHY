@@ -189,7 +189,7 @@ public class SeriesListTable extends JTable {
 		// TODO, why refUID is null ?
 		eye.addPraparat(patID, studyUID, seriesUID, null, null, eye.allocateStudyColor());
 		eye.autoLayout();
-		Viewer2DScreen.getInstance().getStageViewAt(patID).updateDataInfoTower();
+		Viewer2DScreen.getInstance().getStageViewAt(patID).updateInfoCake();
 	}
 	
 	class ListTableSelectionListener implements ListSelectionListener{

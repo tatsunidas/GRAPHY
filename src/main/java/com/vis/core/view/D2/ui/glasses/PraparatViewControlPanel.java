@@ -15,6 +15,7 @@ import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
 import ij.IJ;
 
@@ -65,7 +66,7 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 //		stateInfoLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 		ImageIcon overlayIcon = Resources.OverlayIcon.loadIconFromResource();
 		Image overlayImg = ImageUtils.resize(overlayIcon.getImage(), 20, 20);
-		showROI = new JCheckBox(new ImageIcon(overlayImg));//TODO resize to 20,20 ?? 20231009
+		showROI = new JCheckBox(new ImageIcon(overlayImg));
 		showROI.setName("roi");
 //		showROI.setDisabledIcon(icon...);//set opaque ?
 		showROI.setSelected(true);
@@ -181,12 +182,21 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 	public void showROI(boolean show) {
 		showROI.setSelected(show);
 	}
+	
+	public void setProcessSeries(boolean on) {
+		processSeries.setSelected(on);
+	}
 
 	public int setFilmGridLayout() {
 		Object[] options1 = { "OK", "CLOSE" };
 		JPanel panel = new JPanel();
 		panel.add(new JLabel("Choose number of cols between 1 and 12"));
-		JComboBox<String> num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10","Reset"});
+		JComboBox<String> num = null;
+		if(pp.getViewMode() != ViewMode.FilmGrid) {
+			num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10", "11", "12","Reset"});
+		}else {
+			num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10", "11", "12"});//remove reset
+		}
 		panel.add(num);
 		int result = JOptionPane.showOptionDialog(WindowManager.getMainScreen(), panel, "Choose a Num of Columns", JOptionPane.YES_NO_OPTION,
 				JOptionPane.PLAIN_MESSAGE, null, options1, null);

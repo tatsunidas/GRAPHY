@@ -56,7 +56,6 @@ public class WindowManager {
 	public static void addWindow(java.awt.Window frame) {
 		if(wins.isEmpty()) {
 			wins.put(frame.getName(), frame);
-			return;
 		}else {
 			if(!wins.containsValue(frame)) {
 				wins.put(frame.getName(),frame);

@@ -112,15 +112,6 @@ public class SlideGlass extends JLayeredPane {
 	private CanvasGlass roiOverlay;
 	private EventGlass coverGlass;/*KeyListener*/
 	
-	//Border
-	Color focusColor = Color.WHITE;
-	Color selectionColor = Color.MAGENTA;
-	final Color clearColor = new Color(0,0,0,255);
-	static final int BORDER_SIZE = 4;
-	Border focusBorder = BorderFactory.createLineBorder(focusColor, BORDER_SIZE);
-	Border selectionBorder = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE);
-	Border clearBorder = BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-
 	// flags
 	//private boolean focusFlag = false;
 	private boolean selectedFlag = false;
@@ -337,37 +328,6 @@ public class SlideGlass extends JLayeredPane {
 		return currentbufferedimage;
 	}
 
-	private Border constructBorder(boolean mouseEntered) {
-		
-		if(pp.isShowGridViewOn() || pp.getViewMode()==ViewMode.FilmGrid)  {
-			if(!isSelected() && mouseEntered) {
-				return focusBorder;
-			}else if(isSelected() && !mouseEntered) {
-				return selectionBorder;
-			}else if(isSelected() && mouseEntered) {
-				Border focus = BorderFactory.createLineBorder(focusColor, BORDER_SIZE/2);
-				Border select = BorderFactory.createLineBorder(selectionColor, BORDER_SIZE/2);
-				return new CompoundBorder(focus, select);
-			}else {
-				return BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-			}
-		}
-		
-		if((pp.getViewMode()==ViewMode.SingleGrid || pp.getViewMode()==ViewMode.Normal || pp.getViewMode()==ViewMode.MPR) && !pp.isShowGridViewOn()) {
-			if(isSelected()) {
-				return selectionBorder;
-			}else{
-				return clearBorder;
-			}
-		}
-		
-		if(pp.getViewMode()==ViewMode.Thumbnail) {
-			return clearBorder;
-		}
-		
-		return clearBorder;
-	}
-
 	public ImagePlus convertToImagePlus() {
 		return ImagePlusDicomTagTools.dcmImgToImagePlus(getDicomImage());
 	}
@@ -507,7 +467,7 @@ public class SlideGlass extends JLayeredPane {
 		String seriesUid = roi.getSeriesUID();
 		String sopUid = roi.getSopUID();
 		String roiId = roi.getPropertyAt(RoiObj.RoiContextKeySet.RoiID.name());
-		Viewer2DScreen.getInstance().getDatabase().deleteRoi(patID, studyUid, seriesUid,sopUid,roiId);
+		DatabaseHandler.getInstance().deleteRoi(patID, studyUid, seriesUid,sopUid,roiId);
 		if(Viewer2DScreen.getRoiObjManager() != null) {
 			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
 			rom.updateRoiObjList(getPatientID());
@@ -969,7 +929,7 @@ public class SlideGlass extends JLayeredPane {
 		this.roiset = new ArrayList<RoiObj>();
 		this.dcmImg = dcmImg;
 		this.header = dcmImg.getCore();
-		setBorder(clearBorder);
+		setBorder(BorderMaker.make(this, false));
 		setOpaque(false);
 		setUpGlassLayer(header);
 		initImageInfo(header);// execute before Glasses
@@ -1144,8 +1104,8 @@ public class SlideGlass extends JLayeredPane {
 			return;
 		}
 		//save as new or update
-		if(Viewer2DScreen.getInstance().getDatabase() != null) {
-			Viewer2DScreen.getInstance().getDatabase().insertRoi(roi.readContext());
+		if(DatabaseHandler.getInstance() != null) {
+			DatabaseHandler.getInstance().insertRoi(roi.readContext());
 		}
 	}
 
@@ -1547,9 +1507,7 @@ public class SlideGlass extends JLayeredPane {
 			willRotateAngle = willRotateAngle + 360;
 		}
 		setRotateAngle((int) willRotateAngle);
-		ImagePlus dup = imageSpecimen.getCurrentStateImageFreshCopy();
-		imgProcess.rotate(dup, willRotateAngle);
-		imageSpecimen.setDisplayImage(dup);
+		imageSpecimen.updateDisplayImageWithCurrentCondition();
 		repaint();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
@@ -1772,7 +1730,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	public void showBorder(boolean mouseEntered) {
-		Border b = constructBorder(mouseEntered);
+		Border b = BorderMaker.make(this, mouseEntered);
 		setBorder(b);
 	}
 	
@@ -1911,6 +1869,9 @@ public class SlideGlass extends JLayeredPane {
 			logger.info("Zoom: magnification is too large, not up to 30.");
 		}
 		setMagnification(mag);
+		if(mag != 1.0 && !panningFlag) {
+    		panningFlag = true;//because, image origin shifted by focuse zoom.
+    	}
 		//update origin
 		if (zoomUp) {
 			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag - .1)) + mouseX);
@@ -1919,37 +1880,8 @@ public class SlideGlass extends JLayeredPane {
 			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag + .1)) + mouseX);
 			imageSpecimen.originY = (int) ((imageSpecimen.originY - mouseY) * (mag / (mag + .1)) + mouseY);
 		}
-		
 		imageSpecimen.updateDisplayImageWithCurrentCondition();
 		repaint();
-
-    	if(mag != 1.0 && !panningFlag) {
-    		panningFlag = true;//because, image origin shifted by focuse zoom.
-    	}
-    	
     	updatePrapInfoLabel(mouseX, mouseY);
-
-		// adjust image origin, keep last pressed point(on screen) to center
-//    	スクリーン中心
-//    	int screenCX = (getWidth() / 2)-1;
-//    	int screenCY = (getHeight() /2)-1;
-////		スクリーン中心までの距離
-//		int diffCX = lastX - screenCX;
-//		int diffCY = lastY - screenCY;
-//		System.out.println("ScreenCenter distance:" + diffCX + " " + diffCY);
-//    	double moveX = 0;
-//		double moveY = 0;
-//    	if(prevImg.getWidth() >= zoomed.getWidth()) {
-//			moveX = (prevImg.getWidth() - zoomed.getWidth())/2;
-//			moveY = (prevImg.getHeight() - zoomed.getHeight())/2;
-//    	}else {
-//    		moveX = (-1 * (prevImg.getWidth() - zoomed.getWidth())/2);
-//			moveY = (-1 * (prevImg.getHeight() - zoomed.getHeight())/2);
-//    	}
-//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
-//    	moveX = moveX + diffCX*mag + lastOriginX;
-//    	moveY = moveY + diffCY*mag + lastOriginY;
-//    	System.out.println("Move mount X:"+moveX+" Y:"+moveY);
-//		panning((double)moveX,(double)moveY);
 	}
 }

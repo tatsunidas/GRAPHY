@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.ui;
 
 import java.awt.BorderLayout;
@@ -7,8 +44,6 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.event.WindowFocusListener;
-import java.awt.event.WindowStateListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -18,35 +53,34 @@ import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.PropertiesUtil;
+import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiObjManager;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
-public class Viewer2DScreen extends JFrame implements WindowFocusListener, WindowStateListener {
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
+public class Viewer2DScreen extends JFrame {
 
 	private static final long serialVersionUID = 7624168171524035750L;
 	private static final Viewer2DScreen viewerWin = new Viewer2DScreen();
-	private static RoiObjManager rom = new RoiObjManager(); 
-	private DatabaseHandler db;
+	private static RoiObjManager rom = new RoiObjManager();
+	private DatabaseHandler db = DatabaseHandler.getInstance();
 	private Viewer2DToolBar toolBar;
-	private boolean focusGained = false;
 
 	private String stageInAction = null;
 
-	boolean isDebug = false;
+	boolean isDebug = Utils.isDebug;
 	private Logger logger = Log.logger;
-
-	// debug
-//	public static void main(String[] args) {
-//		ArrayList<String> test = new ArrayList<String>();
-//		test.add("12345");
-//		new Viewer2DScreen(test);
-//	}
 
 	private StatusBar status;
 	private StageDockManager sdm;// tab pane
@@ -54,22 +88,19 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 	private Viewer2DScreen() {
 		super(getScreenGraphicsConfiguration());
 		setName("Viewer2DScreen");
-//		setIconImage(TODO);
+		setIconImage(Resources.Viewer2DFrameWinIcon.loadIconFromResource().getImage());
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		setTitle("GRAPHY 2D Viewer");
-		isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString()
-				.indexOf("-agentlib:jdwp") > 0;
 		if (isDebug) {
-			setTitle(getTitle() + " -Debugging-");
+			setTitle("GRAPHY 2D Viewer" + " -Debugging-");
+		} else {
+			setTitle("GRAPHY 2D Viewer");
 		}
-		addWindowFocusListener(this);
-		addWindowStateListener(this);
 		addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				super.windowClosing(e);
-				logger.info("Viewer2DScreen::Viewer2DScreen closing...");
-				if(getRoiObjManager().isVisible()) {
+				logger.fine("Viewer2DScreen::Viewer2DScreen closing...");
+				if (getRoiObjManager().isVisible()) {
 					getRoiObjManager().setVisible(false);
 				}
 				/*
@@ -81,25 +112,16 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		});
 		initContents();
 		setLastScreenState();
+		WindowManager.addWindow(this);
 	}
-	
-//	public Viewer2DScreen(ArrayList<String> images) {
-//	setMinimumSize(new Dimension(700, 350));
-//	status = new StatusBar();
-//	add(status,BorderLayout.SOUTH);
-//	setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-//	setStages(images.get(0));
-//	loadImagesOnSatge(images);
-//	pack();
-//	setVisible(true);
-//}
 
 	private static GraphicsConfiguration getScreenGraphicsConfiguration() {
 		GraphicsDevice[] screenDevices = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
-		String lastScreenDeviceID = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenDeviceID);
-		if(screenDevices != null && (lastScreenDeviceID != null && !lastScreenDeviceID.equals(""))) {
-			for(GraphicsDevice gd:screenDevices) {
-				if(gd.getIDstring().equals(lastScreenDeviceID)) {
+		String lastScreenDeviceID = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props,
+				GraphyProp.Viewer2DScreenDeviceID);
+		if (screenDevices != null && (lastScreenDeviceID != null && !lastScreenDeviceID.equals(""))) {
+			for (GraphicsDevice gd : screenDevices) {
+				if (gd.getIDstring().equals(lastScreenDeviceID)) {
 					return gd.getDefaultConfiguration();
 				}
 			}
@@ -110,7 +132,7 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 	public static Viewer2DScreen getInstance() {
 		return viewerWin;
 	}
-	
+
 	public static RoiObjManager getRoiObjManager() {
 		return rom;
 	}
@@ -130,238 +152,253 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		add(sdm, BorderLayout.CENTER);
 	}
 
-	public void setDatabase(DatabaseHandler db) {
-		this.db = db;
-	}
-
-	public DatabaseHandler getDatabase() {
-		return this.db;
-	}
-
 	public StageDockManager getStageDockManager() {
 		return this.sdm;
 	}
-	
-	public String[] getPatientsListOnViewer(){
+
+	public String[] getPatientsListOnViewer() {
 		StageDockManager sdm = getStageDockManager();
-		if(sdm == null) {
+		if (sdm == null) {
 			return null;
 		}
 		return sdm.getAllPatientList();
 	}
-	
+
 	public void initStage() {
 		if (sdm != null && sdm.getTabCount() > 0) {
 			String[] patList = sdm.getAllPatientList();
-			for(String pat:patList) {
+			for (String pat : patList) {
 				sdm.deleteStage(pat);
 			}
 		}
 	}
 
-	/*
-	 * for temporal use, future work
+	/**
+	 * load from mainscreen
 	 */
-	public void loadImagesOnSatge() {
+	public void loadImagesOnStage() {
+		if(WindowManager.getMainScreen() == null) {
+			Log.logger.fine("If you want show images on 2D Viewer, use another loadImagesOnStage(...) instead.");
+			return;
+		}
 		ArrayList<DICOMNode> nodes = WindowManager.getMainScreen().getSelectedNode();
-		loadImagesOnSatgeThroughDB(nodes, true);
+		loadImagesOnStageThroughDB(nodes);
 	}
-	
-	public void loadImagesOnSatgeThroughDB(ArrayList<DICOMNode> nodes, boolean initAllStages) {
-		Viewer2DScreen viewer = getInstance();
-		if(this.db == null) {
+
+	/**
+	 * The nodes to be selected may be different patients and at different levels.
+	 * Nodes are loaded per level and entered into Stage in Praparat units.
+	 * 
+	 * The lower level of the node has priority. For example, if a series node is
+	 * selected and a particular image node within that series is selected, all
+	 * images that the series has will not be loaded, only the selected images.
+	 * 
+	 * @param nodes
+	 */
+	private void loadImagesOnStageThroughDB(ArrayList<DICOMNode> nodes) {
+		if (this.db == null) {
 			return;
 		}
-		if (viewer == null) {
-			// maybe, this case never occur.
-			System.out.println("Viewer2DWindow is NULL !! Please restart graphy.");
-			return;
-		}
-		if(nodes == null) {
+		if (nodes == null) {
 			return;
 		}
 		int size = nodes.size();
 		if (size < 1) {
-			System.out.println("Viewer2DWindow is needed DICOMNode selection. return.");
+			Log.logger.info("Viewer2DWindow is needed DICOMNode selection. return.");
 			return;
 		}
+
+		ArrayList<String> selectedStudies = new ArrayList<>();
+		ArrayList<String> selectedSeries = new ArrayList<>();
 		
-		/*
-		 * if viewer disposed, init all stages.
-		 */
-		boolean initDone = false;
-		if (!viewer.isVisible()) {
-			viewer.initContents();
-			initDone = true;
-		}
-		if(!initDone) {
-			if(initAllStages) {
-				viewer.initContents();
-				initDone = true;
-			}
-		}
+		ArrayList<DICOMNode> imageLevelNodes = new ArrayList<>();
 		
-		ArrayList<String> doneSeries = new ArrayList<String>();
 		ArrayList<String> doneImages = new ArrayList<String>();
-		/*
-		 * search procedure 
-		 * first, load study node
-		 * second, load series node
-		 * finally, load image node
-		 */
-		//First, process selected study node
-		for (DICOMNode studyNode : nodes) {
-			int level = studyNode.getLevel();
-			String patID = studyNode.getData(DICOMNode.PatientID);
+		
+		// search selected node on study level
+		for (DICOMNode node : nodes) {
+			int level = node.getLevel();
 			if (level == DICOMNode.STUDY) {
-				String studyUID = studyNode.getData(DICOMNode.StudyInstanceUID);
-				// search series
-				ArrayList<DICOMNode> seriesNodes = (ArrayList<DICOMNode>) studyNode.getChildren();
-				for (DICOMNode seriesNode : seriesNodes) {
-					if (seriesNode.getLevel() == DICOMNode.SERIES) {
-						String patIDchi = seriesNode.getData(DICOMNode.PatientID);
-						String studyUIDchi = seriesNode.getData(DICOMNode.StudyInstanceUID);
-						if (patID.equals(patIDchi) && studyUID.equals(studyUIDchi)) {
-							String seriesUID = seriesNode.getData(DICOMNode.SeriesInstanceUID);
-							if (!doneSeries.contains(patID + studyUID + seriesUID)) {
-								// search images
-								ArrayList<String> sopUIDs = new ArrayList<String>();
-								ArrayList<DICOMNode> imageNodes = (ArrayList<DICOMNode>) seriesNode.getChildren();
-								for (DICOMNode chichi : imageNodes) {
-									if (chichi.getLevel() == DICOMNode.IMAGE) {
-										String patIDchichi = chichi.getData(DICOMNode.PatientID);
-										String studyUIDchichi = chichi.getData(DICOMNode.StudyInstanceUID);
-										String seriesUIDchichi = chichi.getData(DICOMNode.SeriesInstanceUID);
-										if (patID.equals(patIDchichi) && studyUID.equals(studyUIDchichi)
-												&& seriesUID.equals(seriesUIDchichi)) {
-											sopUIDs.add(chichi.getData(DICOMNode.SOPInstanceUID));
-										}
-									}
-								}
-								if (sopUIDs.size() > 0) {
-									String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID,
-											studyUID, seriesUID, sopUIDs.get(0));
-									if (frameOfRefUID == null) {
-										frameOfRefUID = "";
-									}
-									viewer.loadImagesOnStage(patID, studyUID, seriesUID,
-											sopUIDs.toArray(new String[sopUIDs.size()]), frameOfRefUID);
-									for(String su:sopUIDs) {
-										if(!doneImages.contains(patID + studyUID + seriesUID+su)) {
-											doneImages.add(patID + studyUID + seriesUID+su);
-										}
-									}
-								}
-								doneSeries.add(patID + studyUID + seriesUID);
-							}
-						}
-					}
-				}
-			}
-		} // end selected study node loop
-		
-		// second, process selected series level nodes
-		for (DICOMNode seriesNode : nodes) {
-			int level = seriesNode.getLevel();
-			String patID = seriesNode.getData(DICOMNode.PatientID);
-			if (level == DICOMNode.SERIES) {
-				String studyUID = seriesNode.getData(DICOMNode.StudyInstanceUID);
-				String seriesUID = seriesNode.getData(DICOMNode.SeriesInstanceUID);
+				String patID = node.getData(DICOMNode.PatientID);
+				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 				// check already done
-				if (!doneSeries.contains(patID + studyUID + seriesUID)) {
-					// search images in selected node
-					ArrayList<String> sopUIDs = new ArrayList<String>();
-					ArrayList<DICOMNode> img_nodes = (ArrayList<DICOMNode>) seriesNode.getChildren();
-					for (DICOMNode chi : img_nodes) {
-						if (chi.getLevel() == DICOMNode.IMAGE) {
-							String patIDchi = chi.getData("PatientID");
-							String studyUIDchi = chi.getData("StudyInstanceUID");
-							String seriesUIDchi = chi.getData(DICOMNode.SeriesInstanceUID);
-							if (patID.equals(patIDchi) && studyUID.equals(studyUIDchi)
-									&& seriesUID.equals(seriesUIDchi)) {
-								sopUIDs.add(chi.getData(DICOMNode.SOPInstanceUID));
-							}
-						}
-					}
-					if (sopUIDs.size() > 0) {
-						String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID,
-								studyUID, seriesUID, sopUIDs.get(0));
-						if (frameOfRefUID == null) {
-							frameOfRefUID = "";
-						}
-						viewer.loadImagesOnStage(patID, studyUID, seriesUID,
-								sopUIDs.toArray(new String[sopUIDs.size()]), frameOfRefUID);
-						for(String su:sopUIDs) {
-							if(!doneImages.contains(patID + studyUID + seriesUID+su)) {
-								doneImages.add(patID + studyUID + seriesUID+su);
-							}
-						}
-					}
-					doneSeries.add(patID + studyUID + seriesUID);
+				if (!selectedStudies.contains(patID + studyUID)) {
+					selectedStudies.add(patID + studyUID);
 				}
 			}
-		} // end selected series node loop
+		}
+
+		// search selected node on series level
+		for (DICOMNode node : nodes) {
+			int level = node.getLevel();
+			if (level == DICOMNode.SERIES) {
+				String patID = node.getData(DICOMNode.PatientID);
+				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+				if (!selectedSeries.contains(patID + studyUID + seriesUID)) {
+					selectedSeries.add(patID + studyUID + seriesUID);
+				}
+				if (selectedStudies.contains(patID + studyUID)) {
+					selectedStudies.remove(patID + studyUID);
+				}
+			}
+		}
 		
-		// escape image level nodes
+		//search selected node on image level (primary)
 		for (DICOMNode imageNode : nodes) {
 			int level = imageNode.getLevel();
 			if (level == DICOMNode.IMAGE) {
 				String patID = imageNode.getData(DICOMNode.PatientID);
 				String studyUID = imageNode.getData(DICOMNode.StudyInstanceUID);
 				String seriesUID = imageNode.getData(DICOMNode.SeriesInstanceUID);
-				String sopUID = imageNode.getData(DICOMNode.SOPInstanceUID);
-				// check already done
-				if (!doneImages.contains(patID + studyUID + seriesUID + sopUID)) {
-					String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID,
-							seriesUID, sopUID);
-					if (frameOfRefUID == null) {
-						frameOfRefUID = "";
-					}
-					viewer.loadImagesOnStage(patID, studyUID, seriesUID, new String[] { sopUID }, frameOfRefUID);
-					if (!doneImages.contains(patID + studyUID + seriesUID + sopUID)) {
-						doneImages.add(patID + studyUID + seriesUID + sopUID);
-					}
+				imageLevelNodes.add(imageNode);
+				// check whether selected upper level
+				if (selectedSeries.contains(patID + studyUID + seriesUID)) {
+					selectedSeries.remove(patID + studyUID + seriesUID);
 				}
 			}
 		}
-		viewer.setVisible(true);
-		viewer.revalidate();
-		viewer.repaint();
+
+		// search study node
+		for (DICOMNode node : nodes) {
+			int level = node.getLevel();
+			if (level == DICOMNode.STUDY) {
+				String patID = node.getData(DICOMNode.PatientID);
+				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+				/*
+				 * Study nodes for which no series node was selected will display all images.
+				 */
+				if(!selectedStudies.contains(patID+studyUID)) {
+					continue;
+				}
+				// search series
+				ArrayList<DICOMNode> seriesNodes = (ArrayList<DICOMNode>) node.getChildren();
+				for (DICOMNode seriesNode : seriesNodes) {
+					if (seriesNode.getLevel() == DICOMNode.SERIES) {
+						String seriesUID = seriesNode.getData(DICOMNode.SeriesInstanceUID);
+						// search images
+						ArrayList<String> sopUIDs = new ArrayList<String>();
+						ArrayList<DICOMNode> imageNodes = (ArrayList<DICOMNode>) seriesNode.getChildren();
+						for (DICOMNode image : imageNodes) {
+							if (image.getLevel() == DICOMNode.IMAGE) {
+								sopUIDs.add(image.getData(DICOMNode.SOPInstanceUID));
+							}
+						}
+						if (sopUIDs.size() > 0) {
+							String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID,
+									seriesUID, sopUIDs.get(0));
+							if (frameOfRefUID == null) {
+								frameOfRefUID = "";
+							}
+							loadImagesOnStage(patID, studyUID, seriesUID, sopUIDs.toArray(new String[sopUIDs.size()]),
+									frameOfRefUID);
+							for (String su : sopUIDs) {
+								if (!doneImages.contains(patID + studyUID + seriesUID + su)) {
+									doneImages.add(patID + studyUID + seriesUID + su);
+								}
+							}
+						}
+					}
+				}
+			}
+		} // end selected study node loop
+
+		// second, select series level nodes
+		for (DICOMNode node : nodes) {
+			int level = node.getLevel();
+			if (level == DICOMNode.SERIES) {
+				String patID = node.getData(DICOMNode.PatientID);
+				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+				/*
+				 * Series nodes for which no image node was selected will display all images.
+				 */
+				if (!selectedSeries.contains(patID + studyUID + seriesUID)) {
+					continue;
+				}
+				// search images in selected node
+				ArrayList<String> sopUIDs = new ArrayList<String>();
+				ArrayList<DICOMNode> img_nodes = (ArrayList<DICOMNode>) node.getChildren();
+				for (DICOMNode chi : img_nodes) {
+					if (chi.getLevel() == DICOMNode.IMAGE) {
+						sopUIDs.add(chi.getData(DICOMNode.SOPInstanceUID));
+					}
+				}
+				if (sopUIDs.size() > 0) {
+					String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID,
+							seriesUID, sopUIDs.get(0));
+					if (frameOfRefUID == null) {
+						frameOfRefUID = "";
+					}
+					loadImagesOnStage(patID, studyUID, seriesUID, sopUIDs.toArray(new String[sopUIDs.size()]),
+							frameOfRefUID);
+					for (String su : sopUIDs) {
+						if (!doneImages.contains(patID + studyUID + seriesUID + su)) {
+							doneImages.add(patID + studyUID + seriesUID + su);
+						}
+					}
+				}
+			}
+		} // end selected series node loop
+		
+		// finally, aggregate image level nodes
+		for (DICOMNode node : imageLevelNodes) {
+			String patID = node.getData(DICOMNode.PatientID);
+			String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+			String sopUID = node.getData(DICOMNode.SOPInstanceUID);
+			if(doneImages.contains(patID + studyUID + seriesUID + sopUID)) {
+				continue;
+			}
+			// search images in selected node
+			ArrayList<String> sopUIDs = new ArrayList<String>();
+			sopUIDs.add(sopUID);
+			for (DICOMNode node_ : imageLevelNodes) {
+				if(node == node_) {
+					continue;
+				}
+				String patID_ = node.getData(DICOMNode.PatientID);
+				String seriesUID_ = node.getData(DICOMNode.SeriesInstanceUID);
+				String studyUID_ = node.getData(DICOMNode.StudyInstanceUID);
+				String sopUID_ = node.getData(DICOMNode.SOPInstanceUID);
+				if(patID.equals(patID_) && studyUID.equals(studyUID_) && seriesUID.equals(seriesUID_)) {
+					sopUIDs.add(sopUID_);
+					if (!doneImages.contains(patID_ + studyUID_ + seriesUID_ + sopUID_)) {
+						doneImages.add(patID_ + studyUID_ + seriesUID_ + sopUID_);
+					}
+				}
+			}
+			if (sopUIDs.size() > 0) {
+				String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID,
+						sopUIDs.get(0));
+				if (frameOfRefUID == null) {
+					frameOfRefUID = "";
+				}
+				loadImagesOnStage(patID, studyUID, seriesUID, sopUIDs.toArray(new String[sopUIDs.size()]),
+						frameOfRefUID);
+			}
+		} // end selected image node loop
+		
+		selectedStudies = null;
+		selectedSeries = null;
+		imageLevelNodes = null;
+		doneImages = null;
 	}
 
 	/*
-	 * load particular images which specified by sopUIDs
+	 * Build praparat using particular images with specified sopUIDs
 	 */
 	public void loadImagesOnStage(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
 		HashMap<String, String> patInfo = db.getPatientInfoByPatID(patID);
 		if (!sdm.existsInDock(patID)) {
-			constructStageView(patInfo, patID, studyUID, seriesUID, sopUIDs, refUID);
+			StageView stage = new StageView(patInfo, studyUID, seriesUID, sopUIDs, refUID);
+			sdm.addStage(patID, stage);
 		} else {
-			// get Stage
 			StageView sv = sdm.getStage(patID);
-			// add Eyepiece
-			sv.addPraparatOnStage(patID, studyUID, seriesUID, sopUIDs, refUID);
+			sv.addPraparatOnEye(patID, studyUID, seriesUID, sopUIDs, refUID);
 		}
-		//fail safe
-//		MainScreen mainScreen = MainScreen.getInstance();
-//		if(mainScreen != null) {
-//			mainScreen.refreshTreeTable();
-//		}
 	}
-
-	private void constructStageView(HashMap<String, String> patientInfoSet, String patID, String studyUID,
-			String seriesUID, String[] sopUIDs, String refUID) {
-		StageView stage = new StageView(patientInfoSet, studyUID, seriesUID, sopUIDs, refUID);
-		sdm.addStage(patID, stage);
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				viewerWin.pack();
-				viewerWin.revalidate();
-				viewerWin.repaint();
-			}
-		});
-	}
-
+	
 	public StageView getStageViewAt(String patID) {
 		StageView sv = sdm.getStage(patID);
 		return sv;
@@ -371,21 +408,22 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		StageView sv = sdm.getStage(patID);
 		return sv.getEyepiece();
 	}
-	
-	public ArrayList<Praparat> getSelectedPraps(){
+
+	public ArrayList<Praparat> getSelectedPraps() {
 		StageDockManager sdm = getStageDockManager();
-		String stageID = getStageInAction();
+		String stageID = getStageIDInAction();
 		StageView activeStage = sdm.getStage(stageID);
 		Eyepiece eye = activeStage.getEyepiece();
 		return eye.getSelectingPraparats();
 	}
 
-	public void setStageInAction(String pid) {
+	public void setStageIDInAction(String pid) {
 		this.stageInAction = pid;
-		System.out.println("Stage In Action:" + pid);
+		Log.logger.fine("Stage In Action:" + pid);
 	}
 
-	public String getStageInAction() {
+	// TODO
+	public String getStageIDInAction() {
 //		Window activeWindow = javax.swing.FocusManager.getCurrentManager().getFocusedWindow();
 //		String activeWinName = activeWindow.getName();
 		/*
@@ -395,20 +433,21 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		 */
 		return this.stageInAction;
 	}
-	
+
 	public int getCurrentToolType() {
 		return toolBar.getCurrentToolType();
 	}
-	
+
 	private void setLastScreenState() {
 		String lastScreenX = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenX);
 		String lastScreenY = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenY);
 		String lastScreenW = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenWidth);
 		String lastScreenH = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenHeight);
-		if(lastScreenX == null || lastScreenY == null || lastScreenW == null || lastScreenH == null) {
+		if (lastScreenX == null || lastScreenY == null || lastScreenW == null || lastScreenH == null) {
 			setDefaultScreenLocation();
 			return;
-		}else if(lastScreenX.equals("") || lastScreenY.equals("") || lastScreenW.equals("") || lastScreenH.equals("")) {
+		} else if (lastScreenX.equals("") || lastScreenY.equals("") || lastScreenW.equals("")
+				|| lastScreenH.equals("")) {
 			setDefaultScreenLocation();
 			return;
 		}
@@ -418,41 +457,46 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		int w = Integer.parseInt(lastScreenW);
 		int h = Integer.parseInt(lastScreenH);
 		setPreferredSize(new Dimension(w, h));
-		setBounds(x,y,w,h);//important
+		setBounds(x, y, w, h);// important
 		/*
-		 * if you want show full screen
-		 * use, maximizeWindow() after setVisible(true)
+		 * if you want show full screen use, maximizeWindow() after setVisible(true)
 		 */
-		
+
 		/*
-		 * do not perform here.
-		 * setVisible(true);//see facade
+		 * do not perform here. setVisible(true);//see facade
 		 */
 	}
-	
+
 	private void setDefaultScreenLocation() {
 		setSize(new Dimension(1200, 900));
-		setPreferredSize(new Dimension(1200, 900));
-		setLocationRelativeTo(null);//set location
-		setBounds(getX(),getY(),1200, 900);//important
+		setLocationRelativeTo(null);// set location
 	}
-	
-	private synchronized void saveCurrentScreenState() {
+
+	@Override
+	public void setVisible(boolean visible) {
+		super.setVisible(visible);
+		pack();
+		revalidate();
+		repaint();
+	}
+
+	private void saveCurrentScreenState() {
 		String last2DViewerScreenDeviceID = getGraphicsConfiguration().getDevice().getIDstring();
 		String last2DViewerScreenX = String.valueOf(getLocationOnScreen().x);
 		String last2DViewerScreenY = String.valueOf(getLocationOnScreen().y);
 		String last2DViewerScreenW = String.valueOf(getWidth());
 		String last2DViewerScreenH = String.valueOf(getHeight());
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenDeviceID, last2DViewerScreenH);
-		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenDeviceID, last2DViewerScreenDeviceID);
+		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenDeviceID,
+				last2DViewerScreenDeviceID);
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenX, last2DViewerScreenX);
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenY, last2DViewerScreenY);
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenWidth, last2DViewerScreenW);
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenHeight, last2DViewerScreenH);
 	}
-	
+
 	public void maximizeWindow() {
-		if(!isVisible()) {
+		if (!isVisible()) {
 			return;
 		}
 		SwingUtilities.invokeLater(new Runnable() {
@@ -474,37 +518,17 @@ public class Viewer2DScreen extends JFrame implements WindowFocusListener, Windo
 		});
 	}
 
-	@Override
-	public void windowGainedFocus(WindowEvent arg0) {
-		this.focusGained = true;
-//		System.out.println("Viewer2DFocued !!");
-		if (sdm != null && !(sdm.getComponentCount() < 1)) {
-			int currentTabIndex = sdm.getSelectedIndex();
-			setStageInAction(sdm.getPatIdAt(currentTabIndex));// resque
-		}
-	}
-
-	@Override
-	public void windowLostFocus(WindowEvent arg0) {
-		this.focusGained = false;
-	}
-
-	@Override
-	public void windowStateChanged(WindowEvent e) {
-		// minimized
-		if ((e.getNewState() & JFrame.ICONIFIED) == JFrame.ICONIFIED) {
-			//do nothing
-		}
-		// maximized
-		else if ((e.getNewState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH) {
-			if(sdm == null || sdm.getComponentCount() < 0) {
-				return;
-			}
-			//Example
-			StageDockManager sdm = getStageDockManager();
-			String stageID = getStageInAction();
-			StageView activeStage = sdm.getStage(stageID);
-			Eyepiece eye = activeStage.getEyepiece();
-		}
-	}
+//	@Override
+//	public void windowGainedFocus(WindowEvent arg0) {
+//		this.focusGained = true;
+//		if (sdm != null && !(sdm.getComponentCount() < 1)) {
+//			int currentTabIndex = sdm.getSelectedIndex();
+//			setStageIDInAction(sdm.getPatIdAt(currentTabIndex));
+//		}
+//	}
+//
+//	@Override
+//	public void windowLostFocus(WindowEvent arg0) {
+//		this.focusGained = false;
+//	}
 }
