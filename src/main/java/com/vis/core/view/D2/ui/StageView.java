@@ -76,27 +76,26 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	private PatientInfoCake cake;
 	private Eyepiece eye;
 	//praparat context
-	private ArrayList<PraparatShelf.PraparatContext> praps;
-	HashMap<String, String> patInfoSet;
+//	private ArrayList<PraparatShelf.PraparatContext> praps;
+	final HashMap<String, String> patInfoSet;
 
-	public StageView(HashMap<String, String> patInfoSet, String studyUID, String seriesUID,
-			String[] sopUIDs, String refUID) {
+	public StageView(HashMap<String, String> patInfoSet) {
 		setLayout(new BorderLayout());
 		this.patInfoSet = patInfoSet;
 		addAncestorListener(this);
 		addContainerListener(this);
-		constructStage(patInfoSet, studyUID, seriesUID, sopUIDs, refUID);
+		constructStage();
 	}
-	
+		
 	public void addPraparatOnEye(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
 		if(eye == null) {
 			return;
 		}
-		eye.addPraparat(patID, studyUID, seriesUID, sopUIDs, refUID, eye.allocateStudyColor());
+		eye.addPraparat(patID, studyUID, seriesUID, sopUIDs, refUID);
 		eye.autoLayout();
 		updateInfoCake();
 	}
-
+	
 	@Override
 	public void ancestorAdded(AncestorEvent arg0) {
 		/*
@@ -195,18 +194,16 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	public void componentRemoved(ContainerEvent e) {
 		Log.logger.fine("removed !!!");
 	}
-	
-	public void constructStage(HashMap<String, String> patInfoSet, String studyUID, String seriesUID,
-			String[] sopUIDs, String refUID) {
+		
+	private void constructStage() {
 		if(cakeAndEye != null) {
 			removeAll();
 		}
 		cakeAndEye = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		cakeAndEye.setOneTouchExpandable(true);
 		add(cakeAndEye, BorderLayout.CENTER);
-		initDataInfoCake(patInfoSet, studyUID, seriesUID, sopUIDs);
-		initEyepiece(patInfoSet, studyUID, seriesUID, sopUIDs, refUID);
-		updateInfoCake();
+		initDataInfoCake();
+		initEyepiece();
 	}
 	
 	/**
@@ -222,13 +219,10 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		 * PraparatContextは、表示中の画像セットをグループ情報としてまとめたもの。
 		 * 一つのスタディ、一つのシリーズ、それに付随するインスタンスセットをまとめている。
 		 */
-		praps = eye.getAllPraparatContext();
+		ArrayList<PraparatShelf.PraparatContext> praps = eye.getAllPraparatContext();
 		ArrayList<Object[]> praparatInfoSet = new ArrayList<>();
 		for(PraparatShelf.PraparatContext prap:praps) {
 			Object uids[] = prap.getContextUIDs();
-//			studyUIDSet.add((String)uids[1]);
-//			seriesUIDSet.add((String)uids[2]);
-//			sopUIDSet.add((String[])uids[3]);
 			praparatInfoSet.add(uids);
 		}
 		return praparatInfoSet;
@@ -242,15 +236,15 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		return patInfoSet;
 	}
 	
-	private void initDataInfoCake(HashMap<String, String> patInfoSet, String studyUID, String seriesUID, String[] sopUIDs) {
+	private void initDataInfoCake() {
 		// intit DataInfoCake
-		cake = new PatientInfoCake(patInfoSet, studyUID, seriesUID, sopUIDs);
+		cake = new PatientInfoCake(patInfoSet);
 		cakeAndEye.setLeftComponent(cake);
 	}
 	
-	public void initEyepiece(HashMap<String, String> patInfoSet, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
+	public void initEyepiece() {
 		//init Eyepiece 
-		eye = new Eyepiece(patInfoSet.get("PatientID"), studyUID, seriesUID, sopUIDs, refUID);
+		eye = new Eyepiece(patInfoSet.get("PatientID"));
 		cakeAndEye.setRightComponent(eye);
 	}
 	
@@ -265,7 +259,6 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		}
 		eye.removePraparat(pp);
 		eye.autoLayout();
-		praps = eye.getAllPraparatContext();
 		updateInfoCake();
 	}
 
@@ -275,7 +268,6 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		}
 		eye.removePraparat(patID,studyUID,seriesUID,sopUIDs);
 		eye.autoLayout();
-		praps = eye.getAllPraparatContext();
 		updateInfoCake();
 	}
 
@@ -284,7 +276,6 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 			return;
 		}
 		eye.removeSelectedPraparats();
-		praps = eye.getAllPraparatContext();
 		eye.autoLayout();
 		updateInfoCake();
 	}
@@ -304,8 +295,7 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	}
 
 	public void updateInfoCake() {
-		praps = eye.getAllPraparatContext();
-		cake.linkWithEyepiece(praps);
+		cake.linkWithEyepiece(eye.getAllPraparatContext());
 		cake.repaint();
 	}
 

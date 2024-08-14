@@ -64,7 +64,6 @@ public class DataDropTargetListener implements DropTargetListener{
 				Viewer2DScreen.getInstance().getStageViewAt(patID).updatePraparatOnEye(prap, patID, studyUID, seriesUID, sopUIDs, refUID);
 			}
 		} catch (Exception ex) {
-			// TODO: handle exception
 			System.out.println("drop failed, something wrong...");
 			System.out.println(ex);
 		}

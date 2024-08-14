@@ -1,8 +1,46 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.ui;
 
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DragSource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
@@ -22,6 +60,11 @@ import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class SeriesListTable extends JTable {
 	
 	
@@ -31,25 +74,34 @@ public class SeriesListTable extends JTable {
 	private static final long serialVersionUID = 7377281377248644462L;
 	
 	Logger log = Log.logger;
-	private String[] header = new String[] { "SeriesInstanceUID", "Presence","Modalities", "SeriesDate",
-			"SeriesDescription", "NumOfInstances", "Se_No" };
+	private final String[] header = new String[] { "SeriesInstanceUID", "Presence","Modalities", "SeriesDate",
+			"SeriesDescription", "NumOfInstances", "SeriesNo" };
 	private DefaultTableModel model;
 	private DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
 	private JScrollPane pane = null;
-	private ArrayList<String> onStageSeriesList = new ArrayList<String>();
-	private String patID;
+//	private ArrayList<String> onStageSeriesList = new ArrayList<String>();
+	List<String> onStageSeriesList = Collections.synchronizedList(new ArrayList<>());
+	//private String patID;
 	private String studyUID;
 	private String currentSeriesUID;
+	private StudyListTable studyListTbl;
 	private ImageListTable imageListTbl;
+	final private PatientInfoCake cake;
 
-	public SeriesListTable(String patID, String studyUID, String selectedSeriesUID) {
-		this.patID = patID;
-		this.studyUID = studyUID;
-		addOnStageSeriesUID(selectedSeriesUID);
+	public SeriesListTable(PatientInfoCake cake, StudyListTable slt) {
+		this.cake = cake;
+		this.studyListTbl = slt;
+		this.studyListTbl.setRelatedSeriesListTable(this);
 		setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		model = (DefaultTableModel) getModel();
-		setModel(patID, studyUID);
-		setDefaultEditor(Object.class, null);
+		model = new DefaultTableModel(header, 0) {
+            private static final long serialVersionUID = 1L;
+			@Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+       setModel(model);
+		//setDefaultEditor(Object.class, null);
 		getSelectionModel().addListSelectionListener(new ListTableSelectionListener());
 		addMouseListener(new ListTableMouseListener());
 		addMouseMotionListener(new ListTableMouseListener());
@@ -58,36 +110,38 @@ public class SeriesListTable extends JTable {
 //		setDragEnabled(true);//important //java.awt.dnd.InvalidDnDOperationException : Drag and drop in progress
 		DragSource source = DragSource.getDefaultDragSource();
 		source.createDefaultDragGestureRecognizer(this, DnDConstants.ACTION_COPY_OR_MOVE, new DnDGesture4ListTable(this));
+		initTable(studyListTbl.getSlectedStudyUID());
 		pane = new JScrollPane(this);
 	}
 	
 	public String getRelatedPatID() {
-		return this.patID;
+		return cake.getPatientInfo("PatientID");
 	}
 	
 	public String getRelatedStudyUID() {
 		return this.studyUID;
 	}
 	
-	public String getCurrentSeriesUID() {
+	public String getSelectedSeriesUID() {
 		if(getSelectedRow() != -1) {
 			return getSeriesInstanceUIDAtSelectedRow(getSelectedRow());
+		}else {
+			return getSeriesInstanceUIDAtSelectedRow(0);
 		}
-		return null;
 	}
 	
 	public String[] getCurrentSeriesSopUIDs() {
 		if(getSelectedRow() != -1) {
 			String patID = getRelatedPatID();
 			String studyUID = getRelatedStudyUID();
-			String seUID = getCurrentSeriesUID();
+			String seUID = getSelectedSeriesUID();
 			ArrayList<String> sops = db.getInstanceUidList(patID,studyUID, seUID);
 			return sops.toArray(new String[sops.size()]);
 		}
 		return null;
 	}
 	
-	public void setImageListTable(ImageListTable imageTbl) {
+	public void setRelatedImageListTable(ImageListTable imageTbl) {
 		this.imageListTbl = imageTbl;
 	}
 
@@ -95,57 +149,47 @@ public class SeriesListTable extends JTable {
 		return pane;
 	}
 
-	private void setModel(String patID, String studyUID) {
+	void initTable(String studyUID) {
+		String patID = cake.getPatientInfo("PatientID");
+		this.studyUID = studyUID;
 		List<HashMap<String, String>> series = db.getSeriesInfoByUIDs(patID, studyUID);
 		Object[][] seriesInfoSets = new Object[series.size()][];
 		for (int i = 0; i < series.size(); i++) {
 			HashMap<String, String> seriesInfo = series.get(i);
 			Object[] row = new Object[header.length];
-			row[0] = seriesInfo.get("SeriesInstanceUID");
-			if(onStageSeriesList.contains(seriesInfo.get("SeriesInstanceUID"))) {
+			String seUID = seriesInfo.get("SeriesInstanceUID");
+			row[0] = seUID;
+			if(onStageSeriesList.contains(seUID)) {
 				row[1] = true;
 			}else {
 				row[1] = false;
 			}
-			row[2] = seriesInfo.get("Modalities");// "Modalities"
-			row[3] = seriesInfo.get("SeriesDate");// "StudyDate"
-			row[4] = seriesInfo.get("SeriesDescription");// "StudyDescription"
-			row[5] = seriesInfo.get("NumOfInstanceInSeries");// "NumOfSeriesInStudy"
+			row[2] = seriesInfo.get("Modality");
+			row[3] = seriesInfo.get("SeriesDate");
+			row[4] = seriesInfo.get("SeriesDescription");
+			row[5] = seriesInfo.get("NumOfInstanceInSeries");
 			row[6] = seriesInfo.get("SeriesNumber");
 			seriesInfoSets[i] = row;
 		}
 		constructTableView(seriesInfoSets);
 	}
 	
-	public void updateTable() {
-		setModel(patID, studyUID);
-	}
-	
-	public void updateTableWith(String studyUID) {
-		this.studyUID = studyUID;
-		setModel(patID, this.studyUID);
-	}
-
-	public void constructTableView(Object[][] list) {
-		model.setDataVector(list, header);
-//		setModel(model);
+	private void constructTableView(Object[][] data) {
+		model.setDataVector(data, header);
 		model.fireTableDataChanged();
 		TableColumnModel tcm = getColumnModel();
-		TableColumn tc = tcm.getColumn(model.findColumn("Presence"));
-		tc.setCellRenderer(new PresenceCellRenderer(PresenceCellRenderer.DEFAULT));
-		removeColumn(getColumnModel().getColumn(0));// remove UID column, but remain in model.
-		revalidate();
-		repaint();
+		TableColumn presenceCol = tcm.getColumn(model.findColumn(header[1]));
+		presenceCol.setCellRenderer(new PresenceCellRenderer(PresenceCellRenderer.DEFAULT));
+		removeColumn(getColumnModel().getColumn(model.findColumn(header[0])));// remove UID column, but remain in model.
 	}
 
-	public String getSeriesInstanceUIDAtSelectedRow(int row) {
+	private String getSeriesInstanceUIDAtSelectedRow(int row) {
 		if(model.getRowCount() < 1) {
 			return null;
 		}
 		String seriesUID = null;
 		int ind = convertRowIndexToModel(row);
 		seriesUID = (String) model.getValueAt(ind, 0);// col 0 = UID
-//		seriesUID = (String)getValueAt(ind, 0);//DO NOT USE
 		return seriesUID;
 	}
 
@@ -160,36 +204,36 @@ public class SeriesListTable extends JTable {
 		}
 	}
 	
-	public void addOnStageSeriesUID(String seriesUID) {
+	public void enterTheStageSeriesUID(String seriesUID, boolean initTable) {
 		if(seriesUID == null) {
 			return;
 		}
 		if (!onStageSeriesList.contains(seriesUID)) {
 			onStageSeriesList.add(seriesUID);
 		}
+		if(initTable) {
+			initTable(studyUID);
+		}
 	}
 
-	public void removeOnStageSeriesUID(String seriesUID) {
-		if (onStageSeriesList.contains(seriesUID)) {
-			onStageSeriesList.remove(seriesUID);
-//			onStageStudyList.trimToSize();
-		}
+	public void leaveTheStageSeriesUID(String seriesUID) {
+		onStageSeriesList.remove(seriesUID);
+		initTable(studyUID);
 	}
 	
 	public void cleanUpdatePresenceOnStageSeries(ArrayList<String> newSeriesUIDs) {
-		onStageSeriesList = new ArrayList<String>();
+		onStageSeriesList.clear();
 		onStageSeriesList.addAll(newSeriesUIDs);
-		updateTable();
+		initTable(studyUID);
 	}
 	
 	public void requestOpenImage(int selectedRow) {
 		String seriesUID = getSeriesInstanceUIDAtSelectedRow(selectedRow);
-		Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(patID);
+		Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(cake.getPatientInfo("PatientID"));
 		//show all series images
-		// TODO, why refUID is null ?
-		eye.addPraparat(patID, studyUID, seriesUID, null, null, eye.allocateStudyColor());
+		eye.addPraparat(cake.getPatientInfo("PatientID"), studyUID, seriesUID, null, null/*refUID will load in prap*/);
 		eye.autoLayout();
-		Viewer2DScreen.getInstance().getStageViewAt(patID).updateInfoCake();
+		Viewer2DScreen.getInstance().getStageViewAt(cake.getPatientInfo("PatientID")).updateInfoCake();
 	}
 	
 	class ListTableSelectionListener implements ListSelectionListener{
@@ -218,15 +262,14 @@ public class SeriesListTable extends JTable {
 						output.append(" seriesUID:"+currentSeriesUID);
 					}
 				}
-				if(Utils.isDebug) log.info(output.toString());
-				imageListTbl.updateTableWith(getRelatedStudyUID(), currentSeriesUID);
+				log.fine(output.toString());
+				imageListTbl.initTable(getRelatedStudyUID(), currentSeriesUID);
 				//focus to prap on eye.
 				if(onStageSeriesList.contains(currentSeriesUID)) {
-					Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(patID);
+					Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(cake.getPatientInfo("PatientID"));
 					eye.lostAllPraparatFocusGained();
-					ArrayList<Praparat> praps = eye.getPraparatAmbiguously(patID, studyUID, currentSeriesUID);
+					ArrayList<Praparat> praps = eye.getPraparatAmbiguously(cake.getPatientInfo("PatientID"), studyUID, currentSeriesUID);
 					for(Praparat pp:praps) {
-//						pp.setSelectionState(true);
 						if(!pp.isFocusGained()) {
 							pp.setFocusGained(true);
 						}

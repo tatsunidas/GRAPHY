@@ -1940,14 +1940,13 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(1000);
 			while (rset.next()) {
 				modalities.add(rset.getString("Modality"));
 			}
 			rset.close();
 			pstmt.close();
 			conn.commit();
-			if (modalities.isEmpty()) {
+			if (modalities.size()==0 /*isEmpty() DO NOT USE*/) {
 				return null;
 			} else {
 				List<String> noduplicate = new ArrayList<String>(new HashSet<>(modalities));
@@ -2440,7 +2439,6 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			rset = pstmt.executeQuery();
-			rset.setFetchSize(1000);
 			while (rset.next()) {
 				HashMap<String, String> map = new HashMap<>();
 				map.put("PatientID", patID);
@@ -2456,7 +2454,7 @@ public class DatabaseHandler {
 				map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				seriesInfoList.add(map);
 			}
-			if (seriesInfoList.isEmpty()) {
+			if (seriesInfoList.size()==0/*isEmpty()* DO NOT USE*/) {
 				return null;
 			} else {
 				return seriesInfoList;
@@ -2470,7 +2468,6 @@ public class DatabaseHandler {
 				conn.commit();
 				safeClose(conn);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

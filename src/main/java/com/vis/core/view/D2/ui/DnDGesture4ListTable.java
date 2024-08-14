@@ -34,7 +34,7 @@ public class DnDGesture4ListTable implements DragGestureListener, DragSourceList
 			SeriesListTable stbl = (SeriesListTable)this.tbl;
 			uids.add(stbl.getRelatedPatID());
 			uids.add(stbl.getRelatedStudyUID());
-			uids.add(stbl.getCurrentSeriesUID());
+			uids.add(stbl.getSelectedSeriesUID());
 			uids.add(stbl.getCurrentSeriesSopUIDs());//sopUIDs array
 		} else if (this.tbl instanceof ImageListTable) {
 			// future work

@@ -391,7 +391,8 @@ public class Viewer2DScreen extends JFrame {
 	public void loadImagesOnStage(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
 		HashMap<String, String> patInfo = db.getPatientInfoByPatID(patID);
 		if (!sdm.existsInDock(patID)) {
-			StageView stage = new StageView(patInfo, studyUID, seriesUID, sopUIDs, refUID);
+			StageView stage = new StageView(patInfo);
+			stage.addPraparatOnEye(patID, studyUID, seriesUID, sopUIDs, refUID);
 			sdm.addStage(patID, stage);
 		} else {
 			StageView sv = sdm.getStage(patID);

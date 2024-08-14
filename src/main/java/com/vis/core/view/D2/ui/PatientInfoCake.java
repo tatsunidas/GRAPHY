@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- * Indicates what images showing StageView on.
+ * Indicates what images showing StageView on with patient level.
  * 
  * @author tatsunidas
  *
@@ -60,13 +60,15 @@ public class PatientInfoCake extends JPanel{
 	private StudyListTable studies;
 	private SeriesListTable series;
 	private ImageListTable images;
+	final private HashMap<String,String> patInfoSet;
 	
-	public PatientInfoCake(HashMap<String,String> patInfoSet,String studyUID,String seriesUID, String[] sopUIDs) {
-		setLayout(new BorderLayout(0, 0));
-		buildCake(patInfoSet, studyUID, seriesUID, sopUIDs);
+	public PatientInfoCake(HashMap<String,String> patInfoSet) {
+		this.patInfoSet = patInfoSet;
+		setLayout(new BorderLayout());
+		initComponent();
 	}
-
-	private void buildCake(HashMap<String,String> patInfoSet,String studyUID,String seriesUID, String[] sopUIDs) {
+	
+	private void initComponent() {
 		//patient info panel
 		String patID = patInfoSet.get("PatientID");
 		String patName = patInfoSet.get("PatientName");
@@ -74,9 +76,8 @@ public class PatientInfoCake extends JPanel{
 		String patSex = patInfoSet.get("PatientSex");
 		patPanel = new PatientInfoPanel();
 		patPanel.setPatientInfo(patID,patName,patBOD,patSex);
-		setPatientInfoPanel(patPanel);
-		//construct hierarchy tables
-		constructHierarchyTables(patID, studyUID, seriesUID, sopUIDs);
+		
+		constructHierarchyTables();
 		
 		//patPanel and studies
 		JSplitPane patAndStudySplit = new JSplitPane();
@@ -104,46 +105,33 @@ public class PatientInfoCake extends JPanel{
 		patAndStudyAndSeriesAndImageSplit.setDividerLocation(400);
 		
 		add(patAndStudyAndSeriesAndImageSplit,BorderLayout.CENTER);
-	}
-	
-	private void constructHierarchyTables(String patID,String studyUID,String seriesUID, String[] sopUIDs) {
-		//set up tables
-		StudyListTable studyList = new StudyListTable(patID,studyUID);
-		SeriesListTable seriesList = new SeriesListTable(patID,studyUID,seriesUID);
-		/*
-		 * if selected DICOMNode level is study, seriesUID or sopUID are null. 
-		 */
-		if(seriesUID == null) {
-			//select fistRow in study in db.
-			seriesUID = seriesList.getSeriesInstanceUIDAtSelectedRow(0);
-		}
-		ImageListTable imageList = new ImageListTable(patID,studyUID,seriesUID,sopUIDs);
 		
-		//set relations
-		studyList.setRelatedSeriesListTable(seriesList);
-		seriesList.setImageListTable(imageList);
-		//add to cake
-		setStudyList(studyList);
-		setSeriesList(seriesList);
-		setImageList(imageList);
+		revalidate();
 	}
 	
-	public void setPatientInfoPanel(PatientInfoPanel pp) {
-		this.patPanel = pp;
+	private void constructHierarchyTables() {
+		//set up tables
+		studies = new StudyListTable(this);
+		series = new SeriesListTable(this, studies);
+		images = new ImageListTable(this, series);
 	}
 	
-	public void setStudyList(StudyListTable sl) {
-		this.studies = sl;
+	String getPatientInfo(String key) {
+		return patInfoSet.get(key);
 	}
 	
-	public void setSeriesList(SeriesListTable sel) {
-		this.series = sel;
+	String getSelectedStudyUID() {
+		return studies.getSlectedStudyUID();
 	}
 	
-	public void setImageList(ImageListTable imglisttbl) {
-		this.images = imglisttbl;
+	String getSelectedSeriesUID() {
+		return series.getSelectedSeriesUID();
 	}
 	
+	String[] getSelectedSopUIDs() {
+		return images.getSelectedSopUIDs();
+	}
+		
 	public void linkWithEyepiece(ArrayList<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> prapcons) {
 		ArrayList<String> studyUIDSet = new ArrayList<String>();
 		ArrayList<String> seriesUIDSet = new ArrayList<String>();

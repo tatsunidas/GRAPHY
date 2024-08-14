@@ -83,6 +83,7 @@ import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
+import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
@@ -198,10 +199,10 @@ public class Praparat extends JPanel {
 	}
 	
 	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
-		this(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages, null, studyColor, mode);
+		this(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages, null, null, studyColor, mode);
 	}
 	
-	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Eyepiece manager,
+	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, String refUID, Eyepiece manager,
 			Color studyColor, ViewMode mode) {
 		if(mode == null) {
 			this.mode = ViewMode.Normal;
@@ -212,7 +213,7 @@ public class Praparat extends JPanel {
 			this.studyColor = studyColor;
 		}
 		this.prapManager = manager;
-		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
+		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, pathToSortedinstNoImages);
 		init();
 		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
 		if(mode != ViewMode.FilmGrid) {
@@ -773,7 +774,13 @@ public class Praparat extends JPanel {
 		uids[0] = patID;
 		uids[1] = studyUID;
 		uids[2] = seriesUID;
-		uids[3] = sopUIDs;// String[]
+		/*
+		 * Basically, the order of the sopUID array is not guaranteed. However, we do
+		 * not want to change the order unnecessarily if at all possible. For example,
+		 * in equals(), the order may change because of sorting. Here, we pass a copy and
+		 * make no changes to the original.
+		 */
+		uids[3] = sopUIDs.clone();// String[],
 		uids[4] = frameOfReferenceUID;
 		return uids;
 	}
@@ -1354,6 +1361,8 @@ public class Praparat extends JPanel {
 		String frameOfRefUID = null;
 		if(db != null) {
 			frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
+		}else {
+			frameOfRefUID = DicomUtilities.getFrameOfReferenceUID(pathToImages.get(0));
 		}
 		setInfo(patID, studyUID, seriesUID, sopUIDs, frameOfRefUID, pathToImages);
 	}
@@ -1363,7 +1372,12 @@ public class Praparat extends JPanel {
 		this.studyUID = studyUID;
 		this.seriesUID = seriesUID;
 		this.sopUIDs = sopUIDs;
-		this.frameOfReferenceUID = refUID;
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db != null && (refUID == null || refUID.length()==0)) {
+			this.frameOfReferenceUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
+		}else {
+			this.frameOfReferenceUID = refUID;
+		}
 		setImageFileLocations(pathToImages);
 	}
 	

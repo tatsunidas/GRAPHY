@@ -1,22 +1,71 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
+
 package com.vis.core.view.D2.ui.glasses;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+import com.vis.core.log.Log;
+
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class PraparatShelf {
 	
-	/*
-	 * Manage Praparats on study level.
-	 */
 	ArrayList<PraparatContext> praparats = null;
 	
 	public PraparatShelf() {
 		praparats = new ArrayList<PraparatContext>();
 	}
 	
-	public void addPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs, String refUID, Praparat pp) {
+	public void addPraparat(Praparat pp) {
+		Object[] uids = pp.getUIDs();
+		addPraparat((String)uids[0], (String)uids[1], (String)uids[2], (String[])uids[3], (String)uids[4], pp);
+	}
+	
+	private void addPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs, String refUID, Praparat pp) {
 		if(patID==null || studyUID==null || seriesUID==null || sopUIDs==null || refUID==null || pp==null) {
+			Log.logger.warning("UIDs do not allow null.");
 			return;
 		}
 		//add new or replace
@@ -38,31 +87,13 @@ public class PraparatShelf {
 		}
 	}
 	
-//	public void addPraparat(Eyepiece manager, String patID, String studyUID,String seriesUID,String[] sopUIDs, ArrayList<String> images) {
-//		Praparat pp = new Praparat(images,manager);
-//		addPraparat(patID,studyUID,seriesUID,sopUIDs, pp);
-//	}
-	
-	public void updatePraparatContext(Praparat prevPrap, String newPatID,String newStudyUID,String newSeriesUID,String[] newSopUIDs, String newRefUID) {
-		if(prevPrap==null || newPatID==null || newStudyUID==null || newSeriesUID==null || newSopUIDs==null || newRefUID==null) {
-			return;
-		}
-		Object[] uids = prevPrap.getUIDs();
-		String prevPatID = (String)uids[0];
-		String prevStudyUID = (String)uids[1];
-		String prevSeriesUID = (String)uids[2];
-		String prevSopUIDs[] = (String[])uids[3];
-//		pcon.updateContext(newPatID, newStudyUID, newSeriesUID, newSopUIDs, newRefUID);
-	}
-	
 	/*
 	 * remove prap and pracon from prapshelf if match completely.
 	 */
 	public void removePraparat(String patID, String studyUID,String seriesUID,String[] sopUIDs) {
-//		System.out.println("pre "+praparats.size());
+		Log.logger.fine("pre "+praparats.size());
 		praparats.remove(getPraparatContext(patID, studyUID, seriesUID, sopUIDs));
-		praparats.trimToSize();
-//		System.out.println("post "+praparats.size());
+		Log.logger.fine("post "+praparats.size());
 	}
 	
 	public void removePraparat(Praparat pp) {
@@ -72,16 +103,36 @@ public class PraparatShelf {
 	
 	public Praparat getPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs) {
 		for(PraparatContext pcon : praparats) {
-			if(pcon.match(patID, studyUID, seriesUID, sopUIDs)) {
+			if(pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
 				return pcon.getPraparat();
 			}
 		}
 		return null;
 	}
 	
+	public void updatePraparatContext(Praparat prevPrap, Praparat newPrap) {
+		Object[] uids = prevPrap.getUIDs();
+		String patID = (String)uids[0];
+		String studyUID = (String)uids[1];
+		String seriesUID = (String)uids[2];
+		String[] sopUIDs = (String[])uids[3];
+		for(PraparatContext pcon : praparats) {
+			if(pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
+				Object[] uids_ = newPrap.getUIDs();
+				String patID_ = (String)uids_[0];
+				String studyUID_ = (String)uids_[1];
+				String seriesUID_ = (String)uids_[2];
+				String[] sopUIDs_ = (String[])uids_[3];
+				String refUID_ = (String)uids_[4];
+				pcon = new PraparatContext(newPrap, patID_, studyUID_, seriesUID_, sopUIDs_, refUID_);
+				break;
+			}
+		}
+	}
+	
 	public PraparatContext getPraparatContext(String patID,String studyUID,String seriesUID,String[] sopUIDs) {
 		for(PraparatContext pcon : praparats) {
-			if(pcon.match(patID, studyUID, seriesUID, sopUIDs)) {
+			if(pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
 				return pcon;
 			}
 		}
@@ -150,35 +201,6 @@ public class PraparatShelf {
 			return this.pp;
 		}
 		
-		/**
-		 * All values required with non null.
-		 * @param patID
-		 * @param studyUID
-		 * @param seriesUID
-		 * @param sopUIDs
-		 * @return
-		 */
-		private boolean match(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
-			if(patID == null || studyUID == null || seriesUID == null || sopUIDs == null) {
-				return false;
-			}
-			if(this.patID.equals(patID) && this.studyUID.equals(studyUID) && this.seriesUID.equals(seriesUID)) {
-				if(this.sopUIDs != null && sopUIDs != null) {
-					List<String> soplist = Arrays.asList(sopUIDs);
-					if(this.sopUIDs.equals(soplist)) {
-						return true;
-					}else {
-						return false;
-					}
-				}else {//null of each
-					return true;
-				}
-			}else {
-				return false;
-			}
-		}
-		
-		//TODO Override equals()
 		@Override
 		public boolean equals(Object pcon) {
 			if(pcon instanceof PraparatContext) {
@@ -191,20 +213,34 @@ public class PraparatShelf {
 					if(this.sopUIDs != null && sopUIDs != null) {
 						String[] sopUIDsArray = (String[])sopUIDs;
 						List<String> soplist = Arrays.asList(sopUIDsArray);
+						Collections.sort(soplist);
+						Collections.sort(this.sopUIDs);
 						if(this.sopUIDs.equals(soplist)) {
 							return true;
-						}else {
-							return false;
 						}
-					}else {//null of each
+					}else if(this.sopUIDs == null && sopUIDs == null) {
 						return true;
 					}
-				}else {
-					return false;
 				}
-			}else {
-				return false;
 			}
+			return false;
+		}
+		
+		public boolean equals(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
+			if (this.patID.equals(patID) && this.studyUID.equals(studyUID) && this.seriesUID.equals(seriesUID)) {
+				if (this.sopUIDs != null && sopUIDs != null) {
+					String[] sopUIDsArray = (String[]) sopUIDs;
+					List<String> soplist = Arrays.asList(sopUIDsArray);
+					Collections.sort(soplist);
+					Collections.sort(this.sopUIDs);
+					if (this.sopUIDs.equals(soplist)) {
+						return true;
+					}
+				}else if(this.sopUIDs == null && sopUIDs == null) {
+					return true;
+				}
+			}
+			return false;
 		}
 	}
 }

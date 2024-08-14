@@ -6,6 +6,8 @@ import java.awt.event.MouseMotionListener;
 
 import javax.swing.SwingUtilities;
 
+import com.vis.core.log.Log;
+
 public class ListTableMouseListener implements MouseListener, MouseMotionListener{
 
 	@Override
@@ -19,7 +21,7 @@ public class ListTableMouseListener implements MouseListener, MouseMotionListene
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		if(e.getClickCount() >= 2 && SwingUtilities.isLeftMouseButton(e)) {
-			System.out.println("clicked twice...Open new images");
+			Log.logger.fine("clicked twice...Open new images");
 			Object target = e.getSource();
 			if(target instanceof SeriesListTable) {
 				SeriesListTable tbl = (SeriesListTable)target;
@@ -31,9 +33,7 @@ public class ListTableMouseListener implements MouseListener, MouseMotionListene
 	}
 
 	@Override
-	public void mouseEntered(MouseEvent arg0) {
-//		System.out.println("Entered");
-	}
+	public void mouseEntered(MouseEvent arg0) {}
 
 	@Override
 	public void mouseExited(MouseEvent arg0) {}

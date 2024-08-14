@@ -38,6 +38,7 @@
 package com.vis.core.view.D2.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
@@ -55,7 +56,7 @@ import com.vis.core.log.Log;
 import com.vis.db.DatabaseHandler;
 
 /**
- * 
+ * Show all studies in patient.
  * @author tatsunidas
  *
  */
@@ -66,21 +67,29 @@ public class StudyListTable extends JTable {
 	 */
 	private static final long serialVersionUID = 1L;
 	Logger log = Log.logger;
-	private static String[] header = new String[] { "StudyInstanceUID", "Presence", "ModalitiesInStudy", "StudyDate",
+	private final String[] header = new String[] { "StudyInstanceUID", "Presence", "ModalitiesInStudy", "StudyDate",
 			"StudyDescription", "NumOfSeries" };
 	private DefaultTableModel model;
 	private DatabaseHandler db = DatabaseHandler.getInstance();
 	private JScrollPane pane = null;
-	private ArrayList<String> onStageStudyList = new ArrayList<String>();
-	private String patID;
-	private String currentStudyUID; //selected in table
+	/*
+	 * Thread safe
+	 */
+	List<String> onStageStudyList = Collections.synchronizedList(new ArrayList<>());
+	private String currentStudyUID; //selected row on table
 	private SeriesListTable seriesListTbl;
+	private final PatientInfoCake cake;
 
-	public StudyListTable(String patID, String selectedStudyUID) {
-		this.patID = patID;
-		addOnStageStudyUID(selectedStudyUID);
-		model = (DefaultTableModel) getModel();
-		setModel(patID);
+	public StudyListTable(PatientInfoCake cake) {
+		this.cake = cake;
+		model = new DefaultTableModel(header, 0) {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public boolean isCellEditable(int row, int column) {
+				return false;
+			}
+		};
+       setModel(model);
 		setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent e) {
@@ -105,13 +114,15 @@ public class StudyListTable extends JTable {
 							output.append(" studyUID:"+currentStudyUID);
 						}
 					}
-					log.info(output.toString());
-					seriesListTbl.updateTableWith(currentStudyUID);
+					log.fine(output.toString());
+					if(seriesListTbl != null) {
+						seriesListTbl.initTable(currentStudyUID);
+					}
 				}
 			}
 		});
+		initTable();
 		pane = new JScrollPane(this);
-		repaint();
 	}
 
 	public void setRelatedSeriesListTable(SeriesListTable tbl) {
@@ -122,22 +133,24 @@ public class StudyListTable extends JTable {
 		return pane;
 	}
 
-	private void setModel(String patID) {
+	private void initTable() {
+		String patID = cake.getPatientInfo("PatientID");
 		ArrayList<String> studies = db.getStudyUidList(patID);
 		Object[][] studyInfoSets = new Object[studies.size()][];
 		for (int i = 0; i < studies.size(); i++) {
-			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(patID, studies.get(i));
-			List<String> modalities = db.getModalitiesInStudyRealatedAllSeries(patID, studies.get(i));
+			String studyUID = studies.get(i);
+			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(patID, studyUID);
+			List<String> modalities = db.getModalitiesInStudyRealatedAllSeries(patID, studyUID);
 			String m = "";
 			for (String mo : modalities) {
-				if (m.equals("")) {
-					m = m + mo;
+				if (mo.equals("")) {
 					continue;
 				}
-				m = m + "," + mo;
+				m += mo + ",";
 			}
+			m = m.substring(0, m.length()-1);//delete last comma
 			Object[] row = new Object[header.length];
-			row[0] = studies.get(i);
+			row[0] = studyUID;
 			if (onStageStudyList.contains(studies.get(i))) {
 				row[1] = true;
 			} else {
@@ -156,58 +169,66 @@ public class StudyListTable extends JTable {
 	 * The model must have a UID.
 	 * Delete columns from the table after reflecting them in the table.
 	 * 
-	 * table.removeColumn(table.getColumnModel().getColumn(4));
+	 * table.removeColumn(table.getColumnModel().getColumn(0));
 	 * 
 	 * When accessing the UID later, access it through the model. 
 	 * Note that it cannot be obtained from a table.
 	 * 
-	 * table.getModel().getValueAt(table.getSelectedRow(),4);
+	 * table.getModel().getValueAt(table.getSelectedRow(),0);
 	 * 
 	 * UID-studydate-studydesc-modalities-numOfSeries
 	 */
-	public void constructTableView(Object[][] list) {
-		model.setDataVector(list, header);
-		setModel(model);
+	private void constructTableView(Object[][] data) {
+		model.setDataVector(data, header);
 		model.fireTableDataChanged();
 		TableColumnModel tcm = getColumnModel();
-		TableColumn tc = tcm.getColumn(model.findColumn("Presence"));
-		tc.setCellRenderer(new PresenceCellRenderer(PresenceCellRenderer.DEFAULT));
-		removeColumn(getColumnModel().getColumn(0));// remove UID column, but remain in model.
-		revalidate();
-		repaint();
+		TableColumn presenceCol = tcm.getColumn(model.findColumn(header[1]));
+		presenceCol.setCellRenderer(new PresenceCellRenderer(PresenceCellRenderer.DEFAULT));
+		removeColumn(getColumnModel().getColumn(model.findColumn(header[0])));// remove UID column, but remain data in model.
 	}
 
-	public void updateTable() {
-		setModel(patID);
-	}
-
-	public String getStudyInstanceUIDAtSelectedRow(int row) {
+	private String getStudyInstanceUIDAtSelectedRow(int row) {
 		String studyUID = null;
 		int ind = convertRowIndexToModel(row);
 		studyUID = (String) model.getValueAt(ind, 0);// col 0 = UID
 //		studyUID = (String)getValueAt(ind, 0);//DO NOT USE
 		return studyUID;
 	}
+	
+	String getSlectedStudyUID() {
+		if(getSelectedRow() != -1) {
+			return getStudyInstanceUIDAtSelectedRow(getSelectedRow());
+		}else {
+			return getStudyInstanceUIDAtSelectedRow(0);
+		}
+	}
 
-	public void addOnStageStudyUID(String studyUID) {
+	/**
+	 * Set showing study
+	 * @param studyUID
+	 */
+	public void enterTheStageStudyUID(String studyUID, boolean initTable) {
 		if (studyUID == null) {
 			return;
 		}
 		if (!onStageStudyList.contains(studyUID)) {
 			onStageStudyList.add(studyUID);
 		}
-	}
-
-	public void removeOnStageStudyUID(String studyUID) {
-		if (onStageStudyList.contains(studyUID)) {
-			onStageStudyList.remove(studyUID);
-//			onStageStudyList.trimToSize();
+		if(initTable) {
+			initTable();
 		}
 	}
 
-	public void cleanUpdatePresenceOnStageStudy(ArrayList<String> newStudyUIDs) {
-		onStageStudyList = new ArrayList<String>();
-		onStageStudyList.addAll(newStudyUIDs);
-		updateTable();
+	public void leaveTheStageStudyUID(String studyUID) {
+		onStageStudyList.remove(studyUID);
+		initTable();
+	}
+
+	public void cleanUpdatePresenceOnStageStudy(ArrayList<String> newStudyUIDs/*showing StudyUID*/) {
+		onStageStudyList.clear();
+		for(String uid : newStudyUIDs) {
+			enterTheStageStudyUID(uid, false);
+		}
+		initTable();
 	}
 }

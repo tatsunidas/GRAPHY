@@ -40,15 +40,12 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 
-import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 import com.vis.configuration.Resources;
@@ -63,25 +60,29 @@ public class Eyepiece extends JPanel{
 	/**
 	 * Eyepiece is a StudyManager
 	 */
-	
+	final String patID;
 	DatabaseHandler db = DatabaseHandler.getInstance();
 	PraparatShelf prapShelf = null;
-	GridLayout gridLayout;
-	//JPanel base ;
-	byte goneOutStudyColorPos = 0;
-
-	public Eyepiece(String patID, String studyUID, String seriesUID, String[] sopUIDs, String frameOfRefUID) {
+	GridLayout gridLayout = new GridLayout();
+	HashMap<String, Color> studyColors;
+	
+	public Eyepiece(String patID) {
+		this.patID = patID;
 		init();
-		addPraparat(patID, studyUID, seriesUID, sopUIDs, frameOfRefUID, allocateStudyColor());
 //		DropTarget dt = new DropTarget(this, DnDConstants.ACTION_COPY_OR_MOVE,new ImageDropTargetListener());
 		new DropTarget(this, DnDConstants.ACTION_COPY_OR_MOVE,new ImageDropTargetListener());
-		autoLayout();
 	}
 	
 	private void init() {
 		prapShelf = new PraparatShelf();
-		gridLayout = new GridLayout(1,1);
 		setLayout(gridLayout);
+		studyColors = new HashMap<>();
+		ArrayList<String> studyUIDs = db.getStudyUidList(patID);
+		int colorInd = 0;
+		for(String studyUID : studyUIDs) {
+			studyColors.put(studyUID, allocateStudyColor(colorInd));
+			colorInd+=10;
+		}
 	}
 	
 	/**
@@ -94,7 +95,7 @@ public class Eyepiece extends JPanel{
 	 * @param studyColor
 	 * @return
 	 */
-	private Praparat buildPraparat(String patID, String studyUID, String seriesUID,String[] sopUIDs, Color studyColor) {
+	private Praparat buildPraparat(String patID, String studyUID, String seriesUID,String[] sopUIDs, String refUID) {
 		if(seriesUID == null) {
 			Log.logger.fine("SeriesUID is NUll, return null.");
 			return null;
@@ -107,7 +108,7 @@ public class Eyepiece extends JPanel{
 				p2images.add(p2img);
 			}
 		}
-		Praparat prap = new Praparat(patID, studyUID, seriesUID, sopUIDs, p2images,this, studyColor,ViewMode.Normal);
+		Praparat prap = new Praparat(patID, studyUID, seriesUID, sopUIDs, p2images, refUID, this, studyColors.get(studyUID), ViewMode.Normal);
 		return prap;
 	}
 	
@@ -143,7 +144,7 @@ public class Eyepiece extends JPanel{
 	}
 	
 	public void addPraparat(String patID, String studyUID, String seriesUID,
-			String[] sopUIDs, String refUID, Color studyColor) {
+			String[] sopUIDs, String refUID) {
 		if(patID == null || studyUID == null) {
 			return;
 		}
@@ -153,24 +154,35 @@ public class Eyepiece extends JPanel{
 			for (String seUID : seriesList) {
 				//get sopUIDs
 				ArrayList<String> sopUIDInSeries = db.getInstanceUidList(patID,studyUID, seUID);
-				prapShelf.addPraparat(patID,studyUID,seUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]),refUID,buildPraparat(patID, studyUID, seUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]),studyColor));
+				prapShelf.addPraparat(buildPraparat(patID, studyUID, seUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]), refUID));
 			}
 		}else {
 			//select instances to show
 			if(sopUIDs != null) {
 				//only show specified instances
-				prapShelf.addPraparat(patID,studyUID,seriesUID, sopUIDs,refUID,buildPraparat(patID, studyUID, seriesUID, sopUIDs,studyColor));
+				prapShelf.addPraparat(buildPraparat(patID, studyUID, seriesUID, sopUIDs, refUID));
 			}else {
 				//show all instances in particular series
 				ArrayList<String> sopUIDInSeries = db.getInstanceUidList(patID, studyUID, seriesUID);
-				prapShelf.addPraparat(patID,studyUID,seriesUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]),refUID,buildPraparat(patID, studyUID, seriesUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]),studyColor));
+				prapShelf.addPraparat(buildPraparat(patID, studyUID, seriesUID, sopUIDInSeries.toArray(new String[sopUIDInSeries.size()]), refUID));
 			}
 		}
 	}
 	
-	public void updatePraparat(Praparat prevPrap, String newPatID, String newStudyUID, String newSeriesUID, String[] newSopUIDs, String refUID) {
-		System.out.println(prevPrap.getUIDs()[2]+"  "+newSeriesUID);
-		prapShelf.updatePraparatContext(prevPrap, newPatID, newStudyUID, newSeriesUID, newSopUIDs, refUID);
+	public Color allocateStudyColor(int index) {
+		ij.process.LUT studyColors = Resources.LUT_FIRE.loadLUT();
+ 		byte ind = (byte) index;//convert range to -128 ~ 127
+		int location = (int)((int)ind + 128);//0 ~ 255
+		int r = studyColors.getRed(location);
+		int g = studyColors.getGreen(location);
+		int b = studyColors.getBlue(location);
+		return new Color(r,g,b);
+	}
+	
+	//TODO 20240814
+	public void updatePraparat(Praparat prevPrap, String newPatID, String newStudyUID, String newSeriesUID, String[] newSopUIDs, String newRefUID) {
+		Praparat pp = buildPraparat(newPatID, newStudyUID, newSeriesUID, newSopUIDs, newRefUID);
+		prapShelf.updatePraparatContext(prevPrap, pp);
 	}
 	
 	public ArrayList<Praparat> getPraparatAmbiguously(String patID, String studyUID, String seriesUID) {
@@ -204,35 +216,21 @@ public class Eyepiece extends JPanel{
 		return result;
 	}
 	
-	//TODO 20240813
 	public void autoLayout() {
 		int numOfPrap = prapShelf.howManyPraparat();
-		if(numOfPrap > 1) {
-			int row = -1;
-			int col = -1;
-			if(numOfPrap == 2) {
-				row = 1;
-				col = 2;
-			}else if(numOfPrap == 3 || numOfPrap ==4){
-				row = 2;
-				col = 2;
-			}else {
-				int s = 3;
-				while(s*s < numOfPrap) {
-					s = s+ 1;
-				}
-				row = s;
-				col = s;
-			}
-			gridLayout.setRows(row);
-			gridLayout.setColumns(col);
-		}else {
+		int rows = (int) Math.sqrt(numOfPrap);
+		int cols = (int) Math.ceil((double) numOfPrap / rows);
+		if(numOfPrap < 1) {
 			gridLayout.setRows(1);
 			gridLayout.setColumns(1);
-		}
-		
-		for(PraparatContext pcon:prapShelf.getAllShelfContents()) {
-			add(pcon.getPraparat());
+			return;
+		}else {
+			removeAll();
+			gridLayout.setRows(rows);
+			gridLayout.setColumns(cols);
+			for (PraparatContext pcon : prapShelf.getAllShelfContents()) {
+				add(pcon.getPraparat());
+			}
 		}
 	}
 	
@@ -261,18 +259,5 @@ public class Eyepiece extends JPanel{
 			Praparat pp = pcon.getPraparat();
 			pp.setFocusGained(false);
 		}
-	}
-	
-	public Color allocateStudyColor() {
-		ij.process.LUT studyColors = Resources.LUT_FIRE.loadLUT();
-		byte index = goneOutStudyColorPos;
-		byte increment = 10;
- 		index = (byte) (index + increment);//-128 ~ 127
-		int location = (int)((int)index + 128);//0 ~ 255
-		int r = studyColors.getRed(location);
-		int g = studyColors.getGreen(location);
-		int b = studyColors.getBlue(location);
-		goneOutStudyColorPos = (byte)location;
-		return new Color(r,g,b);
 	}
 }

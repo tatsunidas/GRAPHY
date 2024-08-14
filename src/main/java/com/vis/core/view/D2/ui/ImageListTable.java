@@ -1,7 +1,45 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.ui;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
@@ -16,34 +54,47 @@ import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
 import com.vis.core.log.Log;
-import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class ImageListTable extends JTable{
 	
 	private static final long serialVersionUID = 1L;
 
 	Logger log = Log.logger;
-	private static String[] header = new String[] {"SOPInstanceUID","Presence","filename","Inst_No"};
+	private final String[] header = new String[] {"SOPInstanceUID","Presence","FileName","Inst_No"};
 	private DefaultTableModel model;
 	private DatabaseHandler db = DatabaseHandler.getInstance();
 	private JScrollPane pane = null;
-	private ArrayList<String> onStageImageList = new ArrayList<String>();
-	private String patID;
+//	private ArrayList<String> onStageImageList = new ArrayList<String>();
+	List<String> onStageImageList = Collections.synchronizedList(new ArrayList<>());
 	private String studyUID;
 	private String seriesUID;
 	private ArrayList<String> currentImageSopUID = new ArrayList<String>();
+	final private PatientInfoCake cake;
+	private SeriesListTable seriesListTbl;
 	
-	public ImageListTable(String patID, String studyUID, String seriesUID, String[] selectedSopUIDs) {
-		this.patID = patID;
-		this.studyUID = studyUID;
-		this.seriesUID = seriesUID;
-		addOnStageSopUID(selectedSopUIDs);
-		model = (DefaultTableModel) getModel();
-		setModel(patID,studyUID,seriesUID);
+	public ImageListTable(PatientInfoCake cake, SeriesListTable selt) {
+		this.cake = cake;
+		seriesListTbl = selt;
+		seriesListTbl.setRelatedImageListTable(this);
+		model = new DefaultTableModel() {
+            private static final long serialVersionUID = 1L;
+			@Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+       setModel(model);
+		setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		getSelectionModel().addListSelectionListener(new TableListSelectionListener());
+		initTable(null, null);
 		pane = new JScrollPane(this);
 	}
 
@@ -51,12 +102,20 @@ public class ImageListTable extends JTable{
 		return pane;
 	}
 	
-	private void setModel(String patID,String studyUID,String seriesUID) {
-		List<HashMap<String,String>> images = db.getImagesInfoByUIDs(patID,studyUID,seriesUID);
+	void initTable(String studyUID,String seriesUID) {
+		this.studyUID = studyUID;
+		this.seriesUID = seriesUID;
+		if(this.studyUID == null) {
+			this.studyUID = db.getStudyUidList(cake.getPatientInfo("PatientID")).get(0);
+		}
+		if(this.seriesUID == null) {
+			this.seriesUID = db.getSeriesUidList(cake.getPatientInfo("PatientID"), this.studyUID).get(0);
+		}
+		List<HashMap<String,String>> images = db.getImagesInfoByUIDs(cake.getPatientInfo("PatientID"),this.studyUID,this.seriesUID);
 		Object[][] imageInfoSets = new Object[images.size()][];
 		for(int i=0;i<images.size();i++) {
 			HashMap<String,String> imageInfo = images.get(i);
-			String name = new File(db.getFileLocation(studyUID, seriesUID, imageInfo.get("SOPInstanceUID"))).getName();
+			String name = new File(db.getFileLocation(this.studyUID, this.seriesUID, imageInfo.get("SOPInstanceUID"))).getName();
 			Object[] row = new Object[header.length];
 			row[0] = imageInfo.get("SOPInstanceUID");
 			if(onStageImageList.contains(imageInfo.get("SOPInstanceUID"))) {
@@ -71,26 +130,15 @@ public class ImageListTable extends JTable{
 		constructTableView(imageInfoSets);
 	}
 
-	public void constructTableView(Object[][] list) {
+	private void constructTableView(Object[][] list) {
 		model.setDataVector(list, header);
-		setModel(model);
 		model.fireTableDataChanged();
 		TableColumnModel tcm = getColumnModel();
-		TableColumn tc = tcm.getColumn(model.findColumn("Presence"));
+		TableColumn tc = tcm.getColumn(model.findColumn(header[1]));
 		tc.setCellRenderer(new PresenceCellRenderer(PresenceCellRenderer.DEFAULT));
 		removeColumn(getColumnModel().getColumn(0));//remove UID column, but remain in model.
 		revalidate();
 		repaint();
-	}
-	
-	public void updateTable() {
-		setModel(patID, studyUID, seriesUID);
-	}
-	
-	public void updateTableWith(String studyUID, String seriesUID) {
-		this.studyUID = studyUID;
-		this.seriesUID = seriesUID;
-		updateTable();
 	}
 	
 	public String getSOPInstanceUIDAtSelectedRow(int row) {
@@ -99,6 +147,19 @@ public class ImageListTable extends JTable{
 		sopUID = (String)model.getValueAt(ind, 0);//col 0 = UID
 //		sopUID = (String)getValueAt(ind, 0);//DO NOT USE
 		return sopUID;
+	}
+	
+	public String[] getSelectedSopUIDs() {
+		int[] rows = getSelectedRows();
+		if(rows.length == 0) {
+			return null;
+		}
+		String[] selectedSopUIDs = new String[rows.length];
+		for(int i=0; i<rows.length; i++) {
+			String sopUID = getSOPInstanceUIDAtSelectedRow(rows[i]);
+			selectedSopUIDs[i] = sopUID;
+		}
+		return selectedSopUIDs;
 	}
 	
 	public int getSlicePositionBySopUID(String sopUID) {
@@ -123,7 +184,7 @@ public class ImageListTable extends JTable{
 		}
 	}
 	
-	public void addOnStageSopUID(String[] sopUIDs) {
+	public void enterTheStageSopUID(String[] sopUIDs, boolean initTable) {
 		if(sopUIDs == null) {
 			return;
 		}
@@ -132,25 +193,24 @@ public class ImageListTable extends JTable{
 				onStageImageList.add(uid);
 			}
 		}
+		if(initTable) {
+			initTable(studyUID, seriesUID);
+		}
 	}
 
-	public void removeOnStageSopUID(String[] sopUIDs) {
+	public void leaveTheStageSopUID(String[] sopUIDs) {
 		for (String uid : sopUIDs) {
-			if (onStageImageList.contains(uid)) {
-				onStageImageList.remove(uid);
-//				if(onStageImageList.size() == 0) {
-//					onStageImageList = new ArrayList<String>();//reset
-//				}
-			}
+			onStageImageList.remove(uid);
 		}
+		initTable(studyUID, seriesUID);
 	}
 	
 	public void cleanUpdatePresenceOnStageImages(ArrayList<String[]> newSopUIDs) {
-		onStageImageList = new ArrayList<String>();
+		onStageImageList.clear();
 		for(String[] uids:newSopUIDs) {
-			addOnStageSopUID(uids);
+			enterTheStageSopUID(uids, false);
 		}
-		updateTable();
+		initTable(studyUID, seriesUID);
 	}
 	
 	class TableListSelectionListener implements ListSelectionListener {
@@ -181,10 +241,9 @@ public class ImageListTable extends JTable{
 						output.append(" SopUID:"+currentImageSopUID);
 					}
 				}
-				if(Utils.isDebug) {
-					log.info(output.toString());
-				}
+				log.fine(output.toString());
 				//focusGained
+				String patID = cake.getPatientInfo("PatientID");
 				Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(patID);
 				eye.lostAllPraparatFocusGained();
 				ArrayList<Praparat> praps = eye.getPraparatAmbiguously(patID, studyUID, seriesUID);

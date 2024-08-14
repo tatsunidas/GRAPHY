@@ -87,83 +87,8 @@ public class DicomUtilities {
 		}
 	}
 	
-//	public static Attributes readDicomObject(String path, boolean withPixel){
-//		DicomInputStream dis = null;
-//		Attributes dataset = null;
-//		@SuppressWarnings("unused")
-//		Attributes fmi = null;
-//		try {
-//			dis = new DicomInputStream(new File(path));
-//			dis.setIncludeBulkData(IncludeBulkData.URI);
-//			fmi = dis.readFileMetaInformation();
-//			if (!withPixel) {
-//				dataset = dis.readDatasetUntilPixelData();
-//			} else {
-//				dataset = dis.readDataset(-1, o -> false);
-//			}
-//		}catch(DicomStreamException dse) {
-//			logger.error("Reading dicom file...:getDicomAttribute",dse);
-//			return null;
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//			logger.error("Reading dicom file...:getDicomAttribute",e);
-//			return null;
-//		}finally {
-//			SafeClose.close(dis);
-//		}
-//		return dataset;
-//	}
-//	
-//	public static Attributes readDicomObject(File dcmFile, boolean withPixel){
-//		DicomInputStream dis = null;
-//		Attributes dataset = null;
-//		@SuppressWarnings("unused")
-//		Attributes fmi = null;
-//		try {
-//			dis = new DicomInputStream(dcmFile);
-//			dis.setIncludeBulkData(IncludeBulkData.URI);
-//			fmi = dis.readFileMetaInformation();
-//			if (!withPixel) {
-//				dataset = dis.readDatasetUntilPixelData();
-//			} else {
-//				dataset = dis.readDataset(-1, o -> false);
-//			}
-//		}catch(DicomStreamException dse) {
-//			logger.error("Reading dicom file...:getDicomAttribute",dse);
-//			return null;
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//			logger.error("Reading dicom file...:getDicomAttribute",e);
-//			return null;
-//		}finally {
-//			SafeClose.close(dis);
-//		}
-//		return dataset;
-//	}
-	
-//	public static void writeDicomObject(Attributes dataset, String tsuid, String dest) {
-//		DicomOutputStream dos = null;
-//		try {
-//			dos = new DicomOutputStream(new File(dest));
-//			Attributes fmi = dataset.createFileMetaInformation(tsuid);
-//			dos.writeFileMetaInformation(fmi);
-//			dataset.writeTo(dos);
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		} finally {
-//			try {
-//				dos.close();
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//			logger.info("Write Dicom File Done.");
-//		}
-//	}
-	
 		
-	public static Object getDicomElement(String path, int tag){
+	private static Object getDicomElement(String path, int tag){
 		DicomInputStream dis = null;
 		try {
 			dis = new DicomInputStream(new File(path));
@@ -228,7 +153,11 @@ public class DicomUtilities {
 	}
 	
 	public static String getTransferSyntaxUID(String path) {
-		return (String) getDicomElement(path, Tag.TransferSyntaxUID);
+		return new String((byte[])getDicomElement(path, Tag.TransferSyntaxUID));
+	}
+	
+	public static String getFrameOfReferenceUID(String path) {
+		return new String((byte[])getDicomElement(path, Tag.FrameOfReferenceUID));
 	}
 	
 	public static String[] getUIDSet(String path) {
