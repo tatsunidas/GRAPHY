@@ -461,9 +461,13 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 	@Override
 	public void setVisible(boolean visible) {
 		super.setVisible(visible);
-		pack();
-		revalidate();
-		repaint();
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				pack();
+				repaint();
+			}
+		});
 	}
 
 	private void saveCurrentScreenState() {

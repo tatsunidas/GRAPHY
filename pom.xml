@@ -150,29 +150,6 @@
 			<artifactId>ij</artifactId>
 			<version>${imagej-version}</version>
 		</dependency>
-
-		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
-		<!--
-		https://mvnrepository.com/artifact/net.ihe.gazelle.pixelmed.validator/Pixelmed-jar -->
-		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed -->
-		<dependency>
-			<groupId>com.dclunie</groupId>
-			<artifactId>pixelmed</artifactId>
-			<version>nrg-20200327-1</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.dclunie/pixelmed-imageio -->
-		<!--
-		<dependency>
-		    <groupId>com.dclunie</groupId>
-		<artifactId>pixelmed-imageio</artifactId>
-		    <version>20200328</version>
-		</dependency>
-		<dependency>
-		    <groupId>com.dclunie</groupId>
-		<artifactId>pixelmed-codec</artifactId>
-		    <version>20200328</version>
-		</dependency>
-		-->
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
@@ -200,8 +177,7 @@
 
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derby -->
 		<dependency>
-			<groupId>
-				org.apache.derby</groupId>
+			<groupId>org.apache.derby</groupId>
 			<artifactId>derby</artifactId>
 			<version>${derby-version}</version>
 		</dependency>

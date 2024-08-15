@@ -102,7 +102,7 @@ public class SlideGlass extends JLayeredPane {
 	private Praparat pp;// series viewer
 	private DicomObject header;
 	private DicomImage dcmImg;
-	//	protected Color studyColor = Color.CYAN;
+	
 	// glasses
 	public ImageSpecimenGlass imageSpecimen;
 	private TextOverlayGlass textOverlay;
@@ -534,6 +534,7 @@ public class SlideGlass extends JLayeredPane {
 			setFlipState(true);
 		}
 		imageSpecimen.getDisplayImage().getProcessor().flipHorizontal();
+		imageSpecimen.getDisplayImage().updateAndDraw();//IMPORTANT
 		repaint();
 	}
 
@@ -616,16 +617,7 @@ public class SlideGlass extends JLayeredPane {
 	public double getMagnification() {
 		return this.magnification;
 	}
-	
-//	public void showBorder(boolean show) {
-//		if(show) {
-//			showBorder();
-//		}else {
-//			Border b = BorderFactory.createLineBorder(clearColor, BORDER_SIZE);
-//			setBorder(b);
-//		}
-//	}
-	
+		
 	public String getModality() {
 		return header != null ? header.getString(Tag.Modality, "UNKNOWN"):null;
 		/*
@@ -641,25 +633,6 @@ public class SlideGlass extends JLayeredPane {
 	public Calibration getOriginalCalibration() {
 		return getOriginalImage().getCalibration();
 	}
-
-	/*
-	 * load reference size (praparatview size) image
-	 */
-//	private ImagePlus loadImageThatFittedPrap() {
-//		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
-//		ip.setInterpolationMethod(INTERPOLATION_METHOD);
-//		ImagePlus dup = new ImagePlus("", ip);
-//		dup.setCalibration(cal);
-//		dup.updateImage();
-//		if(isRGB && ip instanceof ColorProcessor) {
-//			ip.snapshot();//keep original pixels
-//		}
-//		Dimension d = calcImageSize2FitComponent();
-//		if (d != null) {
-//			dup = imgProcess.zoom(dup, getScaleFactor());// imp.resize(d.width, d.height, "bicubic");
-//		}
-//		return dup;
-//	}
 	
 	public ImagePlus getOriginalImage() {
 		return this.imageSpecimen.getOriginalImage();
@@ -1476,19 +1449,6 @@ public class SlideGlass extends JLayeredPane {
 //            Viewer2DScreen.logger().error("Image Panel", e);
 //        }
 //    }
-
-//	public void showBorder(boolean show) {
-//		if(show) {
-//			Border border = BorderFactory.createLineBorder(Color.CYAN, 5);
-//			textOverlay.setBorder(border);
-//			textOverlay.repaint();
-//		}else {
-//			if(textOverlay != null) { //&& textOverlay.getBorder() != null) {
-//				textOverlay.setBorder(null);
-//				textOverlay.repaint();
-//			}
-//		}
-//	}
 
 	// future work
 	private void retrieveScoutParam() {

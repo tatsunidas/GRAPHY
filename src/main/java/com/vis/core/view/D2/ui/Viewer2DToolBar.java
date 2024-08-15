@@ -46,8 +46,11 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeMap;
 
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
@@ -67,6 +70,9 @@ import com.vis.core.util.ImageUtils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
+
+import ij.ImagePlus;
 
 //import com.vis.mpr.MPRViewerWindow;//TODO 20231006
 //import com.vis.resource.GraphyIcon;
@@ -148,8 +154,8 @@ public class Viewer2DToolBar extends JToolBar{
 	}
 	
 	public void loadButtons(HashMap<String, Resources> buttonLabels) {
-		removeAll();
-		for (String key : buttonLabels.keySet()) {
+		TreeMap<String, Resources> sortedMap = new TreeMap<>(buttonLabels);
+		for (String key : sortedMap.keySet()) {
 			BufferedImage img = (BufferedImage) buttonLabels.get(key).loadIconFromResource().getImage();
 			if(img.getWidth() != defaultImgIconSize) {
 				img = (BufferedImage) ImageUtils.resize(img,defaultImgIconSize,defaultImgIconSize);
@@ -575,25 +581,6 @@ public class Viewer2DToolBar extends JToolBar{
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					//can not show this, why ... ImageCanvas matter ??			
-					/*
-					 * anyway, I can handle to how to show canvas.
-					 * I only do minimize and re-show window when show up 3d frame window.
-					 */
-//					SwingUtilities.invokeLater(() -> {
-//						String sample = "src/test/resources/flybrain.tif";
-//						ImagePlus imp = new ImagePlus(sample);
-//						imp.show();
-//			        });
-//					new Thread(new Runnable() {
-//						@Override
-//						public void run() {
-//							String sample = "src/test/resources/flybrain.tif";
-//							ImagePlus imp = new ImagePlus(sample);
-//							imp.show();
-//						}
-//					}).start();
-					
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
 					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
 					int size = selectedPraps.size();
@@ -604,8 +591,8 @@ public class Viewer2DToolBar extends JToolBar{
 					Praparat prap = selectedPraps.get(0);
 					SwingUtilities.invokeLater(new Runnable() {
 						public void run() {
-							//TODO 20231008
-							//new Viewer3DFrame_IJ(prap);
+							ImagePlus replica = prap.getImagePlus();
+							new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME);
 						}
 					});
 					currentTool = Windowing;

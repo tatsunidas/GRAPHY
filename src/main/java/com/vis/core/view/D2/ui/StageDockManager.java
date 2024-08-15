@@ -47,10 +47,13 @@ import java.util.HashMap;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
+import com.vis.core.ui.dialog.PopUpMessage;
 
 /**
  * 
@@ -118,6 +121,10 @@ public class StageDockManager extends JTabbedPane implements ChangeListener{
 		com.vis.core.view.D2.roi.RoiObjManager roiManager = Viewer2DScreen.getRoiObjManager();
 		if(roiManager.isVisible()) {
 			roiManager.updateState();
+		}
+		int res = PopUpMessage.showDialog(this, "Close 2D viewer ?", "Close 2D Viewer Window ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		if(res == JOptionPane.OK_OPTION) {
+			Viewer2DScreen.getInstance().dispose();
 		}
 	}
 	

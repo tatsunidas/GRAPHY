@@ -46,10 +46,15 @@ import java.awt.dnd.DropTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.view.D2.ui.StageDockManager;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.db.DatabaseHandler;
@@ -223,7 +228,15 @@ public class Eyepiece extends JPanel{
 		if(numOfPrap < 1) {
 			gridLayout.setRows(1);
 			gridLayout.setColumns(1);
-			return;
+			removeAll();
+			Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+			StageDockManager sdm = d2.getStageDockManager();
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					sdm.deleteStage(patID);
+				}
+			});
 		}else {
 			removeAll();
 			gridLayout.setRows(rows);

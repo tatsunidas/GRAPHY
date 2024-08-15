@@ -817,19 +817,26 @@ public class Praparat extends JPanel {
 		return -1;//means "None"
 	}
 	
-	public void gridViewOn(boolean show) {
+	public void gridViewOn(boolean showFilmGrid) {
 		if(this.mode == ViewMode.FilmGrid) {
 			this.showGridViewOn = true;
 			return;
 		}
 		if(this.mode == ViewMode.Normal) {
-			if(this.showGridViewOn && !show) {
-				getViewPanel().removeAll();
-			}
-			if(show == false) {
+			if(showFilmGrid == false) {
+				if(gridScrollPane != null) {
+					Component[] cons = viewPanel.getComponents();
+					for(Component c : cons) {
+						if(c instanceof SlideGlassGrid) {
+							viewPanel.remove(c);
+							viewPanel.revalidate();
+							break;
+						}
+					}
+				}
 				gridScrollPane = null;
 			}
-			this.showGridViewOn = show;
+			this.showGridViewOn = showFilmGrid;
 		}else {//single grid and thumbnail
 			this.showGridViewOn = false;
 			gridScrollPane = null;
@@ -1333,11 +1340,10 @@ public class Praparat extends JPanel {
 	}
 	
 	/**
-	 * For CineSlider.
 	 * If you want to change slide position, use setImagePositionUsingSlider instead.
 	 * @param sliceIndex:number of slice index, 0 to n-1
 	 */
-	protected void setImagePosition(int sliceIndex) {
+	void setImagePosition(int sliceIndex) {
 		if (slides == null) { //do not include pathToImages
 			return;
 		}
@@ -1378,7 +1384,21 @@ public class Praparat extends JPanel {
 	 * pos: 0 to n-1
 	 */
 	public void setImagePositionUsingSlider(int pos) {
-		slider.setSlice(pos);
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				/*
+				 * Slider does not fire state change when the same index as the current index is
+				 * entered.
+				 */
+				if(slider.getCurrentSliceIndex()/*1 to N*/ == (pos+1) /*0 to N-1*/) {
+					setImagePosition(pos);
+					callBackLocalizer();
+				}else {
+					slider.setSlice(pos);
+				}
+			}
+		});
 	}
 	
 	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {

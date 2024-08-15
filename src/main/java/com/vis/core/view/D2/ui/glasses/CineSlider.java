@@ -50,7 +50,6 @@ public class CineSlider extends JPanel implements ActionListener {
 		check.addChangeListener(new ChangeListener() {
 			@Override
 			public void stateChanged(ChangeEvent e) {
-				// TODO Auto-generated method stub
 				if (check.isSelected()) {
 					timer.setDelay(frame);
 					startAnimation();
@@ -67,7 +66,11 @@ public class CineSlider extends JPanel implements ActionListener {
 		add(colorBar, BorderLayout.NORTH);
 	}
 
-	private int getCurrentSliceIndex() {
+	/**
+	 * 1 to n.
+	 * @return
+	 */
+	int getCurrentSliceIndex() {
 		//slider value is 1 to n
 		return slider.getValue();
 	}
@@ -130,7 +133,7 @@ public class CineSlider extends JPanel implements ActionListener {
 				}
 				return;
 			}
-			initializing = true;//to ignore state changed.
+			initializing = true;//to ignore fire state changed when starting-up.
 //			setMajorTickSpacing(10);//DO NOT USE
 			setLabelTable(null);//needed to update slider ui
 			setMinorTickSpacing(1);
@@ -141,6 +144,7 @@ public class CineSlider extends JPanel implements ActionListener {
 			setPaintLabels(true);
 			setSnapToTicks(true);
 			initializing = false;
+			//IMPORTANT
 			/*if slider inputed same index, not to fire state changed.*/
 			/*here, intend to fire state changed, set -1*/
 			currentSliceIndex = -1;
@@ -179,11 +183,14 @@ public class CineSlider extends JPanel implements ActionListener {
 			}
 			JSlider source = (JSlider) e.getSource();
 			int nextpos = (int) source.getValue();// 1 to n
-			if(nextpos != currentSliceIndex) {
+			/*
+			 * When switch GridView, as possible same slice position.
+			 */
+//			if(nextpos != currentSliceIndex) {
 				currentSliceIndex = nextpos;
 				pp.setImagePosition(currentSliceIndex-1);//0 to n-1
 				pp.callBackLocalizer();
-			}
+//			}
 		}
 	}
 }
