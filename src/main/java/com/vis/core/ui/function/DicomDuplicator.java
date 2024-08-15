@@ -325,10 +325,7 @@ public class DicomDuplicator {
 
 
 	/**
-	 * What is this method ??
-	 * TODO 20231126
-	 * 
-	 * decompressed image only. set new seriesuid and store to GRAPHYDB.
+	 * What is this method ? -> See MPR.
 	 * 
 	 * @param org
 	 * @param newObj

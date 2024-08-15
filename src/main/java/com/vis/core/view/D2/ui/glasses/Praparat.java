@@ -809,7 +809,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public int getViewer2DToolType() {
-		Window win = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.name());
+		Window win = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
 		if(win != null) {
 			Viewer2DScreen viewer2d = (Viewer2DScreen)win;
 			return viewer2d.getCurrentToolType();

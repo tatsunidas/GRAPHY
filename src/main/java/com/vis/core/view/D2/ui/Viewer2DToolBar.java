@@ -71,6 +71,7 @@ import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
+import com.vis.core.view.mpr.MPRViewerWindow;
 
 import ij.ImagePlus;
 
@@ -296,7 +297,7 @@ public class Viewer2DToolBar extends JToolBar{
 								pp.resetView();
 							}
 						}else {
-							PopUpMessage.showDialog(own, "Reset", "There is no series selected.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.OK_OPTION);
+							PopUpMessage.showDialog(own, "Reset", "There is no series selected.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 						}
 					}
 					setSelectedToolBackground();
@@ -446,8 +447,9 @@ public class Viewer2DToolBar extends JToolBar{
 				public void actionPerformed(ActionEvent arg0) {
 					if(arrowChk.isSelected()) {
 						currentTool = RoiObj.ARROW;
-						arrowChk.setBackground(Color.CYAN);
+						//arrowChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
+						Log.logger.fine("ARROW TOOL activated ! : "+currentTool);
 					}
 				}
 			});
@@ -614,8 +616,8 @@ public class Viewer2DToolBar extends JToolBar{
 					Praparat prap = selectedPraps.get(0);
 					SwingUtilities.invokeLater(new Runnable() {
 						public void run() {
-							//TODO 20231006
-							//new MPRViewerWindow(prap);
+							//TODO 20240815
+							new MPRViewerWindow(prap);
 						}
 					});
 					currentTool = Windowing;

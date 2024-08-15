@@ -59,7 +59,9 @@ import ij.util.DicomTools;
 public class ImagePlusToDicomImage {
 	
 
-	public static HashMap<Integer,DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
+	public static HashMap<Integer,DicomImage> imagePlusToDcm(
+			ImagePlus imp, 
+			boolean dealWithSecondaryCapture) {
 		if(imp == null) {
 			return null;
 		}

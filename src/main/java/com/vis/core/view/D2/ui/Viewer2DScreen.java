@@ -43,7 +43,6 @@ import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.util.ArrayList;
@@ -89,7 +88,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 
 	private Viewer2DScreen() {
 		super(getScreenGraphicsConfiguration());
-		setName("Viewer2DScreen");
+		setName(ConfigInfo.D2ViewerWindow.toString());
 		setIconImage(Resources.Viewer2DFrameWinIcon.loadIconFromResource().getImage());
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		if (isDebug) {

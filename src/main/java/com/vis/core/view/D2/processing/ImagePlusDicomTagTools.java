@@ -61,7 +61,11 @@ public class ImagePlusDicomTagTools extends DICOM{
 	 */
 	public String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
 		imp.setSlice(pos);
-		return DicomTools.getTag(imp, tag);
+		return getTag(imp, tag);
+	}
+	
+	public String getTag(ImagePlus impAfterSetPosition, String tag/*gggg,eeee*/) {
+		return DicomTools.getTag(impAfterSetPosition, tag);
 	}
 	
 	public Double getDouble(ImagePlus imp, int pos/*1 to N*/, String tag) {
@@ -76,6 +80,20 @@ public class ImagePlusDicomTagTools extends DICOM{
 	
 	public double[] getDoubles(ImagePlus imp, int pos, String tag) {
 		String res = getTag(imp, pos, tag);
+		if (res == null) return null;
+		String[] xyz = res.split("\\\\");
+		if(xyz == null || xyz.length < 1) {
+			return null;
+		}
+		double[] arr = new double[xyz.length];
+		for(int i=0;i<xyz.length;i++) {
+			arr[i] = Tools.parseDouble(xyz[i]);//can keep minus in case of -0.0.
+		}
+		return arr;
+	}
+	
+	public double[] getDoubles(ImagePlus imp, String tag) {
+		String res = getTag(imp, imp.getCurrentSlice(),tag);
 		if (res == null) return null;
 		String[] xyz = res.split("\\\\");
 		if(xyz == null || xyz.length < 1) {

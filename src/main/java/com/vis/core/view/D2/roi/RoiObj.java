@@ -9,6 +9,8 @@ import java.awt.*;
 import java.util.*;
 
 import javax.swing.JComponent;
+import javax.swing.border.StrokeBorder;
+
 import java.text.SimpleDateFormat;
 import java.awt.image.*;
 import java.lang.reflect.Field;
@@ -101,7 +103,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	public static final int SUBTRACT_FROM_ROI=2; 
 	
 	/*
-	 * 座標系やピクセルサイズはoriginal imageに準ずる
+	 * Coordinate system conforms to the original image coordinate system.
 	 */
 	public int startX, startY;//original image based origin at mouse pressed (no lastXY mouse)
 	public double startXD, startYD;//original image based origin at mouse pressed  (no lastXY mouse)
@@ -547,7 +549,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
     	if(!showRoiPopup) {
     		return;
     	}
-    	CanvasGlass roiCanvas = (CanvasGlass) slide.getGlassAt(slide.ROI_CANVAS_LAYER);
+    	CanvasGlass roiCanvas = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
     	/*
     	 * set default location
     	 */
@@ -567,7 +569,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
     }
     
     public void showRoiPopupOnCanvasAt(int sx, int sy) {
-    	CanvasGlass roiCanvas = (CanvasGlass) slide.getGlassAt(slide.ROI_CANVAS_LAYER);
+    	CanvasGlass roiCanvas = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
     	putRoiPopup(roiCanvas, sx, sy);
     	setVisibleRoiPopup(true);
     	slide.repaint();

@@ -56,6 +56,11 @@ import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class SlideGlassMouseListener implements MouseListener, MouseMotionListener, MouseWheelListener {
 
 	private SlideGlass slide;
@@ -206,15 +211,15 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int y = e.getY();
 
 		// MPR
-		/*
-		 * TODO 20240811 ドラッグでクロスラインを描画したら、WW/wL変更ができないじゃないか。
-		 */
-//		if(pp.isShowCrossLineMode()) {
-//			slide.drawCross(e);
-//			return;//attention
-//		}
+		if(pp.mode == ViewMode.MPR && pp.isShowCrossLineMode()) {
+			slide.drawCross(e);
+			//return;//DO NOT RETURN
+		}
 
 		viewerToolType = pp.getViewer2DToolType();
+		
+		Log.logger.fine("Dragging , ViewerTool is "+viewerToolType);
+		
 		if (pp.getViewMode() == ViewMode.Thumbnail) {
 			/* Force windowing */
 			viewerToolType = Viewer2DToolBar.Windowing;

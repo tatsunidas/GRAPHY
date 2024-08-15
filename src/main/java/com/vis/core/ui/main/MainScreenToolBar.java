@@ -69,21 +69,6 @@ import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 
-//import com.vis.ui.form.dialog.BurnerWindow;
-//import com.vis.function.DatabaseBrowser2;
-//import com.vis.function.DeleteImage;
-//import com.vis.resource.GraphyIcon;
-//import com.vis.resource.Resource;
-//import com.vis.ui.context.ApplicationContext;
-//import com.vis.ui.dcmtreetable.DICOMNode;
-//import com.vis.ui.environment.PreferencesWin;
-//import com.vis.ui.form.dialog.DicomExporter;
-//import com.vis.ui.form.dialog.DicomImporterDialog;
-//import com.vis.ui.form.dialog.DicomPostman;
-//import com.vis.ui.form.dialog.DicomTagsViewer;
-//import com.vis.ui.form.dialog.NonDicomImageImporter;
-//import com.vis.viewer2d.ui.frame.Viewer2DFrame;
-
 /**
  * @author tatsunidas
  */
@@ -152,7 +137,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Send, Resources.MenuBarSendIcon.loadIconFromResource());
 //		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
-		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
+//		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
 		return map;
 	}
