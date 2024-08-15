@@ -38,12 +38,14 @@
 package com.vis.core.view.D2.ui;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -69,7 +71,7 @@ import com.vis.db.DatabaseHandler;
  * @author tatsunidas
  *
  */
-public class Viewer2DScreen extends JFrame {
+public class Viewer2DScreen extends JFrame implements WindowListener{
 
 	private static final long serialVersionUID = 7624168171524035750L;
 	private static final Viewer2DScreen viewerWin = new Viewer2DScreen();
@@ -77,7 +79,7 @@ public class Viewer2DScreen extends JFrame {
 	private DatabaseHandler db = DatabaseHandler.getInstance();
 	private Viewer2DToolBar toolBar;
 
-	private String stageInAction = null;
+	private String stageInAction = null;//stage id is patient id.
 
 	boolean isDebug = Utils.isDebug;
 	private Logger logger = Log.logger;
@@ -95,21 +97,7 @@ public class Viewer2DScreen extends JFrame {
 		} else {
 			setTitle("GRAPHY 2D Viewer");
 		}
-		addWindowListener(new WindowAdapter() {
-			@Override
-			public void windowClosing(WindowEvent e) {
-				super.windowClosing(e);
-				logger.fine("Viewer2DScreen::Viewer2DScreen closing...");
-				if (getRoiObjManager().isVisible()) {
-					getRoiObjManager().setVisible(false);
-				}
-				/*
-				 * save window location
-				 */
-				saveCurrentScreenState();
-				System.gc();
-			}
-		});
+		addWindowListener(this);
 		initContents();
 		setLastScreenState();
 		WindowManager.addWindow(this);
@@ -422,17 +410,14 @@ public class Viewer2DScreen extends JFrame {
 		this.stageInAction = pid;
 		Log.logger.fine("Stage In Action:" + pid);
 	}
-
-	// TODO
+	
 	public String getStageIDInAction() {
-//		Window activeWindow = javax.swing.FocusManager.getCurrentManager().getFocusedWindow();
-//		String activeWinName = activeWindow.getName();
-		/*
-		 * Window名で識別するか？->不要 Viewer2DScreen Floating ToolBar(PatID DialogWindow)
-		 * 
-		 * Tabが１つのとき、または、複数あるが、すでに選択状態にあるタブを再選択するとき、替えられない。 focusGainedで対応。
-		 */
-		return this.stageInAction;
+		Component selectedComponent = sdm.getSelectedComponent();
+		if (selectedComponent instanceof StageView) {
+		    StageView sv = (StageView) selectedComponent;
+		    stageInAction = sv.getName();
+		}
+		return stageInAction;
 	}
 
 	public int getCurrentToolType() {
@@ -464,7 +449,7 @@ public class Viewer2DScreen extends JFrame {
 		 */
 
 		/*
-		 * do not perform here. setVisible(true);//see facade
+		 * do not perform here. setVisible(true);
 		 */
 	}
 
@@ -518,6 +503,44 @@ public class Viewer2DScreen extends JFrame {
 			}
 		});
 	}
+
+	@Override
+	public void windowOpened(WindowEvent e) {}
+
+	@Override
+	public void windowClosing(WindowEvent e) {
+		logger.fine("Viewer2DScreen::Viewer2DScreen closing...");
+		if (getRoiObjManager().isVisible()) {
+			getRoiObjManager().setVisible(false);
+		}
+		/*
+		 * save window location
+		 */
+		saveCurrentScreenState();
+		/*
+		 * close StageViews
+		 */
+		String[] patIDs = sdm.getAllPatientList();
+		for(String patID : patIDs) {
+			sdm.deleteStage(patID);
+		}
+		System.gc();
+	}
+
+	@Override
+	public void windowClosed(WindowEvent e) {}
+
+	@Override
+	public void windowIconified(WindowEvent e) {}
+
+	@Override
+	public void windowDeiconified(WindowEvent e) {}
+
+	@Override
+	public void windowActivated(WindowEvent e) {}
+
+	@Override
+	public void windowDeactivated(WindowEvent e) {}
 
 //	@Override
 //	public void windowGainedFocus(WindowEvent arg0) {

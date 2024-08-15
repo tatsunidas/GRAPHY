@@ -82,6 +82,7 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	public StageView(HashMap<String, String> patInfoSet) {
 		setLayout(new BorderLayout());
 		this.patInfoSet = patInfoSet;
+		setName(patInfoSet.get("PatientID"));
 		addAncestorListener(this);
 		addContainerListener(this);
 		constructStage();

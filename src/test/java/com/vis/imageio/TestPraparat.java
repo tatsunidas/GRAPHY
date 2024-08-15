@@ -63,6 +63,11 @@ import ij.plugin.FolderOpener;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 
+/**
+ * See also SeriesWindow.
+ * @author tatsunidas
+ *
+ */
 public class TestPraparat {
 
 	public static void main(String[] args) {
@@ -106,8 +111,7 @@ public class TestPraparat {
 	static void show() {
 		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
-		Praparat pp = new Praparat(ViewMode.Normal);
-		pp.prepareSlideGlassesUsingImagePlus(imp);
+		Praparat pp = new Praparat(imp, null, ViewMode.Normal);
 		pp.doSingleGridLayout();
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);

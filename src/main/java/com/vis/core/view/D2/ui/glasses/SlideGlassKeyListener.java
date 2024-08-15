@@ -105,6 +105,7 @@ public class SlideGlassKeyListener implements KeyListener{
 					sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 					pp.resetView();
 					sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+					return;
 				}
 			}
 

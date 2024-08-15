@@ -85,7 +85,20 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 					pp.doFilmGridLayout(newCol);
 				}else{
 					//reset to single grid
+					for(int i : pp.getAllSlides().keySet()) {
+						pp.getAllSlides().get(i).reset();
+					}
+					/*
+					 * When reset from FilmGrid,
+					 * resize all slides force.
+					 */
+					boolean processSeriesState = processSeries();
+					//////////////////////////
+					setProcessSeries(true);
+					//////////////////////////
 					pp.doSingleGridLayout();
+					//back to current state
+					setProcessSeries(processSeriesState);
 				}
 			}
 		});
@@ -198,7 +211,7 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 			num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10", "11", "12"});//remove reset
 		}
 		panel.add(num);
-		int result = JOptionPane.showOptionDialog(WindowManager.getMainScreen(), panel, "Choose a Num of Columns", JOptionPane.YES_NO_OPTION,
+		int result = JOptionPane.showOptionDialog(this, panel, "Choose a Num of Columns", JOptionPane.YES_NO_OPTION,
 				JOptionPane.PLAIN_MESSAGE, null, options1, null);
 		if (result == JOptionPane.YES_OPTION) {
 			try{

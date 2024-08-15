@@ -44,26 +44,25 @@ import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Iterator;
 
-import javax.imageio.ImageIO;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JOptionPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
@@ -80,11 +79,6 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 //import com.vis.viewer2d.ui.stage.StageDockManager;
 //import com.vis.viewer2d.ui.stage.StageView;
 //import com.vis.viewer3d.Viewer3DFrame_IJ;//TODO 20231006
-
-import ij.IJ;
-import ij.ImagePlus;
-import ij.gui.ImageCanvas;
-import ij3d.ContentConstants;
 
 /**
  * @author tatsunidas
@@ -153,14 +147,6 @@ public class Viewer2DToolBar extends JToolBar{
 		loadButtons(initButtonList());
 	}
 	
-	BufferedImage resizeImage(BufferedImage originalImage, int targetWidth, int targetHeight) throws IOException {
-	    BufferedImage resizedImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
-	    Graphics2D graphics2D = resizedImage.createGraphics();
-	    graphics2D.drawImage(originalImage, 0, 0, targetWidth, targetHeight, null);
-	    graphics2D.dispose();
-	    return resizedImage;
-	}
-
 	public void loadButtons(HashMap<String, Resources> buttonLabels) {
 		removeAll();
 		for (String key : buttonLabels.keySet()) {
@@ -287,6 +273,7 @@ public class Viewer2DToolBar extends JToolBar{
 		}
 		switch (comp.getName()) {
 		case "reset":
+			Log.logger.fine("reset");
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -298,8 +285,12 @@ public class Viewer2DToolBar extends JToolBar{
 					if(activeStage != null) {
 						Eyepiece eye = activeStage.getEyepiece();
 						ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
-						for (Praparat pp : selectedPraps) {
-							pp.resetView();
+						if(selectedPraps.size() != 0) {
+							for (Praparat pp : selectedPraps) {
+								pp.resetView();
+							}
+						}else {
+							PopUpMessage.showDialog(own, "Reset", "There is no series selected.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.OK_OPTION);
 						}
 					}
 					setSelectedToolBackground();
@@ -315,13 +306,12 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage == null) {
-						return;
-					}
-					Eyepiece eye = activeStage.getEyepiece();
-					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
-					for(Praparat pp:selectedPraps) {
-						pp.processInvertImages();
+					if (activeStage != null) {
+						Eyepiece eye = activeStage.getEyepiece();
+						ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
+						for (Praparat pp : selectedPraps) {
+							pp.processInvertImages();
+						}
 					}
 					setSelectedToolBackground();
 				}

@@ -179,20 +179,20 @@ public class Praparat extends JPanel {
 	 * @param stack
 	 * @param studyColor
 	 */
-	public Praparat(ImagePlus stack, Color studyColor) {
-		this.mode = ViewMode.Normal;
+	public Praparat(ImagePlus stack, Color studyColor, ViewMode mode) {
+		this.mode = mode;
 		if(studyColor != null) {
 			this.studyColor = studyColor;
 		}
-		String patID = DicomTools.getTag(stack, "00100010");
-		String studyUID = DicomTools.getTag(stack, "0020000D");
-		String seriesUID = DicomTools.getTag(stack, "0020000E");
+		String patID = DicomTools.getTag(stack, "0010,0010");
+		String studyUID = DicomTools.getTag(stack, "0020,000D");
+		String seriesUID = DicomTools.getTag(stack, "0020,000E");
 		String[] sopUIDs = new String[stack.getNSlices()];
 		for(int i = 1; i <= stack.getNSlices(); i++) {
 			stack.setPosition(i);
-			sopUIDs[i-1] = DicomTools.getTag(stack, "00080018");
+			sopUIDs[i-1] = DicomTools.getTag(stack, "0008,0018");
 		}
-		String refUID = DicomTools.getTag(stack, "00200052");
+		String refUID = DicomTools.getTag(stack, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null);
 		init();
 		prepareSlideGlassesUsingImagePlus(stack);
@@ -294,18 +294,15 @@ public class Praparat extends JPanel {
 	 * Run after componentResized()
 	 */
 	public void adjustSlideGlassSize(int w , int h) {
-		//setViewPanelSize(getViewPanelWidth(), getViewPanelHeight());
 		if(slides == null || slides.size() == 0) {
 			return;
 		}
 		if(!pvcp.processSeries()) {
 			SlideGlass target = slides.get(currentSlice);
 			target.setSize(w, h);
-			target.repaint();
 		}else {
 			SlideGlass target = slides.get(currentSlice);
 			target.setSize(w,h);
-			target.repaint();
 			//set origin all slides
 			for (Integer key : slides.keySet()) {
 				SlideGlass sl = slides.get(key);
@@ -579,7 +576,7 @@ public class Praparat extends JPanel {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					Praparat prap = new Praparat(crop, getStudyColor());
+					Praparat prap = new Praparat(crop, getStudyColor(), mode);
 					new SeriesWindow(prap);
 				}
 			});
@@ -826,11 +823,14 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if(this.mode == ViewMode.Normal) {
-			this.showGridViewOn = show;
+			if(this.showGridViewOn && !show) {
+				getViewPanel().removeAll();
+			}
 			if(show == false) {
 				gridScrollPane = null;
 			}
-		}else {
+			this.showGridViewOn = show;
+		}else {//single grid and thumbnail
 			this.showGridViewOn = false;
 			gridScrollPane = null;
 		}
@@ -938,6 +938,9 @@ public class Praparat extends JPanel {
 		return this.isPDF;
 	}
 
+	/**
+	 * Must call from pvcp, to avoid series and film grid state conflicts. 
+	 */
 	public boolean isProcessSeries() {
 		return pvcp.processSeries();
 	}
@@ -1179,6 +1182,7 @@ public class Praparat extends JPanel {
 	}
 
 	public void resetView() {
+		
 		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
 			ImagePlus imp = getImagePlus();
 			pvcp.setProcessSeries(true);//to show all images after reset
@@ -1187,38 +1191,34 @@ public class Praparat extends JPanel {
 			return;
 		}
 		
-		if(mode == ViewMode.Normal) {
+		if(mode == ViewMode.Normal || mode == ViewMode.SingleGrid) {
 			if (isShowGridViewOn()) {
 				showGridViewOn = false;
 			}
 			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			setTextVisible(pvcp.isShowInfo());
-			setAnnotationVisible(pvcp.isShowRoi());
-			doSingleGridLayout();
-			return;
-		}
-		
-		if(mode == ViewMode.SingleGrid) {
-			pvcp.setProcessSeries(true);//to show all images after reset
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
-			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			setTextVisible(pvcp.isShowInfo());
-			setAnnotationVisible(pvcp.isShowRoi());
-			doSingleGridLayout();
+			//prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+			//setTextVisible(pvcp.isShowInfo());
+			//setAnnotationVisible(pvcp.isShowRoi());
+			//doSingleGridLayout();
+			for(int i : slides.keySet()) {
+				slides.get(i).reset();
+			}
 			return;
 		}
 		
 		if(mode == ViewMode.FilmGrid) {
+			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
 			// reload slides
-			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			setTextVisible(false);
-			setAnnotationVisible(false);
-			doFilmGridLayout(filmGridColumns);
+//			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+//			setTextVisible(false);
+//			setAnnotationVisible(false);
+//			doFilmGridLayout(filmGridColumns);
+			for(int i : slides.keySet()) {
+				slides.get(i).reset();
+			}
 			return;
 		}
 		
@@ -1263,6 +1263,7 @@ public class Praparat extends JPanel {
 	}
 
 	/**
+	 * 
 	 * do after load slides
 	 * @param v
 	 */
@@ -1272,20 +1273,44 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if (isShowGridViewOn()) {
-			for (Integer k : slides.keySet()) {
-				SlideGlass s = slides.get(k);
-				s.setAnnotationVisible(v);
-			}
-		} else {
-			if(pvcp.processSeries()) {
+			if(isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
 					s.setAnnotationVisible(v);
 				}
 			}else {
+				/*
+				 * change state of only selected.
+				 */
+				List<SlideGlass> selected = getSelectedGlasses();
+				for (SlideGlass s : selected) {
+					s.setAnnotationVisible(v);
+				}
+			}
+		} else {
+			if(isProcessSeries()) {
+				for (Integer k : slides.keySet()) {
+					SlideGlass s = slides.get(k);
+					s.setAnnotationVisible(v);
+				}
+			}else {
+				/*
+				 * change state of current showing glass.
+				 */
 				getCurrentSlide().setAnnotationVisible(v);
 			}
 		}
+	}
+	
+	public List<SlideGlass> getSelectedGlasses() {
+		List<SlideGlass> selected = Collections.synchronizedList(new ArrayList<>());
+		for(int i : slides.keySet()) {
+			SlideGlass sg = slides.get(i);
+			if(sg.isSelected()) {
+				selected.add(sg);
+			}
+		}
+		return selected;
 	}
 	
 	public int getFilmGridColumns() {
@@ -1406,6 +1431,7 @@ public class Praparat extends JPanel {
 	}
 	
 	/**
+	 * Praparat selection state
 	 * True if any one of the SlideGlasses is in the selected state.
 	 */
 	public void setSelectionState(boolean select) {
@@ -1456,9 +1482,16 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if (isShowGridViewOn()) {
-			for (Integer k : slides.keySet()) {
-				SlideGlass s = slides.get(k);
-				s.setTextVisible(v);
+			if(isProcessSeries()) {
+				for (Integer k : slides.keySet()) {
+					SlideGlass s = slides.get(k);
+					s.setTextVisible(v);
+				}
+			}else {
+				List<SlideGlass> selected = getSelectedGlasses();
+				for (SlideGlass s : selected) {
+					s.setTextVisible(v);
+				}
 			}
 		} else {
 			if(isProcessSeries()) {

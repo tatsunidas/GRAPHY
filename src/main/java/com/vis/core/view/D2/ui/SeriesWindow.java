@@ -11,6 +11,7 @@ import javax.swing.JMenuItem;
 
 import com.vis.core.ui.dialog.SaveImage;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
 import ij.ImagePlus;
 import ij.plugin.FolderOpener;
@@ -21,7 +22,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 	//debug
 	public static void main(String[] args) {
 		String dir = "C:\\Users\\ユーザー\\Desktop\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
-		Praparat prap = new Praparat(FolderOpener.open(dir), java.awt.Color.RED);
+		Praparat prap = new Praparat(FolderOpener.open(dir), java.awt.Color.CYAN, ViewMode.Normal);
 		new SeriesWindow(prap);
 	}
 	
@@ -72,7 +73,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 
 	@Override
 	public void windowClosing(WindowEvent e) {
-		this.dispose();
+		dispose();
 	}
 
 	@Override

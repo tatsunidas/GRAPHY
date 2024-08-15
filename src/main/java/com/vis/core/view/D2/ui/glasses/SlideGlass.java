@@ -37,7 +37,6 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -55,12 +54,10 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
 import javax.swing.border.Border;
-import javax.swing.border.CompoundBorder;
 
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
@@ -1459,6 +1456,7 @@ public class SlideGlass extends JLayeredPane {
 		setMagnification(1.0d);
 		setRotateAngle(0);
 		setFlipState(false);
+		invertFlag = false;
 		zoomFlag = false;
 		windowing = false;
 		rotatedFlag = false;

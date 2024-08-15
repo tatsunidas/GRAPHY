@@ -371,6 +371,9 @@ public class TextOverlayGlass extends JPanel{
 				.addGroup(groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lbl3_5).addComponent(lbl4_5))
 				.addContainerGap()));
 		setLayout(groupLayout);
+		for(JLabel lbl : listOfLabels) {
+			lbl.repaint();
+		}
 	}
 	
 	public String sopInstanceUID() {

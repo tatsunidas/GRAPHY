@@ -1,300 +1,1028 @@
-8月 14, 2024 5:36:09 午後 com.vis.core.plugin.PluginShelf loadPlugins
+8月 15, 2024 10:38:55 午前 com.vis.core.plugin.PluginShelf loadPlugins
 情報: Loading PlugIns...
-8月 14, 2024 5:36:09 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+8月 15, 2024 10:38:55 午前 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST START*************
-8月 14, 2024 5:36:09 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+8月 15, 2024 10:38:55 午前 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST END**************
-8月 14, 2024 5:36:10 午後 com.vis.db.DatabaseHandler startingUp
+8月 15, 2024 10:38:56 午前 com.vis.db.DatabaseHandler startingUp
 情報: Current DB location: /home/tatsunidas/TEST_DB2
-8月 14, 2024 5:36:15 午後 com.vis.core.ui.main.TabDock ancestorAdded
+8月 15, 2024 10:39:01 午前 com.vis.core.ui.main.TabDock ancestorAdded
 情報: debug : In Main Frame: HOME
-8月 14, 2024 5:36:19 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
+8月 15, 2024 10:39:09 午前 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
 普通: QR Pane : Home
-8月 14, 2024 5:36:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+8月 15, 2024 10:39:13 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
 普通: FilmGridCellSize: 206
-8月 14, 2024 5:36:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+8月 15, 2024 10:39:13 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
 普通: cell size:206
-8月 14, 2024 5:36:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+8月 15, 2024 10:39:13 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
 普通: FilmGridCellSize: 206
-8月 14, 2024 5:36:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+8月 15, 2024 10:39:13 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
 普通: cell size:206
-8月 14, 2024 5:36:25 午後 com.vis.core.view.D2.ui.StageView componentAdded
+8月 15, 2024 10:39:16 午前 com.vis.core.view.D2.ui.Viewer2DToolBar setAction
+普通: reset
+8月 15, 2024 10:39:16 午前 com.vis.core.view.D2.ui.StageView componentAdded
 普通: added !!!
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:599 247 ,imageXY:595 196
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:584 318 ,imageXY:580 267
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:679 403 ,imageXY:675 352
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:68 421 ,imageXY:64 370
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:336 423 ,imageXY:332 372
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:483 429 ,imageXY:479 378
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:512 425 ,imageXY:508 374
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:506 419 ,imageXY:502 368
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:386 408 ,imageXY:382 357
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:54 404 ,imageXY:50 353
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:791 402 ,imageXY:787 351
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:677 402 ,imageXY:673 351
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:676 402 ,imageXY:672 351
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:830 316 ,imageXY:826 265
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:4 51
-8月 14, 2024 5:36:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:259 106 ,imageXY:255 55
-8月 14, 2024 5:36:39 午後 com.vis.core.view.D2.ui.Viewer2DScreen$1 windowClosing
-普通: Viewer2DScreen::Viewer2DScreen closing...
-8月 14, 2024 5:36:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 206
-8月 14, 2024 5:36:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:206
-8月 14, 2024 5:36:46 午後 com.vis.core.view.D2.ui.StageView componentAdded
-普通: added !!!
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:622 308 ,imageXY:149 304
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:621 311 ,imageXY:148 307
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:608 316 ,imageXY:135 312
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 5:36:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:543 330 ,imageXY:70 326
-8月 14, 2024 5:36:52 午後 com.vis.core.view.D2.ui.SeriesListTable$ListTableSelectionListener valueChanged
-普通: SeriesListTableEvent for indexes 0 - 0; isAdjusting is false; selected indexes: studyUID:1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523 row:0 seriesUID:1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
-8月 14, 2024 5:36:54 午後 com.vis.core.view.D2.ui.SeriesListTable$ListTableSelectionListener valueChanged
-普通: SeriesListTableEvent for indexes 0 - 1; isAdjusting is false; selected indexes: studyUID:1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523 row:1 seriesUID:1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:497 608 ,imageXY:24 604
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:622 582 ,imageXY:149 578
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:628 568 ,imageXY:155 564
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:632 570 ,imageXY:159 566
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:615 561 ,imageXY:142 557
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:612 555 ,imageXY:139 551
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:612 549 ,imageXY:139 545
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:613 517 ,imageXY:140 513
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:693 464 ,imageXY:220 460
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:761 408 ,imageXY:288 404
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:823 360 ,imageXY:350 356
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:880 344 ,imageXY:407 340
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:884 339 ,imageXY:411 335
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:886 335 ,imageXY:413 331
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:889 333 ,imageXY:416 329
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:889 332 ,imageXY:416 328
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:889 333 ,imageXY:416 329
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:889 334 ,imageXY:416 330
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:892 337 ,imageXY:419 333
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:892 338 ,imageXY:419 334
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:881 346 ,imageXY:408 342
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:873 354 ,imageXY:400 350
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:856 379 ,imageXY:383 375
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:849 407 ,imageXY:376 403
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:850 412 ,imageXY:377 408
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:853 420 ,imageXY:380 416
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:855 424 ,imageXY:382 420
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:858 428 ,imageXY:385 424
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:859 430 ,imageXY:386 426
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:859 429 ,imageXY:386 425
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:866 427 ,imageXY:393 423
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:908 396 ,imageXY:435 392
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:986 338 ,imageXY:513 334
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1068 248 ,imageXY:595 244
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1114 182 ,imageXY:641 178
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1128 125 ,imageXY:655 121
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 7:21:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1130 76 ,imageXY:657 72
-8月 14, 2024 7:21:29 午後 com.vis.core.view.D2.ui.Viewer2DScreen$1 windowClosing
-普通: Viewer2DScreen::Viewer2DScreen closing...
-8月 14, 2024 9:57:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:188 4
-8月 14, 2024 9:57:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:284 41 ,imageXY:96 37
-8月 14, 2024 9:57:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:188 4
-8月 14, 2024 9:57:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:200 19 ,imageXY:12 15
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1571 609 ,imageXY:1098 605
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1534 656 ,imageXY:1061 652
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1507 696 ,imageXY:1034 692
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1484 733 ,imageXY:1011 729
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1467 756 ,imageXY:994 752
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1458 768 ,imageXY:985 764
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1454 772 ,imageXY:981 768
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: originXY:473 4
-8月 14, 2024 9:58:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
-普通: slideXY:1535 784 ,imageXY:1062 780
+8月 15, 2024 10:39:21 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:21 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:259 361 ,imageXY:224 357
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:284 377 ,imageXY:249 373
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:252 337 ,imageXY:217 333
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:418 325 ,imageXY:383 321
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:203 283 ,imageXY:168 279
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:238 273 ,imageXY:203 269
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:219 268 ,imageXY:184 264
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:210 263 ,imageXY:175 259
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:131 241 ,imageXY:96 237
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:88 213 ,imageXY:53 209
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:22 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:47 144 ,imageXY:12 140
+8月 15, 2024 10:39:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 177
+8月 15, 2024 10:39:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:177
+8月 15, 2024 10:39:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:119 127 ,imageXY:115 123
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:127 22 ,imageXY:123 18
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:133 10 ,imageXY:129 6
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:151 22 ,imageXY:147 18
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:149 34 ,imageXY:145 30
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:141 42 ,imageXY:137 38
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:137 46 ,imageXY:133 42
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:130 54 ,imageXY:126 50
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:124 64 ,imageXY:120 60
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:119 70 ,imageXY:115 66
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:115 78 ,imageXY:111 74
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:123 36 ,imageXY:119 32
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:147 24 ,imageXY:143 20
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:4 4
+8月 15, 2024 10:39:29 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:153 10 ,imageXY:149 6
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:387 159 ,imageXY:352 155
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:388 166 ,imageXY:353 162
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:389 168 ,imageXY:354 164
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:381 174 ,imageXY:346 170
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:374 178 ,imageXY:339 174
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:373 178 ,imageXY:338 174
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:39:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:372 178 ,imageXY:337 174
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:47 207 ,imageXY:12 203
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:495 367 ,imageXY:460 363
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:483 364 ,imageXY:448 360
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:471 361 ,imageXY:436 357
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:444 354 ,imageXY:409 350
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:347 331 ,imageXY:312 327
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:309 323 ,imageXY:274 319
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:303 321 ,imageXY:268 317
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:299 319 ,imageXY:264 315
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:292 317 ,imageXY:257 313
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:283 311 ,imageXY:248 307
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:265 299 ,imageXY:230 295
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:255 292 ,imageXY:220 288
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:245 282 ,imageXY:210 278
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:242 277 ,imageXY:207 273
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:241 275 ,imageXY:206 271
+8月 15, 2024 10:40:05 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:05 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:241 277 ,imageXY:206 273
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:410 244 ,imageXY:375 240
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:375 245 ,imageXY:340 241
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:06 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:370 245 ,imageXY:335 241
+8月 15, 2024 10:40:09 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:09 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:370 244 ,imageXY:335 240
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:370 244 ,imageXY:335 240
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:370 245 ,imageXY:335 241
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:10 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:370 244 ,imageXY:335 240
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:399 239 ,imageXY:364 235
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:410 238 ,imageXY:375 234
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:416 237 ,imageXY:381 233
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:417 236 ,imageXY:382 232
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:23 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:417 237 ,imageXY:382 233
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:481 239 ,imageXY:446 235
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:36 243 ,imageXY:1 239
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:167 251 ,imageXY:132 247
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:191 253 ,imageXY:156 249
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:200 254 ,imageXY:165 250
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:171 251 ,imageXY:136 247
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:500 248 ,imageXY:465 244
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:469 248 ,imageXY:434 244
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:24 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:444 248 ,imageXY:409 244
+8月 15, 2024 10:40:25 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:25 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:433 248 ,imageXY:398 244
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:475 248 ,imageXY:440 244
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:52 260 ,imageXY:17 256
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:184 278 ,imageXY:149 274
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:254 286 ,imageXY:219 282
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:280 289 ,imageXY:245 285
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:280 289 ,imageXY:245 285
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:278 289 ,imageXY:243 285
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:277 289 ,imageXY:242 285
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:269 288 ,imageXY:234 284
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:238 285 ,imageXY:203 281
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:195 280 ,imageXY:160 276
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:160 280 ,imageXY:125 276
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:123 278 ,imageXY:88 274
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:121 278 ,imageXY:86 274
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:111 278 ,imageXY:76 274
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:87 277 ,imageXY:52 273
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:80 277 ,imageXY:45 273
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:79 278 ,imageXY:44 274
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:42 266 ,imageXY:7 262
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:462 248 ,imageXY:427 244
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:432 245 ,imageXY:397 241
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:28 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:426 245 ,imageXY:391 241
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:114 245 ,imageXY:79 241
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:216 253 ,imageXY:181 249
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:264 257 ,imageXY:229 253
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:30 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:274 257 ,imageXY:239 253
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:246 253 ,imageXY:211 249
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:122 237 ,imageXY:87 233
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:478 225 ,imageXY:443 221
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:447 224 ,imageXY:412 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:432 224 ,imageXY:397 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:431 224 ,imageXY:396 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:432 224 ,imageXY:397 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:437 224 ,imageXY:402 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:472 224 ,imageXY:437 220
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:48 229 ,imageXY:13 225
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:107 236 ,imageXY:72 232
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:160 242 ,imageXY:125 238
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:31 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:175 245 ,imageXY:140 241
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:180 246 ,imageXY:145 242
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:181 246 ,imageXY:146 242
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:181 246 ,imageXY:146 242
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:130 244 ,imageXY:95 240
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:431 234 ,imageXY:396 230
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:394 233 ,imageXY:359 229
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:379 233 ,imageXY:344 229
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:32 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:378 233 ,imageXY:343 229
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:379 233 ,imageXY:344 229
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:397 233 ,imageXY:362 229
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:422 233 ,imageXY:387 229
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:440 234 ,imageXY:405 230
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:492 234 ,imageXY:457 230
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:40 232 ,imageXY:5 228
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:46 232 ,imageXY:11 228
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:47 232 ,imageXY:12 228
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:46 232 ,imageXY:11 228
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:33 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:35 232 ,imageXY:0 228
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:497 230 ,imageXY:462 226
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:496 230 ,imageXY:461 226
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:509 230 ,imageXY:474 226
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:40 232 ,imageXY:5 228
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:34 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:41 232 ,imageXY:6 228
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:483 232 ,imageXY:448 228
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:401 226 ,imageXY:366 222
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:369 222 ,imageXY:334 218
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:361 221 ,imageXY:326 217
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:360 221 ,imageXY:325 217
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:352 222 ,imageXY:317 218
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:335 225 ,imageXY:300 221
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:35 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:331 228 ,imageXY:296 224
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:329 237 ,imageXY:294 233
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:336 267 ,imageXY:301 263
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:338 271 ,imageXY:303 267
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:329 272 ,imageXY:294 268
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:320 274 ,imageXY:285 270
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:313 275 ,imageXY:278 271
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:299 276 ,imageXY:264 272
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:305 250 ,imageXY:270 246
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:361 238 ,imageXY:326 234
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:389 240 ,imageXY:354 236
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:36 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:397 242 ,imageXY:362 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:410 242 ,imageXY:375 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:416 242 ,imageXY:381 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:423 242 ,imageXY:388 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:425 242 ,imageXY:390 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:432 242 ,imageXY:397 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:439 242 ,imageXY:404 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:450 242 ,imageXY:415 238
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:478 244 ,imageXY:443 240
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:507 248 ,imageXY:472 244
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:37 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:42 256 ,imageXY:7 252
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:51 256 ,imageXY:16 252
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:53 256 ,imageXY:18 252
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:44 254 ,imageXY:9 250
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:434 237 ,imageXY:399 233
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:38 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:412 234 ,imageXY:377 230
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:468 240 ,imageXY:433 236
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:134 264 ,imageXY:99 260
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:166 269 ,imageXY:131 265
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:39 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:167 269 ,imageXY:132 265
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:105 264 ,imageXY:70 260
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:452 238 ,imageXY:417 234
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:386 230 ,imageXY:351 226
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:385 230 ,imageXY:350 226
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:391 230 ,imageXY:356 226
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:197 253 ,imageXY:162 249
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:239 259 ,imageXY:204 255
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:223 257 ,imageXY:188 253
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:90 250 ,imageXY:55 246
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:383 230 ,imageXY:348 226
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:40 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:297 222 ,imageXY:262 218
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:324 220 ,imageXY:289 216
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:484 218 ,imageXY:449 214
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:123 222 ,imageXY:88 218
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:222 228 ,imageXY:187 224
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:259 228 ,imageXY:224 224
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:247 228 ,imageXY:212 224
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:147 226 ,imageXY:112 222
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:47 226 ,imageXY:12 222
+8月 15, 2024 10:40:41 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:458 214 ,imageXY:423 210
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:368 208 ,imageXY:333 204
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:356 208 ,imageXY:321 204
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:355 207 ,imageXY:320 203
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:358 207 ,imageXY:323 203
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:411 209 ,imageXY:376 205
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:56 219 ,imageXY:21 215
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:154 229 ,imageXY:119 225
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:244 241 ,imageXY:209 237
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:261 242 ,imageXY:226 238
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:257 242 ,imageXY:222 238
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:189 242 ,imageXY:154 238
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:482 242 ,imageXY:447 238
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:336 236 ,imageXY:301 232
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:42 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:300 236 ,imageXY:265 232
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:378 236 ,imageXY:343 232
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:139 254 ,imageXY:104 250
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:229 264 ,imageXY:194 260
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:269 269 ,imageXY:234 265
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:270 269 ,imageXY:235 265
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:269 270 ,imageXY:234 266
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:248 269 ,imageXY:213 265
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:76 267 ,imageXY:41 263
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:507 261 ,imageXY:472 257
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:395 251 ,imageXY:360 247
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:43 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:385 251 ,imageXY:350 247
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:381 253 ,imageXY:346 249
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:420 258 ,imageXY:385 254
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:80 275 ,imageXY:45 271
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:125 279 ,imageXY:90 275
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:132 280 ,imageXY:97 276
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:47 277 ,imageXY:12 273
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:486 277 ,imageXY:451 273
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:431 275 ,imageXY:396 271
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:430 275 ,imageXY:395 271
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:430 274 ,imageXY:395 270
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:448 275 ,imageXY:413 271
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:65 275 ,imageXY:30 271
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:44 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:144 277 ,imageXY:109 273
+8月 15, 2024 10:40:47 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:47 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:118 291 ,imageXY:83 287
+8月 15, 2024 10:40:47 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:47 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:117 293 ,imageXY:82 289
+8月 15, 2024 10:40:48 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:48 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:94 293 ,imageXY:59 289
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:508 289 ,imageXY:473 285
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:498 288 ,imageXY:463 284
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:483 287 ,imageXY:448 283
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:431 287 ,imageXY:396 283
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:51 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:410 286 ,imageXY:375 282
+8月 15, 2024 10:40:52 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:52 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:403 286 ,imageXY:368 282
+8月 15, 2024 10:40:52 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:52 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:403 285 ,imageXY:368 281
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:430 216 ,imageXY:395 212
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:483 160 ,imageXY:448 156
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:56 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:508 138 ,imageXY:473 134
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:74 172 ,imageXY:39 168
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:264 198 ,imageXY:229 194
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:321 206 ,imageXY:286 202
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:40:57 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:321 205 ,imageXY:286 201
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:297 199 ,imageXY:262 195
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:161 161 ,imageXY:126 157
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: originXY:35 4
+8月 15, 2024 10:41:00 午前 com.vis.core.view.D2.ui.glasses.SlideGlass updatePrapInfoLabel
+普通: slideXY:388 77 ,imageXY:353 73
+8月 15, 2024 10:41:02 午前 com.vis.core.facade.ApplicationFacade exitApp
+情報: Shutting down graphy...
+8月 15, 2024 10:41:04 午前 com.vis.db.DatabaseHandler shutdownDB
+情報: com.vis.db.DatabaseHandler: shutdown correctly, graphydb
