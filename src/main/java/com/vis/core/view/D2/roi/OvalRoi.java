@@ -23,13 +23,10 @@ public class OvalRoi extends RoiObj {
 	/** Creates an OvalRoi.*/
 	public OvalRoi(int x, int y, int width, int height, SlideGlass slide) {
 		super(x, y, width, height, 0, slide);
-		type = OVAL;
+		type = RoiType.OVAL.id();
 	}
 	
 	public void handleMouseDrag(int sx, int sy, int flags) {
-		if(slide == null) {
-			return;
-		}
 		constrain = (flags&MouseEvent.SHIFT_MASK)!=0;
 		center = (flags&Event.CTRL_MASK)!=0 || (IJ.isMacintosh()&&(flags&Event.META_MASK)!=0);
 		aspect = (flags&Event.ALT_MASK)!=0;
@@ -223,12 +220,11 @@ public class OvalRoi extends RoiObj {
 			}
 		}
 //		bounds = new Rectangle2D.Double(x, y, width, height);
-		updateClipRect(slide);
+		updateClipRect();
 		oldX=x; oldY=y;
 		oldWidth=width; oldHeight=height;
 		cachedMask = null;
 		bounds = null;
-		slide.repaint();
 	}
 
 	public void draw(Graphics g, SlideGlass sg) {
@@ -243,7 +239,7 @@ public class OvalRoi extends RoiObj {
 		g.setColor(color);
 		
 		double mag = sg.getMagnification();
-		double compScale = sg.getScaleFactor();
+		double compScale = sg.getScaleFactor()[0];
 		
 		int sw = (int)(width*mag*compScale);
 		int sh = (int)(height*mag*compScale);
@@ -262,7 +258,7 @@ public class OvalRoi extends RoiObj {
 		int sy3 = sy1+sh;
 		Graphics2D g2d = (Graphics2D)g;
 		if (stroke!=null) 
-			g2d.setStroke(getScaledStroke(sg));
+			g2d.setStroke(getScaledStroke());
 //		if (fillColor!=null) {
 //			if (!overlay && isActiveOverlayRoi()) {
 //				g.setColor(Color.cyan);
@@ -274,14 +270,14 @@ public class OvalRoi extends RoiObj {
 		// now, always show roi
 		g.drawOval(sx1, sy1, sw, sh);
 		if (state!=CONSTRUCTING && clipboard==null && !overlay) {
-			drawHandle(g, sx1+sw2, sy1+sh2, sg);
-			drawHandle(g, sx3-sw2, sy1+sh2, sg);
-			drawHandle(g, sx3-sw2, sy3-sh2, sg);
-			drawHandle(g, sx1+sw2, sy3-sh2, sg);
-			drawHandle(g, sx2, sy1, sg);
-			drawHandle(g, sx3, sy2, sg);
-			drawHandle(g, sx2, sy3, sg);
-			drawHandle(g, sx1, sy2, sg);
+			drawHandle(g, sx1+sw2, sy1+sh2);
+			drawHandle(g, sx3-sw2, sy1+sh2);
+			drawHandle(g, sx3-sw2, sy3-sh2);
+			drawHandle(g, sx1+sw2, sy3-sh2);
+			drawHandle(g, sx2, sy1);
+			drawHandle(g, sx3, sy2);
+			drawHandle(g, sx2, sy3);
+			drawHandle(g, sx1, sy2);
 		}
 //		drawPreviousRoi(g);
 	}

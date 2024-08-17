@@ -23,7 +23,7 @@ public class RotatedRectRoi extends PolygonRoi {
     private double rectWidth = DefaultRectWidth;
 
     public RotatedRectRoi(double x1, double y1, double x2, double y2, double rectWidth,SlideGlass slide) {
-        super(new float[5], new float[5], 5, FREEROI, slide);
+        super(new float[5], new float[5], 5, RoiType.FREEROI.id(), slide);
         this.rectWidth = rectWidth;
         makeRectangle(x1, y1, x2, y2);
         state = NORMAL;
@@ -32,8 +32,8 @@ public class RotatedRectRoi extends PolygonRoi {
 
     public RotatedRectRoi(int sx, int sy, SlideGlass sg) {
     	//is this correct ?? tatsu
-        super(sx, sy, RoiObj.RECTANGLE, sg);
-        type = FREEROI;
+        super(sx, sy, RoiType.RECTANGLE.id(), sg);
+        type = RoiType.FREEROI.id();
         xstart = sg.onImageX(sx);
         ystart = sg.onImageY(sy);
         //correct ?? tatsu
@@ -54,7 +54,7 @@ public class RotatedRectRoi extends PolygonRoi {
                 handleColor = strokeColor != null ? strokeColor : ROIColor;
             else
                 handleColor=Color.white;
-            drawHandle(g, hxs(i), hys(i),sg);
+            drawHandle(g, hxs(i), hys(i));
             }
         }
     }

@@ -12,8 +12,17 @@ import com.vis.core.view.D2.ui.glasses.*;
 import ij.IJ;
 import ij.process.ImageStatistics;
 
+/**
+ * TODO
+ * 
+ * RoiPopUpDialogは、CanvasGlassのpaintComponent内で表示・非表示を操作できるように改良したい。
+RoiMouseMoved、ActivateROI、ShowDialog。
+ * 
+ * @author tatsunidas
+ *
+ */
 @SuppressWarnings("serial")
-public class RoiPopupDialog extends JTextArea{
+public class RoiPopUpDialog extends JTextArea{
 
 	private RoiObj roi;
 	private SlideGlass owner; //SlideGlass.getObserbables
@@ -29,7 +38,7 @@ public class RoiPopupDialog extends JTextArea{
 	//setBounds
 	//setPreferredSize
 	
-	public RoiPopupDialog(SlideGlass owner, RoiObj roi) {
+	public RoiPopUpDialog(SlideGlass owner, RoiObj roi) {
 		super();
 		this.roi = roi;
 		this.owner = owner;
@@ -58,6 +67,10 @@ public class RoiPopupDialog extends JTextArea{
 	
 	public void setRoi(RoiObj roi) {
 		this.roi = roi;
+	}
+	
+	public RoiObj getRoi() {
+		return roi;
 	}
 	
 	public void updateText(String stats) {
@@ -128,30 +141,41 @@ public class RoiPopupDialog extends JTextArea{
 			return;
 		}
     	String txt = null;
-		switch (roi.getType()) {
-			case RoiObj.LINE:
+    	RoiType t = RoiType.find(roi.getType());
+		switch (t) {
+			case LINE:
 				txt = IJ.d2s(((Line) roi).getLength(), 1);
 				updateText("length:"+txt);
 				break;
-			case RoiObj.ANGLE:
+			case ANGLE:
 				txt = IJ.d2s(((PolygonRoi) roi).getAngle(), 1);
 				updateText("angle:"+txt);
 				break;
-			case RoiObj.POINT:
+			case POINT:
 				//on pixel unit XY.
 				txt = "x:"+IJ.d2s(((PointRoi) roi).getXBase(), 1);
 				txt = txt + " ";
 				txt = txt + "y:"+IJ.d2s(((PointRoi) roi).getYBase(), 1);
-				double values[] = owner.getPixelValueFromOriginal((int)((PointRoi) roi).getXBase(), (int)((PointRoi) roi).getYBase());
-				if(values != null) {
-					txt = txt + " :"+IJ.d2s(values[0],0)+"("+IJ.d2s(values[1],0)+")";
+				Object pixelRawAndCalibrated[] = owner.getPixelValueFromOriginal((int)((PointRoi) roi).getXBase(), (int)((PointRoi) roi).getYBase());
+				if(pixelRawAndCalibrated != null) {
+					if(pixelRawAndCalibrated instanceof Double[]) {
+						Double[] values = (Double[])pixelRawAndCalibrated;
+						txt = txt + " :"+IJ.d2s(values[0],0)+"("+IJ.d2s(values[1],0)+")";
+					}else {
+						String[] rgbAndColor = (String[])pixelRawAndCalibrated;
+						String r = rgbAndColor[0];
+						String g = rgbAndColor[1];
+						String b = rgbAndColor[2];
+						String color = rgbAndColor[3];//java.awt.Color[r,g,b]
+						txt = txt + " :"+r+","+g+","+b+"("+color+")"+")";
+					}
 				}
 				updateText("locOnOrgAndValue:"+txt);
 				break;
-			case RoiObj.RECTANGLE:
-			case RoiObj.POLYGON:
-			case RoiObj.OVAL:
-			case RoiObj.COMPOSITE:
+			case RECTANGLE:
+			case POLYGON:
+			case OVAL:
+			case COMPOSITE:
 				String area = IJ.d2s(stats.area, 1);
 				String mean = IJ.d2s(stats.mean, 1);
 				txt = "area:" + area + "\n" + "mean:" + mean;

@@ -12,11 +12,11 @@ import ij.*;
 public class FreehandRoi extends PolygonRoi {
 
 	public FreehandRoi(int sx, int sy, SlideGlass sg) {
-		super(sx, sy, RoiObj.FREEROI, sg);
-		if (sg.getPraparat().getCurrentViewerToolType() == RoiObj.FREEROI) {
-			type = FREEROI;
+		super(sx, sy, RoiType.FREEROI.id(), sg);
+		if (sg.getPraparat().getCurrentViewerToolType() == RoiType.FREEROI.id()) {
+			type = RoiType.FREEROI.id();
 		} else {
-			type = FREELINE;
+			type = RoiType.FREELINE.id();
 		}
 		if (nPoints == 2) {
 			nPoints--;

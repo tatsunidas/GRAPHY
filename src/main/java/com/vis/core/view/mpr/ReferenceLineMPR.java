@@ -500,12 +500,12 @@ public class ReferenceLineMPR {
 		
 		//set handles
 		refLine.drawHandleRect(g, sx1, sy1, slide);
-		refLine.drawHandle(g, sx2, sy2, slide);
+		refLine.drawHandle(g, sx2, sy2);
 		//middle handle
-		refLine.drawHandle(g, sx3, sy3, slide);
+		refLine.drawHandle(g, sx3, sy3);
 		//rotate handle
-		refLine.drawHandle(g, sx4, sy4, slide);
-		refLine.drawHandle(g, sx5, sy5, slide);
+		refLine.drawHandle(g, sx4, sy4);
+		refLine.drawHandle(g, sx5, sy5);
 		
 	}
 }

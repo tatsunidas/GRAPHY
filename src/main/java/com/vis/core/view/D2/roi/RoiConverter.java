@@ -1,6 +1,10 @@
 package com.vis.core.view.D2.roi;
 
 import java.util.HashMap;
+
+import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
+
 import ij.gui.Roi;
 import ij.process.FloatPolygon;
 
@@ -8,28 +12,28 @@ public class RoiConverter {
 	
 	public ij.gui.Roi convert2Roi(RoiObj roiObj){
 		if(roiObj == null) {
-			System.out.println("RoiConverter.convert2Roi:roiObj is null, return...");
+			Log.logger.fine("RoiConverter.convert2Roi:roiObj is null, return...");
 			return null;
 		}
-		//do not use imp
 		int type = roiObj.getType();
-		switch(type) {
-		case RoiObj.RECTANGLE:
+		RoiType t = RoiType.find(type);
+		switch(t) {
+		case RECTANGLE:
 			double x = roiObj.getXBase();
 			double y = roiObj.getYBase();
 			int w = roiObj.width;
 			int h = roiObj.height;
 			return copyProperties2IJRoi(roiObj, new Roi(x,y,w,h));
-		case RoiObj.POLYGON:
+		case POLYGON:
 			ij.gui.PolygonRoi polygon = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.POLYGON);
 			return copyProperties2IJRoi(roiObj, polygon);
-		case RoiObj.ANGLE:
+		case ANGLE:
 			ij.gui.PolygonRoi angle = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.ANGLE);
 			return copyProperties2IJRoi(roiObj, angle);
-		case RoiObj.OVAL:
+		case OVAL:
 			ij.gui.OvalRoi oval = new ij.gui.OvalRoi(roiObj.getXBase(), roiObj.getYBase(),roiObj.getFloatWidth(),roiObj.getFloatHeight());
 			return copyProperties2IJRoi(roiObj, oval);
-		case RoiObj.LINE:
+		case LINE:
 			/*
 			 * do not use bounding rect.
 			 */
@@ -39,20 +43,20 @@ public class RoiConverter {
 			float[] yps = fpg.ypoints;
 			ij.gui.Line line = new ij.gui.Line(xps[0], yps[0], xps[1], yps[1]);
 			return copyProperties2IJRoi(roiObj, line);
-		case RoiObj.ARROW:
+		case ARROW:
 			Arrow al = (com.vis.core.view.D2.roi.Arrow)roiObj;
 			fpg = al.getFloatPoints();
 			xps = fpg.xpoints;
 			yps = fpg.ypoints;
 			ij.gui.Arrow arrow = new ij.gui.Arrow(xps[0], yps[0], xps[1], yps[1]);
 			return copyProperties2IJRoi(roiObj, arrow);
-		case RoiObj.TEXT:
-			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.getPropertyAt(RoiObj.RoiContextKeySet.Description.name()));
+		case TEXT:
+			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.getProperty(ContextKey.Description.name()));
 			return copyProperties2IJRoi(roiObj, txt);
-		case RoiObj.POINT:
+		case POINT:
 			ij.gui.PointRoi p = new ij.gui.PointRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints);
 			return copyProperties2IJRoi(roiObj, p);
-		case RoiObj.COMPOSITE://shape roi
+		case COMPOSITE://shape roi
 			com.vis.core.view.D2.roi.ShapeRoi sRoiObj = (com.vis.core.view.D2.roi.ShapeRoi)roiObj;
 			java.awt.Shape shape = sRoiObj.getShape();
 //			ij.gui.ShapeRoi shapeRoi = new ij.gui.ShapeRoi((int)sRoiObj.getXBase(), (int)sRoiObj.getYBase(), shape);//DO NOT USE, geometry conflicts.
@@ -65,7 +69,7 @@ public class RoiConverter {
 	}
 	
 	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi){
-		for(RoiObj.RoiContextKeySet key : RoiObj.RoiContextKeySet.values()) {
+		for(ContextKey key : ContextKey.values()) {
 			String value = roiObj.getProperty(key.name());
 			ijRoi.setProperty(key.name(), value);
 		}
@@ -76,16 +80,17 @@ public class RoiConverter {
 		HashMap<String, Object> roiCon = new HashMap<>();
 		//do not use imp
 		int type = roi.getType();
-		if(type == RoiObj.RECTANGLE) {
+		RoiType t = RoiType.find(type);
+		if(t == RoiType.RECTANGLE) {
 			if(roi.isDrawingTool()) {
-				type = RoiObj.TEXT;
+				t = RoiType.TEXT;
 			}
-		}else if(type == RoiObj.LINE) {
+		}else if(t == RoiType.LINE) {
 			if(roi.isDrawingTool()) {
-				type = RoiObj.ARROW;
+				t = RoiType.ARROW;
 			}
 		}
-		String rid = (String)roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name());
+		String rid = (String)roi.getProperty(ContextKey.RoiID.name());
 		int x = roi.getBounds().x;
 		int y = roi.getBounds().y;
 		int w = roi.getBounds().width;
@@ -93,28 +98,28 @@ public class RoiConverter {
 		float[] pointX = roi.getFloatPolygon().xpoints;
 		float[] pointY = roi.getFloatPolygon().ypoints;
 		//frameNo
-		String instNoString = roi.getProperty(RoiObj.RoiContextKeySet.InstanceNo.name());
+		String instNoString = roi.getProperty(ContextKey.InstanceNo.name());
 		Integer instNo = 1;
 		if(instNoString == null) {
 			instNo = roi.getPosition();
 		}else {
 			instNo = Integer.parseInt(instNoString);
 		}
-		String rgString = roi.getProperty(RoiObj.RoiContextKeySet.RoiGroup.name());//int
+		String rgString = roi.getProperty(ContextKey.RoiGroup.name());//int
 		Integer rg = null;
 		if(rgString != null) {
 			rg = Integer.valueOf(rgString.trim());
 		}
-		String rlbl = roi.getProperty(RoiObj.RoiContextKeySet.RoiLabel.name());
-		String ot = roi.getProperty(RoiObj.RoiContextKeySet.ObjectType.name());
-		String organ = roi.getProperty(RoiObj.RoiContextKeySet.Organ.name());
-		String desc = roi.getProperty(RoiObj.RoiContextKeySet.Description.name());
-		String pid = roi.getProperty(RoiObj.RoiContextKeySet.PatientID.name());
-		String studyUid = roi.getProperty(RoiObj.RoiContextKeySet.StudyInstanceUID.name());
-		String seriesUid = roi.getProperty(RoiObj.RoiContextKeySet.SeriesInstanceUID.name());
-		String sopUid = roi.getProperty(RoiObj.RoiContextKeySet.SOPInstanceUID.name());
+		String rlbl = roi.getProperty(ContextKey.RoiLabel.name());
+		String ot = roi.getProperty(ContextKey.ObjectType.name());
+		String organ = roi.getProperty(ContextKey.Organ.name());
+		String desc = roi.getProperty(ContextKey.Description.name());
+		String pid = roi.getProperty(ContextKey.PatientID.name());
+		String studyUid = roi.getProperty(ContextKey.StudyInstanceUID.name());
+		String seriesUid = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+		String sopUid = roi.getProperty(ContextKey.SOPInstanceUID.name());
 		//set context
-		roiCon.put(RoiObj.RoiContextKeySet.RoiID.name(), rid);
+		roiCon.put(ContextKey.RoiID.name(), rid);
 		roiCon.put("OriginX", x);
 		roiCon.put("OriginY", y);
 		roiCon.put("Width", w);
@@ -124,22 +129,22 @@ public class RoiConverter {
 		if(roi instanceof ij.gui.ShapeRoi) {
 			roiCon.put("Shape",((ij.gui.ShapeRoi)roi).getShapeAsArray());
 		}
-		roiCon.put(RoiObj.RoiContextKeySet.RoiType.name(), type);
-		roiCon.put(RoiObj.RoiContextKeySet.PatientID.name(), pid);
-		roiCon.put(RoiObj.RoiContextKeySet.StudyInstanceUID.name(),studyUid);
-		roiCon.put(RoiObj.RoiContextKeySet.SeriesInstanceUID.name(),seriesUid);
-		roiCon.put(RoiObj.RoiContextKeySet.SOPInstanceUID.name(),sopUid);
-		roiCon.put(RoiObj.RoiContextKeySet.InstanceNo.name(),instNo);//int
-		roiCon.put(RoiObj.RoiContextKeySet.RoiGroup.name(),rg);//int
-		roiCon.put(RoiObj.RoiContextKeySet.RoiLabel.name(),rlbl);
-		roiCon.put(RoiObj.RoiContextKeySet.ObjectType.name(),ot);
-		roiCon.put(RoiObj.RoiContextKeySet.Organ.name(),organ);
-		roiCon.put(RoiObj.RoiContextKeySet.Description.name(),desc);
+		roiCon.put(ContextKey.RoiType.name(), type);
+		roiCon.put(ContextKey.PatientID.name(), pid);
+		roiCon.put(ContextKey.StudyInstanceUID.name(),studyUid);
+		roiCon.put(ContextKey.SeriesInstanceUID.name(),seriesUid);
+		roiCon.put(ContextKey.SOPInstanceUID.name(),sopUid);
+		roiCon.put(ContextKey.InstanceNo.name(),instNo);//int
+		roiCon.put(ContextKey.RoiGroup.name(),rg);//int
+		roiCon.put(ContextKey.RoiLabel.name(),rlbl);
+		roiCon.put(ContextKey.ObjectType.name(),ot);
+		roiCon.put(ContextKey.Organ.name(),organ);
+		roiCon.put(ContextKey.Description.name(),desc);
 		return buildRoiObj(roiCon);
 	}
 	
 	public RoiObj buildRoiObj(HashMap<String, Object> roiCon) {
-		int type = (int)roiCon.get(RoiObj.RoiContextKeySet.RoiType.name());
+		int type = (int)roiCon.get(ContextKey.RoiType.name());
 		int x = (int)roiCon.get("OriginX");
 		int y = (int)roiCon.get("OriginY");
 		int w = (int)roiCon.get("Width");
@@ -166,7 +171,7 @@ public class RoiConverter {
 		 * 	Arrow has 4 floats(>0.0) points
 		 */
 		boolean adjustArrow = false;
-		if(type == RoiObj.LINE || type == RoiObj.ARROW) {
+		if(type == RoiType.LINE.id() || type == RoiType.ARROW.id()) {
 			int pointNum = 0;
 			for(float xp : pointX) {
 				if(xp > 0) {
@@ -174,28 +179,29 @@ public class RoiConverter {
 				}
 			}
 			if(pointNum > 2) {
-				type = RoiObj.ARROW;
+				type = RoiType.ARROW.id();
 				adjustArrow = true;
 			}
 		}
-		switch (type) {
-		case RoiObj.RECTANGLE:
+		RoiType t = RoiType.find(type);
+		switch (t) {
+		case RECTANGLE:
 			RoiObj rect = new RoiObj(x, y, w, h, 0, null);
 			rect.setProperties(roiCon);
 			return rect;
-		case RoiObj.POLYGON:
-			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiObj.POLYGON, null);
+		case POLYGON:
+			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYGON.id(), null);
 			poly.setProperties(roiCon);
 			return poly;
-		case RoiObj.ANGLE:
-			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiObj.ANGLE, null);
+		case ANGLE:
+			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.ANGLE.id(), null);
 			angle.setProperties(roiCon);
 			return angle;
-		case RoiObj.OVAL:
+		case OVAL:
 			RoiObj oval = new com.vis.core.view.D2.roi.OvalRoi(x,y,w,h,null);
 			oval.setProperties(roiCon);
 			return oval;
-		case RoiObj.LINE:
+		case LINE:
 			RoiObj line = null;
 			if(pointX==null) {
 				//debug
@@ -205,7 +211,7 @@ public class RoiConverter {
 			}
 			line.setProperties(roiCon);
 			return line;
-		case RoiObj.ARROW:
+		case ARROW:
 			/*
 			 * 4 points included of x and y points.
 			 */
@@ -221,16 +227,17 @@ public class RoiConverter {
 			}
 			arrow.setProperties(roiCon);
 			return arrow;
-		case RoiObj.TEXT:
+		case TEXT:
 			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, (String)roiCon.get("Description"), null, null);
 //			RoiObj txt = new com.vis.viewer2d.roi.TextRoi(x,y,(String)roiCon.get("Description"),null);
 			txt.setProperties(roiCon);//update text string
 			return txt;
-		case RoiObj.POINT:
+		case POINT:
 			RoiObj pt = new com.vis.core.view.D2.roi.PointRoi(x,y,null);
 			pt.setProperties(roiCon);//update text string
 			return pt;
-		case RoiObj.COMPOSITE:case RoiObj.TRACED_ROI:
+		case COMPOSITE:
+		case TRACED_ROI:
 			if(shapeArray == null) {
 				return null;
 			}

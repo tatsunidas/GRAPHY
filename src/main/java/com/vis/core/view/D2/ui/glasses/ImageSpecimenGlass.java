@@ -99,7 +99,7 @@ public class ImageSpecimenGlass extends JPanel{
 	 * create image to display, it was fitted prap size without zoom/pan/rotation/windowing.
 	 * @return
 	 */
-	private ImagePlus createInitialDisplayImage() {
+	ImagePlus createInitialDisplayImage() {
 		/*
 		 * getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
 		 */
@@ -112,7 +112,10 @@ public class ImageSpecimenGlass extends JPanel{
 		imp.setProcessor(ip);
 		imp.setTitle("replica");
 		// resize to comp size
-		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor());
+		/*
+		 * The calcImageSize2FitComponent method makes scaleX and scaleY have the same value.
+		 */
+		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor()[0]/*here, scale by x*/);
 		/*
 		 * to fill black background after rotation.
 		 * https://forum.image.sc/t/set-background-color-for-rotation-of-a-16-bit-image-shortprocessor-miss-bgcolor-attribute/20585/10
@@ -207,7 +210,8 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	/*
 	 * fit size to slide
-	 * image will be small with BORDER size.
+	 * image drawable area will be small by BORDER size.
+	 * Maintain aspect ratio, i.e., scale XY will be same.
 	 */
 	Dimension calcImageSize2FitComponent() {
 		/*

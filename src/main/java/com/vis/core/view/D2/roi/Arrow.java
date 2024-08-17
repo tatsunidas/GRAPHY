@@ -44,13 +44,13 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
     public Arrow(double ox1, double oy1, double ox2, double oy2,SlideGlass slide) {
         super(ox1, oy1, ox2, oy2, slide);
         setStrokeWidth(2);
-        setType(ARROW);
+        setType(RoiType.ARROW);
     }
     
     public Arrow(double ox1, double oy1, SlideGlass slide) {
         super(ox1, oy1, ox1+1, oy1+1, slide);
         setStrokeWidth(2);
-        setType(ARROW);
+        setType(RoiType.ARROW);
     }
 
     /** Draws this arrow on the image. */
@@ -72,7 +72,7 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         setRenderingHint(g2);
         AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
         double mag = sg.getMagnification();
-        double scale = sg.getScaleFactor();
+        double scale = sg.getScaleFactor()[0];
         
         /*
          * スクリーン座標（SlideGlass座標）で、Arrowの始点を補正。
@@ -101,9 +101,9 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         }
 //        if (!overlay) {
             handleColor=Color.ORANGE;
-            drawHandle(g, sg.screenX((int)x1d), sg.screenY((int)y1d), sg);
-            drawHandle(g, sg.screenX((int)x2d), sg.screenY((int)y2d),sg);
-            drawHandle(g, sg.screenX((int)(x1d+(x2d-x1d)/2.0)), sg.screenY((int)(y1d+(y2d-y1d)/2.0)),sg);
+            drawHandle(g, sg.screenX((int)x1d), sg.screenY((int)y1d));
+            drawHandle(g, sg.screenX((int)x2d), sg.screenY((int)y2d));
+            drawHandle(g, sg.screenX((int)(x1d+(x2d-x1d)/2.0)), sg.screenY((int)(y1d+(y2d-y1d)/2.0)));
 //        }
 //        if (state!=NORMAL && imp!=null && imp.getRoi()!=null)
 //            showStatus();

@@ -84,6 +84,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int rotation = e.getWheelRotation();
 		int mod = e.getModifiersEx();
 		
+		viewerToolType = pp.getViewer2DToolType();
+		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		
 		if (!pp.isProcessSeries()) {
 			slide.mouseX = e.getX();
 			slide.mouseY = e.getY();
@@ -94,6 +97,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				sg.mouseX = e.getX();
 				sg.mouseY = e.getY();
 			}
+		}
+		
+		if (cg.activateAndGetRoiAt(slide.mouseX, slide.mouseY) != null) {
+			return;
 		}
 		
 		wheelRotationAccumulator += rotation;
@@ -209,16 +216,15 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 		int x = e.getX();
 		int y = e.getY();
-
+		
+		viewerToolType = pp.getViewer2DToolType();
+		Log.logger.fine("Dragging , ViewerTool is "+viewerToolType);
+		
 		// MPR
 		if(pp.mode == ViewMode.MPR && pp.isShowCrossLineMode()) {
 			slide.drawCross(e);
 			//return;//DO NOT RETURN
 		}
-
-		viewerToolType = pp.getViewer2DToolType();
-		
-		Log.logger.fine("Dragging , ViewerTool is "+viewerToolType);
 		
 		if (pp.getViewMode() == ViewMode.Thumbnail) {
 			/* Force windowing */
@@ -305,17 +311,25 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
+		
 		int x = e.getX();
 		int y = e.getY();
+		viewerToolType = pp.getViewer2DToolType();
+		
 		slide.mouseX = x;
 		slide.mouseY = y;
 		slide.updatePrapInfoLabel(x, y);
 		// roi
-		slide.handleRoiMouseMoved(e);
+		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
+			slide.handleRoiMouseMoved(e);
+		}
 	}
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
+		
+		viewerToolType = pp.getViewer2DToolType();
+		
 		// handle select event
 		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
 			slide.setSelectionState();
@@ -338,10 +352,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mousePressed(MouseEvent e) {
-		// set start point for ww/wl, panning, roi
-		/*
-		 * Anyway, always update mouse locations when pressed mouse left button.
-		 */
+		
+		viewerToolType = pp.getViewer2DToolType();
+		
 		if (SwingUtilities.isLeftMouseButton(e)) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
 			viewerToolType = pp.getViewer2DToolType();
@@ -373,74 +386,34 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			} // ww/wl end
 		} // left btn down end
 
-		// zoom
+		// do something ?
 		if (SwingUtilities.isMiddleMouseButton(e)) {
-			/*
-			 * USB Mouse issue. Issue that is fired pressed action continuity. To avoid this
-			 * issue, DO NOT USE these USB Mouses
-			 */
-			if (pp.getViewMode() == ViewMode.Thumbnail) {
-				return;
-			}
-			logger.info("zoom : middle mouse btn pressed!!");
-			if (!pp.isProcessSeries()) {
-				slide.mouseX = e.getX();// for move position
-				slide.mouseY = e.getY();// for move position
-				slide.lastDraggedX = e.getX();// for cappulate mag
-				slide.lastDraggedY = e.getY();// for cappulate mag
-			} else {
-				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-				for (Integer key : slides.keySet()) {
-					SlideGlass sg = slides.get(key);
-					sg.mouseX = e.getX();
-					sg.mouseY = e.getY();
-					sg.lastDraggedX = e.getX();
-					sg.lastDraggedY = e.getY();
-				}
-			}
+			
 		}
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		
+		viewerToolType = pp.getViewer2DToolType();
+		
 		// roi
-		slide.handleRoiMouseUp(e);
-		// release panning
-		/*
-		 * PanningFlag indicates that the image has been panned; PanningInAction
-		 * indicates that it is currently being panned; PanningInAction may be useful to
-		 * avoid conflicts with other operations, but is not used here.
-		 */
-//		if (!pp.isProcessSeries()) {
-//			if (slide.panningInAction) {
-//				slide.releasePanning();
-//			}
-//		} else {
-//			// process series
-//			Log.logger.fine("panning series released !! mouse released.");
-//			if (slide.panningInAction) {
-//				slide.releasePanning();
-//			}
-//			synchronized (this) {
-//				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-//				for (Integer key : slides.keySet()) {
-//					SlideGlass sg = slides.get(key);
-//					if (sg.panningInAction) {
-//						sg.releasePanning();
-//					}
-//				}
-//			}
-//		}
+		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
+			slide.handleRoiMouseUp(e);
+		}
+		
 	}
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
+		viewerToolType = pp.getViewer2DToolType();
 		slide.setFocusGained(true);
 		pp.setFocusGained(true);
 	}
 
 	@Override
 	public void mouseExited(MouseEvent e) {
+		viewerToolType = pp.getViewer2DToolType();
 		slide.setFocusGained(false);
 		pp.setFocusGained(false);
 	}

@@ -71,14 +71,14 @@ public class PointRoi extends PolygonRoi {
     
     /** Creates a new PointRoi using the specified int arrays of offscreen coordinates. */
     public PointRoi(int[] ox, int[] oy, int points,SlideGlass slide) {
-        super(itof(ox), itof(oy), points, POINT, slide);
+        super(itof(ox), itof(oy), points, RoiType.POINT.id(), slide);
         width+=1; height+=1;
         updateCounts();
     }
 
     /** Creates a new PointRoi using the specified float arrays of offscreen coordinates. */
     public PointRoi(float[] ox, float[] oy, int points,SlideGlass slide) {
-        super(ox, oy, points, POINT, slide);
+        super(ox, oy, points, RoiType.POINT.id(), slide);
         width+=1; height+=1;
         updateCounts();
     }
@@ -106,7 +106,7 @@ public class PointRoi extends PolygonRoi {
 
     /** Creates a new PointRoi using the specified coordinates and options. */
     public PointRoi(double ox, double oy, String options, SlideGlass slide) {
-        super(makeXorYArray(ox, null, false), makeXorYArray(oy, null, true), 1, POINT,slide);
+        super(makeXorYArray(ox, null, false), makeXorYArray(oy, null, true), 1, RoiType.POINT.id(),slide);
         width=1; height=1;
         incrementCounter();
         setOptions(options);
@@ -114,7 +114,7 @@ public class PointRoi extends PolygonRoi {
 
     /** Creates a new PointRoi using the specified offscreen double coordinates. */
     public PointRoi(double ox, double oy, SlideGlass slide) {
-        super(makeXorYArray(ox, null, false), makeXorYArray(oy, null, true), 1, POINT,slide);
+        super(makeXorYArray(ox, null, false), makeXorYArray(oy, null, true), 1, RoiType.POINT.id(),slide);
         width=1; height=1;
         incrementCounter();
     }

@@ -39,17 +39,15 @@
 package com.vis.core.view.D2.ui;
 
 import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Frame;
-import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.TreeMap;
 
 import javax.swing.AbstractButton;
@@ -59,9 +57,12 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.border.LineBorder;
 
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
@@ -75,33 +76,22 @@ import com.vis.core.view.mpr.MPRViewerWindow;
 
 import ij.ImagePlus;
 
-//import com.vis.mpr.MPRViewerWindow;//TODO 20231006
-//import com.vis.resource.GraphyIcon;
-//import com.vis.ui.context.ApplicationContext;
-//import com.vis.viewer2d.roi.RoiObj;
-//import com.vis.viewer2d.roi.RoiObjManager;
-//import com.vis.viewer2d.ui.eyepiece.Eyepiece;
-//import com.vis.viewer2d.ui.eyepiece.Praparat;
-//import com.vis.viewer2d.ui.frame.Viewer2DScreen;
-//import com.vis.viewer2d.ui.stage.StageDockManager;
-//import com.vis.viewer2d.ui.stage.StageView;
-//import com.vis.viewer3d.Viewer3DFrame_IJ;//TODO 20231006
-
 /**
+ * buttons design https://material.io/tools/icons/?style=outline
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
 public class Viewer2DToolBar extends JToolBar{
 	
 	/* roi tool ids */
-	public final static int RectangleRoi = RoiObj.RECTANGLE;
-	public final static int OvalRoi = RoiObj.OVAL;
-	public final static int PointRoi = RoiObj.POINT;
-	public final static int LineRoi = RoiObj.LINE;
-	public final static int PolygonRoi = RoiObj.POLYGON;
-	public final static int AngleRoi = RoiObj.ANGLE;
-	public final static int TextRoi = RoiObj.TEXT;
-	public final static int ArrowRoi = RoiObj.ARROW;
+	public final static int RectangleRoi = RoiType.RECTANGLE.id();
+	public final static int OvalRoi = RoiType.OVAL.id();
+	public final static int PointRoi = RoiType.POINT.id();
+	public final static int LineRoi = RoiType.LINE.id();
+	public final static int PolygonRoi = RoiType.POLYGON.id();
+	public final static int AngleRoi = RoiType.ANGLE.id();
+	public final static int TextRoi = RoiType.TEXT.id();
+	public final static int ArrowRoi = RoiType.ARROW.id();
 	
 	public final static int[] roiTools = new int[] {
 			RectangleRoi,
@@ -143,18 +133,38 @@ public class Viewer2DToolBar extends JToolBar{
 	JCheckBox brushChk;
 	
 	int defaultImgIconSize = 48;
-	/*
-	 * buttons design https://material.io/tools/icons/?style=outline
-	 */
-//	private ArrayList<String> buttonLabels = new ArrayList<String>();
-//	private ArrayList<String> keys = null;
 	private int currentTool = Windowing;//default
 
 	public Viewer2DToolBar() {
-		loadButtons(initButtonList());
+		
+		JPanel base = new JPanel();
+		int hgap = 3;
+		int vgap = hgap;
+		base.setLayout(new FlowLayout(FlowLayout.LEFT, hgap, vgap));
+		
+		base.add(loadButtons(initProcessFunctions()));
+		addSeparator();
+		base.add(loadButtons(initRois()));
+		
+		// after above, add jscrollpane.
+		JScrollPane scrollPane = new JScrollPane();
+		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.setViewportView(base);
+		scrollPane.setPreferredSize(new Dimension(300/*dummy*/, defaultImgIconSize*2+(hgap*2)+4/*adjust*/));
+		add(scrollPane);
+		
+		if(windowChk != null) {
+			if (!isRoiTool(currentTool)) {
+				windowChk.setSelected(true);
+				windowChk.setBackground(Color.CYAN);
+			}
+		}
 	}
 	
-	public void loadButtons(HashMap<String, Resources> buttonLabels) {
+	public JPanel loadButtons(HashMap<String, Resources> buttonLabels) {
+		JPanel p = new JPanel();
+		p.setBorder(new LineBorder(Color.GRAY, 3, true));
 		TreeMap<String, Resources> sortedMap = new TreeMap<>(buttonLabels);
 		for (String key : sortedMap.keySet()) {
 			BufferedImage img = (BufferedImage) buttonLabels.get(key).loadIconFromResource().getImage();
@@ -169,7 +179,7 @@ public class Viewer2DToolBar extends JToolBar{
 				rectangleChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(rectangleChk);
 				roiGroup.add(rectangleChk);
-				add(rectangleChk);
+				p.add(rectangleChk);
 			}else if(key.equals("oval")) {
 				ovalChk = new JCheckBox(key, new ImageIcon(img));
 				ovalChk.setName(key);
@@ -178,7 +188,7 @@ public class Viewer2DToolBar extends JToolBar{
 				ovalChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(ovalChk);
 				roiGroup.add(ovalChk);
-				add(ovalChk);
+				p.add(ovalChk);
 			}else if(key.equals("line")) {
 				lineChk = new JCheckBox(key, new ImageIcon(img));
 				lineChk.setName(key);
@@ -187,7 +197,7 @@ public class Viewer2DToolBar extends JToolBar{
 				lineChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(lineChk);
 				roiGroup.add(lineChk);
-				add(lineChk);
+				p.add(lineChk);
 			}else if(key.equals("polygon")) {
 				polyChk = new JCheckBox(key, new ImageIcon(img));
 				polyChk.setName(key);
@@ -196,7 +206,7 @@ public class Viewer2DToolBar extends JToolBar{
 				polyChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(polyChk);
 				roiGroup.add(polyChk);
-				add(polyChk);
+				p.add(polyChk);
 			}else if(key.equals("point")) {
 				pointChk = new JCheckBox(key, new ImageIcon(img));
 				pointChk.setName(key);
@@ -205,7 +215,7 @@ public class Viewer2DToolBar extends JToolBar{
 				pointChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(pointChk);
 				roiGroup.add(pointChk);
-				add(pointChk);
+				p.add(pointChk);
 			}else if(key.equals("arrow")) {
 				arrowChk = new JCheckBox(key, new ImageIcon(img));
 				arrowChk.setName(key);
@@ -214,7 +224,7 @@ public class Viewer2DToolBar extends JToolBar{
 				arrowChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(arrowChk);
 				roiGroup.add(arrowChk);
-				add(arrowChk);
+				p.add(arrowChk);
 			}else if(key.equals("text")) {
 				textChk = new JCheckBox(key, new ImageIcon(img));
 				textChk.setName(key);
@@ -223,7 +233,7 @@ public class Viewer2DToolBar extends JToolBar{
 				textChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(textChk);
 				roiGroup.add(textChk);
-				add(textChk);
+				p.add(textChk);
 			}else if(key.equals("angle")) {
 				angleChk = new JCheckBox(key, new ImageIcon(img));
 				angleChk.setName(key);
@@ -232,7 +242,7 @@ public class Viewer2DToolBar extends JToolBar{
 				angleChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(angleChk);
 				roiGroup.add(angleChk);
-				add(angleChk);
+				p.add(angleChk);
 			}else if(key.equals("brush")) {
 				brushChk = new JCheckBox(key, new ImageIcon(img));
 				brushChk.setName(key);
@@ -241,7 +251,7 @@ public class Viewer2DToolBar extends JToolBar{
 				brushChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(brushChk);
 				roiGroup.add(brushChk);
-				add(brushChk);
+				p.add(brushChk);
 			}else if(key.equals("window")) {
 				windowChk = new JCheckBox(key, new ImageIcon(img));
 				windowChk.setName(key);
@@ -249,7 +259,7 @@ public class Viewer2DToolBar extends JToolBar{
 				windowChk.setVerticalTextPosition(SwingConstants.BOTTOM);
 				windowChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(windowChk);
-				add(windowChk);
+				p.add(windowChk);
 			}else {
 				JButton btn = new JButton(key, new ImageIcon(img));
 				btn.setName(key);
@@ -257,17 +267,10 @@ public class Viewer2DToolBar extends JToolBar{
 				btn.setVerticalTextPosition(SwingConstants.BOTTOM);
 				btn.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(btn);
-				add(btn);
-			}
-			currentTool = Windowing;//default
-			if(windowChk != null) {
-				if (!isRoiTool(currentTool)) {
-					windowChk.setSelected(true);
-					windowChk.setBackground(Color.CYAN);
-				}
+				p.add(btn);
 			}
 		}
-		repaint();
+		return p;
 	}
 
 	private void setAction(JComponent comp) {
@@ -400,7 +403,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(rectangleChk.isSelected()) {
-						currentTool = RoiObj.RECTANGLE;
+						currentTool = RectangleRoi;
 						setSelectedToolBackground();
 					}
 				}
@@ -411,7 +414,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(ovalChk.isSelected()) {
-						currentTool = RoiObj.OVAL;
+						currentTool = OvalRoi;
 						setSelectedToolBackground();
 					}
 				}
@@ -422,7 +425,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(lineChk.isSelected()) {
-						currentTool = RoiObj.LINE;
+						currentTool = LineRoi;
 						lineChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
@@ -434,7 +437,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(polyChk.isSelected()) {
-						currentTool = RoiObj.POLYGON;
+						currentTool = PolygonRoi;
 						polyChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
@@ -446,7 +449,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(arrowChk.isSelected()) {
-						currentTool = RoiObj.ARROW;
+						currentTool = ArrowRoi;
 						//arrowChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 						Log.logger.fine("ARROW TOOL activated ! : "+currentTool);
@@ -459,7 +462,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(pointChk.isSelected()) {
-						currentTool = RoiObj.POINT;
+						currentTool = PointRoi;
 						pointChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
@@ -471,7 +474,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					if(textChk.isSelected()) {
-						currentTool = RoiObj.TEXT;
+						currentTool = TextRoi;
 						textChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
@@ -483,7 +486,7 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent ae) {
 					if(angleChk.isSelected()) {
-						currentTool = RoiObj.ANGLE;
+						currentTool = AngleRoi;
 						angleChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
@@ -631,13 +634,8 @@ public class Viewer2DToolBar extends JToolBar{
 		}
 	}
 
-	private HashMap<String, Resources> initButtonList() {
+	private HashMap<String, Resources> initRois() {
 		HashMap<String, Resources> map = new HashMap<>();
-		map.put("reset", Resources.ResetPraparatIcon);
-		map.put("invert", Resources.InvertIcon);
-		map.put("flipLR", Resources.FlipLRIcon);
-		map.put("flipHF", Resources.FlipHFIcon);
-		map.put("screen out", Resources.ScreenOutIcon);
 		map.put("rectangle", Resources.RectangleRoiIcon);
 		map.put("oval", Resources.OvalRoiIcon);
 		map.put("line", Resources.LineRoiIcon);
@@ -645,8 +643,18 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("arrow", Resources.ArrowRoiIcon);
 		map.put("point", Resources.PointRoiIcon);
 		map.put("text", Resources.TextRoiIcon);
-		map.put("window", Resources.WindowContrastIcon);
 		map.put("angle", Resources.AngleRoiIcon);
+		return map;
+	}
+	
+	private HashMap<String, Resources> initProcessFunctions(){
+		HashMap<String, Resources> map = new HashMap<>();
+		map.put("reset", Resources.ResetPraparatIcon);
+		map.put("invert", Resources.InvertIcon);
+		map.put("flipLR", Resources.FlipLRIcon);
+		map.put("flipHF", Resources.FlipHFIcon);
+		map.put("screen out", Resources.ScreenOutIcon);
+		map.put("window", Resources.WindowContrastIcon);
 		map.put("analysis", Resources.RoiObjManagerWinIcon);
 		map.put("crop", Resources.CropIcon);
 		map.put("cut", Resources.CutIcon);

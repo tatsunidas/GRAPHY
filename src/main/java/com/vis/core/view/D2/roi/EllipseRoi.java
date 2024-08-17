@@ -22,7 +22,7 @@ public class EllipseRoi extends PolygonRoi {
     private int[] handle = {0, vertices/4, vertices/2, vertices/2+vertices/4};
 
     public EllipseRoi(double x1, double y1, double x2, double y2, double aspectRatio, SlideGlass slide) {
-        super(new float[vertices], new float[vertices], vertices, FREEROI, slide);
+        super(new float[vertices], new float[vertices], vertices, RoiType.FREEROI.id(), slide);
         if (aspectRatio<0.0) aspectRatio = 0.0;
         if (aspectRatio>1.0) aspectRatio = 1.0;
         this.aspectRatio = aspectRatio;
@@ -44,7 +44,7 @@ public class EllipseRoi extends PolygonRoi {
         super.draw(g,sg);
         if (!overlay) {
             for (int i=0; i<handle.length; i++)
-                drawHandle(g, xp2[handle[i]], yp2[handle[i]],sg);
+                drawHandle(g, xp2[handle[i]], yp2[handle[i]]);
         }
     }
 

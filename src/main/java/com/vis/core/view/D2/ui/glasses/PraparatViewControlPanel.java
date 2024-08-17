@@ -12,7 +12,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 import com.vis.configuration.Resources;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -115,13 +114,14 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 		add(right);
 	}
 
-	protected void setText2InfoLabel(int x, int y, String value, double scale, double mag, double rotate) {
+	protected void setText2InfoLabel(int x, int y, String value, double[] scaleXY, double mag, double rotate) {
 		
 		int decimalPlaces = 1;
 		String xStg = String.valueOf(x);
 		String yStg = String.valueOf(y);
 		String valueStg = value;
-		String scaleStg = String.valueOf(scale);
+		String scaleXStg = String.valueOf(scaleXY[0]);
+		String scaleYStg = String.valueOf(scaleXY[1]);
 		String magStg = String.valueOf(mag);
 		String rotateStg = String.valueOf(rotate);
 		
@@ -134,10 +134,15 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 		if(valueStg == null || valueStg.equals("-1")) {
 			valueStg = "-";
 		}
-		if(scale == -1.) {
-			scaleStg = "-";
+		if(scaleXY[0] == -1.) {
+			scaleXStg = "-";
 		}else {
-			scaleStg = IJ.d2s(scale, decimalPlaces);
+			scaleXStg = IJ.d2s(scaleXY[0], decimalPlaces);
+		}
+		if(scaleXY[1] == -1.) {
+			scaleYStg = "-";
+		}else {
+			scaleYStg = IJ.d2s(scaleXY[1], decimalPlaces);
 		}
 		if(mag == -1.) {
 			magStg = "-";
@@ -157,8 +162,10 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 		info.add(yStg + " ");// Y
 		info.add(this.pixelInfo[2]);
 		info.add(valueStg + " ");// value
-		info.add("s:");
-		info.add(scaleStg + " ");
+		info.add("sx:");
+		info.add(scaleXStg + ",");
+		info.add("sy:");
+		info.add(scaleYStg + ",");
 		info.add("z:");
 		info.add(magStg + " ");
 		info.add("r:");

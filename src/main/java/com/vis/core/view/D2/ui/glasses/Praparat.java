@@ -57,12 +57,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.*;
 
-import javax.swing.BorderFactory;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
-import javax.swing.border.CompoundBorder;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
@@ -72,9 +70,9 @@ import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
-import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
@@ -92,15 +90,6 @@ import com.vis.dicom.image.DicomImage;
 import com.vis.imageio.Codec;
 import com.vis.imageio.Decompressor;
 import com.vis.imageio.PDFReader;
-
-//import com.vis.viewer2d.roi.ReferenceLine;
-//import com.vis.viewer2d.roi.RoiObj;
-//import com.vis.viewer2d.ui.eyepiece.PraparatShelf.PraparatContext;
-//import com.vis.viewer2d.ui.frame.SeriesWindow;
-//import com.vis.viewer2d.ui.frame.Viewer2DScreen;
-//import com.vis.viewer2d.ui.orientation.GeometryOfSlice;
-//import com.vis.viewer2d.ui.orientation.IntersectVolume;
-//import com.vis.viewer2d.ui.orientation.LocalizerPoster;
 
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -534,7 +523,8 @@ public class Praparat extends JPanel {
 	
 	public ImagePlus cropRectangle(boolean show) {
 		SlideGlass sg = getCurrentSlide();
-		RoiObj roi = sg.findCurrentRoi();
+		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		RoiObj roi = cg.findCurrentRoi();
 		if(roi == null) {
 			return null;
 		}
@@ -782,6 +772,17 @@ public class Praparat extends JPanel {
 		return uids;
 	}
 	
+	public ArrayList<RoiObj> getRoiAt(String sopUID){
+		for(int i : slides.keySet()) {
+			SlideGlass sg = slides.get(i);
+			if(sg.getSOPInstanceUID().equals(sopUID)) {
+				CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+				return cg.getRoiSet();
+			}
+		}
+		return null;
+	}
+	
 	private String concatenationOfUIDStrings() {
 		Object[] uids = getUIDs();
 		String str = "";
@@ -968,7 +969,7 @@ public class Praparat extends JPanel {
 		return prapManager != null;
 	}
 
-	public void loadRoiFromDB() {
+	public void loadRoiToCurrentSlideGlass() {
 		SlideGlass sg = getCurrentSlide();
 		sg.loadRoiFromDB();
 	}
@@ -1054,7 +1055,7 @@ public class Praparat extends JPanel {
 		}
 		prevSlice = -1;
 		currentSlice = 0;
-		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		constructSlideGlassesFromImagePlus(images);
 		slider.initContext();
 		if(Utils.isDebug) {
@@ -1069,7 +1070,7 @@ public class Praparat extends JPanel {
 		}
 		prevSlice = -1;
 		currentSlice = 0;
-		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		constructSlideGlassesFromDicom(paths);
 		if(slider != null) {
 			slider.initContext();
@@ -1086,12 +1087,14 @@ public class Praparat extends JPanel {
 	
 	public void processCut() {
 		SlideGlass sg = getCurrentSlide();
-		RoiObj currentRoi = sg.findCurrentRoi();
+		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		RoiObj currentRoi = cg.findCurrentRoi();
 		if(currentRoi == null ) {
 			return;
 		}
 		int roiType = currentRoi.getType();
-		if(roiType == RoiObj.ANGLE || roiType == RoiObj.ARROW || roiType == RoiObj.FREELINE || roiType == RoiObj.POINT || roiType==RoiObj.LINE) {
+		RoiType t = RoiType.find(roiType);
+		if(t == RoiType.ANGLE || t == RoiType.ARROW || t == RoiType.FREELINE || t == RoiType.POINT || t==RoiType.LINE) {
 			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "Cut process needed closed type roi.");
 			return;
 		}
@@ -1185,7 +1188,7 @@ public class Praparat extends JPanel {
 				viewPanel.removeAll();
 			}
 		}
-		updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+		updateInfoLabel(-1,-1,"-1", new double[] {-1,-1},-1,-1);
 	}
 
 	public void resetView() {
@@ -1193,7 +1196,7 @@ public class Praparat extends JPanel {
 		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
 			ImagePlus imp = getImagePlus();
 			pvcp.setProcessSeries(true);//to show all images after reset
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 			reloadSlideGlasses(imp);
 			return;
 		}
@@ -1203,7 +1206,7 @@ public class Praparat extends JPanel {
 				showGridViewOn = false;
 			}
 			pvcp.setProcessSeries(true);//to show all images after reset
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 			// reload slides
 			//prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 			//setTextVisible(pvcp.isShowInfo());
@@ -1217,7 +1220,7 @@ public class Praparat extends JPanel {
 		
 		if(mode == ViewMode.FilmGrid) {
 			pvcp.setProcessSeries(true);//to show all images after reset
-			updateInfoLabel(-1,-1,"-1",-1,-1,-1);
+			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 			// reload slides
 //			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 //			setTextVisible(false);
@@ -1248,24 +1251,29 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public void setAndShowPixelValue(int X, int Y) {
+	public void setAndShowPixelValue(int imageX, int imageY) {
 		SlideGlass currentSlide = getCurrentSlide();
-		double scale = currentSlide.getScaleFactor();
+		double[] scaleXY = currentSlide.getScaleFactor();
 		double mag = currentSlide.getMagnification();
 		double rotate = currentSlide.getRotateAngle();
+		Object[] val = getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
+		if(val == null) {
+			updateInfoLabel(imageX, imageY, null+"("+null+")",scaleXY, mag,rotate);
+			return;
+		}
 		if(!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromDisplay(X, Y);
+			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
-			updateInfoLabel(X, Y, raw_v+"("+calibrated_v+")",scale,mag,rotate);
+			updateInfoLabel(imageX, imageY, raw_v+"("+calibrated_v+")",scaleXY, mag,rotate);
 		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromDisplay(X, Y);
+			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromDisplay(imageX, imageY);
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
 //			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
 //			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
-			updateInfoLabel(X, Y, r+","+g+","+b, scale, mag, rotate);
+			updateInfoLabel(imageX, imageY, r+","+g+","+b, scaleXY, mag, rotate);
 		}
 	}
 
@@ -1538,9 +1546,9 @@ public class Praparat extends JPanel {
 		setImagePosition(currentSlice);
 	}
 	
-	protected void updateInfoLabel(int x, int y, String value, double scale, double mag, double rotate) {
+	private void updateInfoLabel(int x, int y, String value, double[] scaleXY, double mag, double rotate) {
 		if(getViewMode() != ViewMode.Thumbnail) {
-			this.pvcp.setText2InfoLabel(x, y, value, scale, mag, rotate);
+			this.pvcp.setText2InfoLabel(x, y, value, scaleXY, mag, rotate);
 		}
 	}
 	

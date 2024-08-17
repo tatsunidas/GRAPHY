@@ -51,6 +51,7 @@ public class SlideGlassKeyListener implements KeyListener{
 	final SlideGlass sg;
 	final Praparat pp;
 	final Eyepiece prapManager;
+	int viewerToolType;
 	
 	private Set<Integer> pressedKeys = new HashSet<Integer>();
 	
@@ -60,8 +61,8 @@ public class SlideGlassKeyListener implements KeyListener{
 	boolean down = false;
 	boolean shift = false;
 	boolean ctrl = false;
-	@SuppressWarnings("unused")
 	boolean alt = false;
+	boolean backspace = false;
 	
 	public SlideGlassKeyListener(SlideGlass sg) {
 		this.sg = sg;
@@ -77,8 +78,11 @@ public class SlideGlassKeyListener implements KeyListener{
 	public void keyPressed(KeyEvent e) {
 		if (e.getID() == KeyEvent.KEY_PRESSED) {
 			if (Utils.isDebug) {
-				System.out.println("PraparatUI::KEY PRESSED !:" + e.getKeyCode());
+				System.out.println("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
 			}
+			
+			viewerToolType = pp.getViewer2DToolType();
+			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			
 			//add first.
 			pressedKeys.add(e.getKeyCode());
@@ -97,6 +101,8 @@ public class SlideGlassKeyListener implements KeyListener{
 				ctrl = true;
 			if (pressedKeys.contains(KeyEvent.VK_ALT))
 				alt = true;
+			if (pressedKeys.contains(KeyEvent.VK_BACK_SPACE))
+				backspace = true;
 
 			// reset slide
 			if (shift && ctrl) {
@@ -108,20 +114,39 @@ public class SlideGlassKeyListener implements KeyListener{
 					return;
 				}
 			}
+			
+			/*
+			 * On some keyboards, Fn+BackSpace will result in Delete; be aware of the
+			 * limitations of the Fn key.
+			 */
+			if (e.getKeyCode() == KeyEvent.VK_DELETE || backspace) {
+				System.out.println("Delete pressed");
+				cg.deleteRoi(sg.mouseX, sg.mouseY);
+				return;
+	        }
 
 			// paging
 			if (left || up && !right && !down && !shift && !ctrl) {
-				if (!pp.isShowGridViewOn()) {
-					if (prapManager != null) {/*Sync series*/
-						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-						if (syncingPraps != null && syncingPraps.size() > 1) {
-							for (Praparat prap : syncingPraps) {
-								int pos = prap.getCurrentSlidePos();
+				if (cg.activateAndGetRoiAt(sg.mouseX, sg.mouseY) == null) {
+					if (!pp.isShowGridViewOn()) {
+						if (prapManager != null) {/* Sync series */
+							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
+							if (syncingPraps != null && syncingPraps.size() > 1) {
+								for (Praparat prap : syncingPraps) {
+									int pos = prap.getCurrentSlidePos();
+									pos = pos - 1;
+									if (pos < 0) {
+										pos = prap.getNumberOfImages() - 1;
+									}
+									prap.setImagePositionUsingSlider(pos);// work with slider
+								}
+							} else {
+								int pos = pp.getCurrentSlidePos();
 								pos = pos - 1;
 								if (pos < 0) {
-									pos = prap.getNumberOfImages() - 1;
+									pos = pp.getNumberOfImages() - 1;
 								}
-								prap.setImagePositionUsingSlider(pos);// work with slider
+								pp.setImagePositionUsingSlider(pos);// work with slider
 							}
 						} else {
 							int pos = pp.getCurrentSlidePos();
@@ -131,34 +156,29 @@ public class SlideGlassKeyListener implements KeyListener{
 							}
 							pp.setImagePositionUsingSlider(pos);// work with slider
 						}
-					} else {
-						int pos = pp.getCurrentSlidePos();
-						pos = pos - 1;
-						if (pos < 0) {
-							pos = pp.getNumberOfImages() - 1;
-						}
-						pp.setImagePositionUsingSlider(pos);// work with slider
 					}
 				}
 			} else if (right || down && !left && !up && !shift && !ctrl) {
-				if (!pp.isShowGridViewOn()) {
-					if (prapManager != null) {
-						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-						if (syncingPraps.size() > 1) {
-							for (Praparat prap : syncingPraps) {
-								int pos = prap.getCurrentSlidePos();
+				if (cg.activateAndGetRoiAt(sg.mouseX, sg.mouseY) == null) {
+					if (!pp.isShowGridViewOn()) {
+						if (prapManager != null) {
+							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
+							if (syncingPraps.size() > 1) {
+								for (Praparat prap : syncingPraps) {
+									int pos = prap.getCurrentSlidePos();
+									pos += 1;
+									prap.setImagePositionUsingSlider(pos);// work with slider
+								}
+							} else {
+								int pos = pp.getCurrentSlidePos();
 								pos += 1;
-								prap.setImagePositionUsingSlider(pos);// work with slider
+								pp.setImagePositionUsingSlider(pos);// work with slider
 							}
 						} else {
 							int pos = pp.getCurrentSlidePos();
 							pos += 1;
 							pp.setImagePositionUsingSlider(pos);// work with slider
 						}
-					} else {
-						int pos = pp.getCurrentSlidePos();
-						pos += 1;
-						pp.setImagePositionUsingSlider(pos);// work with slider
 					}
 				}
 			}

@@ -8,9 +8,9 @@ import java.lang.reflect.InvocationTargetException;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.util.PropertiesUtil;
-import com.vis.core.view.D2.roi.RoiObj.RoiContextKeySet;
 import com.vis.core.view.D2.ui.glasses.*;
 
 
@@ -57,19 +57,19 @@ public class RoiBrush implements Runnable{
 		int size = getBrushSize();
 		String type = getBrushType();
 		if (slide==null) return;
-		if(slide.getRoiPopupAt(slideX, slideY) != null) {
+		if(slide.getRoiPopUpAt(slideX, slideY) != null) {
 			System.out.println("Here on RoiPopUp ! return. RoiBrush::createBrush");
 			return;
 		}
-		RoiObj roi = slide.getRoiLoacationAt(slideX, slideY);
+		RoiObj roi = slide.getRoiLocationAt(slideX, slideY);
 		ShapeRoi brush = null;
 		/*
 		 * slide origin shift
 		 */
 		int dispX = slide.onDisplayImageX(slideX);
 		int dispY = slide.onDisplayImageY(slideY);
-		int XinOrgScale = slide.onOriginalImageX(slideX);
-		int YinOrgScale = slide.onOriginalImageY(slideY);
+		int XinOrgScale = slide.onImageX(slideX);
+		int YinOrgScale = slide.onImageY(slideY);
 		System.out.println("brush loc: "+slideX+" , "+slideY+" and "+dispX+" , "+dispY+" and scaled2org "+ XinOrgScale + " , "+YinOrgScale);
 		if(type.equals("Circle")) {
 			brush = getCircularRoi(XinOrgScale, YinOrgScale, size);
@@ -143,9 +143,9 @@ public class RoiBrush implements Runnable{
 			ShapeRoi sRoi = new ShapeRoi(roi);//did copyAttributes
 			replace = sRoi.or(brush);
 //			replace.copyAttributes(roi);//no update RoiID
-			replace.setProperty(RoiContextKeySet.RoiID.name(), roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()));
+			replace.setProperty(ContextKey.RoiID.name(), roi.getProperty(ContextKey.RoiID.name()));
 //			slide.replaceRoi(roi.getStudyUID(), roi.getSeriesUID(), roi.getSopUID(), roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), replace);
-			slide.updateRoi(roi.getStudyUID(), roi.getSeriesUID(), roi.getSopUID(), roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), replace);
+			slide.updateRoi(replace);
 		}else {
 			slide.addRoi(brush);
 		}
@@ -166,7 +166,7 @@ public class RoiBrush implements Runnable{
 		} else {
 			roi = brush;
 		}
-		slide.updateRoi(roi.getStudyUID(), roi.getSeriesUID(), roi.getSopUID(), roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), roi);
+		slide.updateRoi(roi);
 	}
 
     

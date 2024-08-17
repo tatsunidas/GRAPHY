@@ -7,7 +7,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.util.*;
 
-import com.vis.core.view.D2.roi.RoiObj.RoiContextKeySet;
+import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.*;
@@ -102,7 +102,7 @@ public class ShapeRoi extends RoiObj {
 //        AffineTransform at = new AffineTransform();
 //        at.translate(-x, -y);//平行移動（スケールなし）。原点のリセット?
         shape = s;//new GeneralPath(at.createTransformedShape(s));
-        type = COMPOSITE;
+        type = RoiType.COMPOSITE.id();
     }
 
     /** Constructs a ShapeRoi from a Shape. */
@@ -115,7 +115,7 @@ public class ShapeRoi extends RoiObj {
 		at.translate(x, y);// move to new origin
 		s = new GeneralPath(at.createTransformedShape(s));
 		shape = s;
-		type = COMPOSITE;
+		type = RoiType.COMPOSITE.id();
 	}
 
     /**Creates a ShapeRoi object from a "classical" ImageJ ROI.
@@ -135,7 +135,7 @@ public class ShapeRoi extends RoiObj {
 	ShapeRoi(RoiObj r, double flatness, double maxerror, boolean forceAngle, boolean forceTrace, boolean flatten,
 			int maxPoly, SlideGlass slide) {
 		super(r.startX, r.startY, r.width, r.height, 0, slide);//default
-		this.type = COMPOSITE;
+		this.type = RoiType.COMPOSITE.id();
 		this.flatness = flatness;
 		this.maxerror = maxerror;
 		this.forceAngle = forceAngle;
@@ -166,15 +166,15 @@ public class ShapeRoi extends RoiObj {
         maxerror = ShapeRoi.MAXERROR;
         maxPoly = ShapeRoi.MAXPOLY;
         flatten = false;
-        setType(COMPOSITE);
+        setType(RoiType.COMPOSITE);
     }
     
     @Override
     public HashMap<String, Object> readContext(){
     	HashMap<String,Object> con = new HashMap<>();
     	//basic info as to String
-    	for(RoiContextKeySet k:RoiContextKeySet.values()) {
-    		con.put(k.name(), getPropertyAt(k.name()));
+    	for(ContextKey k:ContextKey.values()) {
+    		con.put(k.name(), getProperty(k.name()));
     	}
 		con.put("OriginX", x);//con.put("OriginX", (int) getXBase());
 		con.put("OriginY", y);//con.put("OriginY", (int) getYBase());
@@ -189,7 +189,7 @@ public class ShapeRoi extends RoiObj {
     /**Returns a deep copy of this. */
     public synchronized Object clone() { // the equivalent of "operator=" ?
         ShapeRoi sr = (ShapeRoi)super.clone();
-        sr.type = COMPOSITE;
+        sr.type = RoiType.COMPOSITE.id();
         sr.flatness = flatness;
         sr.maxerror = maxerror;
         sr.forceAngle = forceAngle;
@@ -312,22 +312,23 @@ public class ShapeRoi extends RoiObj {
         Rectangle r = roi.getBounds();
         boolean closeShape = true;
         int roiType = roi.getType();
-        switch(roiType) {
-            case RoiObj.LINE:
+        RoiType t = RoiType.find(roiType);
+        switch(t) {
+            case LINE:
                 Line line = (Line)roi;              
                 shape = new Line2D.Double ((double)(line.x1-r.x), (double)(line.y1-r.y), (double)(line.x2-r.x), (double)(line.y2-r.y) );
                 break;
-            case RoiObj.RECTANGLE:
+            case RECTANGLE:
                 int arcSize = roi.getCornerDiameter();
                 if (arcSize>0)
                     shape = new RoundRectangle2D.Double(r.x, r.y, r.width, r.height, arcSize, arcSize);
                 else
                     shape = new Rectangle2D.Double(r.x, r.y, (double)r.width, (double)r.height);
                 break;
-            case RoiObj.POLYLINE: case RoiObj.FREELINE: case RoiObj.ANGLE:
+            case POLYLINE: case FREELINE: case ANGLE:
                 closeShape = false;
-            case RoiObj.POLYGON: case RoiObj.FREEROI: case RoiObj.TRACED_ROI: case RoiObj.OVAL:
-                if (roiType == RoiObj.OVAL) {
+            case POLYGON: case FREEROI: case TRACED_ROI: case OVAL:
+                if (t == RoiType.OVAL) {
                     shape = ((OvalRoi)roi).getPolygon();
                 } else if (closeShape && !roi.subPixelResolution()) {
                     int nPoints =((PolygonRoi)roi).getNCoordinates();
@@ -345,7 +346,7 @@ public class ShapeRoi extends RoiObj {
                         ((GeneralPath)shape).closePath();
                 }
                 break;
-            case RoiObj.POINT:
+            case POINT:
                 ImageProcessor mask = roi.getMask();
                 byte[] maskPixels = (byte[])mask.getPixels();
                 int maskWidth = mask.getWidth();
@@ -359,7 +360,7 @@ public class ShapeRoi extends RoiObj {
                 }
                 shape = area;
                 break;
-            case RoiObj.COMPOSITE: shape = ShapeRoi.cloneShape(((ShapeRoi)roi).getShape());
+            case COMPOSITE: shape = ShapeRoi.cloneShape(((ShapeRoi)roi).getShape());
                 break;
             default:
                 throw new IllegalArgumentException("Roi type not supported");
@@ -510,7 +511,7 @@ public class ShapeRoi extends RoiObj {
         	RoiObj r = new Line((int)((Line2D.Double)shape).getX1(), (int)((Line2D.Double)shape).getY1(), (int)((Line2D.Double)shape).getX2(), (int)((Line2D.Double)shape).getY2(), getSlideGlass());
             rois.add(r);
         } else if (shape instanceof Polygon) {
-        	RoiObj r = new PolygonRoi(((Polygon)shape).xpoints, ((Polygon)shape).ypoints, ((Polygon)shape).npoints, RoiObj.POLYGON, getSlideGlass());
+        	RoiObj r = new PolygonRoi(((Polygon)shape).xpoints, ((Polygon)shape).ypoints, ((Polygon)shape).npoints, RoiType.POLYGON.id(), getSlideGlass());
             rois.add(r);
         } else {
             PathIterator pIter;
@@ -562,9 +563,9 @@ public class ShapeRoi extends RoiObj {
      * @return a type flag like Roi.RECTANGLE or NO_TYPE if the type cannot be determined
      */
     private int guessType(int nSegments, double polygonLength, boolean horizontalVerticalIntOnly, boolean forceTrace, boolean closed) {
-        int roiType = RoiObj.RECTANGLE;
+        int roiType = RoiType.RECTANGLE.id();
         if (Double.isNaN(polygonLength)) {
-            roiType = RoiObj.COMPOSITE;
+            roiType = RoiType.COMPOSITE.id();
         } else {
             // For more segments, they should be longer to qualify for a polygon with handles:
             // The threshold for the average segment length is 4.0 for 4 segments, 16.0 for 64 segments, 32.0 for 256 segments
@@ -572,17 +573,17 @@ public class ShapeRoi extends RoiObj {
             if (nSegments < 2)
                 roiType = NO_TYPE;
             else if (nSegments == 2)
-                roiType = closed ? NO_TYPE : RoiObj.LINE;
+                roiType = closed ? NO_TYPE : RoiType.LINE.id();
             else if (nSegments == 3 && !closed && forceAngle)
-                roiType = RoiObj.ANGLE;
+                roiType = RoiType.ANGLE.id();
             else if (nSegments == 4 && closed && horizontalVerticalIntOnly && longEdges && !forceTrace && !this.forceTrace)
-                roiType = RoiObj.RECTANGLE;
+                roiType = RoiType.RECTANGLE.id();
             else if (closed && horizontalVerticalIntOnly && (!longEdges || forceTrace || this.forceTrace))
-                roiType = RoiObj.TRACED_ROI;
+                roiType = RoiType.TRACED_ROI.id();
             else if (nSegments <= MAXPOLY || longEdges)
-                roiType = closed ? RoiObj.POLYGON : RoiObj.POLYLINE;
+                roiType = closed ? RoiType.POLYGON.id() : RoiType.POLYLINE.id();
             else
-                roiType = closed ? RoiObj.FREEROI : RoiObj.FREELINE;
+                roiType = closed ? RoiType.FREEROI.id() : RoiType.FREELINE.id();
         }
         //IJ.log("guessType n= "+nSegments+" len="+polygonLength+" longE="+(polygonLength/(nSegments*Math.sqrt(nSegments)) >= 2)+" hvert="+horizontalVerticalIntOnly+" clos="+closed+" -> "+roiType);
         return roiType;
@@ -596,16 +597,16 @@ public class ShapeRoi extends RoiObj {
      * @return a ij.gui.Roi object or null
      */
     private RoiObj createRoi(float[] xPoints, float[] yPoints, int roiType) {
-        if (roiType == NO_TYPE || roiType == RoiObj.COMPOSITE) return null;
+        if (roiType == NO_TYPE || roiType == RoiType.COMPOSITE.id()) return null;
         RoiObj roi = null;
         if (xPoints == null || yPoints == null || xPoints.length != yPoints.length || xPoints.length==0) return null;
 
         Tools.addToArray(xPoints, (float)getXBase());
         Tools.addToArray(yPoints, (float)getYBase());
-
-        switch(roiType) {
-            case RoiObj.LINE: roi = new Line(xPoints[0],yPoints[0],xPoints[1],yPoints[1],getSlideGlass()); break;
-            case RoiObj.RECTANGLE:
+        RoiType t = RoiType.find(roiType);
+        switch(t) {
+            case LINE: roi = new Line(xPoints[0],yPoints[0],xPoints[1],yPoints[1],getSlideGlass()); break;
+            case RECTANGLE:
                 double[] xMinMax = Tools.getMinMax(xPoints);
                 double[] yMinMax = Tools.getMinMax(yPoints);
                 roi = new RoiObj((int)xMinMax[0], (int)yMinMax[0],
@@ -884,10 +885,10 @@ public class ShapeRoi extends RoiObj {
                 boolean forceTrace = getLength && (!done || nSubPaths>0);  //when calculating the length for >1 subpath, assume traced rois if it can be such
                 int roiType = guessType(xPoints.size(), uncalLength, horVertOnly, forceTrace, closed);
                 RoiObj roi = null;
-                if (roiType == COMPOSITE && rois != null) { //for ShapeRois with curves, we have the length from the path already, make roi only if needed
+                if (roiType == RoiType.COMPOSITE.id() && rois != null) { //for ShapeRois with curves, we have the length from the path already, make roi only if needed
                     Shape shape = makeShapeFromArray(shapeArray.toArray());  //the curved subpath (image pixel coordinates)
                     FloatPolygon fp = getFloatPolygon(shape, FLATNESS, /*separateSubpaths=*/ false, /*addPointForClose=*/ false, /*absoluteCoord=*/ false);
-                    roi = new PolygonRoi(fp, FREEROI, getSlideGlass());
+                    roi = new PolygonRoi(fp, RoiType.FREEROI.id(), getSlideGlass());
                 } else if (roiType != NO_TYPE) { //NO_TYPE looks like an empty roi; only return non-empty rois
                     roi = createRoi(xpf, ypf, roiType);
                 }
@@ -984,14 +985,14 @@ public class ShapeRoi extends RoiObj {
         Graphics2D g2d = (Graphics2D)g;
         //tatsu todo
         if (stroke!=null && !isActiveOverlayRoi()) {
-        	g2d.setStroke((sg!=null)||isCursor()?stroke:getScaledStroke(sg));
+        	g2d.setStroke((sg!=null)||isCursor()?stroke:getScaledStroke());
         }
         double mag = 1.;
         double scale = 1.;
         int basex=0, basey=0;
         if (sg!=null) {
         	mag = sg.getMagnification();
-            scale = sg.getScaleFactor();
+            scale = sg.getScaleFactor()[0];//scaleXY are same values
             Point offset = sg.getDisplayImageLocationXY();
         	basex = offset.x;//disp originX on screen
         	basey = offset.y;//disp originY on screen
@@ -1129,7 +1130,7 @@ public class ShapeRoi extends RoiObj {
         if (rhs==null) return false;
         if (shape.equals(rhs)) return false;
         shape = rhs;
-        type = RoiObj.COMPOSITE;
+        type = RoiType.COMPOSITE.id();
         Rectangle rect = shape.getBounds();
         width = rect.width;
         height = rect.height;

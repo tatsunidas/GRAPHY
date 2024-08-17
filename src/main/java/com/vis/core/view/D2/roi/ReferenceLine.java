@@ -50,7 +50,7 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		super(x1, y1, x2, y2, slide);
 		this.plane = plane;
 		setSpacialInfo(slide.getOriginalImage());
-		setRoiPopupVisible(false);
+//		setRoiPopupVisible(false);//TODO
 	}
 		
 	private void setSpacialInfo(ImagePlus imp) {

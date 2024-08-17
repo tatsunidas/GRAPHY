@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
@@ -44,7 +45,7 @@ public class Line extends RoiObj {
 	public Line(double ox1, double oy1, double ox2, double oy2, SlideGlass slide) {
 		super((int)(ox1+0.5), (int)(oy1+0.5), 0, 0, 0, slide);
 //		super((int)(ox1), (int)(oy1), 0, 0, 0, slide);
-		type = LINE;
+		type = RoiType.LINE.id();
 		updateCoordinates(ox1, oy1, ox2, oy2);
 		updateWideLine(lineWidth);
 		if (!(this instanceof Arrow) && lineWidth>1) {
@@ -53,7 +54,7 @@ public class Line extends RoiObj {
 		/*
 		 * TODO?
 		 */
-        updateClipRect(slide);
+        updateClipRect();
 //		oldX = x;
 //		oldY = y;
 //		oldWidth = width;
@@ -66,8 +67,8 @@ public class Line extends RoiObj {
 	public HashMap<String, Object> readContext(){
     	HashMap<String,Object> con = new HashMap<>();
     	//to string
-    	for(RoiContextKeySet k:RoiContextKeySet.values()) {
-    		con.put(k.name(), getPropertyAt(k.name()));
+    	for(ContextKey k: ContextKey.values()) {
+    		con.put(k.name(), getProperty(k.name()));
     	}
     	
     	con.put("OriginX", (int)getXBase());
@@ -169,7 +170,7 @@ public class Line extends RoiObj {
 			yend = Math.round(yend);
 		}
 		updateCoordinates(xstart, ystart, xend, yend);
-		updateClipRect(slide);
+		updateClipRect();
 		slide.repaint();
 	}
 
@@ -190,7 +191,7 @@ public class Line extends RoiObj {
 		y = startY - (yNew-refY);
 		bounds = new Rectangle2D.Double(x, y, width, height);
 		clipboard = null;
-		updateClipRect(sg);
+		updateClipRect();
 		slide.repaint();
 	}
 
@@ -405,7 +406,7 @@ public class Line extends RoiObj {
 			}
 		}
 		updateCoordinates(x1d, y1d, x2d, y2d);
-		updateClipRect(slide);
+		updateClipRect();
 		//see, ij Line.java
 		oldX = x;
 		oldY = y;
@@ -469,7 +470,7 @@ public class Line extends RoiObj {
 		Graphics2D g2d = (Graphics2D) g;
 		setRenderingHint(g2d);
 		if (stroke != null) {
-			g2d.setStroke(getScaledStroke(sg));
+			g2d.setStroke(getScaledStroke());
 		}
 //		if (wideLine && !isActiveOverlayRoi()) {
 //			double dx = x2 - x1;
@@ -508,16 +509,16 @@ public class Line extends RoiObj {
 		
 		//set handles
 		handleColor = Color.ORANGE;
-		drawHandle(g, sx1, sy1, sg);
+		drawHandle(g, sx1, sy1);
 		handleColor = Color.ORANGE;
-		drawHandle(g, sx2, sy2, sg);
+		drawHandle(g, sx2, sy2);
 		//middle handle
 		handleColor = Color.WHITE;
-		drawHandle(g, sx3, sy3, sg);
+		drawHandle(g, sx3, sy3);
 		//rotate handle
 		handleColor = new Color(50,42,127,127);
-		drawHandle(g, sx4, sy4, sg);
-		drawHandle(g, sx5, sy5, sg);
+		drawHandle(g, sx4, sy4);
+		drawHandle(g, sx5, sy5);
 	}
 
 	public void showStatus() {

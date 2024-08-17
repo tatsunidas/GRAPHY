@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
+import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 /** This class is a rectangular ROI containing text. */
@@ -104,9 +105,9 @@ public class TextRoi extends RoiObj {
     }
 
     private void init(String text, Font font) {
-    	setProperty(RoiContextKeySet.Description.name(), text);
+    	setProperty(ContextKey.Description.name(), text);
         String[] lines = Tools.split(text, "\n");
-        setType(TEXT);
+        setType(RoiType.TEXT);
         int count = Math.min(lines.length, MAX_LINES);
         for (int i=0; i<count; i++) {
         	theText[i] = lines[i];
@@ -175,7 +176,7 @@ public class TextRoi extends RoiObj {
 //            else
 //                imp.draw(clipX, clipY, clipWidth, clipHeight);
             firstChar = false;
-            setProperty(RoiContextKeySet.Description.name(), flatString());
+            setProperty(ContextKey.Description.name(), flatString());
             return;
         } else if ((int)c=='\n') {
             // newline
@@ -264,7 +265,7 @@ public class TextRoi extends RoiObj {
 //            return;
         Color c = getStrokeColor();
         setStrokeColor(getColor());
-        super.draw(g,sg); // draw the rectangle
+        super.draw(g); // draw the rectangle
         setStrokeColor(c);
         double mag = sg.getMagnification();
         int sx = sg.screenX((int)getXBase());
@@ -579,8 +580,8 @@ public class TextRoi extends RoiObj {
     }
     
     void updateText() {
-    	setProperty(RoiContextKeySet.Description.name(), flatString());
-    	updateClipRect(getSlideGlass());
+    	setProperty(ContextKey.Description.name(), flatString());
+    	updateClipRect();
     	getSlideGlass().repaint();
 //        if (imp!=null) {
 //            updateClipRect(sg);

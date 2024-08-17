@@ -9,11 +9,13 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 
 import javax.swing.JComponent;
 
-
+import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.roi.*;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 //import com.vis.viewer2d.roi.Line;
 //import com.vis.viewer2d.roi.OvalRoi;
 //import com.vis.viewer2d.roi.PointRoi;
@@ -25,6 +27,7 @@ import com.vis.core.view.D2.roi.*;
 //import com.vis.viewer2d.roi.ShapeRoi;
 //import com.vis.viewer2d.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
+import com.vis.db.DatabaseHandler;
 
 import ij.IJ;
 import ij.Prefs;
@@ -48,6 +51,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private static final long serialVersionUID = 775809436040950583L;
 	private Praparat pp;
 	private SlideGlass sg;
+	private ArrayList<RoiObj> roiset;
 	private final String sopUID;
 	public boolean paintSizeCaliper = true;
 	private RoiObj currentRoi = null;
@@ -63,12 +67,878 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private Color localizerColor = new Color(255, 0, 0, 127);
 	private int localizerStrokeSize = 3;
 
+	boolean rect = false;
+	
 	public CanvasGlass(SlideGlass sg) {
 		setOpaque(false);
 		setLayout(null);
 		this.sopUID = sg.getSOPInstanceUID();
 		this.pp = sg.getPraparat();
 		this.sg = sg;
+		this.roiset = new ArrayList<RoiObj>();
+		loadRoiFromDB();
+	}
+
+	/*
+	 * slide XY, prap basis.
+	 */
+	protected RoiObj activateAndGetRoiAt(int screenX, int screenY) {
+
+		if (currentRoi != null) {
+			previousRoi = currentRoi;
+			// polygonroi
+			int type = currentRoi.getType();
+			RoiType t = RoiType.find(type);
+			if ((t == RoiType.POLYGON || t == RoiType.POLYLINE || t == RoiType.ANGLE || t == RoiType.LINE)
+					&& currentRoi.getState() == RoiObj.CONSTRUCTING) {
+				return currentRoi;
+			}
+		}
+
+		int ix = sg.onImageX(screenX);
+		int iy = sg.onImageY(screenY);
+		ArrayList<RoiObj> rois = getRoiSet();
+		int handle = -1;
+		boolean found = false;
+		if (rois != null && rois.size() > 0) {
+			// reset activate
+			for (RoiObj roi : rois) {
+				roi.setActiveOverlayRoi(false);
+			}
+			for (RoiObj roi : rois) {
+				handle = roi.isHandle(screenX, screenY, sg);
+				if (handle >= 0) {
+					roi.setActiveOverlayRoi(true);
+//					roi.showRoiPopupOnCanvas();//TODO
+					currentRoi = roi;
+					found = true;
+					break;
+				} else if (roi.contains(ix, iy)) {
+					if (roi instanceof ShapeRoi) {
+						System.out.println("this is shape roi !!");
+
+					}
+					roi.setActiveOverlayRoi(true);
+//					roi.showRoiPopupOnCanvas();//TODO 20240817
+					currentRoi = roi;
+					found = true;
+					break;
+				}
+			}
+			if (handle >= 0) {
+				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
+			} else if (found && currentRoi.contains(ix, iy)) {
+				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+			} else {
+				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+				currentRoi = null;
+			}
+			/*
+			 * after search current roi
+			 */
+			if (found) {
+				if (currentRoi != previousRoi && previousRoi != null) {
+//					previousRoi.setVisibleRoiPopup(false);//TODO
+				}
+			} else {
+//					if(previousRoi != null) {
+//						previousRoi.setVisibleRoiPopup(false);
+//					}
+			}
+		}
+		return currentRoi;
+	}
+	
+	public void addRoi(RoiObj newRoi) {
+		if(newRoi instanceof ReferenceLine) {
+			return;
+		}
+		if (!this.roiset.contains(newRoi)) {
+			if(isExistsInRoiSet(newRoi)) {
+				HashMap<ContextKey, String> uids = newRoi.getUIDs();
+				String patID = uids.get(ContextKey.PatientID);
+				String studyUID = uids.get(ContextKey.StudyInstanceUID);
+				String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
+				String sopUID = uids.get(ContextKey.SOPInstanceUID);
+				String roiID = uids.get(ContextKey.RoiID);
+				updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
+			}else {
+				roiset.add(newRoi);
+				insertOrUpdateRoi4DB(newRoi);
+			}
+		}
+	}
+
+	public void addRoi(RoiObj newRoi, boolean updateDB) {
+		if(newRoi instanceof ReferenceLine) {
+			return;
+		}
+		if(updateDB) {
+			addRoi(newRoi);
+		}else {
+			if (!this.roiset.contains(newRoi)) {
+				roiset.add(newRoi);
+			}
+		}
+	}
+
+	/**
+	 * Starts the process of creating a new selection, where sx and sy are the
+	 * starting screen coordinates. The selection type is determined by which tool
+	 * in the tool bar is active. The user interactively sets the selection size and
+	 * shape.
+	 */
+	public RoiObj createNewRoi(int screenX, int screenY, int roiType) {
+		
+		int imageX = sg.onImageX(screenX);//org img X
+		int imageY = sg.onImageY(screenY);//org img Y
+		RoiObj roi = null;
+		roiType = pp.getCurrentViewerToolType();
+		RoiType t = RoiType.find(roiType);
+		switch (t) {
+		case RECTANGLE://0
+//			if (Toolbar.getRectToolType() == Toolbar.ROTATED_RECT_ROI)
+//				roi = new RotatedRectRoi(sx, sy, this);
+//			else
+//				roi = new Roi(sx, sy, this, Toolbar.getRoundRectArcSize());
+			roi = new RoiObj(imageX, imageY, 1, 1, 0, sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case OVAL://1
+//			if (Toolbar.getOvalToolType() == Toolbar.ELLIPSE_ROI)
+//				roi = new EllipseRoi(sx, sy, this);
+//			else
+			roi = new OvalRoi(imageX, imageY, 1,1,sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case POLYGON:
+			roi = new PolygonRoi(imageX, imageY,roiType,sg);
+			roi.setState(RoiObj.CONSTRUCTING);//fail safe
+			break;
+//		case Toolbar.POLYLINE:
+		case ANGLE:
+			roi = new PolygonRoi(imageX, imageY,roiType,sg);
+			roi.setState(RoiObj.CONSTRUCTING);//fail safe
+			break;
+//		case Toolbar.FREEROI:
+//		case Toolbar.FREELINE:
+//			roi = new FreehandRoi(sx, sy, this);
+//			break;
+		case LINE://5
+//			if ("arrow".equals(Toolbar.getToolName()))
+//				roi = new Arrow(sx, sy, this);
+//			else
+//				roi = new Line(sx, sy, this);
+			System.out.println("create new roi:line, s:"+screenX+" "+screenY+" i:"+imageX+" "+imageY);
+			roi = new Line(imageX, imageY, imageX+1, imageY+1, sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case ARROW:
+//			if ("arrow".equals(Toolbar.getToolName()))
+//				roi = new Arrow(sx, sy, this);
+//			else
+//				roi = new Line(sx, sy, this);
+//			System.out.println("create new roi:Arrow, s:"+screenX+" "+screenY+" i:"+imageX+" "+imageY);
+			roi = new Arrow(imageX, imageY, imageX+1, imageY+1, sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case TEXT:
+			roi = new TextRoi(imageX, imageY, null, sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+//			((TextRoi) roi).setPreviousRoi(previousRoi);
+			break;
+		case POINT:
+			roi = new PointRoi(imageX, imageY, sg);
+//			if (Prefs.pointAddToOverlay) {
+//				int measurements = Analyzer.getMeasurements();
+//				if (!(Prefs.pointAutoMeasure && (measurements & Measurements.ADD_TO_OVERLAY) != 0))
+//					IJ.run(this, "Add Selection...", "");
+//				Overlay overlay2 = getOverlay();
+//				if (overlay2 != null)
+//					overlay2.drawLabels(!Prefs.noPointLabels);
+//				Prefs.pointAddToManager = false;
+//			}
+//			if (Prefs.pointAutoMeasure || (Prefs.pointAutoNextSlice && !Prefs.pointAddToManager))
+//				IJ.run(this, "Measure", "");
+//			if (Prefs.pointAddToManager) {
+//				IJ.run(this, "Add to Manager ", "");
+//				ImageCanvas ic = getCanvas();
+//				if (ic != null) {
+//					RoiManager rm = RoiManager.getInstance();
+//					if (rm != null) {
+//						if (Prefs.noPointLabels)
+//							rm.runCommand("show all without labels");
+//						else
+//							rm.runCommand("show all with labels");
+//					}
+//				}
+//			}
+//			if (Prefs.pointAutoNextSlice && getStackSize() > 1) {
+//				IJ.run(this, "Next Slice [>]", "");
+//				deleteRoi();
+//			}
+//			break;
+//		default:
+//			if(type == ) {
+//				
+//			}
+		}
+		if (roi != null) {
+			addRoi(roi);
+			repaint();
+		}
+		return roi;
+	}
+
+	void createRect() {
+		rect = true;
+	}
+	
+	public void deleteRoi(int sx, int sy) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		RoiObj roi2remove = activateAndGetRoiAt(sx, sy);
+		if (roi2remove != null) {
+			HashMap<ContextKey, String> uids = roi2remove.getUIDs();
+			String patID = uids.get(ContextKey.PatientID);
+			String studyUID = uids.get(ContextKey.StudyInstanceUID);
+			String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
+			String sopUID = uids.get(ContextKey.SOPInstanceUID);
+			String roiID = uids.get(ContextKey.RoiID);
+			deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+		}
+		repaint();
+	}
+	
+	public void deleteRoi(RoiObj roi2remove) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		HashMap<ContextKey, String> uids = roi2remove.getUIDs();
+		String patID = uids.get(ContextKey.PatientID);
+		String studyUID = uids.get(ContextKey.StudyInstanceUID);
+		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
+		String sopUID = uids.get(ContextKey.SOPInstanceUID);
+		String roiID = uids.get(ContextKey.RoiID);
+		deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+	}
+
+	public void deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiInd) {
+		if (roiset == null || roiset.size() < 1) {
+			return;
+		}
+		/*
+		 * pay attention remove item from list
+		 * see, https://stackoverflow.com/questions/8104692/how-to-avoid-java-util-concurrentmodificationexception-when-iterating-through-an
+		 */
+		Iterator<RoiObj> itr = roiset.iterator();
+		ArrayList<RoiObj> roi2Remove = new ArrayList<>();
+		while(itr.hasNext()){
+		    RoiObj roi = itr.next();
+			if (roi.isThisRoi(patID, studyUID, seriesUID, sopUID, roiInd)) {
+//				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
+				deleteRoiFromDB(roi);
+//				roiset.remove(roi);//DO NOT DO THIS !
+				roi2Remove.add(roi);
+//					roi = null;//safe ??
+				break;
+			} else if (studyUID == null && seriesUID == null && sopUID == null) {
+				// SliceLine or temporal roi
+				// skip delete from db
+				/*
+				 * TODO 20240817
+				 */
+//				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
+				roi2Remove.add(roi);
+			}
+		}
+		if(roiset.size() > 0) {
+			roiset.removeAll(roi2Remove);
+		}
+		setCurrentRoi2NULL();
+	}
+
+	private void deleteRoiFromDB(RoiObj roi) {
+		HashMap<ContextKey, String> uids = roi.getUIDs();
+		String patID = uids.get(ContextKey.PatientID);
+		String studyUID = uids.get(ContextKey.StudyInstanceUID);
+		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
+		String sopUID = uids.get(ContextKey.SOPInstanceUID);
+		String roiID = uids.get(ContextKey.RoiID);
+		DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID,sopUID,roiID);
+		if(Viewer2DScreen.getRoiObjManager() != null) {
+			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
+			rom.updateRoiObjList(sg.getPatientID());
+		}
+	}
+
+	private void drawCanvas(Graphics g) {
+		if (paintSizeCaliper) {
+			showCaliper(g);
+		}
+		drawRoi(g);
+		drawReferenceLine(g);
+		drawLocalizerLine(g);
+		//show cross line
+		if(crossLine != null) {
+			Graphics2D g2 = (Graphics2D)g;
+			g2.setColor(crossLineColor);
+			g2.setStroke(new BasicStroke(crossLineStrokeSize));
+			g2.draw(crossLine);
+		}
+	}
+
+	private void drawLocalizerLine(Graphics g) {
+		if(localizerGeo != null) {
+//			System.out.println(shapes.size());
+			Point2D p0_leftlower = localizerGeo.get(0);
+			Point2D p1_rightlower = localizerGeo.get(1);
+			Point2D p2_rightupper = localizerGeo.get(2);
+			Point2D p3_leftupper = localizerGeo.get(3);
+//			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
+//			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
+//			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
+//			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
+			GeneralPath loca = new GeneralPath();
+	        loca.moveTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
+	        loca.lineTo(sg.screenXD(p2_rightupper.getX()), sg.screenYD(p2_rightupper.getY()));
+	        loca.lineTo(sg.screenXD(p1_rightlower.getX()), sg.screenYD(p1_rightlower.getY()));
+	        loca.lineTo(sg.screenXD(p0_leftlower.getX()), sg.screenYD(p0_leftlower.getY()));
+	        loca.lineTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
+			Graphics2D g2 = (Graphics2D)g;
+			g2.setColor(localizerColor);
+			g2.setStroke(new BasicStroke(localizerStrokeSize));
+			g2.draw(loca);
+		}
+	}
+	
+	private void drawReferenceLine(Graphics g) {
+		if (getRoiSet() == null || getRoiSet().size() < 1) {
+			if (pp.getReferenceLine() != null) {
+				ReferenceLine refLine = pp.getReferenceLine();
+				refLine.draw(g, sg);
+			}
+		}
+	}
+
+	private void drawRoi(Graphics g) {
+		for (int i = 0; i < roiset.size(); i++) {
+			RoiObj roiObj = roiset.get(i);
+			roiObj.draw(g);
+		}
+		
+		if(brush != null) {
+			brush.draw(g);
+		}
+//		if (pp.getReferenceLine() != null) {
+//			ReferenceLine refLine = pp.getReferenceLine();
+//			refLine.draw(g, sg);
+//		}
+	}
+	
+	public RoiObj findCurrentRoi() {
+		RoiObj currentRoi = getActiveRoi();
+		if (currentRoi != null) {
+			return currentRoi;
+		} else {
+			currentRoi = getCurrentRoi();
+			if(currentRoi == null) {
+				return getPreviousRoi();
+			}else {
+				return currentRoi;
+			}
+		}
+	}
+	
+	public RoiObj getActiveRoi() {
+		for (RoiObj roi : roiset) {
+			if (roi.isActiveOverlayRoi()) {
+				return roi;
+			}
+		}
+		return null;
+	}
+	
+	protected RoiObj getBrush() {
+		return brush;
+	}
+	
+	public RoiObj getCurrentRoi() {
+		return currentRoi;
+	}
+	
+	public RoiObj getPreviousRoi() {
+		return previousRoi;
+	}
+	
+	/**
+	 * 
+	 * @param screenX:slideX
+	 * @param screenY:slideY
+	 * @return
+	 */
+	public RoiObj getRoiLoacationAt(int screenX, int screenY) {
+
+		int ix = sg.onImageX(screenX);
+		int iy = sg.onImageY(screenY);
+		/*
+		 * if rois are overlapping, return roi that find first.
+		 */
+		if (roiset != null && roiset.size() > 0) {
+			for (RoiObj roi : roiset) {
+				if (roi.contains(ix, iy)) {
+					return roi;
+				}
+			}
+		}
+		return null;
+	}
+	
+	public RoiPopUpDialog getRoiPopupAt(int slideX, int slideY) {
+		/*
+		 * MouseEventのgetXYでは、
+		 * RoiPopupDialogがJPanelのサブクラスならslideXYのままでいいのだけど TextAreaにすると座標がリセットされる
+		 */
+		Component com = getComponentAt(slideX, slideY);
+		if (com != null && com instanceof RoiPopUpDialog) {
+			return (RoiPopUpDialog) com;
+		} else {
+			return null;
+		}
+	}
+	
+	public RoiPopUpDialog getRoiPopupAt(MouseEvent e) {
+		Object obj = e.getSource();
+		if(obj != null && obj instanceof RoiPopUpDialog) {
+			return (RoiPopUpDialog)obj;
+		}else {
+			return null;
+		}
+	}
+	
+	ArrayList<RoiObj> getRoiSet(){
+		return roiset;
+	}
+
+	public void handleRoiBrushMouseDown(MouseEvent e) {
+		brushTool = new RoiBrush(sg,e);
+//		brushTool.createBrush(e);
+	}
+	
+	public void handleRoiMouseDown(MouseEvent e) {
+
+		int sx = e.getX();//slide screen x (praparat view coordinates)
+		int sy = e.getY();//slide screen y (praparat view coordinates)
+		int roiType = pp.getCurrentViewerToolType();
+		if(referenceLineHereAt(sx,sy)!=null) {
+			ReferenceLine refLine = referenceLineHereAt(sx,sy);
+			int handle = refLine.isHandle(sx, sy, sg);
+			refLine.setRoiModState(e, handle);
+			refLine.handleMouseDown(e, sg);
+			return;
+		}
+		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiType.POLYGON.id() && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
+			return;
+		}
+		//get currentRoi
+		activateAndGetRoiAt(sx, sy);
+		
+		if (currentRoi != null){
+			if(sg.isHereRoiPopup(e)) {
+				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
+				RoiPopUpDialog dialog = getRoiPopupAt(e);
+				dialog.handleMousePressed(e);
+				return;
+			}
+			int handle = currentRoi.isHandle(sx, sy, sg);
+			currentRoi.setRoiModState(e, handle);
+			currentRoi.handleMouseDown(e, sg);
+		}else {
+			
+			if(sg.isHereRoiPopup(e)) {
+				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
+				RoiPopUpDialog dialog = getRoiPopupAt(e);
+				dialog.handleMousePressed(e);
+				return;
+			}
+			currentRoi = createNewRoi(sx, sy,roiType);
+		}
+	}
+
+	public boolean handleRoiMouseDragged(MouseEvent e, SlideGlass sg) {
+		int dragSX = e.getX();//x on slideglass
+		int dragSY = e.getY();
+		int flags = e.getModifiers();//TODO, needed.
+		/*
+		 * drag roi or popup
+		 */
+		int roiType = pp.getCurrentViewerToolType();//from viewer2d
+		if(roiType == Viewer2DToolBar.Brush) {
+			if(brushTool != null) {
+				brushTool.createBrush(e);
+			}
+			sg.lastDraggedX = dragSX;
+			sg.lastDraggedY = dragSY;
+			return true;
+		}
+		boolean dragging = false;
+		if (flags==0 && IJ.isMacOSX()) {
+			// workaround for Mac OS 9 bug
+			flags = InputEvent.BUTTON1_MASK;
+		}
+		//is reference line?
+		if(referenceLineHereAt(dragSX, dragSY) != null) {
+			pp.getReferenceLine().handleMouseDrag(dragSX, dragSY, flags);
+			sg.lastDraggedX = dragSX;
+			sg.lastDraggedY = dragSY;
+			return true;
+		}
+		//is dialog ?
+		if(sg.isHereRoiPopup(e)) {
+//			System.out.println("RoiDialog DRAGGING!!!");
+			RoiPopUpDialog dialog = getRoiPopupAt(e);
+			if(dialog != null) {
+				dialog.handleMouseDragged(e);
+				dragging = true;
+			}
+		//is roi ?
+		}else {
+			if (currentRoi != null) {
+				currentRoi.handleMouseDrag(dragSX, dragSY, flags);
+//			if(currentRoi instanceof OvalRoi) {
+//				OvalRoi oval = (OvalRoi)currentRoi;
+//				oval.handleMouseDrag(dragSX, dragSY, flags,sg);
+//			}else {
+//				
+//			}
+				dragging = true;
+			}
+		}
+		
+		sg.lastDraggedX = dragSX;
+		sg.lastDraggedY = dragSY;
+		return dragging;
+	}
+
+	public void hideRoiDialogAt(int sx, int sy) {
+		Component com = getComponentAt(sx, sy);
+		if (com != null && com instanceof RoiPopUpDialog) {
+			RoiPopUpDialog rpd = (RoiPopUpDialog) com;
+			rpd.setVisible(false);
+			repaint();
+		}
+	}
+	
+	public void hideRoiDialogOf(RoiObj roi) {
+		if (roi == null) {
+			return;
+		}
+//		roi.setVisibleRoiPopup(false);//todo
+		repaint();
+	}
+	
+	private void initRoiSet() {
+		roiset = null;
+		roiset = new ArrayList<RoiObj>();
+	}
+	
+	public void insertOrUpdateRoi4DB(RoiObj roi) {
+		if(roi == null) {
+			return;
+		}
+		//save as new or update
+		if(DatabaseHandler.getInstance() != null) {
+			DatabaseHandler.getInstance().insertRoi(roi.readContext());
+		}
+	}
+	
+	private boolean isExistsInRoiSet(RoiObj newRoi) {
+		ArrayList<RoiObj> currentRoiSet = getRoiSet();
+		int size = currentRoiSet.size();
+		for(int i =0;i<size;i++) {
+			RoiObj r = currentRoiSet.get(i);
+			if(r.isThisRoi(newRoi)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public void loadRoiFromDB() {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db == null) {
+			return;
+		}
+		String pid = sg.getPatientID();
+		String studyUid = sg.getStudyInstanceUID();
+		String seriesUid = sg.getSeriesInstanceUID();
+		String sopUid = sopUID;
+		ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, sopUid);
+		if(cons != null && cons.size() > 0) {
+			for(int i=0; i<cons.size(); i++) {
+				RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
+				if(roi == null) {
+					continue;
+				}
+				roi.setSlideGlass(sg);
+				addRoi(roi);
+			}
+		}
+	}
+	
+	public void mouseMoved(MouseEvent e) {
+		if(pp.getReferenceLine() != null) {
+			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
+			if(refLine != null) {
+				return;
+			}
+		}
+		//update currentRoi
+		activateAndGetRoiAt(e.getX(), e.getY());
+		int type = currentRoi != null ? currentRoi.getType() : -1;
+		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()) 
+		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {
+			currentRoi.mouseMoved(e);
+		}
+	}
+	
+	public void mousePressed(MouseEvent e) {
+		int toolID = pp.getViewer2DToolType();
+		int sx = e.getX();
+		int sy = e.getY();
+		sg.mouseX = sx; 
+		sg.mouseY = sy;
+//		int ox = sg.onImageX(sx);
+//		int oy = sg.onImageY(sy);
+		long mousePressedTime = System.currentTimeMillis();
+		switch (toolID) {
+//		case Viewer2DToolBar.MAGNIFIER:
+//			if (IJ.shiftKeyDown())
+//				zoomToSelection(ox, oy);
+//			else if ((flags & (Event.ALT_MASK|Event.META_MASK|Event.CTRL_MASK))!=0) {
+//				zoomOut(x, y);
+//				if (getMagnification()<1.0)
+//					imp.repaintWindow();
+//			} else {
+// 				zoomIn(x, y);
+//				if (getMagnification()<=1.0)
+//					imp.repaintWindow();
+//			}
+//			break;
+//		case Toolbar.HAND:
+//			setupScroll(ox, oy);
+//			break;
+//		case Toolbar.DROPPER:
+//			setDrawingColor(ox, oy, IJ.altKeyDown());
+//			break;
+//		case Toolbar.WAND:
+//			double tolerance = WandToolOptions.getTolerance();
+//			Roi roi = imp.getRoi();
+//			if (roi!=null && (tolerance==0.0||imp.isThreshold()) && roi.contains(ox, oy)) {
+//				Rectangle r = roi.getBounds();
+//				if (r.width==imageWidth && r.height==imageHeight)
+//					imp.deleteRoi();
+//				else if (!e.isAltDown()) {
+//					handleRoiMouseDown(e);
+//					return;
+//				}
+//			}
+//			if (roi!=null) {
+//				int handle = roi.isHandle(x, y);
+//				if (handle>=0) {
+//					roi.mouseDownInHandle(handle, x, y);
+//					return;
+//				}
+//			}
+//			setRoiModState(e, roi, -1);
+//			String mode = WandToolOptions.getMode();
+//			if (Prefs.smoothWand)
+//				mode = mode + " smooth";
+//			int npoints = IJ.doWand(ox, oy, tolerance, mode);
+//			if (Recorder.record && npoints>0) {
+//				if (Recorder.scriptMode())
+//					Recorder.recordCall("IJ.doWand(imp, "+ox+", "+oy+", "+tolerance+", \""+mode+"\");");
+//				else {
+//					if (tolerance==0.0 && mode.equals("Legacy"))
+//						Recorder.record("doWand", ox, oy);
+//					else
+//						Recorder.recordString("doWand("+ox+", "+oy+", "+tolerance+", \""+mode+"\");\n");
+//				}
+//			}
+//			break;
+		case Viewer2DToolBar.Brush:
+			handleRoiBrushMouseDown(e);
+			break;
+		default:  //rois
+			handleRoiMouseDown(e);
+		}
+	}
+
+	public void mouseReleased(MouseEvent emr) {
+		if(currentRoi != null) {
+			currentRoi.handleMouseUp(emr.getX(), emr.getY());
+			previousRoi = currentRoi;//clone()?
+		}
+		//brush
+		if(pp.getCurrentViewerToolType()==Viewer2DToolBar.Brush) {
+			if(brushTool != null) {
+				brushTool.brushingEnd();
+			}
+		}
+			
+//		int ox = offScreenX(e.getX());
+//		int oy = offScreenY(e.getY());
+//		if ((overlay!=null||showAllOverlay!=null) && ox==mousePressedX && oy==mousePressedY) {
+//			boolean cmdDown = IJ.isMacOSX() && e.isMetaDown();
+//			Roi roi = imp.getRoi();
+//			if (roi!=null && roi.getBounds().width==0)
+//				roi=null;
+//			if ((e.isAltDown()||e.isControlDown()||cmdDown) && roi==null) {
+//				if (activateOverlayRoi(ox, oy))
+//					return;
+//			} else if ((System.currentTimeMillis()-mousePressedTime)>250L && !drawingTool()) {
+//				if (activateOverlayRoi(ox,oy))
+//					return;
+//			}
+//		}
+//
+//		PlugInTool tool = Toolbar.getPlugInTool();
+//		if (tool!=null) {
+//			tool.mouseReleased(imp, e);
+//			if (e.isConsumed()) return;
+//		}
+//		flags = e.getModifiers();
+//		flags &= ~InputEvent.BUTTON1_MASK; // make sure button 1 bit is not set
+//		flags &= ~InputEvent.BUTTON2_MASK; // make sure button 2 bit is not set
+//		flags &= ~InputEvent.BUTTON3_MASK; // make sure button 3 bit is not set
+//		Roi roi = imp.getRoi();
+//		if (roi != null) {
+//			Rectangle r = roi.getBounds();
+//			int type = roi.getType();
+//			if ((r.width==0 || r.height==0)
+//			&& !(type==Roi.POLYGON||type==Roi.POLYLINE||type==Roi.ANGLE||type==Roi.LINE)
+//			&& !(roi instanceof TextRoi)
+//			&& roi.getState()==roi.CONSTRUCTING
+//			&& type!=roi.POINT)
+//				imp.deleteRoi();
+//			else
+//				roi.handleMouseUp(e.getX(), e.getY());
+		
+	}
+	
+	// http://alga.no.coocan.jp/paint.html
+	@Override
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		drawCanvas(g);
+	}
+	
+	/**
+	 * set reference line activate color and change cursor
+	 * @param screenX
+	 * @param screenY
+	 * @return
+	 */
+	protected ReferenceLine referenceLineHereAt(int screenX, int screenY) {
+
+		int ix = sg.onImageX(screenX);
+		int iy = sg.onImageY(screenY);
+		int handle = -1;
+		boolean found = false;
+		if (pp.getReferenceLine() != null) {
+			ReferenceLine refLine = pp.getReferenceLine();
+			refLine.setActiveOverlayRoi(false);// reset activate
+			handle = refLine.isHandle(screenX, screenY, sg);
+			if (handle >= 0) {
+				refLine.setActiveOverlayRoi(true);
+				found = true;
+			} else if (refLine.contains(ix, iy)) {
+				refLine.setActiveOverlayRoi(true);
+				found = true;
+			}
+			if (handle >= 0) {
+				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
+			} else if (found && refLine.contains(ix, iy)) {
+				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+			} else {
+				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+			}
+			return refLine;
+		}
+		return null;
+	}
+	
+	public void removeRoiPopupDialogOnCanvas(RoiPopUpDialog rpd) {
+		if (rpd != null) {
+			remove(rpd);
+			repaint();
+		}
+	}
+	
+	public void replaceRoi(String patID, String beReplacedStudyUID, String beReplacedSeriesUID, String beReplacedSopUID, String beReplacedRoiId, RoiObj roiToReplace) {
+		if(roiToReplace == null) {
+			return;
+		}
+		String candidateRoiID = roiToReplace.getProperty(ContextKey.RoiID.name());
+		if (roiset != null && roiset.size() > 0) {
+			for (RoiObj roi : roiset) {
+				if (roi.isThisRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId)) {
+					if(roiToReplace.getProperty(ContextKey.RoiID.name()).equals(candidateRoiID)) {
+						updateRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, candidateRoiID, roiToReplace);
+					}else {
+						deleteRoi(roi);
+						addRoi(roiToReplace);
+					}
+					break;
+				}
+			}
+		}
+	}
+	
+	public void reset() {
+		initRoiSet();
+		loadRoiFromDB();
+	}
+
+	public void saveCurrentRoiSate() {
+		RoiObj roi = findCurrentRoi();
+		insertOrUpdateRoi4DB(roi);
+	}
+	
+	public void setBasicStatistics2Popup(RoiObj roi) {
+    	if(roi.getState() == RoiObj.CONSTRUCTING) {
+    		return;
+    	}
+    	RoiType t = roi.getRoiType();
+    	if(t == RoiType.ARROW || t == RoiType.TEXT || t==RoiType.NOTYPE) {
+    		return;
+    	}
+    	
+    	/*
+    	 * TODO 
+    	 */
+    	
+//    	if(rpd == null) {
+//    		return;
+//    	}
+//    	rpd.setBasicStats();
+    }
+    
+	//TODO
+    public void setVisibleRoiPopup(boolean show) {
+//		if(rpd == null || !rpd.roiAlive()) {
+//			return;
+//		}
+//		if(getType() != TEXT && getType() != ARROW) {
+//			rpd.setVisible(show);
+//		}else {
+//			rpd.setVisible(false);
+//		}
+	}
+	
+	protected void setBrush(RoiObj brush) {
+		this.brush = brush;
 	}
 	
 	/**
@@ -93,11 +963,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		crossLineStrokeSize = strokeSize;
 	}
-	
-	public synchronized void setLocalizerGeometry(java.util.List<java.awt.geom.Point2D> localizerGeo) {
-		//keep null-able
-		this.localizerGeo = localizerGeo;
-		revalidate();
+
+	protected void setCurrentRoi2NULL() {
+		currentRoi = null;
 	}
 	
 	public void setLocalizerColor(Color color) {
@@ -105,7 +973,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 			this.localizerColor = color;
 		}
 	}
-	
+	public synchronized void setLocalizerGeometry(java.util.List<java.awt.geom.Point2D> localizerGeo) {
+		//keep null-able
+		this.localizerGeo = localizerGeo;
+		revalidate();
+	}
+
 	public void setLocalizerStrokeSize(int strokeSize) {
 		if(strokeSize > 30) {
 			strokeSize = 30;
@@ -114,24 +987,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		localizerStrokeSize = strokeSize;
 	}
-
+	
 	public void setPaintCaliper(boolean show) {
 		this.paintSizeCaliper = show;
 	}
-	
-	public String sopInstanceUID() {
-		return sopUID;
-	}
-
-//	protected boolean waitForImage(Image image) {
-//		MediaTracker tracker = new MediaTracker(this);
-//		tracker.addImage(image, 0);
-//		try {
-//			tracker.waitForAll();
-//		} catch (InterruptedException e) {
-//			/* ignore */ }
-//		return (!tracker.isErrorAny());
-//	}
 
 	private void showCaliper(Graphics gs) {
 		setSize(sg.getWidth(), sg.getHeight());
@@ -226,552 +1085,84 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 	
-	/*
-	 * slide XY, prap basis.
-	 */
-	protected RoiObj activateAndGetRoiAt(int screenX, int screenY) {
-
-		if (currentRoi != null) {
-			previousRoi = currentRoi;
-			// polygonroi
-			int type = currentRoi.getType();
-			if ((type == RoiObj.POLYGON || type == RoiObj.POLYLINE || type == RoiObj.ANGLE || type == RoiObj.LINE)
-					&& currentRoi.getState() == RoiObj.CONSTRUCTING) {
-				return currentRoi;
-			}
+	public void showRoiPopUp(RoiObj roi, boolean show) {
+		if (!show) {
+			//check already showing on.
+			Component[] roiPopups = getComponents();
+	    	for(Component com:roiPopups) {
+	    		if(com instanceof RoiPopUpDialog) {
+	    			RoiPopUpDialog rpd = (RoiPopUpDialog)com;
+	    			RoiObj r = rpd.getRoi();
+	    			if(r.equals(roi)) {
+	    				rpd.setVisible(show);
+	    				repaint();
+	    				break;
+	    			}
+	    		}
+	    	}
+		}else {
+			boolean exist = false;
+			Component[] roiPopups = getComponents();
+	    	for(Component com:roiPopups) {
+	    		if(com instanceof RoiPopUpDialog) {
+	    			RoiPopUpDialog rpd = (RoiPopUpDialog)com;
+	    			RoiObj r = rpd.getRoi();
+	    			if(r.equals(roi)) {
+	    				exist = true;
+	    				break;
+	    			}
+	    		}
+	    	}
+	    	if(!exist) {
+				int sx = (int) (sg.screenXD(roi.getBounds().x));
+				int sy = (int) (sg.screenYD(roi.getBounds().y) + roi.getBounds().height);
+				RoiPopUpDialog rpd = new RoiPopUpDialog(sg, roi);
+				rpd.setLocation(sx, sy);
+				add(rpd);
+				repaint();
+	    	}else {
+	    		
+	    	}
 		}
-
-		int ix = sg.onImageX(screenX);
-		int iy = sg.onImageY(screenY);
-		ArrayList<RoiObj> rois = sg.getRois();
-		int handle = -1;
-		boolean found = false;
-		if (rois != null && rois.size() > 0) {
-			// reset activate
-			for (RoiObj roi : rois) {
-				roi.setActiveOverlayRoi(false);
-			}
-			for (RoiObj roi : rois) {
-				handle = roi.isHandle(screenX, screenY, sg);
-				if (handle >= 0) {
-					roi.setActiveOverlayRoi(true);
-					roi.showRoiPopupOnCanvas();
-					currentRoi = roi;
-					found = true;
-					break;
-				} else if (roi.contains(ix, iy)) {
-					if (roi instanceof ShapeRoi) {
-						System.out.println("this is shape roi !!");
-
-					}
-					roi.setActiveOverlayRoi(true);
-					roi.showRoiPopupOnCanvas();
-					currentRoi = roi;
-					found = true;
-					break;
-				}
-			}
-			if (handle >= 0) {
-				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
-			} else if (found && currentRoi.contains(ix, iy)) {
-				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-			} else {
-				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-				currentRoi = null;
-			}
-			/*
-			 * after search current roi
-			 */
-			if (found) {
-				if (currentRoi != previousRoi && previousRoi != null) {
-					previousRoi.setVisibleRoiPopup(false);
-				}
-			} else {
-//					if(previousRoi != null) {
-//						previousRoi.setVisibleRoiPopup(false);
-//					}
-			}
-		}
-		return currentRoi;
+	}
+	
+	public String sopInstanceUID() {
+		return sopUID;
+	}
+	
+	public void updateRoi(RoiObj roi) {
+		String patID = roi.getProperty(ContextKey.PatientID.name());
+		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		String roiInd = roi.getProperty(ContextKey.RoiID.name());
+		updateRoi(patID, studyUID, seriesUID, sopUID, roiInd, roi);
 	}
 	
 	/**
-	 * set reference line activate color and change cursor
-	 * @param screenX
-	 * @param screenY
-	 * @return
+	 * 
+	 * @param StudyUID
+	 * @param seriesUID
+	 * @param sopUID
+	 * @param roiInd
+	 * @param updatedRoi : attached attributes should be same to original roi.
 	 */
-	protected ReferenceLine referenceLineHereAt(int screenX, int screenY) {
-
-		int ix = sg.onImageX(screenX);
-		int iy = sg.onImageY(screenY);
-		int handle = -1;
-		boolean found = false;
-		if (pp.getReferenceLine() != null) {
-			ReferenceLine refLine = pp.getReferenceLine();
-			refLine.setActiveOverlayRoi(false);// reset activate
-			handle = refLine.isHandle(screenX, screenY, sg);
-			if (handle >= 0) {
-				refLine.setActiveOverlayRoi(true);
-				found = true;
-			} else if (refLine.contains(ix, iy)) {
-				refLine.setActiveOverlayRoi(true);
-				found = true;
-			}
-			if (handle >= 0) {
-				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
-			} else if (found && refLine.contains(ix, iy)) {
-				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-			} else {
-				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-			}
-			return refLine;
-		}
-		return null;
-	}
-	
-	public void mousePressed(MouseEvent e) {
-		int toolID = pp.getViewer2DToolType();
-		int sx = e.getX();
-		int sy = e.getY();
-		sg.mouseX = sx; 
-		sg.mouseY = sy;
-//		int ox = sg.onImageX(sx);
-//		int oy = sg.onImageY(sy);
-		long mousePressedTime = System.currentTimeMillis();
-		switch (toolID) {
-//		case Viewer2DToolBar.MAGNIFIER:
-//			if (IJ.shiftKeyDown())
-//				zoomToSelection(ox, oy);
-//			else if ((flags & (Event.ALT_MASK|Event.META_MASK|Event.CTRL_MASK))!=0) {
-//				zoomOut(x, y);
-//				if (getMagnification()<1.0)
-//					imp.repaintWindow();
-//			} else {
-// 				zoomIn(x, y);
-//				if (getMagnification()<=1.0)
-//					imp.repaintWindow();
-//			}
-//			break;
-//		case Toolbar.HAND:
-//			setupScroll(ox, oy);
-//			break;
-//		case Toolbar.DROPPER:
-//			setDrawingColor(ox, oy, IJ.altKeyDown());
-//			break;
-//		case Toolbar.WAND:
-//			double tolerance = WandToolOptions.getTolerance();
-//			Roi roi = imp.getRoi();
-//			if (roi!=null && (tolerance==0.0||imp.isThreshold()) && roi.contains(ox, oy)) {
-//				Rectangle r = roi.getBounds();
-//				if (r.width==imageWidth && r.height==imageHeight)
-//					imp.deleteRoi();
-//				else if (!e.isAltDown()) {
-//					handleRoiMouseDown(e);
-//					return;
-//				}
-//			}
-//			if (roi!=null) {
-//				int handle = roi.isHandle(x, y);
-//				if (handle>=0) {
-//					roi.mouseDownInHandle(handle, x, y);
-//					return;
-//				}
-//			}
-//			setRoiModState(e, roi, -1);
-//			String mode = WandToolOptions.getMode();
-//			if (Prefs.smoothWand)
-//				mode = mode + " smooth";
-//			int npoints = IJ.doWand(ox, oy, tolerance, mode);
-//			if (Recorder.record && npoints>0) {
-//				if (Recorder.scriptMode())
-//					Recorder.recordCall("IJ.doWand(imp, "+ox+", "+oy+", "+tolerance+", \""+mode+"\");");
-//				else {
-//					if (tolerance==0.0 && mode.equals("Legacy"))
-//						Recorder.record("doWand", ox, oy);
-//					else
-//						Recorder.recordString("doWand("+ox+", "+oy+", "+tolerance+", \""+mode+"\");\n");
-//				}
-//			}
-//			break;
-		case Viewer2DToolBar.Brush:
-			handleRoiBrushMouseDown(e);
-			break;
-		default:  //rois
-			handleRoiMouseDown(e);
-		}
-	}
-
-	public void handleRoiMouseDown(MouseEvent e) {
-
-		int sx = e.getX();//slide screen x (praparat view coordinates)
-		int sy = e.getY();//slide screen y (praparat view coordinates)
-		int roiType = pp.getCurrentViewerToolType();
-		if(referenceLineHereAt(sx,sy)!=null) {
-			ReferenceLine refLine = referenceLineHereAt(sx,sy);
-			int handle = refLine.isHandle(sx, sy, sg);
-			refLine.setRoiModState(e, handle);
-			refLine.handleMouseDown(e, sg);
+	public void updateRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiInd, RoiObj updatedRoi) {
+		if(updatedRoi == null) {
 			return;
 		}
-		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiObj.POLYGON && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
-			return;
-		}
-		//get currentRoi
-		activateAndGetRoiAt(sx, sy);
-		
-		if (currentRoi != null){
-			if(sg.isHereRoiPopup(e)) {
-				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
-				RoiPopupDialog dialog = sg.getRoiPopupAt(e);
-				dialog.handleMousePressed(e);
-				return;
+		int ind = -1;
+		if (roiset != null && roiset.size() > 0) {
+			for(int i=0;i<roiset.size();i++) {
+				if (roiset.get(i).isThisRoi(patID, studyUID, seriesUID, sopUID, roiInd)) {
+					ind = i;
+					break;
+				}
 			}
-			int handle = currentRoi.isHandle(sx, sy, sg);
-			currentRoi.setRoiModState(e, handle);
-			currentRoi.handleMouseDown(e, sg);
-		}else {
-			
-			if(sg.isHereRoiPopup(e)) {
-				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
-				RoiPopupDialog dialog = sg.getRoiPopupAt(e);
-				dialog.handleMousePressed(e);
-				return;
+			if(ind != -1) {
+				roiset.set(ind, updatedRoi);
+				insertOrUpdateRoi4DB(updatedRoi);// saveRoi to db
 			}
-			currentRoi = createNewRoi(sx, sy,roiType);
-		}
-	}
-	
-	public void handleRoiBrushMouseDown(MouseEvent e) {
-		brushTool = new RoiBrush(sg,e);
-//		brushTool.createBrush(e);
-	}
-	
-	public boolean handleRoiMouseDragged(MouseEvent e, SlideGlass sg) {
-		int dragSX = e.getX();//x on slideglass
-		int dragSY = e.getY();
-		int flags = e.getModifiers();//TODO, needed.
-		/*
-		 * drag roi or popup
-		 */
-		int roiType = pp.getCurrentViewerToolType();//from viewer2d
-		if(roiType == Viewer2DToolBar.Brush) {
-			if(brushTool != null) {
-				brushTool.createBrush(e);
-			}
-			sg.lastDraggedX = dragSX;
-			sg.lastDraggedY = dragSY;
-			return true;
-		}
-		boolean dragging = false;
-		if (flags==0 && IJ.isMacOSX()) {
-			// workaround for Mac OS 9 bug
-			flags = InputEvent.BUTTON1_MASK;
-		}
-		//is reference line?
-		if(referenceLineHereAt(dragSX, dragSY) != null) {
-			pp.getReferenceLine().handleMouseDrag(dragSX, dragSY, flags);
-			sg.lastDraggedX = dragSX;
-			sg.lastDraggedY = dragSY;
-			return true;
-		}
-		//is dialog ?
-		if(sg.isHereRoiPopup(e)) {
-//			System.out.println("RoiDialog DRAGGING!!!");
-			RoiPopupDialog dialog = sg.getRoiPopupAt(e);
-			if(dialog != null) {
-				dialog.handleMouseDragged(e);
-				dragging = true;
-			}
-		//is roi ?
-		}else {
-			if (currentRoi != null) {
-				currentRoi.handleMouseDrag(dragSX, dragSY, flags);
-//			if(currentRoi instanceof OvalRoi) {
-//				OvalRoi oval = (OvalRoi)currentRoi;
-//				oval.handleMouseDrag(dragSX, dragSY, flags,sg);
-//			}else {
-//				
-//			}
-				dragging = true;
-			}
-		}
-		
-		sg.lastDraggedX = dragSX;
-		sg.lastDraggedY = dragSY;
-		return dragging;
-	}
-	
-	public void mouseMoved(MouseEvent e) {
-		if(pp.getReferenceLine() != null) {
-			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
-			if(refLine != null) {
-				return;
-			}
-		}
-		//update currentRoi
-		activateAndGetRoiAt(e.getX(), e.getY());
-		int type = currentRoi != null ? currentRoi.getType() : -1;
-		if (type>0 && (type==RoiObj.POLYGON||type==RoiObj.POLYLINE||type==RoiObj.ANGLE||type==RoiObj.LINE) 
-		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {
-			currentRoi.mouseMoved(e);
-		}
-	}
-	
-	public void mouseReleased(MouseEvent emr) {
-		if(currentRoi != null) {
-			currentRoi.handleMouseUp(emr.getX(), emr.getY());
-			previousRoi = currentRoi;//clone()?
-		}
-		//brush
-		if(pp.getCurrentViewerToolType()==Viewer2DToolBar.Brush) {
-			if(brushTool != null) {
-				brushTool.brushingEnd();
-			}
-		}
-			
-//		int ox = offScreenX(e.getX());
-//		int oy = offScreenY(e.getY());
-//		if ((overlay!=null||showAllOverlay!=null) && ox==mousePressedX && oy==mousePressedY) {
-//			boolean cmdDown = IJ.isMacOSX() && e.isMetaDown();
-//			Roi roi = imp.getRoi();
-//			if (roi!=null && roi.getBounds().width==0)
-//				roi=null;
-//			if ((e.isAltDown()||e.isControlDown()||cmdDown) && roi==null) {
-//				if (activateOverlayRoi(ox, oy))
-//					return;
-//			} else if ((System.currentTimeMillis()-mousePressedTime)>250L && !drawingTool()) {
-//				if (activateOverlayRoi(ox,oy))
-//					return;
-//			}
-//		}
-//
-//		PlugInTool tool = Toolbar.getPlugInTool();
-//		if (tool!=null) {
-//			tool.mouseReleased(imp, e);
-//			if (e.isConsumed()) return;
-//		}
-//		flags = e.getModifiers();
-//		flags &= ~InputEvent.BUTTON1_MASK; // make sure button 1 bit is not set
-//		flags &= ~InputEvent.BUTTON2_MASK; // make sure button 2 bit is not set
-//		flags &= ~InputEvent.BUTTON3_MASK; // make sure button 3 bit is not set
-//		Roi roi = imp.getRoi();
-//		if (roi != null) {
-//			Rectangle r = roi.getBounds();
-//			int type = roi.getType();
-//			if ((r.width==0 || r.height==0)
-//			&& !(type==Roi.POLYGON||type==Roi.POLYLINE||type==Roi.ANGLE||type==Roi.LINE)
-//			&& !(roi instanceof TextRoi)
-//			&& roi.getState()==roi.CONSTRUCTING
-//			&& type!=roi.POINT)
-//				imp.deleteRoi();
-//			else
-//				roi.handleMouseUp(e.getX(), e.getY());
-		
-	}
-
-	/**
-	 * Starts the process of creating a new selection, where sx and sy are the
-	 * starting screen coordinates. The selection type is determined by which tool
-	 * in the tool bar is active. The user interactively sets the selection size and
-	 * shape.
-	 */
-	public RoiObj createNewRoi(int screenX, int screenY, int roiType) {
-		
-		int imageX = sg.onImageX(screenX);//org img X
-		int imageY = sg.onImageY(screenY);//org img Y
-		RoiObj roi = null;
-		roiType = pp.getCurrentViewerToolType();
-		switch (roiType) {
-		case RoiObj.RECTANGLE://0
-//			if (Toolbar.getRectToolType() == Toolbar.ROTATED_RECT_ROI)
-//				roi = new RotatedRectRoi(sx, sy, this);
-//			else
-//				roi = new Roi(sx, sy, this, Toolbar.getRoundRectArcSize());
-			roi = new RoiObj(imageX, imageY, 1, 1, 0, sg);
-			roi.setState(RoiObj.CONSTRUCTING);
-			break;
-		case RoiObj.OVAL://1
-//			if (Toolbar.getOvalToolType() == Toolbar.ELLIPSE_ROI)
-//				roi = new EllipseRoi(sx, sy, this);
-//			else
-			roi = new OvalRoi(imageX, imageY, 1,1,sg);
-			roi.setState(RoiObj.CONSTRUCTING);
-			break;
-		case RoiObj.POLYGON:
-			roi = new PolygonRoi(imageX, imageY,roiType,sg);
-			roi.setState(RoiObj.CONSTRUCTING);//fail safe
-			break;
-//		case Toolbar.POLYLINE:
-		case RoiObj.ANGLE:
-			roi = new PolygonRoi(imageX, imageY,roiType,sg);
-			roi.setState(RoiObj.CONSTRUCTING);//fail safe
-			break;
-//		case Toolbar.FREEROI:
-//		case Toolbar.FREELINE:
-//			roi = new FreehandRoi(sx, sy, this);
-//			break;
-		case RoiObj.LINE://5
-//			if ("arrow".equals(Toolbar.getToolName()))
-//				roi = new Arrow(sx, sy, this);
-//			else
-//				roi = new Line(sx, sy, this);
-			System.out.println("create new roi:line, s:"+screenX+" "+screenY+" i:"+imageX+" "+imageY);
-			roi = new Line(imageX, imageY, imageX+1, imageY+1, sg);
-			roi.setState(RoiObj.CONSTRUCTING);
-			break;
-		case RoiObj.ARROW:
-//			if ("arrow".equals(Toolbar.getToolName()))
-//				roi = new Arrow(sx, sy, this);
-//			else
-//				roi = new Line(sx, sy, this);
-//			System.out.println("create new roi:Arrow, s:"+screenX+" "+screenY+" i:"+imageX+" "+imageY);
-			roi = new Arrow(imageX, imageY, imageX+1, imageY+1, sg);
-			roi.setState(RoiObj.CONSTRUCTING);
-			break;
-		case RoiObj.TEXT:
-			roi = new TextRoi(imageX, imageY, null, sg);
-			roi.setState(RoiObj.CONSTRUCTING);
-//			((TextRoi) roi).setPreviousRoi(previousRoi);
-			break;
-		case RoiObj.POINT:
-			roi = new PointRoi(imageX, imageY, sg);
-//			if (Prefs.pointAddToOverlay) {
-//				int measurements = Analyzer.getMeasurements();
-//				if (!(Prefs.pointAutoMeasure && (measurements & Measurements.ADD_TO_OVERLAY) != 0))
-//					IJ.run(this, "Add Selection...", "");
-//				Overlay overlay2 = getOverlay();
-//				if (overlay2 != null)
-//					overlay2.drawLabels(!Prefs.noPointLabels);
-//				Prefs.pointAddToManager = false;
-//			}
-//			if (Prefs.pointAutoMeasure || (Prefs.pointAutoNextSlice && !Prefs.pointAddToManager))
-//				IJ.run(this, "Measure", "");
-//			if (Prefs.pointAddToManager) {
-//				IJ.run(this, "Add to Manager ", "");
-//				ImageCanvas ic = getCanvas();
-//				if (ic != null) {
-//					RoiManager rm = RoiManager.getInstance();
-//					if (rm != null) {
-//						if (Prefs.noPointLabels)
-//							rm.runCommand("show all without labels");
-//						else
-//							rm.runCommand("show all with labels");
-//					}
-//				}
-//			}
-//			if (Prefs.pointAutoNextSlice && getStackSize() > 1) {
-//				IJ.run(this, "Next Slice [>]", "");
-//				deleteRoi();
-//			}
-//			break;
-//		default:
-//			if(type == ) {
-//				
-//			}
-		}
-		if (roi != null) {
-			sg.addRoi(roi);
-			repaint();
-		}
-		return roi;
-	}
-	
-	public RoiObj getCurrentRoi() {
-		return currentRoi;
-	}
-	
-	public RoiObj getPreviousRoi() {
-		return previousRoi;
-	}
-	
-	protected void setCurrentRoi2NULL() {
-		currentRoi = null;
-	}
-	
-	protected RoiObj getBrush() {
-		return brush;
-	}
-
-	protected void setBrush(RoiObj brush) {
-		this.brush = brush;
-	}
-	
-	boolean rect = false;
-	void createRect() {
-		rect = true;
-	}
-
-	// http://alga.no.coocan.jp/paint.html
-	@Override
-	public void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		drawCanvas(g);
-	}
-	
-	private void drawCanvas(Graphics g) {
-		if (paintSizeCaliper) {
-			showCaliper(g);
-		}
-		drawRoi(g);
-		drawReferenceLine(g);
-		drawLocalizerLine(g);
-		//show cross line
-		if(crossLine != null) {
-			Graphics2D g2 = (Graphics2D)g;
-			g2.setColor(crossLineColor);
-			g2.setStroke(new BasicStroke(crossLineStrokeSize));
-			g2.draw(crossLine);
-		}
-	}
-
-	private void drawRoi(Graphics g) {
-
-		ArrayList<RoiObj> rois = sg.getRois();
-		for (int i = 0; i < rois.size(); i++) {
-			RoiObj roiObj = rois.get(i);
-			roiObj.draw(g, sg);
-		}
-		
-		if(brush != null) {
-			brush.draw(g, sg);
-		}
-//		if (pp.getReferenceLine() != null) {
-//			ReferenceLine refLine = pp.getReferenceLine();
-//			refLine.draw(g, sg);
-//		}
-	}
-	
-	private void drawReferenceLine(Graphics g) {
-		if (sg == null || sg.getRois() == null || sg.getRois().size() < 1) {
-			if (pp.getReferenceLine() != null) {
-				ReferenceLine refLine = pp.getReferenceLine();
-				refLine.draw(g, sg);
-			}
-		}
-	}
-	
-	private void drawLocalizerLine(Graphics g) {
-		if(localizerGeo != null) {
-//			System.out.println(shapes.size());
-			Point2D p0_leftlower = localizerGeo.get(0);
-			Point2D p1_rightlower = localizerGeo.get(1);
-			Point2D p2_rightupper = localizerGeo.get(2);
-			Point2D p3_leftupper = localizerGeo.get(3);
-//			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
-//			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
-//			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
-//			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
-			GeneralPath loca = new GeneralPath();
-	        loca.moveTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
-	        loca.lineTo(sg.screenXD(p2_rightupper.getX()), sg.screenYD(p2_rightupper.getY()));
-	        loca.lineTo(sg.screenXD(p1_rightlower.getX()), sg.screenYD(p1_rightlower.getY()));
-	        loca.lineTo(sg.screenXD(p0_leftlower.getX()), sg.screenYD(p0_leftlower.getY()));
-	        loca.lineTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
-			Graphics2D g2 = (Graphics2D)g;
-			g2.setColor(localizerColor);
-			g2.setStroke(new BasicStroke(localizerStrokeSize));
-			g2.draw(loca);
 		}
 	}
 }
