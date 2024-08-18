@@ -304,8 +304,8 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         return getShapeRoi().getBounds();
     }
 
-    public void handleMouseDown(MouseEvent e, SlideGlass sg) {
-        super.handleMouseDown(e,sg);
+    public void handleMouseDown(MouseEvent e) {
+        super.handleMouseDown(e);
     }
 
 	protected int clipRectMargin(SlideGlass sg) {

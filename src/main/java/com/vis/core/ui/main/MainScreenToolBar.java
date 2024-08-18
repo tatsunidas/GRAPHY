@@ -127,7 +127,7 @@ public class MainScreenToolBar extends JToolBar {
 		if(Utils.isDebug) {
 			map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
 		}else {
-			if(Platform.getCurrentPlatform()==Platform.WINDOWS) {
+			if(Platform.getOS()==Platform.WINDOWS) {
 				map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
 			}
 		}
@@ -210,7 +210,7 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg) {
-					if(Platform.getCurrentPlatform() != Platform.WINDOWS) {
+					if(Platform.getOS() != Platform.WINDOWS) {
 						Log.logger.warning("Cannot run BurnCD function in this OS.");
 						if(!Utils.isDebug) {
 							return;

@@ -679,11 +679,11 @@ public class PolygonRoi extends RoiObj {
 		if (clipboard != null)
 			return;
 
-		int ox = sg.onImageX(sx);
-		int oy = sg.onImageY(sy);
+		int ox = sg.offScreenX(sx);
+		int oy = sg.offScreenY(sy);
 		if (xpf != null) {
-			xpf[activeHandle] = (float) (sg.onImageX(sx) - getXBase());
-			ypf[activeHandle] = (float) (sg.onImageY(sy) - getYBase());
+			xpf[activeHandle] = (float) (sg.offScreenX(sx) - getXBase());
+			ypf[activeHandle] = (float) (sg.offScreenY(sy) - getYBase());
 		} else {
 			xp[activeHandle] = ox - x;
 			yp[activeHandle] = oy - y;
@@ -898,8 +898,8 @@ public class PolygonRoi extends RoiObj {
 	public void mouseDownInHandle(int handle, int sx, int sy, SlideGlass sg) {
 		if (state == CONSTRUCTING)
 			return;
-		int ox = sg.onImageX(sx);
-		int oy = sg.onImageY(sy);
+		int ox = sg.offScreenX(sx);
+		int oy = sg.offScreenY(sy);
 		double oxd = ox;
 		double oyd = oy;
 		

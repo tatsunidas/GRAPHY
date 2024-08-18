@@ -131,8 +131,8 @@ public class Line extends RoiObj {
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		double xend = slide.onImageXD(sx);
-		double yend = slide.onImageYD(sy);
+		double xend = slide.offScreenXD(sx);
+		double yend = slide.offScreenYD(sy);
 		if (xend < 0.0)
 			xend = 0.0;
 		if (yend < 0.0)
@@ -180,10 +180,10 @@ public class Line extends RoiObj {
 		/*
 		 * mouse moved 
 		 */
-		int refX = sg.onImageX(sg.mouseX);
-		int refY = sg.onImageX(sg.mouseY);
-		int xNew = sg.onImageX(sx);
-		int yNew = sg.onImageY(sy);
+		int refX = sg.offScreenX(sg.mouseX);
+		int refY = sg.offScreenX(sg.mouseY);
+		int xNew = sg.offScreenX(sx);
+		int yNew = sg.offScreenY(sy);
 		/*
 		 * moved distance subtract from roi origin
 		 */
@@ -215,8 +215,8 @@ public class Line extends RoiObj {
 		double x2d=getXBase()+x2R, y2d=getYBase()+y2R;
 		double length = Math.sqrt(sqr(x2d-x1d) + sqr(y2d-y1d));
 		
-		double dragIX = slide.onImageXD(sx);
-		double dragIY = slide.onImageYD(sy);
+		double dragIX = slide.offScreenXD(sx);
+		double dragIY = slide.offScreenYD(sy);
 		
 		/*
 		 * activeHandle: 2 is middle handle
@@ -683,8 +683,8 @@ public class Line extends RoiObj {
 			return false;
 	}
 	
-	public void handleMouseDown(MouseEvent e, SlideGlass sg) {
-        super.handleMouseDown(e, sg);//set start mouse position
+	public void handleMouseDown(MouseEvent e) {
+        super.handleMouseDown(e.getX(), e.getY());//set start mouse position
     }
 
 	/**
@@ -692,16 +692,16 @@ public class Line extends RoiObj {
 	 * near a handle, otherwise returns -1.
 	 */
 	@Override
-	public int isHandle(int sx, int sy, SlideGlass sg) {
+	public int isHandle(int sx, int sy) {
 		int size = HANDLE_SIZE + 5;
 		if (getStrokeWidth() > 1) {
 			size += (int) Math.log(getStrokeWidth());
 		}
 		int halfSize = size / 2;
-		int sx1 = (int) (sg.screenXD(getXBase()+x1R) - halfSize);
-		int sy1 = (int) (sg.screenYD(getYBase()+y1R) - halfSize);
-		int sx2 = (int) (sg.screenXD(getXBase()+x2R) - halfSize);
-		int sy2 = (int) (sg.screenYD(getYBase()+y2R) - halfSize);
+		int sx1 = (int) (screenXD(getXBase()+x1R) - halfSize);
+		int sy1 = (int) (screenYD(getYBase()+y1R) - halfSize);
+		int sx2 = (int) (screenXD(getXBase()+x2R) - halfSize);
+		int sy2 = (int) (screenYD(getYBase()+y2R) - halfSize);
 		int sx3 = (int) (sx1 + (sx2-sx1)/2.);
 		int sy3 = (int) (sy1 + (sy2-sy1)/2.);
 		//rotation handle

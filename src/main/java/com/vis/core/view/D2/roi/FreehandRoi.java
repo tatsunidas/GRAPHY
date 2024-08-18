@@ -28,8 +28,8 @@ public class FreehandRoi extends PolygonRoi {
             growFloat(sx, sy,slide);
             return;
         }
-        int ox = slide.onImageX(sx);
-        int oy = slide.onImageY(sy);
+        int ox = slide.offScreenX(sx);
+        int oy = slide.offScreenY(sy);
         if (ox<0) ox = 0;
         if (oy<0) oy = 0;
         if (ox>xMax) ox = xMax;
@@ -47,8 +47,8 @@ public class FreehandRoi extends PolygonRoi {
     }
               
     private void growFloat(int sx, int sy, SlideGlass sg) {
-        double ox = sg.onImageX(sx);
-        double oy = sg.onImageY(sy);
+        double ox = sg.offScreenX(sx);
+        double oy = sg.offScreenY(sy);
         if (ox<0.0) ox = 0.0;
         if (oy<0.0) oy = 0.0;
         if (ox>xMax) ox = xMax;

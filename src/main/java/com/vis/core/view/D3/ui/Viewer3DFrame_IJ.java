@@ -176,7 +176,7 @@ public class Viewer3DFrame_IJ{
 		 * https://github.com/processing/processing/issues/5476. Since it has no
 		 * (apparent) side effects, we'll use it here for all platforms
 		 */
-		if(Platform.getCurrentPlatform()==Platform.LINUX) {
+		if(Platform.getOS()==Platform.LINUX) {
 			System.setProperty("jogl.disable.openglcore", System.getProperty("jogl.disable.openglcore", "false"));
 		}
 	}

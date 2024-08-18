@@ -68,8 +68,8 @@ public class RoiBrush implements Runnable{
 		 */
 		int dispX = slide.onDisplayImageX(slideX);
 		int dispY = slide.onDisplayImageY(slideY);
-		int XinOrgScale = slide.onImageX(slideX);
-		int YinOrgScale = slide.onImageY(slideY);
+		int XinOrgScale = slide.offScreenX(slideX);
+		int YinOrgScale = slide.offScreenY(slideY);
 		System.out.println("brush loc: "+slideX+" , "+slideY+" and "+dispX+" , "+dispY+" and scaled2org "+ XinOrgScale + " , "+YinOrgScale);
 		if(type.equals("Circle")) {
 			brush = getCircularRoi(XinOrgScale, YinOrgScale, size);

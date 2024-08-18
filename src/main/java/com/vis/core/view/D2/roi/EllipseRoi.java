@@ -51,8 +51,8 @@ public class EllipseRoi extends PolygonRoi {
     protected void grow(int sx, int sy, SlideGlass sg) {
         double x1 = xstart;
         double y1 = ystart;
-        double x2 = sg.onImageX(sx);
-        double y2 = sg.onImageY(sy);
+        double x2 = sg.offScreenX(sx);
+        double y2 = sg.offScreenY(sy);
         makeEllipse(x1, y1, x2, y2);
     }
         
@@ -152,8 +152,8 @@ public class EllipseRoi extends PolygonRoi {
     }
     
     protected void moveHandle(int sx, int sy) {
-        double ox = slide.onImageX(sx); 
-        double oy = slide.onImageY(sy);
+        double ox = slide.offScreenX(sx); 
+        double oy = slide.offScreenY(sy);
         double x1 = xpf[handle[2]]+x;
         double y1 = ypf[handle[2]]+y;
         double x2 = xpf[handle[0]]+x;

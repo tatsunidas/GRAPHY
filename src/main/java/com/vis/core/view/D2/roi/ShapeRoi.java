@@ -94,9 +94,6 @@ public class ShapeRoi extends RoiObj {
     }
 
     /** Constructs a ShapeRoi from a Shape. */
-    /*
-     * 原点をリセットする意味？
-     */
     public ShapeRoi(Shape s, SlideGlass slide) {
         super(s.getBounds(),slide);
 //        AffineTransform at = new AffineTransform();

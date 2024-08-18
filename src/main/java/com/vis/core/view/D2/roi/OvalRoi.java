@@ -52,8 +52,8 @@ public class OvalRoi extends RoiObj {
 		System.out.println("move handle oval");
 		double asp;
 //		if (clipboard!=null) return;
-		int ox = slide.onImageX(sx);
-		int oy = slide.onImageY(sy);
+		int ox = slide.offScreenX(sx);
+		int oy = slide.offScreenY(sy);
 		//IJ.log("moveHandle: "+activeHandle+" "+ox+" "+oy);
 		int x1=x, y1=y, x2=x+width, y2=y+height, xc=x+width/2, yc=y+height/2;
 		int w2 = (int)(0.14645*width);
@@ -339,8 +339,8 @@ public class OvalRoi extends RoiObj {
 //		if (clipboard!=null || ic==null) return -1;
 		double mag = sg.getMagnification();
 		
-		int px = sg.onImageX(sx);
-		int py = sg.onImageY(sy);
+		int px = sg.offScreenX(sx);
+		int py = sg.offScreenY(sy);
 		
 		int size = HANDLE_SIZE+3;
 		int halfSize = size/2;

@@ -1639,40 +1639,40 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		if (currentViewType == 0) {
 			if (showCrossLines) {
 				if (currentPrap == xy_prap) {
-					int xyX = sg.onImageX(e.getX());
-					int xyY = sg.onImageY(e.getY());
+					int xyX = sg.offScreenX(e.getX());
+					int xyY = sg.offScreenY(e.getY());
 					updateViewsUsingXY(new Point(xyX, xyY));
 					updateCrossByXY(xyX, xyY);
 				} else if (currentPrap == xz_prap) {
-					int xzX = sg.onImageX(e.getX());// offScreen
-					int xzY = sg.onImageY(e.getY());
+					int xzX = sg.offScreenX(e.getX());// offScreen
+					int xzY = sg.offScreenY(e.getY());
 					updateViewsUsingXZ(new Point(xzX, xzY));
 					updateCrossByXZ(xzX, xzY);
 				} else if (currentPrap == yz_prap) {
-					int yzX = sg.onImageX(e.getX());// offScreen
-					int yzY = sg.onImageY(e.getY());
+					int yzX = sg.offScreenX(e.getX());// offScreen
+					int yzY = sg.offScreenY(e.getY());
 					updateViewsUsingYZ(new Point(yzX, yzY));
 					updateCrossByYZ(yzX, yzY);
 				}
 			}
 		} else if (currentViewType == 1) {
 			if (currentPrap == xy_prap) {
-				int xyX = sg.onImageX(e.getX());
-				int xyY = sg.onImageY(e.getY());
+				int xyX = sg.offScreenX(e.getX());
+				int xyY = sg.offScreenY(e.getY());
 				updateViewsUsingXY(new Point(xyX, xyY));
 				if(getCurrentMainPlaneType() == XY) {
 					refLines.xYLine.mouseDragged(e);
 				}
 			} else if (currentPrap == xz_prap) {
-				int xzX = sg.onImageX(e.getX());// offScreen
-				int xzY = sg.onImageY(e.getY());
+				int xzX = sg.offScreenX(e.getX());// offScreen
+				int xzY = sg.offScreenY(e.getY());
 				updateViewsUsingXZ(new Point(xzX, xzY));
 				if(getCurrentMainPlaneType() == XZ) {
 					refLines.xZLine.mouseDragged(e);
 				}
 			} else if (currentPrap == yz_prap) {
-				int yzX = sg.onImageX(e.getX());// offScreen
-				int yzY = sg.onImageY(e.getY());
+				int yzX = sg.offScreenX(e.getX());// offScreen
+				int yzY = sg.offScreenY(e.getY());
 				updateViewsUsingYZ(new Point(yzX, yzY));
 				if(getCurrentMainPlaneType() == YZ) {
 					refLines.yZLine.mouseDragged(e);

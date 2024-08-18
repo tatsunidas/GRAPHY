@@ -1,9 +1,7 @@
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
@@ -11,9 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import javax.swing.JComponent;
-
 import com.vis.configuration.ContextKey;
+import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 //import com.vis.viewer2d.roi.Line;
@@ -28,16 +25,6 @@ import com.vis.core.view.D2.ui.Viewer2DScreen;
 //import com.vis.viewer2d.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.db.DatabaseHandler;
-
-import ij.IJ;
-import ij.Prefs;
-import ij.gui.Overlay;
-import ij.gui.RoiListener;
-import ij.measure.Measurements;
-import ij.plugin.filter.Analyzer;
-import ij.plugin.frame.RoiManager;
-import ij.plugin.tool.PlugInTool;
-import ij.process.FloatPolygon;
 
 /**
  *
@@ -95,8 +82,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 		}
 
-		int ix = sg.onImageX(screenX);
-		int iy = sg.onImageY(screenY);
+		int ix = sg.offScreenX(screenX);
+		int iy = sg.offScreenY(screenY);
 		ArrayList<RoiObj> rois = getRoiSet();
 		int handle = -1;
 		boolean found = false;
@@ -106,7 +93,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 				roi.setActiveOverlayRoi(false);
 			}
 			for (RoiObj roi : rois) {
-				handle = roi.isHandle(screenX, screenY, sg);
+				handle = roi.isHandle(screenX, screenY);
 				if (handle >= 0) {
 					roi.setActiveOverlayRoi(true);
 //					roi.showRoiPopupOnCanvas();//TODO
@@ -190,8 +177,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 */
 	public RoiObj createNewRoi(int screenX, int screenY, int roiType) {
 		
-		int imageX = sg.onImageX(screenX);//org img X
-		int imageY = sg.onImageY(screenY);//org img Y
+		int imageX = sg.offScreenX(screenX);//org img X
+		int imageY = sg.offScreenY(screenY);//org img Y
 		RoiObj roi = null;
 		roiType = pp.getCurrentViewerToolType();
 		RoiType t = RoiType.find(roiType);
@@ -480,8 +467,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 */
 	public RoiObj getRoiLoacationAt(int screenX, int screenY) {
 
-		int ix = sg.onImageX(screenX);
-		int iy = sg.onImageY(screenY);
+		int ix = sg.offScreenX(screenX);
+		int iy = sg.offScreenY(screenY);
 		/*
 		 * if rois are overlapping, return roi that find first.
 		 */
@@ -533,9 +520,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int roiType = pp.getCurrentViewerToolType();
 		if(referenceLineHereAt(sx,sy)!=null) {
 			ReferenceLine refLine = referenceLineHereAt(sx,sy);
-			int handle = refLine.isHandle(sx, sy, sg);
+			int handle = refLine.isHandle(sx, sy);
 			refLine.setRoiModState(e, handle);
-			refLine.handleMouseDown(e, sg);
+			refLine.handleMouseDown(e);
 			return;
 		}
 		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiType.POLYGON.id() && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
@@ -551,9 +538,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 				dialog.handleMousePressed(e);
 				return;
 			}
-			int handle = currentRoi.isHandle(sx, sy, sg);
+			int handle = currentRoi.isHandle(sx, sy);
 			currentRoi.setRoiModState(e, handle);
-			currentRoi.handleMouseDown(e, sg);
+			currentRoi.handleMouseDown(e.getX(), e.getY());
 		}else {
 			
 			if(sg.isHereRoiPopup(e)) {
@@ -583,7 +570,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 			return true;
 		}
 		boolean dragging = false;
-		if (flags==0 && IJ.isMacOSX()) {
+		if (flags==0 && Platform.isMac()) {
 			// workaround for Mac OS 9 bug
 			flags = InputEvent.BUTTON1_MASK;
 		}
@@ -842,14 +829,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 */
 	protected ReferenceLine referenceLineHereAt(int screenX, int screenY) {
 
-		int ix = sg.onImageX(screenX);
-		int iy = sg.onImageY(screenY);
+		int ix = sg.offScreenX(screenX);
+		int iy = sg.offScreenY(screenY);
 		int handle = -1;
 		boolean found = false;
 		if (pp.getReferenceLine() != null) {
 			ReferenceLine refLine = pp.getReferenceLine();
 			refLine.setActiveOverlayRoi(false);// reset activate
-			handle = refLine.isHandle(screenX, screenY, sg);
+			handle = refLine.isHandle(screenX, screenY);
 			if (handle >= 0) {
 				refLine.setActiveOverlayRoi(true);
 				found = true;

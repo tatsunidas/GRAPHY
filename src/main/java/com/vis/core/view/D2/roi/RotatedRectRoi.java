@@ -34,14 +34,13 @@ public class RotatedRectRoi extends PolygonRoi {
     	//is this correct ?? tatsu
         super(sx, sy, RoiType.RECTANGLE.id(), sg);
         type = RoiType.FREEROI.id();
-        xstart = sg.onImageX(sx);
-        ystart = sg.onImageY(sy);
+        xstart = sg.offScreenX(sx);
+        ystart = sg.offScreenY(sy);
         //correct ?? tatsu
         int h = sg != null? (int)(sg.getDisplayImageDimension().height/sg.getMagnification()):sg.getDisplayImageDimension().height;
         System.out.println("RotatedRectRoi: "+(int)rectWidth+" "+h);
         if (rectWidth>h)
             rectWidth = h/3;
-        setDrawOffset(false);
         bounds = null;
     }
 
@@ -82,8 +81,8 @@ public class RotatedRectRoi extends PolygonRoi {
     protected void grow(int sx, int sy, SlideGlass sg) {
         double x1 = xstart;
         double y1 = ystart;
-        double x2 = sg.onImageX(sx);
-        double y2 = sg.onImageY(sy);
+        double x2 = sg.offScreenX(sx);
+        double y2 = sg.offScreenY(sy);
         makeRectangle(x1, y1, x2, y2);
         imp.draw();
     }
@@ -176,8 +175,8 @@ public class RotatedRectRoi extends PolygonRoi {
     }
     
     protected void moveHandle(int sx, int sy, SlideGlass sg) {
-        double ox = sg.onImageX(sx); 
-        double oy = sg.onImageY(sy);
+        double ox = sg.offScreenX(sx); 
+        double oy = sg.offScreenY(sy);
         double x1 = hx(3);
         double y1 = hy(3);
         double x2 = hx(1);

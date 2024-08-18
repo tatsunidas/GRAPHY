@@ -832,8 +832,8 @@ public class SlideGlass extends JLayeredPane {
 		if(imageSpecimen == null) {
 			return;
 		}
-		int imageX = onImageX(imageSpecimen.originX);
-		int imageY = onImageX(imageSpecimen.originY);
+		int imageX = offScreenX(imageSpecimen.originX);
+		int imageY = offScreenX(imageSpecimen.originY);
 		pp.setAndShowPixelValue(imageX, imageY);
 	}
 
@@ -965,63 +965,63 @@ public class SlideGlass extends JLayeredPane {
 		return (glassY - imageSpecimen.getDisplayOriginY());
 	}
 
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public int onImageX(int glassX) {
-		return onOriginalImageX(glassX);
+	/** Converts a slideglass(screen) x-coordinate to an original image(offscreen) x-coordinate. */
+	public int offScreenX(int glassX) {
+		return (int)offScreenXD(glassX);
 	}
 	
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public double onImageXD(int glassX) {
-		return onOriginalImageXD(glassX);
+	public int offScreenX2(int glassX) {
+		return (int)Math.round(offScreenXD(glassX));
 	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int onImageY(int glassY) {
-		return onOriginalImageY(glassY);
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public double onImageYD(int glassY) {
-		return onOriginalImageYD(glassY);
-	}
-
-	/** Converts an screen x-coordinate to a original image x-coordinate. */
-	private int onOriginalImageX(int glassX) {
-		return (int)onOriginalImageXD(glassX);
-	}
-
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	private double onOriginalImageXD(int glassX) {
+	
+	/**
+	 * Converts a slideglass(screen) x-coordinate to an original image(offscreen)
+	 * x-coordinate.
+	 * 
+	 * Since the origin position of the original image is always (0,0), only the
+	 * magnification scale (Magnification) and component size scale (ScaleFactor) are
+	 * considered here.
+	 * 
+	 */
+	public double offScreenXD(int glassX) {
 		double dispImageX = onDisplayImageX(glassX);
 		double backScaleX = dispImageX / getScaleFactor()[0] / getMagnification() ;
 		return backScaleX;
 	}
 
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	private int onOriginalImageY(int glassY) {
-		return (int)onOriginalImageYD(glassY);
+	/** Converts a slideglass(screen) y-coordinate to an original image(offscreen) y-coordinate. */
+	public int offScreenY(int glassY) {
+		return (int)offScreenYD(glassY);
+	}
+	
+	public int offScreenY2(int glassY) {
+		return (int)Math.round(offScreenYD(glassY));
 	}
 
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	private double onOriginalImageYD(int glassY) {
+	/** Converts a slideglass(screen) y-coordinate to an original image(offscreen) y-coordinate. */
+	public double offScreenYD(int glassY) {
 		double dispImageY = onDisplayImageY(glassY);
 		double backScaleY = dispImageY / getScaleFactor()[1] / getMagnification();
 		return backScaleY;
 	}
-
-	public int orgX2ScreenX(int orgImageX) {
-		return (int)orgX2ScreenXD(orgImageX);
+	
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public int screenX(int orgImageX) {
+		return (int)screenXD(orgImageX);
 	}
 
-	public double orgX2ScreenXD(double orgImageX) {
+	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
+	public double screenXD(double orgImageX) {
 		return ((orgImageX * getMagnification() * getScaleFactor()[0]) + imageSpecimen.getDisplayOriginX());
 	}
 
-	public int orgY2ScreenY(int orgImageY) {
-		return (int)orgY2ScreenYD(orgImageY);
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public int screenY(int orgImageY) {
+		return (int)screenYD(orgImageY);
 	}
 
-	public double orgY2ScreenYD(double orgImageY) {
+	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
+	public double screenYD(double orgImageY) {
 		return ((orgImageY * getMagnification() * getScaleFactor()[1]) + imageSpecimen.getDisplayOriginY());
 	}
 
@@ -1180,25 +1180,6 @@ public class SlideGlass extends JLayeredPane {
 
 	public void saveCurrentRoiSate() {
 		roiOverlay.saveCurrentRoiSate();
-	}
-
-	/*
-	 * convert originale coordinate to glass coordinate.
-	 */
-	public int screenX(int imageX) {
-		return orgX2ScreenX(imageX);
-	}
-
-	public double screenXD(double imageX) {
-		return orgX2ScreenXD(imageX);
-	}
-
-	public int screenY(int imageY) {
-		return orgY2ScreenY(imageY);
-	}
-
-	public double screenYD(double imageY) {
-		return orgY2ScreenYD(imageY);
 	}
 
 	public void setAnnotationVisible(boolean v) {
@@ -1455,8 +1436,8 @@ public class SlideGlass extends JLayeredPane {
 			return;
 		}
 		// Output original pixel values when mouse in dimension
-		int imageX = onImageX(slideX);
-		int imageY = onImageY(slideY);
+		int imageX = offScreenX(slideX);
+		int imageY = offScreenY(slideY);
 //		Log.logger.fine("slideX:"+slideX+", slideY:"+slideY);
 //		Log.logger.fine("orgX:"+imageX+", orgY:"+imageY);
 		pp.setAndShowPixelValue(imageX, imageY);

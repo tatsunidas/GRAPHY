@@ -56,7 +56,7 @@ public enum Platform {
 
 	LINUX, WINDOWS, MAC, SOLARIS, NONE;
 
-	public static Platform getCurrentPlatform() {
+	public static Platform getOS() {
 		String osName = System.getProperty("os.name").toLowerCase();
 		if (osName.startsWith("mac")) {
 			return MAC;
@@ -69,6 +69,22 @@ public enum Platform {
 		}
 		return NONE;
 	}
+	
+	public static boolean isWindows() {
+		return getOS() == WINDOWS;
+	}
+	
+	public static boolean isLinux() {
+		return getOS() == LINUX;
+	}
+	
+	public static boolean isMac() {
+		return getOS() == MAC;
+	}
+	
+	public static boolean isSolaris() {
+		return getOS() == SOLARIS;
+	}
 
 	/**
 	 * graphy hidden folder in home dir.
@@ -79,7 +95,7 @@ public enum Platform {
 	public static File getHomeDirectory(final String applicationName) {
 		final String userHome = System.getProperty("user.home", ".");
 		final File appDirectory;
-		switch (Platform.getCurrentPlatform()) {
+		switch (Platform.getOS()) {
 		case LINUX:
 		case SOLARIS:
 			appDirectory = new File(userHome, '.' + applicationName + File.separator);
@@ -109,7 +125,7 @@ public enum Platform {
 	}
 
 	public static String getOpenCVNativeLibLocation() {
-		switch (Platform.getCurrentPlatform()) {
+		switch (Platform.getOS()) {
 		case LINUX:
 			if(is32bitOS()) {
 				return "."+File.separator+"native"+File.separator+"linux-x86";
@@ -172,12 +188,12 @@ public enum Platform {
 
 	public static void setSystemProperties() {
 		ImageIO.scanForPlugins();
-		if (getCurrentPlatform() == MAC) {
+		if (getOS() == MAC) {
 			System.setProperty("apple.laf.useScreenMenuBar", "true");
 			System.setProperty("com.apple.mrj.application.apple.menu.about.name", ConfigInfo.AppName.toString());
 			System.setProperty("apple.awt.antialiasing", "true");
 			System.setProperty("apple.awt.textantialiasing", "true");
-		} else if (getCurrentPlatform() == LINUX) {
+		} else if (getOS() == LINUX) {
 			System.setProperty("sun.java2d.pmoffscreen", "false");
 		}
 		System.setProperty("java.util.Arrays.useLegacyMergeSort", "true"); // Need to avoid the exceptions occured when
