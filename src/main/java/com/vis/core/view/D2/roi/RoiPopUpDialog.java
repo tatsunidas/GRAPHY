@@ -87,7 +87,7 @@ public class RoiPopUpDialog extends JTextArea{
 		super.repaint();
 	}
 	
-	public void handleMousePressed(MouseEvent e) {
+	public void mousePressed(MouseEvent e) {
 		if(!isVisible()) {
 			return;
 		}
@@ -101,7 +101,7 @@ public class RoiPopUpDialog extends JTextArea{
 		}
 	}
 	
-	public void handleMouseDragged(MouseEvent e) {
+	public void mouseDragged(MouseEvent e) {
 		if(!isVisible()) {
 			return;
 		}

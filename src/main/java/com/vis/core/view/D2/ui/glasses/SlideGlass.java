@@ -304,32 +304,7 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.deleteRoi(roi);
 	}
 
-	public void drawCross(MouseEvent e) {
-		Point currentScreenPos = e.getPoint();
-		GeneralPath path = new GeneralPath();
-		int sx = currentScreenPos.x;
-		int sy = currentScreenPos.y;
-		path.moveTo(0f, sy);
-		path.lineTo(getWidth(), sy);
-		path.moveTo(sx, 0f);
-		path.lineTo(sx, getHeight());
-		roiOverlay.setCrossLine(path);
-		// do not return
-		repaint();
-	}
-
-	public void drawCross(Point onOrgImageCoordinatePoint) {
-		GeneralPath path = new GeneralPath();
-		int sx = screenX(onOrgImageCoordinatePoint.x);
-		int sy = screenY(onOrgImageCoordinatePoint.y);
-		path.moveTo(0f, sy);
-		path.lineTo(getWidth(), sy);
-		path.moveTo(sx, 0f);
-		path.lineTo(sx, getHeight());
-		roiOverlay.setCrossLine(path);
-		// do not return
-		repaint();
-	}
+	
 
 	/**
 	 * null-able. if set to null, stop displaying localizer.
@@ -364,12 +339,7 @@ public class SlideGlass extends JLayeredPane {
 	public ImagePlus getCurrentDisplayImagePlus() {
 		return this.imageSpecimen.getDisplayImage();
 	}
-
-	// see, TestRoi2.java
-	public int getCurrentModifiersEx() {
-		return mouseActionFlag;
-	}
-
+	
 	/*
 	 * mouse position on slide glass XY location
 	 */
@@ -632,37 +602,12 @@ public class SlideGlass extends JLayeredPane {
 	public String[] getUIDs() {
 		String[] uids = new String[4];
 		uids[0] = header != null ? header.getString(Tag.Patient​ID, "NO_PatientID") : null;
-		uids[0] = header != null ? header.getString(Tag.Study​Instance​UID, "NO_StudyInstanceUID") : null;
-		uids[0] = header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID") : null;
-		uids[0] = header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID") : null;
+		uids[1] = header != null ? header.getString(Tag.Study​Instance​UID, "NO_StudyInstanceUID") : null;
+		uids[2] = header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID") : null;
+		uids[3] = header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID") : null;
 		return uids;
 	}
-
-	public boolean handleRoiMouseDragged(MouseEvent me) {
-		if (pp.isShowCrossLineMode()) {
-			drawCross(me);
-		}
-		mouseActionFlag = me.getModifiersEx();
-		return roiOverlay.handleRoiMouseDragged(me, this);
-	}
-
-	// todo
-	public void handleRoiMouseMoved(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();
-		roiOverlay.mouseMoved(me);
-	}
-
-	public void handleRoiMousePressed(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();// future work change to getButton()? related getModifiersEx...but buggy??
-//		roiOverlay.handleRoiMouseDown(me);
-		roiOverlay.mousePressed(me);
-	}
-
-	public void handleRoiMouseUp(MouseEvent me) {
-		mouseActionFlag = me.getModifiersEx();
-		roiOverlay.mouseReleased(me);// (me, x, y);
-	}
-
+	
 	public void initComponents(Praparat pp, DicomImage dcmImg/* single frame */) {
 		this.pp = pp;
 //		this.roiset = new ArrayList<RoiObj>();
@@ -887,12 +832,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public boolean isHereRoiPopup(MouseEvent e) {
-		Object obj = e.getSource();
-		if (obj instanceof RoiPopUpDialog) {
-			return true;
-		} else {
-			return false;
-		}
+		return roiOverlay.isHereRoiPopup(e);
 	}
 
 	public boolean isInverted() {
@@ -1180,6 +1120,10 @@ public class SlideGlass extends JLayeredPane {
 
 	public void saveCurrentRoiSate() {
 		roiOverlay.saveCurrentRoiSate();
+	}
+	
+	public void saveRoi(RoiObj roi) {
+		roiOverlay.insertOrUpdateRoi4DB(roi);
 	}
 
 	public void setAnnotationVisible(boolean v) {

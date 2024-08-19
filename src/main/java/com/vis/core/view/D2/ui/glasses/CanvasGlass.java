@@ -10,25 +10,16 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
 import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
-//import com.vis.viewer2d.roi.Line;
-//import com.vis.viewer2d.roi.OvalRoi;
-//import com.vis.viewer2d.roi.PointRoi;
-//import com.vis.viewer2d.roi.PolygonRoi;
-//import com.vis.viewer2d.roi.ReferenceLine;
-//import com.vis.viewer2d.roi.RoiBrush;
-//import com.vis.viewer2d.roi.RoiObj;
-//import com.vis.viewer2d.roi.RoiPopupDialog;
-//import com.vis.viewer2d.roi.ShapeRoi;
-//import com.vis.viewer2d.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.db.DatabaseHandler;
 
 /**
  *
- * Overlay glass for slideglass. As works for canvas of RoiObj.
+ * Overlay glass of slideglass. As works for canvas of RoiObj.
  * 
  * @author Tatsunidas
  *
@@ -69,7 +60,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	/*
 	 * slide XY, prap basis.
 	 */
-	protected RoiObj activateAndGetRoiAt(int screenX, int screenY) {
+	protected RoiObj activateAndGetCurrentRoiAt(int screenX, int screenY) {
 
 		if (currentRoi != null) {
 			previousRoi = currentRoi;
@@ -102,7 +93,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 					break;
 				} else if (roi.contains(ix, iy)) {
 					if (roi instanceof ShapeRoi) {
-						System.out.println("this is shape roi !!");
+						Log.logger.info("this is shape roi !!");
 
 					}
 					roi.setActiveOverlayRoi(true);
@@ -265,7 +256,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //				deleteRoi();
 //			}
 //			break;
-//		default:
+		default:
 //			if(type == ) {
 //				
 //			}
@@ -276,16 +267,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		return roi;
 	}
-
-	void createRect() {
-		rect = true;
-	}
 	
 	public void deleteRoi(int sx, int sy) {
 		if (roiset == null || roiset.size() < 1) {
 			return;
 		}
-		RoiObj roi2remove = activateAndGetRoiAt(sx, sy);
+		RoiObj roi2remove = activateAndGetCurrentRoiAt(sx, sy);
 		if (roi2remove != null) {
 			HashMap<ContextKey, String> uids = roi2remove.getUIDs();
 			String patID = uids.get(ContextKey.PatientID);
@@ -358,6 +345,32 @@ public class CanvasGlass extends javax.swing.JPanel {
 			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
 			rom.updateRoiObjList(sg.getPatientID());
 		}
+	}
+	
+	public void drawCross(MouseEvent e) {
+		Point currentScreenPos = e.getPoint();
+		GeneralPath path = new GeneralPath();
+		int sx = currentScreenPos.x;
+		int sy = currentScreenPos.y;
+		path.moveTo(0f, sy);
+		path.lineTo(getWidth(), sy);
+		path.moveTo(sx, 0f);
+		path.lineTo(sx, getHeight());
+		setCrossLine(path);
+		repaint();
+	}
+
+	public void drawCross(Point onOrgImageCoordinatePoint) {
+		GeneralPath path = new GeneralPath();
+		int sx = sg.screenX(onOrgImageCoordinatePoint.x);
+		int sy = sg.screenY(onOrgImageCoordinatePoint.y);
+		path.moveTo(0f, sy);
+		path.lineTo(getWidth(), sy);
+		path.moveTo(sx, 0f);
+		path.lineTo(sx, getHeight());
+		setCrossLine(path);
+		// do not return
+		repaint();
 	}
 
 	private void drawCanvas(Graphics g) {
@@ -513,7 +526,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //		brushTool.createBrush(e);
 	}
 	
-	public void handleRoiMouseDown(MouseEvent e) {
+	public void roiMouseDown(MouseEvent e) {
 
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
@@ -522,41 +535,40 @@ public class CanvasGlass extends javax.swing.JPanel {
 			ReferenceLine refLine = referenceLineHereAt(sx,sy);
 			int handle = refLine.isHandle(sx, sy);
 			refLine.setRoiModState(e, handle);
-			refLine.handleMouseDown(e);
+			refLine.mouseDown(e);
 			return;
 		}
 		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiType.POLYGON.id() && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
 			return;
 		}
 		//get currentRoi
-		activateAndGetRoiAt(sx, sy);
+		activateAndGetCurrentRoiAt(sx, sy);
 		
 		if (currentRoi != null){
 			if(sg.isHereRoiPopup(e)) {
 				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
 				RoiPopUpDialog dialog = getRoiPopupAt(e);
-				dialog.handleMousePressed(e);
+				dialog.mousePressed(e);
 				return;
 			}
 			int handle = currentRoi.isHandle(sx, sy);
-			currentRoi.setRoiModState(e, handle);
-			currentRoi.handleMouseDown(e.getX(), e.getY());
+			currentRoi.mouseDown(e);
 		}else {
 			
 			if(sg.isHereRoiPopup(e)) {
 				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
 				RoiPopUpDialog dialog = getRoiPopupAt(e);
-				dialog.handleMousePressed(e);
+				dialog.mousePressed(e);
 				return;
 			}
 			currentRoi = createNewRoi(sx, sy,roiType);
 		}
 	}
 
-	public boolean handleRoiMouseDragged(MouseEvent e, SlideGlass sg) {
+	public boolean handleRoiMouseDragged(MouseEvent e) {
 		int dragSX = e.getX();//x on slideglass
 		int dragSY = e.getY();
-		int flags = e.getModifiers();//TODO, needed.
+		int flags = e.getModifiersEx();//input event flag
 		/*
 		 * drag roi or popup
 		 */
@@ -572,27 +584,27 @@ public class CanvasGlass extends javax.swing.JPanel {
 		boolean dragging = false;
 		if (flags==0 && Platform.isMac()) {
 			// workaround for Mac OS 9 bug
-			flags = InputEvent.BUTTON1_MASK;
+			flags = InputEvent.BUTTON1_DOWN_MASK;
 		}
 		//is reference line?
 		if(referenceLineHereAt(dragSX, dragSY) != null) {
-			pp.getReferenceLine().handleMouseDrag(dragSX, dragSY, flags);
+			pp.getReferenceLine().mouseDrag(dragSX, dragSY, flags);
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
 			return true;
 		}
 		//is dialog ?
-		if(sg.isHereRoiPopup(e)) {
+		if(isHereRoiPopup(e)) {
 //			System.out.println("RoiDialog DRAGGING!!!");
 			RoiPopUpDialog dialog = getRoiPopupAt(e);
 			if(dialog != null) {
-				dialog.handleMouseDragged(e);
+				dialog.mouseDragged(e);
 				dragging = true;
 			}
 		//is roi ?
 		}else {
 			if (currentRoi != null) {
-				currentRoi.handleMouseDrag(dragSX, dragSY, flags);
+				currentRoi.mouseDrag(dragSX, dragSY, flags);
 //			if(currentRoi instanceof OvalRoi) {
 //				OvalRoi oval = (OvalRoi)currentRoi;
 //				oval.handleMouseDrag(dragSX, dragSY, flags,sg);
@@ -652,6 +664,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 		return false;
 	}
 	
+	public boolean isHereRoiPopup(MouseEvent e) {
+		Object obj = e.getSource();
+		if (obj instanceof RoiPopUpDialog) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
 	public void loadRoiFromDB() {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db == null) {
@@ -669,7 +690,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 					continue;
 				}
 				roi.setSlideGlass(sg);
-				addRoi(roi);
+				addRoi(roi, false/*update db*/);
 			}
 		}
 	}
@@ -682,12 +703,74 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 		}
 		//update currentRoi
-		activateAndGetRoiAt(e.getX(), e.getY());
+		activateAndGetCurrentRoiAt(e.getX(), e.getY());
 		int type = currentRoi != null ? currentRoi.getType() : -1;
 		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()) 
 		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {
 			currentRoi.mouseMoved(e);
 		}
+	}
+	
+	public void mouseDragged(MouseEvent e) {
+		if (pp.isShowCrossLineMode()) {
+			drawCross(e);
+		}
+		if (pp.getReferenceLine() != null) {
+			//TODO 20240819
+			// do something
+			return;// attention
+		}
+		int dragSX = e.getX();//x on slideglass
+		int dragSY = e.getY();
+		int flags = e.getModifiersEx();
+		/*
+		 * drag roi or popup
+		 */
+		int roiType = pp.getCurrentViewerToolType();//from viewer2d
+		if(roiType == Viewer2DToolBar.Brush) {
+			if(brushTool != null) {
+				brushTool.createBrush(e);
+			}
+			sg.lastDraggedX = dragSX;
+			sg.lastDraggedY = dragSY;
+			return;
+		}
+		boolean dragging = false;
+		if (flags==0 && Platform.isMac()) {
+			// workaround for Mac OS 9 bug
+			flags = InputEvent.BUTTON1_DOWN_MASK;
+		}
+		//is reference line?
+		if(referenceLineHereAt(dragSX, dragSY) != null) {
+			pp.getReferenceLine().mouseDrag(dragSX, dragSY, flags);
+			sg.lastDraggedX = dragSX;
+			sg.lastDraggedY = dragSY;
+			return;
+		}
+		//is dialog ?
+		if(sg.isHereRoiPopup(e)) {
+//			System.out.println("RoiDialog DRAGGING!!!");
+			RoiPopUpDialog dialog = getRoiPopupAt(e);
+			if(dialog != null) {
+				dialog.mouseDragged(e);
+				dragging = true;
+			}
+		//is roi ?
+		}else {
+			if (currentRoi != null) {
+				currentRoi.mouseDrag(dragSX, dragSY, flags);
+//			if(currentRoi instanceof OvalRoi) {
+//				OvalRoi oval = (OvalRoi)currentRoi;
+//				oval.handleMouseDrag(dragSX, dragSY, flags,sg);
+//			}else {
+//				
+//			}
+				dragging = true;
+			}
+		}
+		
+		sg.lastDraggedX = dragSX;
+		sg.lastDraggedY = dragSY;
 	}
 	
 	public void mousePressed(MouseEvent e) {
@@ -698,7 +781,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		sg.mouseY = sy;
 //		int ox = sg.onImageX(sx);
 //		int oy = sg.onImageY(sy);
-		long mousePressedTime = System.currentTimeMillis();
 		switch (toolID) {
 //		case Viewer2DToolBar.MAGNIFIER:
 //			if (IJ.shiftKeyDown())
@@ -758,14 +840,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 			handleRoiBrushMouseDown(e);
 			break;
 		default:  //rois
-			handleRoiMouseDown(e);
+			roiMouseDown(e);
 		}
 	}
 
 	public void mouseReleased(MouseEvent emr) {
 		if(currentRoi != null) {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
-			previousRoi = currentRoi;//clone()?
+			previousRoi = currentRoi;
 		}
 		//brush
 		if(pp.getCurrentViewerToolType()==Viewer2DToolBar.Brush) {
@@ -923,6 +1005,23 @@ public class CanvasGlass extends javax.swing.JPanel {
 //			rpd.setVisible(false);
 //		}
 	}
+    
+    /**
+     * Roi state to be selected or not.
+     * @param e
+     * @return
+     */
+    public boolean setSelectStateOfCurrentRoi(MouseEvent e) {
+    	currentRoi = activateAndGetCurrentRoiAt(e.getX(), e.getY());
+    	if(currentRoi !=null) {
+    		if(!currentRoi.isSelected()) {
+    			currentRoi.setSelectedState(true);
+    		}else {
+    			currentRoi.setSelectedState(false);
+    		}
+    	}
+    	return currentRoi != null;
+    }
 	
 	protected void setBrush(RoiObj brush) {
 		this.brush = brush;

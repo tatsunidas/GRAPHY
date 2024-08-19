@@ -895,11 +895,11 @@ public class PolygonRoi extends RoiObj {
 		return ", angle=" + IJ.d2s(degrees2);
 	}
 
-	public void mouseDownInHandle(int handle, int sx, int sy, SlideGlass sg) {
+	public void mouseDownInHandle(int handle, int sx, int sy) {
 		if (state == CONSTRUCTING)
 			return;
-		int ox = sg.offScreenX(sx);
-		int oy = sg.offScreenY(sy);
+		int ox = slide.offScreenX(sx);
+		int oy = slide.offScreenY(sy);
 		double oxd = ox;
 		double oyd = oy;
 		
@@ -913,8 +913,8 @@ public class PolygonRoi extends RoiObj {
 //			return;
 //		}
 		
-		super.mouseDownInHandle(handle, sx, sy,sg); // sets state, activeHandle, previousSX&Y
-		int m = (int) (10.0 / sg.getMagnification());
+		super.mouseDownInHandle(handle, sx, sy); // sets state, activeHandle, previousSX&Y
+		int m = (int) (10.0 / getMagnification());
 		xClipMin = ox - m;
 		yClipMin = oy - m;
 		xClipMax = ox + m;

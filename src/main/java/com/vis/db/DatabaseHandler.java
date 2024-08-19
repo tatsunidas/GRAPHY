@@ -40,7 +40,6 @@ package com.vis.db;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
@@ -50,13 +49,10 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
-import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.DateUtils;
-import com.vis.core.util.Platform;
-import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomObject;
@@ -69,7 +65,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.GraphyProp;
+import com.vis.configuration.ContextKey;
 import com.vis.configuration.Resources;
 
 /**
@@ -3277,15 +3273,26 @@ public class DatabaseHandler {
 	}
 
 	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
-		insertRoi((String) roiCon.get("RoiID"), (String) roiCon.get("Name"),
-				Integer.parseInt((String) roiCon.get("RoiType")), (int) roiCon.get("OriginX"),
-				(int) roiCon.get("OriginY"), (int) roiCon.get("Width"), (int) roiCon.get("Height"),
-				(double[]) roiCon.get("PointX"), (double[]) roiCon.get("PointY"), (double[]) roiCon.get("Shape"),
-				Integer.parseInt((String) roiCon.get("InstanceNo")),
+		insertRoi(
+				(String) roiCon.get(ContextKey.RoiID.name()), 
+				(String) roiCon.get("Name"),
+				Integer.parseInt((String) roiCon.get("RoiType")), 
+				(int) roiCon.get("OriginX"),
+				(int) roiCon.get("OriginY"), 
+				(int) roiCon.get("Width"), 
+				(int) roiCon.get("Height"),
+				(double[]) roiCon.get("PointX"), 
+				(double[]) roiCon.get("PointY"), 
+				(double[]) roiCon.get("Shape"),
+				Integer.parseInt(roiCon.get("InstanceNo") != null ? (String)roiCon.get("InstanceNo"): "-1"),
 				roiCon.get("RoiGroup") == null ? -1 : Integer.parseInt((String) roiCon.get("RoiGroup")),
-				(String) roiCon.get("RoiLabel"), (String) roiCon.get("ObjectType"), (String) roiCon.get("Organ"),
-				(String) roiCon.get("Description"), (String) roiCon.get("PatientID"),
-				(String) roiCon.get("StudyInstanceUID"), (String) roiCon.get("SeriesInstanceUID"),
+				(String) roiCon.get("RoiLabel"), 
+				(String) roiCon.get("ObjectType"), 
+				(String) roiCon.get("Organ"),
+				(String) roiCon.get("Description"),
+				(String) roiCon.get("PatientID"),
+				(String) roiCon.get("StudyInstanceUID"), 
+				(String) roiCon.get("SeriesInstanceUID"),
 				(String) roiCon.get("SOPInstanceUID"));
 	}
 
@@ -3368,11 +3375,11 @@ public class DatabaseHandler {
 				conn.commit();
 				insertStmt.close();
 			} catch (SQLException ex) {
-				logger.severe("DatabaseHandler - Unable to save patient information\n" + ex.getMessage());
+				logger.severe("DatabaseHandler - Unable save ROI\n" + ex.getMessage());
 			} finally {
 				safeClose(conn);
 			}
-			// already exists
+		// already exists
 		} else {
 			// updation
 			updateRoiInfo(roiId, name, roiType, originX, originY, w, h, pointX, pointY, shapeArray, instNo, roiGroup,
@@ -5108,7 +5115,7 @@ public class DatabaseHandler {
 	}
 
 	public synchronized boolean writeDatasetInfo(DicomObject dataset, String filePath) {
-		boolean overWrite = overWriteSavedAsLinkRecord(dataset, saveAsLink);
+		boolean overWrite = overWriteSavedAsLinkRecord(dataset, saveAsLink/*false*/);
 		if (!checkCanImport(dataset) && !overWrite) {
 			return false;
 		}

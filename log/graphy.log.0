@@ -1,712 +1,454 @@
-8月 16, 2024 3:03:36 午後 com.vis.core.plugin.PluginShelf loadPlugins
+8月 19, 2024 6:57:16 午後 com.vis.core.plugin.PluginShelf loadPlugins
 情報: Loading PlugIns...
-8月 16, 2024 3:03:36 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+8月 19, 2024 6:57:16 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST START*************
-8月 16, 2024 3:03:36 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+8月 19, 2024 6:57:16 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST END**************
-8月 16, 2024 3:03:37 午後 com.vis.db.DatabaseHandler startingUp
+8月 19, 2024 6:57:17 午後 com.vis.db.DatabaseHandler startingUp
 情報: Current DB location: /home/tatsunidas/TEST_DB2
-8月 16, 2024 3:03:42 午後 com.vis.core.ui.main.TabDock ancestorAdded
+8月 19, 2024 6:57:23 午後 com.vis.core.ui.main.TabDock ancestorAdded
 情報: debug : In Main Frame: HOME
-8月 16, 2024 3:03:46 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
+8月 19, 2024 6:57:29 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
 普通: QR Pane : Home
-8月 16, 2024 3:03:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 223
-8月 16, 2024 3:03:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:223
-8月 16, 2024 3:03:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 223
-8月 16, 2024 3:03:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:223
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):307 82
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32778.0 newMax 33154.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32778.0 newMax 33172.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32772.5 newMax 32941.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32783.5 newMax 33158.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32784.5 newMax 33177.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32775.0 newMax 32943.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32789.5 newMax 33162.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32790.5 newMax 33181.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32777.5 newMax 32944.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32804.0 newMax 33174.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32806.5 newMax 33193.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32784.0 newMax 32950.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32813.5 newMax 33180.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32815.5 newMax 33200.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32787.5 newMax 32952.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32825.5 newMax 33188.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32828.0 newMax 33208.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32793.5 newMax 32956.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32836.0 newMax 33196.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32839.5 newMax 33216.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32798.5 newMax 32959.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32839.0 newMax 33197.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32842.5 newMax 33217.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32799.5 newMax 32960.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32847.5 newMax 33204.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32851.0 newMax 33225.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32803.0 newMax 32963.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32852.5 newMax 33207.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32857.5 newMax 33228.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32805.5 newMax 32964.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32860.5 newMax 33213.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32865.0 newMax 33235.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32810.0 newMax 32968.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32863.0 newMax 33215.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32868.0 newMax 33236.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32810.0 newMax 32968.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32866.5 newMax 33217.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32870.5 newMax 33237.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32812.5 newMax 32969.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32869.5 newMax 33218.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32874.0 newMax 33240.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32812.5 newMax 32969.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32871.5 newMax 33220.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32876.5 newMax 33241.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32815.0 newMax 32971.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32868.5 newMax 33217.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32873.0 newMax 33239.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32813.0 newMax 32969.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32860.0 newMax 33208.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32864.0 newMax 33228.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32809.0 newMax 32965.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32846.0 newMax 33192.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32850.0 newMax 33212.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32802.5 newMax 32957.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32831.5 newMax 33176.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32834.5 newMax 33195.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32796.5 newMax 32951.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32813.5 newMax 33156.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32815.5 newMax 33174.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32788.5 newMax 32941.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32792.5 newMax 33133.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32793.5 newMax 33150.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32778.5 newMax 32931.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32774.0 newMax 33114.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32774.0 newMax 33130.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32771.0 newMax 32923.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32758.0 newMax 33096.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32758.0 newMax 33112.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32763.5 newMax 32914.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32747.0 newMax 33083.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32746.0 newMax 33098.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32758.5 newMax 32909.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32739.0 newMax 33073.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32738.0 newMax 33088.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32755.0 newMax 32905.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32733.0 newMax 33067.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32731.0 newMax 33081.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32752.0 newMax 32902.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32728.5 newMax 33061.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32726.5 newMax 33075.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32750.5 newMax 32899.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32722.0 newMax 33054.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32720.0 newMax 33068.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32747.5 newMax 32896.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32713.5 newMax 33044.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32710.5 newMax 33057.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32744.0 newMax 32892.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32705.0 newMax 33035.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32702.5 newMax 33047.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32740.0 newMax 32888.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32690.0 newMax 33018.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32686.0 newMax 33030.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32732.5 newMax 32879.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32686.5 newMax 33013.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32682.5 newMax 33025.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32731.5 newMax 32878.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32678.0 newMax 33004.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32674.0 newMax 33016.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32728.0 newMax 32874.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32668.0 newMax 32992.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32663.5 newMax 33002.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32723.5 newMax 32868.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32658.5 newMax 32981.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32653.0 newMax 32991.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32718.5 newMax 32863.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32648.5 newMax 32969.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32643.0 newMax 32979.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32714.0 newMax 32858.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32636.5 newMax 32955.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32631.0 newMax 32965.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32708.5 newMax 32851.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32627.0 newMax 32945.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32620.5 newMax 32953.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32705.0 newMax 32847.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32618.0 newMax 32934.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32610.5 newMax 32941.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32701.0 newMax 32843.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32609.0 newMax 32923.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32601.5 newMax 32930.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32696.5 newMax 32837.5
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32601.0 newMax 32915.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32594.0 newMax 32922.0
-8月 16, 2024 3:04:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32693.0 newMax 32833.0
-8月 16, 2024 3:04:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32598.0 newMax 32910.0
-8月 16, 2024 3:04:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32590.5 newMax 32917.5
-8月 16, 2024 3:04:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32692.0 newMax 32832.0
-8月 16, 2024 3:04:20 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):60 42
-8月 16, 2024 3:04:20 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):60 42
-8月 16, 2024 3:04:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 223
-8月 16, 2024 3:04:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:223
-8月 16, 2024 3:04:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):279 61
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32862.0 newMax 35286.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32853.0 newMax 35041.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32855.5 newMax 35122.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32916.5 newMax 35331.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32902.0 newMax 35082.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32906.5 newMax 35165.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32970.5 newMax 35377.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32951.0 newMax 35123.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32957.5 newMax 35208.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33025.0 newMax 35423.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33000.0 newMax 35164.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33008.5 newMax 35251.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33097.5 newMax 35482.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33065.5 newMax 35218.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33076.5 newMax 35307.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33185.5 newMax 35558.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33145.5 newMax 35286.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33158.5 newMax 35377.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33275.0 newMax 35631.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33226.0 newMax 35352.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33242.5 newMax 35445.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33331.5 newMax 35666.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33276.0 newMax 35384.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33295.0 newMax 35479.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33380.0 newMax 35708.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33320.5 newMax 35421.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33340.5 newMax 35517.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33417.5 newMax 35732.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33353.0 newMax 35443.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33375.0 newMax 35541.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33431.0 newMax 35743.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33366.5 newMax 35453.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33389.0 newMax 35551.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33467.0 newMax 35771.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33399.5 newMax 35478.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33421.5 newMax 35576.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33485.0 newMax 35781.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33415.0 newMax 35487.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33438.5 newMax 35585.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33503.0 newMax 35791.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33431.5 newMax 35496.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33455.0 newMax 35595.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33518.5 newMax 35803.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33445.0 newMax 35507.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33469.5 newMax 35606.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33537.5 newMax 35814.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33462.5 newMax 35517.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33487.5 newMax 35616.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33536.5 newMax 35809.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33461.5 newMax 35512.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33487.0 newMax 35613.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33521.5 newMax 35790.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33448.0 newMax 35496.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33473.0 newMax 35595.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33490.5 newMax 35755.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33419.5 newMax 35464.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33443.5 newMax 35562.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33410.5 newMax 35643.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33348.5 newMax 35363.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33369.0 newMax 35457.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33333.0 newMax 35549.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33278.0 newMax 35278.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33297.0 newMax 35369.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33288.0 newMax 35494.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33237.5 newMax 35228.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33254.5 newMax 35317.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33188.5 newMax 35375.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33147.5 newMax 35120.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33161.5 newMax 35206.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33100.5 newMax 35273.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33068.5 newMax 35029.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33079.0 newMax 35111.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33028.5 newMax 35191.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33003.0 newMax 34955.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 33011.5 newMax 35034.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32942.5 newMax 35095.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32925.5 newMax 34868.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32931.5 newMax 34944.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32887.0 newMax 35029.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32875.5 newMax 34808.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32879.0 newMax 34883.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32833.0 newMax 34965.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32826.0 newMax 34750.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32828.0 newMax 34822.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32791.0 newMax 34917.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32788.5 newMax 34707.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32790.0 newMax 34778.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32735.5 newMax 34854.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32738.5 newMax 34651.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32738.0 newMax 34720.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32724.5 newMax 34837.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32728.5 newMax 34635.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32727.0 newMax 34703.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32697.0 newMax 34807.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32704.0 newMax 34608.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32701.5 newMax 34674.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32656.5 newMax 34759.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32668.0 newMax 34566.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32663.5 newMax 34630.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32644.0 newMax 34744.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32656.5 newMax 34551.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32652.0 newMax 34616.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32591.5 newMax 34680.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32608.5 newMax 34493.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32603.0 newMax 34557.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32537.5 newMax 34620.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32560.0 newMax 34440.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32553.0 newMax 34501.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32527.5 newMax 34604.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32551.0 newMax 34425.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32543.0 newMax 34485.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32460.0 newMax 34530.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32489.5 newMax 34358.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32480.0 newMax 34416.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32450.0 newMax 34514.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32480.5 newMax 34343.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32470.5 newMax 34401.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32409.5 newMax 34470.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32444.0 newMax 34304.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32432.0 newMax 34360.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32370.5 newMax 34425.5
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32409.0 newMax 34263.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32396.0 newMax 34318.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32359.0 newMax 34411.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32399.0 newMax 34251.0
-8月 16, 2024 3:04:28 午後 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
-情報: change ww/wl : newMin 32385.5 newMax 34304.5
-8月 16, 2024 3:04:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 223
-8月 16, 2024 3:04:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:223
-8月 16, 2024 3:04:37 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 223
-8月 16, 2024 3:04:37 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:223
+8月 19, 2024 6:57:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 19, 2024 6:57:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:206
+8月 19, 2024 6:57:33 午後 com.vis.core.view.D2.ui.Viewer2DToolBar setAction
+普通: reset
+8月 19, 2024 6:57:34 午後 com.vis.core.view.D2.ui.StageView componentAdded
+普通: added !!!
+8月 19, 2024 6:57:38 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 206
+8月 19, 2024 6:57:38 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:206
+8月 19, 2024 6:57:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):277 152
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:57:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:01 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:02 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 6:58:03 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 6:58:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):325 202
+8月 19, 2024 6:58:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:06 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:07 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 6:58:08 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 6:58:09 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):299 177
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:09 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:10 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:11 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:02:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):219 155
+8月 19, 2024 7:02:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:57 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: MOVING
+8月 19, 2024 7:02:58 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):255 184
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 125 , originY 13
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 125 , originY 13
+8月 19, 2024 7:03:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 125 , originY 13
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 18
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 18
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 18
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 132 , originY 22
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 132 , originY 22
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 132 , originY 22
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 133 , originY 23
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 133 , originY 23
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 133 , originY 23
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 134 , originY 24
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 134 , originY 24
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 134 , originY 24
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 136 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 136 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 136 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 27
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 28
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 28
+8月 19, 2024 7:03:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 137 , originY 28
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 20
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 20
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 130 , originY 20
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 128 , originY 18
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 128 , originY 18
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 128 , originY 18
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 124 , originY 15
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 124 , originY 15
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 124 , originY 15
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 121 , originY 11
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 121 , originY 11
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 121 , originY 11
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 118 , originY 9
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 118 , originY 9
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 118 , originY 9
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 116 , originY 4
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 116 , originY 4
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 116 , originY 4
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 113 , originY 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 113 , originY 1
+8月 19, 2024 7:03:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 113 , originY 1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 111 , originY -1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 111 , originY -1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 111 , originY -1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 107 , originY -4
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 107 , originY -4
+8月 19, 2024 7:03:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlass panning
+普通: Panning : originX 107 , originY -4
+8月 19, 2024 7:03:14 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):369 199
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:21 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:22 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is 1
+8月 19, 2024 7:03:23 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
+普通: GROW
+8月 19, 2024 7:03:24 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:03:35 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):434 254
+8月 19, 2024 7:03:35 午後 com.vis.core.view.D2.roi.RoiObj handleMouseUp
+普通: Roi RELEASED, state to be normal
+8月 19, 2024 7:03:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassKeyListener keyPressed
+普通: Will delet Roi, Delete pressed
+8月 19, 2024 7:03:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassKeyListener keyPressed
+普通: Will delet Roi, Delete pressed

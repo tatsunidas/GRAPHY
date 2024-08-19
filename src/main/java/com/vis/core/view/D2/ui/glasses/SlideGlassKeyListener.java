@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
 
 public class SlideGlassKeyListener implements KeyListener{
@@ -120,14 +121,14 @@ public class SlideGlassKeyListener implements KeyListener{
 			 * limitations of the Fn key.
 			 */
 			if (e.getKeyCode() == KeyEvent.VK_DELETE || backspace) {
-				System.out.println("Delete pressed");
+				Log.logger.fine("Will delet Roi, "+"Delete pressed");
 				cg.deleteRoi(sg.mouseX, sg.mouseY);
 				return;
 	        }
 
 			// paging
 			if (left || up && !right && !down && !shift && !ctrl) {
-				if (cg.activateAndGetRoiAt(sg.mouseX, sg.mouseY) == null) {
+				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
 					if (!pp.isShowGridViewOn()) {
 						if (prapManager != null) {/* Sync series */
 							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
@@ -159,7 +160,7 @@ public class SlideGlassKeyListener implements KeyListener{
 					}
 				}
 			} else if (right || down && !left && !up && !shift && !ctrl) {
-				if (cg.activateAndGetRoiAt(sg.mouseX, sg.mouseY) == null) {
+				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
 					if (!pp.isShowGridViewOn()) {
 						if (prapManager != null) {
 							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();

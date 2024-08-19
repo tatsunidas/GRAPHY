@@ -66,6 +66,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private SlideGlass slide;
 	private Praparat pp;
 	private Eyepiece prapManager;
+	private CanvasGlass cg;
 	private int viewerToolType = Viewer2DToolBar.Windowing;
 	
 	private int wheelRotationAccumulator = 0;
@@ -75,6 +76,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	public SlideGlassMouseListener(SlideGlass slide) {
 		this.slide = slide;
+		this.cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		this.pp = slide.getPraparat();
 		this.prapManager = pp.getEyepieceAsPraparatManager();
 	}
@@ -99,7 +101,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 		
-		if (cg.activateAndGetRoiAt(slide.mouseX, slide.mouseY) != null) {
+		if (cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY) != null) {
 			return;
 		}
 		
@@ -222,7 +224,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		// MPR
 		if(pp.mode == ViewMode.MPR && pp.isShowCrossLineMode()) {
-			slide.drawCross(e);
+			cg.drawCross(e);
 			//return;//DO NOT RETURN
 		}
 		
@@ -235,29 +237,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 
-		// roi brush
-		if (viewerToolType == Viewer2DToolBar.Brush) {
-			if (slide.handleRoiMouseDragged(e)) {
-				return;
-			}
+		// roi or brush
+		if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
+			cg.mouseDragged(e);
 		}
-		// roi
-		if (Viewer2DToolBar.isRoiTool(viewerToolType)) {
-			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown() && !e.isShiftDown() && !e.isAltDown()) {
-				if (slide.handleRoiMouseDragged(e)) {
-					return;
-				}
-			}
-		}
-
-		// reference line
-		if (pp.getReferenceLine() != null) {
-			if (slide.handleRoiMouseDragged(e)) {
-				return;
-			}
-			return;// attention
-		}
-
+		
 		/*
 		 * WW/WL
 		 */
@@ -321,7 +305,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		slide.updatePrapInfoLabel(x, y);
 		// roi
 		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
-			slide.handleRoiMouseMoved(e);
+			cg.mouseMoved(e);
 		}
 	}
 
@@ -332,21 +316,27 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		// handle select event
 		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown()) {
+			if(cg.setSelectStateOfCurrentRoi(e)) {
+				//if true (currentRoi not null and selected)
+				e.consume();
+				return;
+			}
 			slide.setSelectionState();
 			if (pp.getViewMode() != ViewMode.Thumbnail) {
 				pp.setSelectionState(true);
 			}
+			e.consume();
 		}
 		
 		// handle double click event.
 		if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && !e.isConsumed()) {
-			e.consume();
 			if (pp.getViewMode() == ViewMode.Thumbnail) {
 				MainScreen ms = WindowManager.getMainScreen();
 				if (ms != null) {
 					ms.showImagesOnBirdsEye(pp);
 				}
 			}
+			e.consume();
 		}
 	}
 
@@ -363,7 +353,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 			
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
-				slide.handleRoiMousePressed(e);
+				cg.mousePressed(e);
 				return;
 			}
 			
@@ -399,7 +389,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		// roi
 		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
-			slide.handleRoiMouseUp(e);
+			cg.mouseReleased(e);
 		}
 		
 	}

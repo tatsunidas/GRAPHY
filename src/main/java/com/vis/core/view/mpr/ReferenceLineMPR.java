@@ -87,9 +87,9 @@ public class ReferenceLineMPR {
 			 * This specification does not allow the XYZ cube to be rotated and sliced, so the line should not be rotated unless it is the main plane.
 			 */
 			@Override
-			public void handleMouseDrag(int sx, int sy, int flags) {
+			public void mouseDrag(int sx, int sy, int flags) {
 				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XY) {
-					super.handleMouseDrag(sx, sy, flags);
+					super.mouseDrag(sx, sy, flags);
 				}
 			}
 		};
@@ -101,9 +101,9 @@ public class ReferenceLineMPR {
 				drawXZ(this, g, sg);
 			}
 			@Override
-			public void handleMouseDrag(int sx, int sy, int flags) {
+			public void mouseDrag(int sx, int sy, int flags) {
 				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XZ) {
-					super.handleMouseDrag(sx, sy, flags);
+					super.mouseDrag(sx, sy, flags);
 				}
 			}
 		};
@@ -115,9 +115,9 @@ public class ReferenceLineMPR {
 				drawYZ(this, g, sg);
 			}
 			@Override
-			public void handleMouseDrag(int sx, int sy, int flags) {
+			public void mouseDrag(int sx, int sy, int flags) {
 				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.YZ) {
-					super.handleMouseDrag(sx, sy, flags);
+					super.mouseDrag(sx, sy, flags);
 				}
 			}
 		};
@@ -499,7 +499,7 @@ public class ReferenceLineMPR {
 		
 		
 		//set handles
-		refLine.drawHandleRect(g, sx1, sy1, slide);
+		refLine.drawHandle(g, sx1, sy1);
 		refLine.drawHandle(g, sx2, sy2);
 		//middle handle
 		refLine.drawHandle(g, sx3, sy3);

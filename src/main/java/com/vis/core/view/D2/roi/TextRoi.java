@@ -486,7 +486,7 @@ public class TextRoi extends RoiObj {
         defaultAngle = angle;
     }
     
-    public void handleMouseDrag(int sx, int sy, int flags) {
+    public void mouseDrag(int sx, int sy, int flags) {
 		if(slide == null) {
 			return;
 		}

@@ -40,7 +40,6 @@ package com.vis.core.view.D2.roi;
 import ij.*;
 import ij.gui.Roi;
 import ij.gui.RoiListener;
-import ij.gui.RotatedRectRoi;
 import ij.process.*;
 import ij.process.PolygonFiller;
 import ij.measure.*;
@@ -188,13 +187,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/** Get using getPreviousRoi() and set using setPreviousRoi() */
 	public static RoiObj previousRoi;
 	protected static LUT glasbeyLut;
-	private static Double defaultStrokeWidth;
+	private static Double defaultStrokeWidth = 1d;
 
 	protected static int lineWidth = 1;// keep static
 	public static final int FERET_ARRAYSIZE = 16; // Size of array with Feret values
 	public static final int FERET_ARRAY_POINTOFFSET = 8; // Where point coordinates start in Feret array
 	
-	protected static Color ROIColor = Color.CYAN;
+	protected static Color ROIColor = Color.YELLOW;
 	protected static Color defaultFillColor = Color.white;
 	protected static Color defaultHandleColor = Color.yellow;
 	protected static int pasteMode = Blitter.COPY;
@@ -266,8 +265,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 */
 	public Properties props = new Properties();
 
-	private boolean activeOverlayRoi = false;//get mouse focus
+	protected boolean activeOverlayRoi = false;//get mouse focus
 	protected boolean isSelected = false;
+	protected boolean fill = false;
 	
 	protected SlideGlass slide;
 	
@@ -297,7 +297,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 		if (line.getType() == RoiType.LINE.id()) {
 			FloatPolygon p = ((Line)line).getFloatPoints();
-			roi2 = new RotatedRectRoi(p.xpoints[0],p.ypoints[0],p.xpoints[1],p.ypoints[1],lineWidth);
+			roi2 = new ij.gui.RotatedRectRoi(p.xpoints[0],p.ypoints[0],p.xpoints[1],p.ypoints[1],lineWidth);
 			line.setStrokeWidth(lineWidth);
 		} else {
 			Rectangle bounds = line.getBounds();
@@ -801,7 +801,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	public void draw(Graphics g) {
 		Color color = strokeColor != null ? strokeColor : ROIColor;
-		if (fillColor!=null) color = fillColor;
+		if(fill) {
+			color = fillColor;
+		}
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
 		}
@@ -828,7 +830,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		setRenderingHint(g2d);
 		if (cornerDiameter>0) {
 			int sArcSize = (int)Math.round(cornerDiameter*mag);
-			if (fillColor!=null) {
+			if (fillColor!=null && fill) {
 				g.fillRoundRect(sx1, sy1, sw, sh, sArcSize, sArcSize);
 				if (strokeColor!=null) {
 					g.setColor(strokeColor);
@@ -837,7 +839,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			} else
 				g.drawRoundRect(sx1, sy1, sw, sh, sArcSize, sArcSize);
 		} else {
-			if (fillColor!=null) {
+			if (fillColor!=null && fill) {
 				if (!overlay && isActiveOverlayRoi()) {
 					g.setColor(Color.cyan);
 					g.drawRect(sx1, sy1, sw, sh);
@@ -914,49 +916,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		g.setColor(handleColor);
 		width -= 2;
 		g.fillRect(sx, sy, width, width);
-	}
-
-	public void drawHandleRect(Graphics g, int x, int y, SlideGlass sg) {
-		double mag = sg.getMagnification();
-		int threshold1 = 7500;
-		int threshold2 = 1500;
-		double size = (this.width * this.height) * mag * mag;
-		if (this instanceof Line) {
-			size = ((Line) this).getLength() * this.mag;
-			threshold1 = 150;
-			threshold2 = 50;
-		} else {
-			if (state == CONSTRUCTING && !(type == RoiType.RECTANGLE.id() || type == RoiType.OVAL.id()))
-				size = threshold1 + 1;
-		}
-		int width = 7;
-		int x0 = sg.screenX(x), y0 = sg.screenY(y);
-		if (size > threshold1) {
-			x -= 3;
-			y -= 3;
-		} else if (size > threshold2) {
-			x -= 2;
-			y -= 2;
-			width = 5;
-		} else {
-			x--;
-			y--;
-			width = 3;
-		}
-		int inc = getHandleSize() - 7;
-		width += inc;
-		x -= inc / 2;
-		y -= inc / 2;
-		g.setColor(handleColor);
-		if (width < 3) {
-			g.fillRect(x0, y0, 1, 1);
-			return;
-		}
-		g.fillRect(x++, y++, width, width);
-		g.setColor(handleColor);
-		width -= 2;
-		g.fillRect(x, y, width, width);
-		sg.repaint();
 	}
 
 	/**
@@ -2016,19 +1975,25 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		oldHeight = height;
 	}
 
-	public void handleMouseDown(int sx, int sy) {
-		if (state==NORMAL && slide!=null) {
-			state = MOVING;
-			previousSX = sx;
-			previousSY = sy;
-			startX = offScreenX(sx);
-			startY = offScreenY(sy);
-			startXD = offScreenXD(sx);
-			startYD = offScreenYD(sy);
+	public void mouseDown(MouseEvent e) {
+		int sx = e.getX();
+		int sy = e.getY();
+		int handleId = isHandle(sx, sy);
+		setRoiModState(e, handleId);
+		if(handleId < 0) {
+			mouseDownWithoutHandle(sx, sy);
+		}else {
+			mouseDownInHandle(handleId, sx, sy);
 		}
+		previousSX = sx;
+		previousSY = sy;
+		startX = offScreenX(sx);
+		startY = offScreenY(sy);
+		startXD = offScreenXD(sx);
+		startYD = offScreenYD(sy);
 	}
 
-	public void handleMouseDrag(int sx, int sy, int flags) {
+	public void mouseDrag(int sx, int sy, int flags) {
 		constrain = (flags & InputEvent.SHIFT_DOWN_MASK) != 0;
 		center = (flags & InputEvent.CTRL_DOWN_MASK) != 0 || (Platform.isMac()&& (flags & InputEvent.META_DOWN_MASK) != 0);
 		aspect = (flags & InputEvent.ALT_DOWN_MASK) != 0;
@@ -2097,6 +2062,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	protected void initUIDsBySlideGlass(SlideGlass sg) {
 		if (sg == null) {
 			initUIDs(null);
+			return;
 		}
 		String[] uids = sg.getUIDs();
 		initUIDs(uids);
@@ -2170,7 +2136,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		String studyUID = uids.get(ContextKey.StudyInstanceUID);
 		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
 		String sopUID = uids.get(ContextKey.SOPInstanceUID);
-		String id = getProperty(ContextKey.RoiID.name());
+		String id = uids.get(ContextKey.RoiID);
 		return isThisRoi(patID, studyUID, seriesUID, sopUID, id);
 	}
 
@@ -2189,7 +2155,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		String uid2 = uids.get(ContextKey.StudyInstanceUID);
 		String uid3 = uids.get(ContextKey.SeriesInstanceUID);
 		String uid4 = uids.get(ContextKey.SOPInstanceUID);
-		String id = getProperty(ContextKey.RoiID.name());
+		String id = uids.get(ContextKey.RoiID);
 		if (uid1 == null || uid2 == null || uid3 == null || id == null) {
 			return false;
 		}
@@ -2266,25 +2232,22 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	void modifyRoi() {
-		if (previousRoi == null || previousRoi.modState == NO_MODS || imp == null) {
+		if (previousRoi == null || previousRoi.modState == NO_MODS || imp==null) {
+			if (slide != null) {
+				slide.saveRoi(this);
+			}
 			return ;
 		}
 
-		// todo 20240817
-		// setBasicStatistics2Popup();
-
-		// avoid nullpointer when loading roi from db, which has no slideglass yet.
-		if (slide != null) {
-			CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.insertOrUpdateRoi4DB(this);// why not use addRoi ?
-		}
-		
 		if (type == RoiType.POINT.id() || previousRoi.getType() == RoiType.POINT.id()) {
 			if (type == RoiType.POINT.id() && previousRoi.getType() == RoiType.POINT.id()) {
 				addPoint();
 			} else if (isArea() && previousRoi.getType() == RoiType.POINT.id()
 					&& previousRoi.modState == SUBTRACT_FROM_ROI)
 				subtractPoints();
+			if (slide != null) {
+				slide.saveRoi(this);
+			}
 			return;
 		}
 		RoiObj previous = (RoiObj) previousRoi.clone();
@@ -2317,27 +2280,27 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 //		if (roi2!=null)
 //			roi2.copyAttributes(previousRoi);
 		previousRoi = previous;
-		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-		cg.insertOrUpdateRoi4DB(this);// why not use addRoi ?
+		if (slide != null) {
+			slide.saveRoi(this);
+		}
 		// todo
 		// setBasicStatistics2Popup();
 	}
 
-	public void mouseDownInHandle(int handle, int sx, int sy, SlideGlass sg) {
+	protected void mouseDownInHandle(int handle, int sx, int sy) {
 		setState(MOVING_HANDLE);
-		previousSX = sx;
-		previousSY = sy;
 		activeHandle = handle;
 	}
 
-	public void mouseDownWithoutHandle(int sx, int sy, SlideGlass sg) {
-		if (state == NORMAL && sg != null) {
-			state = MOVING;
+	protected void mouseDownWithoutHandle(int sx, int sy) {
+		if (state == NORMAL) {
+			setState(MOVING);
 		}
+		activeHandle = -1;
 	}
 
 	public void mouseDragged(MouseEvent e) {
-		handleMouseDrag(e.getX(), e.getY(), e.getModifiersEx());
+		mouseDrag(e.getX(), e.getY(), e.getModifiersEx());
 	}
 	
 	// For each RoiObj child classes.
@@ -2347,80 +2310,42 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		handleMouseUp(e.getX(), e.getY());
 	}
 
-	/*
-	 * TODO
-	 */
 	void move(int sx, int sy) {
-
+		if (constrain) {  // constrain translation in 90deg steps
+			int dx = sx - previousSX;
+			int dy = sy - previousSY;
+			if (Math.abs(dx) > Math.abs(dy))
+				dy = 0;
+			else
+				dx = 0;
+			sx = previousSX + dx;
+			sy = previousSY + dy;
+		}
+		int xNew = offScreenX(sx);
+		int yNew = offScreenY(sy);
+		int dx = xNew - startX;
+		int dy = yNew - startY;
+		if (dx==0 && dy==0)
+			return;
+		x += dx;
+		y += dy;
+		if (bounds!=null)
+			setLocation(bounds.x + dx, bounds.y + dy);
+		boolean isImageRoi = this instanceof ImageRoi;
+		if (clipboard==null && type==RoiType.RECTANGLE.id() && !isImageRoi) {
+			if (x<0) x=0; if (y<0) y=0;
+			if ((x+width)>xMax) x = xMax-width;
+			if ((y+height)>yMax) y = yMax-height;
+		}
+		startX = xNew;
+		startY = yNew;
+		if (type==RoiType.POINT.id() || ((this instanceof TextRoi) && ((TextRoi)this).getAngle()!=0.0))
+			ignoreClipRect = true;
+		updateClipRect();
 		oldX = x;
 		oldY = y;
-
-		int lastSX = slide.mouseX;// image origin at left btn press
-		int lastSY = slide.mouseY;
-		int dx = sx - lastSX;
-		int dy = sy - lastSY;
-		if (dx == 0 && dy == 0) {
-			return;
-		}
-//		System.out.println(dx+" "+dy);
-		/*
-		 * scale to orginal
-		 */
-		double mag = getMagnification();
-		double scale = getComponentScaleFactor()[0];
-		double org_scaled_dx = dx / mag / scale;
-		double org_scaled_dy = dy / mag / scale;
-		// diffs
-//		x = beforeDraggingOriginX + (int)org_scaled_dx;
-//		y = beforeDraggingOriginY + (int)org_scaled_dy;
-		x = startX + (int) org_scaled_dx;
-		y = startY + (int) org_scaled_dy;
-		// IMPORTANT, see getXBase(), getYBase()
-		if (bounds != null) {
-			bounds.x = x;
-			bounds.y = y;
-		}
-
-		// tatsu
-		if (this instanceof ShapeRoi) {
-			Shape s = ((ShapeRoi) this).getShape();
-//			s.getBounds().x = x;//代入できない
-//			s.getBounds().y = y;
-			ShapeRoi moveSr = new ShapeRoi(x, y, s, this.slide);
-			((ShapeRoi) this).setShape(moveSr.getShape());
-			System.out.println("change shape origin to " + moveSr.getBounds().x + " " + moveSr.getBounds().y);
-		}
-
-		// tatsu
-//		boolean isImageRoi = this instanceof ImageRoi;
-		boolean isImageRoi = false;
-		if (clipboard == null && type == RoiType.RECTANGLE.id() && !isImageRoi) {
-			if (x < 0)
-				x = 0;
-			if (y < 0)
-				y = 0;
-			if ((x + width) > xMax)
-				x = xMax - width;
-			if ((y + height) > yMax)
-				y = yMax - height;
-			// adjusted
-			if (bounds != null) {
-				bounds.x = x;
-				bounds.y = y;
-			}
-		}
-
-		// tatsu todo
-//		if (type==POINT || ((this instanceof TextRoi) && ((TextRoi)this).getAngle()!=0.0))
-//			ignoreClipRect = true;
-
-		updateClipRect();
-
-		// tatsu todo
-//		if ((lineWidth>1 && isLine()) || ignoreClipRect || ((this instanceof PolygonRoi)&&((PolygonRoi)this).isSplineFit()))
-//			imp.draw();
-//		else
-//			imp.draw(clipX, clipY, clipWidth, clipHeight);
+		oldWidth = width;
+		oldHeight=height;
 	}
 
 	protected void moveHandle(int sx, int sy) {
@@ -2743,7 +2668,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		for (ContextKey k : ContextKey.values()) {
 			String v = getProperty(k.name());
 			if (v != null) {
-				con.put(k.name(), getProperty(k.name()));
+				con.put(k.name(), v);
 			}
 		}
 		if (getType() == RoiType.POLYGON.id() || getType() == RoiType.ANGLE.id()) {
@@ -3111,17 +3036,17 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			return;
 		}
 
-		if (getState() == RoiObj.CONSTRUCTING) {
+		if (getState() == CONSTRUCTING) {
 			return;
 		}
 		// TODO
 //		int tool = Toolbar.getToolId();
 //		if (tool>Toolbar.FREEROI && tool!=Toolbar.WAND && tool!=Toolbar.POINT)
 //			{roi.modState = Roi.NO_MODS; return;}
-//		if (e.isShiftDown())
-//			roi.modState = Roi.ADD_TO_ROI;
-//		else if (e.isAltDown())
-//			roi.modState = Roi.SUBTRACT_FROM_ROI;
+		if (e.isShiftDown())
+			setModificationState(ADD_TO_ROI);
+		else if (e.isAltDown())
+			setModificationState(SUBTRACT_FROM_ROI);
 		else {
 			setModificationState(NO_MODS);
 		}
@@ -3142,7 +3067,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if(sg != null) {
 			setImage(sg.getOriginalImage());
 		}
-		initUIDsBySlideGlass(sg);
+		if(getProperty(ContextKey.RoiID.name()) == null) {
+			initUIDsBySlideGlass(sg);
+		}
 	}
 
 	public void setState(int state) {
@@ -3151,6 +3078,10 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	
 	public void setSelectedState(boolean select) {
 		this.isSelected = select;
+	}
+	
+	public void setFillState(boolean fill) {
+		this.fill = fill;
 	}
 
 	/** Sets the Stroke used to draw this ROI. */
@@ -3201,8 +3132,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			this.stroke = new BasicStroke(strokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL);
 		else
 			this.stroke = new BasicStroke(strokeWidth);
-		//if (strokeWidth>1f)
-		//	fillColor = null;
 		if (notify)
 			notifyListeners(RoiListener.MODIFIED);
 	}
@@ -3220,7 +3149,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		setProperty(ContextKey.StudyInstanceUID.name(), studyUID);
 		setProperty(ContextKey.SeriesInstanceUID.name(), seriesUID);
 		setProperty(ContextKey.SOPInstanceUID.name(), sopUID);
-		setProperty(ContextKey.RoiID.name(), roiID);// createRoiIndex());
+		setProperty(ContextKey.RoiID.name(), roiID);
 	}
 
 	/**

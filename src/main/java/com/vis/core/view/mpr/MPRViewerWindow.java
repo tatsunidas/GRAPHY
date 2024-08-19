@@ -1476,9 +1476,9 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		return null;
 	}
 	
-	
+	//TODO 20240819
 	void drawCross(Praparat pp, Point offScreenP) {
-		pp.getCurrentSlide().drawCross(offScreenP);
+//		pp.getCurrentSlide().
 	}
 	
 	void drawReferenceLines() {

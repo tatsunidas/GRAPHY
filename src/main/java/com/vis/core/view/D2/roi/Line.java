@@ -91,7 +91,7 @@ public class Line extends RoiObj {
 		drawLine(e.getX(), e.getY());
 	}
 	
-	public void handleMouseDrag(int sx, int sy, int flags) {
+	public void mouseDrag(int sx, int sy, int flags) {
 		System.out.println("dragging line roi");
 		switch (state) {
 		case CONSTRUCTING:
@@ -415,8 +415,8 @@ public class Line extends RoiObj {
 		slide.repaint();
 	}
 
-	public void mouseDownInHandle(int handle, int sx, int sy, SlideGlass sg) {
-		super.mouseDownInHandle(handle, sx, sy, sg); // sets state, activeHandle, previousSX&Y
+	public void mouseDownInHandle(int handle, int sx, int sy) {
+		super.mouseDownInHandle(handle, sx, sy); // sets state, activeHandle, previousSX&Y
 	}
 	
 	/** Sets the x1d, y1d, x2d, y2d line end points,
@@ -683,8 +683,8 @@ public class Line extends RoiObj {
 			return false;
 	}
 	
-	public void handleMouseDown(MouseEvent e) {
-        super.handleMouseDown(e.getX(), e.getY());//set start mouse position
+	public void mouseDown(MouseEvent e) {
+        super.mouseDown(e);//set start mouse position
     }
 
 	/**

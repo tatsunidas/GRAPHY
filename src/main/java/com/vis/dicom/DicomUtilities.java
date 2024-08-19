@@ -153,7 +153,10 @@ public class DicomUtilities {
 	}
 	
 	public static String getTransferSyntaxUID(String path) {
-		return new String((byte[])getDicomElement(path, Tag.TransferSyntaxUID));
+		/*
+		 * TSUID is return as String.
+		 */
+		return (String)getDicomElement(path, Tag.TransferSyntaxUID);
 	}
 	
 	public static String getFrameOfReferenceUID(String path) {
