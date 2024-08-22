@@ -7,14 +7,13 @@ import ij.measure.*;
 import ij.plugin.RoiRotator;
 import ij.plugin.Straightener;
 import java.awt.*;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
+import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 
 /** This class represents a straight line selection. 
@@ -26,6 +25,7 @@ public class Line extends RoiObj {
 	public int x1, y1, x2, y2; // the line
 	public double x1d, y1d, x2d, y2d; // the line using sub-pixel coordinates
 	protected double x1R, y1R, x2R, y2R; // the line, relative to base of bounding rect
+	protected double startxd, startyd;
 	static boolean widthChanged;
 	private boolean dragged;
 	private int mouseUpCount;
@@ -44,85 +44,40 @@ public class Line extends RoiObj {
 
 	public Line(double ox1, double oy1, double ox2, double oy2, SlideGlass slide) {
 		super((int)(ox1+0.5), (int)(oy1+0.5), 0, 0, 0, slide);
-//		super((int)(ox1), (int)(oy1), 0, 0, 0, slide);
 		type = RoiType.LINE.id();
 		updateCoordinates(ox1, oy1, ox2, oy2);
 		updateWideLine(lineWidth);
 		if (!(this instanceof Arrow) && lineWidth>1) {
 			updateWideLine(lineWidth);
 		}
-		/*
-		 * TODO?
-		 */
-        updateClipRect();
-//		oldX = x;
-//		oldY = y;
-//		oldWidth = width;
-//		oldHeight = height;
+       updateClipRect();
+		oldX = x;
+		oldY = y;
+		oldWidth = width;
+		oldHeight = height;
 		state = NORMAL;
 	}
-	
-	
-	@Override
-	public HashMap<String, Object> readContext(){
-    	HashMap<String,Object> con = new HashMap<>();
-    	//to string
-    	for(ContextKey k: ContextKey.values()) {
-    		con.put(k.name(), getProperty(k.name()));
-    	}
-    	
-    	con.put("OriginX", (int)getXBase());
-    	con.put("OriginY", (int)getYBase());
-    	con.put("Width", getBounds().width);
-    	con.put("Height", getBounds().height);
-    	
-    	con.put("PointX", fArray2dArray(getFloatPoints().xpoints));
-		con.put("PointY", fArray2dArray(getFloatPoints().ypoints));
-		
-    	return con;
-    }
 
+	@Override
 	protected void grow(int sx, int sy) { // mouseDragged
 		drawLine(sx, sy);
 		dragged = true;
 	}
 
+	@Override
 	public void mouseMoved(MouseEvent e) {
 		drawLine(e.getX(), e.getY());
 	}
 	
-	public void mouseDrag(int sx, int sy, int flags) {
-		System.out.println("dragging line roi");
-		switch (state) {
-		case CONSTRUCTING:
-			System.out.println("LINE ROI GROW");
-			grow(sx, sy);
-			break;
-		case MOVING:
-			System.out.println("LINE ROI MOVING");
-			move(sx, sy);
-			break;
-		case MOVING_HANDLE:
-			System.out.println("LINE ROI MOVING_HANDLE");
-			moveHandle(sx, sy);
-			break;
-		default:
-			break;
-		}
-	}
-
-	public void handleMouseUp(int screenX, int screenY, SlideGlass sg) {
+	@Override
+	public void handleMouseUp(int screenX, int screenY) {
 		mouseUpCount++;
 		if (Prefs.enhancedLineTool && mouseUpCount == 1 && !dragged)
 			return;
 		state = NORMAL;
-		//reset cursor
-		if(dragged) {
-			sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-		}
 		dragged = false;
 		if (getLength() == 0.0) {
-			sg.deleteRoi(this);
+			slide.deleteRoi(this);
 		}
 	}
 
@@ -131,8 +86,8 @@ public class Line extends RoiObj {
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		double xend = slide.offScreenXD(sx);
-		double yend = slide.offScreenYD(sy);
+		double xend = offScreenXD(sx);
+		double yend = offScreenYD(sy);
 		if (xend < 0.0)
 			xend = 0.0;
 		if (yend < 0.0)
@@ -165,254 +120,205 @@ public class Line extends RoiObj {
 				xend = xstart;
 			}
 		}
-		if (!magnificationForSubPixel(slide)) {
-			xend = Math.round(xend);
-			yend = Math.round(yend);
+		if (!magnificationForSubPixel()) {
+			xstart=Math.round(xstart); ystart=Math.round(ystart);
+			xend=Math.round(xend);     yend=Math.round(yend);
 		}
 		updateCoordinates(xstart, ystart, xend, yend);
 		updateClipRect();
-		slide.repaint();
+		oldX=x; oldY=y;
+		oldWidth=width; oldHeight=height;
 	}
 
-	void move(int sx, int sy, SlideGlass sg) {
+	void move(int sx, int sy) {
+		int xNew = offScreenX(sx);
+		int yNew = offScreenY(sy);
+		x += xNew - startxd;
+		y += yNew - startyd;
+		clipboard=null;
+		startxd = xNew;
+		startyd = yNew;
+		updateClipRect();
 		oldX = x;
 		oldY = y;
-		/*
-		 * mouse moved 
-		 */
-		int refX = sg.offScreenX(sg.mouseX);
-		int refY = sg.offScreenX(sg.mouseY);
-		int xNew = sg.offScreenX(sx);
-		int yNew = sg.offScreenY(sy);
-		/*
-		 * moved distance subtract from roi origin
-		 */
-		x = startX - (xNew-refX);
-		y = startY - (yNew-refY);
-		bounds = new Rectangle2D.Double(x, y, width, height);
-		clipboard = null;
-		updateClipRect();
-		slide.repaint();
+		oldWidth = width;
+		oldHeight=height;
 	}
 
 	protected void moveHandle(int sx, int sy) {
-		
-		System.out.println("move roi handle, active handle is "+activeHandle);
-		
-//		if (constrain && activeHandle == 2) { // constrain translation in 90deg steps
-//			int dx = beforeDraggingOriginX - slide.onImageX(sx);
-//			int dy = beforeDraggingOriginY - slide.onImageX(sy);
-//			if (Math.abs(dx) > Math.abs(dy))
-//				dy = 0;
-//			else
-//				dx = 0;
-//			sx = sg.lastDraggedX + dx;//??
-//			sy = sg.lastDraggedY + dy;
-//		}
-		
-		//original image scale(=offScreen) variables
+		if (constrain && activeHandle == 2) {  // constrain translation in 90deg steps
+			int dx = sx - previousSX;
+			int dy = sy - previousSY;
+			if (Math.abs(dx) > Math.abs(dy))
+				dy = 0;
+			else
+				dx = 0;
+			sx = previousSX + dx;
+			sy = previousSY + dy;
+		}
+		double ox = offScreenXD(sx);
+		double oy = offScreenYD(sy);
 		double x1d=getXBase()+x1R, y1d=getYBase()+y1R;
 		double x2d=getXBase()+x2R, y2d=getYBase()+y2R;
 		double length = Math.sqrt(sqr(x2d-x1d) + sqr(y2d-y1d));
-		
-		double dragIX = slide.offScreenXD(sx);
-		double dragIY = slide.offScreenYD(sy);
-		
-		/*
-		 * activeHandle: 2 is middle handle
-		 */
 		switch (activeHandle) {
-		case 0://initial point
-			//diffs used this in switch-case 0-2 statement
-			double dx = dragIX - x1d;
-			double dy = dragIY - y1d;
-			x1d = dragIX;
-			y1d = dragIY;
-			if (center) {
-				x2d -= dx;
-				y2d -= dy;
-			}
-			if (aspect) {
-				double ratio = length / (Math.sqrt(sqr(x2d - x1d) + sqr(y2d - y1d)));
-				double xcd = x1d + (x2d - x1d) / 2;
-				double ycd = y1d + (y2d - y1d) / 2;
+			case 0:
+                double dx = ox-x1d;
+                double dy = oy-y1d;
+                x1d=ox;
+                y1d=oy;
+                if(center){
+                    x2d -= dx;
+                    y2d -= dy;
+                }
+				if (aspect){
+					double ratio = length/(Math.sqrt(sqr(x2d-x1d) + sqr(y2d-y1d)));
+					double xcd = x1d+(x2d-x1d)/2;
+					double ycd = y1d+(y2d-y1d)/2;
 
-				if (center) {
-					x1d = xcd - ratio * (xcd - x1d);
-					x2d = xcd + ratio * (x2d - xcd);
-					y1d = ycd - ratio * (ycd - y1d);
-					y2d = ycd + ratio * (y2d - ycd);
-				} else {
-					x1d = x2d - ratio * (x2d - x1d);
-					y1d = y2d - ratio * (y2d - y1d);
+					if(center){
+						x1d=xcd-ratio*(xcd-x1d);
+						x2d=xcd+ratio*(x2d-xcd);
+						y1d=ycd-ratio*(ycd-y1d);
+						y2d=ycd+ratio*(y2d-ycd);
+					} else {
+						x1d=x2d-ratio*(x2d-x1d);
+						y1d=y2d-ratio*(y2d-y1d);
+					}
+
 				}
+                break;
+			case 1:
+                dx = ox-x2d;
+                dy = oy-y2d;
+                x2d=ox;
+                y2d=oy;
+                if(center){
+                    x1d -= dx;
+                    y1d -= dy;
+                }
+				if(aspect){
+					double ratio = length/(Math.sqrt((x2d-x1d)*(x2d-x1d) + (y2d-y1d)*(y2d-y1d)));
+					double xcd = x1d+(x2d-x1d)/2;
+					double ycd = y1d+(y2d-y1d)/2;
 
-			}
-			break;
-		case 1://end point
-			dx = dragIX - x2d;
-			dy = dragIY - y2d;
-			x2d = dragIX;
-			y2d = dragIY;
-			if (center) {
-				x1d -= dx;
-				y1d -= dy;
-			}
-			if (aspect) {
-				double ratio = length / (Math.sqrt((x2d - x1d) * (x2d - x1d) + (y2d - y1d) * (y2d - y1d)));
-				double xcd = x1d + (x2d - x1d) / 2;
-				double ycd = y1d + (y2d - y1d) / 2;
+					if(center){
+						x1d=xcd-ratio*(xcd-x1d);
+						x2d=xcd+ratio*(x2d-xcd);
+						y1d=ycd-ratio*(ycd-y1d);
+						y2d=ycd+ratio*(y2d-ycd);
+					} else {
+						x2d=x1d+ratio*(x2d-x1d);
+						y2d=y1d+ratio*(y2d-y1d);
+					}
 
-				if (center) {
-					x1d = xcd - ratio * (xcd - x1d);
-					x2d = xcd + ratio * (x2d - xcd);
-					y1d = ycd - ratio * (ycd - y1d);
-					y2d = ycd + ratio * (y2d - ycd);
-				} else {
-					x2d = x1d + ratio * (x2d - x1d);
-					y2d = y1d + ratio * (y2d - y1d);
 				}
-
-			}
-			break;
-		case 2://middle point
-			dx = dragIX - (x1d + (x2d - x1d) / 2);
-			dy = dragIY - (y1d + (y2d - y1d) / 2);
-			x1d += dx;
-			y1d += dy;
-			x2d += dx;
-			y2d += dy;
-			break;
-		case 3://right rotate point
-			if(slide.lastDraggedY < sy) {
-				rotateLine(1);
-			}else if(slide.lastDraggedY >= sy){
-				rotateLine(-1);
-			}
-			x1d = this.x1d;
-			y1d = this.y1d;
-			x2d = this.x2d;
-			y2d = this.y2d;
-			//DO NOT DO THIS, p1,p2 were confused...
-//			Point[] p1p2 = rotatePoints(this, 1);
-//			x1d = p1p2[0].x;
-//			y1d = p1p2[0].y;
-//			x2d = p1p2[1].x;
-//			y2d = p1p2[1].y;
-			break;
-		case 4://left rotate point
-			if(slide.lastDraggedY < sy) {
-				rotateLine(-1);
-			}else if(slide.lastDraggedY >= sy){
-				rotateLine(1);
-			}
-			x1d = this.x1d;
-			y1d = this.y1d;
-			x2d = this.x2d;
-			y2d = this.y2d;
-			break;
+                break;
+			case 2:
+				dx = ox-(x1d+(x2d-x1d)/2);
+				dy = oy-(y1d+(y2d-y1d)/2);
+				x1d+=dx; y1d+=dy; x2d+=dx; y2d+=dy;
+				break;
 		}
 		if (constrain) {
-			double dx = Math.abs(x1d - x2d);
-			double dy = Math.abs(y1d - y2d);
-			double xcd = Math.min(x1d, x2d) + dx / 2;
-			double ycd = Math.min(y1d, y2d) + dy / 2;
+			double dx = Math.abs(x1d-x2d);
+			double dy = Math.abs(y1d-y2d);
+			double xcd = Math.min(x1d,x2d)+dx/2;
+			double ycd = Math.min(y1d,y2d)+dy/2;
 
-			// double ratio = length/(Math.sqrt((x2d-x1d)*(x2d-x1d) + (y2d-y1d)*(y2d-y1d)));
-			if (activeHandle == 0) {
-				if (dx >= dy) {
-					if (aspect) {
-						if (x2d > x1d)
-							x1d = x2d - length;
-						else
-							x1d = x2d + length;
+			//double ratio = length/(Math.sqrt((x2d-x1d)*(x2d-x1d) + (y2d-y1d)*(y2d-y1d)));
+			if (activeHandle==0) {
+				if (dx>=dy) {
+					if(aspect){
+						if(x2d>x1d) x1d=x2d-length;
+						else x1d=x2d+length;
 					}
 					y1d = y2d;
-					if (center) {
-						y1d = y2d = ycd;
-						if (aspect) {
-							if (xcd > x1d) {
-								x1d = xcd - length / 2;
-								x2d = xcd + length / 2;
-							} else {
-								x1d = xcd + length / 2;
-								x2d = xcd - length / 2;
+					if(center) {
+						y1d=y2d=ycd;
+						if(aspect){
+							if(xcd>x1d) {
+								x1d=xcd-length/2;
+								x2d=xcd+length/2;
+							}
+							else{
+								x1d=xcd+length/2;
+								x2d=xcd-length/2;
 							}
 						}
 					}
 				} else {
-					if (aspect) {
-						if (y2d > y1d)
-							y1d = y2d - length;
-						else
-							y1d = y2d + length;
+					if(aspect){
+						if(y2d>y1d) y1d=y2d-length;
+						else y1d=y2d+length;
 					}
 					x1d = x2d;
-					if (center) {
-						x1d = x2d = xcd;
-						if (aspect) {
-							if (ycd > y1d) {
-								y1d = ycd - length / 2;
-								y2d = ycd + length / 2;
-							} else {
-								y1d = ycd + length / 2;
-								y2d = ycd - length / 2;
+					if(center){
+						x1d=x2d=xcd;
+						if(aspect){
+							if(ycd>y1d) {
+								y1d=ycd-length/2;
+								y2d=ycd+length/2;
+							}
+							else{
+								y1d=ycd+length/2;
+								y2d=ycd-length/2;
 							}
 						}
 					}
 				}
-			} else if (activeHandle == 1) {
-				if (dx >= dy) {
-					if (aspect) {
-						if (x1d > x2d)
-							x2d = x1d - length;
-						else
-							x2d = x1d + length;
+			} else if (activeHandle==1) {
+				if (dx>=dy) {
+					if(aspect){
+						if(x1d>x2d) x2d=x1d-length;
+						else x2d=x1d+length;
 					}
-					y2d = y1d;
-					if (center) {
-						y1d = y2d = ycd;
-						if (aspect) {
-							if (xcd > x1d) {
-								x1d = xcd - length / 2;
-								x2d = xcd + length / 2;
-							} else {
-								x1d = xcd + length / 2;
-								x2d = xcd - length / 2;
+					y2d= y1d;
+					if(center){
+						y1d=y2d=ycd;
+						if(aspect){
+							if(xcd>x1d) {
+								x1d=xcd-length/2;
+								x2d=xcd+length/2;
+							}
+							else{
+								x1d=xcd+length/2;
+								x2d=xcd-length/2;
 							}
 						}
 					}
 				} else {
-					if (aspect) {
-						if (y1d > y2d)
-							y2d = y1d - length;
-						else
-							y2d = y1d + length;
+					if(aspect){
+						if(y1d>y2d) y2d=y1d-length;
+						else y2d=y1d+length;
 					}
 					x2d = x1d;
-					if (center) {
-						x1d = x2d = xcd;
-						if (aspect) {
-							if (ycd > y1d) {
-								y1d = ycd - length / 2;
-								y2d = ycd + length / 2;
-							} else {
-								y1d = ycd + length / 2;
-								y2d = ycd - length / 2;
+					if(center){
+						x1d=x2d=xcd;
+						if(aspect){
+							if(ycd>y1d) {
+								y1d=ycd-length/2;
+								y2d=ycd+length/2;
+							}
+							else{
+								y1d=ycd+length/2;
+								y2d=ycd-length/2;
 							}
 						}
 					}
 				}
 			}
+		}
+		if (!magnificationForSubPixel()) {
+			x1d = Math.round(x1d); y1d = Math.round(y1d);
+			x2d = Math.round(x2d); y2d = Math.round(y2d);
 		}
 		updateCoordinates(x1d, y1d, x2d, y2d);
 		updateClipRect();
-		//see, ij Line.java
 		oldX = x;
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		slide.repaint();
 	}
 
 	public void mouseDownInHandle(int handle, int sx, int sy) {
@@ -436,7 +342,7 @@ public class Line extends RoiObj {
 		bounds.y = Math.min(y1d, y2d);
 		bounds.width  = Math.abs(x2d - x1d);
 		bounds.height = Math.abs(y2d - y1d);
-		setBounds(bounds); //sets x, y, width, height
+		setIntBounds(bounds); //sets x, y, width, height
 		x1R = x1d - bounds.x; y1R = y1d - bounds.y;
 		x2R = x2d - bounds.x; y2R = y2d - bounds.y;
 		x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
@@ -444,88 +350,49 @@ public class Line extends RoiObj {
 	}
 
 	/** Draws this line on the image. */
-	public void draw(Graphics g, SlideGlass sg) {
-		Color color = strokeColor != null ? strokeColor : ROIColor;
+	public void draw(Graphics g) {
+		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
+		mag = getMagnification();
 		if (isActiveOverlayRoi) {
-			if (color == Color.cyan)
-				color = ROIColor;
-			else
 				color = Color.cyan;
 		}
 		g.setColor(color);
-		int sx1 = (int)(slide.screenXD(x1));
-		int sy1 = (int)(slide.screenYD(y1));
-		int sx2 = (int)(slide.screenXD(x2d));
-		int sy2 = (int)(slide.screenYD(y2d));
-		int sx3 = sx1 + (int)((sx2 - sx1) / 2.);
-		int sy3 = sy1 + (int)((sy2 - sy1) / 2.);
-		
-		//rotation handle
-		int sx4 = sx1 + (int)((sx2 - sx1) / 5.);// 1/5 location
-		int sy4 = sy1 + (int)((sy2 - sy1) / 5.);
-		int sx5 = sx1 + (int)((sx2 - sx1) - (sx2 - sx1) / 5.);
-		int sy5 = sy1 + (int)((sy2 - sy1) - (sy2 - sy1) / 5.);
-		
-		Graphics2D g2d = (Graphics2D) g;
+		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
+		x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
+		int sx1 = screenXD(x1d);
+		int sy1 = screenYD(y1d);
+		int sx2 = screenXD(x2d);
+		int sy2 = screenYD(y2d);
+		int sx3 = sx1 + (sx2-sx1)/2;
+		int sy3 = sy1 + (sy2-sy1)/2;
+		Graphics2D g2d = (Graphics2D)g;
 		setRenderingHint(g2d);
-		if (stroke != null) {
+		if (stroke!=null && !isActiveOverlayRoi)
 			g2d.setStroke(getScaledStroke());
+		if (wideLine && !isActiveOverlayRoi) {
+			double dx = sx2 - sx1;
+			double dy = sy2 - sy1;
+			double len = length(dx, dy);
+			dx *= 0.5*mag/len;	//half-pixel extension, corresponding to getFloatPolygon or convertLineToArea
+			dy *= 0.5*mag/len;
+			g2d.draw(new Line2D.Double(sx1-dx, sy1-dy, sx2+dx, sy2+dy));
+		} else
+			g.drawLine(sx1, sy1, sx2, sy2);
+		if (wideLine && !overlay) {
+			g2d.setStroke(onePixelWide);
+			g.setColor(color);
+			g.drawLine(sx1, sy1, sx2, sy2);
 		}
-//		if (wideLine && !isActiveOverlayRoi()) {
-//			double dx = x2 - x1;
-//			double dy = y2 - y1;
-//			double len = length(dx, dy);
-//			dx *= 0.5 * sg.getMagnification() / len; // half-pixel extension, corresponding to getFloatPolygon or
-//														// convertLineToArea
-//			dy *= 0.5 * sg.getMagnification() / len;
-//			//convert screenXY
-//			int sx1 = (int) (x1 - dx + sg.originX);
-//			int sy1 = (int) (y1 - dy + sg.originY);
-//			int sx2 = (int) (x2 + dx + sg.originX);
-//			int sy2 = (int) (y2 + dy + sg.originY);
-//			g2d.draw(new Line2D.Double(sx1, sy1, sx2, sy2));
-//		} else {
-//			g.drawLine(sg.screenX(x1), sg.screenY(y1), sg.screenX(x2), sg.screenY(y2));
-//		}
-		//default run this
-//		if (wideLine && !overlay) {
-//			g2d.setStroke(onePixelWide);
-//			g.setColor(getColor());
-//			g.drawLine(sg.screenX(x1), sg.screenY(y1), sg.screenX(x2), sg.screenY(y2));
-//		}
-//        if (!overlay) {
-//            mag = getMagnification();
-//            handleColor = strokeColor!=null?strokeColor:ROIColor;
-//            drawHandle(g, sx1, sy1);
-//            handleColor=Color.white;
-//            drawHandle(g, sx2, sy2);
-//            drawHandle(g, sx3, sy3);
-//        }
-		
-//		g2d.setStroke(onePixelWide);
-//		System.out.println("draw line at:x1 "+sg.screenX(x1)+" y1 "+sg.screenY(y1)+" x2 "+sg.screenX(x2)+" y2 "+sg.screenY(y2));
-		g.drawLine(sx1, sy1, sx2, sy2);
-		
-		//set handles
-		handleColor = Color.ORANGE;
-		drawHandle(g, sx1, sy1);
-		handleColor = Color.ORANGE;
-		drawHandle(g, sx2, sy2);
-		//middle handle
-		handleColor = Color.WHITE;
-		drawHandle(g, sx3, sy3);
-		//rotate handle
-		handleColor = new Color(50,42,127,127);
-		drawHandle(g, sx4, sy4);
-		drawHandle(g, sx5, sy5);
+		if (!overlay) {
+			handleColor = strokeColor!=null?strokeColor:ROIColor;
+			drawHandle(g, sx1, sy1);
+			drawHandle(g, sx2, sy2);
+			handleColor=Color.white;//center handle color
+			drawHandle(g, sx3, sy3);
+		}
 	}
-
-	public void showStatus() {
-		IJ.showStatus(imp.getLocationAsString((int) Math.round(x2d), (int) Math.round(y2d)) + ", angle="
-				+ IJ.d2s(getAngle()) + ", length=" + IJ.d2s(getLength()));
-	}
-
+	
 	public double getAngle() {
 		return getFloatAngle(x1d, y1d, x2d, y2d);
 	}
@@ -656,16 +523,19 @@ public class Line extends RoiObj {
 	 * Otherwise draws the outline of the area of this line
 	 */
 	public void drawPixels(ImageProcessor ip) {
-		ip.setLineWidth(1);
+		boolean fillLine = getStrokeWidth()>1 && getWidth()<=1;
+		if (fillLine)
+			ip.setLineWidth((int)Math.round(getStrokeWidth()));
+		else
+			ip.setLineWidth(1);
+		@SuppressWarnings("unused")
 		double x = getXBase();
+		@SuppressWarnings("unused")
 		double y = getYBase();
-		x1d = x + x1R;
-		y1d = y + y1R;
-		x2d = x + x2R;
-		y2d = y + y2R;
-		if (getStrokeWidth() <= 1) {
-			ip.moveTo((int) Math.round(x1d), (int) Math.round(y1d));
-			ip.lineTo((int) Math.round(x2d), (int) Math.round(y2d));
+		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
+		if (getStrokeWidth()<=1 || fillLine) {
+			ip.moveTo((int)Math.round(x1d), (int)Math.round(y1d));
+			ip.lineTo((int)Math.round(x2d), (int)Math.round(y2d));
 		} else {
 			Polygon p = getPolygon();
 			ip.drawPolygon(p);
@@ -684,8 +554,10 @@ public class Line extends RoiObj {
 	}
 	
 	public void mouseDown(MouseEvent e) {
-        super.mouseDown(e);//set start mouse position
-    }
+		super.mouseDown(e);// set start mouse position
+		startxd = offScreenXD(e.getX());
+		startyd = offScreenYD(e.getY());
+	}
 
 	/**
 	 * Returns a handle number if the specified screen coordinates are inside or
@@ -693,27 +565,18 @@ public class Line extends RoiObj {
 	 */
 	@Override
 	public int isHandle(int sx, int sy) {
-		int size = HANDLE_SIZE + 5;
-		if (getStrokeWidth() > 1) {
-			size += (int) Math.log(getStrokeWidth());
-		}
-		int halfSize = size / 2;
-		int sx1 = (int) (screenXD(getXBase()+x1R) - halfSize);
-		int sy1 = (int) (screenYD(getYBase()+y1R) - halfSize);
-		int sx2 = (int) (screenXD(getXBase()+x2R) - halfSize);
-		int sy2 = (int) (screenYD(getYBase()+y2R) - halfSize);
-		int sx3 = (int) (sx1 + (sx2-sx1)/2.);
-		int sy3 = (int) (sy1 + (sy2-sy1)/2.);
-		//rotation handle
-		int sx4 = sx1 + (int)((sx2 - sx1) / 5.);// 1/5 location
-		int sy4 = sy1 + (int)((sy2 - sy1) / 5.);
-		int sx5 = sx1 + (int)((sx2 - sx1) - (sx2 - sx1) / 5.);
-		int sy5 = sy1 + (int)((sy2 - sy1) - (sy2 - sy1) / 5.);
+		int size = HANDLE_SIZE+5;
+		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
+		int halfSize = size/2;
+		int sx1 = screenXD(getXBase()+x1R) - halfSize;
+		int sy1 = screenYD(getYBase()+y1R) - halfSize;
+		int sx2 = screenXD(getXBase()+x2R) - halfSize;
+		int sy2 = screenYD(getYBase()+y2R) - halfSize;
+		int sx3 = sx1 + (sx2-sx1)/2-1;
+		int sy3 = sy1 + (sy2-sy1)/2-1;
 		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
 		if (sx>=sx2&&sx<=sx2+size&&sy>=sy2&&sy<=sy2+size) return 1;
 		if (sx>=sx3&&sx<=sx3+size+2&&sy>=sy3&&sy<=sy3+size+2) return 2;
-		if (sx>=sx4&&sx<=sx4+size+2&&sy>=sy4&&sy<=sy4+size+2) return 3;
-		if (sx>=sx5&&sx<=sx5+size+2&&sy>=sy5&&sy<=sy5+size+2) return 4;
 		return -1;
 	}
 
@@ -758,6 +621,28 @@ public class Line extends RoiObj {
 		return 4;
 	}
 	
+	/** Nudge end point of line by one pixel. */
+	public void nudgeCorner(int key) {
+		if (slide == null)
+			return;
+		double inc = 1.0 / getMagnification();
+		switch (key) {
+		case KeyEvent.VK_UP:
+			y2R -= inc;
+			break;
+		case KeyEvent.VK_DOWN:
+			y2R += inc;
+			break;
+		case KeyEvent.VK_LEFT:
+			x2R -= inc;
+			break;
+		case KeyEvent.VK_RIGHT:
+			x2R += inc;
+			break;
+		}
+		grow(screenXD(x + x2R), screenYD(y + y2R));
+	}
+	
 	/*
 	 * center location 
 	 * see, setRotationCenter in RoiObj.
@@ -797,33 +682,11 @@ public class Line extends RoiObj {
 		return new Point[] {rp1,rp2};
 	}
 	
-	private Point getRotateEdgePoint(Point center, Point edge, int angle) {
+	public Point getRotateEdgePoint(Point center, Point edge, int angle) {
 	    double xRot = center.x + Math.cos(Math.toRadians(angle)) * (edge.x - center.x) - Math.sin(Math.toRadians(angle)) * (edge.y - center.y);
 	    double yRot = center.y + Math.sin(Math.toRadians(angle)) * (edge.x - center.x) + Math.cos(Math.toRadians(angle)) * (edge.y - center.y);
 	    return new Point((int) xRot, (int) yRot);
 	}
-
-	/** Nudge end point of line by one pixel. */
-//	public void nudgeCorner(int key) {
-//		double inc = 1.0 / slide.getMagnification();
-//		switch (key) {
-//		case KeyEvent.VK_UP:
-//			y2R -= inc;
-//			break;
-//		case KeyEvent.VK_DOWN:
-//			y2R += inc;
-//			break;
-//		case KeyEvent.VK_LEFT:
-//			x2R -= inc;
-//			break;
-//		case KeyEvent.VK_RIGHT:
-//			x2R += inc;
-//			break;
-//		}
-//		grow((int) (x + x2R + slide.originX), (int) (y + y2R + slide.originY));//TODO change to screenXY
-//		notifyListeners(RoiListener.MOVED);
-//		showStatus();
-//	}
 
 	/** Always returns true. */
 	public boolean subPixelResolution() {

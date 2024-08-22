@@ -1,8 +1,5 @@
 package com.vis.core.view.D2.roi;
 
-import java.awt.*;
-import java.awt.image.*;
-
 import com.vis.core.view.D2.ui.glasses.*;
 
 import ij.*;
@@ -23,7 +20,7 @@ public class FreehandRoi extends PolygonRoi {
 		}
 	}
 
-    protected void grow(int sx, int sy) {
+    public void grow(int sx, int sy) {
         if (subPixelResolution() && xpf!=null) {
             growFloat(sx, sy,slide);
             return;
@@ -39,7 +36,7 @@ public class FreehandRoi extends PolygonRoi {
             yp[nPoints] = oy-y;
             nPoints++;
             if (IJ.altKeyDown())
-                wipeBack(slide);
+                wipeBack();
             if (nPoints==xp.length)
                 enlargeArrays();
             drawLine();

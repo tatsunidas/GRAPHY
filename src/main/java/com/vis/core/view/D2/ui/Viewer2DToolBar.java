@@ -86,22 +86,30 @@ public class Viewer2DToolBar extends JToolBar{
 	/* roi tool ids */
 	public final static int RectangleRoi = RoiType.RECTANGLE.id();
 	public final static int OvalRoi = RoiType.OVAL.id();
-	public final static int PointRoi = RoiType.POINT.id();
-	public final static int LineRoi = RoiType.LINE.id();
 	public final static int PolygonRoi = RoiType.POLYGON.id();
+	public final static int FreeRoi = RoiType.FREEROI.id();
+	public final static int LineRoi = RoiType.LINE.id();
+	public final static int PolyLineRoi = RoiType.POLYLINE.id();
+	public final static int FreeLineRoi = RoiType.FREELINE.id();
 	public final static int AngleRoi = RoiType.ANGLE.id();
-	public final static int TextRoi = RoiType.TEXT.id();
+	public final static int PointRoi = RoiType.POINT.id();
+	public final static int MultiPointRoi = RoiType.MULTIPOINT.id();
 	public final static int ArrowRoi = RoiType.ARROW.id();
+	public final static int TextRoi = RoiType.TEXT.id();
 	
 	public final static int[] roiTools = new int[] {
 			RectangleRoi,
 			OvalRoi,
-			PointRoi,
-			LineRoi,
 			PolygonRoi,
+			FreeRoi,
+			LineRoi,
+			PolyLineRoi,
+			FreeLineRoi,
 			AngleRoi,
-			TextRoi,
-			ArrowRoi
+			PointRoi,
+			MultiPointRoi,
+			ArrowRoi,
+			TextRoi
 	};
 	
 	public final static int Brush = 100;
@@ -118,18 +126,22 @@ public class Viewer2DToolBar extends JToolBar{
 	JButton analysisBtn;
 	JButton cropBtn;
 	JButton cutBtn;
+	JCheckBox windowChk;
+	
 	//roi features
 	ButtonGroup roiGroup = new ButtonGroup();
-	JCheckBox windowChk;
 	JCheckBox rectangleChk;
-	JCheckBox lineChk;
 	JCheckBox ovalChk;
 	JCheckBox polyChk;
+	JCheckBox freeChk;
+	JCheckBox lineChk;
+	JCheckBox polyLineChk;
+	JCheckBox freelineChk;
+	JCheckBox angleChk;
 	JCheckBox pointChk;
+	JCheckBox mPointChk;//multi point
 	JCheckBox arrowChk;
 	JCheckBox textChk;
-	JCheckBox angleChk;
-//	JCheckBox shapeChk;
 	JCheckBox brushChk;
 	
 	int defaultImgIconSize = 48;
@@ -138,7 +150,7 @@ public class Viewer2DToolBar extends JToolBar{
 	public Viewer2DToolBar() {
 		
 		JPanel base = new JPanel();
-		int hgap = 3;
+		int hgap = 1;
 		int vgap = hgap;
 		base.setLayout(new FlowLayout(FlowLayout.LEFT, hgap, vgap));
 		
@@ -189,6 +201,15 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(ovalChk);
 				roiGroup.add(ovalChk);
 				p.add(ovalChk);
+			}else if(key.equals("free")) {
+				freeChk = new JCheckBox(key, new ImageIcon(img));
+				freeChk.setName(key);
+				freeChk.setFocusPainted(true);
+				freeChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				freeChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(freeChk);
+				roiGroup.add(freeChk);
+				p.add(freeChk);
 			}else if(key.equals("line")) {
 				lineChk = new JCheckBox(key, new ImageIcon(img));
 				lineChk.setName(key);
@@ -198,6 +219,24 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(lineChk);
 				roiGroup.add(lineChk);
 				p.add(lineChk);
+			}else if(key.equals("polyline")) {
+				polyLineChk = new JCheckBox(key, new ImageIcon(img));
+				polyLineChk.setName(key);
+				polyLineChk.setFocusPainted(true);
+				polyLineChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				polyLineChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(polyLineChk);
+				roiGroup.add(polyLineChk);
+				p.add(polyLineChk);
+			}else if(key.equals("freeline")) {
+				freelineChk = new JCheckBox(key, new ImageIcon(img));
+				freelineChk.setName(key);
+				freelineChk.setFocusPainted(true);
+				freelineChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				freelineChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(freelineChk);
+				roiGroup.add(freelineChk);
+				p.add(freelineChk);
 			}else if(key.equals("polygon")) {
 				polyChk = new JCheckBox(key, new ImageIcon(img));
 				polyChk.setName(key);
@@ -216,6 +255,15 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(pointChk);
 				roiGroup.add(pointChk);
 				p.add(pointChk);
+			}else if(key.equals("multipoint")) {
+				mPointChk = new JCheckBox(key, new ImageIcon(img));
+				mPointChk.setName(key);
+				mPointChk.setFocusPainted(true);
+				mPointChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				mPointChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(mPointChk);
+				roiGroup.add(mPointChk);
+				p.add(mPointChk);
 			}else if(key.equals("arrow")) {
 				arrowChk = new JCheckBox(key, new ImageIcon(img));
 				arrowChk.setName(key);
@@ -503,8 +551,10 @@ public class Viewer2DToolBar extends JToolBar{
 					rom.updateState();
 					if(!rom.isVisible()) {
 						rom.setVisible(true);
+						rom.toFront();
 					}else {
 						rom.requestFocus();
+						rom.toFront();
 					}
 					setSelectedToolBackground();
 				}
@@ -638,10 +688,14 @@ public class Viewer2DToolBar extends JToolBar{
 		HashMap<String, Resources> map = new HashMap<>();
 		map.put("rectangle", Resources.RectangleRoiIcon);
 		map.put("oval", Resources.OvalRoiIcon);
+		map.put("free", Resources.FreeRoiIcon);
 		map.put("line", Resources.LineRoiIcon);
+		map.put("polyline", Resources.PolyLineRoiIcon);
+		map.put("freeline", Resources.FreeLineRoiIcon);
 		map.put("polygon", Resources.PolygonRoiIcon);
 		map.put("arrow", Resources.ArrowRoiIcon);
 		map.put("point", Resources.PointRoiIcon);
+		map.put("multipoint", Resources.MultiPointRoiIcon);
 		map.put("text", Resources.TextRoiIcon);
 		map.put("angle", Resources.AngleRoiIcon);
 		return map;

@@ -50,6 +50,7 @@ import java.util.logging.Logger;
 import javax.swing.JFrame;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
@@ -548,6 +549,24 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 
 	public void showImagesOnBirdsEye(Praparat thumbnailedParap) {
 		bev.showImagesFromThumbnailAction(thumbnailedParap);
+	}
+	
+	/**
+	 * The state of the ROI may change after editing in 2Dviewer; if a patient
+	 * handled in 2DViewer was opened in BEV, reset it once.
+	 * 
+	 * @param patIDs
+	 */
+	public void resetBirdsEyeView(String[] patIDs) {
+		HashMap<String,String> pInfo = bev.getPatientInfo();
+		if(pInfo == null) {
+			return;
+		}
+		for(String patID : patIDs) {
+			if(patID.equals(pInfo.get(ContextKey.PatientID.name()))) {
+				bev.resetViews(true);
+			}
+		}
 	}
 
 	public void updateQRTreeTables(){

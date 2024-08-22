@@ -40,8 +40,8 @@ public class EllipseRoi extends PolygonRoi {
 //        bounds = null;
 //    }
 
-    public void draw(Graphics g, SlideGlass sg) {
-        super.draw(g,sg);
+    public void draw(Graphics g) {
+        super.draw(g);
         if (!overlay) {
             for (int i=0; i<handle.length; i++)
                 drawHandle(g, xp2[handle[i]], yp2[handle[i]]);

@@ -79,8 +79,8 @@ public class ReferenceLineMPR {
 		ImagePlus xy = mprWin.xyImage();
 		xYLine = new ReferenceLine(CutSurface.AXIAL, 0, xy.getHeight()/2-1, xy.getWidth()-1, xy.getHeight()/2-1, xy_prap.getCurrentSlide()) {
 			@Override
-			public void draw(Graphics g, SlideGlass sg) {
-				drawXY(this, g, sg);
+			public void draw(Graphics g) {
+//				drawXY(this, g);//TODO 
 			}
 			
 			/**
@@ -97,8 +97,8 @@ public class ReferenceLineMPR {
 		ImagePlus xz = mprWin.xzImage();;//xz_prap.getCurrentSlide().getOriginalImage();
 		xZLine = new ReferenceLine(CutSurface.CORONAL, xz.getWidth()/2-1, 0, xz.getWidth()/2-1, xz.getHeight()-1, xz_prap.getCurrentSlide()) {
 			@Override
-			public void draw(Graphics g, SlideGlass sg) {
-				drawXZ(this, g, sg);
+			public void draw(Graphics g) {
+//				drawXZ(this, g);
 			}
 			@Override
 			public void mouseDrag(int sx, int sy, int flags) {
@@ -111,8 +111,8 @@ public class ReferenceLineMPR {
 		ImagePlus yz = mprWin.yzImage();
 		yZLine = new ReferenceLine(CutSurface.SAGITTAL, 0, yz.getHeight()/2-1, yz.getWidth()-1, yz.getHeight()/2-1, yz_prap.getCurrentSlide()) {
 			@Override
-			public void draw(Graphics g, SlideGlass sg) {
-				drawYZ(this, g, sg);
+			public void draw(Graphics g) {
+				drawYZ(this, g);
 			}
 			@Override
 			public void mouseDrag(int sx, int sy, int flags) {
@@ -406,7 +406,7 @@ public class ReferenceLineMPR {
 	}
 	
 	private void drawXY(ReferenceLine refLine, Graphics g, SlideGlass sg){
-		drawHandles(refLine, g, sg);
+		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
 		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.XY) {
@@ -422,7 +422,7 @@ public class ReferenceLineMPR {
 	}
 	
 	private void drawXZ(ReferenceLine refLine, Graphics g, SlideGlass sg){
-		drawHandles(refLine, g, sg);
+		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
 		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.XZ) {
@@ -437,8 +437,8 @@ public class ReferenceLineMPR {
 		}
 	}
 	
-	private void drawYZ(ReferenceLine refLine, Graphics g, SlideGlass sg){
-		drawHandles(refLine, g, sg);
+	private void drawYZ(ReferenceLine refLine, Graphics g){
+		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
 		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.YZ) {
@@ -453,7 +453,7 @@ public class ReferenceLineMPR {
 		}
 	}
 	
-	private void drawHandles(ReferenceLine refLine, Graphics g, SlideGlass slide) {
+	private void drawHandles(ReferenceLine refLine, Graphics g) {
 		Color color = null;
 		if(refLine.getPlane() == CutSurface.AXIAL) {
 			color = xyColor;
@@ -471,41 +471,42 @@ public class ReferenceLineMPR {
 			}
 		}
 		
-		int sx1 = (int)(slide.screenXD(refLine.x1d));
-		int sy1 = (int)(slide.screenYD(refLine.y1d));
-		int sx2 = (int)(slide.screenXD(refLine.x2d));
-		int sy2 = (int)(slide.screenYD(refLine.y2d));
-		int sx3 = sx1 + (int)((sx2 - sx1) / 2.);
-		int sy3 = sy1 + (int)((sy2 - sy1) / 2.);
-		//rotation handle
-		int sx4 = sx1 + (int)((sx2 - sx1) / 5.);// 1/5 location
-		int sy4 = sy1 + (int)((sy2 - sy1) / 5.);
-		int sx5 = sx1 + (int)((sx2 - sx1) - (sx2 - sx1) / 5.);
-		int sy5 = sy1 + (int)((sy2 - sy1) - (sy2 - sy1) / 5.);
-		
-		Graphics2D g2d = (Graphics2D) g;
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-	            antiAlias?RenderingHints.VALUE_ANTIALIAS_ON:RenderingHints.VALUE_ANTIALIAS_OFF);
-
-		//draw main reference line
-		g.setColor(color);
-		g.drawLine(sx1, sy1, sx2, sy2);//reflect active overlay color
-		//draw virtical line
-		GeneralPath verLine_ = refLine.toScreenCoordinates(refLine.getCrossVerticalLine(refLine.x1d, refLine.y1d, refLine.x2d, refLine.y2d));
-		g2d.setColor(center_support_line_color);
-		BasicStroke bs2 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 1.0f, new float[] {6}, 0);
-		g2d.setStroke(bs2);
-		g2d.draw(verLine_);
-		
-		
-		//set handles
-		refLine.drawHandle(g, sx1, sy1);
-		refLine.drawHandle(g, sx2, sy2);
-		//middle handle
-		refLine.drawHandle(g, sx3, sy3);
-		//rotate handle
-		refLine.drawHandle(g, sx4, sy4);
-		refLine.drawHandle(g, sx5, sy5);
+		//TODO 20240820
+//		int sx1 = (int)(slide.screenXD(refLine.x1d));
+//		int sy1 = (int)(slide.screenYD(refLine.y1d));
+//		int sx2 = (int)(slide.screenXD(refLine.x2d));
+//		int sy2 = (int)(slide.screenYD(refLine.y2d));
+//		int sx3 = sx1 + (int)((sx2 - sx1) / 2.);
+//		int sy3 = sy1 + (int)((sy2 - sy1) / 2.);
+//		//rotation handle
+//		int sx4 = sx1 + (int)((sx2 - sx1) / 5.);// 1/5 location
+//		int sy4 = sy1 + (int)((sy2 - sy1) / 5.);
+//		int sx5 = sx1 + (int)((sx2 - sx1) - (sx2 - sx1) / 5.);
+//		int sy5 = sy1 + (int)((sy2 - sy1) - (sy2 - sy1) / 5.);
+//		
+//		Graphics2D g2d = (Graphics2D) g;
+//		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+//	            antiAlias?RenderingHints.VALUE_ANTIALIAS_ON:RenderingHints.VALUE_ANTIALIAS_OFF);
+//
+//		//draw main reference line
+//		g.setColor(color);
+//		g.drawLine(sx1, sy1, sx2, sy2);//reflect active overlay color
+//		//draw virtical line
+//		GeneralPath verLine_ = refLine.toScreenCoordinates(refLine.getCrossVerticalLine(refLine.x1d, refLine.y1d, refLine.x2d, refLine.y2d));
+//		g2d.setColor(center_support_line_color);
+//		BasicStroke bs2 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 1.0f, new float[] {6}, 0);
+//		g2d.setStroke(bs2);
+//		g2d.draw(verLine_);
+//		
+//		
+//		//set handles
+//		refLine.drawHandle(g, sx1, sy1);
+//		refLine.drawHandle(g, sx2, sy2);
+//		//middle handle
+//		refLine.drawHandle(g, sx3, sy3);
+//		//rotate handle
+//		refLine.drawHandle(g, sx4, sy4);
+//		refLine.drawHandle(g, sx5, sy5);
 		
 	}
 }

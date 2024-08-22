@@ -53,6 +53,8 @@ import javax.swing.SwingUtilities;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
@@ -101,7 +103,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 		
-		if (cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY) != null) {
+		RoiObj roi = cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY);
+		
+		if(roi instanceof TextRoi) {
+			TextRoi tr = (TextRoi)roi;
+			tr.mouseWheelMoved(e);
 			return;
 		}
 		

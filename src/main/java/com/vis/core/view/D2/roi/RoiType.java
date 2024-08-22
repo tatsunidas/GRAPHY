@@ -42,16 +42,17 @@ public enum RoiType {
 	RECTANGLE(0),
 	OVAL(1),
 	POLYGON(2),
-	FREEROI(3),
+	FREEROI(3),//Closed freehand roi
 	TRACED_ROI(4),
 	LINE(5),
-	POLYLINE(6),//see, isLine()
-	FREELINE(7),//see, isLine()
+	POLYLINE(6),
+	FREELINE(7),//Open freehand roi
 	ANGLE(8),
 	COMPOSITE(9),
 	POINT(10),
-	ARROW(11),
-	TEXT(12),
+	MULTIPOINT(11),
+	ARROW(12),
+	TEXT(13),
 	NOTYPE(-99);
 	
 	private int roi_id;

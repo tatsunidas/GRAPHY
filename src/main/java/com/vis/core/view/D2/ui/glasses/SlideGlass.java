@@ -384,6 +384,8 @@ public class SlideGlass extends JLayeredPane {
 			return roiOverlay;
 		} else if (layer_type == TEXT_LAYER) {
 			return textOverlay;
+		} else if (layer_type == EVENT_LAYER) {
+			return coverGlass;
 		} else {
 			return null;
 		}
@@ -623,6 +625,9 @@ public class SlideGlass extends JLayeredPane {
 		coverGlass.addMouseMotionListener(sgml);
 		coverGlass.addMouseWheelListener(sgml);
 		coverGlass.addKeyListener(new SlideGlassKeyListener(this));
+		if(pp.getViewMode() != ViewMode.Thumbnail) {
+			loadRoiFromDB();
+		}
 	}
 
 	/**

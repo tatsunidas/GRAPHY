@@ -196,8 +196,8 @@ public class PointRoi extends PolygonRoi {
     }
     
     /** Draws the points on the image. */
-    public void draw(Graphics g, SlideGlass sg) {
-        updatePolygon(sg);
+    public void draw(Graphics g) {
+        updatePolygon();
         if (showLabels && nPoints>1) {
             fontSize = 8;
             double scale = size>=XXL?2:1.5;
@@ -209,7 +209,7 @@ public class PointRoi extends PolygonRoi {
             if (fontSize>9)
                 Java2.setAntialiasedText(g, true);
         }
-        int slice = sg.getPraparat().getCurrentSlidePos();
+        int slice = slide.getPraparat().getCurrentSlidePos();
 //        if (ic!=null && overlay && ic.getShowAllList()!=null && ic.getShowAllList().contains(this) && !Prefs.showAllSliceOnly)
 //            slice = 0;  // draw point irrespective of currently selected slice
 //        if (Prefs.showAllPoints)

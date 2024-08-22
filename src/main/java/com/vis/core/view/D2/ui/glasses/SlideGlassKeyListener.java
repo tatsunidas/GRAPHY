@@ -46,6 +46,8 @@ import java.util.Set;
 
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.roi.TextRoi;
 
 public class SlideGlassKeyListener implements KeyListener{
 	
@@ -55,16 +57,7 @@ public class SlideGlassKeyListener implements KeyListener{
 	int viewerToolType;
 	
 	private Set<Integer> pressedKeys = new HashSet<Integer>();
-	
-	boolean left = false;
-	boolean right = false;
-	boolean up = false;
-	boolean down = false;
-	boolean shift = false;
-	boolean ctrl = false;
-	boolean alt = false;
-	boolean backspace = false;
-	
+		
 	public SlideGlassKeyListener(SlideGlass sg) {
 		this.sg = sg;
 		this.pp = sg.getPraparat();
@@ -73,40 +66,28 @@ public class SlideGlassKeyListener implements KeyListener{
 
 	@Override
 	public void keyTyped(KeyEvent e) {
+		RoiObj roi = sg.getActiveRoi();
+		if(roi instanceof TextRoi) {
+			//DO NOTHING, to avoid TextArea input conflict
+		}else {
+			//do something.
+		}
 	}
 
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getID() == KeyEvent.KEY_PRESSED) {
-			if (Utils.isDebug) {
-				System.out.println("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
-			}
-			
+			Log.logger.fine("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
 			viewerToolType = pp.getViewer2DToolType();
 			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			
-			//add first.
-			pressedKeys.add(e.getKeyCode());
+			int k = e.getKeyCode();
 			
-			if (pressedKeys.contains(KeyEvent.VK_LEFT))
-				left = true;
-			if (pressedKeys.contains(KeyEvent.VK_RIGHT))
-				right = true;
-			if (pressedKeys.contains(KeyEvent.VK_UP))
-				up = true;
-			if (pressedKeys.contains(KeyEvent.VK_DOWN))
-				down = true;
-			if (pressedKeys.contains(KeyEvent.VK_SHIFT))
-				shift = true;
-			if (pressedKeys.contains(KeyEvent.VK_CONTROL))
-				ctrl = true;
-			if (pressedKeys.contains(KeyEvent.VK_ALT))
-				alt = true;
-			if (pressedKeys.contains(KeyEvent.VK_BACK_SPACE))
-				backspace = true;
+			//add first.
+			pressedKeys.add(k);
 
 			// reset slide
-			if (shift && ctrl) {
+			if (e.isControlDown() && e.isShiftDown()) {
 				if (pressedKeys.contains(KeyEvent.VK_R)) {
 					if(Utils.isDebug) System.out.println("reset pressed.");
 					sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
@@ -120,14 +101,14 @@ public class SlideGlassKeyListener implements KeyListener{
 			 * On some keyboards, Fn+BackSpace will result in Delete; be aware of the
 			 * limitations of the Fn key.
 			 */
-			if (e.getKeyCode() == KeyEvent.VK_DELETE || backspace) {
+			if (pressedKeys.contains(KeyEvent.VK_DELETE) || pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
 				Log.logger.fine("Will delet Roi, "+"Delete pressed");
 				cg.deleteRoi(sg.mouseX, sg.mouseY);
 				return;
 	        }
 
 			// paging
-			if (left || up && !right && !down && !shift && !ctrl) {
+			if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
 				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
 					if (!pp.isShowGridViewOn()) {
 						if (prapManager != null) {/* Sync series */
@@ -159,7 +140,7 @@ public class SlideGlassKeyListener implements KeyListener{
 						}
 					}
 				}
-			} else if (right || down && !left && !up && !shift && !ctrl) {
+			} else if (pressedKeys.contains(KeyEvent.VK_RIGHT) || pressedKeys.contains(KeyEvent.VK_DOWN)){
 				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
 					if (!pp.isShowGridViewOn()) {
 						if (prapManager != null) {
@@ -192,13 +173,16 @@ public class SlideGlassKeyListener implements KeyListener{
 		if (numOfKeys != 0) {
 			int releasedKey = e.getKeyCode();
 			Integer[] keys = pressedKeys.toArray(new Integer[numOfKeys]);
-			pressedKeys.clear();
 			for (Integer k : keys) {
-				if (k != releasedKey) {
-					pressedKeys.add(k);
+				if (k == releasedKey) {
+					pressedKeys.remove(k);
 				}
 			}
 		}
+	}
+	
+	void keyCancel() {
+		
 	}
 
 }

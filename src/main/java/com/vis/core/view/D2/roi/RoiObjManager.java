@@ -1221,11 +1221,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			}else if(type == RoiType.POLYGON.id()) {
 				PolygonRoi polyRoi = (PolygonRoi)roi;
 				polyRoi.fitSpline(100);
-				String rid = roi.getProperty(ContextKey.RoiID.name());
-				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
-				if(s != null) {
-					s.replaceRoi(roi.getUIDs(), polyRoi);
-				}
+//				String rid = roi.getProperty(ContextKey.RoiID.name());
+//				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
+//				if(s != null) {
+//					s.replaceRoi(roi.getUIDs(), polyRoi);
+//				}
 			}else if(type == RoiType.COMPOSITE.id()) {
 				ShapeRoi sRoi = (ShapeRoi)roi;
 				Polygon poly = sRoi.getPolygon();

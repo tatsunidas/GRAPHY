@@ -5,10 +5,7 @@ import ij.gui.RoiListener;
 import ij.process.*;
 import ij.measure.*;
 import ij.plugin.frame.*;
-import ij.util.Tools;
-//import ij.util.FloatArray;
 import java.awt.*;
-import java.awt.image.*;
 
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -110,7 +107,7 @@ public class PolygonRoi extends RoiObj {
 	private void init2(int type) {
 		if (type == RoiType.ANGLE.id() && nPoints == 3)
 			getAngleAsString();
-		// TODO tatsu
+		// tatsu
 //		if (type == POINT && Toolbar.getMultiPointMode()) {
 //			Prefs.pointAutoMeasure = false;
 //			Prefs.pointAutoNextSlice = false;
@@ -118,7 +115,6 @@ public class PolygonRoi extends RoiObj {
 //			Prefs.pointAddToOverlay = false;
 //			userCreated = true;
 //		}
-//		userCreated = true;
 		if (lineWidth > 1 && isLine())
 			updateWideLine(lineWidth);
 		finishPolygon();
@@ -150,30 +146,30 @@ public class PolygonRoi extends RoiObj {
 		RoiType t = RoiType.find(type);
 		switch (t) {
 		case POLYGON:
-			this.type = RoiType.POLYGON.id();
+			setType(RoiType.POLYGON);
 			break;
 		case FREEROI:
-			this.type = RoiType.FREEROI.id();
+			setType(RoiType.FREEROI);
 			break;
 		case FREELINE:
-			this.type = RoiType.FREELINE.id();
+			setType(RoiType.FREELINE);
 			break;
 		case ANGLE:
-			this.type = RoiType.ANGLE.id();
+			setType(RoiType.ANGLE);
 			break;
 		default:
-			this.type = RoiType.POLYLINE.id();
+			setType(RoiType.POLYLINE);
 			break;
 		}
-		if (magnificationForSubPixel(sg))
+		if (magnificationForSubPixel())
 			enableSubPixelResolution();
 		/*
 		 * keep deal original image origin and size
 		 */
 		previousX = onImageX;
 		previousY = onImageY;
-		previousSX = sg.screenX(onImageX);
-		previousSY = sg.screenX(onImageY);
+		previousSX = screenX(onImageX);
+		previousSY = screenX(onImageY);
 		x = onImageX;
 		y = onImageY;
 		startXD = x;
@@ -209,29 +205,25 @@ public class PolygonRoi extends RoiObj {
 		//initial point guide square box
 		boxSize = (int) (boxSize * 1.0);//1.0 ratio shoud be in 0.5~3.0 range.
 	}
-
-	private void drawStartBox(Graphics g, SlideGlass sg) {
-		if (type != RoiType.ANGLE.id())
-			g.drawRect(sg.screenX((int)startXD) - 4, sg.screenY((int)startYD) - 4, 8, 8);
+	
+	public void grow(int sx, int sy) {
+		//Do Nothing when constructing by mouse drag .
 	}
 
-	public void draw(Graphics g, SlideGlass sg) {
-		updatePolygon(sg);
+	private void drawStartBox(Graphics g) {
+		if (type != RoiType.ANGLE.id())
+			g.drawRect(screenX((int)startXD) - 4, screenY((int)startYD) - 4, 8, 8);
+	}
+
+	public void draw(Graphics g) {
+		updatePolygon();
 		boolean hasHandles = xSpline != null || type == RoiType.POLYGON.id() || type == RoiType.POLYLINE.id() || type == RoiType.ANGLE.id();
 		Color color = strokeColor != null ? strokeColor : ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
 		if (isActiveOverlayRoi) {
 			color = Color.cyan;
 		}
-		mag = sg.getMagnification();
-		/*
-		 * if you wish fill poly, example
-		 */
-		boolean fill = false;//TODO, should get from something methods
-//		if (fillColor != null && !isLine() && state != CONSTRUCTING) {
-//			color = fillColor == null ? defaultFillColor:fillColor;
-//			fill = true;
-//		}
+		
 		g.setColor(color);
 		Graphics2D g2d = (Graphics2D) g;
 		setRenderingHint(g2d);
@@ -239,14 +231,14 @@ public class PolygonRoi extends RoiObj {
 			g2d.setStroke(getScaledStroke());
 		if (xSpline != null) {
 			if (type == RoiType.POLYLINE.id() || type == RoiType.FREELINE.id()) {
-				drawSpline(g, xSpline, ySpline, splinePoints, false, fill, isActiveOverlayRoi,sg);
+				drawSpline(g, xSpline, ySpline, splinePoints, false, fill, isActiveOverlayRoi);
 				if (wideLine && !overlay) {
 					g2d.setStroke(onePixelWide);
 					g.setColor(getColor());
-					drawSpline(g, xSpline, ySpline, splinePoints, false, fill, isActiveOverlayRoi,sg);
+					drawSpline(g, xSpline, ySpline, splinePoints, false, fill, isActiveOverlayRoi);
 				}
 			} else
-				drawSpline(g, xSpline, ySpline, splinePoints, true, fill, isActiveOverlayRoi,sg);
+				drawSpline(g, xSpline, ySpline, splinePoints, true, fill, isActiveOverlayRoi);
 		} else {
 			if (type == RoiType.POLYLINE.id() || type == RoiType.FREELINE.id() || type == RoiType.ANGLE.id() || state == CONSTRUCTING) {
 				g.drawPolyline(xp2, yp2, nPoints);
@@ -260,15 +252,22 @@ public class PolygonRoi extends RoiObj {
 					if (isActiveOverlayRoi) {
 						g.setColor(Color.cyan);
 						g.drawPolygon(xp2, yp2, nPoints);
+						g.setColor(fillColor);
+						g.fillPolygon(xp2, yp2, nPoints);
 					} else {
+						g.setColor(color);
 						g.fillPolygon(xp2, yp2, nPoints);
 					}
 				} else {
+					if (isActiveOverlayRoi) {
+						color = Color.cyan;
+					}
+					g.setColor(color);
 					g.drawPolygon(xp2, yp2, nPoints);
 				}
 			}
 			if (state == CONSTRUCTING && type != RoiType.FREEROI.id() && type != RoiType.FREELINE.id())
-				drawStartBox(g,sg);
+				drawStartBox(g);
 		}
 		if (hasHandles && clipboard == null && !overlay) {
 			if (activeHandle > 0)
@@ -284,52 +283,41 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	private void drawSpline(Graphics g, float[] xpoints, float[] ypoints, int npoints, boolean closed, boolean fill,
-			boolean isActiveOverlayRoi, SlideGlass sg) {
+			boolean isActiveOverlayRoi) {
 		if (xpoints == null || xpoints.length == 0)
 			return;
-		double imscale = slide.getMagnification()*slide.getScaleFactor()[0];
-		boolean doScaling = imscale != 1.0d;
-//		if (sg.getMagnification() != 1.0d) {
-//			Rectangle srcRect = ic.getSrcRect();
-//			if (srcRect.x == 0 && srcRect.y == 0 && ic.getMagnification() == 1.0)
-//				doScaling = false;
-//		}
-		double xd = slide.screenXD(getXBase());
-		double yd = slide.screenYD(getYBase());
+		Color color = strokeColor != null ? strokeColor : ROIColor;
+		double xd = getXBase();
+		double yd = getYBase();
 		Graphics2D g2d = (Graphics2D) g;
 		GeneralPath path = new GeneralPath();
 		//set first path point
-		path.moveTo(xpoints[0]*imscale + xd, ypoints[0]*imscale + yd);
-		
-		if (doScaling) {
-			/*
-			 * scaled origin shift :: xd,yd
-			 * scaled (0,0) base location :: xypoints
-			 */
-			for (int i = 1; i < npoints; i++) {
-				path.lineTo(xpoints[i]*imscale + xd, ypoints[i]*imscale + yd);
-			}
-		} else {
-			double xd1 = xd, yd1 = yd;
-			if (useLineSubpixelConvention()) {
-				xd1 += 0.5;
-				yd1 += 0.5;
-			}
-			for (int i = 1; i < npoints; i++) {
-				path.lineTo(xpoints[i]*imscale + xd1, ypoints[i]*imscale + yd1);
-			}
+		path.moveTo(screenXD(xpoints[0]+xd), screenYD(ypoints[0]+yd));
+		/*
+		 * scaled origin shift :: xd,yd
+		 * scaled (0,0) base location :: xypoints
+		 */
+		for (int i = 1; i < npoints; i++) {
+			path.lineTo(screenXD(xpoints[i]+xd), screenYD(ypoints[i]+yd));
 		}
 		if (closed) {
 			//line to first point, set first point. 
-			path.lineTo(xpoints[0]*imscale + xd, ypoints[0]*imscale + yd);
+			path.lineTo(screenXD(xpoints[0]+xd), screenYD(ypoints[0]+yd));
 		}
 		if (fill) {
 			if (isActiveOverlayRoi) {
 				g2d.setColor(Color.cyan);
 				g2d.draw(path);
+				g2d.setColor(fillColor);
+				g2d.fill(path);
 			} else
+				g2d.setColor(fillColor);
 				g2d.fill(path);
 		} else
+			if (isActiveOverlayRoi) {
+				color = Color.cyan;
+			}
+			g2d.setColor(color);
 			g2d.draw(path);
 	}
 
@@ -362,18 +350,20 @@ public class PolygonRoi extends RoiObj {
 		updateFullWindow = true;
 	}
 
-	protected void grow(int sx, int sy) {
-		// Overrides grow() in Roi class
-	}
-
-	protected void updatePolygon(SlideGlass sg) {
-		int basex = sg.imageSpecimen.originX; 
-		int basey = sg.imageSpecimen.originY;
+	protected void updatePolygon() {
+		int basex = 0;
+		int basey = 0;
+		if(slide != null) {
+//			basex = slide.imageSpecimen.originX; 
+//			basey = slide.imageSpecimen.originY;
+			basex = offScreenX(0);
+			basey = offScreenY(0);
+		}
 		
 		//update roi popup
 //		setBasicStatistics2Popup();//TODO
 		
-		double mag = sg.getMagnification();
+		double mag = getMagnification();
 		if (mag == 1.0 && basex == 0 && basey == 0) {
 			if (xpf != null) {
 				float xbase = (float) getXBase();
@@ -393,13 +383,13 @@ public class PolygonRoi extends RoiObj {
 				float xbase = (float) getXBase();
 				float ybase = (float) getYBase();
 				for (int i = 0; i < nPoints; i++) {
-					xp2[i] = sg.screenX((int)(xpf[i] + xbase));
-					yp2[i] = sg.screenY((int)(ypf[i] + ybase));
+					xp2[i] = screenX((int)(xpf[i] + xbase));
+					yp2[i] = screenY((int)(ypf[i] + ybase));
 				}
 			} else {
 				for (int i = 0; i < nPoints; i++) {
-					xp2[i] = sg.screenX((int)(xp[i] + x));
-					yp2[i] = sg.screenY((int)(yp[i] + y));
+					xp2[i] = screenX((int)(xp[i] + x));
+					yp2[i] = screenY((int)(yp[i] + y));
 				}
 			}
 		}
@@ -409,33 +399,27 @@ public class PolygonRoi extends RoiObj {
 		SlideGlass sg = slide;
 		int sx = e.getX();
 		int sy = e.getY();
-		int flags = e.getModifiers();
-		constrain = (flags & Event.SHIFT_MASK) != 0;
+		int flags = e.getModifiersEx();
+		constrain = (flags & InputEvent.SHIFT_DOWN_MASK) != 0;
 		if (constrain) { // constrain in 90deg steps
-			int dx = sx - sg.lastDraggedX;
-			int dy = sy - sg.lastDraggedY;
+			int dx = sx - previousSX;
+			int dy = sy - previousSY;
 			if (Math.abs(dx) > Math.abs(dy))
 				dy = 0;
 			else
 				dx = 0;
-			sx = sg.lastDraggedX + dx;
-			sy = sg.lastDraggedY + dy;
+			sx = previousSX + dx;
+			sy = previousSY + dy;
 		}
 
-//		// Do rubber banding
-//		int tool = Toolbar.getToolId();
-//		if (!(tool == Toolbar.POLYGON || tool == Toolbar.POLYLINE || tool == Toolbar.ANGLE)) {
-//			imp.deleteRoi();
-//			imp.draw();
-//			return;
-//		}
 		if (IJ.altKeyDown())
-			wipeBack(sg);
+			wipeBack();
 
 		drawRubberBand(sx, sy);
 
 		// show status: length & angle
 		degrees = Double.NaN;
+		@SuppressWarnings("unused")
 		double len = -1;
 		if (nPoints > 1) {
 			double x1, y1, x2, y2;
@@ -485,12 +469,12 @@ public class PolygonRoi extends RoiObj {
 	// Mouse behaves like an eraser when moved backwards with alt key down.
 	// Within correction circle, all vertices with sharp angles are removed.
 	// Norbert Vischer
-	protected void wipeBack(SlideGlass sg) {
+	protected void wipeBack() {
 		RoiObj prevRoi = getPreviousRoi();
 		if (prevRoi != null && prevRoi.modState == SUBTRACT_FROM_ROI)
 			return;
 		double correctionRadius = 20;
-		correctionRadius /= sg.getMagnification();
+		correctionRadius /= getMagnification();
 		boolean found = false;
 		int p3 = nPoints - 1;
 		int p1 = p3;
@@ -514,9 +498,8 @@ public class PolygonRoi extends RoiObj {
 				double dx2 = xpf != null ? xpf[p3] - xpf[p1] : xp[p3] - xp[p1];
 				double dy2 = xpf != null ? ypf[p3] - ypf[p1] : yp[p3] - yp[p1];
 				double kk = 1;// allowed sharpness
-				//TODO
-//				if (this instanceof FreehandRoi)
-//					kk = 0.8;
+				if (this instanceof FreehandRoi)
+					kk = 0.8;
 				if ((dx1 * dx1 + dy1 * dy1) > kk * (dx2 * dx2 + dy2 * dy2)) {
 					if (xpf != null) {
 						xpf[p2] = xpf[p3];
@@ -592,11 +575,9 @@ public class PolygonRoi extends RoiObj {
 		}
 		if (type == RoiType.POLYLINE.id() && Prefs.splineFitLines) {
 			fitSpline();
-//			imp.draw();
 		} 
 //		else
 //			imp.draw(xmin - margin, ymin - margin, (xmax - xmin) + margin * 2, (ymax - ymin) + margin * 2);
-		slide.repaint();
 	}
 
 	void finishPolygon() {
@@ -640,8 +621,6 @@ public class PolygonRoi extends RoiObj {
 				return;
 		}
 		state = NORMAL;
-		if (imp != null && !(type == RoiType.TRACED_ROI.id()))
-			imp.draw(x - 5, y - 5, width + 10, height + 10);
 		oldX = x;
 		oldY = y;
 		oldWidth = width;
@@ -664,10 +643,10 @@ public class PolygonRoi extends RoiObj {
 
 	@Override
 	protected void moveHandle(int sx, int sy) {
-		SlideGlass sg = slide;
+		SlideGlass sg = getSlideGlass();
 		if (constrain) { // constrain in 90deg steps
-			int dx = sx - sg.lastDraggedX;
-			int dy = sy - sg.lastDraggedY;
+			int dx = sx - previousSX;
+			int dy = sy - previousSY;
 			if (Math.abs(dx) > Math.abs(dy))
 				dy = 0;
 			else
@@ -698,16 +677,16 @@ public class PolygonRoi extends RoiObj {
 				width = 1;
 				height = 1;
 			}
-			updateClipRectAndDraw(sg);
+			updateClipRectAndDraw();
 		}
 		//update degrees
-		String angle = type == RoiType.ANGLE.id() ? getAngleAsString() : "";
+//		String angle = type == RoiType.ANGLE.id() ? getAngleAsString() : "";
 		modifyRoi();
 //		IJ.showStatus(imp.getLocationAsString(ox, oy) + angle);
 	}
 
 	/** After handle is moved, find clip rect and repaint. */
-	void updateClipRectAndDraw(SlideGlass sg) {
+	void updateClipRectAndDraw() {
 		if (xpf != null) {
 			xp = toInt(xpf, xp, nPoints);
 			yp = toInt(ypf, yp, nPoints);
@@ -767,7 +746,6 @@ public class PolygonRoi extends RoiObj {
 		yClipMin = ymin;
 		xClipMax = xmax;
 		yClipMax = ymax;
-		double mag = sg.getMagnification();
 		int handleSize = type == RoiType.POINT.id() ? getHandleSize() + 25 : getHandleSize();
 		double strokeWidth = getStrokeWidth();
 		if (strokeWidth < 1.0)
@@ -898,20 +876,19 @@ public class PolygonRoi extends RoiObj {
 	public void mouseDownInHandle(int handle, int sx, int sy) {
 		if (state == CONSTRUCTING)
 			return;
-		int ox = slide.offScreenX(sx);
-		int oy = slide.offScreenY(sy);
+		int ox = offScreenX(sx);
+		int oy = offScreenY(sy);
 		double oxd = ox;
 		double oyd = oy;
 		
-		//TODO
-//		if ((IJ.altKeyDown() || IJ.controlKeyDown()) && !(nPoints <= 3 && type != POINT)
-//				&& !(this instanceof RotatedRectRoi)) {
-//			deleteHandle(oxd, oyd);
-//			return;
-//		} else if (IJ.shiftKeyDown() && type != POINT && !(this instanceof RotatedRectRoi)) {
-//			addHandle(oxd, oyd);
-//			return;
-//		}
+		if ((IJ.altKeyDown() || IJ.controlKeyDown()) && !(nPoints <= 3 && type != RoiType.POINT.id())
+				&& !(this instanceof RotatedRectRoi)) {
+			deleteHandle(oxd, oyd);
+			return;
+		} else if (IJ.shiftKeyDown() && type != RoiType.POINT.id() && !(this instanceof RotatedRectRoi)) {
+			addHandle(oxd, oyd);
+			return;
+		}
 		
 		super.mouseDownInHandle(handle, sx, sy); // sets state, activeHandle, previousSX&Y
 		int m = (int) (10.0 / getMagnification());
@@ -961,7 +938,7 @@ public class PolygonRoi extends RoiObj {
 		nPoints--;
 	}
 
-	void addHandle(double ox, double oy, SlideGlass sg) {
+	void addHandle(double ox, double oy) {
 		if (imp == null || type == RoiType.ANGLE.id())
 			return;
 		boolean splineFit = xSpline != null;
@@ -1131,18 +1108,6 @@ public class PolygonRoi extends RoiObj {
 		return new float[][] { xSpline, ySpline };
 	}
 
-	/** Fits a spline, which becomes the new shape of this Roi */
-	public void fitSpline(SlideGlass sg) {
-		double length = getUncalibratedLength();
-		int evaluationPoints = (int) (length / 2.0);
-		double mag = sg.getMagnification();
-		if (mag < 1.0)
-			evaluationPoints *= mag;
-		if (evaluationPoints < 100)
-			evaluationPoints = 100;
-		fitSpline(evaluationPoints);
-	}
-
 	public void removeSplineFit() {
 		xSpline = null;
 		ySpline = null;
@@ -1234,83 +1199,87 @@ public class PolygonRoi extends RoiObj {
 	 * double-clicks, control-clicks or clicks in start box.
 	 */
 	public void handleMouseUp(int sx, int sy) {
-		if (getState() == MOVING) {
-			setState(NORMAL);
-			modifyRoi();//update db roi state 
+		if (state==MOVING) {
+			state = NORMAL;
 			return;
 		}
-		if (getState() == MOVING_HANDLE) {
-			cachedMask = null; // mask is no longer valid
-			setState(NORMAL);
+		if (state==MOVING_HANDLE) {
+			cachedMask = null; //mask is no longer valid
+			state = NORMAL;
 			updateClipRect();
-			oldX = x;
-			oldY = y;
-			oldWidth = width;
-			oldHeight = height;
+			oldX=x; oldY=y;
+			oldWidth=width; oldHeight=height;
 			if (subPixelResolution())
 				resetBoundingRect();
 			return;
 		}
-		/*
-		 * following is only constructing state...
-		 */
-		if (state != CONSTRUCTING)
+		if (state!=CONSTRUCTING)
+			return;
+		if (IJ.spaceBarDown()) // is user scrolling image?
 			return;
 		boolean samePoint = false;
-		//tatsu todo
-		if (xpf != null)
-			samePoint = (xpf[nPoints - 2] == xpf[nPoints - 1] && ypf[nPoints - 2] == ypf[nPoints - 1]);
+		if (xpf!=null)
+			samePoint = (xpf[nPoints-2]==xpf[nPoints-1] && ypf[nPoints-2]==ypf[nPoints-1]);
 		else
-			samePoint = (xp[nPoints - 2] == xp[nPoints - 1] && yp[nPoints - 2] == yp[nPoints - 1]);
-		boolean doubleClick = (System.currentTimeMillis() - mouseUpTime) <= 320;
-		int size = boxSize + 2;
-		int size2 = boxSize / 2 + 1;
-		Rectangle biggerStartBox = new Rectangle(slide.screenX((int)startXD) - 5, slide.screenY((int)(startYD)) - 5, 10, 10);
-		if (nPoints > 2 && (biggerStartBox.contains(sx, sy)
-				|| (sx == startXD && sy == startYD) || (samePoint && doubleClick))) {
+			samePoint = (xp[nPoints-2]==xp[nPoints-1] && yp[nPoints-2]==yp[nPoints-1]);
+		boolean doubleClick = (System.currentTimeMillis()-mouseUpTime)<=300;
+		@SuppressWarnings("unused")
+		int size = boxSize+2;
+		@SuppressWarnings("unused")
+		int size2 = boxSize/2 +1;
+		Rectangle biggerStartBox = new Rectangle(screenXD(startXD)-5, screenYD(startYD)-5, 10, 10);
+		if (nPoints>2 && (biggerStartBox.contains(sx, sy)
+		|| (offScreenXD(sx)==startXD && offScreenYD(sy)==startYD)
+		|| (samePoint && doubleClick))) {
 			boolean okayToFinish = true;
-			if (type == RoiType.POLYGON.id() && samePoint && doubleClick && nPoints > 25) {
+			if (type==RoiType.POLYGON.id() && samePoint && doubleClick && nPoints>25) {
 				okayToFinish = IJ.showMessageWithCancel("Polygon Tool", "Complete the selection?");
 			}
 			if (okayToFinish) {
-				nPoints--;
+				/*
+				 * tatsu
+				 * I do not know why nPoints-- here.
+				 * If use nPints--, angle calculated by line,
+				 * else, calculated it by 2 cross lines. 
+				 */
+				//nPoints--;
 				addOffset();
 				finishPolygon();
 				return;
 			}
 		} else if (!samePoint) {
 			mouseUpTime = System.currentTimeMillis();
-			if (type == RoiType.ANGLE.id() && nPoints == 3) {
+			if (type==RoiType.ANGLE.id() && nPoints==3) {
 				addOffset();
 				finishPolygon();
 				return;
 			}
-			// add point to polygon
-			if (xpf != null) {
-				xpf[nPoints] = xpf[nPoints - 1];
-				ypf[nPoints] = ypf[nPoints - 1];
+			//add point to polygon
+			if (xpf!=null) {
+				xpf[nPoints] = xpf[nPoints-1];
+				ypf[nPoints] = ypf[nPoints-1];
 				nPoints++;
-				if (nPoints == xpf.length)
+				if (nPoints==xpf.length)
 					enlargeArrays();
 			} else {
-				xp[nPoints] = xp[nPoints - 1];
-				yp[nPoints] = yp[nPoints - 1];
+				xp[nPoints] = xp[nPoints-1];
+				yp[nPoints] = yp[nPoints-1];
 				nPoints++;
-				if (nPoints == xp.length)
+				if (nPoints==xp.length)
 					enlargeArrays();
 			}
-			if (constrain) { // this point was constrained in 90deg steps; correct coordinates
-				int dx = sx - slide.lastDraggedX;
-				int dy = sy - slide.lastDraggedY;
+			if (constrain) {  // this point was constrained in 90deg steps; correct coordinates
+				int dx = sx - previousSX;
+				int dy = sy - previousSY;
 				if (Math.abs(dx) > Math.abs(dy))
 					dy = 0;
 				else
 					dx = 0;
-				sx = slide.lastDraggedX + dx;
-				sy = slide.lastDraggedY + dy;
+				sx = previousSX + dx;
+				sy = previousSY + dy;
 			}
-			slide.lastDraggedX = sx; // save for constraining next line if desired
-			slide.lastDraggedY = sy;
+			previousSX = sx;  //save for constraining next line if desired
+			previousSY = sy;
 			notifyListeners(RoiListener.EXTENDED);
 		}
 	}
@@ -1381,7 +1350,7 @@ public class PolygonRoi extends RoiObj {
 	 * Returns a handle number if the specified screen coordinates are inside or
 	 * near a handle, otherwise returns -1.
 	 */
-	public int isHandle(int sx, int sy, SlideGlass sg) {
+	public int isHandle(int sx, int sy) {
 //		if (!(xSpline != null || type == POLYGON || type == POLYLINE || type == ANGLE || type == POINT)
 //				|| clipboard != null)
 //			return -1;
@@ -1404,17 +1373,16 @@ public class PolygonRoi extends RoiObj {
 
 	public ImageProcessor getMask() {
 		ImageProcessor mask = cachedMask;
-		if (mask != null && mask.getPixels() != null && mask.getWidth() == width && mask.getHeight() == height)
+		if (mask!=null && mask.getPixels()!=null
+		&& mask.getWidth()==width && mask.getHeight()==height)
 			return mask;
 		PolygonFiller pf = new PolygonFiller();
-//		if (xSpline != null)
-//			pf.setPolygon(xSpline, ySpline, splinePoints, (int)(getXBase() - x), (int)(getYBase() - y));
-//		else if (xpf != null)
-//			pf.setPolygon(xpf, ypf, nPoints, getXBase() - x, getYBase() - y);
-//		else
-//			pf.setPolygon(xp, yp, nPoints);
-		//TODO
-		pf.setPolygon(xp, yp, nPoints);
+		if (xSpline!=null)
+			pf.setPolygon(xSpline, ySpline, splinePoints, getXBase()-x, getYBase()-y);
+		else if (xpf!=null)
+			pf.setPolygon(xpf, ypf, nPoints, getXBase()-x, getYBase()-y);
+		else
+			pf.setPolygon(xp, yp, nPoints);
 		mask = pf.getMask(width, height);
 		cachedMask = mask;
 		return mask;

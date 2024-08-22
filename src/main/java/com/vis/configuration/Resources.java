@@ -49,6 +49,7 @@ public enum Resources {
 	MenuBarSendIcon("icon/ic_send_black_48dp.png"),
 	MenuBarSettingsIcon("icon/ic_settings_black_48dp.png"),
 	MenuBarViewer2DIcon("icon/ic_desktop_windows_black_48dp.png"),
+	
 	//2d viewer
 	Viewer2DFrameWinIcon("icon/GRAPHY-128.png"),
 	ResultWinIcon("icon/outline_square_foot_black_48dp.png"),
@@ -75,15 +76,19 @@ public enum Resources {
 	PrefsROIIcon("icon/shaperoi_48.png"),
 	
 	//roi tools
-	RectangleRoiIcon("icon/baseline_crop_square_black_48dp.png"),
-	OvalRoiIcon("icon/baseline_panorama_fish_eye_black_48dp.png"),
-	LineRoiIcon("icon/baseline_remove_black_48dp.png"),
-	PolygonRoiIcon("icon/baseline_timeline_black_48dp.png"),
-	ArrowRoiIcon("icon/baseline_transit_enterexit_black_48dp.png"),
-	PointRoiIcon("icon/baseline_scatter_plot_black_48dp.png"),
-	TextRoiIcon("icon/baseline_font_download_black_48dp.png"),
-	AngleRoiIcon("icon/measure_angle_roi_icon.png"),
-	RoiBrushIcon("icon/outline_brush_black_48dp.png"),
+	RectangleRoiIcon("icon/roi_rectangle.png"),
+	OvalRoiIcon("icon/roi_oval_circle.png"),
+	FreeRoiIcon("icon/roi_freehand_closed.png"),
+	LineRoiIcon("icon/roi_polyline.png"),
+	FreeLineRoiIcon("icon/roi_freehand_draw.png"),
+	PolyLineRoiIcon("icon/roi_polyline2.png"),
+	PolygonRoiIcon("icon/roi_polygon.png"),
+	ArrowRoiIcon("icon/roi_arrow.png"),
+	PointRoiIcon("icon/roi_point_scan_64dp.png"),
+	MultiPointRoiIcon("icon/roi_multipoint2.png"),
+	TextRoiIcon("icon/roi_text_64.png"),
+	AngleRoiIcon("icon/roi_angle.png"),
+	RoiBrushIcon("icon/roi_brush_48dp.png"),
 	//viewer3d
 	MenuBarViewer3DIcon("icon/ic_3d_rotation_black_48dp.png"),
 	//mpr window

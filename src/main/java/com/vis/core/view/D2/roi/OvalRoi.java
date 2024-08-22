@@ -13,9 +13,6 @@ import ij.measure.Calibration;
 @SuppressWarnings("serial")
 public class OvalRoi extends RoiObj {
 
-	/*
-	 * https://github.com/imagej/imagej1/blob/master/ij/gui/OvalRoi.java
-	 */
 	/** Creates an OvalRoi.*/
 	public OvalRoi(int x, int y, int width, int height, SlideGlass slide) {
 		super(x, y, width, height, 0, slide);
@@ -234,18 +231,19 @@ public class OvalRoi extends RoiObj {
 		if (fillColor!=null) color = fillColor;
 		g.setColor(color);
 		mag = getMagnification();
-		int sw = (int)(width*mag);
-		int sh = (int)(height*mag);
+		double[] scaleXY = getComponentScaleFactor();
+		int sw = (int)(width*mag*scaleXY[0]);
+		int sh = (int)(height*mag*scaleXY[1]);
 		int sx1 = screenX(x);
 		int sy1 = screenY(y);
 		if (subPixelResolution() && bounds!=null) {
-			sw = (int)(bounds.width*mag);
-			sh = (int)(bounds.height*mag);
+			sw = (int)(bounds.width*mag*scaleXY[0]);
+			sh = (int)(bounds.height*mag*scaleXY[0]);
 			sx1 = screenXD(bounds.x);
 			sy1 = screenYD(bounds.y);
 		}
-		int sw2 = (int)(0.14645*width*mag);
-		int sh2 = (int)(0.14645*height*mag);
+		int sw2 = (int)(0.14645*width*mag*scaleXY[0]);
+		int sh2 = (int)(0.14645*height*mag*scaleXY[0]);
 		int sx2 = sx1+sw/2;
 		int sy2 = sy1+sh/2;
 		int sx3 = sx1+sw;

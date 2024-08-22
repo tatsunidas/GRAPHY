@@ -159,7 +159,7 @@ public class RoiConverter {
 //		String rlbl = (String)roiCon.get("RoiLabel");
 //		String ot = (String)roiCon.get("ObjectType");
 //		String organ = (String)roiCon.get("Organ");
-//		String desc = (String)roiCon.get("Description");
+		String desc = (String)roiCon.get("Description");//TextRoi
 //		String pid = (String)roiCon.get("PatientID");
 //		String studyUid = (String)roiCon.get("StudyInstanceUID");
 //		String seriesUid = (String)roiCon.get("SeriesInstanceUID");
@@ -172,13 +172,7 @@ public class RoiConverter {
 		 */
 		boolean adjustArrow = false;
 		if(type == RoiType.LINE.id() || type == RoiType.ARROW.id()) {
-			int pointNum = 0;
-			for(float xp : pointX) {
-				if(xp > 0) {
-					pointNum++;
-				}
-			}
-			if(pointNum > 2) {
+			if(pointX != null && pointX.length > 2) {
 				type = RoiType.ARROW.id();
 				adjustArrow = true;
 			}
@@ -202,13 +196,7 @@ public class RoiConverter {
 			oval.setProperties(roiCon);
 			return oval;
 		case LINE:
-			RoiObj line = null;
-			if(pointX==null) {
-				//debug
-//				line = new com.vis.viewer2d.roi.Line(x,y,w,h,null);//NG
-			}else {
-				line = new com.vis.core.view.D2.roi.Line(pointX[0],pointY[0],pointX[1],pointY[1],null);
-			}
+			RoiObj line = new com.vis.core.view.D2.roi.Line(pointX[0],pointY[0],pointX[1],pointY[1],null);
 			line.setProperties(roiCon);
 			return line;
 		case ARROW:
@@ -216,25 +204,24 @@ public class RoiConverter {
 			 * 4 points included of x and y points.
 			 */
 			RoiObj arrow = null;
-			if(!adjustArrow) {//In graphy handlding only
-				arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[1],pointY[1],null);
-			}else {//graphy - IJ'Roi - graphy handling
-				float arrowX1 = Math.abs((pointX[0]+pointX[1])/2.0f);
-				float arrowY1 = Math.abs((pointY[0]+pointY[1])/2.0f);
-				float arrowX2 = Math.abs((pointX[2]+pointX[3])/2.0f);
-				float arrowY2 = Math.abs((pointX[2]+pointX[3])/2.0f);
-				arrow = new com.vis.core.view.D2.roi.Arrow(arrowX1, arrowY1, arrowX2, arrowY2, null);
-			}
+//			if(!adjustArrow) {//In graphy handlding only
+				arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[2],pointY[2],null);
+//			}else {//graphy - IJ'Roi - graphy handling
+//				float arrowX1 = Math.abs((pointX[0]+pointX[1])/2.0f);
+//				float arrowY1 = Math.abs((pointY[0]+pointY[1])/2.0f);
+//				float arrowX2 = Math.abs((pointX[2]+pointX[3])/2.0f);
+//				float arrowY2 = Math.abs((pointX[2]+pointX[3])/2.0f);
+//				arrow = new com.vis.core.view.D2.roi.Arrow(arrowX1, arrowY1, arrowX2, arrowY2, null);
+//			}
 			arrow.setProperties(roiCon);
 			return arrow;
 		case TEXT:
-			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, (String)roiCon.get("Description"), null, null);
-//			RoiObj txt = new com.vis.viewer2d.roi.TextRoi(x,y,(String)roiCon.get("Description"),null);
+			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, desc, null, null);
 			txt.setProperties(roiCon);//update text string
 			return txt;
 		case POINT:
 			RoiObj pt = new com.vis.core.view.D2.roi.PointRoi(x,y,null);
-			pt.setProperties(roiCon);//update text string
+			pt.setProperties(roiCon);
 			return pt;
 		case COMPOSITE:
 		case TRACED_ROI:

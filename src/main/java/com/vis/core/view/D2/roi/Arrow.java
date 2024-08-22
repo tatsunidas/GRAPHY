@@ -44,71 +44,62 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
     public Arrow(double ox1, double oy1, double ox2, double oy2,SlideGlass slide) {
         super(ox1, oy1, ox2, oy2, slide);
         setStrokeWidth(2);
+        setStyle(defaultStyle);
         setType(RoiType.ARROW);
     }
     
     public Arrow(double ox1, double oy1, SlideGlass slide) {
         super(ox1, oy1, ox1+1, oy1+1, slide);
         setStrokeWidth(2);
+        setStyle(defaultStyle);
         setType(RoiType.ARROW);
     }
 
     /** Draws this arrow on the image. */
-    public void draw(Graphics g, SlideGlass sg) {
-        Shape shape2 = null;
-        if (doubleHeaded) {
-            flipEnds();
-            shape2 = getShape();
-            flipEnds();
-        }
-        Shape shape = getShape();
-        Color color =  strokeColor!=null? strokeColor:ROIColor;
-        if (fillColor!=null) color = fillColor;
-        if (isActiveOverlayRoi()) {
-        	color = Color.cyan;
+    public void draw(Graphics g) {
+    	Shape shape2 = null;
+		if (doubleHeaded) {
+			flipEnds();
+			shape2 = getShape();
+			flipEnds();
 		}
-        g.setColor(color);
-        Graphics2D g2 = (Graphics2D)g;
-        setRenderingHint(g2);
-        AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
-        double mag = sg.getMagnification();
-        double scale = sg.getScaleFactor()[0];
-        
-        /*
-         * スクリーン座標（SlideGlass座標）で、Arrowの始点を補正。
-         * setTransformで変換スケールを加味するので、その分を先に補正する。
-         */
-        int xbase = 0;
-        int ybase = 0;
-        if(sg.panningFlag) {
-        	xbase = (int)(sg.imageSpecimen.originX/mag);
-            ybase = (int)(sg.imageSpecimen.originY/mag);
-        }else {
-			xbase = (int) (sg.imageSpecimen.originX / mag / scale);
-			ybase = (int) (sg.imageSpecimen.originY / mag / scale);
-        }
-        
-        at.setTransform(mag*scale, 0.0, 0.0, mag*scale, (xbase)*mag*scale, (ybase)*mag*scale); //0.5: int coordinate at pixel center
-        if (outline) {
-            float lineWidth = (float)(getOutlineWidth()*mag);
-            g2.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
-            g2.draw(at.createTransformedShape(shape));
-            if (doubleHeaded) g2.draw(at.createTransformedShape(shape2));
-            g2.setStroke(defaultStroke);
-        } else  {
-            g2.fill(at.createTransformedShape(shape));
-            if (doubleHeaded) g2.fill(at.createTransformedShape(shape2));
-        }
-//        if (!overlay) {
-            handleColor=Color.ORANGE;
-            drawHandle(g, sg.screenX((int)x1d), sg.screenY((int)y1d));
-            drawHandle(g, sg.screenX((int)x2d), sg.screenY((int)y2d));
-            drawHandle(g, sg.screenX((int)(x1d+(x2d-x1d)/2.0)), sg.screenY((int)(y1d+(y2d-y1d)/2.0)));
-//        }
-//        if (state!=NORMAL && imp!=null && imp.getRoi()!=null)
-//            showStatus();
-//        if (updateFullWindow) 
-//            {updateFullWindow = false; imp.draw();}
+		Shape shape = getShape();
+		if (shape==null)
+			return;
+		Color color =  strokeColor!=null? strokeColor:ROIColor;
+		if (fill) color = fillColor;
+		if(isActiveOverlayRoi()) {
+			color = Color.cyan;
+		}
+		Graphics2D g2 = (Graphics2D)g;
+		g2.setColor(color);
+		setRenderingHint(g2);
+		AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
+		double mag = getMagnification();
+		int xbase=0, ybase=0;
+		if (slide!=null) {
+			xbase = offScreenX(0);
+			ybase = offScreenY(0);
+		}
+		double[] compScaleXY = getComponentScaleFactor();
+		at.setTransform(mag*compScaleXY[0], 0.0, 0.0, mag*compScaleXY[1], (-xbase+0.5)*mag*compScaleXY[0], (-ybase+0.5)*mag*compScaleXY[1]); //0.5: int coordinate at pixel center
+		if (outline) {
+			float lineWidth = (float)(getOutlineWidth()*mag);
+			g2.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+			g2.draw(at.createTransformedShape(shape));
+			if (doubleHeaded) g2.draw(at.createTransformedShape(shape2));
+			g2.setStroke(defaultStroke);
+		} else  {
+			g2.fill(at.createTransformedShape(shape));
+			if (doubleHeaded) g2.fill(at.createTransformedShape(shape2));
+		}
+		if (!overlay) {
+			handleColor=color;
+			drawHandle(g, screenXD(x1d), screenYD(y1d));
+			drawHandle(g, screenXD(x2d), screenYD(y2d));
+			handleColor=Color.white;
+			drawHandle(g, screenXD(x1d+(x2d-x1d)/2.0), screenYD(y1d+(y2d-y1d)/2.0));
+		}
     }
         
     private void flipEnds() {
@@ -263,9 +254,6 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         double head = headSize/7.0;
         double lineWidth = width + head + headShaftRatio;
         if (lineWidth<1.0) lineWidth = 1.0;
-        //if (width<1) width=1;
-        //if (head<1) head=1;
-        //IJ.log(getStrokeWidth()+"  "+IJ.d2s(width,2)+"  "+IJ.d2s(head,2)+"  "+IJ.d2s(headShaftRatio,2)+"  "+IJ.d2s(lineWidth,2)+"  "+IJ.d2s(width*head,2));
         return lineWidth;
     }
     
@@ -296,23 +284,27 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 	}
     
     public boolean contains(int x, int y) {
-        return getShapeRoi().contains(x, y);
+    	RoiObj roi = getShapeRoi();
+    	return roi!=null?roi.contains(x,y):false;
     }
 
     /** Return the bounding rectangle of this arrow. */
     public Rectangle getBounds() {
-        return getShapeRoi().getBounds();
+    	RoiObj roi = getShapeRoi();
+    	if (roi!=null)
+			return roi.getBounds();
+		else
+			return super.getBounds();
     }
 
-    public void mouseDown(MouseEvent e) {
-        super.mouseDown(e);
-    }
+	public void mouseDown(MouseEvent e) {
+		super.mouseDown(e);
+		startxd = offScreenXD(e.getX());
+		startyd = offScreenYD(e.getY());
+	}
 
-	protected int clipRectMargin(SlideGlass sg) {
-		double mag = 1.0;
-		if (sg != null) {
-			mag = sg.getMagnification();
-		}
+	protected int clipRectMargin() {
+		double mag = getMagnification();
 		double arrowWidth = getStrokeWidth();
 		double size = 8 + 10 * arrowWidth * mag * 0.5;
 		return (int) Math.max(size * 2.0, headSize);
@@ -415,5 +407,17 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
     public static boolean getDefaultOutline() {
         return defaultOutline;
     }
+    
+    @Override
+	public void copyAttributes(RoiObj roi2) {
+		super.copyAttributes(roi2);
+		if (roi2 instanceof Arrow) {
+			Arrow a2 = (Arrow)roi2;
+			this.style = a2.getStyle();
+			this.headSize = a2.getHeadSize();
+			this.doubleHeaded = a2.getDoubleHeaded();
+			this.outline = a2.getOutline();
+		}
+	}
 
 }

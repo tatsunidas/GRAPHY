@@ -3,7 +3,6 @@ package com.vis.core.view.D2.roi;
 import ij.*;
 import ij.process.*;
 import ij.util.*;
-import ij.macro.Interpreter;
 import ij.plugin.frame.Recorder;
 import ij.plugin.Colors;
 import java.awt.geom.*;
@@ -11,7 +10,16 @@ import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+
 import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.glasses.CanvasGlass;
+import com.vis.core.view.D2.ui.glasses.EventGlass;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 /** This class is a rectangular ROI containing text. */
@@ -21,34 +29,27 @@ public class TextRoi extends RoiObj {
     public static final int LEFT=0, CENTER=1, RIGHT=2;
     static final int MAX_LINES = 50;
 
-//    private static final String line1 = "Enter text, then press";
-//    private static final String line2 = "ctrl+b to add to overlay";
-//    private static final String line3 = "or ctrl+d to draw.";
     private static final String line1a = "Enter text...";
     private String[] theText = new String[MAX_LINES];
     private static String name = "SansSerif";
     private static int style = Font.PLAIN;
-    private static int size = 18;
+    private static int size = 14;
     private Font font;
     private static boolean antialiasedText = true; // global flag used by text tool
     private static int globalJustification = LEFT;
-    private static Color defaultFillColor;
     private int justification = LEFT;
-    private double previousMag;
-    private boolean firstChar = true;
-    private boolean firstMouseUp = true;
-    private int cline = 0;
     private double angle;  // degrees
-    private static double defaultAngle;
-    private static boolean firstTime = true;
-    private RoiObj previousRoi;
     private Graphics fontGraphics;
     private static Font defaultFont = new Font(name,style,size);
+    private boolean initialize = true;
+    
+    JTextArea textArea;
+    JScrollPane textPane;
+    
+    int prevCompW = 0;
+    int prevCompH = 0;
 
     /** Creates a TextRoi using the defaultFont.*/
-    /*
-     * xy is on image xy.
-     */
     public TextRoi(int x, int y, String text, SlideGlass slide) {
         this(x, y, text, defaultFont,slide);
     }
@@ -77,22 +78,22 @@ public class TextRoi extends RoiObj {
      * @see ij.gui.Roi#setNonScalable
      * @see ij.ImagePlus#setOverlay(ij.gui.Overlay)
      */
-    public TextRoi(int x, int y, String text, Font font, SlideGlass slide) {
-    	super((int)x, (int)y, 1, 1, 0, slide);
-        init(text, font);
-    }
+	public TextRoi(int x, int y, String text, Font font, SlideGlass slide) {
+		super((int) x, (int) y, 1, 1, 0, slide);
+		init(text, font);
+	}
 
-    /** Creates a TextRoi using the specified sub-pixel location and Font. */
-    public TextRoi(double x, double y, String text, Font font,SlideGlass slide) {
-    	super((int)x, (int)y, 1, 1, 0,slide);
-        init(text, font);
-    }
+	/** Creates a TextRoi using the specified sub-pixel location and Font. */
+	public TextRoi(double x, double y, String text, Font font, SlideGlass slide) {
+		super((int) x, (int) y, 1, 1, 0, slide);
+		init(text, font);
+	}
 
-    /** Creates a TextRoi using the specified sub-pixel location, size and Font. */
-    public TextRoi(double x, double y, double width, double height, String text, Font font,SlideGlass slide) {
-    	super((int)x, (int)y, (int)width, (int)height, 0,slide);
-        init(text, font);
-    }
+	/** Creates a TextRoi using the specified sub-pixel location, size and Font. */
+	public TextRoi(double x, double y, double width, double height, String text, Font font, SlideGlass slide) {
+		super((int) x, (int) y, (int) width, (int) height, 0, slide);
+		init(text, font);
+	}
     
     /** Creates a TextRoi using the specified text and location. */
     public static TextRoi create(String text, double x, double y, Font font,SlideGlass slide) {
@@ -104,119 +105,64 @@ public class TextRoi extends RoiObj {
         return new TextRoi(x, y, text, font,slide);
     }
 
-    private void init(String text, Font font) {
-    	setProperty(ContextKey.Description.name(), text);
-        String[] lines = Tools.split(text, "\n");
-        setType(RoiType.TEXT);
-        int count = Math.min(lines.length, MAX_LINES);
-        for (int i=0; i<count; i++) {
-        	theText[i] = lines[i];
-        }
-        if (font==null)
-            font = defaultFont;
-        if (font==null)
-            font = new Font("SansSerif", Font.PLAIN, 14);
-        this.font = font;
-        setAntiAlias(antialiasedText);
-        firstChar = false;
-        setStrokeColor(getStrokeColor());
-        updateBounds();
-    }
+	private void init(String text, Font font/*null-able*/) {
+		setProperty(ContextKey.Description.name(), text);
+		String[] lines = Tools.split(text, "\n");
+		setType(RoiType.TEXT);
+		int count = Math.min(lines.length, MAX_LINES);
+		for (int i = 0; i < count; i++) {
+			theText[i] = lines[i];
+		}
+		if (font == null)
+			font = defaultFont;
+		this.font = font;
+		setAntiAlias(antialiasedText);
+		setStrokeColor(getStrokeColor());
+		createTextArea();
+		updateBounds();
+	}
+	
+	private void createTextArea() {
+		textArea = new JTextArea(5, 20);
+		textArea.setLineWrap(true);
+		textArea.setWrapStyleWord(true);
+		textArea.setOpaque(false);
+		textArea.setForeground(ROIColor);
+		if(getText() == null || getText().length()==0) {
+			textArea.setText(line1a);
+		}else {
+			textArea.setText(getText());
+		}
+		textArea.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				updateText();
+			}
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				updateText();
+			}
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				updateText();
+			}
+		});
+		
+		textPane = new JScrollPane(textArea);
+		textPane.setName(getProperty(ContextKey.RoiID.name()));
+		textPane.setOpaque(false);
+		textPane.getViewport().setOpaque(false);
+		
+	}
 
-//    public TextRoi(int x, int y, ImagePlus imp) {
-//        super(x, y, imp);
-//        ImageCanvas ic = imp.getCanvas();
-//        double mag = getMagnification();
-//        if (mag>1.0)
-//            mag = 1.0;
-//        if (size<(12/mag))
-//            size = (int)(12/mag);
-//        if (firstTime) {
-//            theText[0] = line1;
-//            theText[1] = line2;
-//            theText[2] = line3;
-//            firstTime = false;
-//        } else
-//            theText[0] = line1a;
-//        if (previousRoi!=null && (previousRoi instanceof TextRoi)) {
-//            firstMouseUp = false;
-//            previousRoi = null;
-//        }
-//        font = new Font(name, style, size);
-//        justification = globalJustification;
-//        setStrokeColor(Toolbar.getForegroundColor());
-//        setAntiAlias(antialiasedText);
-//        if (WindowManager.getWindow("Fonts")!=null) {
-//            setFillColor(defaultFillColor);
-//            setAngle(defaultAngle);
-//        }
-//    }
-
-    /** This method is used by the text tool to add typed
-        characters to displayed text selections. */
-    public void addChar(char c) {
-        if (slide==null) return;
-        if (!(c>=' ' || c=='\b' || c=='\n')) return;
-        if (firstChar) {
-            cline = 0;
-            theText[cline] = new String("");
-            for (int i=1; i<MAX_LINES; i++)
-                theText[i] = null;
-        }
-        if ((int)c=='\b') {
-            // backspace
-            if (theText[cline].length()>0)
-                theText[cline] = theText[cline].substring(0, theText[cline].length()-1);
-            else if (cline>0) {
-                theText[cline] = null;
-                cline--;
-            }
-//            if (angle!=0.0)
-//                imp.draw();
-//            else
-//                imp.draw(clipX, clipY, clipWidth, clipHeight);
-            firstChar = false;
-            setProperty(ContextKey.Description.name(), flatString());
-            return;
-        } else if ((int)c=='\n') {
-            // newline
-            if (cline<(MAX_LINES-1)) cline++;
-            theText[cline] = "";
-            updateBounds();
-            updateText();
-        } else {
-            char[] chr = {c};
-            theText[cline] += new String(chr);
-            updateBounds();
-            updateText();
-            firstChar = false;
-            return;
-        }
-    }
-    
-    String flatString() {
-    	if(theText[0] == null) {
-    		return null;
-    	}else {
-    		String flat = "";
-    		for(String s:theText) {
-    			if(s == null) {
-    				s = "";
-    			}
-    			flat = flat+s;
-    		}
-    		return flat;
-    	}
-    }
-
-    Font getScaledFont(SlideGlass sg) {
+    Font getScaledFont() {
         if (font==null)
             font = new Font("SansSerif", Font.PLAIN, 14);
-        double mag = sg.getMagnification();
+        double mag = getMagnification();
         if (nonScalable || imp==null || mag==1.0)
             return font;
         else
-            return font.deriveFont((float)(font.getSize()*mag));
+            return font.deriveFont((float)(font.getSize()*mag*getComponentScaleFactor()[0]));
     }
     
     /** Renders the text on the image. Draws the text in
@@ -226,123 +172,140 @@ public class TextRoi extends RoiObj {
      *  @see ij.process.ImageProcessor#setAntialiasedText(boolean)
      *  @see ij.process.ImageProcessor#setColor(Color)
     */
-    public void drawPixels(ImageProcessor ip) {
-//        if (!ip.fillValueSet())
-//            ip.setColor(Toolbar.getForegroundColor());
-        ip.setFont(font);
-        ip.setAntialiasedText(getAntiAlias());
-        FontMetrics metrics = ip.getFontMetrics();
-        int fontHeight = metrics.getHeight();
-        int descent = metrics.getDescent();
-        int i = 0;
-        int yy = 0;
-        int xi = (int)Math.round(getXBase());
-        int yi = (int)Math.round(getYBase());
-        while (i<MAX_LINES && theText[i]!=null) {
-            switch (justification) {
-                case LEFT:
-                    ip.drawString(theText[i], xi, yi+yy+fontHeight);
-                    break;
-                case CENTER:
-                    int tw = metrics.stringWidth(theText[i]);
-                    ip.drawString(theText[i], xi+(this.width-tw)/2, yi+yy+fontHeight);
-                    break;
-                case RIGHT:
-                    tw = metrics.stringWidth(theText[i]);
-                    ip.drawString(theText[i], xi+this.width-tw, yi+yy+fontHeight);
-                    break;
-            }
-            i++;
-            yy += fontHeight;
-        }
-    }
+	public void drawPixels(ImageProcessor ip) {
+		ip.setFont(font);
+		ip.setAntialiasedText(getAntiAlias());
+		FontMetrics metrics = ip.getFontMetrics();
+		int fontHeight = metrics.getHeight();
+		int i = 0;
+		int yy = 0;
+		int xi = (int) Math.round(getXBase());
+		int yi = (int) Math.round(getYBase());
 
-    /** Draws the text on the screen, clipped to the ROI. */
-    public void draw(Graphics g,SlideGlass sg) {
-        if (IJ.debugMode) IJ.log("draw: "+theText[0]+"  "+this.width+","+this.height);
-        //tatsu
-//        if (Interpreter.isBatchMode() && ic!=null && ic.getDisplayList()!=null)
-//            return;
-        Color c = getStrokeColor();
-        setStrokeColor(getColor());
-        super.draw(g); // draw the rectangle
-        setStrokeColor(c);
-        double mag = sg.getMagnification();
-        int sx = sg.screenX((int)getXBase());
-        int sy = sg.screenY((int)getYBase());
-        int swidth = (int)((bounds!=null?bounds.width:this.width)*mag);
-        int sheight = (int)((bounds!=null?bounds.height:this.height)*mag);
-        Rectangle r = null;
-        if (angle!=0.0)
-            drawText(g,sg);
-        else {
-            r = g.getClipBounds();
-            g.setClip(sx, sy, swidth, sheight);
-            drawText(g,sg);
-            if (r!=null)
-                g.setClip(r.x, r.y, r.width, r.height);
-        }
+		String[] lines = Tools.split(textArea.getText(), "\n");
+		if (lines == null || lines.length == 0) {
+			Log.logger.fine("TextRoi, Can not draw, because text is null.");
+			return;
+		}
+		
+		while (i < MAX_LINES && lines[i] != null) {
+			switch (justification) {
+			case LEFT:
+				ip.drawString(lines[i], xi, yi + yy + fontHeight);
+				break;
+			case CENTER:
+				int tw = metrics.stringWidth(lines[i]);
+				ip.drawString(lines[i], xi + (this.width - tw) / 2, yi + yy + fontHeight);
+				break;
+			case RIGHT:
+				tw = metrics.stringWidth(lines[i]);
+				ip.drawString(lines[i], xi + this.width - tw, yi + yy + fontHeight);
+				break;
+			}
+			i++;
+			yy += fontHeight;
+		}
+	}
+
+	/** Draws the text on the screen, clipped to the ROI. */
+	public void draw(Graphics g) {
+		int compW = slide.getWidth();
+		int compH = slide.getHeight();
+		if (prevCompW != compW || prevCompH != compH) {
+			/*
+			 * IMPORTANT
+			 * update showing text state
+			 */
+			SwingUtilities.invokeLater(() -> {
+				textArea.repaint();
+				textPane.revalidate();
+				textPane.repaint();
+				updateBounds();
+			});
+		}
+		super.draw(g); // draw the rectangle
+		if (initialize) {
+			if (textPane != null && textPane.isShowing()) {
+				/*
+				 * update showing text state
+				 */
+				SwingUtilities.invokeLater(() -> {
+					textArea.repaint();
+					textPane.revalidate();
+					textPane.repaint();
+					updateBounds();
+				});
+				initialize = false;
+			}
+		}
+	}
+    
+    public void requestFocusInWindow() {
+    	textArea.requestFocusInWindow();
     }
     
-    public void drawOverlay(Graphics g, SlideGlass sg) {
-        drawText(g,sg);
+    public void drawOverlay(Graphics g) {
+        drawText(g);
     }
 
-    void drawText(Graphics g, SlideGlass sg) {
-        g.setColor( strokeColor!=null? strokeColor:ROIColor);
-        Java2.setAntialiasedText(g, getAntiAlias());
-        double mag = sg.getMagnification();
-        int xi = (int)Math.round(getXBase());
-        int yi = (int)Math.round(getYBase());
-        double widthd = bounds!=null?bounds.width:this.width;
-        double heightd = bounds!=null?bounds.height:this.height;
-        int widthi = (int)Math.round(widthd);
-        int heighti = (int)Math.round(heightd);
-        Font font = getScaledFont(sg);
-        FontMetrics metrics = g.getFontMetrics(font);
-        int fontHeight = metrics.getHeight();
-        int descent = metrics.getDescent();
-        g.setFont(font);
-        Graphics2D g2d = (Graphics2D)g;
-        int sx = nonScalable?xi:sg.screenX((int)getXBase());
-        int sy = nonScalable?yi:sg.screenY((int)getYBase());
-        int sw = nonScalable?widthi:(int)(sg.getMagnification()*widthd);
-        int sh = nonScalable?heighti:(int)(sg.getMagnification()*heightd);
-        AffineTransform at = null;
-        if (angle!=0.0) {
-            at = g2d.getTransform();
-            double cx=sx, cy=sy;
-            double theta = Math.toRadians(angle);
-            g2d.rotate(-theta, cx, cy);
-        }
-        int i = 0;
-        if (fillColor!=null) {
-            Color c = g.getColor();
-            int alpha = fillColor.getAlpha();
-            g.setColor(fillColor);
-            g.fillRect(sx, sy, sw, sh);
-            g.setColor(c);
-        }
-        while (i<MAX_LINES && theText[i]!=null) {
-            switch (justification) {
-                case LEFT:
-                    g.drawString(theText[i], sx, sy+fontHeight-descent);
-                    break;
-                case CENTER:
-                    int tw = metrics.stringWidth(theText[i]);
-                    g.drawString(theText[i], sx+(sw-tw)/2, sy+fontHeight-descent);
-                    break;
-                case RIGHT:
-                    tw = metrics.stringWidth(theText[i]);
-                    g.drawString(theText[i], sx+sw-tw, sy+fontHeight-descent);
-                    break;
-            }
-            i++;
-            sy += fontHeight;
-        }
-        if (at!=null)  // restore transformation matrix used to rotate text
-            g2d.setTransform(at);
-    }
+	void drawText(Graphics g) {
+		Color color = strokeColor != null ? strokeColor : ROIColor;
+		if (isActiveOverlayRoi()) {
+			color = Color.cyan;
+		}
+		Java2.setAntialiasedText(g, getAntiAlias());
+		double mag = getMagnification();
+		double[] scaleXY = getComponentScaleFactor();
+		int xi = (int) Math.round(getXBase());
+		int yi = (int) Math.round(getYBase());
+		double widthd = bounds != null ? bounds.width : this.width;
+		double heightd = bounds != null ? bounds.height : this.height;
+		int widthi = (int) Math.round(widthd);
+		int heighti = (int) Math.round(heightd);
+		Font font = getScaledFont();
+		FontMetrics metrics = g.getFontMetrics(font);
+		int fontHeight = metrics.getHeight();
+		int descent = metrics.getDescent();
+		g.setFont(font);
+		Graphics2D g2d = (Graphics2D) g;
+		int sx = nonScalable ? xi : screenX((int) getXBase());
+		int sy = nonScalable ? yi : screenY((int) getYBase());
+		int sw = nonScalable ? widthi : (int) (mag * scaleXY[0] * widthd);
+		int sh = nonScalable ? heighti : (int) (mag * scaleXY[1] * heightd);
+		AffineTransform at = null;
+		if (angle != 0.0) {
+			at = g2d.getTransform();
+			double cx = sx, cy = sy;
+			double theta = Math.toRadians(angle);
+			g2d.rotate(-theta, cx, cy);
+		}
+		int i = 0;
+		if (fill) {
+			//int alpha = fillColor.getAlpha();
+			g.setColor(fillColor);
+			g.fillRect(sx, sy, sw, sh);
+		}
+		g.setColor(color);
+		while (i < MAX_LINES && theText[i] != null) {
+			switch (justification) {
+			case LEFT:
+				g.drawString(theText[i], sx, sy + fontHeight - descent);
+				break;
+			case CENTER:
+				int tw = metrics.stringWidth(theText[i]);
+				g.drawString(theText[i], sx + (sw - tw) / 2, sy + fontHeight - descent);
+				break;
+			case RIGHT:
+				tw = metrics.stringWidth(theText[i]);
+				g.drawString(theText[i], sx + sw - tw, sy + fontHeight - descent);
+				break;
+			}
+			i++;
+			sy += fontHeight;
+		}
+		if (at != null) // restore transformation matrix used to rotate text
+			g2d.setTransform(at);
+	}
 
     /** Returns the name of the default font. Use getCurrentFont().getName()
          to get the name of the font that this TextRoi is using. */
@@ -384,6 +347,20 @@ public class TextRoi extends RoiObj {
     public static boolean isAntialiased() {
         return antialiasedText;
     }
+    
+    @Override
+    public void setSlideGlass(SlideGlass sg) {
+    	super.setSlideGlass(sg);
+    	if(sg != null && textPane != null) {
+    		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+    		textPane.setName(getProperty(ContextKey.RoiID.name()));
+			/*
+			 * If the same object is added multiple times, only one of them will exist in
+			 * the Swing container and will appear at the position where it was last added.
+			 */
+    		cg.add(textPane);
+    	}
+    }
 
     /** Sets the state of the global 'antialiasedText' variable. */
     public static void setAntialiasedText(boolean antialiased) {
@@ -402,37 +379,31 @@ public class TextRoi extends RoiObj {
         return getAntiAlias();
     }
         
-    /** Sets the default text tool justification (LEFT, CENTER or RIGHT). */
-    public static void setGlobalJustification(int justification,SlideGlass sg) {
-        if (justification<0 || justification>RIGHT)
-            justification = LEFT;
-        globalJustification = justification;
-        sg.repaint();
-//        ImagePlus imp = WindowManager.getCurrentImage();
-//        if (imp!=null) {
-//            RoiObj roi = imp.getRoi();
-//            if (roi instanceof TextRoi) {
-//                ((TextRoi)roi).setJustification(justification);
-//                imp.draw();
-//            }
-//        }
-    }
+	/** Sets the default text tool justification (LEFT, CENTER or RIGHT). */
+	public void setGlobalJustification(int justification) {
+		if (justification < 0 || justification > RIGHT)
+			justification = LEFT;
+		globalJustification = justification;
+		if (slide != null) {
+			slide.repaint();
+		}
+	}
     
     /** Returns the default text tool justification (LEFT, CENTER or RIGHT). */
     public static int getGlobalJustification() {
         return globalJustification;
     }
 
-    /** Sets the 'justification' instance variable (LEFT, CENTER or RIGHT) */
-    public void setJustification(int justification) {
-        if (justification<0 || justification>RIGHT)
-            justification = LEFT;
-        this.justification = justification;
-        updateBounds();
-        getSlideGlass().repaint();
-//        if (imp!=null)
-//            imp.draw();
-    }
+	/** Sets the 'justification' instance variable (LEFT, CENTER or RIGHT) */
+	public void setJustification(int justification) {
+		if (justification < 0 || justification > RIGHT)
+			justification = LEFT;
+		this.justification = justification;
+		updateBounds();
+		if (slide != null) {
+			slide.repaint();
+		}
+	}
     
     /** Returns the value of the 'justification' instance variable (LEFT, CENTER or RIGHT). */
     public int getJustification() {
@@ -454,16 +425,6 @@ public class TextRoi extends RoiObj {
         globalJustification = LEFT;
         antialiasedText = antialiased;
         setFont(new Font(name, style, size));
-//        ImagePlus imp = WindowManager.getCurrentImage();
-//        if (imp!=null) {
-//            Roi roi = imp.getRoi();
-//            if (roi instanceof TextRoi) {
-//                roi.setAntiAlias(antialiased);
-//                ((TextRoi)roi).setFont(new Font(name, style, size));
-//                imp.draw();
-//            }
-//        }
-            
     }
 
     /** Sets the default font. */
@@ -480,95 +441,61 @@ public class TextRoi extends RoiObj {
     public static void setDefaultFillColor(Color fillColor) {
         defaultFillColor = fillColor;
     }
-
-    /** Sets the default angle. */
-    public static void setDefaultAngle(double angle) {
-        defaultAngle = angle;
-    }
     
     public void mouseDrag(int sx, int sy, int flags) {
-		if(slide == null) {
-			return;
-		}
-		constrain = (flags&MouseEvent.SHIFT_MASK)!=0;
-		center = (flags&Event.CTRL_MASK)!=0 || (IJ.isMacintosh()&&(flags&Event.META_MASK)!=0);
-		aspect = (flags&Event.ALT_MASK)!=0;
-		switch(state) {
-			case CONSTRUCTING:
-			case MOVING:
-				System.out.println("MOVING");
-				move(sx, sy);
-				break;
-			case MOVING_HANDLE:
-				System.out.println("MOVING_HANDLE");
-				moveHandle(sx, sy);
-				break;
-			default:
-				break;
+		super.mouseDrag(sx, sy, flags);
+		updateBounds();
+	}
+    
+	public void mouseWheelMoved(MouseEvent e) {
+		if (textPane.getBounds().contains(e.getPoint())) {
+			textPane.dispatchEvent(SwingUtilities.convertMouseEvent((Component) e.getSource(), e, textPane));
 		}
 	}
 
-    public void handleMouseUp(int screenX, int screenY) {
-        super.handleMouseUp(screenX, screenY);
-        if (theText != null && theText[0] == null && slide!=null && firstMouseUp) {// && previousRoi==null) {
-        	theText[0] = line1a;
-            firstChar = true;
-            return;
-        } else if (firstMouseUp) {
-            updateBounds();
-            updateText();
-            firstMouseUp = false;
+	public void handleMouseUp(int screenX, int screenY) {
+		super.handleMouseUp(screenX, screenY);
+		updateBounds();
+		if (textPane.getBounds().contains(screenX, screenY)) {
+            textPane.requestFocusInWindow();
         }
-    }
+	}
     
-    /** Increases the size of bounding rectangle so it's large enough to hold the text. */ 
-    private void updateBounds() {
-        if (firstChar )
-            return;
-        double lineHeight = 0;
-        double mag = 1.0;
-        if(getSlideGlass() != null) {
-        	mag = getSlideGlass().getMagnification();
-        }else {
-        	return;
-        }
-        Font font = getScaledFont(getSlideGlass());
-        Graphics g = getFontGraphics(font);
-        Java2.setAntialiasedText(g, getAntiAlias());
-        FontMetrics metrics = g.getFontMetrics(font);
-        double fontHeight = metrics.getHeight()/mag;
-        int i=0, nLines=0;
-        Rectangle2D.Double b = getFloatBounds();
-        double newWidth = 10;
-        double newHeight = 10;
-        while (i<MAX_LINES && theText[i]!=null) {
-            nLines++;
-            double w = stringWidth(theText[i],metrics,g)/mag;
-            if (w>newWidth)
-                newWidth = w;
-            i++;
-        }
-        newWidth += 2.0;
-        newHeight = nLines*fontHeight+2;
-        if(b.width < newWidth) {
-        	b.width = newWidth;
-        }
-        if(b.height < newHeight) {
-        	b.height = newHeight;
-        }
-        
-        switch (justification) {
-            case LEFT:
-                break;
-            case CENTER:
-                b.x = this.oldX+this.oldWidth - b.width/2.0;
-                break;
-            case RIGHT:
-                b.x = this.oldX+this.oldWidth - b.width;
-                break;
-        }
-        setBounds(b);
-    }
+	/**
+	 * Increases the size of bounding rectangle so it's large enough to hold the
+	 * text.
+	 */
+	private void updateBounds() {
+		Font font = getScaledFont();
+		Graphics g = getFontGraphics(font);
+		Java2.setAntialiasedText(g, getAntiAlias());
+		Rectangle2D.Double b = getFloatBounds();
+		setBounds(b);
+		if (slide != null) {
+			prevCompW = slide.getWidth();
+			prevCompH = slide.getHeight();
+		}
+	}
+    
+    @Override
+	public void setBounds(Rectangle2D.Double b) {
+		super.setBounds(b);
+		/*
+		 * set TextArea&Pane bounds.
+		 */
+		double mag = getMagnification();
+		double[] scaleXY = getComponentScaleFactor();
+		int sx = screenX((int) getXBase());
+		int sy = screenY((int) getYBase());
+		int swidth = (int) ((bounds != null ? bounds.width : this.width) * mag * scaleXY[0]);
+		int sheight = (int) ((bounds != null ? bounds.height : this.height) * mag * scaleXY[1]);
+		if (slide != null && textPane != null && textPane.isVisible()) {
+			textPane.setBounds(sx, sy, swidth, sheight);
+			CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			cg.add(textPane);// move to current location
+			slide.repaint();
+		}
+	}
     
     private Graphics getFontGraphics(Font font) {
         if (fontGraphics==null) {
@@ -580,16 +507,10 @@ public class TextRoi extends RoiObj {
     }
     
     void updateText() {
-    	setProperty(ContextKey.Description.name(), flatString());
-    	updateClipRect();
-    	getSlideGlass().repaint();
-//        if (imp!=null) {
-//            updateClipRect(sg);
-//            if (angle!=0.0)
-//                imp.draw();
-//            else
-//                imp.draw(clipX, clipY, clipWidth, clipHeight);
-//        }
+    	if(textArea != null) {
+			setProperty(ContextKey.Description.name(), textArea.getText());
+			updateClipRect();
+    	}
     }
 
     double stringWidth(String s, FontMetrics metrics, Graphics g) {
@@ -680,12 +601,8 @@ public class TextRoi extends RoiObj {
     }
     
     public String getText() {
-        String text = "";
-        for (int i=0; i<MAX_LINES; i++) {
-            if (theText[i]==null) break;
-            text += theText[i]+"\n";
-        }
-        return text;
+        String txt = getProperty(ContextKey.Description.name());
+        return txt;
     }
     
     public boolean isDrawingTool() {
@@ -747,7 +664,17 @@ public class TextRoi extends RoiObj {
     }
     
     public void setPreviousTextRoi(RoiObj previousRoi) {
-        this.previousRoi = previousRoi;
+        TextRoi.previousRoi = previousRoi;
+    }
+    
+    public void setFocusable(boolean enable) {
+    	if(enable) {
+    		textArea.setFocusable(true);
+    		textArea.requestFocusInWindow();
+    	}else {
+    		textArea.setFocusable(false);
+    		((EventGlass)slide.getGlassAt(SlideGlass.EVENT_LAYER)).requestFocusInWindow();
+    	}
     }
     
     /** @deprecated Replaced by getDefaultFontName */

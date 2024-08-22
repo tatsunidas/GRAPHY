@@ -45,6 +45,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.awt.event.WindowStateListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -57,12 +58,14 @@ import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiObjManager;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.db.DatabaseHandler;
 
 /**
@@ -70,7 +73,7 @@ import com.vis.db.DatabaseHandler;
  * @author tatsunidas
  *
  */
-public class Viewer2DScreen extends JFrame implements WindowListener{
+public class Viewer2DScreen extends JFrame implements WindowListener, WindowStateListener{
 
 	private static final long serialVersionUID = 7624168171524035750L;
 	private static final Viewer2DScreen viewerWin = new Viewer2DScreen();
@@ -97,6 +100,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 			setTitle("GRAPHY 2D Viewer");
 		}
 		addWindowListener(this);
+		addWindowStateListener(this);
 		initContents();
 		setLastScreenState();
 		WindowManager.addWindow(this);
@@ -422,6 +426,19 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 	public int getCurrentToolType() {
 		return toolBar.getCurrentToolType();
 	}
+	
+	public void repaintAllPraparat() {
+		StageDockManager sdm = getStageDockManager();
+		String[] patIDs = sdm.getAllPatientList();
+		for (String patID : patIDs) {
+			StageView sv = sdm.getStage(patID);
+			Eyepiece eye = sv.getEyepiece();
+			ArrayList<PraparatContext> pcon = eye.getAllPraparatContext();
+			for (PraparatContext pc : pcon) {
+				pc.getPraparat().repaint();
+			}
+		}
+	}
 
 	private void setLastScreenState() {
 		String lastScreenX = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Viewer2DScreenX);
@@ -494,15 +511,6 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 				setExtendedState(JFrame.MAXIMIZED_BOTH);
 				toFront(); // brings to front without setAlwaysOnTop
 				requestFocus();
-				/*
-				 * Or...
-				 */
-//				GraphicsConfiguration gcon = ApplicationContext.getInstance().getMainScreenGraphicsConfiguration();
-//				int screen_width = gcon.getBounds().width;
-//		        int screen_height = gcon.getBounds().height;
-//				setLocation(0, 0);
-//				setSize(screen_width, screen_height));
-//				setBounds(0,0,screen_width, screen_height);//important
 			}
 		});
 	}
@@ -527,6 +535,11 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 		for(String patID : patIDs) {
 			sdm.deleteStage(patID);
 		}
+		/*
+		 * reset birds eye
+		 */
+		MainScreen ms = MainScreen.getInstance();
+		ms.resetBirdsEyeView(patIDs);
 		System.gc();
 	}
 
@@ -545,17 +558,19 @@ public class Viewer2DScreen extends JFrame implements WindowListener{
 	@Override
 	public void windowDeactivated(WindowEvent e) {}
 
-//	@Override
-//	public void windowGainedFocus(WindowEvent arg0) {
-//		this.focusGained = true;
-//		if (sdm != null && !(sdm.getComponentCount() < 1)) {
-//			int currentTabIndex = sdm.getSelectedIndex();
-//			setStageIDInAction(sdm.getPatIdAt(currentTabIndex));
-//		}
-//	}
-//
-//	@Override
-//	public void windowLostFocus(WindowEvent arg0) {
-//		this.focusGained = false;
-//	}
+	@Override
+	public void windowStateChanged(WindowEvent e) {
+		/*
+		 * TextRoi cannot resize own if windos maximize.
+		 */
+		// maximize
+		if ((e.getNewState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH) {
+			Log.logger.fine("Viewer2DScreen was maximized.");
+			repaintAllPraparat();
+		} else if (e.getNewState() == JFrame.NORMAL) {
+			// back to normal from maximize
+			Log.logger.fine("JFrame was restored to normal size.");
+			repaintAllPraparat();
+		}
+	}
 }

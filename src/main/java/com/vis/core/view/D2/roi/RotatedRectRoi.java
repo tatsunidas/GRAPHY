@@ -44,10 +44,9 @@ public class RotatedRectRoi extends PolygonRoi {
         bounds = null;
     }
 
-    public void draw(Graphics g, SlideGlass sg) {  
-        super.draw(g,sg);
-        if (sg!=null) {
-            double mag = sg.getMagnification();
+    public void draw(Graphics g) {  
+        super.draw(g);
+        if (slide!=null) {
             for (int i=0; i<4; i++) {
             if (i==3) //mark starting point
                 handleColor = strokeColor != null ? strokeColor : ROIColor;

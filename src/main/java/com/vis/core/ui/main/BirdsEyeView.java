@@ -82,6 +82,8 @@ public class BirdsEyeView extends JPanel{
 	String currentStudyUID;
 	String currentSeriesUID;
 	
+	HashMap<String,String> pInfoMap;
+	
 	Dimension lastSingleGridViewSize = new Dimension(0, 0);
 	
 	public static final int thumbnailSize = 64 + 24;//88
@@ -210,6 +212,7 @@ public class BirdsEyeView extends JPanel{
 	}
 	
 	public void setPatientInfo(HashMap<String,String> infoset) {
+		this.pInfoMap = infoset;
 		pInfo.setInfoset(infoset);
 		repaint();
 	}
@@ -431,6 +434,10 @@ public class BirdsEyeView extends JPanel{
 	
 	public String getShowingStudyUID() {
 		return currentStudyUID;
+	}
+	
+	public HashMap<String, String> getPatientInfo() {
+		return pInfoMap;
 	}
 	
 	class ThumbnailListView extends JScrollPane{

@@ -2227,8 +2227,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 * Returns whether a roi created interactively should have subpixel resolution,
 	 * (if the roi type supports it), i.e., whether the magnification is high enough
 	 */
-	protected boolean magnificationForSubPixel(SlideGlass sg) {
-		return magnificationForSubPixel(sg.getMagnification());
+	protected boolean magnificationForSubPixel() {
+		return magnificationForSubPixel(getMagnification());
 	}
 
 	void modifyRoi() {
@@ -2360,7 +2360,10 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			ox = xMax;
 		if (oy > yMax)
 			oy = yMax;
+		
+		@SuppressWarnings("unused")
 		int x1 = x, y1 = y, x2 = x1 + width, y2 = y + height, xc = x + (width / 2), yc = y + (height / 2);
+		
 		if (width > 7 && height > 7) {
 			asp = (double) width / (double) height;
 			asp_bk = asp;
@@ -2661,6 +2664,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	/*
+	 * TODO TEST
 	 * see also Overrided another Roi.
 	 */
 	public HashMap<String, Object> readContext() {
@@ -2671,26 +2675,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 				con.put(k.name(), v);
 			}
 		}
-		if (getType() == RoiType.POLYGON.id() || getType() == RoiType.ANGLE.id()) {
-			con.put("OriginX", x);
-			con.put("OriginY", y);
-		} else {
-			con.put("OriginX", (int) getXBase());// for line roi.
-			con.put("OriginY", (int) getYBase());
-		}
+		con.put("OriginX", (int) getXBase());
+		con.put("OriginY", (int) getYBase());
 		con.put("Width", width);
 		con.put("Height", height);
-		/*
-		 * LINE, ARROW are overrided.
-		 */
-		if (getType() == RoiType.POLYGON.id() || getType() == RoiType.ANGLE.id()) {
-			con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
-			con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
-		} else {// Rect, Oval, Point
-			con.put("PointX", null);
-			con.put("PointY", null);
-		}
-		// shape,see also ShapeRoi::roiToShape(RoiObj roi)
+		con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
+		con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
+		// See also ShapeRoi::roiToShape(RoiObj roi)
 		con.put("Shape", null);
 
 		return con;
@@ -2755,6 +2746,10 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	public void setActiveOverlayRoi(boolean active) {
 		activeOverlayRoi = active;
+		if (type == RoiType.TEXT.id()) {
+			TextRoi tr = (TextRoi)this;
+			tr.setFocusable(active);
+		}
 	}
 
 	public void setAntiAlias(boolean antiAlias) {
@@ -3140,7 +3135,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		setType(t.id());
 	}
 	
-	private void setType(int type) {
+	protected void setType(int type) {
 		this.type = type;
 	}
 
