@@ -17,7 +17,6 @@ import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
-import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.db.DatabaseHandler;
 
 /**
@@ -69,7 +68,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 			// polygonroi
 			int type = currentRoi.getType();
 			RoiType t = RoiType.find(type);
-			if ((t == RoiType.POLYGON || t == RoiType.POLYLINE || t == RoiType.ANGLE || t == RoiType.LINE)
+			if ((t == RoiType.POLYGON || t == RoiType.POLYLINE || t == RoiType.ANGLE || t == RoiType.LINE  || t == RoiType.MULTIPOINT)
 					&& currentRoi.getState() == RoiObj.CONSTRUCTING) {
 				return currentRoi;
 			}
@@ -176,36 +175,34 @@ public class CanvasGlass extends javax.swing.JPanel {
 		RoiType t = RoiType.find(roiType);
 		switch (t) {
 		case RECTANGLE://0
-//			if (Toolbar.getRectToolType() == Toolbar.ROTATED_RECT_ROI)
-//				roi = new RotatedRectRoi(sx, sy, this);
-//			else
-//				roi = new Roi(sx, sy, this, Toolbar.getRoundRectArcSize());
 			roi = new RoiObj(imageX, imageY, 1, 1, 0, sg);
 			roi.setState(RoiObj.CONSTRUCTING);
 			break;
-		case OVAL://1
-//			if (Toolbar.getOvalToolType() == Toolbar.ELLIPSE_ROI)
-//				roi = new EllipseRoi(sx, sy, this);
-//			else
+		case OVAL:
 			roi = new OvalRoi(imageX, imageY, 1,1,sg);
+			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case FREEROI:
+			roi = new FreehandRoi(imageX, imageY, RoiType.FREEROI.id(),sg);
 			roi.setState(RoiObj.CONSTRUCTING);
 			break;
 		case POLYGON:
 			roi = new PolygonRoi(imageX, imageY,roiType,sg);
 			roi.setState(RoiObj.CONSTRUCTING);//fail safe
 			break;
-//		case Toolbar.POLYLINE:
 		case ANGLE:
 			roi = new PolygonRoi(imageX, imageY,roiType,sg);
 			roi.setState(RoiObj.CONSTRUCTING);//fail safe
 			break;
-//		case Toolbar.FREEROI:
-//		case Toolbar.FREELINE:
-//			roi = new FreehandRoi(sx, sy, this);
-//			break;
 		case LINE://5
 			roi = new Line(imageX, imageY, imageX+1, imageY+1, sg);
 			roi.setState(RoiObj.CONSTRUCTING);
+			break;
+		case FREELINE:
+			roi = new FreehandRoi(imageX, imageY, RoiType.FREELINE.id(),sg);
+			break;
+		case POLYLINE:
+			roi = new PolygonRoi(imageX, imageY, RoiType.POLYLINE.id(),sg);
 			break;
 		case ARROW:
 			roi = new Arrow(imageX, imageY, imageX+1, imageY+1, sg);
@@ -217,6 +214,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 			break;
 		case POINT:
 			roi = new PointRoi(imageX, imageY, sg);
+			break;
+		case MULTIPOINT:
+			roi = new PointRoi(imageX, imageY, RoiType.MULTIPOINT.id(), sg);
+			break;
 //			if (Prefs.pointAddToOverlay) {
 //				int measurements = Analyzer.getMeasurements();
 //				if (!(Prefs.pointAutoMeasure && (measurements & Measurements.ADD_TO_OVERLAY) != 0))
@@ -245,11 +246,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 //				IJ.run(this, "Next Slice [>]", "");
 //				deleteRoi();
 //			}
-			break;
 		default:
-//			if(type == ) {
-//				
-//			}
+			//do nothig
 		}
 		if (roi != null) {
 			addRoi(roi);
@@ -428,10 +426,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(brush != null) {
 			brush.draw(g);
 		}
-//		if (pp.getReferenceLine() != null) {
-//			ReferenceLine refLine = pp.getReferenceLine();
-//			refLine.draw(g, sg);
-//		}
 	}
 	
 	public RoiObj findCurrentRoi() {
@@ -519,8 +513,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	public void handleRoiBrushMouseDown(MouseEvent e) {
-		brushTool = new RoiBrush(sg,e);
-//		brushTool.createBrush(e);
+		//see also mouseMove.
+		if(brushTool == null) {
+			brushTool = new RoiBrush(sg, e, true/*brush appear*/);
+		}else {
+			brushTool.createBrush(e);
+		}
+		//update dragging point
+		sg.lastDraggedX = e.getX();
+		sg.lastDraggedY = e.getY();
 	}
 	
 	public void roiMouseDown(MouseEvent e) {
@@ -569,8 +570,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 		 */
 		int roiType = pp.getCurrentViewerToolType();//from viewer2d
 		if(roiType == Viewer2DToolBar.Brush) {
-			if(brushTool != null) {
-				brushTool.createBrush(e);
+			if(brushTool != null && brush != null) {
+				brushTool.brushDragged(e);
 			}
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
@@ -691,6 +692,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mouseMoved(MouseEvent e) {
+		int toolType = Viewer2DScreen.getInstance().getCurrentToolType();
 		if(pp.getReferenceLine() != null) {
 			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
 			if(refLine != null) {
@@ -699,9 +701,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		//update currentRoi
 		activateAndGetCurrentRoiAt(e.getX(), e.getY());
-		Log.logger.fine(getComponentAt(e.getX(),e.getY()).getName());
+		if(toolType == Viewer2DToolBar.Brush) {
+			if(brushTool == null) {
+				brushTool = new RoiBrush(sg, e, false);
+			}
+			if(currentRoi != null) {
+				brushTool.setCurrentBrushingRoi(currentRoi);
+			}
+		}
+		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
 		int type = currentRoi != null ? currentRoi.getType() : -1;
-		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()) 
+		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()||type==RoiType.MULTIPOINT.id()) 
 		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {
 			currentRoi.mouseMoved(e);
 		}
@@ -724,11 +734,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		 */
 		int roiType = pp.getCurrentViewerToolType();//from viewer2d
 		if(roiType == Viewer2DToolBar.Brush) {
-			if(brushTool != null) {
-				brushTool.createBrush(e);
+			if(brushTool == null) {
+				return;
 			}
-			sg.lastDraggedX = dragSX;
-			sg.lastDraggedY = dragSY;
+			brushTool.brushDragged(e);
 			return;
 		}
 		if (flags==0 && Platform.isMac()) {
@@ -842,6 +851,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(pp.getCurrentViewerToolType()==Viewer2DToolBar.Brush) {
 			if(brushTool != null) {
 				brushTool.brushingEnd();
+				repaint();
 			}
 		}
 			

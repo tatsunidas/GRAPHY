@@ -8,13 +8,8 @@ import ij.*;
 @SuppressWarnings("serial")
 public class FreehandRoi extends PolygonRoi {
 
-	public FreehandRoi(int sx, int sy, SlideGlass sg) {
-		super(sx, sy, RoiType.FREEROI.id(), sg);
-		if (sg.getPraparat().getCurrentViewerToolType() == RoiType.FREEROI.id()) {
-			type = RoiType.FREEROI.id();
-		} else {
-			type = RoiType.FREELINE.id();
-		}
+	public FreehandRoi(int sx, int sy, int type, SlideGlass sg) {
+		super(sx, sy, type, sg);
 		if (nPoints == 2) {
 			nPoints--;
 		}

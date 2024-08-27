@@ -57,6 +57,16 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 
     /** Draws this arrow on the image. */
     public void draw(Graphics g) {
+    	AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2 = (Graphics2D) g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2.setTransform(aTx);
+		}
     	Shape shape2 = null;
 		if (doubleHeaded) {
 			flipEnds();
@@ -71,34 +81,33 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 		if(isActiveOverlayRoi()) {
 			color = Color.cyan;
 		}
-		Graphics2D g2 = (Graphics2D)g;
 		g2.setColor(color);
 		setRenderingHint(g2);
-		AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
-		double mag = getMagnification();
+//		AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
 		int xbase=0, ybase=0;
 		if (slide!=null) {
 			xbase = offScreenX(0);
 			ybase = offScreenY(0);
 		}
-		double[] compScaleXY = getComponentScaleFactor();
-		at.setTransform(mag*compScaleXY[0], 0.0, 0.0, mag*compScaleXY[1], (-xbase+0.5)*mag*compScaleXY[0], (-ybase+0.5)*mag*compScaleXY[1]); //0.5: int coordinate at pixel center
+//		double[] compScaleXY = getComponentScaleFactor();
+//		at.setTransform(mag*compScaleXY[0], 0.0, 0.0, mag*compScaleXY[1], (-xbase+0.5)*mag*compScaleXY[0], (-ybase+0.5)*mag*compScaleXY[1]); //0.5: int coordinate at pixel center
 		if (outline) {
 			float lineWidth = (float)(getOutlineWidth()*mag);
 			g2.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
-			g2.draw(at.createTransformedShape(shape));
-			if (doubleHeaded) g2.draw(at.createTransformedShape(shape2));
+//			g2.draw(at.createTransformedShape(shape));
+			g2.draw(shape);
+			if (doubleHeaded) g2.draw(shape2);
 			g2.setStroke(defaultStroke);
 		} else  {
-			g2.fill(at.createTransformedShape(shape));
-			if (doubleHeaded) g2.fill(at.createTransformedShape(shape2));
+			g2.fill(shape);
+			if (doubleHeaded) g2.fill(shape2);
 		}
 		if (!overlay) {
 			handleColor=color;
-			drawHandle(g, screenXD(x1d), screenYD(y1d));
-			drawHandle(g, screenXD(x2d), screenYD(y2d));
+			drawHandle(g, (int)x1d, (int)y1d);
+			drawHandle(g, (int)x2d, (int)y2d);
 			handleColor=Color.white;
-			drawHandle(g, screenXD(x1d+(x2d-x1d)/2.0), screenYD(y1d+(y2d-y1d)/2.0));
+			drawHandle(g, (int)(x1d+(x2d-x1d)/2.0), (int)(y1d+(y2d-y1d)/2.));
 		}
     }
         

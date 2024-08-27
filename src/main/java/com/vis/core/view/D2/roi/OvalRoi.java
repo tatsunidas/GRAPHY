@@ -1,6 +1,7 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 
 import com.vis.core.view.D2.ui.glasses.*;
@@ -15,6 +16,11 @@ public class OvalRoi extends RoiObj {
 
 	/** Creates an OvalRoi.*/
 	public OvalRoi(int x, int y, int width, int height, SlideGlass slide) {
+		super(x, y, width, height, 0, slide);
+		type = RoiType.OVAL.id();
+	}
+	
+	public OvalRoi(double x, double y, int width, int height, SlideGlass slide) {
 		super(x, y, width, height, 0, slide);
 		type = RoiType.OVAL.id();
 	}
@@ -227,28 +233,35 @@ public class OvalRoi extends RoiObj {
 	}
 
 	public void draw(Graphics g) {
+		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2d = (Graphics2D) g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		if (fillColor!=null) color = fillColor;
 		g.setColor(color);
-		mag = getMagnification();
-		double[] scaleXY = getComponentScaleFactor();
-		int sw = (int)(width*mag*scaleXY[0]);
-		int sh = (int)(height*mag*scaleXY[1]);
-		int sx1 = screenX(x);
-		int sy1 = screenY(y);
+		int sw = (int)(width);
+		int sh = (int)(height);
+		int sx1 = x;
+		int sy1 = y;
 		if (subPixelResolution() && bounds!=null) {
-			sw = (int)(bounds.width*mag*scaleXY[0]);
-			sh = (int)(bounds.height*mag*scaleXY[0]);
+			sw = (int)(bounds.width);
+			sh = (int)(bounds.height);
 			sx1 = screenXD(bounds.x);
 			sy1 = screenYD(bounds.y);
 		}
-		int sw2 = (int)(0.14645*width*mag*scaleXY[0]);
-		int sh2 = (int)(0.14645*height*mag*scaleXY[0]);
+		int sw2 = (int)(0.14645*width);
+		int sh2 = (int)(0.14645*height);
 		int sx2 = sx1+sw/2;
 		int sy2 = sy1+sh/2;
 		int sx3 = sx1+sw;
 		int sy3 = sy1+sh;
-		Graphics2D g2d = (Graphics2D)g;
 		if (stroke!=null) 
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);

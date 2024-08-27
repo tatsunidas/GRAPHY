@@ -7,9 +7,15 @@ import ij.measure.*;
 import ij.plugin.frame.*;
 import java.awt.*;
 
+import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.geom.*;
+
+import javax.swing.JOptionPane;
+
 import java.awt.event.*;
 
 /** Creates a new polygon or polyline ROI from x and y coordinate arrays.
@@ -53,7 +59,7 @@ public class PolygonRoi extends RoiObj {
 		}
 		xp2 = new int[nPoints];
 		yp2 = new int[nPoints];
-		init2(type);
+		init2(type);//and finish polygon
 	}
 
 	/**
@@ -72,7 +78,7 @@ public class PolygonRoi extends RoiObj {
 		enableSubPixelResolution();
 		xp2 = new int[nPoints];
 		yp2 = new int[nPoints];
-		init2(type);
+		init2(type);//and finish polygon
 	}
 
 	/**
@@ -86,35 +92,20 @@ public class PolygonRoi extends RoiObj {
 	private void init1(int nPoints, int type) throws IllegalArgumentException {
 		maxPoints = nPoints;
 		this.nPoints = nPoints;
-		if (type == RoiType.POLYGON.id())
-			this.type = RoiType.POLYGON.id();
-		else if (type == RoiType.FREEROI.id())
-			this.type = RoiType.FREEROI.id();
-		else if (type == RoiType.TRACED_ROI.id())
-			this.type = RoiType.TRACED_ROI.id();
-		else if (type == RoiType.POLYLINE.id())
-			this.type = RoiType.POLYLINE.id();
-		else if (type == RoiType.FREELINE.id())
-			this.type = RoiType.FREELINE.id();
-		else if (type == RoiType.ANGLE.id())
-			this.type = RoiType.ANGLE.id();
-		else if (type == RoiType.POINT.id())
-			this.type = RoiType.POINT.id();
-		else
-			throw new IllegalArgumentException("PolygonRoi: Invalid type");
+		setType(type);
 	}
 
 	private void init2(int type) {
 		if (type == RoiType.ANGLE.id() && nPoints == 3)
 			getAngleAsString();
 		// tatsu
-//		if (type == POINT && Toolbar.getMultiPointMode()) {
-//			Prefs.pointAutoMeasure = false;
-//			Prefs.pointAutoNextSlice = false;
-//			Prefs.pointAddToManager = false;
-//			Prefs.pointAddToOverlay = false;
-//			userCreated = true;
-//		}
+		if (type == RoiType.POINT.id() || type==RoiType.MULTIPOINT.id()) {
+			Prefs.pointAutoMeasure = false;
+			Prefs.pointAutoNextSlice = false;
+			Prefs.pointAddToManager = false;
+			Prefs.pointAddToOverlay = false;
+			userCreated = true;
+		}
 		if (lineWidth > 1 && isLine())
 			updateWideLine(lineWidth);
 		finishPolygon();
@@ -144,23 +135,7 @@ public class PolygonRoi extends RoiObj {
 	public PolygonRoi(int onImageX, int onImageY, int type, SlideGlass sg) {
 		super(onImageX, onImageY, 0, 0, 0, sg);
 		RoiType t = RoiType.find(type);
-		switch (t) {
-		case POLYGON:
-			setType(RoiType.POLYGON);
-			break;
-		case FREEROI:
-			setType(RoiType.FREEROI);
-			break;
-		case FREELINE:
-			setType(RoiType.FREELINE);
-			break;
-		case ANGLE:
-			setType(RoiType.ANGLE);
-			break;
-		default:
-			setType(RoiType.POLYLINE);
-			break;
-		}
+		setType(t);
 		if (magnificationForSubPixel())
 			enableSubPixelResolution();
 		/*
@@ -217,15 +192,23 @@ public class PolygonRoi extends RoiObj {
 
 	public void draw(Graphics g) {
 		updatePolygon();
+		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2d = (Graphics2D) g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
 		boolean hasHandles = xSpline != null || type == RoiType.POLYGON.id() || type == RoiType.POLYLINE.id() || type == RoiType.ANGLE.id();
 		Color color = strokeColor != null ? strokeColor : ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
 		if (isActiveOverlayRoi) {
 			color = Color.cyan;
 		}
-		
 		g.setColor(color);
-		Graphics2D g2d = (Graphics2D) g;
 		setRenderingHint(g2d);
 		if (stroke != null && !isActiveOverlayRoi)
 			g2d.setStroke(getScaledStroke());
@@ -292,17 +275,17 @@ public class PolygonRoi extends RoiObj {
 		Graphics2D g2d = (Graphics2D) g;
 		GeneralPath path = new GeneralPath();
 		//set first path point
-		path.moveTo(screenXD(xpoints[0]+xd), screenYD(ypoints[0]+yd));
+		path.moveTo(xpoints[0]+xd, ypoints[0]+yd);
 		/*
 		 * scaled origin shift :: xd,yd
 		 * scaled (0,0) base location :: xypoints
 		 */
 		for (int i = 1; i < npoints; i++) {
-			path.lineTo(screenXD(xpoints[i]+xd), screenYD(ypoints[i]+yd));
+			path.lineTo(xpoints[i]+xd, ypoints[i]+yd);
 		}
 		if (closed) {
 			//line to first point, set first point. 
-			path.lineTo(screenXD(xpoints[0]+xd), screenYD(ypoints[0]+yd));
+			path.lineTo((xpoints[0]+xd), (ypoints[0]+yd));
 		}
 		if (fill) {
 			if (isActiveOverlayRoi) {
@@ -363,8 +346,7 @@ public class PolygonRoi extends RoiObj {
 		//update roi popup
 //		setBasicStatistics2Popup();//TODO
 		
-		double mag = getMagnification();
-		if (mag == 1.0 && basex == 0 && basey == 0) {
+		if (basex == 0 && basey == 0) {
 			if (xpf != null) {
 				float xbase = (float) getXBase();
 				float ybase = (float) getYBase();
@@ -383,13 +365,13 @@ public class PolygonRoi extends RoiObj {
 				float xbase = (float) getXBase();
 				float ybase = (float) getYBase();
 				for (int i = 0; i < nPoints; i++) {
-					xp2[i] = screenX((int)(xpf[i] + xbase));
-					yp2[i] = screenY((int)(ypf[i] + ybase));
+					xp2[i] = ((int)(xpf[i] + xbase));
+					yp2[i] = ((int)(ypf[i] + ybase));
 				}
 			} else {
 				for (int i = 0; i < nPoints; i++) {
-					xp2[i] = screenX((int)(xp[i] + x));
-					yp2[i] = screenY((int)(yp[i] + y));
+					xp2[i] = ((int)(xp[i] + x));
+					yp2[i] = ((int)(yp[i] + y));
 				}
 			}
 		}
@@ -615,8 +597,6 @@ public class PolygonRoi extends RoiObj {
 		}
 		if (nPoints < 2 || (!(type == RoiType.FREELINE.id() || type == RoiType.POLYLINE.id() || type == RoiType.ANGLE.id())
 				&& (nPoints < 3 || width == 0 || height == 0))) {
-			if (imp != null)
-				imp.deleteRoi();
 			if (type != RoiType.POINT.id())
 				return;
 		}
@@ -661,8 +641,8 @@ public class PolygonRoi extends RoiObj {
 		int ox = sg.offScreenX(sx);
 		int oy = sg.offScreenY(sy);
 		if (xpf != null) {
-			xpf[activeHandle] = (float) (sg.offScreenX(sx) - getXBase());
-			ypf[activeHandle] = (float) (sg.offScreenY(sy) - getYBase());
+			xpf[activeHandle] = (float) (ox - getXBase());
+			ypf[activeHandle] = (float) (oy - getYBase());
 		} else {
 			xp[activeHandle] = ox - x;
 			yp[activeHandle] = oy - y;
@@ -1220,20 +1200,28 @@ public class PolygonRoi extends RoiObj {
 		boolean samePoint = false;
 		if (xpf!=null)
 			samePoint = (xpf[nPoints-2]==xpf[nPoints-1] && ypf[nPoints-2]==ypf[nPoints-1]);
-		else
+		else {
 			samePoint = (xp[nPoints-2]==xp[nPoints-1] && yp[nPoints-2]==yp[nPoints-1]);
+		}
+		if(nPoints == 2 && type == RoiType.MULTIPOINT.id()) {
+			//first clicked
+			
+		}
 		boolean doubleClick = (System.currentTimeMillis()-mouseUpTime)<=300;
 		@SuppressWarnings("unused")
 		int size = boxSize+2;
 		@SuppressWarnings("unused")
 		int size2 = boxSize/2 +1;
 		Rectangle biggerStartBox = new Rectangle(screenXD(startXD)-5, screenYD(startYD)-5, 10, 10);
-		if (nPoints>2 && (biggerStartBox.contains(sx, sy)
-		|| (offScreenXD(sx)==startXD && offScreenYD(sy)==startYD)
-		|| (samePoint && doubleClick))) {
+		boolean bigContain = (nPoints>2 && (biggerStartBox.contains(sx, sy)));
+		boolean clickFirstPoint = (offScreenXD(sx)==startXD && offScreenYD(sy)==startYD);
+		boolean samePointAndDoubleClicked = (samePoint && doubleClick);
+		if (bigContain|| clickFirstPoint || samePointAndDoubleClicked) {
 			boolean okayToFinish = true;
 			if (type==RoiType.POLYGON.id() && samePoint && doubleClick && nPoints>25) {
-				okayToFinish = IJ.showMessageWithCancel("Polygon Tool", "Complete the selection?");
+				Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+				int res = PopUpMessage.showDialog(d2 ,"Polygon Tool", "Complete the selection?", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				okayToFinish = res == JOptionPane.OK_OPTION;
 			}
 			if (okayToFinish) {
 				/*
@@ -1242,7 +1230,9 @@ public class PolygonRoi extends RoiObj {
 				 * If use nPints--, angle calculated by line,
 				 * else, calculated it by 2 cross lines. 
 				 */
-				//nPoints--;
+				if(type!=RoiType.ANGLE.id()) {
+					nPoints--;
+				}
 				addOffset();
 				finishPolygon();
 				return;
@@ -1351,23 +1341,24 @@ public class PolygonRoi extends RoiObj {
 	 * near a handle, otherwise returns -1.
 	 */
 	public int isHandle(int sx, int sy) {
-//		if (!(xSpline != null || type == POLYGON || type == POLYLINE || type == ANGLE || type == POINT)
-//				|| clipboard != null)
-//			return -1;
 		if (!(xSpline != null || type == RoiType.POLYGON.id() || type == RoiType.POLYLINE.id() || type == RoiType.ANGLE.id() || type == RoiType.POINT.id()))
 			return -1;
 		int size = getHandleSize() + 5;
 		int halfSize = size / 2;
 		int handle = -1;
+		int ox = offScreenX(sx);
+		int oy = offScreenY(sy);
 		int sx2, sy2;
 		for (int i = 0; i < nPoints; i++) {
 			sx2 = xp2[i] - halfSize;
 			sy2 = yp2[i] - halfSize;
-			if (sx >= sx2 && sx <= sx2 + size && sy >= sy2 && sy <= sy2 + size) {
+			Log.logger.fine(ox+","+sx2+","+oy+","+sy2);
+			if (ox >= sx2 && ox <= sx2 + size && oy >= sy2 && oy <= sy2 + size) {
 				handle = i;
 				break;
 			}
 		}
+		Log.logger.fine(handle+"");
 		return handle;
 	}
 
@@ -1835,8 +1826,7 @@ public class PolygonRoi extends RoiObj {
 		System.arraycopy(yp2, 0, yp2temp, 0, maxPoints);
 		xp2 = xp2temp;
 		yp2 = yp2temp;
-		if (IJ.debugMode)
-			IJ.log("PolygonRoi: " + maxPoints + " points -> " + newSize);
+		Log.logger.fine("PolygonRoi: " + maxPoints + " points -> " + newSize);
 		maxPoints = newSize;
 	}
 

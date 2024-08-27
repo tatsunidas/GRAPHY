@@ -394,7 +394,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		viewerToolType = pp.getViewer2DToolType();
 		
 		// roi
-		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
+		if(Viewer2DToolBar.isRoiTool(viewerToolType) || viewerToolType == Viewer2DToolBar.Brush) {
 			cg.mouseReleased(e);
 		}
 		

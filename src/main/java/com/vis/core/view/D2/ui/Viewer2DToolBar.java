@@ -96,6 +96,12 @@ public class Viewer2DToolBar extends JToolBar{
 	public final static int MultiPointRoi = RoiType.MULTIPOINT.id();
 	public final static int ArrowRoi = RoiType.ARROW.id();
 	public final static int TextRoi = RoiType.TEXT.id();
+	public final static int ShapeRoi = RoiType.COMPOSITE.id();
+	
+	public final static int Brush = 100;
+	public final static int Windowing = 101;
+	public final static int Analysis = 102;//RoiObjManager
+	public final static int NONE = -1;
 	
 	public final static int[] roiTools = new int[] {
 			RectangleRoi,
@@ -109,14 +115,11 @@ public class Viewer2DToolBar extends JToolBar{
 			PointRoi,
 			MultiPointRoi,
 			ArrowRoi,
-			TextRoi
+			TextRoi,
+			ShapeRoi,
+			Brush // add to roi tool
 	};
 	
-	public final static int Brush = 100;
-	public final static int Windowing = 101;
-	public final static int Analysis = 102;//RoiObjManager
-	public final static int NONE = -1;
-
 	//process features
 	JButton resetBtn;
 	JButton invertBtn;
@@ -468,6 +471,17 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
+		case "free":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					if(freeChk.isSelected()) {
+						currentTool = FreeRoi;
+						setSelectedToolBackground();
+					}
+				}
+			});
+			break;
 		case "line":
 			chk.addActionListener(new ActionListener() {
 				@Override
@@ -480,6 +494,18 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
+		case "freeline":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					if(freelineChk.isSelected()) {
+						currentTool = FreeLineRoi;
+						freelineChk.setBackground(Color.CYAN);
+						setSelectedToolBackground();
+					}
+				}
+			});
+			break;
 		case "polygon":
 			chk.addActionListener(new ActionListener() {
 				@Override
@@ -487,6 +513,18 @@ public class Viewer2DToolBar extends JToolBar{
 					if(polyChk.isSelected()) {
 						currentTool = PolygonRoi;
 						polyChk.setBackground(Color.CYAN);
+						setSelectedToolBackground();
+					}
+				}
+			});
+			break;
+		case "polyline":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					if(polyLineChk.isSelected()) {
+						currentTool = PolyLineRoi;
+						polyLineChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
 				}
@@ -512,6 +550,18 @@ public class Viewer2DToolBar extends JToolBar{
 					if(pointChk.isSelected()) {
 						currentTool = PointRoi;
 						pointChk.setBackground(Color.CYAN);
+						setSelectedToolBackground();
+					}
+				}
+			});
+			break;
+		case "multipoint":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					if(mPointChk.isSelected()) {
+						currentTool = MultiPointRoi;
+						mPointChk.setBackground(Color.CYAN);
 						setSelectedToolBackground();
 					}
 				}
@@ -698,6 +748,7 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("multipoint", Resources.MultiPointRoiIcon);
 		map.put("text", Resources.TextRoiIcon);
 		map.put("angle", Resources.AngleRoiIcon);
+		map.put("brush", Resources.RoiBrushIcon);
 		return map;
 	}
 	
@@ -712,7 +763,6 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("analysis", Resources.RoiObjManagerWinIcon);
 		map.put("crop", Resources.CropIcon);
 		map.put("cut", Resources.CutIcon);
-		map.put("brush", Resources.RoiBrushIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
 		return map;

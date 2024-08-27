@@ -51,7 +51,6 @@ import java.util.*;
 import java.text.SimpleDateFormat;
 import java.awt.image.*;
 import java.awt.event.*;
-import java.awt.geom.Rectangle2D;
 import java.awt.geom.*;
 
 import com.vis.configuration.ConfigInfo;
@@ -652,7 +651,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	public RoiObj(int x, int y, int width, int height, int cornerDiameter, SlideGlass sg) {
 		this.slide = sg;
 		setSlideGlass(sg);
-		setImage(sg == null ? null : sg.getOriginalImage());
 		if (width < 1)
 			width = 1;
 		if (height < 1)
@@ -735,8 +733,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		try {
 			RoiObj r = (RoiObj) super.clone();
 			r.setProperty(ContextKey.RoiID.name(), createRoiIndex());
-			r.setSlideGlass(null);
-			r.setImage(null);
+//			r.setSlideGlass(null);
+//			r.setImage(null);
 			if (!usingDefaultStroke) {
 				r.setStroke(getStroke());
 			}
@@ -800,6 +798,16 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void draw(Graphics g) {
+		AffineTransform aTx = (((Graphics2D)g).getDeviceConfiguration()).getDefaultTransform();
+       Graphics2D g2d = (Graphics2D)g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
 		Color color = strokeColor != null ? strokeColor : ROIColor;
 		if(fill) {
 			color = fillColor;
@@ -808,23 +816,20 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			color = Color.cyan;
 		}
 		g.setColor(color);
-		double mag = getMagnification();
-		double[] compScale = getComponentScaleFactor();
-		int sw = (int) (width * mag * compScale[0]);
-		int sh = (int) (height * mag * compScale[1]);
-		int sx1 = (int) (screenX((int) getXBase()));
-		int sy1 = (int) (screenY((int) getYBase()));
+		int sw = (int) width;
+		int sh = (int) height;
+		int sx1 = (int) getXBase();
+		int sy1 = (int) getYBase();
 		if (subPixelResolution() && bounds!=null) {
-			sw = (int)(bounds.width*mag * compScale[0]);
-			sh = (int)(bounds.height*mag * compScale[1]);
-			sx1 = screenXD(bounds.x);
-			sy1 = screenYD(bounds.y);
+			sw = (int)(bounds.width);
+			sh = (int)(bounds.height);
+			sx1 = (int)(bounds.x);
+			sy1 = (int)(bounds.y);
 		}
 		int sx2 = sx1+sw/2;
 		int sy2 = sy1+sh/2;
 		int sx3 = sx1+sw;
 		int sy3 = sy1+sh;
-		Graphics2D g2d = (Graphics2D)g;
 		if (stroke!=null)
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
@@ -1987,10 +1992,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		previousSX = sx;
 		previousSY = sy;
-		startX = offScreenX(sx);
-		startY = offScreenY(sy);
-		startXD = offScreenXD(sx);
-		startYD = offScreenYD(sy);
+		
+		if(state != CONSTRUCTING) {
+			startX = offScreenX(sx);
+			startY = offScreenY(sy);
+			startXD = offScreenXD(sx);
+			startYD = offScreenYD(sy);
+		}
 	}
 
 	public void mouseDrag(int sx, int sy, int flags) {

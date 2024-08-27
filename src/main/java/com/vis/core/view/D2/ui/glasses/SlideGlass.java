@@ -140,8 +140,8 @@ public class SlideGlass extends JLayeredPane {
 	 * coordinate system of the original image, but the coordinates on the
 	 * SlideGlass fitted to the current ViewPanel.
 	 */
-	public int lastDraggedX = 0;
-	public int lastDraggedY = 0;
+	public int lastDraggedX = 0;//on slide
+	public int lastDraggedY = 0;//on slide
 	public int mouseX = 0;// current mouse loc on slideglass
 	public int mouseY = 0;// current mouse loc on slideglass
 	LUT currentLUT;// null-able, if null set grayscale
@@ -360,7 +360,7 @@ public class SlideGlass extends JLayeredPane {
 	/*
 	 * current display image origin
 	 */
-	public Point getDisplayImageLocationXY() {
+	public Point getDisplayImageOriginXY() {
 		Point origin = new Point(imageSpecimen.getDisplayOriginX(), imageSpecimen.getDisplayOriginY());
 		return origin;
 	}
@@ -505,7 +505,7 @@ public class SlideGlass extends JLayeredPane {
 			return null;
 		}
 		// 画像の原点座標を取得する
-		Point currentDisplayOrigin = getDisplayImageLocationXY();
+		Point currentDisplayOrigin = getDisplayImageOriginXY();
 		// 画像のディメンションを取得する
 		Dimension currentDisplayDimension = getDisplayImageDimension();
 		// ディメンション内のとき、ピクセル値を出力する

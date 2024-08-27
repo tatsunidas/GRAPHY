@@ -13,6 +13,7 @@ import java.util.NoSuchElementException;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 
@@ -351,22 +352,34 @@ public class Line extends RoiObj {
 
 	/** Draws this line on the image. */
 	public void draw(Graphics g) {
+		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2d = (Graphics2D) g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
-		mag = getMagnification();
 		if (isActiveOverlayRoi) {
-				color = Color.cyan;
+			color = Color.cyan;
 		}
 		g.setColor(color);
 		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
 		x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
-		int sx1 = screenXD(x1d);
-		int sy1 = screenYD(y1d);
-		int sx2 = screenXD(x2d);
-		int sy2 = screenYD(y2d);
+//		int sx1 = screenXD(x1d);
+//		int sy1 = screenYD(y1d);
+//		int sx2 = screenXD(x2d);
+//		int sy2 = screenYD(y2d);
+		int sx1 = x1;
+		int sy1 = y1;
+		int sx2 = x2;
+		int sy2 = y2;
 		int sx3 = sx1 + (sx2-sx1)/2;
 		int sy3 = sy1 + (sy2-sy1)/2;
-		Graphics2D g2d = (Graphics2D)g;
 		setRenderingHint(g2d);
 		if (stroke!=null && !isActiveOverlayRoi)
 			g2d.setStroke(getScaledStroke());

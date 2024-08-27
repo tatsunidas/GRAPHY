@@ -6,11 +6,8 @@ import ij.measure.*;
 import ij.plugin.Colors;
 import ij.plugin.PointToolOptions;
 import ij.plugin.filter.Analyzer;
-import ij.plugin.frame.Recorder;
 import ij.util.Java2;
 import java.awt.*;
-import java.awt.image.*;
-import java.awt.event.KeyEvent;
 import java.util.*;
 
 import com.vis.core.view.D2.ui.glasses.*;
@@ -57,8 +54,7 @@ public class PointRoi extends PolygonRoi {
     private int nMarkers;
     private boolean addToOverlay;
     public static PointRoi savedPoints;
-      
-    //SlideGlass is null, OK ?? need more test
+     
     static {
         setDefaultType((int)Prefs.get(TYPE_KEY, HYBRID),null);
         setDefaultSize((int)Prefs.get(SIZE_KEY, 1),null);
@@ -117,6 +113,13 @@ public class PointRoi extends PolygonRoi {
         super(makeXorYArray(ox, null, false), makeXorYArray(oy, null, true), 1, RoiType.POINT.id(),slide);
         width=1; height=1;
         incrementCounter();
+    }
+    
+    public PointRoi(int onImageX, int onImageY, int type, SlideGlass sg) {
+    	super(onImageX, onImageY, type, sg);
+    	if(type == RoiType.POINT.id()) {
+    		finishPolygon();
+    	}
     }
 
 //    /** Creates a new PointRoi using the specified screen coordinates. */
@@ -186,7 +189,7 @@ public class PointRoi extends PolygonRoi {
 		}
 		return new float[] { (float) value };
 	}
-                
+    
     void handleMouseMove(int ox, int oy) {
     }
     
@@ -220,10 +223,6 @@ public class PointRoi extends PolygonRoi {
             if (slice==0 || (positions!=null&&(slice==positions[i]||positions[i]==0)))
                 drawPoint(g, xp2[i], yp2[i], i+1);
         }
-//        if (updateFullWindow) {
-//            updateFullWindow = false;
-//            imp.draw();
-//        }
         PointToolOptions.update();
         flattenScale = 1.0;
     }
@@ -241,10 +240,7 @@ public class PointRoi extends PolygonRoi {
         }
         Color color = strokeColor!=null?strokeColor:ROIColor;
         if (!overlay && isActiveOverlayRoi()) {
-            if (color==Color.cyan)
-                color = Color.magenta;
-            else
-                color = Color.cyan;
+            color = Color.cyan;
         }
         if (nCounters>1 && counters!=null && n<=counters.length)
             color = getColor(counters[n-1]);
@@ -362,8 +358,6 @@ public class PointRoi extends PolygonRoi {
                 counters[i] = counters[i+1];
                 positions[i] = positions[i+1];
             }
-//            if (rt!=null && WindowManager.getFrame(getCountsTitle())!=null)
-//                displayCounts();
         }
     }
 

@@ -1,19 +1,15 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.*;
-import java.awt.image.*;
 import java.awt.geom.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
 import java.util.*;
 
 import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
-import ij.*;
 import ij.process.*;
 import ij.measure.*;
-import ij.plugin.filter.Analyzer;
 import ij.util.Tools;
 import ij.util.FloatArray;
 
@@ -66,7 +62,8 @@ public class ShapeRoi extends RoiObj {
     private double flatness = ShapeRoi.FLATNESS;
     
     /**The instance value of MAXPOLY.*/
-    private int maxPoly = ShapeRoi.MAXPOLY;
+    @SuppressWarnings("unused")
+	private int maxPoly = ShapeRoi.MAXPOLY;
     
     /**If <strong></code>true</code></strong> then methods that manipulate this ROI's shape will work on
      * a flattened version of the shape. */
@@ -85,7 +82,7 @@ public class ShapeRoi extends RoiObj {
     private boolean forceAngle = false;
     
     private Vector<RoiObj> savedRois; //not really used any more
-    private static Stroke defaultStroke = new BasicStroke();
+//    private static Stroke defaultStroke = new BasicStroke();
 
 
     /** Constructs a ShapeRoi from an Roi. */
@@ -96,22 +93,16 @@ public class ShapeRoi extends RoiObj {
     /** Constructs a ShapeRoi from a Shape. */
     public ShapeRoi(Shape s, SlideGlass slide) {
         super(s.getBounds(),slide);
-//        AffineTransform at = new AffineTransform();
-//        at.translate(-x, -y);//平行移動（スケールなし）。原点のリセット?
-        shape = s;//new GeneralPath(at.createTransformedShape(s));
+        AffineTransform at = new AffineTransform();
+        at.translate(-x, -y);
+        shape = new GeneralPath(at.createTransformedShape(s));
         type = RoiType.COMPOSITE.id();
     }
 
     /** Constructs a ShapeRoi from a Shape. */
 	public ShapeRoi(int x, int y, Shape s, SlideGlass slide) {
-		super(x, y, s.getBounds().width, s.getBounds().height, 0, slide);
-		AffineTransform at = new AffineTransform();
-		at.translate(-s.getBounds2D().getX(), -s.getBounds2D().getY());// 原点のリセット
-		s = new GeneralPath(at.createTransformedShape(s));
-		at = new AffineTransform();//もう一度処理するために初期化
-		at.translate(x, y);// move to new origin
-		s = new GeneralPath(at.createTransformedShape(s));
-		shape = s;
+		super(x, y, s.getBounds().width, s.getBounds().height, slide);
+		shape = new GeneralPath(s);
 		type = RoiType.COMPOSITE.id();
 	}
 
@@ -139,8 +130,7 @@ public class ShapeRoi extends RoiObj {
 		this.forceTrace = forceTrace;
 		this.maxPoly = maxPoly;
 		this.flatten = flatten;
-		shape = roiToShape((RoiObj) r.clone());
-//		shape = roiToShape(r);
+		shape = roiToShape(r);
 	}
 
     /** Constructs a ShapeRoi from an array of variable length path segments. Each
@@ -191,7 +181,7 @@ public class ShapeRoi extends RoiObj {
         sr.maxerror = maxerror;
         sr.forceAngle = forceAngle;
         sr.forceTrace = forceTrace;
-        //sr.setImage(imp);
+        sr.setSlideGlass(slide);
         sr.setShape(ShapeRoi.cloneShape(shape));
         return sr;
     }
@@ -242,33 +232,37 @@ public class ShapeRoi extends RoiObj {
      */
     public ShapeRoi not(ShapeRoi sr) {return unaryOp(sr, NOT);}
 
-    ShapeRoi unaryOp(ShapeRoi sr, int op) {
-        AffineTransform at = new AffineTransform();
-//        at.translate(x, y);
-//        Area a1 = new Area(at.createTransformedShape(getShape()));
-//        at = new AffineTransform();
-//        at.translate(sr.x, sr.y);
-//        Area a2 = new Area(at.createTransformedShape(sr.getShape()));
-    	Area a1 = new Area(getShape());
-    	Area a2 = new Area(sr.getShape());
-        try {
-            switch (op) {
-                case OR: a1.add(a2); break;
-                case AND: a1.intersect(a2); break;
-                case XOR: a1.exclusiveOr(a2); break;
-                case NOT: a1.subtract(a2); break;
-            }
-        } catch(Exception e) {}
-        Rectangle r = a1.getBounds();
-        at = new AffineTransform();
-//        at.translate(r.x, r.y);//(0,0)?
-        setShape(new GeneralPath(at.createTransformedShape(a1)));
-//        setShape(a1);
-        x = r.x;
-        y = r.y;
-        cachedMask = null;
-        return this;
-    }
+    //tatsu
+	ShapeRoi unaryOp(ShapeRoi sr, int op) {
+		if(sr == null) {
+			return this;
+		}
+		Area a1 = new Area(getShape());
+		Area a2 = new Area(sr.getShape());
+		try {
+			switch (op) {
+			case OR:
+				a1.add(a2);
+				break;
+			case AND:
+				a1.intersect(a2);
+				break;
+			case XOR:
+				a1.exclusiveOr(a2);
+				break;
+			case NOT:
+				a1.subtract(a2);
+				break;
+			}
+		} catch (Exception e) {
+		}
+		Rectangle r = a1.getBounds();
+		setShape(new GeneralPath(a1));
+		x = r.x;
+		y = r.y;
+		cachedMask = null;
+		return this;
+	}
 
     /**********************************************************************************/
     /***         Interconversions between "regular" rois and shaped rois           ****/
@@ -301,7 +295,7 @@ public class ShapeRoi extends RoiObj {
     private Shape roiToShape(RoiObj roiOrg) {
     	RoiObj roi = null;
         if (roiOrg.isLine()) {
-        	roi =RoiObj.convertLineToArea((RoiObj)roiOrg.clone());
+        	roi =RoiObj.convertLineToArea((RoiObj)roiOrg);
         }else {
         	roi = roiOrg;
         }
@@ -545,10 +539,10 @@ public class ShapeRoi extends RoiObj {
      * or this ShapeRoi (if such a conversion is not possible) or null if
      * this is an empty roi.
      */
-    public RoiObj trySimplify() {
-    	RoiObj roi = shapeToRoi();
-        return (roi==null) ? this : roi;
-    }
+	public RoiObj trySimplify() {
+		RoiObj roi = shapeToRoi();
+		return (roi == null) ? this : roi;
+	}
     
     /**Implements the rules of conversion from <code>java.awt.geom.GeneralPath</code> to <code>ij.gui.Roi</code>.
      * @param nSegments The number of segments that compose the path (= number of vertices for a polygon)
@@ -639,7 +633,7 @@ public class ShapeRoi extends RoiObj {
         }
 //        boolean res = shape.contains(x-this.x+0.494, y-this.y+0.49994);//IJ original
         boolean res = shape.contains(x+0.494, y+0.49994);
-        System.out.println("mouseXOnImgDomain:"+x+" mouseYOnImgDomain:"+y+", contain ? "+res);
+        Log.logger.fine("mouseXOnImgDomain:"+x+" mouseYOnImgDomain:"+y+", contain ? "+res);
         return res;
     }
 
@@ -837,8 +831,8 @@ public class ShapeRoi extends RoiObj {
             pw = cal.pixelWidth;
             ph = cal.pixelHeight;
         }
-        float xbase = (float)getXBase();
-        float ybase = (float)getYBase();
+//        float xbase = (float)getXBase();
+//        float ybase = (float)getYBase();
 
         FloatArray xPoints = new FloatArray();    //vertex coordinates of current subpath
         FloatArray yPoints = new FloatArray();
@@ -970,56 +964,50 @@ public class ShapeRoi extends RoiObj {
     }
 
     /** Non-destructively draws the shape of this object on the associated ImagePlus. */
-    public void draw(Graphics g,SlideGlass sg) {
-        Color color = null;
-        if (isActiveOverlayRoi()) {
-        	color = Color.cyan;//change to active color
-        }else {
-        	color = strokeColor != null ? strokeColor:ROIColor;
-        }
+    public void draw(Graphics g) {
+		Color color = null;
+		if (isActiveOverlayRoi()) {
+			color = Color.cyan;// change to active color
+		} else {
+			color = strokeColor != null ? strokeColor : ROIColor;
+		}
         g.setColor(color);
         AffineTransform aTx = (((Graphics2D)g).getDeviceConfiguration()).getDefaultTransform();
         Graphics2D g2d = (Graphics2D)g;
-        //tatsu todo
-        if (stroke!=null && !isActiveOverlayRoi()) {
-        	g2d.setStroke((sg!=null)||isCursor()?stroke:getScaledStroke());
-        }
-        double mag = 1.;
-        double scale = 1.;
-        int basex=0, basey=0;
-        if (sg!=null) {
-        	mag = sg.getMagnification();
-            scale = sg.getScaleFactor()[0];//scaleXY are same values
-            Point offset = sg.getDisplayImageLocationXY();
-        	basex = offset.x;//disp originX on screen
-        	basey = offset.y;//disp originY on screen
+        
+		if (stroke != null && !isActiveOverlayRoi()) {
+			g2d.setStroke((slide != null) || isCursor() ? stroke : getScaledStroke());
 		}
-        /*
-		 * さきに、スライド空間座標に移動させておき、
-		 * オリジナルのスケール空間を基準にして、原点位置とシェイプサイズをスケールする。
-		 * see, TestShape.TestShapeTransform.java
-		 */
-        aTx.setTransform(mag*scale, 0.0, 0.0, mag*scale, basex, basey);
+		
+		double mag = getMagnification();
+		double scale = getComponentScaleFactor()[0];
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag*scale,mag*scale);
+//			aTx.translate(x, y);
+//			Log.logger.fine(x+","+y);
+//			Log.logger.fine("mag:"+mag+", scale:"+scale);
+//			aTx.translate(offset.x/(mag*scale), offset.y/(mag*scale));
+		}
         /*
          * if fill mode is true, try this.
          */
-//        if (fillColor!=null) {
-//            if (isActiveOverlayRoi()) {
-//                g2d.draw(aTx.createTransformedShape(shape));
-//            } else {
-//            	g2d.setColor(fillColor);
-//                g2d.fill(aTx.createTransformedShape(shape));
-//            }
-//        } else {
-//        	g2d.draw(aTx.createTransformedShape(shape));
-//        }
-        //now here, always no fill.
-        g2d.draw(aTx.createTransformedShape(shape));
-            
-        if (stroke!=null) g2d.setStroke(defaultStroke);
-        //TODO
-//        if (Toolbar.getToolId()==Toolbar.OVAL)
-//            drawRoiBrush(g);
+		g2d.setTransform(aTx);
+//		if (fill) {
+//			g2d.draw(aTx.createTransformedShape(shape));
+//			g2d.setColor(fillColor);
+//			g2d.fill(aTx.createTransformedShape(shape));
+//		} else {
+//			g2d.draw(aTx.createTransformedShape(shape));
+//		}
+		if (fill) {
+//			g2d.draw(aTx.createTransformedShape(shape));
+//			g2d.setColor(fillColor);
+//			g2d.fill(aTx.createTransformedShape(shape));
+		} else {
+			g2d.draw(shape);
+		}
     }
 
     /*
@@ -1135,14 +1123,14 @@ public class ShapeRoi extends RoiObj {
     }
 
     /**Returns the element with the smallest value in the array argument.*/
-    private int min(int[] array) {
+    int min(int[] array) {
         int val = array[0];
         for (int i=1; i<array.length; i++) val = Math.min(val,array[i]);
         return val;
     }
 
     /**Returns the element with the largest value in the array argument.*/
-    private int max(int[] array) {
+    int max(int[] array) {
         int val = array[0];
         for (int i=1; i<array.length; i++) val = Math.max(val,array[i]);
         return val;

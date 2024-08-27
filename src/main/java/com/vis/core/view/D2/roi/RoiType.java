@@ -38,20 +38,23 @@
 package com.vis.core.view.D2.roi;
 
 public enum RoiType {
-	
+	//area
 	RECTANGLE(0),
 	OVAL(1),
 	POLYGON(2),
 	FREEROI(3),//Closed freehand roi
 	TRACED_ROI(4),
-	LINE(5),
-	POLYLINE(6),
-	FREELINE(7),//Open freehand roi
-	ANGLE(8),
-	COMPOSITE(9),
-	POINT(10),
-	MULTIPOINT(11),
-	ARROW(12),
+	COMPOSITE(5),
+	//line
+	LINE(6),
+	POLYLINE(7),
+	FREELINE(8),//Open freehand roi
+	ANGLE(9),
+	ARROW(10),
+	//point
+	POINT(11),
+	MULTIPOINT(12),
+	//other
 	TEXT(13),
 	NOTYPE(-99);
 	

@@ -4,6 +4,7 @@ import java.util.HashMap;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.gui.Roi;
 import ij.process.FloatPolygon;
@@ -152,7 +153,10 @@ public class RoiConverter {
 		float[] pointX = roiCon.get("PointX") == null ? null:(float[])roiCon.get("PointX");
 		float[] pointY = roiCon.get("PointY") == null ? null:(float[])roiCon.get("PointY");
 		float[] shapeArray = roiCon.get("Shape") == null ? null:(float[])roiCon.get("Shape");
-		/** use, as you need **/
+		/*
+		 * use, as you need 
+		 * following properties will add after construction. 
+		 */
 //		String rid = (String)roiCon.get("RoiID");
 //		Integer frameNo = (Integer)roiCon.get("FrameNo");
 //		Integer rg = (Integer)roiCon.get("RoiGroup");
@@ -164,19 +168,7 @@ public class RoiConverter {
 //		String studyUid = (String)roiCon.get("StudyInstanceUID");
 //		String seriesUid = (String)roiCon.get("SeriesInstanceUID");
 //		String sopUid = (String)roiCon.get("SOPInstanceUID");
-		/*
-		 * ij.Arrow is recognized as Line type.
-		 * deal with this by float polygon point number.
-		 * IJ ROI -> this method
-		 * 	Arrow has 4 floats(>0.0) points
-		 */
-		boolean adjustArrow = false;
-		if(type == RoiType.LINE.id() || type == RoiType.ARROW.id()) {
-			if(pointX != null && pointX.length > 2) {
-				type = RoiType.ARROW.id();
-				adjustArrow = true;
-			}
-		}
+		
 		RoiType t = RoiType.find(type);
 		switch (t) {
 		case RECTANGLE:
@@ -187,6 +179,10 @@ public class RoiConverter {
 			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYGON.id(), null);
 			poly.setProperties(roiCon);
 			return poly;
+		case POLYLINE:
+			RoiObj polyline = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYLINE.id(), null);
+			polyline.setProperties(roiCon);
+			return polyline;
 		case ANGLE:
 			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.ANGLE.id(), null);
 			angle.setProperties(roiCon);
@@ -195,24 +191,23 @@ public class RoiConverter {
 			RoiObj oval = new com.vis.core.view.D2.roi.OvalRoi(x,y,w,h,null);
 			oval.setProperties(roiCon);
 			return oval;
+		case FREEROI:
+			RoiObj free = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.FREEROI.id(), null);
+			free.setProperties(roiCon);
+			return free;
 		case LINE:
 			RoiObj line = new com.vis.core.view.D2.roi.Line(pointX[0],pointY[0],pointX[1],pointY[1],null);
 			line.setProperties(roiCon);
 			return line;
+		case FREELINE:
+			RoiObj freeline = new com.vis.core.view.D2.roi.PolygonRoi(pointX,pointY,pointX.length,RoiType.FREELINE.id(),null);
+			freeline.setProperties(roiCon);
+			return freeline;
 		case ARROW:
 			/*
 			 * 4 points included of x and y points.
 			 */
-			RoiObj arrow = null;
-//			if(!adjustArrow) {//In graphy handlding only
-				arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[2],pointY[2],null);
-//			}else {//graphy - IJ'Roi - graphy handling
-//				float arrowX1 = Math.abs((pointX[0]+pointX[1])/2.0f);
-//				float arrowY1 = Math.abs((pointY[0]+pointY[1])/2.0f);
-//				float arrowX2 = Math.abs((pointX[2]+pointX[3])/2.0f);
-//				float arrowY2 = Math.abs((pointX[2]+pointX[3])/2.0f);
-//				arrow = new com.vis.core.view.D2.roi.Arrow(arrowX1, arrowY1, arrowX2, arrowY2, null);
-//			}
+			RoiObj arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[2],pointY[2],null);
 			arrow.setProperties(roiCon);
 			return arrow;
 		case TEXT:

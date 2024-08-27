@@ -122,10 +122,6 @@ public class StageDockManager extends JTabbedPane implements ChangeListener{
 		if(roiManager.isVisible()) {
 			roiManager.updateState();
 		}
-		int res = PopUpMessage.showDialog(this, "Close 2D viewer ?", "Close 2D Viewer Window ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-		if(res == JOptionPane.OK_OPTION) {
-			Viewer2DScreen.getInstance().dispose();
-		}
 	}
 	
 	public boolean existsInDock(String patID) {

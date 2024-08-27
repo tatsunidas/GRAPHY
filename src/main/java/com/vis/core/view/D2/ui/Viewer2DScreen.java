@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
@@ -58,6 +59,7 @@ import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.PropertiesUtil;
@@ -521,6 +523,15 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 	@Override
 	public void windowClosing(WindowEvent e) {
 		logger.fine("Viewer2DScreen::Viewer2DScreen closing...");
+		
+		int res = PopUpMessage.showDialog(this, "Close 2D viewer ?", "Close 2D Viewer Window ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		if(res == JOptionPane.OK_OPTION) {
+			setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		}else {
+			setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+			return;
+		}
+		
 		if (getRoiObjManager().isVisible()) {
 			getRoiObjManager().setVisible(false);
 		}
