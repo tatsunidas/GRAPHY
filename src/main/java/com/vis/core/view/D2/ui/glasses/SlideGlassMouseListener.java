@@ -340,9 +340,13 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				MainScreen ms = WindowManager.getMainScreen();
 				if (ms != null) {
 					ms.showImagesOnBirdsEye(pp);
+					e.consume();
 				}
 			}
-			e.consume();
+			
+			if(viewerToolType == Viewer2DToolBar.TextRoi) {
+				cg.mouseDoubleClicked(e);
+			}
 		}
 	}
 

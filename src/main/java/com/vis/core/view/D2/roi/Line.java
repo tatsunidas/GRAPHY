@@ -332,7 +332,7 @@ public class Line extends RoiObj {
 	 *  the int x, y, width, height integer bounds of the superclass (these enclose
 	 *  the 'draw' area for 1 pixel width), and
 	 *  the coordinates x1R, y1R, x2R, y2R relative to the base x, y of the 'bounds' */
-	protected void updateCoordinates(double x1d, double y1d, double x2d, double y2d) {
+	public void updateCoordinates(double x1d, double y1d, double x2d, double y2d) {
 		this.x1d = x1d; this.y1d = y1d;
 		this.x2d = x2d; this.y2d = y2d;
 		java.awt.geom.Rectangle2D.Double bounds = this.bounds;  //local variable (this.bounds may become null asynchronously upon nudge)
@@ -370,39 +370,31 @@ public class Line extends RoiObj {
 		g.setColor(color);
 		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
 		x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
-//		int sx1 = screenXD(x1d);
-//		int sy1 = screenYD(y1d);
-//		int sx2 = screenXD(x2d);
-//		int sy2 = screenYD(y2d);
-		int sx1 = x1;
-		int sy1 = y1;
-		int sx2 = x2;
-		int sy2 = y2;
-		int sx3 = sx1 + (sx2-sx1)/2;
-		int sy3 = sy1 + (sy2-sy1)/2;
+		int x3 = x1 + (x2-x1)/2;
+		int y3 = y1 + (y2-y1)/2;
 		setRenderingHint(g2d);
 		if (stroke!=null && !isActiveOverlayRoi)
 			g2d.setStroke(getScaledStroke());
 		if (wideLine && !isActiveOverlayRoi) {
-			double dx = sx2 - sx1;
-			double dy = sy2 - sy1;
+			double dx = x2 - x1;
+			double dy = y2 - y1;
 			double len = length(dx, dy);
 			dx *= 0.5*mag/len;	//half-pixel extension, corresponding to getFloatPolygon or convertLineToArea
 			dy *= 0.5*mag/len;
-			g2d.draw(new Line2D.Double(sx1-dx, sy1-dy, sx2+dx, sy2+dy));
+			g2d.draw(new Line2D.Double(x1-dx, y1-dy, x2+dx, y2+dy));
 		} else
-			g.drawLine(sx1, sy1, sx2, sy2);
+			g.drawLine(x1, y1, x2, y2);
 		if (wideLine && !overlay) {
 			g2d.setStroke(onePixelWide);
 			g.setColor(color);
-			g.drawLine(sx1, sy1, sx2, sy2);
+			g.drawLine(x1, y1, x2, y2);
 		}
 		if (!overlay) {
 			handleColor = strokeColor!=null?strokeColor:ROIColor;
-			drawHandle(g, sx1, sy1);
-			drawHandle(g, sx2, sy2);
+			drawHandle(g, x1, y1);
+			drawHandle(g, x2, y2);
 			handleColor=Color.white;//center handle color
-			drawHandle(g, sx3, sy3);
+			drawHandle(g, x3, y3);
 		}
 	}
 	
@@ -626,7 +618,6 @@ public class Line extends RoiObj {
 		int ymin = (int) Math.round(Math.min(y1d, y2d));
 		int w = (int) Math.round(Math.abs(x2d - x1d));
 		int h = (int) Math.round(Math.abs(y2d - y1d));
-		System.out.println("LINE getBounds():"+xmin+" "+ymin+" "+w+" "+h);
 		return new Rectangle(xmin, ymin, w, h);
 	}
 
@@ -713,6 +704,10 @@ public class Line extends RoiObj {
 	/** Sets the x coordinate of the leftmost and y coordinate of the topmost end point */
 	public void setLocation(double x, double y) {
 		updateCoordinates(x+x1R, y+y1R, x+x2R, y+y2R);
+	}
+	
+	public void setBounds(Rectangle2D.Double bounds) {
+		
 	}
 
 	@Override

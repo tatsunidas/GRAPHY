@@ -649,7 +649,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 * coordinates basis.
 	 */
 	public RoiObj(int x, int y, int width, int height, int cornerDiameter, SlideGlass sg) {
-		this.slide = sg;
 		setSlideGlass(sg);
 		if (width < 1)
 			width = 1;
@@ -804,7 +803,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
 			Point offset = slide.getDisplayImageOriginXY();
+			//First, translate image origin without mag and component scale.
 			aTx.translate(offset.x, offset.y);
+			//Second, scale Roi graphics
 			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
 			g2d.setTransform(aTx);
 		}
@@ -816,60 +817,60 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			color = Color.cyan;
 		}
 		g.setColor(color);
-		int sw = (int) width;
-		int sh = (int) height;
-		int sx1 = (int) getXBase();
-		int sy1 = (int) getYBase();
+		int w = (int) width;
+		int h = (int) height;
+		int x1 = (int) getXBase();
+		int y1 = (int) getYBase();
 		if (subPixelResolution() && bounds!=null) {
-			sw = (int)(bounds.width);
-			sh = (int)(bounds.height);
-			sx1 = (int)(bounds.x);
-			sy1 = (int)(bounds.y);
+			w = (int)(bounds.width);
+			h = (int)(bounds.height);
+			x1 = (int)(bounds.x);
+			y1 = (int)(bounds.y);
 		}
-		int sx2 = sx1+sw/2;
-		int sy2 = sy1+sh/2;
-		int sx3 = sx1+sw;
-		int sy3 = sy1+sh;
+		int x2 = x1+w/2;
+		int y2 = y1+h/2;
+		int x3 = x1+w;
+		int y3 = y1+h;
 		if (stroke!=null)
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
 		if (cornerDiameter>0) {
-			int sArcSize = (int)Math.round(cornerDiameter*mag);
+			int sArcSize = (int)Math.round(cornerDiameter*mag*scaleXY[0]);
 			if (fillColor!=null && fill) {
-				g.fillRoundRect(sx1, sy1, sw, sh, sArcSize, sArcSize);
+				g.fillRoundRect(x1, y1, w, h, sArcSize, sArcSize);
 				if (strokeColor!=null) {
 					g.setColor(strokeColor);
-					g.drawRoundRect(sx1, sy1, sw, sh, sArcSize, sArcSize);
+					g.drawRoundRect(x1, y1, w, h, sArcSize, sArcSize);
 				}
 			} else
-				g.drawRoundRect(sx1, sy1, sw, sh, sArcSize, sArcSize);
+				g.drawRoundRect(x1, y1, w, h, sArcSize, sArcSize);
 		} else {
 			if (fillColor!=null && fill) {
 				if (!overlay && isActiveOverlayRoi()) {
 					g.setColor(Color.cyan);
-					g.drawRect(sx1, sy1, sw, sh);
+					g.drawRect(x1, y1, w, h);
 				} else {
 					if (!(this instanceof TextRoi)) {
-						g.fillRect(sx1, sy1, sw, sh);
+						g.fillRect(x1, y1, w, h);
 						if (strokeColor!=null) {
 							g.setColor(strokeColor);
-							g.drawRect(sx1, sy1, sw, sh);
+							g.drawRect(x1, y1, w, h);
 						}
 					} else
-						g.drawRect(sx1, sy1, sw, sh);
+						g.drawRect(x1, y1, w, h);
 				}
 			} else
-				g.drawRect(sx1, sy1, sw, sh);
+				g.drawRect(x1, y1, w, h);
 		}
 		if (clipboard==null && !overlay) {
-			drawHandle(g, sx1, sy1);
-			drawHandle(g, sx2, sy1);
-			drawHandle(g, sx3, sy1);
-			drawHandle(g, sx3, sy2);
-			drawHandle(g, sx3, sy3);
-			drawHandle(g, sx2, sy3);
-			drawHandle(g, sx1, sy3);
-			drawHandle(g, sx1, sy2);
+			drawHandle(g, x1, y1);
+			drawHandle(g, x2, y1);
+			drawHandle(g, x3, y1);
+			drawHandle(g, x3, y2);
+			drawHandle(g, x3, y3);
+			drawHandle(g, x2, y3);
+			drawHandle(g, x1, y3);
+			drawHandle(g, x1, y2);
 		}
 		drawPreviousRoi(g);
 	}
@@ -2672,8 +2673,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	/*
-	 * TODO TEST
-	 * see also Overrided another Roi.
+	 * see also override another Roi.
 	 */
 	public HashMap<String, Object> readContext() {
 		HashMap<String, Object> con = new HashMap<>();
@@ -2754,10 +2754,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	public void setActiveOverlayRoi(boolean active) {
 		activeOverlayRoi = active;
-		if (type == RoiType.TEXT.id()) {
-			TextRoi tr = (TextRoi)this;
-			tr.setFocusable(active);
-		}
 	}
 
 	public void setAntiAlias(boolean antiAlias) {

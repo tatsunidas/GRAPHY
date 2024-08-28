@@ -1,7 +1,6 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.*;
-import java.awt.image.*;
 
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -13,6 +12,7 @@ import ij.process.FloatPolygon;
 import ij.measure.Calibration;
 
 /** This class implements the ellipse selection tool. */
+@SuppressWarnings("serial")
 public class EllipseRoi extends PolygonRoi {
 	
     private static final int vertices = 72;
@@ -30,15 +30,6 @@ public class EllipseRoi extends PolygonRoi {
         state = NORMAL;
         bounds = null;
     }
-
-//    public EllipseRoi(int sx, int sy, String studyUID, String seriesUID, String sopUID) {
-//        super(sx, sy, studyUID, seriesUID, sopUID);
-//        type = FREEROI;
-//        xstart = offScreenXD(sx);
-//        ystart = offScreenYD(sy);
-//        setDrawOffset(false);
-//        bounds = null;
-//    }
 
     public void draw(Graphics g) {
         super.draw(g);

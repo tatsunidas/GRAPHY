@@ -67,6 +67,7 @@ public class SlideGlassKeyListener implements KeyListener{
 	@Override
 	public void keyTyped(KeyEvent e) {
 		RoiObj roi = sg.getActiveRoi();
+		//fail safe
 		if(roi instanceof TextRoi) {
 			//DO NOTHING, to avoid TextArea input conflict
 		}else {
@@ -76,59 +77,61 @@ public class SlideGlassKeyListener implements KeyListener{
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if (e.getID() == KeyEvent.KEY_PRESSED) {
-			Log.logger.fine("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
-			viewerToolType = pp.getViewer2DToolType();
-			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			
-			int k = e.getKeyCode();
-			
-			//add first.
-			pressedKeys.add(k);
+		Log.logger.fine("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
+		viewerToolType = pp.getViewer2DToolType();
+		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 
-			// reset slide
-			if (e.isControlDown() && e.isShiftDown()) {
-				if (pressedKeys.contains(KeyEvent.VK_R)) {
-					if(Utils.isDebug) System.out.println("reset pressed.");
-					sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-					pp.resetView();
-					sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-					return;
-				}
-			}
-			
-			/*
-			 * On some keyboards, Fn+BackSpace will result in Delete; be aware of the
-			 * limitations of the Fn key.
-			 */
-			if (pressedKeys.contains(KeyEvent.VK_DELETE) || pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
-				Log.logger.fine("Will delet Roi, "+"Delete pressed");
-				cg.deleteRoi(sg.mouseX, sg.mouseY);
+		int k = e.getKeyCode();
+
+		// add first.
+		pressedKeys.add(k);
+
+		// reset slide
+		if (e.isControlDown() && e.isShiftDown()) {
+			if (pressedKeys.contains(KeyEvent.VK_R)) {
+				if (Utils.isDebug)
+					System.out.println("reset pressed.");
+				sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
+				pp.resetView();
+				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 				return;
-	        }
+			}
+		}
 
-			// paging
-			if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
-				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
-					if (!pp.isShowGridViewOn()) {
-						if (prapManager != null) {/* Sync series */
-							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-							if (syncingPraps != null && syncingPraps.size() > 1) {
-								for (Praparat prap : syncingPraps) {
-									int pos = prap.getCurrentSlidePos();
-									pos = pos - 1;
-									if (pos < 0) {
-										pos = prap.getNumberOfImages() - 1;
-									}
-									prap.setImagePositionUsingSlider(pos);// work with slider
-								}
-							} else {
-								int pos = pp.getCurrentSlidePos();
+		/*
+		 * On some keyboards, Fn+BackSpace will result in Delete; be aware of the
+		 * limitations of the Fn key.
+		 */
+		if (pressedKeys.contains(KeyEvent.VK_DELETE) || pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
+			Log.logger.fine("Will delet Roi, " + "Delete pressed");
+			cg.deleteRoi(sg.mouseX, sg.mouseY);
+			return;
+		}
+		
+		//roi move
+		if (pressedKeys.contains(KeyEvent.VK_UP) || pressedKeys.contains(KeyEvent.VK_DOWN) || 
+				pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_RIGHT)) {
+			boolean roiKeyEventDone = cg.keyPressed(e.getKeyCode(), e.getModifiersEx());
+			if(roiKeyEventDone) {
+				e.consume();
+			}
+		}
+
+		// paging
+		if(e.isConsumed()) return;
+		if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
+			if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
+				if (!pp.isShowGridViewOn()) {
+					if (prapManager != null) {/* Sync series */
+						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
+						if (syncingPraps != null && syncingPraps.size() > 1) {
+							for (Praparat prap : syncingPraps) {
+								int pos = prap.getCurrentSlidePos();
 								pos = pos - 1;
 								if (pos < 0) {
-									pos = pp.getNumberOfImages() - 1;
+									pos = prap.getNumberOfImages() - 1;
 								}
-								pp.setImagePositionUsingSlider(pos);// work with slider
+								prap.setImagePositionUsingSlider(pos);// work with slider
 							}
 						} else {
 							int pos = pp.getCurrentSlidePos();
@@ -138,29 +141,36 @@ public class SlideGlassKeyListener implements KeyListener{
 							}
 							pp.setImagePositionUsingSlider(pos);// work with slider
 						}
+					} else {
+						int pos = pp.getCurrentSlidePos();
+						pos = pos - 1;
+						if (pos < 0) {
+							pos = pp.getNumberOfImages() - 1;
+						}
+						pp.setImagePositionUsingSlider(pos);// work with slider
 					}
 				}
-			} else if (pressedKeys.contains(KeyEvent.VK_RIGHT) || pressedKeys.contains(KeyEvent.VK_DOWN)){
-				if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
-					if (!pp.isShowGridViewOn()) {
-						if (prapManager != null) {
-							ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-							if (syncingPraps.size() > 1) {
-								for (Praparat prap : syncingPraps) {
-									int pos = prap.getCurrentSlidePos();
-									pos += 1;
-									prap.setImagePositionUsingSlider(pos);// work with slider
-								}
-							} else {
-								int pos = pp.getCurrentSlidePos();
+			}
+		} else if (pressedKeys.contains(KeyEvent.VK_RIGHT) || pressedKeys.contains(KeyEvent.VK_DOWN)) {
+			if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
+				if (!pp.isShowGridViewOn()) {
+					if (prapManager != null) {
+						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
+						if (syncingPraps.size() > 1) {
+							for (Praparat prap : syncingPraps) {
+								int pos = prap.getCurrentSlidePos();
 								pos += 1;
-								pp.setImagePositionUsingSlider(pos);// work with slider
+								prap.setImagePositionUsingSlider(pos);// work with slider
 							}
 						} else {
 							int pos = pp.getCurrentSlidePos();
 							pos += 1;
 							pp.setImagePositionUsingSlider(pos);// work with slider
 						}
+					} else {
+						int pos = pp.getCurrentSlidePos();
+						pos += 1;
+						pp.setImagePositionUsingSlider(pos);// work with slider
 					}
 				}
 			}
@@ -176,13 +186,9 @@ public class SlideGlassKeyListener implements KeyListener{
 			for (Integer k : keys) {
 				if (k == releasedKey) {
 					pressedKeys.remove(k);
+					break;
 				}
 			}
 		}
 	}
-	
-	void keyCancel() {
-		
-	}
-
 }

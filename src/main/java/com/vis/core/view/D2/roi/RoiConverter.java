@@ -4,7 +4,6 @@ import java.util.HashMap;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.gui.Roi;
 import ij.process.FloatPolygon;
@@ -54,7 +53,7 @@ public class RoiConverter {
 		case TEXT:
 			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.getProperty(ContextKey.Description.name()));
 			return copyProperties2IJRoi(roiObj, txt);
-		case POINT:
+		case POINT:case MULTIPOINT:
 			ij.gui.PointRoi p = new ij.gui.PointRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints);
 			return copyProperties2IJRoi(roiObj, p);
 		case COMPOSITE://shape roi
@@ -214,8 +213,8 @@ public class RoiConverter {
 			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, desc, null, null);
 			txt.setProperties(roiCon);//update text string
 			return txt;
-		case POINT:
-			RoiObj pt = new com.vis.core.view.D2.roi.PointRoi(x,y,null);
+		case POINT:case MULTIPOINT:
+			RoiObj pt = new com.vis.core.view.D2.roi.PointRoi(pointX,pointY,null);
 			pt.setProperties(roiCon);
 			return pt;
 		case COMPOSITE:
@@ -224,8 +223,6 @@ public class RoiConverter {
 				return null;
 			}
 			ShapeRoi sr = new com.vis.core.view.D2.roi.ShapeRoi(shapeArray, null);
-//			sr.x = x;//強制修正になってしまう。根本解決になっていない
-//			sr.y = y;
 			sr.setProperties(roiCon);//update text string
 			return sr;
 		// add cases

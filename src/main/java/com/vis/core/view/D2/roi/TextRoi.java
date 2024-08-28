@@ -128,6 +128,7 @@ public class TextRoi extends RoiObj {
 		textArea.setWrapStyleWord(true);
 		textArea.setOpaque(false);
 		textArea.setForeground(ROIColor);
+		textArea.setCaretColor(ROIColor);
 		if(getText() == null || getText().length()==0) {
 			textArea.setText(line1a);
 		}else {
@@ -456,9 +457,7 @@ public class TextRoi extends RoiObj {
 	public void handleMouseUp(int screenX, int screenY) {
 		super.handleMouseUp(screenX, screenY);
 		updateBounds();
-		if (textPane.getBounds().contains(screenX, screenY)) {
-            textPane.requestFocusInWindow();
-        }
+		setFocusable(true);
 	}
     
 	/**
@@ -483,14 +482,8 @@ public class TextRoi extends RoiObj {
 		/*
 		 * set TextArea&Pane bounds.
 		 */
-		double mag = getMagnification();
-		double[] scaleXY = getComponentScaleFactor();
-		int sx = screenX((int) getXBase());
-		int sy = screenY((int) getYBase());
-		int swidth = (int) ((bounds != null ? bounds.width : this.width) * mag * scaleXY[0]);
-		int sheight = (int) ((bounds != null ? bounds.height : this.height) * mag * scaleXY[1]);
 		if (slide != null && textPane != null && textPane.isVisible()) {
-			textPane.setBounds(sx, sy, swidth, sheight);
+			textPane.setBounds((int)getXBase(), (int)getYBase(), width, height);
 			CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			cg.add(textPane);// move to current location
 			slide.repaint();
@@ -675,6 +668,10 @@ public class TextRoi extends RoiObj {
     		textArea.setFocusable(false);
     		((EventGlass)slide.getGlassAt(SlideGlass.EVENT_LAYER)).requestFocusInWindow();
     	}
+    }
+    
+    public boolean isFocusable() {
+    	return textArea.isFocusable();
     }
     
     /** @deprecated Replaced by getDefaultFontName */

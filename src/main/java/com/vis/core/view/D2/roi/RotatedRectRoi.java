@@ -1,7 +1,6 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.*;
-import java.awt.image.*;
 
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -27,20 +26,6 @@ public class RotatedRectRoi extends PolygonRoi {
         this.rectWidth = rectWidth;
         makeRectangle(x1, y1, x2, y2);
         state = NORMAL;
-        bounds = null;
-    }
-
-    public RotatedRectRoi(int sx, int sy, SlideGlass sg) {
-    	//is this correct ?? tatsu
-        super(sx, sy, RoiType.RECTANGLE.id(), sg);
-        type = RoiType.FREEROI.id();
-        xstart = sg.offScreenX(sx);
-        ystart = sg.offScreenY(sy);
-        //correct ?? tatsu
-        int h = sg != null? (int)(sg.getDisplayImageDimension().height/sg.getMagnification()):sg.getDisplayImageDimension().height;
-        System.out.println("RotatedRectRoi: "+(int)rectWidth+" "+h);
-        if (rectWidth>h)
-            rectWidth = h/3;
         bounds = null;
     }
 
@@ -87,7 +72,7 @@ public class RotatedRectRoi extends PolygonRoi {
     }
         
     void makeRectangle(double x1, double y1, double x2, double y2) {
-        double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+        //double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
         double angle = Math.atan ((x2-x1)/(y2-y1));
         double wsa = (rectWidth/2.0)*Math.sin((Math.PI/2.0)+angle);
         double wca = (rectWidth/2.0)*Math.cos((Math.PI/2)+angle);

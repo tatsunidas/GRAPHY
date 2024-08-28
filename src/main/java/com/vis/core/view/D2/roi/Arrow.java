@@ -83,18 +83,9 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 		}
 		g2.setColor(color);
 		setRenderingHint(g2);
-//		AffineTransform at = g2.getDeviceConfiguration().getDefaultTransform();
-		int xbase=0, ybase=0;
-		if (slide!=null) {
-			xbase = offScreenX(0);
-			ybase = offScreenY(0);
-		}
-//		double[] compScaleXY = getComponentScaleFactor();
-//		at.setTransform(mag*compScaleXY[0], 0.0, 0.0, mag*compScaleXY[1], (-xbase+0.5)*mag*compScaleXY[0], (-ybase+0.5)*mag*compScaleXY[1]); //0.5: int coordinate at pixel center
 		if (outline) {
 			float lineWidth = (float)(getOutlineWidth()*mag);
 			g2.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
-//			g2.draw(at.createTransformedShape(shape));
 			g2.draw(shape);
 			if (doubleHeaded) g2.draw(shape2);
 			g2.setStroke(defaultStroke);

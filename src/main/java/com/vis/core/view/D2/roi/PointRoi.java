@@ -2,7 +2,6 @@ package com.vis.core.view.D2.roi;
 
 import ij.*;
 import ij.process.*;
-import ij.measure.*;
 import ij.plugin.Colors;
 import ij.plugin.PointToolOptions;
 import ij.plugin.filter.Analyzer;
@@ -24,7 +23,7 @@ public class PointRoi extends PolygonRoi {
     public static final int HYBRID=0, CROSS=1, CROSSHAIR=1, DOT=2, CIRCLE=3;
     private static final String TYPE_KEY = "point.type";
     private static final String SIZE_KEY = "point.size";
-    private static final String CROSS_COLOR_KEY = "point.cross.color";
+//    private static final String CROSS_COLOR_KEY = "point.cross.color";
     private static final int TINY=1, SMALL=3, MEDIUM=5, LARGE=7, EXTRA_LARGE=11, XXL=17, XXXL=25;
     private static final BasicStroke twoPixelsWide = new BasicStroke(2);
     private static final BasicStroke threePixelsWide = new BasicStroke(3);
@@ -32,21 +31,20 @@ public class PointRoi extends PolygonRoi {
     private static int defaultType = HYBRID;
     private static int defaultSize = SMALL;
     private static Font font;
-    private static Color defaultCrossColor = Color.white;
-    private static int fontSize = 9;
+//    private static Color defaultCrossColor = Color.white;
+    private int fontSize = 9;
     public static final int MAX_COUNTERS = 100;
     private static String[] counterChoices;
     private static Color[] colors;
     private boolean showLabels;
     private int type = HYBRID;
     private int size = SMALL;
-    private static int defaultCounter;
+    static int defaultCounter;
     private int counter;
     private int nCounters = 1;
     private short[] counters;   //for each point, 0-100 for counter (=category that can be defined by the user)
     private int[] positions;    //for each point, the stack slice, or 0 for 'show on all'
     private int[] counts = new int[MAX_COUNTERS];
-    private ResultsTable rt;
     private long lastPointTime;
     private int[] counterInfo;
     private boolean promptBeforeDeleting;
@@ -121,36 +119,6 @@ public class PointRoi extends PolygonRoi {
     		finishPolygon();
     	}
     }
-
-//    /** Creates a new PointRoi using the specified screen coordinates. */
-//    public PointRoi(int sx, int sy, SlideGlass sg) {
-//        super(makeXorYArray(sx, sg, false), makeXorYArray(sy, sg, true), 1, POINT,sg);
-//        //defaultCounter = 0;
-//        setImage(imp);
-//        width=1; height=1;
-//        type = defaultType;
-//        size = defaultSize;
-//        showLabels = !Prefs.noPointLabels;
-////        if (imp!=null) {
-////            int r = 10 + size;
-////            double mag = sg!=null?sg.getMagnification():1;
-////            if (mag<1)
-////                r = (int)(r/mag);
-////            imp.draw(x-r, y-r, 2*r, 2*r);
-////        }
-////        setCounter(Toolbar.getMultiPointMode()?defaultCounter:0);
-//        incrementCounter();
-//        enlargeArrays(50);
-////        if (Recorder.record) {
-////            String add = Prefs.pointAddToOverlay?" add":"";
-////            String options = sizes[convertSizeToIndex(size)]+" "+Colors.colorToString(getColor())+" "+types[type]+add;
-////            options = options.toLowerCase();        
-////            if (Recorder.scriptMode())
-////                Recorder.recordCall("imp.setRoi(new PointRoi("+x+","+y+",\""+options+"\"));");
-////            else
-////                Recorder.record("makePoint", x, y, options);
-////        }
-//    }
     
     public void setOptions(String options) {
         if (options==null)
@@ -199,119 +167,129 @@ public class PointRoi extends PolygonRoi {
     }
     
     /** Draws the points on the image. */
-    public void draw(Graphics g) {
-        updatePolygon();
-        if (showLabels && nPoints>1) {
-            fontSize = 8;
-            double scale = size>=XXL?2:1.5;
-            fontSize += scale*convertSizeToIndex(size);
-            fontSize = (int)Math.round(fontSize);
-            //IJ.log("fontSize: "+fontSize+" "+scale);
-            font = new Font("SansSerif", Font.PLAIN, fontSize);
-            g.setFont(font);
-            if (fontSize>9)
-                Java2.setAntialiasedText(g, true);
-        }
-        int slice = slide.getPraparat().getCurrentSlidePos();
-//        if (ic!=null && overlay && ic.getShowAllList()!=null && ic.getShowAllList().contains(this) && !Prefs.showAllSliceOnly)
-//            slice = 0;  // draw point irrespective of currently selected slice
-//        if (Prefs.showAllPoints)
-//            slice = 0;
-        //IJ.log("draw: "+positions+" "+imp.getCurrentSlice());
-        for (int i=0; i<nPoints; i++) {
-            //IJ.log(i+" "+slice+" "+(positions!=null?positions[i]:-1)+"  "+getPosition());
-            if (slice==0 || (positions!=null&&(slice==positions[i]||positions[i]==0)))
-                drawPoint(g, xp2[i], yp2[i], i+1);
-        }
-        PointToolOptions.update();
-        flattenScale = 1.0;
-    }
+	public void draw(Graphics g) {
+		updatePolygon();
+		if (showLabels && nPoints > 1) {
+			fontSize = 8;
+			double scale = size >= XXL ? 2 : 1.5;
+			fontSize += scale * convertSizeToIndex(size);
+			fontSize = (int) Math.round(fontSize);
+			// IJ.log("fontSize: "+fontSize+" "+scale);
+			font = new Font("SansSerif", Font.PLAIN, fontSize);
+			g.setFont(font);
+			if (fontSize > 9)
+				Java2.setAntialiasedText(g, true);
+		}
+		for (int i = 0; i < nPoints; i++) {
+			drawPoint(g, xp2[i], yp2[i], i + 1);
+		}
+		PointToolOptions.update();
+		flattenScale = 1.0;
+	}
 
-    void drawPoint(Graphics g, int x, int y, int n) {
-        int size2=size/2;
-        boolean colorSet = false;
-        Graphics2D g2d = (Graphics2D)g;
-        AffineTransform saveXform = null;
-        if (flattenScale>1.0) {
-            saveXform = g2d.getTransform();
-            g2d.translate(x, y);
-            g2d.scale(flattenScale, flattenScale);
-            x = y = 0;
-        }
-        Color color = strokeColor!=null?strokeColor:ROIColor;
-        if (!overlay && isActiveOverlayRoi()) {
-            color = Color.cyan;
-        }
-        if (nCounters>1 && counters!=null && n<=counters.length)
-            color = getColor(counters[n-1]);
-        if (type==HYBRID || type==CROSS) {
-            if (type==HYBRID)
-                g.setColor(Color.white);
-            else {
-                g.setColor(color);
-                colorSet = true;
-            }
-            if (size>XXL)
-                g2d.setStroke(fivePixelsWide);
-            else if (size>LARGE)
-                g2d.setStroke(threePixelsWide);
-            g.drawLine(x-(size+2), y, x+size+2, y);
-            g.drawLine(x, y-(size+2), x, y+size+2);
-        }
-        if (type!=CROSS && size>SMALL)
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        if (type==HYBRID || type==DOT) { 
-            if (!colorSet) {
-                g.setColor(color);
-                colorSet = true;
-            }
-            if (size>LARGE)
-                g2d.setStroke(onePixelWide);
-            if (size>LARGE && type==DOT)
-                g.fillOval(x-size2, y-size2, size, size);
-            else if (size>LARGE && type==HYBRID)
-                g.fillRect(x-(size2-2), y-(size2-2), size-4, size-4);
-            else if (size>SMALL && type==HYBRID)
-                g.fillRect(x-(size2-1), y-(size2-1), size-2, size-2);
-            else
-                g.fillRect(x-size2, y-size2, size, size);
-        }
-        if (showLabels && nPoints>1) {
-            int xoffset = 2;
-            if (size==LARGE) xoffset=3;
-            if (size==EXTRA_LARGE) xoffset=4;
-            if (size==XXL) xoffset=5;
-            if (size==XXXL) xoffset=7;
-            int yoffset = xoffset;
-            if (size>=LARGE) yoffset=yoffset-1;
-            if (nCounters==1) {
-                if (!colorSet)
-                    g.setColor(color);
-                g.drawString(""+n, x+xoffset, y+yoffset+fontSize);
-            } else if (counters!=null) {
-                g.setColor(getColor(counters[n-1]));
-                g.drawString(""+counters[n-1], x+xoffset, y+yoffset+fontSize);
-            }
-        }
-        if ((size>TINY||type==DOT) && (type==HYBRID||type==DOT)) {
-            g.setColor(Color.black);
-            if (size>LARGE && type==HYBRID)
-                g.drawOval(x-(size2-1), y-(size2-1), size-3, size-3);
-            else if (size>SMALL && type==HYBRID)
-                g.drawOval(x-size2, y-size2, size-1, size-1);
-            else
-                g.drawOval(x-(size2+1), y-(size2+1), size+1, size+1);
-        }
-        if (type==CIRCLE) {
-            int scaledSize = (int)Math.round(size+1);
-            g.setColor(color);
-            if (size>LARGE)
-                g2d.setStroke(twoPixelsWide);
-            g.drawOval(x-scaledSize/2, y-scaledSize/2, scaledSize, scaledSize);
-        }
-        if (saveXform!=null)
-            g2d.setTransform(saveXform);
-    }
+	void drawPoint(Graphics g, int x, int y, int n) {
+		int size2 = size / 2;
+		boolean colorSet = false;
+
+		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2d = (Graphics2D) g;
+		double mag = getMagnification();
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			// First, translate image origin without mag and component scale.
+			aTx.translate(offset.x, offset.y);
+			// Second, scale Roi graphics
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
+
+//		AffineTransform saveXform = null;
+//		if (flattenScale > 1.0) {
+//			saveXform = g2d.getTransform();
+//			g2d.translate(x, y);
+//			g2d.scale(flattenScale, flattenScale);
+//			x = y = 0;
+//		}
+		Color color = strokeColor != null ? strokeColor : ROIColor;
+		if (!overlay && isActiveOverlayRoi()) {
+			color = Color.cyan;
+		}
+		if (nCounters > 1 && counters != null && n <= counters.length)
+			color = getColor(counters[n - 1]);
+		if (type == HYBRID || type == CROSS) {
+			if (type == HYBRID)
+				g.setColor(Color.white);
+			else {
+				g.setColor(color);
+				colorSet = true;
+			}
+			if (size > XXL)
+				g2d.setStroke(fivePixelsWide);
+			else if (size > LARGE)
+				g2d.setStroke(threePixelsWide);
+			g.drawLine(x - (size + 2), y, x + size + 2, y);
+			g.drawLine(x, y - (size + 2), x, y + size + 2);
+		}
+		if (type != CROSS && size > SMALL)
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		if (type == HYBRID || type == DOT) {
+			if (!colorSet) {
+				g.setColor(color);
+				colorSet = true;
+			}
+			if (size > LARGE)
+				g2d.setStroke(onePixelWide);
+			if (size > LARGE && type == DOT)
+				g.fillOval(x - size2, y - size2, size, size);
+			else if (size > LARGE && type == HYBRID)
+				g.fillRect(x - (size2 - 2), y - (size2 - 2), size - 4, size - 4);
+			else if (size > SMALL && type == HYBRID)
+				g.fillRect(x - (size2 - 1), y - (size2 - 1), size - 2, size - 2);
+			else
+				g.fillRect(x - size2, y - size2, size, size);
+		}
+		if (showLabels && nPoints > 1) {
+			int xoffset = 2;
+			if (size == LARGE)
+				xoffset = 3;
+			if (size == EXTRA_LARGE)
+				xoffset = 4;
+			if (size == XXL)
+				xoffset = 5;
+			if (size == XXXL)
+				xoffset = 7;
+			int yoffset = xoffset;
+			if (size >= LARGE)
+				yoffset = yoffset - 1;
+			if (nCounters == 1) {
+				if (!colorSet)
+					g.setColor(color);
+				g.drawString("" + n, x + xoffset, y + yoffset + fontSize);
+			} else if (counters != null) {
+				g.setColor(getColor(counters[n - 1]));
+				g.drawString("" + counters[n - 1], x + xoffset, y + yoffset + fontSize);
+			}
+		}
+		if ((size > TINY || type == DOT) && (type == HYBRID || type == DOT)) {
+			g.setColor(Color.black);
+			if (size > LARGE && type == HYBRID)
+				g.drawOval(x - (size2 - 1), y - (size2 - 1), size - 3, size - 3);
+			else if (size > SMALL && type == HYBRID)
+				g.drawOval(x - size2, y - size2, size - 1, size - 1);
+			else
+				g.drawOval(x - (size2 + 1), y - (size2 + 1), size + 1, size + 1);
+		}
+		if (type == CIRCLE) {
+			int scaledSize = (int) Math.round(size + 1);
+			g.setColor(color);
+			if (size > LARGE)
+				g2d.setStroke(twoPixelsWide);
+			g.drawOval(x - scaledSize / 2, y - scaledSize / 2, scaledSize, scaledSize);
+		}
+//		if (saveXform != null)
+//			g2d.setTransform(saveXform);
+	}
     
     public void drawPixels(ImageProcessor ip) {
         ip.setLineWidth(Analyzer.markWidth);
@@ -469,7 +447,7 @@ public class PointRoi extends PolygonRoi {
     /** Returns true if (x,y) is one of the points in this collection. */
     public boolean contains(int x, int y) {
         for (int i=0; i<nPoints; i++) {
-            if (x==this.x+xpf[i] && y==this.y+ypf[i]) return true;
+            if (x==this.x+(int)xpf[i] && y==this.y+(int)ypf[i]) return true;
         }
         return false;
     }
@@ -652,93 +630,6 @@ public class PointRoi extends PolygonRoi {
             return 0;
     }
     
-//    public void displayCounts() {
-//        String firstColumnHdr = "Slice";
-//        rt = new ResultsTable();
-//        int row = 0;
-//        if (imp!=null && imp.getStackSize()>1 && positions!=null) {
-//            int nChannels = 1;
-//            int nSlices = 1;
-//            int nFrames = 1;
-//            boolean isHyperstack = false;               isHyperstack = true;
-//
-//            if (imp.isComposite() || imp.isHyperStack()) {
-//                nChannels = imp.getNChannels();
-//                nSlices = imp.getNSlices();
-//                nFrames = imp.getNFrames();
-//                int nDimensions = 2;
-//                if (nChannels>1) nDimensions++;
-//                if (nSlices>1) nDimensions++;
-//                if (nFrames>1) nDimensions++;
-//                if (nDimensions==3) {
-//                    isHyperstack = false;
-//                    if (nChannels>1)
-//                        firstColumnHdr = "Channel";
-//                } else
-//                    firstColumnHdr = "Image";
-//            }
-//            int firstSlice = Integer.MAX_VALUE;
-//            for (int i=0; i<nPoints; i++) {
-//                if (positions[i]>0 && positions[i]<firstSlice)
-//                    firstSlice = positions[i];
-//            }
-//            if (firstSlice==Integer.MAX_VALUE)
-//                firstSlice = 0;
-//            int lastSlice = 0;
-//            if (firstSlice>0) {
-//                for (int i=0; i<nPoints; i++) {
-//                    if (positions[i]>lastSlice)
-//                        lastSlice = positions[i];
-//                }
-//            }
-//            if (firstSlice>0) {
-//                for (int slice=firstSlice; slice<=lastSlice; slice++) {
-//                    rt.setValue(firstColumnHdr, row, slice);
-//                    if (isHyperstack) {
-//                        int[] position = imp.convertIndexToPosition(slice);
-//                        if (nChannels>1)
-//                            rt.setValue("Channel", row, position[0]);
-//                        if (nSlices>1)
-//                            rt.setValue("Slice", row, position[1]);
-//                        if (nFrames>1)
-//                            rt.setValue("Frame", row, position[2]);
-//                    }
-//                    for (int counter=0; counter<nCounters; counter++) {
-//                        int count = 0;
-//                        for (int i=0; i<nPoints; i++) {
-//                            if (slice==positions[i] && counter==counters[i])
-//                                count++;
-//                        }
-//                        rt.setValue("Ctr "+counter, row, count);
-//                    }
-//                    row++;
-//                }
-//            }
-//        }
-//        rt.setValue(firstColumnHdr, row, "Total");
-//        for (int i=0; i<nCounters; i++)
-//            rt.setValue("Ctr "+i, row, counts[i]);
-//        rt.show(getCountsTitle());
-//    }
-    
-    private void debug() {
-        FloatPolygon p = getFloatPolygon();
-        ResultsTable rt = new ResultsTable();
-        for (int i=0; i<nPoints; i++) {
-            if (counters!=null) {
-                rt.setValue("Counter", i, counters[i]);
-                rt.setValue("Position", i, positions[i]);
-            } 
-            rt.setValue("X", i, p.xpoints[i]);
-            rt.setValue("Y", i, p.ypoints[i]);
-        }
-        rt.show(getCountsTitle());
-    }
-
-    private String getCountsTitle() {
-        return "Counts_"+(imp!=null?imp.getTitle():"");
-    }
-    
     public synchronized static String[] getCounterChoices() {
         if (counterChoices==null) {
             counterChoices = new String[MAX_COUNTERS];
@@ -775,16 +666,15 @@ public class PointRoi extends PolygonRoi {
     public int isHandle(int sx, int sy) {
         if ((System.currentTimeMillis()-lastPointTime)<1000L)
             return -1;
+        int ox = offScreenX(sx);
+        int oy = offScreenY(sy);
         int size = HANDLE_SIZE+this.size;
         int halfSize = size/2;
         int handle = -1;
-        int sx2, sy2;
-        int slice = !Prefs.showAllPoints&&positions!=null&&imp!=null&&imp.getStackSize()>1?imp.getCurrentSlice():0;
+        int x2, y2;
         for (int i=0; i<nPoints; i++) {
-            if (slice!=0 && slice!=positions[i])
-                continue;
-            sx2 = xp2[i]-halfSize; sy2=yp2[i]-halfSize;
-            if (sx>=sx2 && sx<=sx2+size && sy>=sy2 && sy<=sy2+size) {
+            x2 = xp2[i]-halfSize; y2=yp2[i]-halfSize;
+            if (ox>=x2 && ox<=x2+size && oy>=y2 && oy<=y2+size) {
                 handle = i;
                 break;
             }

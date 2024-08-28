@@ -2,9 +2,11 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.*;
 import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -92,10 +94,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 					currentRoi = roi;
 					found = true;
 					break;
-				} else if (roi.contains(ix, iy)) {
-					if (roi instanceof ShapeRoi) {
-						Log.logger.info("this is shape roi !!");
-					}
+				} 
+				if (roi.contains(ix, iy)) {
 					roi.setActiveOverlayRoi(true);
 //					roi.showRoiPopupOnCanvas();//TODO 20240817
 					currentRoi = roi;
@@ -112,7 +112,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 				currentRoi = null;
 			}
 			/*
-			 * after search current roi
+			 * update previousRoi
 			 */
 			if (found) {
 				if (currentRoi != previousRoi && previousRoi != null) {
@@ -286,7 +286,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
 	}
 
-	public void deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiInd) {
+	public void deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId) {
 		if (roiset == null || roiset.size() < 1) {
 			return;
 		}
@@ -298,13 +298,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 		ArrayList<RoiObj> roi2Remove = new ArrayList<>();
 		while(itr.hasNext()){
 		    RoiObj roi = itr.next();
-			if (roi.isThisRoi(patID, studyUID, seriesUID, sopUID, roiInd)) {
+			if (roi.isThisRoi(patID, studyUID, seriesUID, sopUID, roiId)) {
 //				removeRoiPopupDialogOnCanvas(roi.getRoiPopupDialog());
 				if(roi instanceof TextRoi) {
 					Component[] coms = getComponents();
 					for(Component c : coms) {
 						if(c instanceof JScrollPane) {
-							remove(c);
+							if(c.getName().equals(roiId)) {
+								remove(c);
+							}
 						}
 					}
 				}
@@ -726,7 +728,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 			// do something
 			return;// attention
 		}
-		int dragSX = e.getX();//x on slideglass
+		int dragSX = e.getX();
 		int dragSY = e.getY();
 		int flags = e.getModifiersEx();
 		/*
@@ -854,45 +856,183 @@ public class CanvasGlass extends javax.swing.JPanel {
 				repaint();
 			}
 		}
-			
-//		int ox = offScreenX(e.getX());
-//		int oy = offScreenY(e.getY());
-//		if ((overlay!=null||showAllOverlay!=null) && ox==mousePressedX && oy==mousePressedY) {
-//			boolean cmdDown = IJ.isMacOSX() && e.isMetaDown();
-//			Roi roi = imp.getRoi();
-//			if (roi!=null && roi.getBounds().width==0)
-//				roi=null;
-//			if ((e.isAltDown()||e.isControlDown()||cmdDown) && roi==null) {
-//				if (activateOverlayRoi(ox, oy))
-//					return;
-//			} else if ((System.currentTimeMillis()-mousePressedTime)>250L && !drawingTool()) {
-//				if (activateOverlayRoi(ox,oy))
-//					return;
-//			}
-//		}
-//
-//		PlugInTool tool = Toolbar.getPlugInTool();
-//		if (tool!=null) {
-//			tool.mouseReleased(imp, e);
-//			if (e.isConsumed()) return;
-//		}
-//		flags = e.getModifiers();
-//		flags &= ~InputEvent.BUTTON1_MASK; // make sure button 1 bit is not set
-//		flags &= ~InputEvent.BUTTON2_MASK; // make sure button 2 bit is not set
-//		flags &= ~InputEvent.BUTTON3_MASK; // make sure button 3 bit is not set
-//		Roi roi = imp.getRoi();
-//		if (roi != null) {
-//			Rectangle r = roi.getBounds();
-//			int type = roi.getType();
-//			if ((r.width==0 || r.height==0)
-//			&& !(type==Roi.POLYGON||type==Roi.POLYLINE||type==Roi.ANGLE||type==Roi.LINE)
-//			&& !(roi instanceof TextRoi)
-//			&& roi.getState()==roi.CONSTRUCTING
-//			&& type!=roi.POINT)
-//				imp.deleteRoi();
-//			else
-//				roi.handleMouseUp(e.getX(), e.getY());
-		
+	}
+	
+	public void mouseDoubleClicked(MouseEvent e) {
+		if(e.isConsumed()) {
+			return;
+		}
+		if(currentRoi != null && currentRoi instanceof TextRoi) {
+			TextRoi tr = (TextRoi) currentRoi;
+			if(tr.isFocusable()) {
+				tr.setFocusable(false);
+			}else {
+				tr.setFocusable(true);
+			}
+		}
+	}
+	
+	/**
+	 * 
+	 * @param keyCode
+	 * @param mex
+	 * @return move roi done or not
+	 */
+	public boolean keyPressed(int keyCode, int mex/* ModifiersEx */) {
+		boolean doingSomething = false;
+		if ((mex & InputEvent.ALT_DOWN_MASK) != 0) {
+			doingSomething = true;
+		}
+		if ((mex & InputEvent.SHIFT_DOWN_MASK) != 0) {
+			doingSomething = true;
+		}
+		if ((mex & InputEvent.CTRL_DOWN_MASK) != 0) {
+			doingSomething = true;
+		}
+		if ((mex & InputEvent.META_DOWN_MASK) != 0) {
+			doingSomething = true;
+		}
+		if ((mex & InputEvent.BUTTON1_DOWN_MASK) != 0) {
+			doingSomething = true;
+		}
+		if(doingSomething) {
+			return false;
+		}
+		if(currentRoi == null) {
+			return false;
+		}
+		RoiType t = currentRoi.getRoiType();
+		//move roi
+		switch (t) {
+		case RECTANGLE:
+		case OVAL:
+		case POLYGON:
+		case POLYLINE:
+		case ANGLE:
+		case FREEROI:
+		case COMPOSITE:
+		case TRACED_ROI:
+			if (keyCode == KeyEvent.VK_LEFT) {
+				currentRoi.x -= 1;
+			} else if (keyCode == KeyEvent.VK_RIGHT) {
+				currentRoi.x += 1;
+			} else if (keyCode == KeyEvent.VK_UP) {
+				currentRoi.y -= 1;
+			} else if (keyCode == KeyEvent.VK_DOWN) {
+				currentRoi.y += 1;
+			}
+			break;
+		case LINE:
+		case ARROW:
+			Line l = (Line)currentRoi;
+			if (keyCode == KeyEvent.VK_LEFT) {
+				l.updateCoordinates(l.x1d-1.0, l.y1d, l.x2d-1.0, l.y2d);
+			} else if (keyCode == KeyEvent.VK_RIGHT) {
+				l.updateCoordinates(l.x1d+1.0, l.y1d, l.x2d+1.0, l.y2d);
+			} else if (keyCode == KeyEvent.VK_UP) {
+				l.updateCoordinates(l.x1d, l.y1d-1.0, l.x2d, l.y2d-1.0);
+			} else if (keyCode == KeyEvent.VK_DOWN) {
+				l.updateCoordinates(l.x1d, l.y1d+1.0, l.x2d, l.y2d+1.0);
+			}
+			break;
+		case POINT:
+			PointRoi r = (PointRoi)currentRoi;
+//			int activeHandle = r.isHandle(sg.screenX(r.x), sg.screenY(r.y));
+			int activeHandle = 0;//single point
+			if (keyCode == KeyEvent.VK_LEFT) {
+				if (r.xpf != null) {
+					r.xpf[activeHandle] -= (float)1;
+				} else {
+					r.xp[activeHandle] -= 1;
+				}
+			} else if (keyCode == KeyEvent.VK_RIGHT) {
+				if (r.xpf != null) {
+					r.xpf[activeHandle] += (float)1;
+				} else {
+					r.xp[activeHandle] += 1;
+				}
+			} else if (keyCode == KeyEvent.VK_UP) {
+				if (r.ypf != null) {
+					r.ypf[activeHandle] -= (float)1;
+				} else {
+					r.yp[activeHandle] -= 1;
+				}
+			} else if (keyCode == KeyEvent.VK_DOWN) {
+				if (r.ypf != null) {
+					r.ypf[activeHandle] += (float)1;
+				} else {
+					r.yp[activeHandle] += 1;
+				}
+			}
+			break;
+		case MULTIPOINT:
+			/*
+			 * move all
+			 */
+			PointRoi mp = (PointRoi)currentRoi;
+			int npoints = mp.getPolygon().xpoints.length;
+			if (keyCode == KeyEvent.VK_LEFT) {
+				if (mp.xpf != null) {
+					for(int i=0; i< npoints; i++) {
+						mp.xpf[i] -= (float)1;
+					}
+				} else {
+					for(int i=0; i< npoints; i++) {
+						mp.xp[i] -= (float)1;
+					}
+				}
+			} else if (keyCode == KeyEvent.VK_RIGHT) {
+				if (mp.xpf != null) {
+					for(int i=0; i< npoints; i++) {
+						mp.xpf[i] += (float)1;
+					}
+				} else {
+					for(int i=0; i< npoints; i++) {
+						mp.xp[i] += (float)1;
+					}
+				}
+			} else if (keyCode == KeyEvent.VK_UP) {
+				if (mp.ypf != null) {
+					for(int i=0; i< npoints; i++) {
+						mp.ypf[i] -= (float)1;
+					}
+				} else {
+					for(int i=0; i< npoints; i++) {
+						mp.ypf[i] -= (float)1;
+					}
+				}
+			} else if (keyCode == KeyEvent.VK_DOWN) {
+				if (mp.ypf != null) {
+					for(int i=0; i< npoints; i++) {
+						mp.ypf[i] += (float)1;
+					}
+				} else {
+					for(int i=0; i< npoints; i++) {
+						mp.ypf[i] += (float)1;
+					}
+				}
+			}
+			break;
+		case TEXT:
+			TextRoi tr = (TextRoi)currentRoi;
+			Rectangle2D.Double b = tr.getFloatBounds();
+			if (keyCode == KeyEvent.VK_LEFT) {
+				b.x -= 1;
+			} else if (keyCode == KeyEvent.VK_RIGHT) {
+				b.x += 1;
+			} else if (keyCode == KeyEvent.VK_UP) {
+				b.y -= 1;
+			} else if (keyCode == KeyEvent.VK_DOWN) {
+				b.y += 1;
+			}
+			tr.setBounds(b);
+			break;
+		default:
+			break;
+		}
+		updateRoi(currentRoi);
+		repaint();
+		return true;
 	}
 	
 	// http://alga.no.coocan.jp/paint.html

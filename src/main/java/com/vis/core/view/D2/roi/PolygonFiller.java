@@ -1,7 +1,6 @@
 package com.vis.core.view.D2.roi;
 
 import ij.*;
-import ij.gui.*;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
@@ -177,7 +176,7 @@ public class PolygonFiller {
 		allocateArrays(n);
 		buildEdgeTable();
 		//printEdges();
-		int x1, x2, offset, index;
+		int x1, x2, offset;
 		int yStart = yMin>0 ? yMin : 0;
 		if (yMin != 0)
 			shiftXValuesAndActivate(yStart);

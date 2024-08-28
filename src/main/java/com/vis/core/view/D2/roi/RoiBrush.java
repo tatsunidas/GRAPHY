@@ -5,8 +5,6 @@ import java.awt.Polygon;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 
-import javax.swing.SwingUtilities;
-
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
@@ -28,7 +26,6 @@ import com.vis.core.view.D2.ui.glasses.*;
 public class RoiBrush {
 	final static int ADD=0, SUBTRACT=1;
 	final static int leftClick=InputEvent.BUTTON1_DOWN_MASK, alt=InputEvent.ALT_DOWN_MASK, shift=InputEvent.SHIFT_DOWN_MASK;
-//	private Polygon poly;
 	private Point previousP;
 	private int mode = ADD;
 	
@@ -104,7 +101,7 @@ public class RoiBrush {
 		int sx = e.getX();
 		int sy = e.getY();
 		
-		int RoiOffset = getBrushSize()/2;
+		int RoiOffset = getBrushSize()/2;//original image scale 
 		
 		int ox = slide.offScreenX(sx);
 		int oy = slide.offScreenY(sy);
@@ -115,24 +112,25 @@ public class RoiBrush {
 		int dx = xNew - brush.startX;
 		int dy = yNew - brush.startY;
 		
-		Polygon p = brush.getPolygon();
-		Polygon poly = (Polygon) ShapeRoi.cloneShape(p);
 		/*
+		 * MEMO
 		 * ShapeRoi:getPolygon() adding getXYBase of each point.
-		 * Here subtract it.
+		 * If you want processing without roi origin, subtract it.
 		 */
-		for(int i=0; i<poly.npoints; i++) {
-//			Log.logger.fine("Xpoints:"+poly.xpoints[i]+", Ypoints:"+poly.ypoints[i]);
-			poly.xpoints[i] -= brush.getXBase();
-			poly.ypoints[i] -= brush.getYBase();
-//			Log.logger.fine("Xpoints:"+poly.xpoints[i]+", Ypoints:"+poly.ypoints[i]);
-			poly.xpoints[i] += dx;
-			poly.ypoints[i] += dy;
-		}
-		brush.setShape(poly);
+//		Polygon poly = brush.getPolygon();
+//		for(int i=0; i<poly.npoints; i++) {
+//			poly.xpoints[i] -= brush.getXBase();
+//			poly.ypoints[i] -= brush.getYBase();
+//		}
+//		brush.setShape(poly);
 		
+		/*
+		 * ShapeRoi getXYBase() return ShapeRoi.x ShapeRoi.y.
+		 * (Not using bounds.xy)
+		 */
 		brush.x += dx;
 		brush.y += dy;
+		
 		//see, RoiObj.move()
 		brush.oldX = brush.x;
 		brush.oldY = brush.y;
@@ -152,6 +150,9 @@ public class RoiBrush {
 	 * mouseUp
 	 */
 	public void brushingEnd(){
+		if(currentBrushingRoi != null) {
+			slide.saveRoi(currentBrushingRoi);
+		}
 		slide.setRoiBrush(null);
 		slide.repaint();
 	}
@@ -169,6 +170,8 @@ public class RoiBrush {
 			if (currentBrushingRoi.isArea()) {
 				if (!currentBrushingRoi.contains(p.x, p.y)) {
 					mode = SUBTRACT;
+				}else {
+					mode = ADD;
 				}
 			}
 		}
@@ -197,10 +200,8 @@ public class RoiBrush {
 		if(roi != null) {
 			ShapeRoi sRoi = new ShapeRoi(roi);//done copyAttributes
 			ShapeRoi replace = sRoi.or(brush);
-//			replace.copyAttributes(roi);//no update RoiID
 			replace.setProperty(ContextKey.RoiID.name(), roi.getProperty(ContextKey.RoiID.name()));
-//			slide.replaceRoi(roi.getStudyUID(), roi.getSeriesUID(), roi.getSopUID(), roi.getProperty(RoiObj.RoiContextKeySet.RoiID.name()), replace);
-			slide.addRoi(roi);
+			slide.addRoi(replace);
 			currentBrushingRoi = replace;
 		}else {
 			ShapeRoi r = (ShapeRoi)brush.clone();
@@ -235,8 +236,13 @@ public class RoiBrush {
 	
 	ShapeRoi getCircularRoi(int x, int y, int width) {
 		RoiObj roi = new OvalRoi(x-(int)Math.floor(width/2), y-(int)Math.floor(width/2), width, width, slide);
+		Log.logger.fine("Brush Oval Location: x:"+roi.x+" , y:"+roi.y);
+		/* 
+		 * OvalRoi.getPolygon is return adding roi origin offset to all points.
+		 * new ShapeRoi(poly, slide) will perform subtract roi origin again.
+		 */
 		Polygon poly = roi.getPolygon();
-		return new ShapeRoi(roi.x, roi.y, poly, slide);
+		return new ShapeRoi(poly, slide);
 	}
 	
 	ShapeRoi getSquareRoi(int x, int y, int width) {

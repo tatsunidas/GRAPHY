@@ -246,49 +246,49 @@ public class OvalRoi extends RoiObj {
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		if (fillColor!=null) color = fillColor;
 		g.setColor(color);
-		int sw = (int)(width);
-		int sh = (int)(height);
-		int sx1 = x;
-		int sy1 = y;
+		int w = (int)(width);
+		int h = (int)(height);
+		int x1 = x;
+		int y1 = y;
 		if (subPixelResolution() && bounds!=null) {
-			sw = (int)(bounds.width);
-			sh = (int)(bounds.height);
-			sx1 = screenXD(bounds.x);
-			sy1 = screenYD(bounds.y);
+			w = (int)(bounds.width);
+			h = (int)(bounds.height);
+			x1 = screenXD(bounds.x);
+			y1 = screenYD(bounds.y);
 		}
-		int sw2 = (int)(0.14645*width);
-		int sh2 = (int)(0.14645*height);
-		int sx2 = sx1+sw/2;
-		int sy2 = sy1+sh/2;
-		int sx3 = sx1+sw;
-		int sy3 = sy1+sh;
+		int w2 = (int)(0.14645*width);
+		int h2 = (int)(0.14645*height);
+		int x2 = x1+w/2;
+		int y2 = y1+h/2;
+		int x3 = x1+w;
+		int y3 = y1+h;
 		if (stroke!=null) 
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
 		if (fillColor!=null) {
 			if (isActiveOverlayRoi()) {
 				g.setColor(Color.cyan);
-				g.drawOval(sx1, sy1, sw, sh);
+				g.drawOval(x1, y1, w, h);
 			} else {
 				if(fill) {
-					g.fillOval(sx1, sy1, sw, sh);
+					g.fillOval(x1, y1, w, h);
 				}
 				if (strokeColor!=null) {
 					g.setColor(strokeColor);
-					g.drawOval(sx1, sy1, sw, sh);
+					g.drawOval(x1, y1, w, h);
 				}
 			}
 		} else
-			g.drawOval(sx1, sy1, sw, sh);
+			g.drawOval(x1, y1, w, h);
 		if (clipboard==null && !overlay) {
-			drawHandle(g, sx1+sw2, sy1+sh2);
-			drawHandle(g, sx3-sw2, sy1+sh2);
-			drawHandle(g, sx3-sw2, sy3-sh2);
-			drawHandle(g, sx1+sw2, sy3-sh2);
-			drawHandle(g, sx2, sy1);
-			drawHandle(g, sx3, sy2);
-			drawHandle(g, sx2, sy3);
-			drawHandle(g, sx1, sy2);
+			drawHandle(g, x1+w2, y1+h2);
+			drawHandle(g, x3-w2, y1+h2);
+			drawHandle(g, x3-w2, y3-h2);
+			drawHandle(g, x1+w2, y3-h2);
+			drawHandle(g, x2, y1);
+			drawHandle(g, x3, y2);
+			drawHandle(g, x2, y3);
+			drawHandle(g, x1, y2);
 		}
 		drawPreviousRoi(g);
 	}

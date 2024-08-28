@@ -41,6 +41,7 @@ import ij.ImagePlus;
 import ij.process.*;
 import ij.io.FileSaver;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.*;
 
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
@@ -76,12 +77,18 @@ public class ImageRoi extends RoiObj {
 	}
 		
 	public void draw(Graphics g) {
-		Graphics2D g2d = (Graphics2D)g;	
-		//TODO 20240817
+		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
+		Graphics2D g2d = (Graphics2D) g;
 		double mag = getMagnification();
-		double compScale[] = getComponentScaleFactor();
-		int sx2 = screenX(x+width);
-		int sy2 = screenY(y+height);
+		double scaleXY[] = getComponentScaleFactor();
+		if (slide != null) {
+			Point offset = slide.getDisplayImageOriginXY();
+			aTx.translate(offset.x, offset.y);
+			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
+			g2d.setTransform(aTx);
+		}
+		int x2 = x+width;
+		int y2 = y+height;
 		Composite saveComposite = null;
 		if (composite!=null) {
 			saveComposite = g2d.getComposite();
@@ -98,7 +105,7 @@ public class ImageRoi extends RoiObj {
 			img2 = ip.createImage();
 		}
 		
-		g.drawImage(img2, screenX(x), screenY(y), sx2, sy2, 0, 0, img.getWidth(null), img.getHeight(null), null);
+		g.drawImage(img2, x, y, x2, y2, 0, 0, img.getWidth(null), img.getHeight(null), null);
 		if (composite!=null) g2d.setComposite(saveComposite);
 		if (isActiveOverlayRoi() && !overlay)
 			super.draw(g);

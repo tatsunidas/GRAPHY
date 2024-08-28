@@ -24,9 +24,9 @@ Type must be Roi.POLYGON, Roi.FREEROI, Roi.TRACED_ROI, Roi.POLYLINE, Roi.FREELIN
 public class PolygonRoi extends RoiObj {
 
 	protected int maxPoints = 1000; // will be increased if necessary
-	protected int[] xp, yp; // image coordinates relative to origin of roi bounding box
-	protected float[] xpf, ypf; // or alternative sub-pixel coordinates
-	protected int[] xp2, yp2; // absolute screen coordinates
+	public int[] xp, yp; // image coordinates relative to origin of roi bounding box
+	public float[] xpf, ypf; // or alternative sub-pixel coordinates
+	int[] xp2, yp2; // absolute screen coordinates
 	protected int nPoints;
 	protected float[] xSpline, ySpline; // relative image coordinates
 	protected int splinePoints = 100;
