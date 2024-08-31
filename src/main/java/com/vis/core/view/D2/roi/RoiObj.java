@@ -1626,6 +1626,10 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return sb.toString();
 	}
 
+	public String getProperty(ContextKey conkey) {
+		return getProperty(conkey.name());
+	}
+	
 	public String getProperty(String property) {
 		if (props == null) {
 			return null;

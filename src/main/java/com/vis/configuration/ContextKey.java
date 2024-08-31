@@ -49,6 +49,8 @@ public enum ContextKey {
 	RoiID,
 	Name,
 	InstanceNo,//int //this is NOT slice position!! //int
+	StudyDate,
+	CrossSection, // AXI, SAG, COR
 	RoiType, //int
 	RoiGroup, //int
 	RoiLabel, //string

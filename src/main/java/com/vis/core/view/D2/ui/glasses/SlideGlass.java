@@ -44,7 +44,6 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
-import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -120,7 +119,7 @@ public class SlideGlass extends JLayeredPane {
 	boolean isPDF = false;
 	boolean isGrayscale = false;
 	boolean isRGB = false;
-	private int mouseActionFlag = -1; // MouseAction ModifierEx.
+	//private int mouseActionFlag = -1; // MouseAction ModifierEx.
 
 	// ww/wl settings
 //	private Calibration originalCal = null;

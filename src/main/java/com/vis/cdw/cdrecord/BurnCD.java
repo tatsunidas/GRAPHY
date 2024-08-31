@@ -84,7 +84,7 @@ public class BurnCD {
 
 	// write mode
 //    private static final String TAO = "tao";//track at once
-	private static final String DAO = "dao";// disc at once, default
+//	private static final String DAO = "dao";// disc at once, default
 //    private static final String SAO = "sao";//session at once
 //    private static final String RAW = "raw";//same as raw96r
 //    private static final String RAW96R = "raw96r";//for old device 
@@ -101,8 +101,8 @@ public class BurnCD {
 //    private static final String[] TRACK_TYPES = { DATA, MODE2, XA, XA1, XA2, XAMIX};
 
 	private String device = "0,0,0";
-	private String writeMode = DAO;
-	private boolean padding = false;
+//	private String writeMode = DAO;
+//	private boolean padding = false;
 //    private int graceTime = MIN_GRACE_TIME;
 
 	private String mediaType;

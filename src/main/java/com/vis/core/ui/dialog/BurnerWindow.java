@@ -39,8 +39,6 @@ package com.vis.core.ui.dialog;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import javax.swing.JFrame;
 import javax.swing.JComboBox;
@@ -63,7 +61,6 @@ import com.vis.cdw.common.CDRToolsProperties;
 import com.vis.cdw.common.DriveUtil;
 import com.vis.cdw.common.MediaCreationException;
 import com.vis.configuration.ConfigInfo;
-import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
 

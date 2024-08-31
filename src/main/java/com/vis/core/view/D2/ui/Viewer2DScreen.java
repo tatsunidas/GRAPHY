@@ -532,9 +532,10 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			return;
 		}
 		
-		if (getRoiObjManager().isVisible()) {
-			getRoiObjManager().setVisible(false);
+		if (getRoiObjManager() != null) {
+			getRoiObjManager().dispose();
 		}
+		
 		/*
 		 * save window location
 		 */

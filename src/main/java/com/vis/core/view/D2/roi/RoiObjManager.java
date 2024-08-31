@@ -1,19 +1,56 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.D2.roi;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -21,6 +58,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,17 +71,19 @@ import java.util.zip.ZipOutputStream;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
+import javax.swing.InputVerifier;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLayer;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
@@ -50,9 +91,14 @@ import javax.swing.event.ListSelectionListener;
 
 import com.vis.core.view.D2.ui.glasses.*;
 import com.vis.db.DatabaseHandler;
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
+import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.*;
 
@@ -66,30 +112,25 @@ import ij.io.RoiDecoder;
 import ij.io.RoiEncoder;
 import ij.io.SaveDialog;
 import ij.measure.Measurements;
-import ij.measure.ResultsTable;
-import ij.plugin.filter.Analyzer;
-import ij.plugin.frame.Recorder;
 import ij.process.ColorProcessor;
 import ij.process.FloatPolygon;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 @SuppressWarnings("serial")
-public class RoiObjManager extends JFrame implements ActionListener, ItemListener, MouseListener, MouseWheelListener, ListSelectionListener, Iterable<RoiObj>{
-
-	// debug
-	public static void main(String[] args) {
-		ij.plugin.frame.RoiManager rm ;//to check src
-		ij.gui.ShapeRoi s;
-		RoiObjManager rom = new RoiObjManager();
-		rom.setVisible(true);
-	}
+public class RoiObjManager extends JFrame implements ActionListener, ItemListener, ListSelectionListener, Iterable<RoiObj>{
 	
 	boolean isDebug = Utils.isDebug;
+	HashMap<ContextKey, JTextField> roiInfoFields;
+	RoiObj currentRoi;//current only one selected roi
 	
 	public enum RoiFunctions{
 		Measure,
-		RoiInfoLabeling,
 		Delete,
 		LineAndColor,
 		Update,
@@ -146,15 +187,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	}
 	
 	private static final int BUTTONS = 11;//num of functions
-//	private static final int DRAW=0, FILL=1, LABEL=2;
-//	private static final int SHOW_ALL=0, SHOW_NONE=1, LABELS=2, NO_LABELS=3;
-//	private static final int MENU=0, COMMAND=1;
-//	private static final int IGNORE_POSITION=-999;  // ignore the ROI's built in position
-//	private static final int CHANNEL=0, SLICE=1, FRAME=2, SHOW_DIALOG=3;
 	private static String moreButtonLabel = "More "+'\u00bb';
 	private JComboBox<String> patList;
 	private DefaultComboBoxModel<String> patComboModel;
-	private JPanel panel;//list panel
+	private JPanel roiInfoPanel;
+	private JPanel funcPanel;//list panel
 	private static RoiObjManager instance;
 	private JList<String> list;//roi obj list
 	private DefaultListModel<String> listModel;//roi obj list model
@@ -162,31 +199,20 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	private HashMap<String,RoiObj> selectedRois = new HashMap<>();//selected on list
 	private JPopupMenu pm;
 	private JButton moreButton;//, colorButton;
-	private JCheckBox labelsCheckbox = new JCheckBox("Labels", false);
-//	private Overlay overlayTemplate;
-
-//	private static boolean onePerSlice = true;
-//	private static boolean restoreCentered;
-//	private int prevID;
-//	private boolean noUpdateMode;
-//	private int defaultLineWidth = 1;
-//	private Color defaultColor;
-//	private boolean firstTime = true;
-//	private boolean appendResults;
-//	private static ResultsTable mmResults, mmResults2;
-//	private int imageID;
-//	private boolean allowRecording;
-//	private boolean recordShowAll = true;
-//	private boolean allowDuplicates;
-//	private double translateX = 10.0;
-//	private double translateY = 10.0;
-//	
-//	private boolean multiCropShow = true;
-//	private boolean multiCropSave;
-//	private int multiCropFormatIndex;
+//	private JCheckBox labelsCheckbox = new JCheckBox("Labels", false);
 	
 	private static String errorMessage;
-//	ResultsTable rt = null;
+	
+	final ContextKey[] roiInfo = new ContextKey[] {
+			ContextKey.Name,
+			ContextKey.RoiGroup,
+			ContextKey.RoiLabel,//lesion or lymph node
+			ContextKey.ObjectType,//target or non target or findings
+			ContextKey.Organ,//
+			ContextKey.Description,
+			ContextKey.StudyDate,
+			ContextKey.CrossSection//axi,cor,sag
+			};
 	
 	/*
 	 * used for Viewer2DScreen
@@ -199,14 +225,22 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		instance = this;
 		errorMessage = null;
 		setUp();
+		
+		addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				/*
+				 * to avoid lost info caused by forgetting "save info".
+				 */
+				roiInfoLabeling();
+			}
+		});
 	}
 	
 	private void setUp() {
 		setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 		setIconImage(Resources.RoiObjManagerWinIcon.loadIconFromResource().getImage());
-		setSize(400,300);
-		addMouseListener(this);
-		addMouseWheelListener(this);
+		setSize(600,300);
 		setLayout(new BorderLayout());
 		setLocationRelativeTo(Viewer2DScreen.getInstance());
 		
@@ -220,21 +254,24 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		list = new JList<>();
 		listModel = new DefaultListModel<>();
 		list.setModel(listModel);
-//		list.setPrototypeCellValue("0000-0000-0000");
 		list.addListSelectionListener(this);
-		list.addMouseListener(this);
-		list.addMouseWheelListener(this);
-		if (IJ.isLinux()) list.setBackground(Color.white);
+		if (Platform.isLinux()) list.setBackground(Color.white);
 		JScrollPane scrollPane = new JScrollPane(list, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 		add(scrollPane, BorderLayout.CENTER);
 		
+		//Roi Info Panel
+		roiInfoPanel = new JPanel();
+		addRoiInfoFields();
+		JScrollPane jsp = new JScrollPane(roiInfoPanel);
+		add(jsp, BorderLayout.WEST);
+		
 		//buttons
-		panel = new JPanel();
+		funcPanel = new JPanel();
 		int nButtons = BUTTONS;
-		panel.setLayout(new GridLayout(nButtons, 1, 3, 3));
+		funcPanel.setLayout(new GridLayout(nButtons, 1, 3, 3));
 		addMainFeatures();
 		addPopupMenu();
-		add(panel, BorderLayout.EAST);
+		add(funcPanel, BorderLayout.EAST);
 	}
 	
 	public RoiObjManager getInstance() {
@@ -257,7 +294,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 */
 	void addMainFeatures() {
 		addButton(RoiFunctions.Measure.name());
-		addButton(RoiFunctions.RoiInfoLabeling.name());
 		addButton(RoiFunctions.Delete.name());
 		addButton(RoiFunctions.LineAndColor.name());
 		addButton(RoiFunctions.Update.name());
@@ -299,10 +335,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	void addButton(String label) {
 		JButton b = new JButton(label);
 		b.addActionListener(this);
-		b.addMouseListener(this);
 		if (label.equals(moreButtonLabel)) moreButton = b;
-		if(panel != null) {
-			panel.add(b);
+		if(funcPanel != null) {
+			funcPanel.add(b);
 		}
 	}
 
@@ -310,6 +345,55 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		JMenuItem mi=new JMenuItem(s);
 		mi.addActionListener(this);
 		pm.add(mi);
+	}
+	
+	void addRoiInfoFields() {
+		roiInfoFields = new HashMap<>();
+		GridBagLayout l = new GridBagLayout();
+		roiInfoPanel.setLayout(l);
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.anchor = GridBagConstraints.WEST;
+		gbc.insets = new Insets(5, 5, 5, 5);
+		for (int i = 0; i < roiInfo.length; i++) {
+			JLabel lbl = new JLabel(roiInfo[i].name() + ":");
+			JTextField tf = new JTextField(12);
+			tf.setName(roiInfo[i].name());
+			if (roiInfo[i] == ContextKey.StudyDate) {
+				tf.setInputVerifier(new DateInputVerifier("yyyy/MM/dd"));
+			}
+			//add to map
+			roiInfoFields.put(roiInfo[i], tf);
+			//set layout
+			gbc.gridx = 0;
+			gbc.gridy = i;
+			roiInfoPanel.add(lbl, gbc);
+			gbc.gridx = i - (i-1);
+			roiInfoPanel.add(tf, gbc);
+		}
+		//finally add save btn
+		gbc.gridx = 0;
+		gbc.gridy = roiInfo.length;
+		JButton saveBtn = new JButton("Save Info");
+		saveBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(list.getSelectedIndices().length > 1) {
+					PopUpMessage.showDialog(list, "Select one", "Please select a roi.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+					return;
+				}
+				String rid = list.getSelectedValue();
+				RoiObj r = selectedRois.get(rid);
+				if(r != null) {
+					//add properties
+					for(ContextKey ck : roiInfo) {
+						r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
+					}
+					//save or update
+					saveRoi2DB(r);
+				}
+			}
+		});
+		roiInfoPanel.add(saveBtn/*save roi info*/, gbc);
 	}
 	
 	public void updatePatientList() {
@@ -369,11 +453,15 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		 * load all roi
 		 */
 		updatePatientList();
+		//clear all info
+		currentRoi = null;//IMPORTANT to avoid auto save by list selection
+		for(ContextKey ck:roiInfo) {
+			roiInfoFields.get(ck).setText(null);
+		}
 //		updateRoiObjList();// execute from change listener
 	}
 	
 	public void addRoiObj(RoiObj roi) {
-//		String name = roi.getName();//show name//do not use
 		String id = roi.getProperty(ContextKey.RoiID.name());
 		if(id == null || id.trim().length() == 0) {
 			return;
@@ -448,10 +536,13 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(selectedRois == null || selectedRois.size() < 1) {
 			return;
 		}
-		/*
-		 * Results win name is "Results" as default.
-		 */
-		ResultsTable rt = new ResultsTable(1);
+		ResultWindow rw = null;
+		java.awt.Window win = WindowManager.getWindow(ConfigInfo.ResultWindow.name());
+		if(win == null) {
+			rw = new ResultWindow(ConfigInfo.ResultWindow.name(), null, 400, 350, true/*showRowIndex*/);
+		}else {
+			rw = (ResultWindow)win;
+		}
 		for(String k : selectedRois.keySet()) {
 			RoiObj roiObj = selectedRois.get(k);
 			//if null ?
@@ -463,217 +554,37 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			/*
 			 * first iteration, table does not have header.
 			 */
-			boolean hasHeader = rt.getColumnHeading(0) != null;
-			int row = rt.size();
-			if(!hasHeader) {
-				rt.addValue(ContextKey.RoiID.name(), roiObj.getProperty(ContextKey.RoiID.name()));
-			}else {
-				rt.setValue(ContextKey.RoiID.name(), row, roiObj.getProperty(ContextKey.RoiID.name()));
-			}
-			for(StatsType stat_type : StatsType.values()) {
-				if(stat_type.id() == Measurements.AREA) {
-					Double val = stats.area;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.MEAN){
-					Double val = stats.mean;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.MEDIAN){
-					Double val = stats.median;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.STD_DEV){
-					Double val = stats.stdDev;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.MODE){
-					Double val = stats.dmode;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.MIN_MAX){
-					Double val_min = stats.min;
-					Double val_max = stats.max;
-					if(!hasHeader) {
-						rt.addValue("MIN", val_min);
-						rt.addValue("MAX", val_max);
-					}else {
-						rt.setValue("MIN", row, val_min);
-						rt.setValue("MAX", row, val_max);
-					}
-				}else if(stat_type.id() == 3){//ANGLE
-					Double val = ijRoi.getAngle();
-					if(!hasHeader) {
-						rt.addValue("ANGLE", val);
-					}else {
-						rt.setValue("ANGLE", row, val);
-					}
-				}else if(stat_type.id() == Measurements.CENTROID){
-					Double val_x = stats.xCentroid;
-					Double val_y = stats.yCentroid;
-					if(!hasHeader) {
-						rt.addValue("CENTROID_X", val_x);
-						rt.addValue("CENTROID_Y", val_y);
-					}else {
-						rt.setValue("CENTROID_X", row, val_x);
-						rt.setValue("CENTROID_Y", row, val_y);
-					}
-				}else if(stat_type.id() == Measurements.CENTER_OF_MASS){
-					Double val_x = stats.xCenterOfMass;
-					Double val_y = stats.yCenterOfMass;
-					if(!hasHeader) {
-						rt.addValue("CENTER_OF_MASS_X", val_x);
-						rt.addValue("CENTER_OF_MASS_Y", val_y);
-					}else {
-						rt.setValue("CENTROID_X", row, val_x);
-						rt.setValue("CENTROID_Y", row, val_y);
-					}
-				}else if(stat_type.id() == Measurements.PERIMETER){
-					Double val = ijRoi.getLength();
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.FERET){
-					double[] feretRes = ijRoi.getFeretValues();
-					if(!hasHeader) {
-						rt.addValue(stat_type.name()+"_LongAxis", feretRes != null ? feretRes[0]:0);
-						rt.addValue(stat_type.name()+"_ShortAxis", feretRes != null ? feretRes[2]:0);
-						rt.addValue(stat_type.name()+"_ANGLE", feretRes != null ? feretRes[1]:0);
-					}else {
-						rt.setValue(stat_type.name()+"_LongAxis", row, feretRes != null ? feretRes[0]:0);
-						rt.setValue(stat_type.name()+"_ShortAxis", row, feretRes != null ? feretRes[2]:0);
-						rt.setValue(stat_type.name()+"_ANGLE", row, feretRes != null ? feretRes[1]:0);
-					}
-				}else if(stat_type.id() == Measurements.INTEGRATED_DENSITY){
-//					Double val = new FirstOrderFeatures(imp, ijRoi, null, null).calculate(RadiomicsJ.FirstOrderFeatureTypes.IntegratedDensity.id());
-					double val = stats.area*stats.mean;
-					//if you want raw intden
-//					double val = stats.pixelCount*stats.umean
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.SKEWNESS){
-					Double val = stats.skewness;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.KURTOSIS){
-					Double val = stats.kurtosis;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}else if(stat_type.id() == Measurements.AREA_FRACTION){
-					Double val = stats.areaFraction;
-					if(!hasHeader) {
-						rt.addValue(stat_type.name(), val);
-					}else {
-						rt.setValue(stat_type.name(), row, val);
-					}
-				}
-			}
+			boolean hasHeader = rw.hasHeader();
+			int row = rw.getRowCount();
+			rw.setValue(ContextKey.RoiID.name(), row, roiObj.getProperty(ContextKey.RoiID.name()));
+			rw.setValue(StatsType.AREA.name(), row, String.valueOf(stats.area));
+			rw.setValue(StatsType.MEAN.name(), row, String.valueOf(stats.mean));
+			rw.setValue(StatsType.MEDIAN.name(), row, String.valueOf(stats.median));
+			rw.setValue(StatsType.STD_DEV.name(), row, String.valueOf(stats.stdDev));
+			rw.setValue(StatsType.MODE.name(), row, String.valueOf(stats.mode));
+			//Measurements.MIN_MAX
+			rw.setValue("MIN", row, String.valueOf(stats.min));
+			rw.setValue("MAX", row, String.valueOf(stats.max));
+			rw.setValue("ANGLE", row, String.valueOf(stats.angle));
+			//CENTROID
+			rw.setValue("CENTROID_X", row, String.valueOf(stats.xCentroid));
+			rw.setValue("CENTROID_Y", row, String.valueOf(stats.yCentroid));
+			//CENTER OF MASS
+			rw.setValue("CENTER_OF_MASS_X", row, String.valueOf(stats.xCenterOfMass));
+			rw.setValue("CENTER_OF_MASS_Y", row, String.valueOf(stats.yCenterOfMass));
+			rw.setValue(StatsType.PERIMETER.name(), row, String.valueOf(ijRoi.getLength()));
+			double[] feretRes = ijRoi.getFeretValues();
+			rw.setValue(StatsType.FERET.name()+"_LongAxis", row, String.valueOf(feretRes != null ? feretRes[0]:0));
+			rw.setValue(StatsType.FERET.name()+"_ShortAxis", row, String.valueOf(feretRes != null ? feretRes[2]:0));
+			rw.setValue(StatsType.FERET.name()+"_ANGLE", row, String.valueOf(feretRes != null ? feretRes[1]:0));
+			rw.setValue(StatsType.INTEGRATED_DENSITY.name(), row, String.valueOf(stats.area*stats.mean));
+			rw.setValue(StatsType.SKEWNESS.name(), row, String.valueOf(stats.skewness));
+			rw.setValue(StatsType.KURTOSIS.name(), row, String.valueOf(stats.kurtosis));
+			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
 		}
-		String header = rt.getColumnHeadings();
-		ResultWindow win = new ResultWindow("Measure", header, 400, 350);
-		win.setLocationRelativeTo(Viewer2DScreen.getInstance());
-		int n = rt.size();
-		if (n > 0) {
-			for (int i = 0; i < n; i++) {
-				win.append(rt.getRowAsString(i));
-			}
-		}
-		//reset result table
-		rt = null;
-	}
-	
-	/**
-	 * can not show contents
-	 * see, measure() in Analyser.
-	 * result is always reset at last if-state if resulttable is not IJ.ResultWindow.
-	 * @param dummy
-	 */
-	@Deprecated
-	private void measure(boolean dummy) {
-		if(selectedRois == null || selectedRois.size() < 1) {
-			return;
-		}
-		/*
-		 * Results win name is "Results" as default.
-		 */
-		ResultsTable rt = new ResultsTable();
-		
-		int measurements = Analyzer.getMeasurements();
-		//set calculate all
-		measurements |= 
-				Measurements.AREA+
-				Measurements.MEAN+
-				Measurements.STD_DEV+
-				Measurements.MODE+
-				Measurements.MIN_MAX+
-				Measurements.CENTROID+
-				Measurements.CENTER_OF_MASS+
-				Measurements.PERIMETER+
-				Measurements.RECT+
-				Measurements.ELLIPSE+
-				Measurements.SHAPE_DESCRIPTORS+
-				Measurements.FERET+
-				Measurements.INTEGRATED_DENSITY+
-				Measurements.MEDIAN+
-				Measurements.SKEWNESS+
-				Measurements.KURTOSIS+
-				Measurements.AREA_FRACTION;
-//				Measurements.STACK_POSITION+
-//				Measurements.LIMIT+
-//				Measurements.LABELS+
-//				Measurements.INVERT_Y+
-//				Measurements.SCIENTIFIC_NOTATION+
-//				Measurements.ADD_TO_OVERLAY+
-//				Measurements.NaN_EMPTY_CELLS;
-		Analyzer a = null;
-		for(String k : selectedRois.keySet()) {
-			RoiObj roiObj = selectedRois.get(k);
-			//if null ?
-			ImagePlus imp = roiObj.getSlideGlass().getOriginalImage();
-			ij.gui.Roi ijRoi = new RoiConverter().convert2Roi(roiObj);
-			imp.deleteRoi();//fail safe
-			imp.setRoi(ijRoi);//and do setImage to Roi in this methods
-			a = new Analyzer(imp, measurements, rt);
-			a.measure();
-		}
-//		/*
-//		 * DO NOT SET "Results"
-//		 */
-		SwingUtilities.invokeLater(new Runnable() {
-			
-			@Override
-			public void run() {
-				// TODO Auto-generated method stub
-				rt.show("Measure");
-			}
-		});
-//		if(a != null) a.displayResults();
+		rw.setLocationRelativeTo(Viewer2DScreen.getInstance());
+		rw.setVisible(true);
+		rw.toFront();
 	}
 	
 	private void delete() {
@@ -708,68 +619,31 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		updateRoiObjList(patList.getItemAt(patList.getSelectedIndex()));
 	}
 	
+	private void saveRoi2DB(RoiObj roi) {
+		//save or update
+		SlideGlass slide = roi.getSlideGlass();
+		if(slide != null) {
+			slide.addRoi(roi);//update if already exist
+		}else {
+			DatabaseHandler db = DatabaseHandler.getInstance();
+			if(db != null) {
+				db.insertRoi(roi.readContext());
+			}
+		}
+	}
+	
 	private void roiInfoLabeling() {
-		//only 1 roi selected...
+		//only 1 roi ...
 		if(selectedRois == null || selectedRois.size() == 0 || selectedRois.size() > 1) {
 			return;
 		}
-		String key = selectedRois.keySet().iterator().next();
-		RoiObj roi = selectedRois.get(key);
-		if(roi == null) {
-			return;
-		}
-		/*
-		 * null-able.
-		 */
-		String prev_name = roi.getProperty(ContextKey.Name.name());
-		String prev_group = roi.getProperty(ContextKey.RoiGroup.name());
-		String prev_lbl = roi.getProperty(ContextKey.RoiLabel.name());
-		String prev_type = roi.getProperty(ContextKey.ObjectType.name());
-		String prev_organ = roi.getProperty(ContextKey.Organ.name());
-		String prev_desc = roi.getProperty(ContextKey.Description.name());
-		/*
-		 * set RoiContextKeySet values
-		 * 
-		 * Name,
-		 * RoiGroup, //int
-		 * RoiLabel, //string
-		 * ObjectType,//string target object type, e.g., target lesions.
-		 * Organ,//string
-		 * Description;//for textroi and any context.string
-		 */
-		GenericDialog gd = new GenericDialog("Roi key information", this);
-		for(ContextKey conkey : ContextKey.values()) {
-			if(conkey.name().equals("Name")) {
-				gd.addStringField(conkey.name(), prev_name, 15);
-			}else if(conkey.name().equals("RoiGroup")) {
-				gd.addNumericField(conkey.name(), prev_group == null ? Integer.valueOf(0) : Integer.valueOf(prev_group), 0);
-			}else if(conkey.name().equals("RoiLabel")) {
-				gd.addStringField(conkey.name(),prev_lbl,15);
-			}else if(conkey.name().equals("ObjectType")) {
-				gd.addStringField(conkey.name(),prev_type,15);
-			}else if(conkey.name().equals("Organ")) {
-				gd.addStringField(conkey.name(),prev_organ,15);
-			}else if(conkey.name().equals("Description")) {
-				gd.addStringField(conkey.name(),prev_desc,15);
+		if(currentRoi != null) {
+			//add properties
+			for(ContextKey ck : roiInfo) {
+				currentRoi.setProperty(ck.name(), roiInfoFields.get(ck).getText());
 			}
-		}
-		gd.showDialog();
-		if (gd.wasCanceled()) return;
-		String name = gd.getNextString();
-		int group = (int)gd.getNextNumber();
-		String roiLabel = gd.getNextString();
-		String objType = gd.getNextString();
-		String organ = gd.getNextString();
-		String desc = gd.getNextString();
-		DatabaseHandler db = DatabaseHandler.getInstance();
-		roi.setProperty("Name", name);
-		roi.setProperty("RoiGroup", String.valueOf(group));
-		roi.setProperty("RoiLabel", roiLabel);
-		roi.setProperty("ObjectType", objType);
-		roi.setProperty("Organ", organ);
-		roi.setProperty("Description", desc);
-		if(db != null) {
-			db.insertRoi(roi.readContext());//update
+			//save or update
+			saveRoi2DB(currentRoi);
 		}
 	}
 	
@@ -938,7 +812,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	
 	void save() {
 		if (rois.size()==0) {
-			System.out.println("The selection list is empty.");
+			Log.logger.fine("The selection list is empty.");
 			return;
 		}
 		/*
@@ -981,7 +855,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					out.close();
 				} catch (IOException e) {
 					errorMessage = ""+e;
-					System.out.println(errorMessage);
+					Log.logger.warning(errorMessage);
 					return;
 				} finally {
 					if (out!=null)
@@ -1010,7 +884,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					out.close();
 				} catch (IOException e) {
 					errorMessage = ""+e;
-					System.out.println(errorMessage);
+					Log.logger.warning(errorMessage);
 					return;
 				} finally {
 					if (out!=null)
@@ -1022,6 +896,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		
 	}
 
+	/**
+	 * Save roi to file.
+	 * @param roiObj
+	 */
 	void saveRoi(RoiObj roiObj) {
 		if (roiObj == null) {
 			return;
@@ -1044,7 +922,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		try {
 			re.write(roi);
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
+			Log.logger.warning(e.getMessage());
 			return;
 		}
 	}
@@ -1326,7 +1204,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			res.getSlideGlass().loadRoiFromDB();
 			updateState();
 		}else {
-			System.out.println("RoiObjManager:combine() result does not have slideglass(i.e, image), cancel register to db");
+			Log.logger.fine("RoiObjManager:combine() result does not have slideglass(i.e, image), cancel register to db");
 		}
 	}
 	
@@ -1584,8 +1462,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			test();
 		}else if (command.equals(RoiFunctions.Measure.name())) {
 			measure();
-		}else if (command.equals(RoiFunctions.RoiInfoLabeling.name())) {
-			roiInfoLabeling();
 		}else if (command.equals(RoiFunctions.Delete.name())) {
 			delete();
 		}else if (command.equals(RoiFunctions.LineAndColor.name())) {
@@ -1595,9 +1471,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			
 		//more functions
 		}else if (command.equals(moreButtonLabel)) {
-			Point ploc = panel.getLocation();
+			Point ploc = funcPanel.getLocation();
 			Point bloc = ((JButton)e.getSource()).getLocation();
-			pm.show(this, ploc.x, patList.getHeight()+bloc.y+moreButton.getHeight()+3);
+			pm.show(this, ploc.x+patList.getWidth(), patList.getHeight()+bloc.y+moreButton.getHeight()+3);
 		}else if (command.equals(RoiFunctions.Open.name())) {
 			open(null);
 		}else if (command.equals(RoiFunctions.Save.name())) {
@@ -1670,6 +1546,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		 * e.getValueIsAdjusting() = true :: mouse pressed
 		 */
 		if (e.getSource() instanceof JList && e.getValueIsAdjusting()) {
+			
+			roiInfoLabeling();
+			
 			for(String roiID : rois.keySet()) {
 				rois.get(roiID).setActiveOverlayRoi(false);
 			}
@@ -1682,35 +1561,22 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					selectedRois.put(id, rois.get(id));
 				}
 			}
-			//show image 
 			int selected_size = selectedRois.size();
 			if( selected_size == 1) {
 				Set<String> key = selectedRois.keySet();
 				String k = key.iterator().next();
-				RoiObj r = rois.get(k);
-				r.getSlideGlass().getPraparat().setImagePositionTo(r.getSlideGlass());
+				currentRoi = rois.get(k);
+				//show on viewer 
+				currentRoi.getSlideGlass().getPraparat().setImagePositionTo(currentRoi.getSlideGlass());
 				toFront();
+				//show info
+				for(ContextKey ck : roiInfo) {
+					String v = currentRoi.getProperty(ck);
+					roiInfoFields.get(ck).setText(v);
+				}
 			}
 		}
 	}
-
-	@Override
-	public void mouseWheelMoved(MouseWheelEvent e) {}
-
-	@Override
-	public void mouseClicked(MouseEvent e) {}
-
-	@Override
-	public void mousePressed(MouseEvent e) {}
-
-	@Override
-	public void mouseReleased(MouseEvent e) {}
-
-	@Override
-	public void mouseEntered(MouseEvent e) {}
-
-	@Override
-	public void mouseExited(MouseEvent e) {}
 
 	/**
 	 * run when drop down patient list changed
@@ -1726,5 +1592,32 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			}
 		}
 	}
+	
+	 static class DateInputVerifier extends InputVerifier {
+	        private final SimpleDateFormat dateFormat;
+
+	        public DateInputVerifier(String dateFormatPattern) {
+	            this.dateFormat = new SimpleDateFormat(dateFormatPattern);
+	            this.dateFormat.setLenient(false);
+	        }
+
+	        @Override
+	        public boolean verify(JComponent input) {
+	            JTextField textField = (JTextField) input;
+	            String text = textField.getText();
+	            
+	            if(text.isEmpty() || text.length() == 0){
+	            	return true;
+	            }
+	            
+	            try {
+	                dateFormat.parse(text);
+	                return true;
+	            } catch (ParseException e) {
+	                JOptionPane.showMessageDialog(input, "Date is formatted by " + dateFormat.toPattern() + ".");
+	                return false;
+	            }
+	        }
+	    }
 
 }

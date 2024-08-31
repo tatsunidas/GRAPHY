@@ -50,8 +50,8 @@ import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
-import com.vis.dicom.Tag;
-import com.vis.dicom.VR;
+//import com.vis.dicom.Tag;
+//import com.vis.dicom.VR;
 import com.vis.dicom.dimse.DimseUtilities;
 
 import java.io.File;
@@ -184,13 +184,13 @@ public class DicomImporter implements Task {
 		done();
 	}
 
-	private void editPatientInfo(DicomObject data) {
-		//keywords are defined by DicomImporterPanel 
-		data.setString(Tag.Patient​ID, VR.LO, (String)willEditTo.get(Tag.Patient​ID));
-		data.setString(Tag.Patient​Name, VR.PN, (String)willEditTo.get(Tag.Patient​Name));
-		data.setString(Tag.Patient​Birth​Date, VR.DA, (String)willEditTo.get(Tag.Patient​Birth​Date));
-		data.setString(Tag.Patient​Sex, VR.CS, (String)willEditTo.get(Tag.Patient​Sex));
-	}
+//	private void editPatientInfo(DicomObject data) {
+//		//keywords are defined by DicomImporterPanel 
+//		data.setString(Tag.Patient​ID, VR.LO, (String)willEditTo.get(Tag.Patient​ID));
+//		data.setString(Tag.Patient​Name, VR.PN, (String)willEditTo.get(Tag.Patient​Name));
+//		data.setString(Tag.Patient​Birth​Date, VR.DA, (String)willEditTo.get(Tag.Patient​Birth​Date));
+//		data.setString(Tag.Patient​Sex, VR.CS, (String)willEditTo.get(Tag.Patient​Sex));
+//	}
 
 	@Override
 	public void run() {

@@ -48,7 +48,6 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.listener.AlphanumericTextKeyListener;
 import com.vis.core.ui.listener.DateTextKeyListener;
 import com.vis.db.DatabaseHandler;
-import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UIDUtils;
 
