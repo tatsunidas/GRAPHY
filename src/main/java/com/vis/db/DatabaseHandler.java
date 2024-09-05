@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -54,6 +55,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.roi.RoiGeometry;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
@@ -3273,23 +3275,28 @@ public class DatabaseHandler {
 	}
 
 	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
+		/**
+		 * If you change arguments, also check loadRoiContextFromInstance().
+		 */
 		insertRoi(
 				(String) roiCon.get(ContextKey.RoiID.name()), 
-				(String) roiCon.get("Name"),
-				Integer.parseInt((String) roiCon.get("RoiType")), 
-				(int) roiCon.get("OriginX"),
-				(int) roiCon.get("OriginY"), 
-				(int) roiCon.get("Width"), 
-				(int) roiCon.get("Height"),
-				(double[]) roiCon.get("PointX"), 
-				(double[]) roiCon.get("PointY"), 
-				(double[]) roiCon.get("Shape"),
-				Integer.parseInt(roiCon.get("InstanceNo") != null ? (String)roiCon.get("InstanceNo"): "-1"),
-				roiCon.get("RoiGroup") == null ? -1 : Integer.parseInt((String) roiCon.get("RoiGroup")),
-				(String) roiCon.get("RoiLabel"), 
-				(String) roiCon.get("ObjectType"), 
-				(String) roiCon.get("Organ"),
-				(String) roiCon.get("Description"),
+				(String) roiCon.get(ContextKey.Name.name()),
+				Integer.parseInt((String) roiCon.get(ContextKey.RoiType.name())), 
+				(int) roiCon.get(RoiGeometry.OriginX.name()),
+				(int) roiCon.get(RoiGeometry.OriginY.name()), 
+				(int) roiCon.get(RoiGeometry.Width.name()), 
+				(int) roiCon.get(RoiGeometry.Height.name()),
+				(double[]) roiCon.get(RoiGeometry.PointX.name()), 
+				(double[]) roiCon.get(RoiGeometry.PointY.name()), 
+				(double[]) roiCon.get(RoiGeometry.Shape.name()),
+				roiCon.get(ContextKey.InstanceNo.name()) == null ? -1 : Integer.parseInt((String)roiCon.get(ContextKey.InstanceNo.name())),
+				roiCon.get(ContextKey.RoiGroup.name()) == null ? -1 : Integer.parseInt((String) roiCon.get(ContextKey.RoiGroup.name())),
+				(String) roiCon.get(ContextKey.RoiLabel.name()), 
+				(String) roiCon.get(ContextKey.ObjectType.name()), 
+				(String) roiCon.get(ContextKey.Organ.name()),
+				(String) roiCon.get(ContextKey.Description.name()),
+				roiCon.get(ContextKey.StudyDate.name()) == null ? null: DateUtils.toSQLDateObj((String)roiCon.get(ContextKey.StudyDate.name())),
+				(String) roiCon.get(ContextKey.CrossSection.name()),
 				(String) roiCon.get("PatientID"),
 				(String) roiCon.get("StudyInstanceUID"), 
 				(String) roiCon.get("SeriesInstanceUID"),
@@ -3298,12 +3305,11 @@ public class DatabaseHandler {
 
 	public void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String txt, // description
+			String objType, String organ, String txt/*description*/, java.sql.Date studyDate, String crossSection,
 			String pid, String studyUid, String seriesUid, String sopUid) {
 		if (pointX != null && pointY != null) {
 			if (pointX.length != pointY.length) {
-				System.out.println(getClass().getName() + ":Can not save roi, pointXY is incorrect(count mismatch).");
-				return;
+				throw new IllegalArgumentException(getClass().getName() + "insertRoi:Can not save roi, pointXY is incorrect(count mismatch).");
 			}
 		}
 		if (!(checkRecordExists("roi", "RoiID", roiId))) {
@@ -3347,7 +3353,7 @@ public class DatabaseHandler {
 				 * SOPInstanceUID varchar(255),
 				 */
 				PreparedStatement insertStmt = conn
-						.prepareStatement("insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+						.prepareStatement("insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 				insertStmt.setString(1, roiId);
 				insertStmt.setString(2, name);
 				insertStmt.setInt(3, roiType);
@@ -3367,10 +3373,12 @@ public class DatabaseHandler {
 				insertStmt.setString(14, objType);
 				insertStmt.setString(15, organ);
 				insertStmt.setString(16, txt);
-				insertStmt.setString(17, pid);
-				insertStmt.setString(18, studyUid);
-				insertStmt.setString(19, seriesUid);
-				insertStmt.setString(20, sopUid);
+				insertStmt.setDate(17, studyDate);
+				insertStmt.setString(18, crossSection);
+				insertStmt.setString(19, pid);
+				insertStmt.setString(20, studyUid);
+				insertStmt.setString(21, seriesUid);
+				insertStmt.setString(22, sopUid);
 				insertStmt.execute();
 				conn.commit();
 				insertStmt.close();
@@ -3383,7 +3391,7 @@ public class DatabaseHandler {
 		} else {
 			// updation
 			updateRoiInfo(roiId, name, roiType, originX, originY, w, h, pointX, pointY, shapeArray, instNo, roiGroup,
-					roilbl, objType, organ, txt, pid, studyUid, seriesUid, sopUid);
+					roilbl, objType, organ, txt, studyDate, crossSection, pid, studyUid, seriesUid, sopUid);
 		}
 	}
 
@@ -3956,6 +3964,14 @@ public class DatabaseHandler {
 				roiCon.put("ObjectType", rset.getString("ObjectType"));
 				roiCon.put("Organ", rset.getString("Organ"));
 				roiCon.put("Description", rset.getString("Description"));
+				if(rset.getDate(ContextKey.StudyDate.name()) != null) {
+					java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
+					SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
+					roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+				}else {
+					roiCon.put(ContextKey.StudyDate.name(), null);
+				}
+				roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
 				roiCon.put("PatientID", rset.getString("PatientID"));
 				roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 				roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
@@ -4966,7 +4982,7 @@ public class DatabaseHandler {
 
 	public void updateRoiInfo(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String txt, String pid, String studyUid, String seriesUid, String sopUid) {
+			String objType, String organ, String txt, java.sql.Date studyDate, String crossSection, String pid, String studyUid, String seriesUid, String sopUid) {
 
 		Connection conn = openConnection();
 
@@ -4998,7 +5014,7 @@ public class DatabaseHandler {
 		try {
 			String statement = "UPDATE ROI ";// need space at end
 			statement = statement
-					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=? ";
+					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? ";
 			statement = statement
 					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);
@@ -5020,11 +5036,13 @@ public class DatabaseHandler {
 			pstmt.setString(13, roilbl);
 			pstmt.setString(14, objType);
 			pstmt.setString(15, organ);
-			pstmt.setString(16, pid);
-			pstmt.setString(17, studyUid);
-			pstmt.setString(18, seriesUid);
-			pstmt.setString(19, sopUid);
-			pstmt.setString(20, roiId);
+			pstmt.setDate(16, studyDate);
+			pstmt.setString(17, crossSection);
+			pstmt.setString(18, pid);
+			pstmt.setString(19, studyUid);
+			pstmt.setString(20, seriesUid);
+			pstmt.setString(21, sopUid);
+			pstmt.setString(22, roiId);
 			pstmt.executeUpdate();
 			pstmt.close();
 			conn.commit();

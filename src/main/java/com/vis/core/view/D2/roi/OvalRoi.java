@@ -244,7 +244,7 @@ public class OvalRoi extends RoiObj {
 			g2d.setTransform(aTx);
 		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
-		if (fillColor!=null) color = fillColor;
+		if(fill) color = fillColor;
 		g.setColor(color);
 		int w = (int)(width);
 		int h = (int)(height);
@@ -265,21 +265,16 @@ public class OvalRoi extends RoiObj {
 		if (stroke!=null) 
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
-		if (fillColor!=null) {
-			if (isActiveOverlayRoi()) {
-				g.setColor(Color.cyan);
-				g.drawOval(x1, y1, w, h);
-			} else {
-				if(fill) {
-					g.fillOval(x1, y1, w, h);
-				}
-				if (strokeColor!=null) {
-					g.setColor(strokeColor);
-					g.drawOval(x1, y1, w, h);
-				}
-			}
-		} else
+		if (isActiveOverlayRoi()) {
+			g.setColor(Color.cyan);
 			g.drawOval(x1, y1, w, h);
+		} else {
+			g.setColor(color);
+			if(fill) {
+				g.fillOval(x1, y1, w, h);
+			}
+			g.drawOval(x1, y1, w, h);
+		}
 		if (clipboard==null && !overlay) {
 			drawHandle(g, x1+w2, y1+h2);
 			drawHandle(g, x3-w2, y1+h2);

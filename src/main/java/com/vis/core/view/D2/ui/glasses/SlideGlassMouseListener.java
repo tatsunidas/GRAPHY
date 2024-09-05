@@ -103,13 +103,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 		
-		RoiObj roi = cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY);
-		
-		if(roi instanceof TextRoi) {
-			TextRoi tr = (TextRoi)roi;
-			tr.mouseWheelMoved(e);
-			return;
-		}
+//		RoiObj roi = cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY);
 		
 		wheelRotationAccumulator += rotation;
 		// paging

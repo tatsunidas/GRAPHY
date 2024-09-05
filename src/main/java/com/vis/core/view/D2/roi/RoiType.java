@@ -39,32 +39,33 @@ package com.vis.core.view.D2.roi;
 
 public enum RoiType {
 	//area
-	RECTANGLE(0),
-	OVAL(1),
-	POLYGON(2),
-	FREEROI(3),//Closed freehand roi
-	TRACED_ROI(4),
-	COMPOSITE(5),
+	RECTANGLE(ij.gui.Roi.RECTANGLE),
+	OVAL(ij.gui.Roi.OVAL),
+	POLYGON(ij.gui.Roi.POLYGON),
+	FREEROI(ij.gui.Roi.FREEROI),//Closed freehand roi
+	TRACED_ROI(ij.gui.Roi.TRACED_ROI),
+	COMPOSITE(ij.gui.Roi.COMPOSITE),
 	//line
-	LINE(6),
-	POLYLINE(7),
-	FREELINE(8),//Open freehand roi
-	ANGLE(9),
-	ARROW(10),
+	LINE(ij.gui.Roi.LINE),
+	POLYLINE(ij.gui.Roi.POLYLINE),
+	FREELINE(ij.gui.Roi.FREELINE),//Open freehand roi
+	ANGLE(ij.gui.Roi.ANGLE),
+	ARROW(100),
 	//point
-	POINT(11),
-	MULTIPOINT(12),
+	POINT(ij.gui.Roi.POINT),
+	MULTIPOINT(101),
 	//other
-	TEXT(13),
+	TEXT(102),
+	BRUSH(103),
 	NOTYPE(-99);
 	
-	private int roi_id;
+	private final int roi_id;
 	
 	private RoiType(int id) {
 		roi_id = id;
 	}
 	
-	public int id() {
+	public final int id() {
 		return roi_id;
 	}
 	

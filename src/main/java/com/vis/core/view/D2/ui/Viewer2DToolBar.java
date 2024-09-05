@@ -68,6 +68,7 @@ import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.ImageUtils;
+import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -84,23 +85,26 @@ import ij.ImagePlus;
 public class Viewer2DToolBar extends JToolBar{
 	
 	/* roi tool ids */
-	public final static int RectangleRoi = RoiType.RECTANGLE.id();
-	public final static int OvalRoi = RoiType.OVAL.id();
-	public final static int PolygonRoi = RoiType.POLYGON.id();
-	public final static int FreeRoi = RoiType.FREEROI.id();
-	public final static int LineRoi = RoiType.LINE.id();
-	public final static int PolyLineRoi = RoiType.POLYLINE.id();
-	public final static int FreeLineRoi = RoiType.FREELINE.id();
-	public final static int AngleRoi = RoiType.ANGLE.id();
-	public final static int PointRoi = RoiType.POINT.id();
-	public final static int MultiPointRoi = RoiType.MULTIPOINT.id();
-	public final static int ArrowRoi = RoiType.ARROW.id();
-	public final static int TextRoi = RoiType.TEXT.id();
-	public final static int ShapeRoi = RoiType.COMPOSITE.id();
+	/**
+	 * RoiType.XXX.id(); will cause "case expressions must be constant expressions" error in switch statement.
+	 */
+	public final static int RectangleRoi = ij.gui.Roi.RECTANGLE;//RoiType.RECTANGLE.id();
+	public final static int OvalRoi = ij.gui.Roi.OVAL;//RoiType.OVAL.id();
+	public final static int PolygonRoi = ij.gui.Roi.POLYGON;//RoiType.POLYGON.id();
+	public final static int FreeRoi = ij.gui.Roi.FREEROI;//RoiType.FREEROI.id();
+	public final static int LineRoi = ij.gui.Roi.LINE;//RoiType.LINE.id();
+	public final static int PolyLineRoi = ij.gui.Roi.POLYLINE;//RoiType.POLYLINE.id();
+	public final static int FreeLineRoi = ij.gui.Roi.FREELINE;//RoiType.FREELINE.id();
+	public final static int AngleRoi = ij.gui.Roi.ANGLE;//RoiType.ANGLE.id();
+	public final static int PointRoi = ij.gui.Roi.POINT;//RoiType.POINT.id();
+	public final static int MultiPointRoi = 101;//RoiType.MULTIPOINT.id();
+	public final static int ArrowRoi = 100;//RoiType.ARROW.id();
+	public final static int TextRoi = 102;//RoiType.TEXT.id();
+	public final static int ShapeRoi = ij.gui.Roi.COMPOSITE;//RoiType.COMPOSITE.id();
+	public final static int Brush = 103;//RoiType.BRUSH.id();
 	
-	public final static int Brush = 100;
-	public final static int Windowing = 101;
-	public final static int Analysis = 102;//RoiObjManager
+	public final static int Windowing = 1000;
+	public final static int Analysis = 1001;//RoiObjManager
 	public final static int NONE = -1;
 	
 	public final static int[] roiTools = new int[] {
@@ -152,6 +156,14 @@ public class Viewer2DToolBar extends JToolBar{
 
 	public Viewer2DToolBar() {
 		
+		if(Utils.isDebug) {
+			try {
+				checkRoiIDs();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
 		JPanel base = new JPanel();
 		int hgap = 1;
 		int vgap = hgap;
@@ -177,6 +189,24 @@ public class Viewer2DToolBar extends JToolBar{
 		}
 	}
 	
+	private void checkRoiIDs() throws Exception {
+		if(RectangleRoi != RoiType.RECTANGLE.id()) throw new Exception("Invalid RoiID");
+		if(OvalRoi != RoiType.OVAL.id()) throw new Exception("Invalid RoiID");
+		if(PolygonRoi != RoiType.POLYGON.id()) throw new Exception("Invalid RoiID");
+		if(FreeRoi != RoiType.FREEROI.id()) throw new Exception("Invalid RoiID");
+		if(LineRoi != RoiType.LINE.id()) throw new Exception("Invalid RoiID");
+		if(ArrowRoi != RoiType.ARROW.id()) throw new Exception("Invalid RoiID");
+		if(PolyLineRoi != RoiType.POLYLINE.id()) throw new Exception("Invalid RoiID");
+		if(FreeLineRoi != RoiType.FREELINE.id()) throw new Exception("Invalid RoiID");
+		if(AngleRoi != RoiType.ANGLE.id()) throw new Exception("Invalid RoiID");
+		if(PointRoi != RoiType.POINT.id()) throw new Exception("Invalid RoiID");
+		if(MultiPointRoi != RoiType.MULTIPOINT.id()) throw new Exception("Invalid RoiID");
+		if(TextRoi != RoiType.TEXT.id()) throw new Exception("Invalid RoiID");
+		if(ShapeRoi != RoiType.COMPOSITE.id()) throw new Exception("Invalid RoiID");
+		if(Brush != RoiType.BRUSH.id()) throw new Exception("Invalid RoiID");
+		//add more
+	}
+
 	public JPanel loadButtons(HashMap<String, Resources> buttonLabels) {
 		JPanel p = new JPanel();
 		p.setBorder(new LineBorder(Color.GRAY, 3, true));
@@ -654,7 +684,7 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					currentTool = Brush;//100
+					currentTool = Brush;
 					brushChk.setBackground(Color.CYAN);
 					setSelectedToolBackground();
 				}

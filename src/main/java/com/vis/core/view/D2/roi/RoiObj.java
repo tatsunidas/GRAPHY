@@ -234,7 +234,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	protected double asp_bk; // saves aspect ratio if resizing takes roi very small
 	protected ImageProcessor cachedMask;
 	
-	protected Color handleColor = Color.white;
+	protected Color handleColor;
 	protected Color strokeColor;
 	protected Color instanceColor; // obsolete; replaced by strokeColor
 	protected Color fillColor;
@@ -654,10 +654,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			width = 1;
 		if (height < 1)
 			height = 1;
-		if (width > xMax)
-			width = xMax;
-		if (height > yMax)
-			height = yMax;
 		this.cornerDiameter = cornerDiameter;// for rounded rectangle
 		this.x = x;
 		this.y = y;
@@ -689,9 +685,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void abortPaste() {
-//		clipboard = null;
-//		imp.getProcessor().reset();
-//		imp.updateAndDraw();
+		clipboard = null;
+		imp.getProcessor().reset();
+		imp.updateAndDraw();
 	}
 
 	void addPoint() {
@@ -919,6 +915,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			return;
 		}
 		g.fillRect(sx++, sy++, width, width);
+		handleColor = strokeColor != null? strokeColor: ROIColor;
 		g.setColor(handleColor);
 		width -= 2;
 		g.fillRect(sx, sy, width, width);
@@ -2080,6 +2077,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		String[] uids = sg.getUIDs();
 		initUIDs(uids);
 	}
+	
+	protected void updateUIDsBySlideGlass(SlideGlass sg) {
+		if (sg == null) {
+			initUIDs(null);
+			return;
+		}
+		String[] uids = sg.getUIDs();
+		setUIDs(uids[0], uids[1], uids[2], uids[3], getProperty(ContextKey.RoiID.name()));
+	}
 
 	/** Returns 'true' if this ROI is displayed and is also in an overlay. */
 	public final boolean isActiveOverlayRoi() {
@@ -2684,17 +2690,17 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		for (ContextKey k : ContextKey.values()) {
 			String v = getProperty(k.name());
 			if (v != null) {
-				con.put(k.name(), v);
+				con.put(k.name(), v);//keep as String.
 			}
 		}
-		con.put("OriginX", (int) getXBase());
-		con.put("OriginY", (int) getYBase());
-		con.put("Width", width);
-		con.put("Height", height);
-		con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
-		con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
-		// See also ShapeRoi::roiToShape(RoiObj roi)
-		con.put("Shape", null);
+		con.put(RoiGeometry.OriginX.name(), (int) getXBase());
+		con.put(RoiGeometry.OriginY.name(), (int) getYBase());
+		con.put(RoiGeometry.Width.name(), width);
+		con.put(RoiGeometry.Height.name(), height);
+		con.put(RoiGeometry.PointX.name(), fArray2dArray(getFloatPolygon().xpoints));
+		con.put(RoiGeometry.PointY.name(), fArray2dArray(getFloatPolygon().ypoints));
+		// See also ShapeRoi::readContext(), roiToShape(RoiObj roi)
+		con.put(RoiGeometry.Shape.name(), null);
 
 		return con;
 	}
@@ -2975,34 +2981,27 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			props.clear();
 		}
 		// read
-		Integer roiType = (Integer) roiCon.get(ContextKey.RoiType.name());
-		String rid = (String) roiCon.get(ContextKey.RoiID.name());
-		String name = (String) roiCon.get(ContextKey.Name.name());
-		Integer instNo = (Integer) roiCon.get(ContextKey.InstanceNo.name());
-		Integer rg = roiCon.get(ContextKey.RoiGroup.name()) == null ? null
-				: (int) roiCon.get(ContextKey.RoiGroup.name());
-		String rlbl = (String) roiCon.get(ContextKey.RoiLabel.name());
-		String ot = (String) roiCon.get(ContextKey.ObjectType.name());
-		String organ = (String) roiCon.get(ContextKey.Organ.name());
-		String desc = (String) roiCon.get(ContextKey.Description.name());
-		String pid = (String) roiCon.get(ContextKey.PatientID.name());
-		String studyUid = (String) roiCon.get(ContextKey.StudyInstanceUID.name());
-		String seriesUid = (String) roiCon.get(ContextKey.SeriesInstanceUID.name());
-		String sopUid = (String) roiCon.get(ContextKey.SOPInstanceUID.name());
-		// set properties
-		setProperty(ContextKey.RoiType.name(), String.valueOf(roiType));
-		setProperty(ContextKey.RoiID.name(), rid);
-		setName(name);
-		setProperty(ContextKey.InstanceNo.name(), instNo == null ? null : String.valueOf(instNo));
-		setProperty(ContextKey.RoiGroup.name(), rg == null ? null : String.valueOf(rg));
-		setProperty(ContextKey.RoiLabel.name(), rlbl);
-		setProperty(ContextKey.ObjectType.name(), ot);
-		setProperty(ContextKey.Organ.name(), organ);
-		setProperty(ContextKey.Description.name(), desc);
-		setProperty(ContextKey.PatientID.name(), pid);
-		setProperty(ContextKey.StudyInstanceUID.name(), studyUid);
-		setProperty(ContextKey.SeriesInstanceUID.name(), seriesUid);
-		setProperty(ContextKey.SOPInstanceUID.name(), sopUid);
+		for(ContextKey key : ContextKey.values()) {
+			Object v = roiCon.get(key.name());
+			if(v != null) {
+				if(v instanceof java.sql.Date || v instanceof java.util.Date) {
+					SimpleDateFormat form = new SimpleDateFormat("yyyy/MM/dd");
+					//sql.Date is a child class of util.Date.
+					java.util.Date d = (java.util.Date)v;
+					setProperty(key.name(), form.format(d));
+					continue;
+				}
+				if(v instanceof Integer) {
+					int num = (Integer)v;
+					setProperty(key.name(), String.valueOf(num));
+					continue;
+				}
+				setProperty(key.name(), (String)v);
+				if(key == ContextKey.Name) {
+					setName((String)v);
+				}
+			}
+		}
 	}
 
 	public void setProperty(String key, String value) {
@@ -3072,6 +3071,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		if(getProperty(ContextKey.RoiID.name()) == null) {
 			initUIDsBySlideGlass(sg);
+		}else {
+			updateUIDsBySlideGlass(sg);
 		}
 	}
 

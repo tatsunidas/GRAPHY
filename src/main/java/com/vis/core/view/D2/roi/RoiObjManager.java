@@ -97,6 +97,7 @@ import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
@@ -104,7 +105,6 @@ import com.vis.core.view.D2.ui.*;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.gui.GenericDialog;
 import ij.gui.Roi;
 import ij.io.OpenDialog;
 import ij.io.Opener;
@@ -198,11 +198,13 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	private HashMap<String, RoiObj> rois = new HashMap<>();//rois in listed
 	private HashMap<String,RoiObj> selectedRois = new HashMap<>();//selected on list
 	private JPopupMenu pm;
-	private JButton moreButton;//, colorButton;
 //	private JCheckBox labelsCheckbox = new JCheckBox("Labels", false);
 	
 	private static String errorMessage;
 	
+	/*
+	 * Editable roi context info.
+	 */
 	final ContextKey[] roiInfo = new ContextKey[] {
 			ContextKey.Name,
 			ContextKey.RoiGroup,
@@ -243,6 +245,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		setSize(600,300);
 		setLayout(new BorderLayout());
 		setLocationRelativeTo(Viewer2DScreen.getInstance());
+		setName(ConfigInfo.RoiManager.name());
 		
 		patList = new JComboBox<>();
 		patComboModel = new DefaultComboBoxModel<>();
@@ -335,7 +338,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	void addButton(String label) {
 		JButton b = new JButton(label);
 		b.addActionListener(this);
-		if (label.equals(moreButtonLabel)) moreButton = b;
 		if(funcPanel != null) {
 			funcPanel.add(b);
 		}
@@ -447,11 +449,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		list.repaint();
 	}
 	
+	/**
+	 * re-load rois in patient
+	 */
 	public void updateState() {
-		/*
-		 * re-load patient
-		 * load all roi
-		 */
 		updatePatientList();
 		//clear all info
 		currentRoi = null;//IMPORTANT to avoid auto save by list selection
@@ -540,6 +541,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		java.awt.Window win = WindowManager.getWindow(ConfigInfo.ResultWindow.name());
 		if(win == null) {
 			rw = new ResultWindow(ConfigInfo.ResultWindow.name(), null, 400, 350, true/*showRowIndex*/);
+			WindowManager.addWindow(rw);
+			rw.setLocationRelativeTo(Viewer2DScreen.getInstance());
 		}else {
 			rw = (ResultWindow)win;
 		}
@@ -554,7 +557,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			/*
 			 * first iteration, table does not have header.
 			 */
-			boolean hasHeader = rw.hasHeader();
 			int row = rw.getRowCount();
 			rw.setValue(ContextKey.RoiID.name(), row, roiObj.getProperty(ContextKey.RoiID.name()));
 			rw.setValue(StatsType.AREA.name(), row, String.valueOf(stats.area));
@@ -582,7 +584,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			rw.setValue(StatsType.KURTOSIS.name(), row, String.valueOf(stats.kurtosis));
 			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
 		}
-		rw.setLocationRelativeTo(Viewer2DScreen.getInstance());
 		rw.setVisible(true);
 		rw.toFront();
 	}
@@ -597,11 +598,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				SlideGlass slide = r.getSlideGlass();
 				if(slide != null) {
 					slide.deleteRoi(r);
-					/*
-					 * avoid error 
-					 */
-//					selectedRois.remove(k);
-//					rois.remove(k);-> updateRoiObjList
 				}else {
 					HashMap<ContextKey, String> uids = r.getUIDs();
 					String patID = uids.get(ContextKey.PatientID);
@@ -610,13 +606,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					String sopUID = uids.get(ContextKey.SOPInstanceUID);
 					String roiID = uids.get(ContextKey.RoiID);
 					DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
-//					selectedRois.remove(k);
-//					rois.remove(k);-> updateRoiObjList
 				}
 			}
 		}
-		selectedRois = null;
-		updateRoiObjList(patList.getItemAt(patList.getSelectedIndex()));
+		updateState();
 	}
 	
 	private void saveRoi2DB(RoiObj roi) {
@@ -660,20 +653,16 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			return;
 		}
 		/*
-		 * see, RoiPrefs in MainScreen:Settings
+		 * here, only change current roi state.
 		 */
-		/*
-		 * here, do not change pref settings, only change current roi state.
-		 */
-//		String currentSettingsStrokeWidth = Util4Viewer2D.getPropValueFrom(Util4Viewer2D.GRAPHY_Props, "RoiStrokeWidth");
-//		String currentSettingsStrokeColor = Util4Viewer2D.getPropValueFrom(Util4Viewer2D.GRAPHY_Props, "RoiStrokeColor");
-//		String currentSettingsFillColor = Util4Viewer2D.getPropValueFrom(Util4Viewer2D.GRAPHY_Props, "RoiFillColor");
 		String strokeColorString = GraphyProp.findColorNameByColor(roi.getStrokeColor());
 		String fillColorString = GraphyProp.findColorNameByColor(roi.getFillColor());
-		GenericDialog gd = new GenericDialog("Line & Color", this);
-		gd.addNumericField("Stroke Width", roi.getStrokeWidth(),0);
+		
+		OptionDialog gd = new OptionDialog("Line & Color", this);
+		gd.addNumericField("Stroke Width", roi.getStrokeWidth(), 2, 7 /*cols*/, "pixel"/*unit*/);
 		gd.addChoice("Stroke Color", new String[]{"white", "blue", "orange", "yellow","red","pink","magenta","green","black"}, strokeColorString);
 		gd.addChoice("Fill Color", new String[]{"white", "blue", "orange", "yellow","red","pink","magenta","green","black"}, fillColorString);
+		gd.pack();
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 		int w = (int)gd.getNextNumber();
@@ -685,16 +674,102 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			w = 50;
 		}
 		roi.setStrokeWidth((double)w);
-		roi.setStrokeColor(roi.colorFromString(sc, Color.orange));
-		roi.setFillColor(roi.colorFromString(fc, Color.orange));
+		roi.setStrokeColor(roi.colorFromString(sc, Color.YELLOW));
+		roi.setFillColor(roi.colorFromString(fc, Color.WHITE));
+	}
+	
+	/**
+	 * If a roi is consistent in any slices, it is considered consistent.
+	 * @param pp
+	 * @param roi
+	 * @return
+	 */
+	boolean hasConsistency(Praparat pp, RoiObj roi) {
+		String pid = roi.getProperty(ContextKey.PatientID.name());
+		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
+			return false;
+		}
+		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		for(Integer pos : slides.keySet()) {
+			boolean consistent = true;
+			SlideGlass sg = slides.get(pos);
+			String[] UIDs = sg.getUIDs();
+			if(!UIDs[0].equals(pid)) consistent = false;
+			if(!UIDs[1].equals(studyUID)) consistent = false;
+			if(!UIDs[2].equals(seriesUID)) consistent = false;
+			if(!UIDs[3].equals(sopUID)) consistent = false;
+			if(consistent) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * If a roi is consistent in any slices, it is considered consistent.
+	 * @param pp
+	 * @param roi
+	 * @return
+	 */
+	boolean hasConsistency(Praparat pp, ij.gui.Roi roi) {
+		String pid = roi.getProperty(ContextKey.PatientID.name());
+		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
+			return false;
+		}
+		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		for(Integer pos : slides.keySet()) {
+			boolean consistent = true;
+			SlideGlass sg = slides.get(pos);
+			String[] UIDs = sg.getUIDs();
+			if(!UIDs[0].equals(pid)) consistent = false;
+			if(!UIDs[1].equals(studyUID)) consistent = false;
+			if(!UIDs[2].equals(seriesUID)) consistent = false;
+			if(!UIDs[3].equals(sopUID)) consistent = false;
+			if(consistent) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	int getSlicePosition(Praparat pp, ij.gui.Roi roi) {
+		String pid = roi.getProperty(ContextKey.PatientID.name());
+		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
+			return -1;
+		}
+		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		for(Integer pos : slides.keySet()) {
+			boolean consistent = true;
+			SlideGlass sg = slides.get(pos);
+			String[] UIDs = sg.getUIDs();
+			if(!UIDs[0].equals(pid)) consistent = false;
+			if(!UIDs[1].equals(studyUID)) consistent = false;
+			if(!UIDs[2].equals(seriesUID)) consistent = false;
+			if(!UIDs[3].equals(sopUID)) consistent = false;
+			if(consistent) {
+				return pos;
+			}
+		}
+		return -1;
 	}
 	
 	void open(String path) {
+		if(patList.getItemCount()==0) {
+			JOptionPane.showMessageDialog(this,
+					"Open images on 2D Viewer to load ROIs and select a subject from the patient list.");
+			return;
+		}
 		String selectedPatID = patList.getItemAt(patList.getSelectedIndex());
 		if (selectedPatID == null) {
-			JOptionPane.showMessageDialog(this,
-					"1.Open the image first to load the ROI and select a subject from the patient list.+\n"
-							+ "2.then, select image to decide where to load ROI.");
 			return;
 		}
 		Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(selectedPatID);
@@ -703,9 +778,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		ArrayList<Praparat> praps = eye.getSelectingPraparats();
 		if(praps.size() == 0) {
-			JOptionPane.showConfirmDialog(this, "Please select(Shift+Left Click) Series to load rois.");
+			JOptionPane.showConfirmDialog(this, "Please select series to load rois by (Shift + Left Click).");
 			return;
 		}
+		
 		String name = null;
 		if (path==null || path.equals("")) {
 			OpenDialog od = new OpenDialog("Open Roi (.roi/.zip)...", "");
@@ -722,7 +798,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		Opener o = new Opener();
 		if (name==null) name = o.getName(path);
-		Roi roi = o.openRoi(path);
+		ij.gui.Roi roi = o.openRoi(path);
 		if (roi!=null) {
 			loadRoi2Slide(roi, selectedPatID, praps);
 		} else {
@@ -771,7 +847,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if (nRois==0 && errorMessage==null) {
 			errorMessage = "This ZIP archive does not contain \".roi\" files: " + path;
 		}
-//		updateShowAll();
 	}
 	
 	void loadRoi2Slide(Roi roi, String selectedPatID, ArrayList<Praparat> praps) {
@@ -780,26 +855,50 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		// convert to roiobj
 		RoiObj roiObj = new RoiConverter().convert2RoiObj(roi);
+		if(roiObj == null) {
+			Log.logger.fine("Cannot import roi...");
+			return;
+		}
+		/*
+		 * Load on all selected series. 
+		 * If consistent, load only that slide. 
+		 * If there is no consistency, priority is given to the instance number. 
+		 * If there is no instance number, load to the currently displayed slide.
+		 */
 		for (Praparat prap : praps) {
-			// set roi to this series
-			int frames = prap.getAllSlides().size();
-			String roiInstNoString = roiObj.getProperty(ContextKey.InstanceNo.name());
-			int roiFrameNo = 0;// dicom instance No
-			if (roiInstNoString != null) {
-				roiFrameNo = Integer.parseInt(roiInstNoString);
-			}
-			if (roiFrameNo > frames) {
-				return;
-			}
-			// FrameNo means instanceNo, which is not slice position.
-			// here, roi set to slide which has same instanceNo.
-			Set<Integer> keys = prap.getAllSlides().keySet();
-			for (Integer readNumber : keys) {
-				SlideGlass s = prap.getAllSlides().get(readNumber);
-				if (s.getInstanceNo() == roiFrameNo) {
-					// set image and attributes
+			// set roi to series
+			int roiFramePos = getSlicePosition(prap, roi);
+			int instNo = -1;
+			if(roiFramePos >= 0) {
+				SlideGlass s = prap.getAllSlides().get(roiFramePos);
+				roiObj.setSlideGlass(s);
+				s.addRoi(roiObj);
+			}else {//no consistent roi
+				//escape by InstNo
+				String roiInstNoString = roiObj.getProperty(ContextKey.InstanceNo.name());
+				if (roiInstNoString != null) {
+					try {
+						instNo = Integer.parseInt(roiInstNoString);
+					}catch(NumberFormatException e) {
+						//do nothing
+					}
+				}
+				if(instNo >= 0) {
+					/*
+					 * Keys on the slide are not instance numbers, but numbers in reading order
+					 */
+					Set<Integer> keys = prap.getAllSlides().keySet();
+					for (Integer readingOrder : keys) {
+						SlideGlass s = prap.getAllSlides().get(readingOrder);
+						if (s.getInstanceNo() == instNo) {
+							roiObj.setSlideGlass(s);
+							s.addRoi(roiObj);
+						}
+					}
+				}else {
+					//set current slide
+					SlideGlass s = prap.getCurrentSlide();
 					roiObj.setSlideGlass(s);
-					// add roi to slide and insert to db
 					s.addRoi(roiObj);
 				}
 			}
@@ -810,9 +909,12 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		updateRoiObjList(selectedPatID);
 	}
 	
+	/**
+	 * Save roi file
+	 */
 	void save() {
 		if (rois.size()==0) {
-			Log.logger.fine("The selection list is empty.");
+			Log.logger.info("Rois in selection list is empty.");
 			return;
 		}
 		/*
@@ -832,7 +934,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			String dir = sd.getDirectory();
 			String path = dir+name;
 			DataOutputStream out = null;
-			long t0 = System.currentTimeMillis();
 			//save all
 			if(selectedRois.size() == 0) {
 				try {
@@ -861,7 +962,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					if (out!=null)
 						try {out.close();} catch (IOException e) {}
 				}
-//				double time = (System.currentTimeMillis()-t0)/1000.0;
 			//save selected rois
 			}else {
 				try {
@@ -890,10 +990,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					if (out!=null)
 						try {out.close();} catch (IOException e) {}
 				}
-//				double time = (System.currentTimeMillis()-t0)/1000.0;
 			}
 		}
-		
 	}
 
 	/**
@@ -940,7 +1038,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}else {
-			int res = JOptionPane.showConfirmDialog(this, "Do you wnat to paint roi to image ? (You can re-start by reopening)");
+			int res = JOptionPane.showConfirmDialog(this, "Do you wnat to paint roi to image ?");
 			if(res != JOptionPane.OK_OPTION) {
 				return;
 			}
@@ -982,7 +1080,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			RoiObj roi = selectedRois.get(key);
 			if(firstImp == null) {
 				firstImp = roi.getImage();
-				dup = firstImp.duplicate();
+				dup = firstImp.duplicate();//duplicate image pixels
 				ColorProcessor cp = dup.getProcessor().convertToColorProcessor();
 				dup.setProcessor(cp);
 				dup.setTitle("captured");
@@ -1055,13 +1153,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			ImageProcessor ip = imp.getProcessor();
 			ip.snapshot();//backup
 			boolean isRGB = ip!=null && ip.getNChannels()==3; 
-			if(!isRGB) {
-//				ip.setColor(Color.black);//java.lang.ClassCastException, 16-bit or more images.
-			}else {
+			if(isRGB) {
 				ip.setColor(roi.getFillColor());
 			}
 			Roi fillerRoi = new RoiConverter().convert2Roi(roi);
-			ip.fill(fillerRoi);
+			ip.fill(fillerRoi);// draw to image
 			imp.setProcessor(ip);
 			imp.updateImage();
 			imp.deleteRoi();
@@ -1086,9 +1182,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			}
 			if(type == RoiType.RECTANGLE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-//				int numOfP = fpg.npoints;
-//				float[] fpx = fpg.xpoints;
-//				float[] fpy = fpg.ypoints;
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), s);
 				polyRoi.fitSpline(20);
 				String rid = roi.getProperty(ContextKey.RoiID.name());
@@ -1099,11 +1192,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			}else if(type == RoiType.POLYGON.id()) {
 				PolygonRoi polyRoi = (PolygonRoi)roi;
 				polyRoi.fitSpline(100);
-//				String rid = roi.getProperty(ContextKey.RoiID.name());
-//				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
-//				if(s != null) {
-//					s.replaceRoi(roi.getUIDs(), polyRoi);
-//				}
 			}else if(type == RoiType.COMPOSITE.id()) {
 				ShapeRoi sRoi = (ShapeRoi)roi;
 				Polygon poly = sRoi.getPolygon();
@@ -1154,9 +1242,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			
 			if(type != RoiType.COMPOSITE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-//				int numOfP = fpg.npoints;
-//				float[] fpx = fpg.xpoints;
-//				float[] fpy = fpg.ypoints;
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), s);
 				polyRoi.fitSpline(25);
 				String rid = roi.getProperty(ContextKey.RoiID.name());
@@ -1465,22 +1550,22 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}else if (command.equals(RoiFunctions.Delete.name())) {
 			delete();
 		}else if (command.equals(RoiFunctions.LineAndColor.name())) {
-			lineAndColor();
+			SwingUtilities.invokeLater(()->lineAndColor());
 		}else if (command.equals(RoiFunctions.Update.name())) {
 			updateState();
 			
 		//more functions
 		}else if (command.equals(moreButtonLabel)) {
-			Point ploc = funcPanel.getLocation();
-			Point bloc = ((JButton)e.getSource()).getLocation();
-			pm.show(this, ploc.x+patList.getWidth(), patList.getHeight()+bloc.y+moreButton.getHeight()+3);
+			JButton btn = (JButton)e.getSource();//more btn
+			int patListW = patList.getWidth();
+			int patListH = patList.getHeight();
+			Point bloc = btn.getLocation();
+			//location XY is RoiObjManager coordinates basis.
+			pm.show(this, patListW, patListH+bloc.y+btn.getHeight()+3);
 		}else if (command.equals(RoiFunctions.Open.name())) {
 			open(null);
 		}else if (command.equals(RoiFunctions.Save.name())) {
-			Thread t1 = new Thread(new Runnable() {
-				public void run() {save();}
-			});
-			t1.start();
+			SwingUtilities.invokeLater(()->save());
 		}else if (command.equals(RoiFunctions.SplineFit.name())) {
 			splineFit();
 		}else if(command.equals(RoiFunctions.ConvertToPolygon.name())) {

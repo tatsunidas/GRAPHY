@@ -37,28 +37,28 @@
  */
 package com.vis.core.view.D2.ui;
 
-import ij.*;
 import ij.gui.GenericDialog;
 import ij.io.*;
 import ij.measure.ResultsTable;
 
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.ClipboardOwner;
 import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.Transferable;
 import java.io.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Vector;
 
+import javax.swing.AbstractAction;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -66,16 +66,17 @@ import javax.swing.JTable;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import javax.swing.undo.UndoableEdit;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
 
 /**
  * 
@@ -87,6 +88,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	final String name = ConfigInfo.ResultWindow.name();
 	static final int DOUBLE_CLICK_THRESHOLD = 650;
+	final String roiIndCol = "Row #";
 	private static Font font;
 	public static void setFont(String name, int style, int size) {
 		font = new Font(name, style, size);
@@ -102,10 +104,19 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	JMenu fileMenu, editMenu;
 	long mouseDownTime;
-	CheckboxMenuItem antialiased;
-	int[] sizes = { 7, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 36, 48 };
 
 	int fontSize = 14;
+	
+	//action commands
+	final String SAVE_AS_CSV = "Save As CSV";
+	final String COPY = "Copy";
+	final String CLEAR = "Clear";
+	final String SELECT_ALL = "Sellect All";
+	final String FIND = "Find...";
+	final String TEXT_SMALL = "Make Text Smaller";
+	final String TEXT_LARGE = "Make Text Larger";
+	
+//	UndoManager undoManager = new UndoManager();
 
 	/**
 	 * Opens a new text window containing the contents of a text file.
@@ -159,12 +170,10 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	public void actionPerformed(ActionEvent evt) {
 		String cmd = evt.getActionCommand();
-		if (cmd.equals("Make Text Larger")) {
+		if (cmd.equals(TEXT_LARGE)) {
 			changeFontSize(true);
-		} else if (cmd.equals("Make Text Smaller")) {
+		} else if (cmd.equals(TEXT_SMALL)) {
 			changeFontSize(false);
-//		}else if (cmd.equals("Save Settings")) {
-//			saveSettings();
 		} else {
 			doCommand(cmd);
 		}
@@ -175,7 +184,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		mb.setFont(font);
 		/** File **/
 		JMenu fileMenu = new JMenu("File");
-		JMenuItem saveAsItem = new JMenuItem("Save As...");
+		JMenuItem saveAsItem = new JMenuItem(SAVE_AS_CSV);
 		KeyStroke ks = KeyStroke.getKeyStroke(KeyEvent.VK_S, 0);
 		saveAsItem.setAccelerator(ks);
 		fileMenu.add(saveAsItem);
@@ -184,31 +193,32 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		/** Edit **/
 		JMenu editMenu = new JMenu("Edit");
 //		m.add(new MenuItem("Cut", new MenuShortcut(KeyEvent.VK_X)));
-		JMenuItem copyItem = new JMenuItem("Copy");
+		JMenuItem copyItem = new JMenuItem(COPY);
 		KeyStroke kc = KeyStroke.getKeyStroke(KeyEvent.VK_C, 0);
 		copyItem.setAccelerator(kc);
 		copyItem.addActionListener(this);
 		editMenu.add(copyItem);
-		JMenuItem clearItem = new JMenuItem("Clear");
+		JMenuItem clearItem = new JMenuItem(CLEAR);
 		editMenu.add(clearItem);
 		clearItem.addActionListener(this);
-		JMenuItem selectAllItem = new JMenuItem("Select All");
+		JMenuItem selectAllItem = new JMenuItem(SELECT_ALL);
 		KeyStroke ka = KeyStroke.getKeyStroke(KeyEvent.VK_A, 0);
 		selectAllItem.setAccelerator(ka);
 		selectAllItem.addActionListener(this);
 		editMenu.add(selectAllItem);
 		editMenu.addSeparator();
-		JMenuItem findItem = new JMenuItem("Find...");
+		JMenuItem findItem = new JMenuItem(FIND);
 		KeyStroke kf = KeyStroke.getKeyStroke(KeyEvent.VK_F, 0);
 		findItem.setAccelerator(kf);
 		findItem.addActionListener(this);
 		editMenu.add(findItem);
 		mb.add(editMenu);
+		/** Font **/
 		JMenu fontMenu = new JMenu("Font");
-		JMenuItem textSmallerItem = new JMenuItem("Make Text Smaller");
+		JMenuItem textSmallerItem = new JMenuItem(TEXT_SMALL);
 		textSmallerItem.addActionListener(this);
 		fontMenu.add(textSmallerItem);
-		JMenuItem textLargerItem = new JMenuItem("Make Text Larger");
+		JMenuItem textLargerItem = new JMenuItem(TEXT_LARGE);
 		textLargerItem.addActionListener(this);
 		fontMenu.add(textLargerItem);
 		mb.add(fontMenu);
@@ -223,34 +233,76 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	void addPopupMenu() {
 		pm = new JPopupMenu();
-		addPopupItem("Save As...");
+		addPopupItem(SAVE_AS_CSV);
 		pm.addSeparator();
 //		addPopupItem("Cut");
-		addPopupItem("Copy");
-		addPopupItem("Clear");
-		addPopupItem("Select All");
-		pm.addSeparator();
+		addPopupItem(COPY);
+		addPopupItem(CLEAR);
+		addPopupItem(SELECT_ALL);
+//		pm.addSeparator();
 //		addPopupItem("Clear Results");
-		addPopupItem("Summarize");
-		addPopupItem("Distribution...");
+//		addPopupItem("Summarize");
+//		addPopupItem("Distribution...");
 		// addPopupItem("Set Measurements...");
 		table.add(pm);
+	}
+	
+	/**
+	 * append or update values at column.
+	 * @param columnName
+	 * @param values
+	 */
+	public void appendColumn(String columnName, String[] values/*null-able*/) {
+		if (columnName==null)
+			throw new IllegalArgumentException("Column or values is null");
+		if(values == null || values.length == 0) {
+			//add blank col
+			setValue(columnName, 0, null);
+			int headerPos = table.getColumnModel().getColumnIndex(columnName);
+			for (int i=1; i<getRowCount(); i++)
+				setValue(headerPos, i, null);
+			return;
+		}
+		//creates the column if required
+		setValue(columnName, 0, values[0]);
+		//add values
+		int headerPos = table.getColumnModel().getColumnIndex(columnName);
+		for (int i=1; i<values.length; i++)
+			setValue(headerPos, i, values[i]);
 	}
 
 	public void appendRow(ArrayList<?> row) {
 		if (row == null || row.size() < 1) {
+			Object[] blank = null;
+			appendRow(blank);
 			return;
 		}
 		Object[] rowVals = row.toArray(new String[row.size()]);
 		appendRow(rowVals);
 	}
 	
-	public void appendRow(Object[] row) {
-		if (row == null || row.length < 1) {
+	private void appendRow(Object[] row/*null-able*/) {
+		if (row == null) {
+			Object[] blankRow = new Object[getColumnCount()];
+			Arrays.fill(blankRow, null);
+			if(showRowIndex) {
+				blankRow[0] = String.valueOf(getRowCount()+1);
+			}
+			DefaultTableModel model = (DefaultTableModel) table.getModel();
+			model.addRow(blankRow);
 			return;
 		}
 		DefaultTableModel model = (DefaultTableModel) table.getModel();
-		model.addRow(row);
+		if(showRowIndex) {
+			Object[] row2 = new Object[row.length+1];
+			row2[0] = Integer.valueOf(getRowCount()+1);
+			for(int i =1; i<row2.length; i++) {
+				row2[i] = row[i-1];
+			}
+			model.addRow(row2);
+		}else {
+			model.addRow(row);
+		}
 	}
 
 	void changeFontSize(boolean larger) {
@@ -276,7 +328,14 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	 * "Results" window and 'showDialog' is true.
 	 */
 	public void close(boolean showDialog) {
-		dispose();
+		if(showDialog) {
+			int res = PopUpMessage.showDialog(this, "Close Result Window", "Will close Result Window?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			if(res == JOptionPane.OK_OPTION) {
+				dispose();
+			}
+		}else {
+			dispose();
+		}		
 	}
 
 	/**
@@ -308,21 +367,36 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	private String[] createInitialCols(String[] headers) {
 		if (headers == null || headers.length == 0) {
-			String[] initHeader = new String[30];
-			for (int i = 0; i < 30; i++) {
-				initHeader[i] = "";
+			if(showRowIndex) {
+				return new String[] {roiIndCol};
+			}else {
+				return null;
 			}
-			return initHeader;
 		} else {
-			return headers;
+			if(showRowIndex) {
+				String[] h2 = new String[headers.length+1];
+				h2[0] = roiIndCol;
+				for(int i=1; i<h2.length; i++) {
+					h2[i] = headers[i-1];
+				}
+				return h2;
+			}else {
+				return headers;
+			}
 		}
 	}
 
 	/** Deletes the selected lines. */
 	public void deleteSelectedRows() {
 		int[] selectedRows = table.getSelectedRows();
-		for (int i = 0; i < selectedRows.length; i++) {
-			((DefaultTableModel) table.getModel()).removeRow(i);
+		Integer[] srows = new Integer[selectedRows.length];
+		int pos = 0;
+		for(int v : selectedRows) {srows[pos++]=Integer.valueOf(v);}
+		//delete from larger index row. 
+		Arrays.sort(srows, Collections.reverseOrder());
+		for (int i : srows) {
+			int ind = table.convertRowIndexToModel(i);
+			((DefaultTableModel) table.getModel()).removeRow(ind);
 		}
 		table.repaint();
 	}
@@ -349,65 +423,59 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		if (cmd == null) {
 			return;
 		}
-		if (cmd.equals("Save As...")) {
+		if (cmd.equals(SAVE_AS_CSV)) {
 			saveAsCSV();
-//		}else if (cmd.equals("Cut")) {
-//			cutSelection();
-		} else if (cmd.equals("Copy")) {
+		} else if (cmd.equals(COPY)) {
 			copySelection();
-		} else if (cmd.equals("Clear")) {
+		} else if (cmd.equals(CLEAR)) {
 			doClear();
-		} else if (cmd.equals("Select All")) {
+		} else if (cmd.equals(SELECT_ALL)) {
 			selectAll();
-		} else if (cmd.equals("Find...")) {
-			find(null);
-		} else if (cmd.equals("Summarize")) {
-			summarize();
-//			IJ.doCommand("Summarize");
-		} else if (cmd.equals("Distribution...")) {
-			distribution();
-//			IJ.doCommand("Distribution...");
-		}
+		} else if (cmd.equals(FIND)) {
+			SwingUtilities.invokeLater(()->find(null));
+		} 
+//		else if (cmd.equals("Summarize")) {
+//			summarize();
+//		} else if (cmd.equals("Distribution...")) {
+//			distribution();
+//		}
 	}
 
 	private void find(String s) {
-		if (s==null) {
+		if (s == null) {
 			GenericDialog gd = new GenericDialog("Find (Perfect matching)...", null);
 			gd.addStringField("Find: ", searchString, 20);
 			gd.showDialog();
 			if (gd.wasCanceled())
 				return;
-			s = gd.getNextString();//.trim()
+			s = gd.getNextString();// .trim()
 		}
 		if (s.equals("")) {
 			return;
 		}
-			
-		boolean found = false;
+
 		int rows = table.getRowCount();
 		int cols = table.getColumnCount();
 		/*
 		 * CellRenderer was shared in Column, not cell by cell
 		 */
-		for (int c=0; c<cols; c++) {
-			CustomTableCellRenderer renderer = new CustomTableCellRenderer(s);
-			for (int r=0; r<rows; r++) {
+		CustomTableCellRenderer renderer = new CustomTableCellRenderer(s, Color.CYAN);
+		for (int c = 0; c < cols; c++) {
+			boolean found = false;
+			table.getColumnModel().getColumn(c).setCellRenderer(renderer);
+			for (int r = 0; r < rows; r++) {
 				String v = (String) table.getValueAt(r, c);
-				if(v.equals(s)) {
-					renderer.setRowColor(r, Color.cyan);
-	                found = true;
-				}else {
-//					CustomTableCellRenderer renderer = new CustomTableCellRenderer(s);
-//					renderer.setRowColor(r,null);
-	                table.getColumnModel().getColumn(c).setCellRenderer(null);
-//	                found = false;
+				if (v.equals(s)) {
+					found = true;
+				} else {
+					found = false;
 				}
 			}
-			table.getColumnModel().getColumn(c).setCellRenderer(renderer);
+			if (!found) {
+				table.getColumnModel().getColumn(c).setCellRenderer(null);
+			}
 		}
-		if (!found) {
-			Toolkit.getDefaultToolkit().beep();
-		}
+		table.repaint();
 	}
 
 	public void fireTableDataChanged() {
@@ -417,7 +485,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	}
 
 	/**
-	 * 1 to N
+	 * if showRoiInd is true, RoiIndex column is included to count. 
 	 * @return
 	 */
 	public int getColumnCount() {
@@ -457,11 +525,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	public JTable getResultTable() {
 		return table;
 	}
-
-	/**
-	 * 1 to N
-	 * @return
-	 */
+	
 	public int getRowCount() {
 		return table.getRowCount();
 	}
@@ -519,21 +583,46 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	}
 
 	void initContents(String[] headings) {
-		DefaultTableModel tableModel = new DefaultTableModel(createInitialCols(headings), 0);
+		DefaultTableModel tableModel = new UndoableTableModel(createInitialCols(headings), 0);
 		table = new JTable(tableModel);
 		table.setAutoCreateRowSorter(true);
 		table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		table.setRowMargin(2);
-		int numCols = (headings == null || headings.length == 0) ? 30 : headings.length;
-		for (int c = 0; c < numCols; c++) {
-			table.getColumnModel().getColumn(c).setMinWidth(30);
+		// int numCols = (headings == null || headings.length == 0) ? 30 :
+		// headings.length;
+		if (showRowIndex) {
+			table.getColumnModel().getColumn(0).setWidth(10);
 		}
 		setColumnHeadings(headings);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);// need, see also updateDisplay
 		table.getTableHeader().setVisible(true);
+		table.setColumnSelectionAllowed(true);
+		table.setRowHeight(25);
 		table.addKeyListener(this);
 		table.addMouseListener(this);
 		table.setFocusable(true);
+
+		table.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK),
+				"Undo");
+		table.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK),
+				"Redo");
+
+		table.getActionMap().put("Undo", new AbstractAction() {
+			public void actionPerformed(ActionEvent e) {
+				UndoableTableModel model = (UndoableTableModel) table.getModel();
+				UndoableEdit hist = model.getCurrentIndexEdit(true);
+				hist.undo();
+			}
+		});
+
+		table.getActionMap().put("Redo", new AbstractAction() {
+			public void actionPerformed(ActionEvent e) {
+				UndoableTableModel model = (UndoableTableModel) table.getModel();
+				UndoableEdit hist = model.getCurrentIndexEdit(false);
+				hist.redo();
+			}
+		});
+
 		JScrollPane scrollPane = new JScrollPane(table);
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 		scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
@@ -575,8 +664,6 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	@Override
 	public void keyReleased(KeyEvent e) {
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
@@ -741,6 +828,13 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 
 	public void selectAll() {
 		table.setRowSelectionInterval(0, table.getModel().getRowCount() - 1);
+       table.setColumnSelectionInterval(0, table.getColumnModel().getColumnCount() - 1);
+	}
+	
+	public void selectCols(int start, int end) {
+		table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+		table.setColumnSelectionAllowed(true);
+		table.setColumnSelectionInterval(start, end - 1);
 	}
 
 	public void selectRows(int start, int end) {
@@ -772,42 +866,36 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 			table.setFont(font);
 		else
 			table.setFont(new Font("SanSerif", Font.PLAIN, fontSize));
-		table.revalidate();
-		table.repaint();
+		fireTableDataChanged();
 	}
 	
 	/** Sets the value of the given column and row, where
 	where 0&lt;=row&lt;size(). If the specified column does 
-	not exist, it is created. When adding columns, 
-	<code>show()</code> must be called to update the 
-	window that displays the table.*/
+	not exist, it is created.*/
 	public void setValue(String columnName, int row, String value) {
-		if (columnName==null)
+		if (columnName == null)
 			throw new IllegalArgumentException("Column is null");
-		int col = table.getColumnModel().getColumnIndex(columnName);
-		if (col==-1) {
+		int col = -1;
+		try {
+			col = table.getColumnModel().getColumnIndex(columnName);
+			setValue(row, col, value);
+		} catch (IllegalArgumentException e) {
+			// if not exists in headers
 			DefaultTableModel model = (DefaultTableModel) table.getModel();
 			model.addColumn(columnName);
-			int headerPos = table.getColumnModel().getColumnIndex(columnName);
-			setValue(row, headerPos, value);
-		}else {
 			int headerPos = table.getColumnModel().getColumnIndex(columnName);
 			setValue(row, headerPos, value);
 		}
 	}
 
 	public void setValue(int row, int col, String v ) {
+		if(getRowCount() == row) {
+			Object[] blankRow = null;
+			appendRow(blankRow);
+		}
 		table.setValueAt(v, row, col);
 	}
-	
-	public void setValues(String columnName, String[] values) {
-		if (values.length > 0)
-			setValue(columnName, 0, values[0]); //creates the column if required
-		int headerPos = table.getColumnModel().getColumnIndex(columnName);
-		for (int i=1; i<values.length; i++)
-			setValue(headerPos, i, values[i]);
-	}
-
+		
 	/**
 	 * TODO
 	 * @return
@@ -816,18 +904,33 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		return null;
 	}
 
-	public void updateRow(int row, ArrayList<?> vals) {
-		if (vals == null || vals.size() < 1) {
-			return;
-		}
+	public void updateRow(int row, ArrayList<String> vals) {
 		if (row < 0 || row > table.getRowCount() - 1) {
 			return;
 		}
-		JTableHeader jth = table.getTableHeader();
-		int cols = jth.getColumnModel().getColumnCount();
-		for (int i = 0; i < cols; i++) {
-			String val = String.valueOf(vals.get(i));
-			table.getModel().setValueAt(val, row, i);
+		if (vals == null) {
+			//set blank
+			int cols = getColumnCount();
+			if(showRowIndex) {
+				for (int i = 1; i < cols; i++) {
+					setValue(row, i, null);
+				}
+			}else {
+				for (int i = 0; i < cols; i++) {
+					setValue(row, i, null);
+				}
+			}
+			return;
+		}
+		int cols = getColumnCount();
+		if(showRowIndex) {
+			for (int i = 1; i < cols; i++) {
+				setValue(row, i, vals.get(i-1));
+			}
+		}else {
+			for (int i = 0; i < cols; i++) {
+				setValue(row, i, vals.get(i));
+			}
 		}
 	}
 }

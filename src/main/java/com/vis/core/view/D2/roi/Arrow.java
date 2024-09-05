@@ -62,6 +62,9 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 		double mag = getMagnification();
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
+			/*
+			 * Lines and arrows appear thicker than the other ROIs due to the magnification factor, since the Shape is drawn as it is.
+			 */
 			Point offset = slide.getDisplayImageOriginXY();
 			aTx.translate(offset.x, offset.y);
 			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
@@ -91,7 +94,9 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 			g2.setStroke(defaultStroke);
 		} else  {
 			g2.fill(shape);
-			if (doubleHeaded) g2.fill(shape2);
+			if (doubleHeaded) {
+				g2.fill(shape2);
+			}
 		}
 		if (!overlay) {
 			handleColor=color;

@@ -1,5 +1,6 @@
 package com.vis.core.view.D2.roi;
 
+import java.awt.Font;
 import java.util.HashMap;
 
 import com.vis.configuration.ContextKey;
@@ -27,6 +28,15 @@ public class RoiConverter {
 		case POLYGON:
 			ij.gui.PolygonRoi polygon = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.POLYGON);
 			return copyProperties2IJRoi(roiObj, polygon);
+		case POLYLINE:
+			ij.gui.PolygonRoi pl = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.POLYLINE);
+			return copyProperties2IJRoi(roiObj, pl);
+		case FREEROI:
+			ij.gui.PolygonRoi free = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.FREEROI);
+			return copyProperties2IJRoi(roiObj, free);
+		case FREELINE:
+			ij.gui.PolygonRoi freeline = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.FREELINE);
+			return copyProperties2IJRoi(roiObj, freeline);
 		case ANGLE:
 			ij.gui.PolygonRoi angle = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.ANGLE);
 			return copyProperties2IJRoi(roiObj, angle);
@@ -51,16 +61,16 @@ public class RoiConverter {
 			ij.gui.Arrow arrow = new ij.gui.Arrow(xps[0], yps[0], xps[1], yps[1]);
 			return copyProperties2IJRoi(roiObj, arrow);
 		case TEXT:
-			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.getProperty(ContextKey.Description.name()));
+			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.width, roiObj.height, roiObj.getProperty(ContextKey.Description.name()), new Font(Font.SANS_SERIF, Font.PLAIN, 14));
 			return copyProperties2IJRoi(roiObj, txt);
 		case POINT:case MULTIPOINT:
 			ij.gui.PointRoi p = new ij.gui.PointRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints);
 			return copyProperties2IJRoi(roiObj, p);
-		case COMPOSITE://shape roi
+		case COMPOSITE:case TRACED_ROI:
 			com.vis.core.view.D2.roi.ShapeRoi sRoiObj = (com.vis.core.view.D2.roi.ShapeRoi)roiObj;
 			java.awt.Shape shape = sRoiObj.getShape();
-//			ij.gui.ShapeRoi shapeRoi = new ij.gui.ShapeRoi((int)sRoiObj.getXBase(), (int)sRoiObj.getYBase(), shape);//DO NOT USE, geometry conflicts.
-			ij.gui.ShapeRoi shapeRoi = new ij.gui.ShapeRoi(shape);
+			ij.gui.ShapeRoi shapeRoi = new ij.gui.ShapeRoi((int)sRoiObj.getXBase(), (int)sRoiObj.getYBase(), shape);
+//			ij.gui.ShapeRoi shapeRoi = new ij.gui.ShapeRoi(shape);//reset shape origin to (0,0)
 			return copyProperties2IJRoi(roiObj, shapeRoi);
 		//add cases
 		default:
@@ -71,80 +81,61 @@ public class RoiConverter {
 	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi){
 		for(ContextKey key : ContextKey.values()) {
 			String value = roiObj.getProperty(key.name());
-			ijRoi.setProperty(key.name(), value);
+			if(value != null) {
+				ijRoi.setProperty(key.name(), value);
+			}
 		}
 		return ijRoi;
 	}
 	
 	public RoiObj convert2RoiObj(Roi roi){
 		HashMap<String, Object> roiCon = new HashMap<>();
-		//do not use imp
-		int type = roi.getType();
-		RoiType t = RoiType.find(type);
-		if(t == RoiType.RECTANGLE) {
-			if(roi.isDrawingTool()) {
-				t = RoiType.TEXT;
-			}
-		}else if(t == RoiType.LINE) {
-			if(roi.isDrawingTool()) {
-				t = RoiType.ARROW;
-			}
-		}
-		String rid = (String)roi.getProperty(ContextKey.RoiID.name());
 		int x = roi.getBounds().x;
 		int y = roi.getBounds().y;
 		int w = roi.getBounds().width;
 		int h = roi.getBounds().height;
 		float[] pointX = roi.getFloatPolygon().xpoints;
 		float[] pointY = roi.getFloatPolygon().ypoints;
-		//frameNo
-		String instNoString = roi.getProperty(ContextKey.InstanceNo.name());
-		Integer instNo = 1;
-		if(instNoString == null) {
-			instNo = roi.getPosition();
-		}else {
-			instNo = Integer.parseInt(instNoString);
-		}
-		String rgString = roi.getProperty(ContextKey.RoiGroup.name());//int
-		Integer rg = null;
-		if(rgString != null) {
-			rg = Integer.valueOf(rgString.trim());
-		}
-		String rlbl = roi.getProperty(ContextKey.RoiLabel.name());
-		String ot = roi.getProperty(ContextKey.ObjectType.name());
-		String organ = roi.getProperty(ContextKey.Organ.name());
-		String desc = roi.getProperty(ContextKey.Description.name());
-		String pid = roi.getProperty(ContextKey.PatientID.name());
-		String studyUid = roi.getProperty(ContextKey.StudyInstanceUID.name());
-		String seriesUid = roi.getProperty(ContextKey.SeriesInstanceUID.name());
-		String sopUid = roi.getProperty(ContextKey.SOPInstanceUID.name());
-		//set context
-		roiCon.put(ContextKey.RoiID.name(), rid);
-		roiCon.put("OriginX", x);
-		roiCon.put("OriginY", y);
-		roiCon.put("Width", w);
-		roiCon.put("Height", h);
-		roiCon.put("PointX", pointX);
-		roiCon.put("PointY", pointY);
+		//set geometry
+		roiCon.put(RoiGeometry.OriginX.name(), x);
+		roiCon.put(RoiGeometry.OriginY.name(), y);
+		roiCon.put(RoiGeometry.Width.name(), w);
+		roiCon.put(RoiGeometry.Height.name(), h);
+		roiCon.put(RoiGeometry.PointX.name(), pointX);
+		roiCon.put(RoiGeometry.PointY.name(), pointY);
 		if(roi instanceof ij.gui.ShapeRoi) {
-			roiCon.put("Shape",((ij.gui.ShapeRoi)roi).getShapeAsArray());
+			roiCon.put(RoiGeometry.Shape.name(),((ij.gui.ShapeRoi)roi).getShapeAsArray());
 		}
-		roiCon.put(ContextKey.RoiType.name(), type);
-		roiCon.put(ContextKey.PatientID.name(), pid);
-		roiCon.put(ContextKey.StudyInstanceUID.name(),studyUid);
-		roiCon.put(ContextKey.SeriesInstanceUID.name(),seriesUid);
-		roiCon.put(ContextKey.SOPInstanceUID.name(),sopUid);
-		roiCon.put(ContextKey.InstanceNo.name(),instNo);//int
-		roiCon.put(ContextKey.RoiGroup.name(),rg);//int
-		roiCon.put(ContextKey.RoiLabel.name(),rlbl);
-		roiCon.put(ContextKey.ObjectType.name(),ot);
-		roiCon.put(ContextKey.Organ.name(),organ);
-		roiCon.put(ContextKey.Description.name(),desc);
+		
+		int type = roi.getType();
+		if(roi instanceof ij.gui.Arrow) {
+			type = RoiType.ARROW.id();
+		}else if(roi instanceof ij.gui.TextRoi) {
+			type = RoiType.TEXT.id();
+		}else if(roi instanceof ij.gui.PointRoi) {
+			if(roi.getContainedPoints().length > 1) {
+				//multi point
+				type = RoiType.MULTIPOINT.id();
+			}
+		}
+		roiCon.put(ContextKey.RoiType.name(), String.valueOf(type));//keep String
+		
+		//add context prop
+		for(ContextKey key : ContextKey.values()) {
+			if(key == ContextKey.RoiType) {
+				continue;
+			}
+			String value = roi.getProperty(key.name());
+			if(value != null) {
+				roiCon.put(key.name(), value);
+			}
+		}
 		return buildRoiObj(roiCon);
 	}
 	
 	public RoiObj buildRoiObj(HashMap<String, Object> roiCon) {
-		int type = (int)roiCon.get(ContextKey.RoiType.name());
+		//to open roi file
+		int type = roiCon.get(ContextKey.RoiType.name()) instanceof String ? Integer.valueOf((String)roiCon.get(ContextKey.RoiType.name())):(int)roiCon.get(ContextKey.RoiType.name());
 		int x = (int)roiCon.get("OriginX");
 		int y = (int)roiCon.get("OriginY");
 		int w = (int)roiCon.get("Width");
@@ -152,21 +143,8 @@ public class RoiConverter {
 		float[] pointX = roiCon.get("PointX") == null ? null:(float[])roiCon.get("PointX");
 		float[] pointY = roiCon.get("PointY") == null ? null:(float[])roiCon.get("PointY");
 		float[] shapeArray = roiCon.get("Shape") == null ? null:(float[])roiCon.get("Shape");
-		/*
-		 * use, as you need 
-		 * following properties will add after construction. 
-		 */
-//		String rid = (String)roiCon.get("RoiID");
-//		Integer frameNo = (Integer)roiCon.get("FrameNo");
-//		Integer rg = (Integer)roiCon.get("RoiGroup");
-//		String rlbl = (String)roiCon.get("RoiLabel");
-//		String ot = (String)roiCon.get("ObjectType");
-//		String organ = (String)roiCon.get("Organ");
+
 		String desc = (String)roiCon.get("Description");//TextRoi
-//		String pid = (String)roiCon.get("PatientID");
-//		String studyUid = (String)roiCon.get("StudyInstanceUID");
-//		String seriesUid = (String)roiCon.get("SeriesInstanceUID");
-//		String sopUid = (String)roiCon.get("SOPInstanceUID");
 		
 		RoiType t = RoiType.find(type);
 		switch (t) {

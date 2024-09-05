@@ -210,7 +210,7 @@ public class PolygonRoi extends RoiObj {
 		}
 		g.setColor(color);
 		setRenderingHint(g2d);
-		if (stroke != null && !isActiveOverlayRoi)
+		if (stroke != null)
 			g2d.setStroke(getScaledStroke());
 		if (xSpline != null) {
 			if (type == RoiType.POLYLINE.id() || type == RoiType.FREELINE.id()) {
@@ -257,9 +257,9 @@ public class PolygonRoi extends RoiObj {
 				drawHandle(g, xp2[activeHandle - 1], yp2[activeHandle - 1]);
 			if (activeHandle < nPoints - 1)
 				drawHandle(g, xp2[activeHandle + 1], yp2[activeHandle + 1]);
-			handleColor = strokeColor != null ? strokeColor : ROIColor;
+//			handleColor = strokeColor != null ? strokeColor : ROIColor;
 			drawHandle(g, xp2[0], yp2[0]);
-			handleColor = Color.white;
+//			handleColor = Color.white;
 			for (int i = 1; i < nPoints; i++)
 				drawHandle(g, xp2[i], yp2[i]);
 		}

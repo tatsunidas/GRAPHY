@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
@@ -338,7 +338,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 				if(roi instanceof TextRoi) {
 					Component[] coms = getComponents();
 					for(Component c : coms) {
-						if(c instanceof JScrollPane) {
+						if(c instanceof JTextArea) {
 							if(c.getName().equals(roiId)) {
 								remove(c);
 							}
@@ -562,7 +562,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void roiMouseDown(MouseEvent e) {
-
+		if(e.isConsumed()) {
+			return;
+		}
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
 		int roiType = pp.getCurrentViewerToolType();
@@ -811,8 +813,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int sy = e.getY();
 		sg.mouseX = sx; 
 		sg.mouseY = sy;
-//		int ox = sg.onImageX(sx);
-//		int oy = sg.onImageY(sy);
 		switch (toolID) {
 //		case Viewer2DToolBar.MAGNIFIER:
 //			if (IJ.shiftKeyDown())
@@ -870,8 +870,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 //			break;
 		case Viewer2DToolBar.Brush:
 			handleRoiBrushMouseDown(e);
+			e.consume();
 			break;
-		default:  //rois
+		default:
 			roiMouseDown(e);
 		}
 	}

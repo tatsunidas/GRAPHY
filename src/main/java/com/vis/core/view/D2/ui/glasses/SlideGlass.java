@@ -395,7 +395,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Integer getInstanceNo() {
-		return header != null ? header.getInt(Tag.Instance​Number, 0) : null;
+		return header != null ? header.getInt(Tag.Instance​Number, -1) : null;
 	}
 
 	public double getMagnification() {

@@ -48,6 +48,7 @@ public enum ConfigInfo {
 	//windows
 	MainScreen("GRAPHY Main Screen"),
 	D2ViewerWindow("GRAPHY 2D Window"),
+	RoiManager("ROI MANAGER"),
 	D3ViewerWindow("GRAPHY 3D Window"),
 	ResultWindow("Result Window"),
 	MPRWindow("GRAPHY MPR Window"),

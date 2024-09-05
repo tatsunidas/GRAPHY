@@ -40,7 +40,6 @@ package com.vis.core.util;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -58,7 +57,6 @@ public class DateUtils {
 	 * ss contains seconds (range "00" - "59"), 
 	 * and frac contains a fractional part of a second as small as 1 millionth of a second (range 000000 - 999999).
 	 */
-	private static DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
 	private static DateFormat sqlDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	//use kk instead HH for represent 24 hour.
 	//DICOM TM format represent time in kk:mm:ss.SSS000. Here, last "000" is padding vales to represent milisec in 6 digits.
@@ -426,7 +424,14 @@ public class DateUtils {
 			ymd = yyyy+splitter+MM+splitter+dd;
 		}else {
 			if (!ymd.contains(splitter)) {
-				ymd = ymd.replace("-", splitter);
+				String splitter_ ;
+				if(splitter.equals("/")) {
+					splitter_ = "-";
+				}else {
+					splitter_ = "/";
+				}
+				ymd = ymd.replace(splitter, splitter_);
+				splitter = splitter_;
 			}
 		}
 		try {

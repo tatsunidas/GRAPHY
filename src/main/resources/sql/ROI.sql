@@ -15,6 +15,8 @@ create table roi (
 	RoiLabel varchar(64),
 	ObjectType varchar(64),
 	Organ varchar(64),
+	StudyDate date,
+	CrossSection varchar(16),
 	PatientID varchar(255),
 	foreign key(PatientID) references Patient(PatientID),
 	StudyInstanceUID varchar(255),

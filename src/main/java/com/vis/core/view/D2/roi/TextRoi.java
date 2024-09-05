@@ -7,10 +7,8 @@ import ij.plugin.frame.Recorder;
 import ij.plugin.Colors;
 import java.awt.geom.*;
 import java.awt.*;
-import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
-import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
@@ -44,7 +42,6 @@ public class TextRoi extends RoiObj {
     private boolean initialize = true;
     
     JTextArea textArea;
-    JScrollPane textPane;
     
     int prevCompW = 0;
     int prevCompH = 0;
@@ -129,6 +126,7 @@ public class TextRoi extends RoiObj {
 		textArea.setOpaque(false);
 		textArea.setForeground(ROIColor);
 		textArea.setCaretColor(ROIColor);
+		textArea.setName(getProperty(ContextKey.RoiID.name()));
 		if(getText() == null || getText().length()==0) {
 			textArea.setText(line1a);
 		}else {
@@ -147,13 +145,7 @@ public class TextRoi extends RoiObj {
 			public void changedUpdate(DocumentEvent e) {
 				updateText();
 			}
-		});
-		
-		textPane = new JScrollPane(textArea);
-		textPane.setName(getProperty(ContextKey.RoiID.name()));
-		textPane.setOpaque(false);
-		textPane.getViewport().setOpaque(false);
-		
+		});		
 	}
 
     Font getScaledFont() {
@@ -218,23 +210,19 @@ public class TextRoi extends RoiObj {
 			 * update showing text state
 			 */
 			SwingUtilities.invokeLater(() -> {
-				textArea.repaint();
-				textPane.revalidate();
-				textPane.repaint();
 				updateBounds();
+				textArea.repaint();
 			});
 		}
 		super.draw(g); // draw the rectangle
 		if (initialize) {
-			if (textPane != null && textPane.isShowing()) {
+			if (textArea != null && textArea.isShowing()) {
 				/*
 				 * update showing text state
 				 */
 				SwingUtilities.invokeLater(() -> {
-					textArea.repaint();
-					textPane.revalidate();
-					textPane.repaint();
 					updateBounds();
+					textArea.repaint();
 				});
 				initialize = false;
 			}
@@ -352,14 +340,14 @@ public class TextRoi extends RoiObj {
     @Override
     public void setSlideGlass(SlideGlass sg) {
     	super.setSlideGlass(sg);
-    	if(sg != null && textPane != null) {
+    	if(sg != null && textArea != null) {
     		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-    		textPane.setName(getProperty(ContextKey.RoiID.name()));
+    		textArea.setName(getProperty(ContextKey.RoiID.name()));
 			/*
 			 * If the same object is added multiple times, only one of them will exist in
 			 * the Swing container and will appear at the position where it was last added.
 			 */
-    		cg.add(textPane);
+    		cg.add(textArea);
     	}
     }
 
@@ -447,17 +435,10 @@ public class TextRoi extends RoiObj {
 		super.mouseDrag(sx, sy, flags);
 		updateBounds();
 	}
-    
-	public void mouseWheelMoved(MouseEvent e) {
-		if (textPane.getBounds().contains(e.getPoint())) {
-			textPane.dispatchEvent(SwingUtilities.convertMouseEvent((Component) e.getSource(), e, textPane));
-		}
-	}
 
 	public void handleMouseUp(int screenX, int screenY) {
 		super.handleMouseUp(screenX, screenY);
 		updateBounds();
-		setFocusable(true);
 	}
     
 	/**
@@ -482,10 +463,10 @@ public class TextRoi extends RoiObj {
 		/*
 		 * set TextArea&Pane bounds.
 		 */
-		if (slide != null && textPane != null && textPane.isVisible()) {
-			textPane.setBounds((int)getXBase(), (int)getYBase(), width, height);
+		if (slide != null && textArea != null && textArea.isVisible()) {
+			textArea.setBounds((int)getXBase(), (int)getYBase(), width, height);
 			CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.add(textPane);// move to current location
+			cg.add(textArea);// move to current location
 			slide.repaint();
 		}
 	}

@@ -35,43 +35,21 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.configuration;
+package com.vis.core.view.D2.roi;
 
 /**
- * Context information.
- * These are not including Roi geometry data (such as points, coordinates etc).
- * 
+ * Roi Geometry
  * @author tatsunidas
+ *
  */
-public enum ContextKey {
-	PatientID,
-	StudyInstanceUID,
-	SeriesInstanceUID,
-	SOPInstanceUID,
-	FrameOfReferenceUID,
-	RoiID,
-	Name,
-	InstanceNo,//int //this is NOT slice position!! //int
-	StudyDate,
-	CrossSection, // AXI, SAG, COR
-	RoiType, //int
-	RoiGroup, //int
-	RoiLabel, //string
-	ObjectType,//string target object type, e.g., target lesions.
-	Organ,//string
-	Description;//for textroi and any context.string
+public enum RoiGeometry {
 	
-	public static boolean checkPropertyKey(String key) {
-		for (ContextKey k : ContextKey.values()) {
-			String stringKey = k.name();
-			if (stringKey.equals(key)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	public static ContextKey[] roiKeys() {
-		return new ContextKey[] {};
-	}
+	OriginX,
+	OriginY,
+	Width,
+	Height,
+	PointX,
+	PointY,
+	Shape;
+
 }
