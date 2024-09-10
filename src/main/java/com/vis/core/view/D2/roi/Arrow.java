@@ -24,11 +24,11 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
     public static final String[] styles = {"Filled", "Notched", "Open", "Headless", "Bar"};
     private static int defaultStyle = (int)Prefs.get(STYLE_KEY, FILLED);
     private static float defaultWidth = (float)Prefs.get(WIDTH_KEY, 2);
-    private static double defaultHeadSize = (int)Prefs.get(SIZE_KEY, 10);  // 0-30;
+    private static double defaultHeadSize = (int)Prefs.get(SIZE_KEY, 5);  // 0-30;
     private static boolean defaultDoubleHeaded = Prefs.get(DOUBLE_HEADED_KEY, false);
     private static boolean defaultOutline = Prefs.get(OUTLINE_KEY, false);
     private int style;
-    private double headSize = 10;  // 0-30
+    private double headSize = 5;  // 0-30
     private boolean doubleHeaded;
     private boolean outline;
     private float[] points = new float[2*5];
@@ -43,14 +43,14 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 
     public Arrow(double ox1, double oy1, double ox2, double oy2,SlideGlass slide) {
         super(ox1, oy1, ox2, oy2, slide);
-        setStrokeWidth(2);
+        setStrokeWidth(1);
         setStyle(defaultStyle);
         setType(RoiType.ARROW);
     }
     
     public Arrow(double ox1, double oy1, SlideGlass slide) {
         super(ox1, oy1, ox1+1, oy1+1, slide);
-        setStrokeWidth(2);
+        setStrokeWidth(1);
         setStyle(defaultStyle);
         setType(RoiType.ARROW);
     }

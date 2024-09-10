@@ -293,7 +293,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		
 		int x = e.getX();
 		int y = e.getY();
 		viewerToolType = pp.getViewer2DToolType();

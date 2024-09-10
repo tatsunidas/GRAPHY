@@ -836,7 +836,7 @@ public class PolygonRoi extends RoiObj {
 	/**
 	 * get current angle as String and update degrees variable.
 	 */
-	String getAngleAsString() {
+	public String getAngleAsString() {
 		double angle1 = 0.0;
 		double angle2 = 0.0;
 		if (xpf != null) {
@@ -851,6 +851,23 @@ public class PolygonRoi extends RoiObj {
 			degrees = 360.0 - degrees;
 		double degrees2 = Prefs.reflexAngle && type == RoiType.ANGLE.id() ? 360.0 - degrees : degrees;
 		return ", angle=" + IJ.d2s(degrees2);
+	}
+	
+	public String getAngleAsString2() {
+		double angle1 = 0.0;
+		double angle2 = 0.0;
+		if (xpf != null) {
+			angle1 = getFloatAngle(xpf[0], ypf[0], xpf[1], ypf[1]);
+			angle2 = getFloatAngle(xpf[1], ypf[1], xpf[2], ypf[2]);
+		} else {
+			angle1 = getFloatAngle(xp[0], yp[0], xp[1], yp[1]);
+			angle2 = getFloatAngle(xp[1], yp[1], xp[2], yp[2]);
+		}
+		degrees = Math.abs(180 - Math.abs(angle1 - angle2));
+		if (degrees > 180.0)
+			degrees = 360.0 - degrees;
+		double degrees2 = Prefs.reflexAngle && type == RoiType.ANGLE.id() ? 360.0 - degrees : degrees;
+		return IJ.d2s(degrees2);
 	}
 
 	public void mouseDownInHandle(int handle, int sx, int sy) {

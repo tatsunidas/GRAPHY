@@ -563,7 +563,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			//Measurements.MIN_MAX
 			rw.setValue("MIN", row, String.valueOf(stats.min));
 			rw.setValue("MAX", row, String.valueOf(stats.max));
-			rw.setValue("ANGLE", row, String.valueOf(stats.angle));
+			if(roiObj.getRoiType() == RoiType.ANGLE/*add more*/) {
+				rw.setValue("ANGLE", row, ((PolygonRoi)roiObj).getAngleAsString2());
+			}else {
+				rw.setValue("ANGLE", row, String.valueOf(stats.angle));
+			}
 			//CENTROID
 			rw.setValue("CENTROID_X", row, String.valueOf(stats.xCentroid));
 			rw.setValue("CENTROID_Y", row, String.valueOf(stats.yCentroid));
