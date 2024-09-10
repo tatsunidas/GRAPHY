@@ -66,7 +66,7 @@ public class RoiBrush {
 	private Point previousP;
 	private int mode = ADD;
 	
-	int defaultSize = 11;//keep odd number.
+	int defaultSize = 15;//keep odd number.
 	/*
 	 * circle
 	 * rectangle
@@ -195,6 +195,7 @@ public class RoiBrush {
 			slide.saveRoi(currentBrushingRoi);
 		}
 		clearCurrentBrushingRoi();
+		mode = ADD;
 		slide.setRoiBrush(null);
 		slide.repaint();
 	}
@@ -205,7 +206,6 @@ public class RoiBrush {
 		int ox = slide.offScreenX(slideX);
 		int oy = slide.offScreenY(slideY);
 		Point p = new Point(ox, oy);
-		mode = -1;//reset
 		if(currentBrushingRoi == null) {
 			currentBrushingRoi = slide.getRoiLocationAt(slideX, slideY);
 		}else {
@@ -240,11 +240,12 @@ public class RoiBrush {
 	
 	void add(RoiObj roi, ShapeRoi brush, int x, int y) {
 		if(roi != null) {
-			ShapeRoi sRoi = new ShapeRoi(roi);//done copyAttributes
-			ShapeRoi replace = sRoi.or(brush);
+			ShapeRoi replace = new ShapeRoi(roi);//done copyAttributes
+			replace = replace.or(brush);
 			replace.setProperty(ContextKey.RoiID.name(), roi.getProperty(ContextKey.RoiID.name()));
-			slide.addRoi(replace);
+			slide.updateRoi(replace);
 			currentBrushingRoi = replace;
+			roi = null;
 		}else {
 			ShapeRoi r = (ShapeRoi)brush.clone();
 			slide.addRoi(r);
@@ -272,12 +273,39 @@ public class RoiBrush {
 				return;
 			}else {
 				slide.updateRoi(roi);
+				currentBrushingRoi = roi;
+			}
+		}else {
+			//search roi
+			for(RoiObj r: slide.getRois()) {
+				Point[] ps = brush.getContainedPoints();
+				for(Point p : ps){
+					if(r.contains(p.x, p.y)) {
+						currentBrushingRoi = r;
+						break;
+					}
+				}
+				if(currentBrushingRoi != null) {
+					break;
+				}
+			}
+			if(currentBrushingRoi != null) {
+				currentBrushingRoi = ((ShapeRoi)currentBrushingRoi).not(brush);
+				if(currentBrushingRoi.getContainedFloatPoints().xpoints.length <= 4 || (currentBrushingRoi.width <= 0 && currentBrushingRoi.height <= 0)) {
+					slide.deleteRoi(currentBrushingRoi);
+					currentBrushingRoi = null;
+					return;
+				}else {
+					slide.updateRoi(currentBrushingRoi);
+				}
 			}
 		}
 	}
 	
 	ShapeRoi getCircularRoi(int x, int y, int width) {
-		RoiObj roi = new OvalRoi(x-(int)Math.floor(width/2), y-(int)Math.floor(width/2), width, width, slide);
+		double cx = x-(int)Math.floor(width/2);
+		double cy = y-(int)Math.floor(width/2);
+		RoiObj roi = new OvalRoi(cx, cy, width, width, slide);
 		Log.logger.fine("Brush Oval Location: x:"+roi.x+" , y:"+roi.y);
 		/* 
 		 * OvalRoi.getPolygon is return adding roi origin offset to all points.

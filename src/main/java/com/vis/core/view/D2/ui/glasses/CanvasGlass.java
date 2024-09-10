@@ -214,7 +214,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 			roi.setState(RoiObj.CONSTRUCTING);
 			break;
 		case OVAL:
-			roi = new OvalRoi(imageX, imageY, 1,1,sg);
+			roi = new OvalRoi((double)imageX, (double)imageY, 1,1,sg);
 			roi.setState(RoiObj.CONSTRUCTING);
 			break;
 		case FREEROI:
@@ -230,7 +230,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 			roi.setState(RoiObj.CONSTRUCTING);//fail safe
 			break;
 		case LINE://5
-			roi = new Line(imageX, imageY, imageX+1, imageY+1, sg);
+			/*subPixelResolution is true*/
+			roi = new Line((double)imageX, (double)imageY, imageX+1, imageY+1, sg);
 			roi.setState(RoiObj.CONSTRUCTING);
 			break;
 		case FREELINE:

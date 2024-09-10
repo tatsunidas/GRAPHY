@@ -38,6 +38,7 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.Font;
+import java.awt.Shape;
 import java.util.HashMap;
 
 import com.vis.configuration.ContextKey;
@@ -241,6 +242,8 @@ public class RoiConverter {
 			if(shapeArray == null) {
 				return null;
 			}
+//			Shape s = ShapeRoi.makeShapeFromArray(shapeArray);
+//			ShapeRoi sr = new com.vis.core.view.D2.roi.ShapeRoi(x,y,s, null);
 			ShapeRoi sr = new com.vis.core.view.D2.roi.ShapeRoi(shapeArray, null);
 			sr.setProperties(roiCon);//update text string
 			return sr;
@@ -250,6 +253,8 @@ public class RoiConverter {
 				polyTrace.setProperties(roiCon);
 				return polyTrace;
 			}
+//			s = ShapeRoi.makeShapeFromArray(shapeArray);
+//			ShapeRoi srTrace = new com.vis.core.view.D2.roi.ShapeRoi(x,y,s, null);
 			ShapeRoi srTrace = new com.vis.core.view.D2.roi.ShapeRoi(shapeArray, null);
 			srTrace.setProperties(roiCon);//update text string
 			return srTrace;

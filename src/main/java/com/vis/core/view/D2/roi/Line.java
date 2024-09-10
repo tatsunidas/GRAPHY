@@ -44,7 +44,7 @@ public class Line extends RoiObj {
 	}
 
 	public Line(double ox1, double oy1, double ox2, double oy2, SlideGlass slide) {
-		super((int)(ox1+0.5), (int)(oy1+0.5), 0, 0, 0, slide);
+		super((ox1+0.5), (oy1+0.5), 0, 0, 0, slide);
 		type = RoiType.LINE.id();
 		updateCoordinates(ox1, oy1, ox2, oy2);
 		updateWideLine(lineWidth);

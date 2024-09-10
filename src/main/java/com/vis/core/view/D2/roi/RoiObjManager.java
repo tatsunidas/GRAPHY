@@ -1178,7 +1178,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				FloatPolygon fpg = roi.getFloatPolygon();
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
 				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
-				polyRoi.fitSpline(20);
+				polyRoi.fitSpline(100);
 				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}else if(type == RoiType.POLYGON.id()) {
 				PolygonRoi polyRoi = (PolygonRoi)roi;
@@ -1189,6 +1189,26 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				int num = poly.npoints;
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
+				/*
+				 * composite roi has too many points for spline fit.
+				 * Here, reduce points.
+				 */
+				if (num > 30) {
+					int sparse_points = 10;
+					int interval = (int) num / sparse_points;
+					int newSize = (int) Math.ceil((double) num / interval);
+					int[] sparseX = new int[newSize];
+					int[] sparseY = new int[newSize];
+					for (int i = 0, j = 0; i < num; i += interval, j++) {
+						sparseX[j] = xps[i];
+						sparseY[j] = yps[i];
+					}
+					PolygonRoi polyRoi = new PolygonRoi(new Polygon(sparseX, sparseY, newSize), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
+					polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
+					polyRoi.fitSpline(100);
+					s.replaceRoi(roi.getUIDs(), polyRoi);
+					continue;
+				}
 				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
 				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
 				polyRoi.fitSpline(100);
@@ -1196,7 +1216,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			}else if(type == RoiType.TRACED_ROI.id()) {
 				if(roi instanceof PolygonRoi) {
 					PolygonRoi polyRoi = (PolygonRoi)roi;
-					polyRoi.fitSpline(100);
+					polyRoi.fitSpline(20);
 				}else {
 					ShapeRoi sRoi = (ShapeRoi)roi;
 					Polygon poly = sRoi.getPolygon();//roi origin basis (pX-x,pY-y)
@@ -1205,7 +1225,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					int[] yps = poly.ypoints;
 					PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
 					polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
-					polyRoi.fitSpline(100);
+					polyRoi.fitSpline(20);
 					s.replaceRoi(roi.getUIDs(), polyRoi);
 				}
 			}
@@ -1236,7 +1256,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				FloatPolygon fpg = roi.getFloatPolygon();
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
 				polyRoi.setSlideGlass(s);
-				polyRoi.fitSpline(25);
+				polyRoi.fitSpline(100);
 				if(s != null) {
 					s.replaceRoi(roi.getUIDs(), polyRoi);
 				}
@@ -1246,12 +1266,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				int num = poly.npoints;
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
-				int originShiftX = (int)sRoi.getXBase();
-				int originShiftY = (int)sRoi.getYBase();
-				for(int i=0; i<num; i++) {
-					xps[i] = xps[i]-originShiftX;
-					yps[i] = yps[i]-originShiftY;
-				}
 				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
 				polyRoi.setSlideGlass(s);
 				polyRoi.fitSpline(100);
@@ -1274,9 +1288,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		//save to db
 		if (res != null && res.getSlideGlass() !=null) {
-			DatabaseHandler db = DatabaseHandler.getInstance();
-			db.insertRoi(res.readContext());
-			res.getSlideGlass().loadRoiFromDB();
+			res.getSlideGlass().addRoi(res);
+//			DatabaseHandler db = DatabaseHandler.getInstance();
+//			db.insertRoi(res.readContext());
+//			res.getSlideGlass().loadRoiFromDB();
 			updateState();
 		}else {
 			Log.logger.fine("RoiObjManager:combine() result does not have slideglass(i.e, image), cancel register to db");
@@ -1316,7 +1331,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				s1.or(s2);
 			}
 		}
-		//finally, s1 was become result of combined all rois.
+		//finally, s1 was combined all rois.
 		return s1;
 	}
 
@@ -1341,10 +1356,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 * AND
 	 * XOR
 	 */
-	
 	void split(){
 		if(selectedRois.size() != 1) {
-			JOptionPane.showConfirmDialog(this, "Select composite roi first...");
+			JOptionPane.showConfirmDialog(this, "Select a composite roi first...");
 			return;
 		}
 		String key = selectedRois.keySet().iterator().next();
@@ -1356,9 +1370,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(type != RoiType.COMPOSITE.id()) return;
 		RoiObj[] roiBlobs = ((ShapeRoi)roi).getRois();
 		for (int i=0; i<roiBlobs.length; i++) {
-			//TODO ! shift XY
-			roiBlobs[i].x -= roi.getXBase();
-			roiBlobs[i].y -= roi.getYBase();
 			slide.addRoi(roiBlobs[i]);
 		}
 		updateState();
@@ -1392,44 +1403,17 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					pointRoi = (PointRoi)roi;
 					continue;  //PointRoi will be handled at the end
 				}
-				if (roi instanceof ShapeRoi)
-					s1 = (ShapeRoi)roi.clone();
-				else
-					s1 = new ShapeRoi(roi);
-				if (s1==null) continue;
+				s1 = new ShapeRoi(roi);
 			} else {
 				if (nPointRois==1 && roi.getType()==Roi.POINT) {
 					pointRoi = (PointRoi)roi;
 					continue;  //PointRoi will be handled at the end
 				}
-				ShapeRoi s2 = null;
-				if (roi instanceof ShapeRoi)
-					s2 = (ShapeRoi)roi.clone();
-				else
-					s2 = new ShapeRoi(roi);
-				if (s2==null) continue;
+				ShapeRoi s2 = new ShapeRoi(roi);
 				s1.and(s2);
 			}
 		}
 		if (s1==null) return;
-//		java.awt.Shape poly = s1.getPolygon();
-		/*
-		 * see, ShapeRoi::getFloatPolygon
-		 * shape is always shifted baseXY.
-		 */
-		Polygon poly = s1.getPolygon();
-		int nPoint = poly.npoints;
-		int[] xps = poly.xpoints;
-		int[] yps = poly.ypoints;
-		for(int i=0; i<nPoint; i++) {
-			xps[i] = xps[i]-(int)(s1.getXBase());
-			yps[i] = yps[i]-(int)(s1.getYBase());
-//			xps[i] = slide.onOriginalImageX(xps[i]-slide.onDisplayImageX(s1.x));
-//			yps[i] = slide.onOriginalImageY(yps[i]-slide.onDisplayImageY(s1.y));
-		}
-		poly = new Polygon(xps, yps, nPoint);
-//		ShapeRoi shiftOrigin = new ShapeRoi(new PolygonRoi(xps, yps, num, PolygonRoi.POLYGON, slide));
-		s1 = new ShapeRoi(poly, slide);
 		if (pointRoi!=null) {
 			slide.addRoi(pointRoi.containedPoints(s1));
 		}else {
@@ -1438,6 +1422,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		updateState();
 	}
 
+	/**
+	 * 
+	 */
 	void xor() {
 		if (selectedRois.size() < 2) {
 			JOptionPane.showConfirmDialog(this, "More than one roi must be selected");
@@ -1449,11 +1436,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		RoiObj roi2 = RoiObj.xor(getSelectedRoisAsArray(selectedRois));
 		if (roi2!=null) {
-			RoiObj firstRoi = selectedRois.get(selectedRois.keySet().iterator().next());
-			SlideGlass slide = firstRoi.getSlideGlass();
-			if(slide != null) {
-				slide.addRoi(roi2);
-			}
+			roi2.getSlideGlass().addRoi(roi2);
 		}
 		updateState();
 	}

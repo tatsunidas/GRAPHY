@@ -15,6 +15,7 @@ import ij.measure.Calibration;
 public class OvalRoi extends RoiObj {
 
 	/** Creates an OvalRoi.*/
+	//Without subpixel resolution
 	public OvalRoi(int x, int y, int width, int height, SlideGlass slide) {
 		super(x, y, width, height, 0, slide);
 		type = RoiType.OVAL.id();

@@ -5,7 +5,6 @@ import java.awt.geom.*;
 import java.util.*;
 
 import com.vis.configuration.ContextKey;
-import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.process.*;
@@ -19,7 +18,7 @@ import ij.util.FloatArray;
  * This code is in the public domain.
  * @author Cezar M.Tigaret <c.tigaret@ucl.ac.uk>
  */
-@SuppressWarnings("serial")
+@SuppressWarnings({ "serial" })
 public class ShapeRoi extends RoiObj {
 
     /***/
@@ -44,7 +43,7 @@ public class ShapeRoi extends RoiObj {
      * respectively, in {@link ij.gui.Roi#FREELINE} and {@link ij.gui.Roi#FREEROI} (or
      * {@link ij.gui.Roi#TRACED_ROI} if {@link #forceTrace} flag is <strong><code>true</code></strong>.
      */
-    private static final int MAXPOLY = 10; // I hate arbitrary values !!!!
+    private static final int MAXPOLY = 1000; // I hate arbitrary values !!!!
 
     private static final int OR=0, AND=1, XOR=2, NOT=3;
 
@@ -82,9 +81,7 @@ public class ShapeRoi extends RoiObj {
     private boolean forceAngle = false;
     
     private Vector<RoiObj> savedRois; //not really used any more
-//    private static Stroke defaultStroke = new BasicStroke();
-
-
+    
     /** Constructs a ShapeRoi from an Roi. */
     public ShapeRoi(RoiObj r) {
         this(r, ShapeRoi.FLATNESS, ShapeRoi.MAXERROR, false, false, false, ShapeRoi.MAXPOLY, r.getSlideGlass());
@@ -101,6 +98,7 @@ public class ShapeRoi extends RoiObj {
 
     /** Constructs a ShapeRoi from a Shape. */
 	public ShapeRoi(int x, int y, Shape s/*offset subtracted*/, SlideGlass slide) {
+		//DO NOT USE origin in doubles to keep bounds null.
 		super(x, y, s.getBounds().width, s.getBounds().height, slide);
 		shape = new GeneralPath(s);
 		type = RoiType.COMPOSITE.id();
@@ -122,7 +120,8 @@ public class ShapeRoi extends RoiObj {
      */
 	ShapeRoi(RoiObj r, double flatness, double maxerror, boolean forceAngle, boolean forceTrace, boolean flatten,
 			int maxPoly, SlideGlass slide) {
-		super(r.startX, r.startY, r.width, r.height, 0, slide);//default
+		//DO NOT USE origin in doubles to keep bounds null.
+		super(r.startX, r.startY, r.width, r.height, 0/*cornerDiameter*/, slide);//default
 		this.type = RoiType.COMPOSITE.id();
 		this.flatness = flatness;
 		this.maxerror = maxerror;
@@ -133,17 +132,20 @@ public class ShapeRoi extends RoiObj {
 		shape = roiToShape(r);
 	}
 
-    /** Constructs a ShapeRoi from an array of variable length path segments. Each
-        segment consists of the segment type followed by 0-6 coordintes (0-3 end points and control
-        points). Depending on the type, a segment uses from 1 to 7 elements of the array. */
+	/**
+	 * Keep use int origin when call super() constructor.
+	 * @param shapeArray: origin shifted point array
+	 * @param slide
+	 */
     public ShapeRoi(float[] shapeArray, SlideGlass slide) {
-        super(0,0,0,0,0,slide);
+    	//DO NOT USE origin in doubles to keep bounds null.
+        super(0,0,0,0,0/*cornerDiameter*/,slide);
         shape = makeShapeFromArray(shapeArray);
         Rectangle r = shape.getBounds();
         x = r.x;
         y = r.y;
         width = r.width;
-        height = r.height;      
+        height = r.height;
         state = NORMAL;
         oldX=x; oldY=y; oldWidth=width; oldHeight=height;               
         AffineTransform at = new AffineTransform();
@@ -169,6 +171,10 @@ public class ShapeRoi extends RoiObj {
     	con.put("Height", height);	
 		con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
 		con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
+		/*
+		 * if you want (0,0) origin shape float array,
+		 * use getShapeAsArray(shape,0,0)
+		 */
     	con.put("Shape", fArray2dArray(getShapeAsArray()));
     	return con;
     }
@@ -250,7 +256,8 @@ public class ShapeRoi extends RoiObj {
 		Rectangle r = a1.getBounds();
 		at = new AffineTransform();
 		at.translate(-r.x, -r.y);
-		setShape(new GeneralPath(at.createTransformedShape(a1)));
+		Shape newShape = new GeneralPath(at.createTransformedShape(a1));
+		setShape(newShape);
 		x = r.x;
 		y = r.y;
 		cachedMask = null;
@@ -285,20 +292,14 @@ public class ShapeRoi extends RoiObj {
      * @return A java.awt.geom.* object that inherits from java.awt.Shape interface.
      *
      */
-	private Shape roiToShape(RoiObj roiOrg) {
-		RoiObj roi = null;
-		if (roiOrg.isLine()) {
-			roi = RoiObj.convertLineToArea((RoiObj) roiOrg);
-		} else {
-			roi = roiOrg;
-		}
+	private Shape roiToShape(RoiObj roi) {
 		Shape shape = null;
 		Rectangle r = roi.getBounds();
 		boolean closeShape = true;
 		int roiType = roi.getType();
 		RoiType t = RoiType.find(roiType);
 		switch (t) {
-		case LINE:
+		case LINE://just line, not area.
 			Line line = (Line) roi;
 			shape = new Line2D.Double((double) (line.x1 - r.x), (double) (line.y1 - r.y), (double) (line.x2 - r.x),
 					(double) (line.y2 - r.y));
@@ -488,34 +489,40 @@ public class ShapeRoi extends RoiObj {
         </table>
      * @return an array of ij.gui.Roi objects.
      */
-    public RoiObj[] getRois () {
-        if (shape==null)
-            return new RoiObj[0];
-        if (savedRois!=null)
-            return (RoiObj[])savedRois.toArray(new RoiObj[savedRois.size()]);
-        ArrayList<RoiObj> rois = new ArrayList<RoiObj>();
-        if (shape instanceof Rectangle2D.Double) {
-            RoiObj r = new RoiObj((int)((Rectangle2D.Double)shape).getX(), (int)((Rectangle2D.Double)shape).getY(), (int)((Rectangle2D.Double)shape).getWidth(), (int)((Rectangle2D.Double)shape).getHeight(), 0, getSlideGlass());
-            rois.add(r);
-        } else if (shape instanceof Ellipse2D.Double) {
-            RoiObj r = new OvalRoi((int)((Ellipse2D.Double)shape).getX(), (int)((Ellipse2D.Double)shape).getY(), (int)((Ellipse2D.Double)shape).getWidth(), (int)((Ellipse2D.Double)shape).getHeight(),getSlideGlass());
-            rois.add(r);
-        } else if (shape instanceof Line2D.Double) {
-        	RoiObj r = new Line((int)((Line2D.Double)shape).getX1(), (int)((Line2D.Double)shape).getY1(), (int)((Line2D.Double)shape).getX2(), (int)((Line2D.Double)shape).getY2(), getSlideGlass());
-            rois.add(r);
-        } else if (shape instanceof Polygon) {
-        	RoiObj r = new PolygonRoi(((Polygon)shape).xpoints, ((Polygon)shape).ypoints, ((Polygon)shape).npoints, RoiType.POLYGON.id(), getSlideGlass());
-            rois.add(r);
-        } else {
-            PathIterator pIter;
-            if (flatten)
-                pIter = getFlatteningPathIterator(shape,flatness);
-            else
-                pIter = shape.getPathIterator(new AffineTransform());
-            parsePath(pIter, ALL_ROIS, rois);
-        }
-        return (RoiObj[])rois.toArray(new RoiObj[rois.size()]);
-    }
+	public RoiObj[] getRois() {
+		if (shape == null)
+			return new RoiObj[0];
+		if (savedRois != null)
+			return (RoiObj[]) savedRois.toArray(new RoiObj[savedRois.size()]);
+		ArrayList<RoiObj> rois = new ArrayList<RoiObj>();
+		if (shape instanceof Rectangle2D.Double) {
+			RoiObj r = new RoiObj((int) ((Rectangle2D.Double) shape).getX(), (int) ((Rectangle2D.Double) shape).getY(),
+					(int) ((Rectangle2D.Double) shape).getWidth(), (int) ((Rectangle2D.Double) shape).getHeight(), 0,
+					getSlideGlass());
+			rois.add(r);
+		} else if (shape instanceof Ellipse2D.Double) {
+			RoiObj r = new OvalRoi((int) ((Ellipse2D.Double) shape).getX(), (int) ((Ellipse2D.Double) shape).getY(),
+					(int) ((Ellipse2D.Double) shape).getWidth(), (int) ((Ellipse2D.Double) shape).getHeight(),
+					getSlideGlass());
+			rois.add(r);
+		} else if (shape instanceof Line2D.Double) {
+			RoiObj r = new Line((int) ((Line2D.Double) shape).getX1(), (int) ((Line2D.Double) shape).getY1(),
+					(int) ((Line2D.Double) shape).getX2(), (int) ((Line2D.Double) shape).getY2(), getSlideGlass());
+			rois.add(r);
+		} else if (shape instanceof Polygon) {
+			RoiObj r = new PolygonRoi(((Polygon) shape).xpoints, ((Polygon) shape).ypoints, ((Polygon) shape).npoints,
+					RoiType.POLYGON.id(), getSlideGlass());
+			rois.add(r);
+		} else {
+			PathIterator pIter;
+			if (flatten)
+				pIter = getFlatteningPathIterator(shape, flatness);
+			else
+				pIter = shape.getPathIterator(new AffineTransform());
+			parsePath(pIter, ALL_ROIS, rois);
+		}
+		return (RoiObj[]) rois.toArray(new RoiObj[rois.size()]);
+	}
 
 
     /**Attempts to convert this ShapeRoi into a single non-composite Roi.
@@ -988,11 +995,12 @@ public class ShapeRoi extends RoiObj {
 		
 		Shape clone = cloneShape(shape);
 		if (slide != null) {
-			clone = aTx.createTransformedShape(clone);
-			aTx = new AffineTransform();
-			double roiOX = getXBase(); 
+			double roiOX = getXBase();// bounds is not using in ShapeRoi.
 			double roiOY = getYBase();
-			Log.logger.fine("roiX:"+roiOX+", roiOY:"+roiOY);
+			if((int)roiOX != x && (int)roiOY != y) {
+				roiOX = x;
+				roiOY = y;
+			}
 			aTx.scale(mag * scale[0], mag * scale[1]);
 			aTx.translate(roiOX, roiOY);
 			clone = aTx.createTransformedShape(clone);

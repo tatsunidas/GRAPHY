@@ -611,19 +611,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			if (roi == null)
 				continue;
 			if (s1 == null) {
-				if (roi instanceof ShapeRoi)
-					s1 = (ShapeRoi) roi.clone();
-				else
-					s1 = new ShapeRoi(roi);
-				if (s1 == null)
-					return null;
+				s1 = new ShapeRoi(roi);
 			} else {
-				if (roi instanceof ShapeRoi)
-					s2 = (ShapeRoi) roi.clone();
-				else
-					s2 = new ShapeRoi(roi);
-				if (s2 == null)
-					continue;
+				s2 = new ShapeRoi(roi);
 				s1.xor(s2);
 			}
 		}
@@ -646,6 +636,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/*
 	 * new RoiObj(x,y,w,h,0); w and h are can be 0. x and y are keep original image
 	 * coordinates basis.
+	 * Without subPixelResolution
 	 */
 	public RoiObj(int x, int y, int width, int height, int cornerDiameter, SlideGlass sg) {
 		setSlideGlass(sg);
@@ -873,15 +864,14 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/**
 	 * 
 	 * @param g
-	 * @param sx
-	 * @param sy
+	 * @param x
+	 * @param y
 	 */
-	public void drawHandle(Graphics g, int sx, int sy) {
+	public void drawHandle(Graphics g, int x, int y) {
 		double mag = getMagnification();
 		int threshold1 = 7500;
 		int threshold2 = 1500;
-		double[] scaleXY = getComponentScaleFactor();
-		double size = (this.width * this.height) * mag * mag * scaleXY[0] * scaleXY[1];
+		double size = (this.width * this.height) * mag * mag;
 		if (this instanceof Line) {
 			size = ((Line) this).getLength() * mag;
 			threshold1 = 150;
@@ -891,33 +881,33 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 				size = threshold1 + 1;
 		}
 		int width = 7;
-		int x0 = sx, y0 = sy;
+		int x0 = x, y0 = y;
 		if (size > threshold1) {
-			sx -= 3;
-			sy -= 3;
+			x -= 3;
+			y -= 3;
 		} else if (size > threshold2) {
-			sx -= 2;
-			sy -= 2;
+			x -= 2;
+			y -= 2;
 			width = 5;
 		} else {
-			sx--;
-			sy--;
+			x--;
+			y--;
 			width = 3;
 		}
 		int inc = getHandleSize() - 7;
 		width += inc;
-		sx -= inc / 2;
-		sy -= inc / 2;
+		x -= inc / 2;
+		y -= inc / 2;
 		g.setColor(Color.darkGray);
 		if (width < 3) {
 			g.fillRect(x0, y0, 1, 1);
 			return;
 		}
-		g.fillRect(sx++, sy++, width, width);
+		g.fillRect(x++, y++, width, width);
 		handleColor = strokeColor != null? strokeColor: ROIColor;
 		g.setColor(handleColor);
 		width -= 2;
-		g.fillRect(sx, sy, width, width);
+		g.fillRect(x, y, width, width);
 	}
 
 	/**
@@ -2356,8 +2346,11 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			return;
 		x += dx;
 		y += dy;
-		if (bounds!=null)
+		if (bounds!=null && !(this instanceof ShapeRoi)){//tatsu
 			setLocation(bounds.x + dx, bounds.y + dy);
+		}else {
+			setLocation(x, y);
+		}
 		boolean isImageRoi = this instanceof ImageRoi;
 		if (clipboard==null && type==RoiType.RECTANGLE.id() && !isImageRoi) {
 			if (x<0) x=0; if (y<0) y=0;
