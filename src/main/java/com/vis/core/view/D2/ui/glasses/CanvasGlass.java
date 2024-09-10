@@ -319,6 +319,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String sopUID = uids.get(ContextKey.SOPInstanceUID);
 		String roiID = uids.get(ContextKey.RoiID);
 		deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+		if(brushTool != null) {
+			brushTool.clearCurrentBrushingRoi();
+		}
 	}
 
 	public void deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId) {
@@ -731,7 +734,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mouseMoved(MouseEvent e) {
-		int toolType = Viewer2DScreen.getInstance().getCurrentToolType();
+//		int toolType = Viewer2DScreen.getInstance().getCurrentToolType();
 		if(pp.getReferenceLine() != null) {
 			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
 			if(refLine != null) {
@@ -740,14 +743,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		//update currentRoi
 		activateAndGetCurrentRoiAt(e.getX(), e.getY());
-		if(toolType == Viewer2DToolBar.Brush) {
-			if(brushTool == null) {
-				brushTool = new RoiBrush(sg, e, false);
-			}
-			if(currentRoi != null) {
-				brushTool.setCurrentBrushingRoi(currentRoi);
-			}
-		}
 		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
 		int type = currentRoi != null ? currentRoi.getType() : -1;
 		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()||type==RoiType.MULTIPOINT.id()) 
@@ -1124,16 +1119,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(roiToReplace == null) {
 			return;
 		}
-		String candidateRoiID = roiToReplace.getProperty(ContextKey.RoiID.name());
 		if (roiset != null && roiset.size() > 0) {
 			for (RoiObj roi : roiset) {
 				if (roi.isThisRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId)) {
-					if(roiToReplace.getProperty(ContextKey.RoiID.name()).equals(candidateRoiID)) {
-						updateRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, candidateRoiID, roiToReplace);
-					}else {
-						deleteRoi(roi);
-						addRoi(roiToReplace);
-					}
+					updateRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId, roiToReplace);
 					break;
 				}
 			}
@@ -1408,21 +1397,26 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * @param roiInd
 	 * @param updatedRoi : attached attributes should be same to original roi.
 	 */
-	public void updateRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiInd, RoiObj updatedRoi) {
-		if(updatedRoi == null) {
+	public void updateRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId, RoiObj willUpdateRoi) {
+		if(willUpdateRoi == null) {
 			return;
 		}
 		int ind = -1;
 		if (roiset != null && roiset.size() > 0) {
 			for(int i=0;i<roiset.size();i++) {
-				if (roiset.get(i).isThisRoi(patID, studyUID, seriesUID, sopUID, roiInd)) {
+				if (roiset.get(i).isThisRoi(patID, studyUID, seriesUID, sopUID, roiId)) {
 					ind = i;
 					break;
 				}
 			}
 			if(ind != -1) {
-				roiset.set(ind, updatedRoi);
-				insertOrUpdateRoi4DB(updatedRoi);// saveRoi to db
+				willUpdateRoi.setProperty(ContextKey.PatientID, patID);
+				willUpdateRoi.setProperty(ContextKey.StudyInstanceUID, studyUID);
+				willUpdateRoi.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
+				willUpdateRoi.setProperty(ContextKey.SOPInstanceUID, sopUID);
+				willUpdateRoi.setProperty(ContextKey.RoiID, roiId);
+				roiset.set(ind, willUpdateRoi);
+				insertOrUpdateRoi4DB(willUpdateRoi);// saveRoi to db
 			}
 		}
 	}

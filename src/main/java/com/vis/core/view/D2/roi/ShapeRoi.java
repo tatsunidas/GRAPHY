@@ -232,7 +232,6 @@ public class ShapeRoi extends RoiObj {
      */
     public ShapeRoi not(ShapeRoi sr) {return unaryOp(sr, NOT);}
 
-    //tatsu
 	ShapeRoi unaryOp(ShapeRoi sr, int op) {
 		AffineTransform at = new AffineTransform();
 		at.translate(x, y);
@@ -256,35 +255,6 @@ public class ShapeRoi extends RoiObj {
 		y = r.y;
 		cachedMask = null;
 		return this;
-		//20240828
-//		if(sr == null) {
-//			return this;
-//		}
-//		Area a1 = new Area(getShape());
-//		Area a2 = new Area(sr.getShape());
-//		try {
-//			switch (op) {
-//			case OR:
-//				a1.add(a2);
-//				break;
-//			case AND:
-//				a1.intersect(a2);
-//				break;
-//			case XOR:
-//				a1.exclusiveOr(a2);
-//				break;
-//			case NOT:
-//				a1.subtract(a2);
-//				break;
-//			}
-//		} catch (Exception e) {
-//		}
-//		Rectangle r = a1.getBounds();
-//		setShape(new GeneralPath(a1));
-//		x = r.x;
-//		y = r.y;
-//		cachedMask = null;
-//		return this;
 	}
 
     /**********************************************************************************/
@@ -315,93 +285,101 @@ public class ShapeRoi extends RoiObj {
      * @return A java.awt.geom.* object that inherits from java.awt.Shape interface.
      *
      */
-    private Shape roiToShape(RoiObj roiOrg) {
-    	RoiObj roi = null;
-        if (roiOrg.isLine()) {
-        	roi =RoiObj.convertLineToArea((RoiObj)roiOrg);
-        }else {
-        	roi = roiOrg;
-        }
-        Shape shape = null;
-        Rectangle r = roi.getBounds();
-        boolean closeShape = true;
-        int roiType = roi.getType();
-        RoiType t = RoiType.find(roiType);
-        switch(t) {
-            case LINE:
-                Line line = (Line)roi;              
-                shape = new Line2D.Double ((double)(line.x1-r.x), (double)(line.y1-r.y), (double)(line.x2-r.x), (double)(line.y2-r.y) );
-                break;
-            case RECTANGLE:
-                int arcSize = roi.getCornerDiameter();
-                if (arcSize>0)
-                    shape = new RoundRectangle2D.Double(r.x, r.y, r.width, r.height, arcSize, arcSize);
-                else
-                    shape = new Rectangle2D.Double(r.x, r.y, (double)r.width, (double)r.height);
-                break;
-            case POLYLINE: case FREELINE: case ANGLE:
-                closeShape = false;
-            case POLYGON: case FREEROI: case TRACED_ROI: case OVAL:
-                if (t == RoiType.OVAL) {
-                    shape = ((OvalRoi)roi).getPolygon();
-                } else if (closeShape && !roi.subPixelResolution()) {
-                    int nPoints =((PolygonRoi)roi).getNCoordinates();
-                    int[] xCoords = ((PolygonRoi)roi).getXCoordinates();
-                    int[] yCoords = ((PolygonRoi)roi).getYCoordinates();
-                    shape = new Polygon(xCoords, yCoords, nPoints);
-                } else {
-                    FloatPolygon floatPoly = roi.getFloatPolygon();
-                    if (floatPoly.npoints <=1) break;
-                    shape = new GeneralPath(closeShape ? GeneralPath.WIND_EVEN_ODD : GeneralPath.WIND_NON_ZERO, floatPoly.npoints);
-                    ((GeneralPath)shape).moveTo(floatPoly.xpoints[0], floatPoly.ypoints[0]);
-                    for (int i=1; i<floatPoly.npoints; i++)
-                        ((GeneralPath)shape).lineTo(floatPoly.xpoints[i], floatPoly.ypoints[i]);
-                    if (closeShape)
-                        ((GeneralPath)shape).closePath();
-                }
-                break;
-            case POINT:
-                ImageProcessor mask = roi.getMask();
-                byte[] maskPixels = (byte[])mask.getPixels();
-                int maskWidth = mask.getWidth();
-                Area area = new Area();
-                for (int y=0; y<mask.getHeight(); y++) {
-                    int yOffset = y*maskWidth;
-                    for (int x=0; x<maskWidth; x++) {
-                        if (maskPixels[x+yOffset]!=0)
-                            area.add(new Area(new Rectangle(x, y, 1, 1)));
-                    }
-                }
-                shape = area;
-                break;
-            case COMPOSITE: shape = ShapeRoi.cloneShape(((ShapeRoi)roi).getShape());
-                break;
-            default:
-                throw new IllegalArgumentException("Roi type not supported");
-        }
+	private Shape roiToShape(RoiObj roiOrg) {
+		RoiObj roi = null;
+		if (roiOrg.isLine()) {
+			roi = RoiObj.convertLineToArea((RoiObj) roiOrg);
+		} else {
+			roi = roiOrg;
+		}
+		Shape shape = null;
+		Rectangle r = roi.getBounds();
+		boolean closeShape = true;
+		int roiType = roi.getType();
+		RoiType t = RoiType.find(roiType);
+		switch (t) {
+		case LINE:
+			Line line = (Line) roi;
+			shape = new Line2D.Double((double) (line.x1 - r.x), (double) (line.y1 - r.y), (double) (line.x2 - r.x),
+					(double) (line.y2 - r.y));
+			break;
+		case RECTANGLE:
+			int arcSize = roi.getCornerDiameter();
+			if (arcSize > 0)
+				shape = new RoundRectangle2D.Double(0, 0, r.width, r.height, arcSize, arcSize);
+			else
+				shape = new Rectangle2D.Double(0, 0, (double) r.width, (double) r.height);
+			break;
+		case POLYLINE:
+		case FREELINE:
+		case ANGLE:
+			closeShape = false;
+		case POLYGON:
+		case FREEROI:
+		case TRACED_ROI:
+		case OVAL:
+			if (t == RoiType.OVAL) {
+				shape = ((OvalRoi) roi).getPolygon(false);
+			} else if (closeShape && !roi.subPixelResolution()) {
+				int nPoints = ((PolygonRoi) roi).getNCoordinates();
+				int[] xCoords = ((PolygonRoi) roi).getXCoordinates();
+				int[] yCoords = ((PolygonRoi) roi).getYCoordinates();
+				shape = new Polygon(xCoords, yCoords, nPoints);
+			} else {
+				FloatPolygon floatPoly = roi.getFloatPolygon();
+				if (floatPoly.npoints <= 1)
+					break;
+				shape = new GeneralPath(closeShape ? GeneralPath.WIND_EVEN_ODD : GeneralPath.WIND_NON_ZERO,
+						floatPoly.npoints);
+				((GeneralPath) shape).moveTo(floatPoly.xpoints[0] - r.x, floatPoly.ypoints[0] - r.y);
+				for (int i = 1; i < floatPoly.npoints; i++)
+					((GeneralPath) shape).lineTo(floatPoly.xpoints[i] - r.x, floatPoly.ypoints[i] - r.y);
+				if (closeShape)
+					((GeneralPath) shape).closePath();
+			}
+			break;
+		case POINT:
+			ImageProcessor mask = roi.getMask();
+			byte[] maskPixels = (byte[]) mask.getPixels();
+			int maskWidth = mask.getWidth();
+			Area area = new Area();
+			for (int y = 0; y < mask.getHeight(); y++) {
+				int yOffset = y * maskWidth;
+				for (int x = 0; x < maskWidth; x++) {
+					if (maskPixels[x + yOffset] != 0)
+						area.add(new Area(new Rectangle(x, y, 1, 1)));
+				}
+			}
+			shape = area;
+			break;
+		case COMPOSITE:
+			shape = ShapeRoi.cloneShape(((ShapeRoi) roi).getShape());
+			break;
+		default:
+			throw new IllegalArgumentException("Roi type not supported");
+		}
 
-        if (shape!=null) {
-            setLocation(r.x, r.y);
-            Rectangle2D shapeBounds = shape.getBounds2D();
-            Rectangle2D.Double sBounds = null;
-            if (shapeBounds instanceof Rectangle2D.Double)
-                sBounds = (Rectangle2D.Double)shapeBounds;
-            else {
-                sBounds = new Rectangle2D.Double();
-                sBounds.setRect(shapeBounds);  //convert to Rectangle2D.Double
-            }
-            //TODO
-            width  = (int)(Math.max(sBounds.x, 0) + sBounds.width + 0.5);
-            height = (int)(Math.max(sBounds.y, 0) + sBounds.height+ 0.5);
-            if (bounds != null) {
-                bounds.width = width;
-                bounds.height = height;
-            }
-            this.startX = r.x;
-            this.startY = r.y;
-        }
-        return shape;
-    }
+		if (shape != null) {
+			setLocation(r.x, r.y);
+			Rectangle2D shapeBounds = shape.getBounds2D();
+			Rectangle2D.Double sBounds = null;
+			if (shapeBounds instanceof Rectangle2D.Double)
+				sBounds = (Rectangle2D.Double) shapeBounds;
+			else {
+				sBounds = new Rectangle2D.Double();
+				sBounds.setRect(shapeBounds); // convert to Rectangle2D.Double
+			}
+			width = (int) (Math.max(sBounds.x, 0) + sBounds.width + 0.5);
+			height = (int) (Math.max(sBounds.y, 0) + sBounds.height + 0.5);
+			if (bounds != null) {
+				bounds.width = width;
+				bounds.height = height;
+			}
+			this.startX = r.x;
+			this.startY = r.y;
+		}
+		return shape;
+	}
 
     /** Constructs a GeneralPath from a float array of segment type+coordinates for each segment. 
      *  The resulting GeneralPath has winding rule WIND_EVEN_ODD, which is appropriate for closed shapes */

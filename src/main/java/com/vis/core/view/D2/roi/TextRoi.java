@@ -127,6 +127,7 @@ public class TextRoi extends RoiObj {
 		textArea.setForeground(ROIColor);
 		textArea.setCaretColor(ROIColor);
 		textArea.setName(getProperty(ContextKey.RoiID.name()));
+		setFocusable(false);//when created, state is no editable.
 		if(getText() == null || getText().length()==0) {
 			textArea.setText(line1a);
 		}else {
@@ -180,8 +181,8 @@ public class TextRoi extends RoiObj {
 			Log.logger.fine("TextRoi, Can not draw, because text is null.");
 			return;
 		}
-		
-		while (i < MAX_LINES && lines[i] != null) {
+		int num = lines.length;
+		while (i < MAX_LINES && i < num) {
 			switch (justification) {
 			case LEFT:
 				ip.drawString(lines[i], xi, yi + yy + fontHeight);
@@ -642,6 +643,12 @@ public class TextRoi extends RoiObj {
     }
     
     public void setFocusable(boolean enable) {
+    	if(slide == null) {
+    		/*
+    		 * When starting-up, component call setFocus.
+    		 */
+    		return;
+    	}
     	if(enable) {
     		textArea.setFocusable(true);
     		textArea.requestFocusInWindow();

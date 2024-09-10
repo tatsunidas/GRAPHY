@@ -38,13 +38,13 @@
 package com.vis.core.view.D2.roi;
 
 public enum RoiType {
-	//area
+	//area, see also RoiObj.isArea()
 	RECTANGLE(ij.gui.Roi.RECTANGLE),
 	OVAL(ij.gui.Roi.OVAL),
 	POLYGON(ij.gui.Roi.POLYGON),
 	FREEROI(ij.gui.Roi.FREEROI),//Closed freehand roi
-	TRACED_ROI(ij.gui.Roi.TRACED_ROI),
-	COMPOSITE(ij.gui.Roi.COMPOSITE),
+	TRACED_ROI(ij.gui.Roi.TRACED_ROI),//Closed roi (see, ij.gui.Roi.isArea())
+	COMPOSITE(ij.gui.Roi.COMPOSITE),//Closed multiple roi
 	//line
 	LINE(ij.gui.Roi.LINE),
 	POLYLINE(ij.gui.Roi.POLYLINE),

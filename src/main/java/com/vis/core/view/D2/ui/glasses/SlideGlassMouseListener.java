@@ -53,8 +53,6 @@ import javax.swing.SwingUtilities;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
-import com.vis.core.view.D2.roi.RoiObj;
-import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
@@ -89,7 +87,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int mod = e.getModifiersEx();
 		
 		viewerToolType = pp.getViewer2DToolType();
-		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		
 		if (!pp.isProcessSeries()) {
 			slide.mouseX = e.getX();
@@ -103,6 +100,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 		}
 		
+//		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 //		RoiObj roi = cg.activateAndGetCurrentRoiAt(slide.mouseX, slide.mouseY);
 		
 		wheelRotationAccumulator += rotation;

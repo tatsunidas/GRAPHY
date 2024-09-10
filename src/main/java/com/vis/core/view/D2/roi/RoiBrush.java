@@ -122,6 +122,10 @@ public class RoiBrush {
 //        });
 	}
 	
+	public void clearCurrentBrushingRoi() {
+		currentBrushingRoi = null;
+	}
+	
 	/**
 	 * brush dragged
 	 */
@@ -190,6 +194,7 @@ public class RoiBrush {
 		if(currentBrushingRoi != null) {
 			slide.saveRoi(currentBrushingRoi);
 		}
+		clearCurrentBrushingRoi();
 		slide.setRoiBrush(null);
 		slide.repaint();
 	}

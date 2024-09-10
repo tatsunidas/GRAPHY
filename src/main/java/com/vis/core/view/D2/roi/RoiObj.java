@@ -361,7 +361,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					}
 					polygonFiller.setPolygon(xt, yt, 3, 0.5f, 0.5f);
 					polygonFiller.fillByteProcessorMask(ip);
-					// ovly.add(new PolygonRoi(xt,yt,Roi.POLYGON));
 				}
 				dx0 = dx1;
 				dy0 = dy1;
@@ -375,15 +374,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					dy1 = dy1 / l;
 				}
 			}
-			// IJ.getImage().setOverlay(ovly);
 			ip.setThreshold(255, 255, ImageProcessor.NO_LUT_UPDATE);
 			ThresholdToSelection tts = new ThresholdToSelection();
 			roi2 = tts.convert(ip);
-			roiObj2 = new RoiConverter().convert2RoiObj(roi2);
-			roiObj2.setSlideGlass(line.getSlideGlass());
 		}
-		if (roiObj2 == null)
+		if(roi2 == null) {
 			return null;
+		}
+		roiObj2 = new RoiConverter().convert2RoiObj(roi2);
+		roiObj2.setSlideGlass(line.getSlideGlass());
 		transferProperties(line, roiObj2);
 		roiObj2.setStrokeWidth(0);
 		Color c = roiObj2.getStrokeColor();
@@ -2141,12 +2140,12 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	/** Returns 'true' if this is a line selection. */
 	public boolean isLine() {
-		return type >= RoiType.LINE.id() && type <= RoiType.ANGLE.id();
+		return type >= RoiType.LINE.id() && type <= RoiType.ANGLE.id() || type == RoiType.ARROW.id();
 	}
 
 	/** Return 'true' if this is a line or point selection. */
 	protected boolean isLineOrPoint() {
-		return isLine() || type == RoiType.POINT.id();
+		return isLine() || type == RoiType.POINT.id() || type == RoiType.MULTIPOINT.id();
 	}
 
 	public boolean isThisRoi(RoiObj roi) {
@@ -2250,10 +2249,19 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return magnificationForSubPixel(getMagnification());
 	}
 
+	/**
+	 * add modify history
+	 * 
+	 * TODO remove saveRoi() in here...
+	 */
 	void modifyRoi() {
 		if (previousRoi == null || previousRoi.modState == NO_MODS || imp==null) {
+			/*
+			 * DO NOT DO THIS
+			 * this will cause Roi creation not intend.  
+			 */
 			if (slide != null) {
-				slide.saveRoi(this);
+//				slide.saveRoi(this);
 			}
 			return ;
 		}
@@ -3002,6 +3010,10 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 				}
 			}
 		}
+	}
+	
+	public void setProperty(ContextKey key, String value) {
+		setProperty(key.name(), value);
 	}
 
 	public void setProperty(String key, String value) {

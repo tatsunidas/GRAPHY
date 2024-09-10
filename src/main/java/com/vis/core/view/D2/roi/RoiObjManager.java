@@ -310,29 +310,25 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 
 	void addPopupMenu() {
 		pm = new JPopupMenu();
-		addPopupItem(RoiFunctions.Open.name());
+		//functional features
 		addPopupItem(RoiFunctions.Save.name());
-		addPopupItem(RoiFunctions.Fill.name());
-		addPopupItem(RoiFunctions.Draw.name());
-		addPopupItem(RoiFunctions.Capture.name());
+		addPopupItem(RoiFunctions.Open.name());
+//		addPopupItem(RoiFunctions.Fill.name());//not tested
+//		addPopupItem(RoiFunctions.Draw.name());//not tested
+		addPopupItem(RoiFunctions.Capture.name());//not tested
+		pm.addSeparator();
+		
+		//roi edit
+		addPopupItem(RoiFunctions.OR_Combine.name());
 		addPopupItem(RoiFunctions.Split.name());
 		addPopupItem(RoiFunctions.AND.name());
-		addPopupItem(RoiFunctions.OR_Combine.name());
 		addPopupItem(RoiFunctions.XOR.name());
 		addPopupItem(RoiFunctions.SplineFit.name());
 		addPopupItem(RoiFunctions.ConvertToPolygon.name());
-//		addPopupItem("Multi Measure");
-//		addPopupItem("Multi Plot");
-//		addPopupItem("Multi Crop");
-//		addPopupItem("Sort");
-//		addPopupItem("Specify...");
-//		addPopupItem("Remove Positions...");
+		
 //		addPopupItem("Labels...");
-//		addPopupItem("List");
 //		addPopupItem("Interpolate ROIs");
 //		addPopupItem("Translate...");
-//		addPopupItem("Help");
-//		addPopupItem("Options...");
 	}
 	
 	void addButton(String label) {
@@ -1168,7 +1164,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	
 	void splineFit() {
 		if(selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select polygon roi first...");
+			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
 		Set<String> keys = selectedRois.keySet();
@@ -1177,45 +1173,41 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			if (roi==null) continue;
 			SlideGlass s = roi.getSlideGlass();
 			int type = roi.getType();
-			if(type != RoiType.RECTANGLE.id() && type!=RoiType.POLYGON.id() && type!=RoiType.COMPOSITE.id()) {
-				continue;
-			}
+			if(!roi.isArea()) continue;
 			if(type == RoiType.RECTANGLE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), s);
+				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
+				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
 				polyRoi.fitSpline(20);
-				String rid = roi.getProperty(ContextKey.RoiID.name());
-				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
-				if(s != null) {
-					s.replaceRoi(roi.getUIDs(), polyRoi);
-				}
+				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}else if(type == RoiType.POLYGON.id()) {
 				PolygonRoi polyRoi = (PolygonRoi)roi;
 				polyRoi.fitSpline(100);
 			}else if(type == RoiType.COMPOSITE.id()) {
 				ShapeRoi sRoi = (ShapeRoi)roi;
-				Polygon poly = sRoi.getPolygon();
+				Polygon poly = sRoi.getPolygon();//roi origin basis (pX-x,pY-y)
 				int num = poly.npoints;
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
-				int originShiftX;
-				int originShiftY;
-				if(!s.panningFlag) {
-					originShiftX = sRoi.x;
-					originShiftY = sRoi.y;
-				}else {
-					originShiftX = (int)(sRoi.x * s.getScaleFactor()[0]);
-					originShiftY = (int)(sRoi.y * s.getScaleFactor()[1]);
-				}
-				for(int i=0; i<num; i++) {
-					xps[i] = xps[i]-originShiftX;
-					yps[i] = yps[i]-originShiftY;
-				}
-				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), s);
+				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
+				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
 				polyRoi.fitSpline(100);
-				String rid = roi.getProperty(ContextKey.RoiID.name());
-				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
 				s.replaceRoi(roi.getUIDs(), polyRoi);
+			}else if(type == RoiType.TRACED_ROI.id()) {
+				if(roi instanceof PolygonRoi) {
+					PolygonRoi polyRoi = (PolygonRoi)roi;
+					polyRoi.fitSpline(100);
+				}else {
+					ShapeRoi sRoi = (ShapeRoi)roi;
+					Polygon poly = sRoi.getPolygon();//roi origin basis (pX-x,pY-y)
+					int num = poly.npoints;
+					int[] xps = poly.xpoints;
+					int[] yps = poly.ypoints;
+					PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
+					polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
+					polyRoi.fitSpline(100);
+					s.replaceRoi(roi.getUIDs(), polyRoi);
+				}
 			}
 			updateState();
 		}
@@ -1242,10 +1234,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			
 			if(type != RoiType.COMPOSITE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), s);
+				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
+				polyRoi.setSlideGlass(s);
 				polyRoi.fitSpline(25);
-				String rid = roi.getProperty(ContextKey.RoiID.name());
-				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
 				if(s != null) {
 					s.replaceRoi(roi.getUIDs(), polyRoi);
 				}
@@ -1261,10 +1252,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					xps[i] = xps[i]-originShiftX;
 					yps[i] = yps[i]-originShiftY;
 				}
-				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), s);
+				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
+				polyRoi.setSlideGlass(s);
 				polyRoi.fitSpline(100);
-				String rid = roi.getProperty(ContextKey.RoiID.name());
-				polyRoi.setProperty(ContextKey.RoiID.name(), rid);
 				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}
 			updateState();
@@ -1283,7 +1273,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			res = combineRois(selectedRois);
 		}
 		//save to db
-		if (res.getSlideGlass() !=null) {
+		if (res != null && res.getSlideGlass() !=null) {
 			DatabaseHandler db = DatabaseHandler.getInstance();
 			db.insertRoi(res.readContext());
 			res.getSlideGlass().loadRoiFromDB();
@@ -1311,22 +1301,18 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		com.vis.core.view.D2.roi.ShapeRoi s1=null, s2=null;
 		for(String key : rois.keySet()) {
 			RoiObj roi = rois.get(key);
-			if (!roi.isArea() && roi.getType()!=RoiType.POINT.id()) {
-				roi = RoiObj.convertLineToArea(roi);
+			RoiObj roi_ = null;
+			if (!roi.isArea() && (roi.getType()!=RoiType.POINT.id() && roi.getType()!=RoiType.MULTIPOINT.id())) {
+				roi_ = RoiObj.convertLineToArea(roi);
+			}else {
+				roi_ = roi;
 			}
 			//first time loop
 			if (s1==null) {
-				if (roi instanceof com.vis.core.view.D2.roi.ShapeRoi) {
-					s1 = (com.vis.core.view.D2.roi.ShapeRoi)roi;
-				}else {
-					s1 = new com.vis.core.view.D2.roi.ShapeRoi(roi);
-				}
+				//set new RoiId
+				s1 = new com.vis.core.view.D2.roi.ShapeRoi(roi_);
 			} else {//second or more loop
-				if (roi instanceof com.vis.core.view.D2.roi.ShapeRoi) {
-					s2 = (com.vis.core.view.D2.roi.ShapeRoi)roi;
-				}else {
-					s2 = new com.vis.core.view.D2.roi.ShapeRoi(roi);
-				}
+				s2 = new com.vis.core.view.D2.roi.ShapeRoi(roi_);
 				s1.or(s2);
 			}
 		}
@@ -1660,6 +1646,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					roiInfoFields.get(ck).setText(v);
 				}
 			}
+			Log.logger.fine("update Selected rois:"+selectedRois.size());
 		}
 	}
 
