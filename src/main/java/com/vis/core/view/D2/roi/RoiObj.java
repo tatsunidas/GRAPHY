@@ -186,7 +186,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/** Get using getPreviousRoi() and set using setPreviousRoi() */
 	public static RoiObj previousRoi;
 	protected static LUT glasbeyLut;
-	private static Double defaultStrokeWidth = 1d;
+	private static Double defaultStrokeWidth;
 
 	protected static int lineWidth = 1;// keep static
 	public static final int FERET_ARRAYSIZE = 16; // Size of array with Feret values
@@ -392,14 +392,12 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	private static double defaultStrokeWidth() {
-		double defaultWidth = defaultStrokeWidth;
-		double guiScale = Prefs.getGuiScale();
-		if (defaultWidth <= 1 && guiScale > 1.0) {
-			defaultWidth = guiScale;
-			if (defaultWidth < 1.5)
-				defaultWidth = 1.5;
+		if(defaultStrokeWidth == null) {
+			double defaultWidth = 1.5;
+			return defaultWidth;
+		}else {
+			return defaultStrokeWidth;
 		}
-		return defaultWidth;
 	}
 
 	/**
@@ -783,8 +781,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void draw(Graphics g) {
-		AffineTransform aTx = (((Graphics2D)g).getDeviceConfiguration()).getDefaultTransform();
-       Graphics2D g2d = (Graphics2D)g;
+		AffineTransform aTx = new AffineTransform();
+		Graphics2D g2d = (Graphics2D)g;
 		double mag = getMagnification();
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
@@ -802,7 +800,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
 		}
-		g.setColor(color);
+		g2d.setColor(color);
 		int w = (int) width;
 		int h = (int) height;
 		int x1 = (int) getXBase();
@@ -823,30 +821,25 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if (cornerDiameter>0) {
 			int sArcSize = (int)Math.round(cornerDiameter*mag*scaleXY[0]);
 			if (fillColor!=null && fill) {
-				g.fillRoundRect(x1, y1, w, h, sArcSize, sArcSize);
-				if (strokeColor!=null) {
-					g.setColor(strokeColor);
-					g.drawRoundRect(x1, y1, w, h, sArcSize, sArcSize);
-				}
-			} else
-				g.drawRoundRect(x1, y1, w, h, sArcSize, sArcSize);
+				g2d.fillRoundRect(x1, y1, w, h, sArcSize, sArcSize);
+			}
+			g2d.drawRoundRect(x1, y1, w, h, sArcSize, sArcSize);
 		} else {
 			if (fillColor!=null && fill) {
 				if (!overlay && isActiveOverlayRoi()) {
-					g.setColor(Color.cyan);
-					g.drawRect(x1, y1, w, h);
+					g2d.setColor(Color.cyan);
+					g2d.drawRect(x1, y1, w, h);
 				} else {
 					if (!(this instanceof TextRoi)) {
-						g.fillRect(x1, y1, w, h);
-						if (strokeColor!=null) {
-							g.setColor(strokeColor);
-							g.drawRect(x1, y1, w, h);
-						}
-					} else
-						g.drawRect(x1, y1, w, h);
+						g2d.fillRect(x1, y1, w, h);
+						g2d.drawRect(x1, y1, w, h);
+					} else {
+						g2d.drawRect(x1, y1, w, h);
+					}
 				}
-			} else
-				g.drawRect(x1, y1, w, h);
+			} else {
+				g2d.drawRect(x1, y1, w, h);
+			}
 		}
 		if (clipboard==null && !overlay) {
 			drawHandle(g, x1, y1);
@@ -858,7 +851,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			drawHandle(g, x1, y3);
 			drawHandle(g, x1, y2);
 		}
-		drawPreviousRoi(g);
 	}
 
 	/**
@@ -868,46 +860,44 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 * @param y
 	 */
 	public void drawHandle(Graphics g, int x, int y) {
-		double mag = getMagnification();
+		
+		Graphics2D g2d = (Graphics2D)g;
+		setRenderingHint(g2d);
+		
 		int threshold1 = 7500;
-		int threshold2 = 1500;
-		double size = (this.width * this.height) * mag * mag;
+		double size = (this.width * this.height);
 		if (this instanceof Line) {
-			size = ((Line) this).getLength() * mag;
+			size = ((Line) this).getLength();
 			threshold1 = 150;
-			threshold2 = 50;
 		} else {
 			if (state == CONSTRUCTING && !(type == RoiType.RECTANGLE.id() || type == RoiType.OVAL.id()))
 				size = threshold1 + 1;
 		}
-		int width = 7;
+		int width = 5;
 		int x0 = x, y0 = y;
 		if (size > threshold1) {
-			x -= 3;
-			y -= 3;
-		} else if (size > threshold2) {
 			x -= 2;
 			y -= 2;
-			width = 5;
 		} else {
-			x--;
-			y--;
+			x -= 1;
+			y -= 1;
 			width = 3;
 		}
 		int inc = getHandleSize() - 7;
 		width += inc;
 		x -= inc / 2;
 		y -= inc / 2;
-		g.setColor(Color.darkGray);
+		g2d.setColor(Color.darkGray);
 		if (width < 3) {
-			g.fillRect(x0, y0, 1, 1);
+			g2d.fillRect(x0, y0, 1, 1);
 			return;
 		}
-		g.fillRect(x++, y++, width, width);
+		g2d.fillRect(x, y, width, width);
 		handleColor = strokeColor != null? strokeColor: ROIColor;
-		g.setColor(handleColor);
+		g2d.setColor(handleColor);
 		width -= 2;
-		g.fillRect(x, y, width, width);
+		x++; y++;
+		g2d.fillRect(x, y, width, width);
 	}
 
 	/**
@@ -987,7 +977,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		for (int i = 0; i < floatp.length; i++) {
 			da[i] = (double) floatp[i];
 		}
-		System.out.println(da.length);
 		return da;
 	}
 	
@@ -2224,10 +2213,23 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		//
 		String lineWidthString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiStrokeWidth);
 		if (lineWidthString != null) {
-			setStrokeWidth(Double.parseDouble(lineWidthString.trim()));
+			try {
+				double v = Double.parseDouble(lineWidthString.trim());
+				setStrokeWidth(v);
+				if(v != defaultStrokeWidth) {
+					usingDefaultStroke = false;
+				}else {
+					usingDefaultStroke = true;
+				}
+			}catch(NumberFormatException e) {
+				//do nothing
+			}
 		} else {
-			stroke = new BasicStroke((float) defaultStrokeWidth());
-			usingDefaultStroke = true;
+			double defaultWidth = defaultStrokeWidth();
+			if (defaultWidth>0) {
+				stroke = new BasicStroke((float)defaultWidth);
+				usingDefaultStroke = true;
+			}
 		}
 	}
 
@@ -3026,6 +3028,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	protected void setRenderingHint(Graphics2D g2d) {
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
 				antiAlias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF);
+		g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 	}
 
 	public void setRoiLabel(String name) {

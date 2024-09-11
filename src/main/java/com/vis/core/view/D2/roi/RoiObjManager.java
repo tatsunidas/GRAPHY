@@ -156,7 +156,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		STD_DEV(Measurements.STD_DEV),
 		MODE(Measurements.MODE),
 		MIN_MAX(Measurements.MIN_MAX),
-		ANGLE(3), // be careful, bit-wise procedure do not use
+		ANGLE(0x1600000),
+		LENGTH(0x3200000),
 		CENTROID(Measurements.CENTROID),
 		CENTER_OF_MASS(Measurements.CENTER_OF_MASS),
 		PERIMETER(Measurements.PERIMETER),
@@ -475,57 +476,13 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	}
 	
 	private void test() {
-		/*
-		 * get slide and roi test
-		 */
-//		String patID = Viewer2DScreen.getInstance().getStageInAction();
-//		StageView stage = Viewer2DScreen.getInstance().getStageViewAt(patID);
-//		ArrayList<Object[]> prapCons = stage.getAllPraparatContextInfoSet();
-//		for (Object[] uids : prapCons) {
-//			// これらは一つのグループ。表示中の画像セット。
-//			String studyUID = (String) uids[1];
-//			String seriesUID = (String) uids[2];
-//			String[] sopUIDSet = (String[]) uids[3];
-//			Praparat prap = stage.getEyepiece().getPraparatAt(patID, studyUID, seriesUID, sopUIDSet);
-//			HashMap<Integer,JLayer<SlideGlass>> slides = prap.getAllSlides();
-//			for (Integer instNo : slides.keySet()) {
-//				SlideGlass sg = slides.get(instNo).getView();
-////				RoiObj r = new com.vis.viewer2d.roi.OvalRoi(50, 50, 50, 50, sg);
-//				RoiObj r = new com.vis.viewer2d.roi.RoiObj(50, 50, 50, 50, 0, sg);
-//				com.vis.viewer2d.roi.ShapeRoi sr = new com.vis.viewer2d.roi.ShapeRoi(r);
-//				sg.addRoi(sr);
-////				sg.addRoi(r);
-//			}
-//		}
-		
-		/*
-		 * show result table test
-		 */
-//		ResultsTable rt = ResultsTable.getResultsTable();
-//		rt.addRow();
-//		rt.addValue("test1", 123);
-//		rt.addValue("test2", 456);
-//		rt.show("Measure");
-		
-		/*
-		 * roi rotation test
-		 */
-//		for(String k : selectedRois.keySet()) {
-//			RoiObj roiObj = selectedRois.get(k);
-//			if(roiObj instanceof com.vis.viewer2d.roi.Line) {
-//				com.vis.viewer2d.roi.Line lineObj = (com.vis.viewer2d.roi.Line) roiObj;
-////				lineObj.rotateLine(15);
-//				Point[] p1p2 = lineObj.rotatePoints(lineObj, 15);
-//				lineObj.updateCoordinates(p1p2[0].x, p1p2[0].y, p1p2[1].x, p1p2[1].y);
-//			}
-//		}
+		Log.logger.fine(currentRoi.x+","+currentRoi.y);
 	}
 	
 	public boolean inList(String roiID) {
 		if(rois == null || rois.size() == 0) {
 			return false;
 		}
-//		return listModel.contains(roiName);//listModel allow same name rois (but no duplicate roiObj.)
 		return rois.containsKey(roiID);
 	}
 	
@@ -544,6 +501,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		for(String k : selectedRois.keySet()) {
 			RoiObj roiObj = selectedRois.get(k);
+			RoiType t = roiObj.getRoiType();
 			//if null ?
 			ImagePlus imp = roiObj.getSlideGlass().getOriginalImage();
 			ij.gui.Roi ijRoi = new RoiConverter().convert2Roi(roiObj);
@@ -559,15 +517,22 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			rw.setValue(StatsType.MEAN.name(), row, String.valueOf(stats.mean));
 			rw.setValue(StatsType.MEDIAN.name(), row, String.valueOf(stats.median));
 			rw.setValue(StatsType.STD_DEV.name(), row, String.valueOf(stats.stdDev));
-			rw.setValue(StatsType.MODE.name(), row, String.valueOf(stats.mode));
+			rw.setValue(StatsType.MODE.name(), row, String.valueOf(stats.dmode));
 			//Measurements.MIN_MAX
 			rw.setValue("MIN", row, String.valueOf(stats.min));
 			rw.setValue("MAX", row, String.valueOf(stats.max));
-			if(roiObj.getRoiType() == RoiType.ANGLE/*add more*/) {
+			if(t == RoiType.ANGLE/*add more*/) {
 				rw.setValue("ANGLE", row, ((PolygonRoi)roiObj).getAngleAsString2());
 			}else {
-				rw.setValue("ANGLE", row, String.valueOf(stats.angle));
+				if(t == RoiType.BRUSH || t == RoiType.FREELINE || t == RoiType.FREEROI || t == RoiType.POINT || t==RoiType.MULTIPOINT) {
+					rw.setValue("ANGLE", row, "NA");
+				}else if(t == RoiType.POLYGON || t == RoiType.POLYLINE) {
+					rw.setValue("ANGLE", row, "NA");
+				}else {
+					rw.setValue("ANGLE", row, String.valueOf(stats.angle));
+				}
 			}
+			rw.setValue(StatsType.LENGTH.name(), row, String.valueOf(roiObj.getLength()));
 			//CENTROID
 			rw.setValue("CENTROID_X", row, String.valueOf(stats.xCentroid));
 			rw.setValue("CENTROID_Y", row, String.valueOf(stats.yCentroid));
@@ -582,6 +547,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			rw.setValue(StatsType.INTEGRATED_DENSITY.name(), row, String.valueOf(stats.area*stats.mean));
 			rw.setValue(StatsType.SKEWNESS.name(), row, String.valueOf(stats.skewness));
 			rw.setValue(StatsType.KURTOSIS.name(), row, String.valueOf(stats.kurtosis));
+			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
 			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
 		}
 		rw.setVisible(true);

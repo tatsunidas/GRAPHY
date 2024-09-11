@@ -246,6 +246,9 @@ public class OvalRoi extends RoiObj {
 		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		if(fill) color = fillColor;
+		if (isActiveOverlayRoi()) {
+			color = Color.cyan;
+		}
 		g.setColor(color);
 		int w = (int)(width);
 		int h = (int)(height);
@@ -266,16 +269,10 @@ public class OvalRoi extends RoiObj {
 		if (stroke!=null) 
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
-		if (isActiveOverlayRoi()) {
-			g.setColor(Color.cyan);
-			g.drawOval(x1, y1, w, h);
-		} else {
-			g.setColor(color);
-			if(fill) {
-				g.fillOval(x1, y1, w, h);
-			}
-			g.drawOval(x1, y1, w, h);
+		if(fill) {
+			g2d.fillOval(x1, y1, w, h);
 		}
+		g2d.drawOval(x1, y1, w, h);
 		if (clipboard==null && !overlay) {
 			drawHandle(g, x1+w2, y1+h2);
 			drawHandle(g, x3-w2, y1+h2);
@@ -286,7 +283,7 @@ public class OvalRoi extends RoiObj {
 			drawHandle(g, x2, y3);
 			drawHandle(g, x1, y2);
 		}
-		drawPreviousRoi(g);
+//		drawPreviousRoi(g);
 	}
 
 	/** Draws an outline of this OvalRoi on the image. */

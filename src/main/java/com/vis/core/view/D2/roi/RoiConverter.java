@@ -91,17 +91,11 @@ public class RoiConverter {
 			 * do not use bounding rect.
 			 */
 			com.vis.core.view.D2.roi.Line l = (com.vis.core.view.D2.roi.Line)roiObj;
-			FloatPolygon fpg = l.getFloatPoints();
-			float[] xps = fpg.xpoints;
-			float[] yps = fpg.ypoints;
-			ij.gui.Line line = new ij.gui.Line(xps[0], yps[0], xps[1], yps[1]);
+			ij.gui.Line line = new ij.gui.Line(l.x1, l.y1, l.x2, l.y2);
 			return copyProperties2IJRoi(roiObj, line);
 		case ARROW:
 			Arrow al = (com.vis.core.view.D2.roi.Arrow)roiObj;
-			fpg = al.getFloatPoints();
-			xps = fpg.xpoints;
-			yps = fpg.ypoints;
-			ij.gui.Arrow arrow = new ij.gui.Arrow(xps[0], yps[0], xps[1], yps[1]);
+			ij.gui.Arrow arrow = new ij.gui.Arrow(al.x1, al.y1, al.x2, al.y2);
 			return copyProperties2IJRoi(roiObj, arrow);
 		case TEXT:
 			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.width, roiObj.height, roiObj.getProperty(ContextKey.Description.name()), new Font(Font.SANS_SERIF, Font.PLAIN, 14));

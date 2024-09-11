@@ -187,7 +187,7 @@ public class PolygonRoi extends RoiObj {
 
 	private void drawStartBox(Graphics g) {
 		if (type != RoiType.ANGLE.id())
-			g.drawRect((int)startXD - 4, (int)startYD - 4, 8, 8);
+			g.drawRect((int)startXD - 3, (int)startYD - 3, 7, 7);
 	}
 
 	public void draw(Graphics g) {
