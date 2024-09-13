@@ -149,7 +149,7 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 				boolean retainIOPIPP = true;
 				try {
 					//TODO 20240815
-					DicomDuplicator.createNewSeriesAndStore2DB(null, true, retainIOPIPP);
+					DicomDuplicator.createNewSeriesAndStore2DB(null, true);
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}

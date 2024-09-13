@@ -47,6 +47,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 
 import com.vis.core.ui.dialog.HelpDialog;
+import com.vis.core.ui.function.DicomDuplicator;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
 /**
@@ -80,10 +81,7 @@ public class ViewerMenu extends JMenuBar {
 				ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
 				for(Praparat pp : selectedPraps) {
 					try {
-						/*
-						 * TODO 20231006
-						 */
-//						DicomDuplicator.createNewSeriesAndStore2DB(pp, false, false);
+						DicomDuplicator.createNewSeriesAndStore2DB(pp, false);
 					} catch (Exception e1) {
 						e1.printStackTrace();
 					}

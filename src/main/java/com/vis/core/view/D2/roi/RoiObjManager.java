@@ -95,7 +95,6 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
@@ -111,11 +110,9 @@ import ij.io.Opener;
 import ij.io.RoiDecoder;
 import ij.io.RoiEncoder;
 import ij.io.SaveDialog;
-import ij.measure.Measurements;
 import ij.process.ColorProcessor;
 import ij.process.FloatPolygon;
 import ij.process.ImageProcessor;
-import ij.process.ImageStatistics;
 
 /**
  * 
@@ -129,7 +126,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	HashMap<ContextKey, JTextField> roiInfoFields;
 	RoiObj currentRoi;//current only one selected roi
 	
-	public enum RoiFunctions{
+	enum Functions{
 		Measure,
 		Delete,
 		LineAndColor,
@@ -147,44 +144,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		Split,
 		SplineFit,
 		ConvertToPolygon;
-	}
-	
-	public enum StatsType{
-		AREA(ImageStatistics.AREA),
-		MEAN(Measurements.MEAN),
-		MEDIAN(Measurements.MEDIAN),
-		STD_DEV(Measurements.STD_DEV),
-		MODE(Measurements.MODE),
-		MIN_MAX(Measurements.MIN_MAX),
-		ANGLE(0x1600000),
-		LENGTH(0x3200000),
-		CENTROID(Measurements.CENTROID),
-		CENTER_OF_MASS(Measurements.CENTER_OF_MASS),
-		PERIMETER(Measurements.PERIMETER),
-		FERET(Measurements.FERET),//feret diameter
-		INTEGRATED_DENSITY(Measurements.INTEGRATED_DENSITY),
-		AREA_FRACTION(Measurements.AREA_FRACTION),
-		SKEWNESS(Measurements.SKEWNESS),
-		KURTOSIS(Measurements.KURTOSIS);
-		
-		private int id;
-		
-		private StatsType(int id) {
-			this.id = id;
-		}
-				
-		public int id() {
-			return id;
-		}
-		
-		public static String findType(int id) {
-			for(StatsType fof : StatsType.values()) {
-				if(fof.id() == id) {
-					return fof.name();
-				}
-			}
-			return null;
-		}
 	}
 	
 	private static final int BUTTONS = 11;//num of functions
@@ -236,6 +195,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				 * to avoid lost info caused by forgetting "save info".
 				 */
 				roiInfoLabeling();
+				if(currentRoi != null) {
+					currentRoi.setActiveOverlayRoi(false);
+				}
 			}
 		});
 	}
@@ -297,10 +259,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 * Line&Color
 	 */
 	void addMainFeatures() {
-		addButton(RoiFunctions.Measure.name());
-		addButton(RoiFunctions.Delete.name());
-		addButton(RoiFunctions.LineAndColor.name());
-		addButton(RoiFunctions.Update.name());
+		addButton(Functions.Measure.name());
+		addButton(Functions.Delete.name());
+		addButton(Functions.LineAndColor.name());
+		addButton(Functions.Update.name());
 		addButton(moreButtonLabel);
 		if(isDebug) {
 			addButton("Test");
@@ -312,20 +274,20 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	void addPopupMenu() {
 		pm = new JPopupMenu();
 		//functional features
-		addPopupItem(RoiFunctions.Save.name());
-		addPopupItem(RoiFunctions.Open.name());
+		addPopupItem(Functions.Save.name());
+		addPopupItem(Functions.Open.name());
 //		addPopupItem(RoiFunctions.Fill.name());//not tested
 //		addPopupItem(RoiFunctions.Draw.name());//not tested
-		addPopupItem(RoiFunctions.Capture.name());//not tested
+		addPopupItem(Functions.Capture.name());//not tested
 		pm.addSeparator();
 		
 		//roi edit
-		addPopupItem(RoiFunctions.OR_Combine.name());
-		addPopupItem(RoiFunctions.Split.name());
-		addPopupItem(RoiFunctions.AND.name());
-		addPopupItem(RoiFunctions.XOR.name());
-		addPopupItem(RoiFunctions.SplineFit.name());
-		addPopupItem(RoiFunctions.ConvertToPolygon.name());
+		addPopupItem(Functions.OR_Combine.name());
+		addPopupItem(Functions.Split.name());
+		addPopupItem(Functions.AND.name());
+		addPopupItem(Functions.XOR.name());
+		addPopupItem(Functions.SplineFit.name());
+		addPopupItem(Functions.ConvertToPolygon.name());
 		
 //		addPopupItem("Labels...");
 //		addPopupItem("Interpolate ROIs");
@@ -453,10 +415,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		updatePatientList();
 		//clear all info
 		currentRoi = null;//IMPORTANT to avoid auto save by list selection
+		resetRoiInfoFields();
+//		updateRoiObjList();// execute from change listener
+	}
+	
+	private void resetRoiInfoFields() {
 		for(ContextKey ck:roiInfo) {
 			roiInfoFields.get(ck).setText(null);
 		}
-//		updateRoiObjList();// execute from change listener
 	}
 	
 	public void addRoiObj(RoiObj roi) {
@@ -490,68 +456,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(selectedRois == null || selectedRois.size() < 1) {
 			return;
 		}
-		ResultWindow rw = null;
-		java.awt.Window win = WindowManager.getWindow(ConfigInfo.ResultWindow.name());
-		if(win == null) {
-			rw = new ResultWindow(ConfigInfo.ResultWindow.name(), null, 400, 350, true/*showRowIndex*/);
-			WindowManager.addWindow(rw);
-			rw.setLocationRelativeTo(Viewer2DScreen.getInstance());
-		}else {
-			rw = (ResultWindow)win;
-		}
 		for(String k : selectedRois.keySet()) {
 			RoiObj roiObj = selectedRois.get(k);
-			RoiType t = roiObj.getRoiType();
-			//if null ?
-			ImagePlus imp = roiObj.getSlideGlass().getOriginalImage();
-			ij.gui.Roi ijRoi = new RoiConverter().convert2Roi(roiObj);
-			imp.deleteRoi();//fail safe
-			imp.setRoi(ijRoi);//and do setImage to Roi in this methods
-			ImageStatistics stats = imp.getAllStatistics();
-			/*
-			 * first iteration, table does not have header.
-			 */
-			int row = rw.getRowCount();
-			rw.setValue(ContextKey.RoiID.name(), row, roiObj.getProperty(ContextKey.RoiID.name()));
-			rw.setValue(StatsType.AREA.name(), row, String.valueOf(stats.area));
-			rw.setValue(StatsType.MEAN.name(), row, String.valueOf(stats.mean));
-			rw.setValue(StatsType.MEDIAN.name(), row, String.valueOf(stats.median));
-			rw.setValue(StatsType.STD_DEV.name(), row, String.valueOf(stats.stdDev));
-			rw.setValue(StatsType.MODE.name(), row, String.valueOf(stats.dmode));
-			//Measurements.MIN_MAX
-			rw.setValue("MIN", row, String.valueOf(stats.min));
-			rw.setValue("MAX", row, String.valueOf(stats.max));
-			if(t == RoiType.ANGLE/*add more*/) {
-				rw.setValue("ANGLE", row, ((PolygonRoi)roiObj).getAngleAsString2());
-			}else {
-				if(t == RoiType.BRUSH || t == RoiType.FREELINE || t == RoiType.FREEROI || t == RoiType.POINT || t==RoiType.MULTIPOINT) {
-					rw.setValue("ANGLE", row, "NA");
-				}else if(t == RoiType.POLYGON || t == RoiType.POLYLINE) {
-					rw.setValue("ANGLE", row, "NA");
-				}else {
-					rw.setValue("ANGLE", row, String.valueOf(stats.angle));
-				}
+			RoiAnalyzer ana = new RoiAnalyzer(roiObj);
+			List<HashMap<Measurements/*enum*/, Double>> res = ana.measure();
+			for(HashMap<Measurements/*enum*/, Double> r : res) {
+				ana.showInResultWindow(r);
 			}
-			rw.setValue(StatsType.LENGTH.name(), row, String.valueOf(roiObj.getLength()));
-			//CENTROID
-			rw.setValue("CENTROID_X", row, String.valueOf(stats.xCentroid));
-			rw.setValue("CENTROID_Y", row, String.valueOf(stats.yCentroid));
-			//CENTER OF MASS
-			rw.setValue("CENTER_OF_MASS_X", row, String.valueOf(stats.xCenterOfMass));
-			rw.setValue("CENTER_OF_MASS_Y", row, String.valueOf(stats.yCenterOfMass));
-			rw.setValue(StatsType.PERIMETER.name(), row, String.valueOf(ijRoi.getLength()));
-			double[] feretRes = ijRoi.getFeretValues();
-			rw.setValue(StatsType.FERET.name()+"_LongAxis", row, String.valueOf(feretRes != null ? feretRes[0]:0));
-			rw.setValue(StatsType.FERET.name()+"_ShortAxis", row, String.valueOf(feretRes != null ? feretRes[2]:0));
-			rw.setValue(StatsType.FERET.name()+"_ANGLE", row, String.valueOf(feretRes != null ? feretRes[1]:0));
-			rw.setValue(StatsType.INTEGRATED_DENSITY.name(), row, String.valueOf(stats.area*stats.mean));
-			rw.setValue(StatsType.SKEWNESS.name(), row, String.valueOf(stats.skewness));
-			rw.setValue(StatsType.KURTOSIS.name(), row, String.valueOf(stats.kurtosis));
-			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
-			rw.setValue(StatsType.AREA_FRACTION.name(), row, String.valueOf(stats.areaFraction));
 		}
-		rw.setVisible(true);
-		rw.toFront();
 	}
 	
 	private void delete() {
@@ -1437,8 +1349,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	}
 	
 	public void showTop() {
-		toFront(); // brings to front without setAlwaysOnTop
-//		requestFocus();
+		toFront();
 	}
 	
 	/*
@@ -1452,7 +1363,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			try {
 				sys_c = (Color) f.get(null);
 			} catch (IllegalArgumentException | IllegalAccessException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 				return null;
 			}
@@ -1484,13 +1394,13 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		String command = e.getActionCommand();
 		if (command.equals("Test")) {
 			test();
-		}else if (command.equals(RoiFunctions.Measure.name())) {
+		}else if (command.equals(Functions.Measure.name())) {
 			measure();
-		}else if (command.equals(RoiFunctions.Delete.name())) {
+		}else if (command.equals(Functions.Delete.name())) {
 			delete();
-		}else if (command.equals(RoiFunctions.LineAndColor.name())) {
+		}else if (command.equals(Functions.LineAndColor.name())) {
 			SwingUtilities.invokeLater(()->lineAndColor());
-		}else if (command.equals(RoiFunctions.Update.name())) {
+		}else if (command.equals(Functions.Update.name())) {
 			updateState();
 			
 		//more functions
@@ -1501,27 +1411,27 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			Point bloc = btn.getLocation();
 			//location XY is RoiObjManager coordinates basis.
 			pm.show(this, patListW, patListH+bloc.y+btn.getHeight()+3);
-		}else if (command.equals(RoiFunctions.Open.name())) {
+		}else if (command.equals(Functions.Open.name())) {
 			open(null);
-		}else if (command.equals(RoiFunctions.Save.name())) {
+		}else if (command.equals(Functions.Save.name())) {
 			SwingUtilities.invokeLater(()->save());
-		}else if (command.equals(RoiFunctions.SplineFit.name())) {
+		}else if (command.equals(Functions.SplineFit.name())) {
 			splineFit();
-		}else if(command.equals(RoiFunctions.ConvertToPolygon.name())) {
+		}else if(command.equals(Functions.ConvertToPolygon.name())) {
 			convert2Polygon();
-		}else if (command.equals(RoiFunctions.Fill.name())) {
+		}else if (command.equals(Functions.Fill.name())) {
 			fill();
-		}else if (command.equals(RoiFunctions.Draw.name())) {
+		}else if (command.equals(Functions.Draw.name())) {
 			paintRoiOnImage();
-		}else if (command.equals(RoiFunctions.Capture.name())) {
+		}else if (command.equals(Functions.Capture.name())) {
 			capture();
-		}else if (command.equals(RoiFunctions.OR_Combine.name())) {
+		}else if (command.equals(Functions.OR_Combine.name())) {
 			combine();
-		} else if (command.equals(RoiFunctions.Split.name())) {
+		} else if (command.equals(Functions.Split.name())) {
 			split();
-		}else if (command.equals(RoiFunctions.AND.name())) {
+		}else if (command.equals(Functions.AND.name())) {
 			and();
-		}else if (command.equals(RoiFunctions.XOR.name())) {
+		}else if (command.equals(Functions.XOR.name())) {
 			xor();
 //		}else if (command.equals("Add Particles")) {
 //			//addParticles();
@@ -1553,6 +1463,27 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 ////			setShowAllColor();
 		}
 	}
+	
+	private Integer intValue(String intStr) {
+		if(intStr == null) {
+			return null;
+		}
+		try {
+			int v = Integer.parseInt(intStr);
+			return v;
+		}catch(NumberFormatException e) {
+			return null;
+		}
+	}
+	
+	private boolean isIgnoreValue(Integer v) {
+		if(v == null) {
+			return true;
+		}else if(v == Integer.MIN_VALUE) {
+			return true;
+		}
+		return false;
+	}
 
 	@Override
 	public Iterator<RoiObj> iterator() {
@@ -1571,7 +1502,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		 */
 		if (e.getSource() instanceof JList && e.getValueIsAdjusting()) {
 			
-			roiInfoLabeling();
+			roiInfoLabeling();//backup rois
+			resetRoiInfoFields();//clear roi info fields
 			
 			for(String roiID : rois.keySet()) {
 				rois.get(roiID).setActiveOverlayRoi(false);
@@ -1596,7 +1528,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				//show info
 				for(ContextKey ck : roiInfo) {
 					String v = currentRoi.getProperty(ck);
-					roiInfoFields.get(ck).setText(v);
+					if(ck == ContextKey.InstanceNo || ck == ContextKey.RoiGroup) {
+						Integer v_ = intValue(v);
+						if(!isIgnoreValue(v_)) {
+							roiInfoFields.get(ck).setText(v);
+						}
+					}else {
+						roiInfoFields.get(ck).setText(v);
+					}
 				}
 			}
 			Log.logger.fine("update Selected rois:"+selectedRois.size());

@@ -1774,7 +1774,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	public int getType() {
 		return type;
 	}
-
+	
 	/** Convenience method that converts Roi type to a human-readable form. */
 	public String getTypeAsString() {
 		String s = "";

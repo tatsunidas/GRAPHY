@@ -37,6 +37,7 @@
  */
 package com.vis.core.view.D2.ui;
 
+import ij.IJ;
 import ij.gui.GenericDialog;
 import ij.io.*;
 import ij.measure.ResultsTable;
@@ -106,6 +107,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	long mouseDownTime;
 
 	int fontSize = 14;
+	int decimalPlace =3;
 	
 	//action commands
 	final String SAVE_AS_CSV = "Save As CSV";
@@ -324,7 +326,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 	}
 
 	/**
-	 * Closes this TextWindow. Display a "save changes" dialog if this is the
+	 * Closes this ResultsWindow. Display a "save changes" dialog if this is the
 	 * "Results" window and 'showDialog' is true.
 	 */
 	public void close(boolean showDialog) {
@@ -332,6 +334,8 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 			int res = PopUpMessage.showDialog(this, "Close Result Window", "Will close Result Window?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			if(res == JOptionPane.OK_OPTION) {
 				dispose();
+			}else {
+				setVisible(true);
 			}
 		}else {
 			dispose();
@@ -397,6 +401,11 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		for (int i : srows) {
 			int ind = table.convertRowIndexToModel(i);
 			((DefaultTableModel) table.getModel()).removeRow(ind);
+		}
+		//update row indices
+		int rows = getRowCount();
+		for(int i=0; i<rows; i++) {
+			setValue(roiIndCol, i, String.valueOf(i+1));
 		}
 		table.repaint();
 	}
@@ -893,7 +902,34 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 			Object[] blankRow = null;
 			appendRow(blankRow);
 		}
+		v = adjustDecimalPlace(v);
 		table.setValueAt(v, row, col);
+	}
+	
+	/**
+	 * Return adjusted decimal place value if string value is double.
+	 * @param v
+	 * @return
+	 */
+	String adjustDecimalPlace(String v) {
+		if(v == null) {
+			return null;
+		}
+		try {
+		    Integer.parseInt(v);
+		    //this is a int (not double)
+		    return v;
+		} catch (NumberFormatException e) {
+			//do nothing, go next parceDouble
+		}
+		try {
+		    double dv = Double.parseDouble(v);
+		    //this is a double
+		    return IJ.d2s(dv, decimalPlace);
+		} catch (NumberFormatException e) {
+			//other information (not integer or double)
+			return v;
+		}
 	}
 		
 	/**

@@ -38,14 +38,12 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.Font;
-import java.awt.Shape;
 import java.util.HashMap;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 
 import ij.gui.Roi;
-import ij.process.FloatPolygon;
 
 /**
  * 

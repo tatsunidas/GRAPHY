@@ -280,8 +280,8 @@ public class PatientInfoEditor {
 					overwritePatientAttributes(f, pmap);
 				}
 			}else {
-				Log.logger.log(Level.WARNING, "You are trying to change patient information for only some studies.");
-				String msg = "You are trying to change patient information for only some studies.\n";
+				Log.logger.log(Level.WARNING, "You are trying to change patient information of some studies.");
+				String msg = "You are trying to change patient information of some studies.\n";
 				msg += "Basically, patient level information must be changed for all data.\n";
 				msg += "Would you like to continue?";
 				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(),"Continue edit all ?",msg, JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);

@@ -45,25 +45,36 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 
 import org.apache.commons.io.FileUtils;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.DBUtils;
 import com.vis.core.util.DateUtils;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomWriter;
 import com.vis.dicom.Tag;
+import com.vis.dicom.UID;
 import com.vis.dicom.VR;
 import com.vis.dicom.dimse.DimseUtilities;
+import com.vis.imageio.PixelDataDecoder;
+
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.measure.Calibration;
 
 public class DicomDuplicator {
 	
@@ -275,15 +286,8 @@ public class DicomDuplicator {
 		}
 		File tempDir = tempParent.toFile();
 		
-		DICOMBackend backend = null;
-		try {
-			backend = DICOMBackend.getCurrent();
-		} catch (Exception e1) {
-			backend = DICOMBackend.DCM4CHE;
-		}
-		
 		for (String orgPath : imagePaths) {
-			DicomReader dr = DicomReader.newDicomReader(backend);
+			DicomReader dr = DicomReader.newDicomReader(null);
 			dr.read(orgPath, true);
 			DicomObject orgDcm = dr.getCore();
 			String tsUID = dr.checkTSUID().uid();
@@ -303,7 +307,7 @@ public class DicomDuplicator {
 			 * write
 			 */
 			String dest = tempDir.getAbsolutePath() + File.separator + newSopInstUID + ".dcm";
-			DicomWriter writer = DicomWriter.newDicomWriter(backend);
+			DicomWriter writer = DicomWriter.newDicomWriter(null);
 			writer.write(orgDcm,  tsUID, dest);
 			/*
 			 * send to graphy refresh table load image
@@ -323,204 +327,142 @@ public class DicomDuplicator {
 		}
 	}
 
-
 	/**
-	 * What is this method ? -> See MPR.
-	 * 
-	 * @param org
-	 * @param newObj
-	 * @return
-	 * @throws Exception 
+	 * "Save as new series" function in Viewer2D
+	 * @param prap
+	 * @param secondaryCapture
+	 * @throws Exception
 	 */
-	@Deprecated
-	public static void createNewSeriesAndStore2DB(Praparat prap, boolean secondaryCapture,
-			boolean retainAmbiguousTags) throws Exception {
-//		if (prap == null) {
-//			return;
-//		}
-//		if (prap.getImageFileLocations() == null || prap.getImageFileLocations().size() < 1) {
-//			// force change
-//			secondaryCapture = true;
-//		}
-//		Object pidAndUIDs[] = prap.getUIDs();
-//		String pid = (String) pidAndUIDs[0];
-//		String studyUID = (String) pidAndUIDs[1];
-//		String seriesUID = (String) pidAndUIDs[2];
-//		String[] sopUIDs = (String[]) pidAndUIDs[3];
-//		String frameRefUID = (String) pidAndUIDs[4];
-//		/*
-//		 * duplicator needs these uids...
-//		 */
-//		if (pid == null || studyUID == null) {
-//			System.err.println("DicomDuplicator:can not find pid or stuyUID, can not create dcm, return.");
-//			return;
-//		}
-//
-//		/*
-//		 * create duplicate to temp folder.
-//		 */
-//		Path tempParent = null;
-//		try {
-//			tempParent = Files.createTempDirectory(null);
-//		} catch (IOException e1) {
-//			e1.printStackTrace();
-//			System.err.println("Can not create temp folder, sorry stop duplicate...");
-//			return;
-//		}
-//		File destDir = tempParent.toFile();
-//
-//		DatabaseHandler db = ApplicationContext.databaseRef;
-//		if (db == null)
-//			return;
-//
-//		if (prap.isMultiFrame()) {
-//			/*
-//			 * create stacked imageplus using all slides(after masked) in prap to create
-//			 * multiframe dicom image as one file.
-//			 */
-//			HashMap<Integer, JLayer<SlideGlass>> slides = prap.getAllSlides();
-//			Integer sampleKey = slides.keySet().iterator().next();
-//			ImagePlus sample = slides.get(sampleKey).getView().getOriginalImage();
-//			Calibration cal = sample.getCalibration().copy();
-//			ImageStack newStack = new ImageStack(sample.getWidth(), sample.getHeight());
-//			Set<Integer> keys = slides.keySet();
-//			for (int readNo : keys) {
-//				ImagePlus impInSlide = slides.get(readNo).getView().getOriginalImage();
-//				newStack.addSlice(impInSlide.getProcessor());
-//			}
-//			ImagePlus newImages = new ImagePlus("duplicated", newStack);
-//			newImages.setCalibration(cal);
-//			// to dcm
-//			DicomObject dcm = new DicomImageBuilder().create(newImages);
-//			/*
-//			 * multiframe have only one sopUID(all frames sharing one sopUID in prap).
-//			 */
-//			String newSeriesUID = DBUtil.createNewUIDNoExistingInDB("series");
-//			String newSopInstUID = DBUtil.createNewUIDNoExistingInDB("image");
-//			String orgPath = db.getFileLocation(pid, studyUID, seriesUID, sopUIDs[0]);
-//			if (DICOMBackend.isBackend(DICOMBackend.DCM4CHE)) {
-//				DicomReader dr = new DicomReader(orgPath, false);
-//				Object orgDcm = dr.getCoreDataset();
-//				try {
-//					if (orgDcm instanceof Attributes) {// handle with dcm4che
-//						Attributes orgAttr = (Attributes) orgDcm;
-//						Attributes imgAttr = ((DicomObjectDcm4che) dcm.getCore()).getAttributes();
-//						orgAttr.addAll(imgAttr);
-//						if (secondaryCapture) {
-//							if (!retainAmbiguousTags) {
-//								deleteAmbiguousTag(orgAttr);
-//							}
-//							orgAttr.setString(Tag.SOPClassUID, VR.UI, UID.SecondaryCaptureImageStorage);
-//						}
-//						// change seriesUID and instUID
-//						orgAttr.setString(Tag.SeriesInstanceUID, VR.UI, newSeriesUID);
-//						orgAttr.setString(Tag.SOPInstanceUID, VR.UI, newSopInstUID);
-//						orgAttr.setString(Tag.MediaStorageSOPInstanceUID, VR.UI, newSopInstUID);
-//						Attributes fmi = orgAttr.createFileMetaInformation(UID.ImplicitVRLittleEndian);
-//						final DicomObject dcmTemp = new DicomObject();
-//						DicomObjectDcm4che dcmCore = new DicomObjectDcm4che(orgAttr, fmi);
-//						dcmTemp.setCore(dcmCore);
-//						/*
-//						 * write
-//						 */
-//						final File dest = new File(destDir.getAbsolutePath());
-//						DicomWriter.write(dcmTemp, dest.getAbsolutePath() + File.separator + "dup_" + sopUIDs[0]);
-//						/*
-//						 * send to graphy refresh table load image
-//						 */
-//						DimseUtilities.sendFile(
-//								new File(dest.getAbsolutePath() + File.separator + "dup_" + sopUIDs[0] + ".dcm"));
-//
-//					} else {// other dicom libs
-//					}
-//				} finally {
-//					// delete temp files
-//					try {
-//						FileUtils.deleteDirectory(destDir);
-//					} catch (IOException e) {
-//						e.printStackTrace();
-//					}
-//					// re-open
-//					Viewer2DFrame viewer2d = Viewer2DFrame.getInstance();
-//					if (viewer2d != null && viewer2d.isVisible()) {
-//						viewer2d.loadImagesOnStage(pid, studyUID, newSeriesUID, new String[] { newSopInstUID },
-//								frameRefUID);
-//					}
-//				}
-//			} else {
-//				// dcmtk
-//			}
-//			// single frame images
-//		} else {
-//			HashMap<Integer, JLayer<SlideGlass>> slides = prap.getAllSlides();
-//			Set<Integer> keys = slides.keySet();
-//			String newSeriesUID = DBUtil.createNewUIDNoExistingInDB("series");
-//			ArrayList<String> newSopUIDs = new ArrayList<>();
-//			if (DICOMBackend.isBackend(DICOMBackend.DCM4CHE)) {
-//				try {
-//					// save dicom slice by slice
-//					for (Integer key : keys) {
-//						// get current image from slide
-//						SlideGlass sg = slides.get(key).getView();
-//						DicomObject dcm = new DicomImageBuilder().create(sg.getOriginalImage());
-//						// load original dcm from db
-//						pid = (String) prap.getUIDs()[0];
-//						studyUID = sg.getStudyInstanceUID();
-//						seriesUID = sg.getSeriesInstanceUID();
-//						String sopUID = sg.getSOPInstanceUID();// current SOPInstUID
-//						String orgPath = db.getFileLocation(pid, studyUID, seriesUID, sopUID);
-//						DicomReader dr = new DicomReader(orgPath, false);
-//						Object orgDcm = dr.getCoreDataset();
-//						// write
-//						if (orgDcm instanceof Attributes) {// handle with dcm4che
-//							Attributes orgAttr = (Attributes) orgDcm;
-//							Attributes imgAttr = ((DicomObjectDcm4che) dcm.getCore()).getAttributes();
-//							orgAttr.addAll(imgAttr);
-//							if (secondaryCapture) {
-//								if (!retainAmbiguousTags) {
-//									deleteAmbiguousTag(orgAttr);
-//								}
-//								orgAttr.setString(Tag.SOPClassUID, VR.UI, UID.SecondaryCaptureImageStorage);
-//							}
-//							// change seriesUID and instUID
-//							orgAttr.setString(Tag.SeriesInstanceUID, VR.UI, newSeriesUID);
-//							String newSopInstUID = DBUtil.createNewUIDNoExistingInDB("image");
-//							orgAttr.setString(Tag.SOPInstanceUID, VR.UI, newSopInstUID);
-//							orgAttr.setString(Tag.MediaStorageSOPInstanceUID, VR.UI, newSopInstUID);
-//							newSopUIDs.add(newSopInstUID);
-//							Attributes fmi = orgAttr.createFileMetaInformation(UID.ImplicitVRLittleEndian);
-//							final DicomObject dcmTemp = new DicomObject();
-//							DicomObjectDcm4che dcmCore = new DicomObjectDcm4che(orgAttr, fmi);
-//							dcmTemp.setCore(dcmCore);
-//							final File dest = new File(destDir.getAbsolutePath());
-//							DicomWriter.write(dcmTemp, dest.getAbsolutePath() + File.separator + "DUP_" + sopUID);
-//							// see, finally state
-//						} else {// other dicom libs
-//						}
-//					}
-//				} finally {
-//					/*
-//					 * send to graphy and refresh table
-//					 */
-//					DimseUtilities.sendMe(destDir.listFiles());
-//					// delete after send
-//					try {
-//						FileUtils.deleteDirectory(destDir);
-//					} catch (IOException e) {
-//						e.printStackTrace();
-//					}
-//					// re-open
-//					Viewer2DFrame viewer2d = Viewer2DFrame.getInstance();
-//					if (viewer2d != null && viewer2d.isVisible()) {
-//						viewer2d.loadImagesOnStage(pid, studyUID, newSeriesUID,
-//								newSopUIDs.toArray(new String[newSopUIDs.size()]), frameRefUID);
-//					}
-//				}
-//			} else {
-//				// dcmtk
-//			}
-//
-//		}
+	public static void createNewSeriesAndStore2DB(Praparat prap, boolean secondaryCapture) throws Exception {
+		if (prap == null) {
+			throw new IllegalArgumentException("duplicate target is null");	
+		}
+		Object pidAndUIDs[] = prap.getUIDs();
+		String pid = (String) pidAndUIDs[0];
+		String studyUID = (String) pidAndUIDs[1];
+		String seriesUID = (String) pidAndUIDs[2];
+		String[] sopUIDs = (String[]) pidAndUIDs[3];
+		String frameRefUID = (String) pidAndUIDs[4];
+		/*
+		 * duplicator needs these uids...
+		 */
+		if (pid == null || studyUID == null) {
+			Log.logger.warning("DicomDuplicator:can not find pid or stuyUID, can not create dcm, return.");
+			return;
+		}
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null) return;
+		
+		/*
+		 * create duplicate to temp folder.
+		 */
+		Path tempParent = null;
+		try {
+			tempParent = Files.createTempDirectory(new File(ConfigInfo.getPath(ConfigInfo.TemporalDirName)).getAbsolutePath());
+		} catch (IOException e1) {
+			e1.printStackTrace();
+			Log.logger.severe("Can not create temp folder, sorry stop duplicate...");
+			return;
+		}
+		File destDir = tempParent.toFile();
+		
+		/*
+		 * create stacked imageplus using all slides.
+		 */
+		HashMap<Integer, SlideGlass> slides = prap.getAllSlides();
+		Integer sampleKey = slides.keySet().iterator().next();
+		ImagePlus sample = slides.get(sampleKey).getOriginalImage();
+		Calibration cal = sample.getCalibration().copy();
+		ImageStack newStack = new ImageStack(sample.getWidth(), sample.getHeight());
+		Set<Integer> keys = slides.keySet();
+		for (int readNo : keys) {
+			ImagePlus impInSlide = slides.get(readNo).getOriginalImage();
+			newStack.addSlice(impInSlide.getProcessor());
+		}
+		ImagePlus newImages = new ImagePlus("dup", newStack);
+		newImages.setCalibration(cal);
+		if (prap.isMultiFrame()) {
+			/*
+			 * multiframe have only one sopUID(all frames sharing one sopUID in prap).
+			 */
+			String newSeriesUID = DBUtils.createNewUIDNoExistingInDB("series");
+			String newSopInstUID = DBUtils.createNewUIDNoExistingInDB("image");
+			String orgPath = db.getFileLocation(studyUID, seriesUID, sopUIDs[0]);
+			DicomReader reader = DicomReader.newDicomReader(null);
+			reader.read(orgPath, false);
+			DicomObject header = reader.getCore();
+			PixelDataDecoder deco = new PixelDataDecoder();
+			byte[] pixels = deco.pixel2Byte(newImages);
+			VR vr = VR.OB;
+			header.setValue(Tag.Pixel​Data, vr,pixels);
+			if(secondaryCapture) {
+				header.setString(Tag.SOP​Class​UID, VR.UI, UID.SecondaryCaptureImageStorage.uid());
+			}
+			// change seriesUID and instUID
+			header.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);
+			header.setString(Tag.SOP​Instance​UID, VR.UI, newSopInstUID);
+			header.setString(Tag.Media​Storage​SOP​Instance​UID, VR.UI, newSopInstUID);
+			/*
+			 * write
+			 */
+			final File dest = new File(destDir.getAbsolutePath());
+			DicomWriter.newDicomWriter().write(header, UID.ImplicitVRLittleEndian.uid(),dest.getAbsolutePath() + File.separator + "dup_" + sopUIDs[0]);
+			/*
+			 * send to graphy refresh table load image
+			 */
+			DimseUtilities.sendFile(
+					new File(dest.getAbsolutePath() + File.separator + "dup_" + sopUIDs[0] + ".dcm"));
+			
+			// delete temp files
+			try {
+				FileUtils.deleteDirectory(destDir);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			// re-open
+			Viewer2DScreen viewer2d = Viewer2DScreen.getInstance();
+			if (viewer2d != null && viewer2d.isVisible()) {
+				viewer2d.loadImagesOnStage(pid, studyUID, newSeriesUID, new String[] { newSopInstUID },
+						frameRefUID);
+			}
+		// single frame images
+		} else {
+			String newSeriesUID = DBUtils.createNewUIDNoExistingInDB("series");
+			List<String> newSopUIDs = new ArrayList<>();
+			for (Integer key : keys) {
+				SlideGlass sg = slides.get(key);
+				ImagePlus imp = sg.getOriginalImage();
+				PixelDataDecoder deco = new PixelDataDecoder();
+				byte[] pixels = deco.pixel2Byte(imp);
+				DicomObject core = sg.getDicomImage().getCore();
+				core.setValue(Tag.Pixel​Data, VR.OB, pixels);
+				// change seriesUID and instUID
+				core.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);
+				String newSopInstUID = DBUtils.createNewUIDNoExistingInDB("image");
+				core.setString(Tag.SOP​Instance​UID, VR.UI, newSopInstUID);
+				core.setString(Tag.Media​Storage​SOP​Instance​UID, VR.UI, newSopInstUID);
+				newSopUIDs.add(newSopInstUID);
+				final File dest = new File(destDir.getAbsolutePath());
+				DicomWriter.newDicomWriter().write(core, UID.ImplicitVRLittleEndian.uid(), dest.getAbsolutePath() + File.separator + "DUP_" + newSopInstUID);
+				/*
+				 * send to graphy and refresh table
+				 */
+				DimseUtilities.sendMe(destDir.listFiles());
+				// delete after send
+				try {
+					FileUtils.deleteDirectory(destDir);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				// re-open
+				Viewer2DScreen viewer2d = Viewer2DScreen.getInstance();
+				if (viewer2d != null && viewer2d.isVisible()) {
+					viewer2d.loadImagesOnStage(pid, studyUID, newSeriesUID,
+							newSopUIDs.toArray(new String[newSopUIDs.size()]), frameRefUID);
+				}
+			}
+		}
 	}
 
 	

@@ -967,16 +967,6 @@ public class PolygonRoi extends RoiObj {
 			} else
 				points2.addPoint(points.xpoints[i2], points.ypoints[i2]);
 		}
-		//TODO
-//		if (type == POINT)
-//			imp.setRoi(new PointRoi(points2));
-//		else {
-//			setPolygon(points2);
-//			if (splineFit)
-//				fitSpline(splinePoints);
-//			if (imp != null)
-//				imp.draw();
-//		}
 		setPolygon(points2);
 		if (splineFit)
 			fitSpline(splinePoints);

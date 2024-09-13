@@ -46,7 +46,15 @@ public interface DicomWriter {
 	}
 	
 	public static DicomWriter newDicomWriter(DICOMBackend backend) {
-		if(backend == null || backend == DICOMBackend.DCM4CHE) {
+		if(backend == null) {
+			try {
+				backend = DICOMBackend.getCurrent();
+			} catch (Exception e1) {
+				backend = DICOMBackend.DCM4CHE;
+			}
+		}
+		
+		if(backend == DICOMBackend.DCM4CHE) {
 			return (DicomWriter) new DicomWriterChe();
 		}
 //		else if(backend == DICOMBackend.DCMTK){

@@ -404,14 +404,6 @@ public class SlideGlass extends JLayeredPane {
 
 	public String getModality() {
 		return header != null ? header.getString(Tag.Modality, "UNKNOWN") : null;
-		/*
-		 * IJ return null...
-		 */
-//		if(header != null) {
-//			return header.getString(Tag.Modality, "UNKNOWN");
-//		}else {
-//			return DicomTools.getTag(getOriginalImage(), "0008,0060");
-//		}
 	}
 
 	public Calibration getOriginalCalibration() {

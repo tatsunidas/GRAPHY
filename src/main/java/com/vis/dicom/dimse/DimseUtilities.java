@@ -95,7 +95,7 @@ public class DimseUtilities {
 		}
 	}
 	
-	private static synchronized void sendFile(File dcm) {
+	public static synchronized void sendFile(File dcm) {
 		List<String> cmd = new ArrayList<String>();
 		String listenerInfo[] = DatabaseHandler.getInstance().getListenerDetails();
 		cmd.add("-c");

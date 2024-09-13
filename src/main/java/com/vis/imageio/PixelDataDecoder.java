@@ -39,6 +39,7 @@ package com.vis.imageio;
 
 import java.awt.Transparency;
 import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
@@ -96,6 +97,8 @@ public class PixelDataDecoder {
 	boolean compressed = false;
 	boolean float_pixel_data = false;
 	boolean double_float_pixel_data = false;
+	
+	public PixelDataDecoder() {}
 	
 	public PixelDataDecoder(DicomImage dcm) {
 		this.dcm = dcm;
@@ -282,6 +285,58 @@ public class PixelDataDecoder {
 //		}
 		DoubleBuffer db = buffer.asDoubleBuffer();
 		return db.array();
+	}
+	
+	public byte[] pixel2Byte(ImagePlus imp) {
+		int bits = imp.getBitDepth();
+		int sample = imp.getChannel();
+		int length = bits/8 * sample * imp.getWidth() * imp.getHeight() * imp.getNSlices();
+		byte[] blob = new byte[length];
+		int loc = 0;
+		for(int i =0; i< imp.getNSlices(); i++) {
+			imp.setPosition(i+1);//one based
+			ImageProcessor ip = imp.getProcessor();
+			Object pixels = ip.getPixels();
+			if(bits == 8) {
+				byte[] pix = (byte[])pixels;
+				for(byte p : pix) {
+					blob[loc++] = p;
+				}
+			}else if(bits == 16) {
+				short[] pix = (short[])pixels;
+				for(short p : pix) {
+					ByteBuffer buffer = ByteBuffer.allocate(2);
+					buffer.putShort(p);
+					byte[] bytes = buffer.array();
+					for(byte b : bytes) {
+						blob[loc++] = b;
+					}
+				}
+			}else if(bits == 32 && sample ==1) {
+				float[] pix = (float[])pixels;
+				for(float p : pix) {
+					ByteBuffer buffer = ByteBuffer.allocate(4);
+					buffer.putFloat(p);
+					byte[] bytes = buffer.array();
+					for(byte b : bytes) {
+						blob[loc++] = b;
+					}
+				}
+			}else if(bits == 24 && sample==3){
+				//ColorProceccer always rgbrgbrgb...
+				//BufferedImage.TYPE_INT_RGB
+				int[] pix = (int[])pixels;
+				for(int rgb : pix) {
+					byte r = (byte) ((rgb >> 16) & 0xFF);
+	              byte g = (byte)((rgb >> 8) & 0xFF);
+	              byte b = (byte)(rgb & 0xFF);
+	              pix[loc++] = r; pix[loc++] = g; pix[loc++] = b;
+				}
+			}else {
+				return null;
+			}
+		}
+		return blob;
 	}
 	
 	
