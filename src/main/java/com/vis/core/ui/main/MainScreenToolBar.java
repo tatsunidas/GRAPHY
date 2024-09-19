@@ -78,8 +78,8 @@ public class MainScreenToolBar extends JToolBar {
 	ArrayList<String> buttonLabels = new ArrayList<String>();
 	ArrayList<String> keys = new ArrayList<>();
 	
-	int NEW_WIDTH = 32;
-	int NEW_HEIGHT = 32;
+	int NEW_WIDTH = 48;
+	int NEW_HEIGHT = 48;
 	
 	private enum Tool{
 		Import,

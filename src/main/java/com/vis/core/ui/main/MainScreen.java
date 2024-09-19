@@ -102,8 +102,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	/* Main Explorer */
 	private TreeTableDockManager tabDockManager;
 	private DICOMTreeTable localTreeTable;// home treetable
-	/* Main menu bar */
-	MainScreenMenu mainMenuBar;
+	/* Main menu */
+	MainScreenMenu mainMenu;
 	/* Main ToolBar */
 	MainScreenToolBar mainToolBar;
 	/* Main search Bar */
@@ -204,7 +204,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * this is not toolbar
 	 */
 	public JMenuBar getMainMenuBar() {
-		return this.mainMenuBar;
+		return this.mainMenu;
 	}
 	
 	public SearchToolBar getMainSearchToolBar() {
@@ -213,6 +213,10 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	
 	public ArrayList<DICOMNode> getSelectedNode() {
 		return localTreeTable.getSelectedNodes();
+	}
+	
+	public void ignoreRepaintBirdsEye(boolean ignore) {
+		bev.ignoreRepaintAllSlides(ignore);
 	}
 	
 	private void initTreeTables(){
@@ -339,8 +343,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	
 	private void setContents() {
 		//Menubar
-		mainMenuBar = new MainScreenMenu();
-		setJMenuBar(mainMenuBar);
+		mainMenu = new MainScreenMenu();
+		setJMenuBar(mainMenu);
 		
 		/*
 		 * North Component

@@ -83,7 +83,6 @@ import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
-import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
@@ -310,40 +309,28 @@ public class Praparat extends JPanel {
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
 		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
-		List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
-		if(Utils.isDebug){
-			Log.logger.fine("Localizer debugging:");
-			System.out.println(src.getHeader().getString(TagDict.forName("InstanceNumber")));
-			System.out.println(target.getHeader().getString(TagDict.forName("InstanceNumber")));
-			Point2D p0_leftlower = shapes.get(0);
-			Point2D p1_rightlower = shapes.get(1);
-			Point2D p2_rightupper = shapes.get(2);
-			Point2D p3_leftupper = shapes.get(3);
-			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
-			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
-			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
-			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
-		}
-		return shapes;
+		List<Point2D> shape = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
+		return shape;
 	}
 	
 	public void callBackLocalizer() {
 		// ref-study-uid
-		Eyepiece prapmng = getEyepieceAsPraparatManager();
-		if(prapmng == null) return;
-		PraparatContext con = prapmng.getPraparatContextOf(patID, studyUID, seriesUID, sopUIDs);
+		Eyepiece eye = getEyepiece();
+		if(eye == null) return;
+		PraparatContext con = eye.getPraparatContextOf(patID, studyUID, seriesUID, sopUIDs);
 		if(con == null) {
 			return;
 		}
 		String refUid = (String) con.getContextUIDs()[4];
-		// get praps which have same refuid
-		ArrayList<Praparat> praps = prapmng.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
+		// get praps which have same ref-uid
+		ArrayList<Praparat> praps = eye.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
 		//remove previous localizers
 		for(Praparat p:praps) {
 			HashMap<Integer, SlideGlass> slides = p.slides;
 			for(Integer k:slides.keySet()) {
 				SlideGlass s = slides.get(k);
 				s.drawLocalizer(null);
+				s.repaintCanvasGlass();
 			}
 		}
 		// show localizer on slideglass
@@ -358,7 +345,6 @@ public class Praparat extends JPanel {
 			try {
 				loca_geo = calcLocalizer(src, target);
 			}catch(Exception e) {
-				//do somethoing
 				loca_geo = null;
 			}
 			src.drawLocalizer(loca_geo);
@@ -637,7 +623,7 @@ public class Praparat extends JPanel {
 		return Viewer2DScreen.getInstance().getCurrentToolType();
 	}
 	
-	public Eyepiece getEyepieceAsPraparatManager() {
+	public Eyepiece getEyepiece() {
 		return prapManager;
 	}
 
@@ -800,11 +786,15 @@ public class Praparat extends JPanel {
 				str += u;
 			}else if(u instanceof String[]) {
 				List<String> sopUIDs = Arrays.asList((String[])u);
+				if(sopUIDs == null || sopUIDs.isEmpty()) {
+					continue;
+				}
+				if(sopUIDs.contains(null)) {
+					continue;
+				}
 				Collections.sort(sopUIDs);
-				for(String s : sopUIDs) {
-					if(s != null) {
-						str += s;
-					}
+				for (String s : sopUIDs) {
+					str += s;
 				}
 			}
 		}
@@ -1597,6 +1587,10 @@ public class Praparat extends JPanel {
 		String srcConcatedUIDs = concatenationOfUIDStrings();
 		String tarConcatedUIDs = ((Praparat)pp).concatenationOfUIDStrings();
 		if(srcConcatedUIDs==null && tarConcatedUIDs==null) {
+			return this == pp;
+		}else if(srcConcatedUIDs==null && tarConcatedUIDs != null) {
+			return this == pp;
+		}else if(srcConcatedUIDs!=null && tarConcatedUIDs == null){
 			return this == pp;
 		}
 		return srcConcatedUIDs.equals(tarConcatedUIDs);

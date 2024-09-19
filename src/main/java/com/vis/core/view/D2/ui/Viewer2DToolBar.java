@@ -733,17 +733,6 @@ public class Viewer2DToolBar extends JToolBar{
 					SwingUtilities.invokeLater(() -> {
 						new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME).run();
 					});
-										
-//					new Thread(new Runnable() {
-//						@Override
-//						public void run() {
-//							// TODO Auto-generated method stub
-//							SwingUtilities.invokeLater(() -> {
-//								new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME).run();
-//							});
-//						}
-//					}).start();
-					
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}
@@ -760,10 +749,9 @@ public class Viewer2DToolBar extends JToolBar{
 						return;
 					}
 					Praparat prap = selectedPraps.get(0);
-					Thread thread = new Thread(() -> {
+					new Thread(() -> {
 						new MPRViewerWindow(prap);
-			        });
-					thread.start();
+			        }).start();
 					
 					currentTool = Windowing;
 					setSelectedToolBackground();

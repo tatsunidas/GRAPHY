@@ -49,6 +49,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -149,6 +150,32 @@ public class BirdsEyeView extends JPanel{
 		
 		add(patInfoAndBirdsEyeSplit, BorderLayout.CENTER);
 		db = DatabaseHandler.getInstance();
+	}
+	
+	public void ignoreRepaintAllSlides(boolean ignore) {
+		HashMap<Integer, SlideGlass> slides1 = filmGridView.getAllSlides();
+		if(slides1 != null && slides1.size() > 0) {
+			for(Integer key : slides1.keySet()) {
+				slides1.get(key).setIgnoreRepaint(ignore);
+			}
+		}
+		HashMap<Integer, SlideGlass> slides2 = singleGridView.getAllSlides();
+		if(slides2 != null && slides2.size() > 0) {
+			for(Integer key : slides1.keySet()) {
+				slides2.get(key).setIgnoreRepaint(ignore);
+			}
+		}
+		List<Praparat> thumbs = seriesListView.getAllThumbnails();
+		if(thumbs != null) {
+			for(Praparat pp : thumbs) {
+				HashMap<Integer, SlideGlass> slides3 = pp.getAllSlides();
+				if(slides3 != null && slides3.size() > 0) {
+					for(Integer key : slides3.keySet()) {
+						slides3.get(key).setIgnoreRepaint(ignore);
+					}
+				}
+			}
+		}
 	}
 	
 	/**
@@ -477,6 +504,22 @@ public class BirdsEyeView extends JPanel{
 				}
 			}
 			return null;
+		}
+		
+		List<Praparat> getAllThumbnails(){
+			Component[] thums = seriesListPanel.getComponents();
+			List<Praparat> list = new ArrayList<>();
+			for(Component c : thums) {
+				if(c instanceof Praparat) {
+					Praparat pp = (Praparat)c;
+					list.add(pp);
+				}
+			}
+			if(list.isEmpty()) {
+				return null;
+			}else {
+				return list;
+			}
 		}
 		
 		void highlightSelectedThumbnail(String seriesUID) {

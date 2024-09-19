@@ -59,7 +59,9 @@ import org.scijava.vecmath.Vector3f;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Platform;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -144,77 +146,92 @@ public class Viewer3DFrame_IJ {
 		Date now = new Date();
 		String formattedDate = sdf.format(now);
 		imp2.setTitle(imp2.getTitle()+"_"+formattedDate);
-
-		SwingUtilities.invokeLater(() -> {
-			ImageWindow3D win3d;
-			Window win = WindowManager.getWindow(ConfigInfo.D3ViewerWindow.toString());
-			if(win == null) {
-				univ = new Image3DUniverse();
-				univ.show();
-				win3d = (ImageWindow3D) univ.getWindow();
-				win3d.setName(ConfigInfo.D3ViewerWindow.toString());
-				WindowManager.addWindow(win3d);
-				win3d.setTitle("ImageJ 3D Viewer GRAPHY built-in");
-				//after show(); do setLocationRelativeTo.
-				win3d.setLocationRelativeTo(null);
-				ImageCanvas3D canvas3D = (ImageCanvas3D) univ.getCanvas();
-				canvas3D.getView().setMinimumFrameCycleTime(20);
-				
-				WindowAdapter ada = new WindowAdapter() {
-					@Override
-					public void windowClosing(WindowEvent e) {
-						WindowManager.removeWindow(win3d);
+		
+		Window win = WindowManager.getWindow(ConfigInfo.D3ViewerWindow.toString());
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				if (win == null) {
+					MainScreen ms = WindowManager.getMainScreen();
+					if (ms != null) {
+						ms.ignoreRepaintBirdsEye(true);
 					}
-				};
-				win3d.addWindowListener(ada);
-				
-			}else {
-				win3d = (ImageWindow3D)win;
-				if(!win3d.isVisible()) {
-					win3d.setVisible(true);
+					Window viewer2DScreen = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
+					if (viewer2DScreen != null) {
+						((Viewer2DScreen) viewer2DScreen).ignoreRepaintAllSlides(true);
+					}
+					univ = new Image3DUniverse();
+					univ.show();
+					ImageWindow3D win3d = (ImageWindow3D) univ.getWindow();
+					win3d.setName(ConfigInfo.D3ViewerWindow.toString());
+					WindowManager.addWindow(win3d);
+					win3d.setTitle("ImageJ 3D Viewer GRAPHY built-in");
+					// after show(); do setLocationRelativeTo.
+					win3d.setLocationRelativeTo(null);
+					ImageCanvas3D canvas3D = (ImageCanvas3D) univ.getCanvas();
+					canvas3D.getView().setMinimumFrameCycleTime(20);
+
+					WindowAdapter ada = new WindowAdapter() {
+						@Override
+						public void windowClosing(WindowEvent e) {
+							WindowManager.removeWindow(win3d);
+						}
+					};
+					win3d.addWindowListener(ada);
+					if (ms != null) {
+						ms.ignoreRepaintBirdsEye(false);
+					}
+					if (viewer2DScreen != null) {
+						((Viewer2DScreen) viewer2DScreen).ignoreRepaintAllSlides(false);
+					}
+				} else {
+					ImageWindow3D win3d = (ImageWindow3D) win;
+					if (!win3d.isVisible()) {
+						win3d.setVisible(true);
+					}
+					win3d.toFront();
+					univ = (Image3DUniverse) win3d.getUniverse();
 				}
-				win3d.toFront();
-				univ = (Image3DUniverse)win3d.getUniverse();
-			}
-			
-			switch (displayMode) {
-			case ORTHO:
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						univ.addOrthoslice(imp2);
-					}
-				}).start();
-				break;
-			case VOLUME:
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						univ.addVoltex(imp2);
-					}
-				}).start();
-				break;
-			case SURFACE:
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						univ.addSurfacePlot(imp2);
-					}
-				}).start();
-				break;
-			default:
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						univ.addVoltex(imp2);
-					}
-				}).start();
-				break;
-			}
 
-			win3d.getContentPane().revalidate();
-			win3d.getContentPane().repaint();
-		});
+				switch (displayMode) {
+				case ORTHO:
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							univ.addOrthoslice(imp2);
+						}
+					}).start();
+					break;
+				case VOLUME:
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							univ.addVoltex(imp2);
+						}
+					}).start();
+					break;
+				case SURFACE:
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							univ.addSurfacePlot(imp2);
+						}
+					}).start();
+					break;
+				default:
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							univ.addVoltex(imp2);
+						}
+					}).start();
+					break;
+				}
+
+				univ.getWindow().getContentPane().revalidate();
+				univ.getWindow().getContentPane().repaint();
+			}
+		}).start();
 	}
 
 	public void test3D() {

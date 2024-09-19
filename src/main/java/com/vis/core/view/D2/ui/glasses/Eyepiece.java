@@ -46,13 +46,11 @@ import java.awt.dnd.DropTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.view.D2.ui.StageDockManager;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -63,7 +61,7 @@ import com.vis.db.DatabaseHandler;
 public class Eyepiece extends JPanel{
 	
 	/**
-	 * Eyepiece is a StudyManager
+	 * Eyepiece is a view of all praps
 	 */
 	final String patID;
 	DatabaseHandler db = DatabaseHandler.getInstance();
@@ -245,6 +243,8 @@ public class Eyepiece extends JPanel{
 				add(pcon.getPraparat());
 			}
 		}
+		revalidate();
+		repaint();
 	}
 	
 	public ArrayList<Praparat> getSelectingPraparats() {

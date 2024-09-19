@@ -4,7 +4,6 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.geom.GeneralPath;
 
 import org.joml.Vector3d;
@@ -19,9 +18,9 @@ import ij.ImagePlus;
 
 /**
  * Main lines for each plane;
- * X axis line (horizontal to x on XY) is main line on XY plane.
- * Y axis line (horizontal to y on YZ) is main line on YZ plane.
- * Z axis line (horizontal to z on XZ) is main line on XZ plane.
+ * X axis line (horizontal to x on XY) is main line in AXIAL plane.
+ * Y axis line (horizontal to y on YZ) is main line on SAGITAL plane.
+ * Z axis line (horizontal to z on XZ) is main line on CORONAL plane.
  * 
  * @author tatsunidas
  *
@@ -75,7 +74,7 @@ public class ReferenceLineMPR {
 	
 	@SuppressWarnings("serial")
 	private void initLines() {
-		Praparat xy_prap = mprWin.getPraparatAt(MPRViewerWindow.XY);
+		Praparat xy_prap = mprWin.getPraparatAt(CutSurface.AXIAL);
 		ImagePlus xy = mprWin.xyImage();
 		xYLine = new ReferenceLine(CutSurface.AXIAL, 0, xy.getHeight()/2-1, xy.getWidth()-1, xy.getHeight()/2-1, xy_prap.getCurrentSlide()) {
 			@Override
@@ -88,12 +87,12 @@ public class ReferenceLineMPR {
 			 */
 			@Override
 			public void mouseDrag(int sx, int sy, int flags) {
-				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XY) {
+				if(mprWin.getSrcSurface() == CutSurface.AXIAL) {
 					super.mouseDrag(sx, sy, flags);
 				}
 			}
 		};
-		Praparat xz_prap = mprWin.getPraparatAt(MPRViewerWindow.XZ);
+		Praparat xz_prap = mprWin.getPraparatAt(CutSurface.CORONAL);
 		ImagePlus xz = mprWin.xzImage();;//xz_prap.getCurrentSlide().getOriginalImage();
 		xZLine = new ReferenceLine(CutSurface.CORONAL, xz.getWidth()/2-1, 0, xz.getWidth()/2-1, xz.getHeight()-1, xz_prap.getCurrentSlide()) {
 			@Override
@@ -102,12 +101,12 @@ public class ReferenceLineMPR {
 			}
 			@Override
 			public void mouseDrag(int sx, int sy, int flags) {
-				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XZ) {
+				if(mprWin.getSrcSurface() == CutSurface.CORONAL) {
 					super.mouseDrag(sx, sy, flags);
 				}
 			}
 		};
-		Praparat yz_prap = mprWin.getPraparatAt(MPRViewerWindow.YZ);
+		Praparat yz_prap = mprWin.getPraparatAt(CutSurface.SAGITTAL);
 		ImagePlus yz = mprWin.yzImage();
 		yZLine = new ReferenceLine(CutSurface.SAGITTAL, 0, yz.getHeight()/2-1, yz.getWidth()-1, yz.getHeight()/2-1, yz_prap.getCurrentSlide()) {
 			@Override
@@ -116,7 +115,7 @@ public class ReferenceLineMPR {
 			}
 			@Override
 			public void mouseDrag(int sx, int sy, int flags) {
-				if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.YZ) {
+				if(mprWin.getSrcSurface() == CutSurface.SAGITTAL) {
 					super.mouseDrag(sx, sy, flags);
 				}
 			}
@@ -153,9 +152,9 @@ public class ReferenceLineMPR {
 	}
 	
 	public void updateXYLine() {
-		SlideGlass sg = mprWin.getPraparatAt(MPRViewerWindow.XY).getCurrentSlide();
+		SlideGlass sg = mprWin.getPraparatAt(CutSurface.AXIAL).getCurrentSlide();
 		xYLine.setSlideGlass(sg);
-		if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XY) {
+		if(mprWin.getSrcSurface() == CutSurface.AXIAL) {
 			xYLine.setThickness(mprWin.getSliceThickness());
 			xYLine.setGap(mprWin.getSliceGap());
 			xYLine.setNumOfSlice(mprWin.getNumberOfSlices());
@@ -164,9 +163,9 @@ public class ReferenceLineMPR {
 	}
 	
 	public void updateXZLine() {
-		SlideGlass sg = mprWin.getPraparatAt(MPRViewerWindow.XZ).getCurrentSlide();
+		SlideGlass sg = mprWin.getPraparatAt(CutSurface.CORONAL).getCurrentSlide();
 		xZLine.setSlideGlass(sg);
-		if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.XZ) {
+		if(mprWin.getSrcSurface() == CutSurface.CORONAL) {
 			xZLine.setThickness(mprWin.getSliceThickness());
 			xZLine.setGap(mprWin.getSliceGap());
 			xZLine.setNumOfSlice(mprWin.getNumberOfSlices());
@@ -175,9 +174,9 @@ public class ReferenceLineMPR {
 	}
 	
 	public void updateYZLine() {
-		SlideGlass sg = mprWin.getPraparatAt(MPRViewerWindow.YZ).getCurrentSlide();
+		SlideGlass sg = mprWin.getPraparatAt(CutSurface.SAGITTAL).getCurrentSlide();
 		yZLine.setSlideGlass(sg);
-		if(mprWin.getCurrentMainPlaneType() == MPRViewerWindow.YZ) {
+		if(mprWin.getSrcSurface() == CutSurface.SAGITTAL) {
 			yZLine.setThickness(mprWin.getSliceThickness());
 			yZLine.setGap(mprWin.getSliceGap());
 			yZLine.setNumOfSlice(mprWin.getNumberOfSlices());
@@ -266,7 +265,7 @@ public class ReferenceLineMPR {
 	
 	private Point2d[] getXYLeftUpperAndRightLowerOnXY_Prap() {
 		ImagePlus yz = mprWin.yzImage();
-		Praparat xy_prap = mprWin.getPraparatAt(MPRViewerWindow.XY);
+		Praparat xy_prap = mprWin.getPraparatAt(CutSurface.AXIAL);
 		ImagePlus xy = xy_prap.getCurrentSlide().getOriginalImage();
 		int start_xyY = find_xyY_Position(xy, yz, yZLine.x1d, yZLine.y1d);
 		int end_xyY = find_xyY_Position(xy, yz, yZLine.x2d, yZLine.y2d);
@@ -276,8 +275,8 @@ public class ReferenceLineMPR {
 	}
 	
 	private Point2d[] getXZLeftUpperAndRightLowerOnXZ_Prap() {
-		Praparat xy_prap = mprWin.getPraparatAt(MPRViewerWindow.XY);
-		Praparat xz_prap = mprWin.getPraparatAt(MPRViewerWindow.XZ);
+		Praparat xy_prap = mprWin.getPraparatAt(CutSurface.AXIAL);
+		Praparat xz_prap = mprWin.getPraparatAt(CutSurface.CORONAL);
 		ImagePlus xy = xy_prap.getCurrentSlide().getOriginalImage();
 		ImagePlus xz = xz_prap.getCurrentSlide().getOriginalImage();
 		
@@ -290,8 +289,8 @@ public class ReferenceLineMPR {
 	}
 	
 	private Point2d[] getYZLeftUpperAndRightLowerOnYZ_Prap() {
-		Praparat xz_prap = mprWin.getPraparatAt(MPRViewerWindow.XZ);
-		Praparat yz_prap = mprWin.getPraparatAt(MPRViewerWindow.YZ);
+		Praparat xz_prap = mprWin.getPraparatAt(CutSurface.CORONAL);
+		Praparat yz_prap = mprWin.getPraparatAt(CutSurface.SAGITTAL);
 		ImagePlus xz = xz_prap.getCurrentSlide().getOriginalImage();
 		ImagePlus yz = yz_prap.getCurrentSlide().getOriginalImage();
 		
@@ -409,7 +408,7 @@ public class ReferenceLineMPR {
 		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
-		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.XY) {
+		if(refLine.getSliceLines() != null && mprWin.getSrcSurface()==CutSurface.AXIAL) {
 			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
 			if (sliceLines_ != null) {
 				g2d.setColor(xyColor);
@@ -425,7 +424,7 @@ public class ReferenceLineMPR {
 		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
-		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.XZ) {
+		if(refLine.getSliceLines() != null && mprWin.getSrcSurface()==CutSurface.CORONAL) {
 			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
 			if (sliceLines_ != null) {
 				g2d.setColor(xzColor);
@@ -441,7 +440,7 @@ public class ReferenceLineMPR {
 		drawHandles(refLine, g);
 		drawRect(refLine, g);
 		Graphics2D g2d = (Graphics2D) g;
-		if(refLine.getSliceLines() != null && mprWin.getCurrentMainPlaneType()==MPRViewerWindow.YZ) {
+		if(refLine.getSliceLines() != null && mprWin.getSrcSurface()==CutSurface.SAGITTAL) {
 			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
 			if (sliceLines_ != null) {
 				g2d.setColor(yzColor);

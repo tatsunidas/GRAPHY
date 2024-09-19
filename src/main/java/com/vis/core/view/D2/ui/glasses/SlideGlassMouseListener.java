@@ -78,7 +78,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		this.slide = slide;
 		this.cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		this.pp = slide.getPraparat();
-		this.prapManager = pp.getEyepieceAsPraparatManager();
+		this.prapManager = pp.getEyepiece();
 	}
 
 	@Override

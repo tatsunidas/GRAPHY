@@ -41,6 +41,7 @@ import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -83,7 +84,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	
 	private java.util.List<java.awt.geom.Point2D> localizerGeo = null;
 	private Color localizerColor = new Color(255, 0, 0, 127);
-	private int localizerStrokeSize = 3;
+	private int localizerStrokeSize = 1;
 
 	boolean rect = false;
 	
@@ -410,32 +411,53 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	private void drawLocalizerLine(Graphics g) {
-		if(localizerGeo != null) {
-//			System.out.println(shapes.size());
-			Point2D p0_leftlower = localizerGeo.get(0);
-			Point2D p1_rightlower = localizerGeo.get(1);
-			Point2D p2_rightupper = localizerGeo.get(2);
-			Point2D p3_leftupper = localizerGeo.get(3);
-//			System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
-//			System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
-//			System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
-//			System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
+		if (localizerGeo != null) {
+			
+			AffineTransform aTx = new AffineTransform();
+			Graphics2D g2d = (Graphics2D)g;
+			double mag = sg.getMagnification();
+			double scaleXY[] = sg.getScaleFactor();
+			Point offset = sg.getDisplayImageOriginXY();
+			//First, translate image origin without mag and component scale.
+			aTx.translate(offset.x, offset.y);
+			//Second, scale Roi graphics
+			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
+			g2d.setTransform(aTx);
+			
+			Point2D p0_leftUpper = localizerGeo.get(0);
+			Point2D p1_rightUpper = localizerGeo.get(1);
+			Point2D p2_rightLower = localizerGeo.get(2);
+			Point2D p3_leftLower = localizerGeo.get(3);
 			GeneralPath loca = new GeneralPath();
-	        loca.moveTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
-	        loca.lineTo(sg.screenXD(p2_rightupper.getX()), sg.screenYD(p2_rightupper.getY()));
-	        loca.lineTo(sg.screenXD(p1_rightlower.getX()), sg.screenYD(p1_rightlower.getY()));
-	        loca.lineTo(sg.screenXD(p0_leftlower.getX()), sg.screenYD(p0_leftlower.getY()));
-	        loca.lineTo(sg.screenXD(p3_leftupper.getX()), sg.screenYD(p3_leftupper.getY()));
-			Graphics2D g2 = (Graphics2D)g;
+			loca.moveTo(p0_leftUpper.getX(), p0_leftUpper.getY());
+			loca.lineTo(p1_rightUpper.getX(), p1_rightUpper.getY());
+			loca.lineTo(p2_rightLower.getX(), p2_rightLower.getY());
+			loca.lineTo(p3_leftLower.getX(), p3_leftLower.getY());
+			loca.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
+			Graphics2D g2 = (Graphics2D) g;
 			g2.setColor(localizerColor);
 			g2.setStroke(new BasicStroke(localizerStrokeSize));
 			g2.draw(loca);
 		}
 	}
 	
+	/**
+	 * for reslice
+	 * @param g
+	 */
 	private void drawReferenceLine(Graphics g) {
 		ReferenceLine refLine = pp.getReferenceLine();
 		if (refLine != null) {
+			AffineTransform aTx = new AffineTransform();
+			Graphics2D g2d = (Graphics2D)g;
+			double mag = sg.getMagnification();
+			double scaleXY[] = sg.getScaleFactor();
+			Point offset = sg.getDisplayImageOriginXY();
+			//First, translate image origin without mag and component scale.
+			aTx.translate(offset.x, offset.y);
+			//Second, scale Roi graphics
+			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
+			g2d.setTransform(aTx);
 			refLine.draw(g);
 		}
 	}
@@ -1193,7 +1215,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public synchronized void setLocalizerGeometry(java.util.List<java.awt.geom.Point2D> localizerGeo) {
 		//keep null-able
 		this.localizerGeo = localizerGeo;
-		revalidate();
 	}
 
 	public void setLocalizerStrokeSize(int strokeSize) {
@@ -1226,9 +1247,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 					double fovX = (int) (sg.getOriginalPixelSpacingX() * sg.getOriginalImageSize().width);
 					double imgX = sg.getCurrentDisplayImagePlus().getWidth();
 					double currentViewingPixelSizeX = (double) fovX / imgX;
-					/*
-					 * 表示ピクセルサイズがいくつあれば100mmになるか(num of pixels)
-					 */
+
 					int viewScaleHeight = (int) (100 / currentViewingPixelSizeY);
 					//show location
 					//upper

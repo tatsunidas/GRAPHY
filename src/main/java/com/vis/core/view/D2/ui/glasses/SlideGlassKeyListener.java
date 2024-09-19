@@ -61,7 +61,7 @@ public class SlideGlassKeyListener implements KeyListener{
 	public SlideGlassKeyListener(SlideGlass sg) {
 		this.sg = sg;
 		this.pp = sg.getPraparat();
-		this.prapManager = pp.getEyepieceAsPraparatManager();
+		this.prapManager = pp.getEyepiece();
 	}
 
 	@Override

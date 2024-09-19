@@ -37,13 +37,13 @@ public class PlanarSupport {
 	 * @param tag: imageplus tag format e.g., "0010,0010"
 	 * @return
 	 */
-	public String isPlanarOf(ImagePlus dcm) {
+	public CutSurface isPlanarOf(ImagePlus dcm) {
 		ImagePlusDicomTagTools tool = new ImagePlusDicomTagTools();
 		double[] image_ori = tool.getDoubles(dcm, iop);
 		if(image_ori == null) {
-			return CutSurface.UNKNOWN.name();
+			return CutSurface.UNKNOWN;
 		}
-		return ImageOrientation.getCutSurface(dcm).name();
+		return ImageOrientation.getCutSurface(dcm);
 	}
 	
 	/**

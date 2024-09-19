@@ -303,8 +303,6 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.deleteRoi(roi);
 	}
 
-	
-
 	/**
 	 * null-able. if set to null, stop displaying localizer.
 	 * 
@@ -312,6 +310,7 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public void drawLocalizer(java.util.List<java.awt.geom.Point2D> localizerGeo) {
 		roiOverlay.setLocalizerGeometry(localizerGeo);
+		repaintCanvasGlass();
 	}
 
 	public void flipHF() {
@@ -961,18 +960,20 @@ public class SlideGlass extends JLayeredPane {
 		return ((orgImageY * getMagnification() * getScaleFactor()[1]) + imageSpecimen.getDisplayOriginY());
 	}
 	
-	//TODO 
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		/*
-		 * following code is deprecated.
-		 * SlideGlass.repaint() update all layered pane components.
+		 * SlideGlass.repaint() update all layered pane components. However, the
+		 * following repainting is required in order for the ROI to be displayed
+		 * smoothly. As a point to note, the rendering of these excessive graphics can
+		 * cause Canvas3D in the 3D Viewer to fail to start.
 		 */
-//		imageSpecimen.repaint();
-//		textOverlay.repaint();
-//		roiOverlay.repaint();
-//		// coverGlass.repaint();
+		if (!getIgnoreRepaint()) {
+//			imageSpecimen.repaint();
+//			textOverlay.repaint();
+			roiOverlay.repaint();
+		}
 	}
 
 	/**
@@ -1032,6 +1033,14 @@ public class SlideGlass extends JLayeredPane {
 //		imp.getProcessor().set(0);
 //		setOriginalImage(imp);
 		repaint();
+	}
+	
+	public void repaintCanvasGlass() {
+		roiOverlay.repaint();
+	}
+	
+	public void repaintImageGlass() {
+		imageSpecimen.repaint();
 	}
 	
 	public void replaceRoi(HashMap<ContextKey, String> uids, RoiObj roiToReplace) {
@@ -1094,13 +1103,6 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			changeWindowing(WL, WW);
 		}
-	}
-
-	// future work
-	private void retrieveScoutParam() {
-//        currentScoutDetails = Viewer2DScreen.getInstance().getDatabase().getScoutLineDetails(dataset.getString(Tag.StudyInstanceUID), dataset.getString(Tag.SeriesInstanceUID), dataset.getString(Tag.SOPInstanceUID));
-//        isLocalizer = (currentScoutDetails.getImageType().equalsIgnoreCase("LOCALIZER")) ? true : false;
-//        findOrientation();
 	}
 
 	void rotate(int changeAngle) {

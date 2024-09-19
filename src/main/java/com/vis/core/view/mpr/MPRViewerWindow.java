@@ -43,6 +43,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Point;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
@@ -55,6 +57,8 @@ import javax.swing.JPanel;
 
 import org.joml.Vector3d;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -90,7 +94,8 @@ public class MPRViewerWindow extends JFrame {
     
     public static final int CROSS_MODE = 0;
     public static final int SLICE_MODE = 1;
-    private int currentMainPlaneType = XY;
+    
+    final MPRViewerWindow own;
     
 	
 	/*
@@ -114,18 +119,19 @@ public class MPRViewerWindow extends JFrame {
     private Praparat currentPrap = null;//for mouse action
     
     private ReferenceLineMPR refLines;
-    private String srcCutSurface;
+    private CutSurface srcCutSurface;
     
     private String patID;
     private String studyUID;
     private String seriesUID;
+    private String refUID;
     Color studyColor = Color.DARK_GRAY;
     
     boolean starting = true;
     boolean standalone= false;
     public boolean showCrossLines = true;
     
-    int reconResolution = 5; // keep odd side value.
+    int reconResolution = 5; // keep odd value.
     private final String reconNotReady = "NOT-READY";
     
     private Logger logger = Logger.getLogger(MPRViewerWindow.class.getName());
@@ -133,15 +139,17 @@ public class MPRViewerWindow extends JFrame {
     /**
      * debug purpose
      */
-    public MPRViewerWindow() {}
+    public MPRViewerWindow() {
+    	own = this;
+    }
     
     public MPRViewerWindow(Praparat prap) {
+    	own = this;
     	if(prap == null) {
     		throw new IllegalArgumentException("Praparat is null...");
     	}
     	loadImagePlus(prap);
 		if(imp == null || imp.getStackSize() < 1) {
-			logger.info("Number of images not enough.");
 			throw new IllegalArgumentException("Number of images not enough.");
 		}
 		
@@ -158,11 +166,13 @@ public class MPRViewerWindow extends JFrame {
 			this.studyUID = idset[1] != null ? (String)idset[1]:null;
 			this.seriesUID = idset[2] != null ? (String)idset[2]:null;
 //			this.sopUIDs = idset[3] != null ? (String[])idset[3]:null;
+			this.refUID = idset[4] != null ? (String)idset[4]:null;
 		}
 		init();
 	}
     
 	public MPRViewerWindow(ImagePlus imp, Color studyColor) {
+		own = this;
 		if(imp == null || imp.getStackSize() < 3) {
 			return;
 		}
@@ -201,21 +211,6 @@ public class MPRViewerWindow extends JFrame {
 		return contP.getNumberOfSlices();
 	}
 	
-	public int getCurrentMainPlaneType() {
-		return currentMainPlaneType;
-	}
-	
-	public ImagePlus getCurrentMainPlaneImage() {
-		int type = getCurrentMainPlaneType();
-		if(type == XY) {
-			return xyImage();
-		}else if(type == XZ) {
-			return xzImage();
-		}else {
-			return yzImage();
-		}
-	}
-	
 	public void showCrossLines(boolean show) {
 		if(showCrossLines && !show) {
 			//disable crosslines
@@ -232,20 +227,6 @@ public class MPRViewerWindow extends JFrame {
 		showCrossLines = show;
 	}
 	
-	public void setCurrentMainPlaneType(String surface) {
-		if(surface.equals(CutSurface.CORONAL.name())) {
-			setCurrentMainPlaneType(XZ);
-		}else if(surface.equals(CutSurface.SAGITTAL.name())) {
-			setCurrentMainPlaneType(YZ);
-		}else {
-			setCurrentMainPlaneType(XY);
-		}
-	}
-	
-	public void setCurrentMainPlaneType(int surfaceType) {
-		currentMainPlaneType = surfaceType;
-	}
-	
 	/**
 	 * load imagplus and dicom attributes
 	 * @param pathToImages
@@ -257,7 +238,6 @@ public class MPRViewerWindow extends JFrame {
 	private void init() {
 		PlanarSupport psup = new PlanarSupport();
 		srcCutSurface = psup.isPlanarOf(imp);
-		setCurrentMainPlaneType(srcCutSurface);
 		// set initial loc in offscreen coords.
 		initImages();
 		initOrthogonals();// create ortho images
@@ -266,14 +246,24 @@ public class MPRViewerWindow extends JFrame {
 		setVisible(true);
 	}
 	
-	private synchronized void buildGUI() {
+	private void buildGUI() {
 		if(xz_image == null || yz_image == null) {
 			logger.log(Level.WARNING, "Does not ready to start MPR window.");
 			return;
 		}
         //init view
-		setTitle("Graphy MPR Viewer");	
-		setSize(new Dimension(1000, 600));
+		setTitle(ConfigInfo.MPRWindow.toString());
+		setName(ConfigInfo.MPRWindow.toString());
+		setSize(new Dimension(1000, 800));
+		
+		WindowAdapter ada = new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				WindowManager.removeWindow(own);
+			}
+		};
+		addWindowListener(ada);
+		
 		basePanel = new JPanel();
 		basePanel.setLayout(new GridLayout(2, 2));
 		add(basePanel, BorderLayout.CENTER);
@@ -289,9 +279,9 @@ public class MPRViewerWindow extends JFrame {
       	xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR);
       	xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR);
       	yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR);
-      	recon_prap = new Praparat(recon_image,studyColor, ViewMode.Normal);
+      	recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal);
         
-        basePanel.add(xy_prap);
+       basePanel.add(xy_prap);
       	basePanel.add(xz_prap);
       	basePanel.add(yz_prap);
       	basePanel.add(recon_prap);
@@ -308,21 +298,6 @@ public class MPRViewerWindow extends JFrame {
 	public void setCurrentViewType(int viewType) {
 		this.previousViewType = this.currentViewType;
 		this.currentViewType = viewType;
-	}
-	
-	/**
-	 *  TODO
-	 *  adjust ipp, iop for each direction.
-	 *  adjust flip each direction.
-	 * @param type
-	 */
-	
-	public void changeMainPlane(int type) {
-		if(getCurrentMainPlaneType() != type) {
-			setCurrentMainPlaneType(type);
-			refLines = null;
-			initReslice();
-		}
 	}
 	
 	public ImagePlus xyImage() {
@@ -345,30 +320,51 @@ public class MPRViewerWindow extends JFrame {
 	}
 	
 	/**
-	 * Calculate stack size Z.
-	 * @param xy
-	 * @param cutSurfaceName
+	 * Calculate reconstruct stack size from src.
+	 * @param src
+	 * @param cutSurface
 	 * @return
 	 */
-	private int corrected_Z_Size(ImagePlus xy, String cutSurfaceName) {
-        int size = xy.getNSlices();//num of slice
-        Calibration cal = xy.getCalibration().copy();
-        double calx = cal.pixelWidth;
-        double caly = cal.pixelHeight;
-        double calz = cal.pixelDepth;
-        double ax = 1.0;
-        double ay = caly/calx;
-        double az = calz/calx;
-        double arat = az/ax;
-        double brat = az/ay;
-        int za = (int)(size*arat);
-        int zb = (int)(size*brat);
-		switch (cutSurfaceName) {
-		case "CORONAL":
-			return za;
-		case "SAGITTAL":
-			return zb;
-		default://axi, oblique, unknown
+	private int corrected_Z_Size(ImagePlus src, CutSurface srcCutSurface, CutSurface targetCutSurface) {
+
+		if (srcCutSurface == targetCutSurface) {
+			return src.getNSlices();// num of slice
+		}
+
+		int size = src.getNSlices();// num of slice
+		Calibration cal = src.getCalibration().copy();
+		double calx = cal.pixelWidth;
+		double caly = cal.pixelHeight;
+		double calz = cal.pixelDepth;
+
+		double ax = 1.0;// calx/calx
+		double ay = caly / calx;
+		double az = calz / calx;
+		double arat = az / ax;
+		double brat = az / ay;
+		int za = (int) (size * arat);
+		int zb = (int) (size * brat);
+
+		switch (srcCutSurface) {
+		case AXIAL:
+			if (targetCutSurface == CutSurface.CORONAL) {
+				return za;
+			} else if (targetCutSurface == CutSurface.SAGITTAL) {
+				return zb;
+			}
+		case SAGITTAL:
+			if (targetCutSurface == CutSurface.AXIAL) {
+				return za;
+			} else if (targetCutSurface == CutSurface.CORONAL) {
+				return zb;
+			}
+		case CORONAL:
+			if (targetCutSurface == CutSurface.AXIAL) {
+				return za;
+			} else if (targetCutSurface == CutSurface.SAGITTAL) {
+				return zb;
+			}
+		default:// unknown
 			return size;
 		}
 	}
@@ -379,11 +375,11 @@ public class MPRViewerWindow extends JFrame {
      * @return
      */
     private void initImages() {
-    	if(getCurrentMainPlaneType()==XY) {
+    	if(srcCutSurface==CutSurface.AXIAL) {
 			xy_image = new Duplicator().run(imp);
 			xz_image = new ImagePlus();
 			yz_image = new ImagePlus();
-        }else if((getCurrentMainPlaneType()==XZ)) {
+        }else if(srcCutSurface==CutSurface.CORONAL) {
         	xz_image = new Duplicator().run(imp);
 			xy_image = new ImagePlus();
 			yz_image = new ImagePlus();
@@ -401,11 +397,11 @@ public class MPRViewerWindow extends JFrame {
 		 * see also MPRMenuBar:Save as... if named "NOT-READY", return null by
 		 * getMPRImages()
 		 */
-		if (getCurrentMainPlaneType() == XY) {
+		if (srcCutSurface==CutSurface.AXIAL) {
 			init_image = NewImage.createByteImage(reconNotReady, xy_image.getWidth(), xy_image.getHeight(), 1,
 					NewImage.FILL_BLACK);
 			recon_image = init_image;
-		} else if (getCurrentMainPlaneType() == XZ) {
+		} else if (srcCutSurface==CutSurface.CORONAL) {
 			init_image = NewImage.createByteImage(reconNotReady, xz_image.getWidth(), xz_image.getHeight(), 1,
 					NewImage.FILL_BLACK);
 			recon_image = init_image;
@@ -421,118 +417,29 @@ public class MPRViewerWindow extends JFrame {
     }
 	
 	void initOrthogonals() {
-		int type = getCurrentMainPlaneType();
-		if(type == XY) {
-			xz_image = constructAllXZ(xy_image);
-			yz_image = constructAllYZ(xy_image);
-		}else if(type == XZ){
-			xz_image = constructAllXZ(xz_image);
-			yz_image = constructAllYZ(xz_image);
+		if(srcCutSurface==CutSurface.AXIAL) {
+			xz_image = constructXZ(xy_image);
+			yz_image = constructYZ(xy_image);
+		}else if(srcCutSurface==CutSurface.CORONAL){
+			xy_image = constructXY(xz_image);
+			yz_image = constructYZ(xz_image);
 		}else {
-			xz_image = constructAllXZ(yz_image);
-			yz_image = constructAllYZ(yz_image);
+			xy_image = constructXY(yz_image);
+			xz_image = constructXZ(yz_image);
 		}
     }
-		
-	/**
-	 * Create orthogonal planes
-	 * @param p : offScreen coordinates on SlideGlass.
-	 */
-//	void createOrthogonals_(Point p) {
-//		int type = getCurrentMainPlaneType();
-//		if(type == XY) {
-//			constructXZ(p, xy_image);
-//			constructYZ(p, xy_image);
-//		}else if(type == XZ){
-//			constructXZ(p, xz_image);
-//			constructYZ(p, xz_image);
-//		}else {
-//			constructXZ(p, yz_image);
-//			constructYZ(p, yz_image);
-//		}
-//    }
-//	
-//	
-//	void constructXZ(Point p, ImagePlus src) {
-//		OrthogonalSlice orthTool = new OrthogonalSlice();
-//		if(p == null) {
-//			p = new Point(0, src.getHeight()/2-1);
-//		}
-//		int slicePos = 1;
-//		int type = getCurrentMainPlaneType();
-//		if(type == XY) {
-//			if (xy_prap != null) {
-//				slicePos = xy_prap.getCurrentSlidePos() + 1;
-//			}
-//		}else if(type == XZ){
-//			if (xz_prap != null) {
-//				slicePos = xz_prap.getCurrentSlidePos() + 1;
-//			}
-//		}else {
-//			if (yz_prap != null) {
-//				slicePos = yz_prap.getCurrentSlidePos() + 1;
-//			}
-//		}
-//		boolean flipXZ = true;
-//		boolean rotateXZ = false;
-//		this.xz_image = orthTool.cutXZ(src, p.y, slicePos, flipXZ, rotateXZ);
-//		Calibration calHolder = this.imp.getCalibration().copy();//with density calibration
-//		Calibration cal = xz_image.getCalibration();
-//		calHolder.pixelWidth = cal.pixelWidth;
-//		calHolder.pixelHeight = cal.pixelHeight;
-//		calHolder.pixelDepth = cal.pixelDepth;
-//		calHolder.setXUnit(cal.getXUnit());
-//		calHolder.setYUnit(cal.getYUnit());
-//		calHolder.setZUnit(cal.getZUnit());
-//		xz_image.setCalibration(calHolder);
-//		orthTool = null;
-//    }
-//    
-//	
-//    void constructYZ(Point p, ImagePlus src) {
-//    	OrthogonalSlice orthTool = new OrthogonalSlice();
-//		if(p == null) {
-//			p = new Point(src.getWidth()/2-1, 0);
-//		}
-//		int slicePos = 1;
-//		int type = getCurrentMainPlaneType();
-//		if(type == XY) {
-//			if (xy_prap != null) {
-//				slicePos = xy_prap.getCurrentSlidePos() + 1;
-//			}
-//		}else if(type == XZ){
-//			if (xz_prap != null) {
-//				slicePos = xz_prap.getCurrentSlidePos() + 1;
-//			}
-//		}else {
-//			if (yz_prap != null) {
-//				slicePos = yz_prap.getCurrentSlidePos() + 1;
-//			}
-//		}
-//		this.yz_image = orthTool.cutYZ(src, p.x, slicePos, flipYZ, rotateYZ);
-//		Calibration calHolder = this.imp.getCalibration().copy();//with density calibration
-//		Calibration cal = yz_image.getCalibration();
-//		calHolder.pixelWidth = cal.pixelWidth;
-//		calHolder.pixelHeight = cal.pixelHeight;
-//		calHolder.pixelDepth = cal.pixelDepth;
-//		calHolder.setXUnit(cal.getXUnit());
-//		calHolder.setYUnit(cal.getYUnit());
-//		calHolder.setZUnit(cal.getZUnit());
-//		yz_image.setCalibration(calHolder);
-//		orthTool = null;
-//    }
     
-    ImagePlus constructAllXY(ImagePlus src) {
-    	int mainPlane = getCurrentMainPlaneType();
-    	if(mainPlane == XY) {
+    ImagePlus constructXY(ImagePlus src) {
+    	if(srcCutSurface==CutSurface.AXIAL) {
+    		xy_image = src;
     		return xy_image;
     	}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
 		int size = 0;
 		ImageStack stack = new ImageStack();
 		Calibration cal = null;
-		if(mainPlane == XZ) {
-			size = corrected_Z_Size(src, CutSurface.CORONAL.name());
+		size = corrected_Z_Size(src, srcCutSurface, CutSurface.AXIAL);
+		if(srcCutSurface==CutSurface.CORONAL) {
 			boolean flipXZ = false;
 			boolean rotateXZ = false;
 			for(int z=0;z<size;z++) {
@@ -543,8 +450,7 @@ public class MPRViewerWindow extends JFrame {
 				stack.addSlice(xy_.getProcessor());
 				stack.setSliceLabel(xy_.getInfoProperty(), z+1);
 			}
-		}else {
-			size = corrected_Z_Size(src, CutSurface.SAGITTAL.name());
+		}else {//SAG
 			boolean flipXZ = false;
 			boolean rotateXZ = true;
 			for(int z=0;z<size;z++) {
@@ -564,22 +470,22 @@ public class MPRViewerWindow extends JFrame {
 		calHolder.setXUnit(cal.getXUnit());
 		calHolder.setYUnit(cal.getYUnit());
 		calHolder.setZUnit(cal.getZUnit());
-		ImagePlus xz_imp = new ImagePlus("XZ", stack);
-		xz_imp.setCalibration(calHolder);
-		return xz_imp;
+		ImagePlus xy_imp = new ImagePlus("XY", stack);
+		xy_imp.setCalibration(calHolder);
+		return xy_imp;
     }
     
-    ImagePlus constructAllXZ(ImagePlus src) {
-    	int mainPlane = getCurrentMainPlaneType();
-    	if(mainPlane == XZ) {
+    ImagePlus constructXZ(ImagePlus src) {
+    	if(srcCutSurface==CutSurface.CORONAL) {
+    		xz_image = src;
     		return xz_image;
     	}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
-		int size = 0;
+		int size = corrected_Z_Size(src, srcCutSurface, CutSurface.CORONAL);
 		ImageStack stack = new ImageStack();
 		Calibration cal = null;
-		if(mainPlane == XY) {
-			size = src.getHeight();
+		
+		if(srcCutSurface==CutSurface.AXIAL) {
 			boolean flipXZ = true;
 			boolean rotateXZ = false;
 			for(int y=0;y<size;y++) {
@@ -591,7 +497,6 @@ public class MPRViewerWindow extends JFrame {
 				stack.setSliceLabel(xz_.getInfoProperty(), y+1);
 			}
 		}else {
-			size = src.getWidth();
 			boolean flipYZ = false;
 			boolean rotateYZ = true;
 			for(int w=0;w<size;w++) {
@@ -618,16 +523,16 @@ public class MPRViewerWindow extends JFrame {
     }
     
 	
-    ImagePlus constructAllYZ(ImagePlus src) {
-    	int mainPlane = getCurrentMainPlaneType();
-    	if(mainPlane == YZ) {
+    ImagePlus constructYZ(ImagePlus src) {
+    	if(srcCutSurface==CutSurface.SAGITTAL) {
+    		yz_image = src;
     		return yz_image;
     	}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
-		int size = src.getWidth();
+		int size = corrected_Z_Size(src, srcCutSurface, CutSurface.SAGITTAL);
 		ImageStack stack = new ImageStack();
 		Calibration cal = null;
-		if(mainPlane == XY) {
+		if(srcCutSurface==CutSurface.AXIAL) {
 			boolean flipYZ = false;
 			boolean rotateYZ = false;
 			for(int w=0;w<size;w++) {
@@ -778,39 +683,6 @@ public class MPRViewerWindow extends JFrame {
     	xz_prap.setImagePositionUsingSlider(xzZ);
     	repaint();
     }
-        
-//    private void updateMagnification(int x, int y) {
-//        double magnification= xy_prap.getCurrentSlide().getView().getMagnification();
-//        int z = imp.getSlice()-1;
-//        ImageWindow xz_win = xz_image.getWindow();
-//        if (xz_win==null) return;
-//        ImageCanvas xz_ic = xz_win.getCanvas();
-//        double xz_mag = xz_ic.getMagnification();
-//        double arat = az/ax;
-//        int zcoord=(int)(arat*z);
-//        if (flipXZ) zcoord=(int)(arat*(imp.getNSlices()-z));
-//        while (xz_mag<magnification) {
-//            xz_ic.zoomIn(xz_ic.screenX(x), xz_ic.screenY(zcoord));
-//            xz_mag = xz_ic.getMagnification();
-//        }
-//        while (xz_mag>magnification) {
-//            xz_ic.zoomOut(xz_ic.screenX(x), xz_ic.screenY(zcoord));
-//            xz_mag = xz_ic.getMagnification();
-//        }
-//        ImageWindow yz_win = yz_image.getWindow();
-//        if (yz_win==null) return;
-//        ImageCanvas yz_ic = yz_win.getCanvas();
-//        double yz_mag = yz_ic.getMagnification();
-//        zcoord = (int)(arat*z);
-//        while (yz_mag<magnification) {
-//            yz_ic.zoomIn(yz_ic.screenX(zcoord), yz_ic.screenY(y));
-//            yz_mag = yz_ic.getMagnification();
-//        }
-//        while (yz_mag>magnification) {
-//            yz_ic.zoomOut(yz_ic.screenX(zcoord), yz_ic.screenY(y));
-//            yz_mag = yz_ic.getMagnification();
-//        }
-//    }
     
 	private void updateCrossXY(int xyX, int xyY) {
 		xy_prap.clearCrossLines();
@@ -889,62 +761,29 @@ public class MPRViewerWindow extends JFrame {
 		int xzY = yzY;
 		updateCrossXZ(xzX, xzY);
     }
-    	
-    /**
-     * 
-     * @param x: org image's off screen coordinate X
-     * @param y: org image's off screen coordinate Y
-     */
-//	private synchronized void updateCrossesByXY(int xyX, int xyY) {
-//		double arat=az/ax;
-//        double brat=az/ay;
-//        updateCrossXY(xyX, xyY);
-//		//XZ
-//        int z = xy_prap.getAllSlides().size();//imp.getNSlices();
-//        int zlice = xy_prap.getCurrentSlidePos();//imp.getSlice()-1;
-//        int zcoord = (int)Math.round(arat*zlice);
-//        if (flipXZ) {
-//        	zcoord = (int)Math.round(arat*(z-zlice));
-//        }
-//        updateCrossXZ(xyX, zcoord);
-//        //YZ
-//        if (!rotateYZ) {
-//            if (flipXZ)
-//                zcoord=(int)Math.round(brat*(z-zlice));
-//            else
-//                zcoord=(int)Math.round(brat*(zlice));           
-//            updateCrossYZ(xyY, zcoord);
-//        } else {
-//            zcoord = (int)Math.round(arat*zlice);
-//            updateCrossYZ(zcoord, xyY);
-//        }
-//    }
 	
-	synchronized void initCrosses() {
-		/*
-    	 * reset sliceLine
-    	 */
-    	refLines = null;
-    	//set cross line mode for praps
+	void initCrosses() {
+		refLines = null;
+		// set cross line mode for praps
 		xy_prap.setShowCrossLineMode(true);
-      	xz_prap.setShowCrossLineMode(true);
-      	yz_prap.setShowCrossLineMode(true);
-    	
-    	xy_prap.setReferenceLine(null);
-    	xz_prap.setReferenceLine(null);
-    	yz_prap.setReferenceLine(null);
+		xz_prap.setShowCrossLineMode(true);
+		yz_prap.setShowCrossLineMode(true);
+
+		xy_prap.setReferenceLine(null);
+		xz_prap.setReferenceLine(null);
+		yz_prap.setReferenceLine(null);
 
 	}
-	
+
 	void initReslice() {
 		xy_prap.setShowCrossLineMode(false);
-      	xz_prap.setShowCrossLineMode(false);
-      	yz_prap.setShowCrossLineMode(false);
+		xz_prap.setShowCrossLineMode(false);
+		yz_prap.setShowCrossLineMode(false);
 		xy_prap.clearCrossLines();
 		xz_prap.clearCrossLines();
 		yz_prap.clearCrossLines();
 		updateReferenceLineMPR();
-        repaint();
+		repaint();
 	}
 	
 	
@@ -961,12 +800,11 @@ public class MPRViewerWindow extends JFrame {
 		if(refLines == null) {
 			return;
 		}
-		int mainPlaneType = getCurrentMainPlaneType();
 		boolean excessAngle = false;
 		try {
-			if(mainPlaneType == XY) {
+			if(srcCutSurface==CutSurface.AXIAL) {
 				excessAngle = refLines.xYLine().isHorizontal() ? false:true;
-			}else if(mainPlaneType == XZ) {
+			}else if(srcCutSurface==CutSurface.CORONAL) {
 				excessAngle = refLines.xZLine().isHorizontal();
 			}else {
 				excessAngle = refLines.yZLine().isHorizontal() ? false:true;
@@ -977,10 +815,10 @@ public class MPRViewerWindow extends JFrame {
 		}
 		
 		ArrayList<float[]> sortedPointPairList = null;
-		if(mainPlaneType == XY) {
+		if(srcCutSurface==CutSurface.AXIAL) {
 			GeneralPath sliceLinePaths = refLines.xYLine().createSliceLinesWithOffScreenCoordinates();
 			sortedPointPairList = refLines.xYLine().getPoints(sliceLinePaths);
-		}else if(mainPlaneType == XZ) {
+		}else if(srcCutSurface==CutSurface.CORONAL) {
 			GeneralPath sliceLinePaths = refLines.xZLine().createSliceLinesWithOffScreenCoordinates();
 			sortedPointPairList = refLines.xZLine().getPoints(sliceLinePaths);
 		}else {
@@ -989,7 +827,7 @@ public class MPRViewerWindow extends JFrame {
 		}
 		
 		ImageStack stack = null;
-		ImagePlus mainPlane = getCurrentMainPlaneImage();
+		ImagePlus mainPlane = this.imp;
 		int count = 1;
 		String reconType = contP.getReconType();
 		PlanarSupport psup = new PlanarSupport();
@@ -1006,7 +844,7 @@ public class MPRViewerWindow extends JFrame {
 				}
 				resliceIp.resetMinAndMax();
 				
-				if(mainPlaneType == XY) {//creating CORONAL or sagittal
+				if(srcCutSurface==CutSurface.AXIAL) {//creating CORONAL or sagittal
 					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, mainPlane.getNSlices());
 					double[] iop = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.AXIAL);
 					int angle = (int) refLines.getAngleXY();
@@ -1050,7 +888,7 @@ public class MPRViewerWindow extends JFrame {
 					stack.setProcessor(resliceIp, count);
 					stack.setSliceLabel(temp.getInfoProperty(), count);//stack.addSlice(temp.getInfoProperty(), resliceIp, count++);//do not use
 					count++;
-				}else if(mainPlaneType == XZ) {//creating sagittal or axial
+				}else if(srcCutSurface==CutSurface.CORONAL) {//creating sagittal or axial
 					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, 1);
 					double[] iop_sag = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.CORONAL);
 					int angle = (int) refLines.getAngleXZ();
@@ -1188,7 +1026,7 @@ public class MPRViewerWindow extends JFrame {
 		double py;
 		double pz;
 		//set calibration
-		if(mainPlaneType == XY) {
+		if(srcCutSurface==CutSurface.AXIAL) {
 			//SAG or COR
 			Calibration calHolder = xy_image.getCalibration().copy();
 			px = refLines.xYLine().getLength() / recon_image.getWidth();
@@ -1202,7 +1040,7 @@ public class MPRViewerWindow extends JFrame {
 			calHolder.pixelHeight = py;
 			calHolder.pixelDepth = pz;
 			recon_image.setCalibration(calHolder);
-		}else if(mainPlaneType == XZ) {
+		}else if(srcCutSurface==CutSurface.CORONAL) {
 			Calibration calHolder = xz_image.getCalibration().copy();
 			if(excessAngle) {//AXI
 				px = refLines.xZLine().getLength() / recon_image.getWidth();
@@ -1233,7 +1071,6 @@ public class MPRViewerWindow extends JFrame {
 		}
 		recon_prap.prepareSlideGlassesUsingImagePlus(recon_image);
     	recon_prap.resetView();
-    	recon_prap.repaint();
 	}
 	
 	double[] calcImagePositionPatient(double row, double col, int slicePos) {
@@ -1310,17 +1147,21 @@ public class MPRViewerWindow extends JFrame {
 //		return mprs;
 //	}
 	
-	public Praparat getPraparatAt(int index) {
-		if(index == MPRViewerWindow.XY) {
+	public Praparat getPraparatAt(CutSurface cs) {
+		if(cs == CutSurface.AXIAL) {
 			return xy_prap;
-		}else if(index == MPRViewerWindow.XZ) {
+		}else if(cs == CutSurface.CORONAL) {
 			return xz_prap;
-		}else if(index == MPRViewerWindow.YZ) {
+		}else if(cs == CutSurface.SAGITTAL) {
 			return yz_prap;
-		}else if(index == MPRViewerWindow.RECON) {
+		}else if(cs == CutSurface.OBLIQUE) {
 			return recon_prap;
 		}
 		return null;
+	}
+	
+	public CutSurface getSrcSurface() {
+		return srcCutSurface;
 	}
 	
 	

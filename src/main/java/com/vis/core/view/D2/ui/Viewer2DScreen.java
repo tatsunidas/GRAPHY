@@ -67,10 +67,9 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiObjManager;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.db.DatabaseHandler;
-
-import ij3d.Image3DUniverse;
 
 /**
  * 
@@ -166,6 +165,8 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				sdm.deleteStage(pat);
 			}
 		}
+		revalidate();
+		repaint();
 	}
 
 	/**
@@ -178,6 +179,10 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		}
 		ArrayList<DICOMNode> nodes = WindowManager.getMainScreen().getSelectedNode();
 		loadImagesOnStageThroughDB(nodes);
+		String patID = nodes.get(0).getData(DICOMNode.PatientID);
+		sdm.toTop(patID);
+		revalidate();
+		repaint();
 	}
 
 	/**
@@ -431,6 +436,46 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		return toolBar.getCurrentToolType();
 	}
 	
+	/**
+	 * for 3D Viewer's Canvas3D.
+	 * @param ignore
+	 */
+	public void ignoreRepaintAllSlides(boolean ignore) {
+		Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+		if(d2 == null || !d2.isVisible()) {
+			return;
+		}
+		StageDockManager sdm = d2.getStageDockManager();
+		String[] plist = sdm.getAllPatientList();
+		if(plist == null) {
+			return;
+		}
+		for(String pid:plist) {
+			StageView sv = sdm.getStage(pid);
+			Eyepiece eye = sv.getEyepiece();
+			ArrayList<PraparatContext> prapCons = eye.getAllPraparatContext();
+			if(prapCons != null && prapCons.size()>0) {
+				for(PraparatContext pcon:prapCons) {
+					/*
+					 * praparat does not have complex paintComponent().
+					 * So, not set ignoreRepaint.
+					 */
+					Praparat pp = pcon.getPraparat();
+					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					for(int pos:slides.keySet()) {
+						SlideGlass sg = slides.get(pos);
+						sg.setIgnoreRepaint(ignore);
+					}
+					
+					if(!ignore) {
+						pp.revalidate();
+						pp.repaint();
+					}
+				}
+			}
+		}
+	}
+	
 	public void repaintAllPraparat() {
 		StageDockManager sdm = getStageDockManager();
 		String[] patIDs = sdm.getAllPatientList();
@@ -439,7 +484,9 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			Eyepiece eye = sv.getEyepiece();
 			ArrayList<PraparatContext> pcon = eye.getAllPraparatContext();
 			for (PraparatContext pc : pcon) {
-				pc.getPraparat().repaint();
+				Praparat pp = pc.getPraparat();
+				pp.revalidate();
+				pp.repaint();
 			}
 		}
 	}

@@ -47,7 +47,6 @@ import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
 import com.vis.dicom.UIDUtils;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
 import ij.util.DicomTools;

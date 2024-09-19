@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -68,10 +67,6 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
-import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
-
-import ij3d.Image3DUniverse;
-
 /**
  * GRAPHY launcher
  * 
@@ -127,9 +122,6 @@ public class Launcher {
 		
 		Log.logger.info("GRAPHY will restart...");
 		Log.logger.info(command.toString());
-		
-		System.out.println("GRAPHY will restart...");
-		System.out.println(command.toString());
 		
 		ProcessBuilder builder = new ProcessBuilder(command);
 

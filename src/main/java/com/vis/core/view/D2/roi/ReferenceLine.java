@@ -53,6 +53,11 @@ import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import ij.ImagePlus;
 import ij.measure.Calibration;
 
+/**
+ * Reference line for reslice.
+ * @author tatsunidas
+ *
+ */
 @SuppressWarnings("serial")
 public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	

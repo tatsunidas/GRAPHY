@@ -47,13 +47,10 @@ import java.util.HashMap;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-
-import com.vis.core.ui.dialog.PopUpMessage;
 
 /**
  * 
@@ -170,6 +167,16 @@ public class StageDockManager extends JTabbedPane implements ChangeListener{
 	
 	public int getCurrentTabIndex() {
 		return getSelectedIndex();
+	}
+	
+	public void toTop(String patID) {
+		if(patID == null) {
+			throw new IllegalArgumentException("StageDockManager:patient id is null...");
+		}
+		int pos = getTabPosition(patID);
+		if(pos != -1) {
+			setSelectedIndex(pos);
+		}
 	}
 	
 	//whether is dock floating

@@ -95,12 +95,14 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		
 		JLabel planelbl = new JLabel("Slice plane");
 		p.add(planelbl);
-		JComboBox<?> planeSelect = new JComboBox<>(mainPlaneType);
-		planeSelect.setName("PLANE_SELECT");
-		planeSelect.setSize(100, 12);
-		planeSelect.setSelectedIndex(0);
-		planeSelect.addItemListener(this);
-		p.add(planeSelect);
+		
+		//20240919 dropout
+//		JComboBox<?> planeSelect = new JComboBox<>(mainPlaneType);
+//		planeSelect.setName("PLANE_SELECT");
+//		planeSelect.setSize(100, 12);
+//		planeSelect.setSelectedIndex(0);
+//		planeSelect.addItemListener(this);
+//		p.add(planeSelect);
 		
 		JLabel l1 = new JLabel("SliceThickness");
 		p.add(l1);
@@ -285,16 +287,18 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 			String name = cb.getName();
 			if(name.equals("MODE_SELECT")) {
 				updateSettingsPanel((String)cb.getSelectedItem());
-			}else if(name.equals("PLANE_SELECT")) {
-				String item = (String)cb.getSelectedItem();
-				if(item.equals(mainPlaneType[0])) {
-					mprWin.changeMainPlane(MPRViewerWindow.XY);
-				}else if(item.equals(mainPlaneType[1])) {
-					mprWin.changeMainPlane(MPRViewerWindow.XZ);
-				}else {
-					mprWin.changeMainPlane(MPRViewerWindow.YZ);
-				}
 			}
+			//20240919 dropout
+//			else if(name.equals("PLANE_SELECT")) {
+//				String item = (String)cb.getSelectedItem();
+//				if(item.equals(mainPlaneType[0])) {
+//					mprWin.changeMainPlane(MPRViewerWindow.XY);
+//				}else if(item.equals(mainPlaneType[1])) {
+//					mprWin.changeMainPlane(MPRViewerWindow.XZ);
+//				}else {
+//					mprWin.changeMainPlane(MPRViewerWindow.YZ);
+//				}
+//			}
 		}else if(obj instanceof JCheckBox) {
 			JCheckBox cb = (JCheckBox)obj;
 			String name = cb.getName();

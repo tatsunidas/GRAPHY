@@ -12,6 +12,7 @@ package com.vis.core.view.D2.ui.orientation;
 
 import org.joml.Vector3d;
 
+import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
@@ -161,22 +162,17 @@ public /*abstract*/ class ImageOrientation {
 		return null;
 	}
 	
-	/*
-	 * TODO 20231008
-	 */
 	public static CutSurface getCutSurface(ImagePlus imp) {
-//		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-//		double[] iop = tools.getDoubles(imp, "0020,0037");
-//		if(iop == null) {
-//			return CutSurface.UNKNOWN;
-//		}
-//		Vector3d vr = new Vector3d(iop[0], iop[1], iop[2]);
-//		Vector3d vc = new Vector3d(iop[3], iop[4], iop[5]);
-//		if (vr != null && vc != null && !vr.equals(iop[3], iop[4], iop[5])) {
-//			return ImageOrientation.getCutsurface(vr, vc);
-//		}else {
-//			return CutSurface.UNKNOWN;
-//		}
+		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
+		double[] iop = tools.getDoubles(imp, "0020,0037");
+		if(iop == null) {
+			return CutSurface.UNKNOWN;
+		}
+		Vector3d vr = new Vector3d(iop[0], iop[1], iop[2]);
+		Vector3d vc = new Vector3d(iop[3], iop[4], iop[5]);
+		if (vr != null && vc != null && !vr.equals(iop[3], iop[4], iop[5])) {
+			return ImageOrientation.getCutsurface(vr, vc);
+		}
 		return CutSurface.UNKNOWN;
 	}
 

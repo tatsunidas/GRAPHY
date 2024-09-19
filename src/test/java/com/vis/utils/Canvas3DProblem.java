@@ -38,14 +38,12 @@
 package com.vis.utils;
 
 import java.awt.BorderLayout;
-import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import org.scijava.java3d.BoundingSphere;
@@ -61,7 +59,6 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.process.ColorProcessor;
 
 public class Canvas3DProblem {
 
@@ -79,6 +76,9 @@ public class Canvas3DProblem {
 		f = new JFrame();
 		f.setTitle("Simple Java 3D Example");
 		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		/*
+		 * More heavy task needed for reproduction that canvas3d will not work.
+		 */
 //		JPanel pp = new JPanel() {
 //			protected void paintComponent(Graphics g) {
 //				super.paintComponent(g);

@@ -44,6 +44,10 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -53,7 +57,9 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
+import javax.swing.plaf.SplitPaneUI;
 import javax.swing.plaf.ToolBarUI;
+import javax.swing.plaf.basic.BasicSplitPaneUI;
 import javax.swing.plaf.basic.BasicToolBarUI;
 
 import com.vis.core.log.Log;
@@ -62,7 +68,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf;
 
 /**
- * Manage Eyepiece(study level) and PatientInfoCake
+ * Study Manager contains Eyepiece(study level) and PatientInfoCake
  * 
  * @author tatsunidas
  *
@@ -78,6 +84,9 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	//praparat context
 //	private ArrayList<PraparatShelf.PraparatContext> praps;
 	final HashMap<String, String> patInfoSet;
+	
+	int dividerLoc = -1;
+	boolean touchingDivider = false;
 
 	public StageView(HashMap<String, String> patInfoSet) {
 		setLayout(new BorderLayout());
@@ -127,14 +136,14 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 			ToolBarUI ui = currentStage.getUI();
 			boolean floating = ui instanceof BasicToolBarUI && ((BasicToolBarUI) ui).isFloating();			
 			if(!floating) {
-				System.out.println("...StageDock still stay in dock:"+ " "+patID);
+				Log.logger.fine("...StageDock still stay in dock:"+ " "+patID);
 				int pos = sdm.getTabPosition(patID);
 				sdm.setTabComponentAt(pos, sdm.buildTabComponent(patID));//tab tag component!
 				sdm.setSelectedIndex(sdm.lastSelectedTabIndex);//show top in dock
 				sdm.revalidate();
 				sdm.repaint();
 			}else {
-				System.out.println("...StageDock make a homeward voyage:"+ " "+patID);
+				Log.logger.fine("...StageDock make a homeward voyage:"+ " "+patID);
 				//when re-docking, add tab at last.
 //				int pos = sdm.getComponentCount()-1;//too many ?
 				int pos = sdm.getTabCount()-1;//get last tab pos
@@ -202,6 +211,42 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		}
 		cakeAndEye = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		cakeAndEye.setOneTouchExpandable(true);
+		/*
+		 * The movable range of the divider is automatically adjusted, so mouse
+		 * operation is not all-purpose.
+		 */
+		SplitPaneUI spui = cakeAndEye.getUI();
+		if (spui instanceof BasicSplitPaneUI) {
+			((BasicSplitPaneUI) spui).getDivider().addMouseListener(new MouseAdapter() {
+				@Override
+				public void mousePressed(MouseEvent e) {
+					super.mousePressed(e);
+					Log.logger.fine("Pressed StageView Divider");
+					touchingDivider = true;
+//					Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+//					d2.ignoreRepaintAllSlides(true);
+//					eye.setIgnoreRepaint(true);
+				}
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					super.mouseReleased(e);
+					Log.logger.fine("Released StageView Divider");
+					touchingDivider = false;
+//					Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+//					d2.ignoreRepaintAllSlides(false);
+//					eye.setIgnoreRepaint(false);
+					cakeAndEye.revalidate();
+					cakeAndEye.repaint();
+				}
+			});
+		}
+		cakeAndEye.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                dividerLoc = cakeAndEye.getDividerLocation();
+            }
+        });
+		
 		add(cakeAndEye, BorderLayout.CENTER);
 		initDataInfoCake();
 		initEyepiece();
@@ -217,8 +262,8 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 
 	public ArrayList<Object[]> getAllPraparatContextInfoSet(){
 		/*
-		 * PraparatContextは、表示中の画像セットをグループ情報としてまとめたもの。
-		 * 一つのスタディ、一つのシリーズ、それに付随するインスタンスセットをまとめている。
+		 * The PraparatContext is a set of images currently being displayed. 
+		 * It is a set of instances that are associated with a series.
 		 */
 		ArrayList<PraparatShelf.PraparatContext> praps = eye.getAllPraparatContext();
 		ArrayList<Object[]> praparatInfoSet = new ArrayList<>();
