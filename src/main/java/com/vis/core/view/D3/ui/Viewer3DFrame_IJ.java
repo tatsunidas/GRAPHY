@@ -37,134 +37,235 @@
  */
 package com.vis.core.view.D3.ui;
 
+import java.awt.BorderLayout;
 import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
+import java.awt.Window;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+
+import org.scijava.java3d.BoundingSphere;
+import org.scijava.java3d.BranchGroup;
 import org.scijava.java3d.Canvas3D;
-import org.scijava.java3d.GraphicsConfigTemplate3D;
+import org.scijava.java3d.DirectionalLight;
+import org.scijava.java3d.utils.geometry.ColorCube;
 import org.scijava.java3d.utils.universe.SimpleUniverse;
+import org.scijava.vecmath.Color3f;
+import org.scijava.vecmath.Vector3f;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.util.Platform;
 
-import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.ImageProcessor;
 import ij3d.Image3DUniverse;
+import ij3d.ImageCanvas3D;
+import ij3d.ImageWindow3D;
 
-public class Viewer3DFrame_IJ{
-	
+/**
+ * Must use OracleJDK8 or AdoptOpenJDK11.
+ * 
+ * Assume that run configration: "-Dj3d.allowNullGraphicsConfig" to avoid
+ * following error. 
+ * 
+ * java.lang.NullPointerException: Cannot invoke
+ * "com.jogamp.nativewindow.awt.AWTGr
+ * aphicsConfiguration.getAWTGraphicsConfiguration()" because "awtConfig" is
+ * null
+ * 
+ * Warning! If other Swing components are performing special drawing processing,
+ * the Canvas3D graphics will not be able to start up. Please be careful when
+ * trying to start up the 3D Viewer if you are running any components that
+ * override paintComponent.
+ * 
+ * @author tatsunidas
+ *
+ */
+public class Viewer3DFrame_IJ {
+
 	public static final int ORTHO = ij3d.Content.ORTHO;
 	public static final int SURFACE = ij3d.Content.SURFACE;
 	public static final int VOLUME = ij3d.Content.VOLUME;
-	
+
 	ImagePlus org;
 	int displayMode = ij3d.Content.ORTHO;
-	
+
 	Image3DUniverse univ;
-	
+
 	public static void main(String args[]) {
-		String url = "https://imagej.net/ij/images/flybrain.zip";
-		ImagePlus image = IJ.openImage(url);
-		new Viewer3DFrame_IJ(image, VOLUME);
+		//test case 1
+//		String url = "https://imagej.net/ij/images/flybrain.zip";
+//		ImagePlus image = IJ.openImage(url);
+//		Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(image, VOLUME);
+//		d3.run();
+		
+		//test case 2
+//		Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(null, VOLUME);
+//		d3.test3D();
 	}
-	
+
 	public Viewer3DFrame_IJ(ImagePlus imp, Integer dispMode) {
 		workaroundIntelGraphicsBug();
-		run(imp, dispMode);
-	}
-	
-	public void test() {
-		System.out.println("run test");
-		// this makes an error java.lang.IllegalArgumentException: Canvas3D:
-		// GraphicsConfiguration is not compatible with Canvas3D, but it works!?
-		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-		GraphicsDevice gd = ge.getDefaultScreenDevice();
-		GraphicsConfiguration gc = gd.getDefaultConfiguration();
-
-		try {
-			gc = SimpleUniverse.getPreferredConfiguration(); // this works
-			gc.getDevice();
-			// Canvas3D default graphics configuration
-			GraphicsConfigTemplate3D template = new GraphicsConfigTemplate3D();
-			GraphicsConfiguration defaultGcfg = GraphicsEnvironment.getLocalGraphicsEnvironment()
-					.getDefaultScreenDevice().getBestConfiguration(template);
-			gc = defaultGcfg; // this works as well
-			
-			/*
-			 * see, run configration
-			 * -Dj3d.allowNullGraphicsConfig
-			 * 
-			 * java.lang.NullPointerException: Cannot invoke "com.jogamp.nativewindow.awt.AWTGr
-			 * aphicsConfiguration.getAWTGraphicsConfiguration()" because "awtConfig" is null
-			 * 
-			 * Must use OracleJDK8 or AdoptOpenJDK11
-			 * 
-			 * If you use old graphics, may catch following error.
-			 * 
-			 * org.scijava.java3d.IllegalRenderingStateException: Java 3D ERROR : OpenGL 1.2 or better is required (GL_VERSION=1.1)
-			 * Intel：https://www.intel.co.jp/content/www/jp/ja/support/detect.html
-			 * 
-			 */
-			@SuppressWarnings("unused")
-			Canvas3D c3d = new Canvas3D(gc);
-//			System.out.println(c3d.queryProperties().get("native.version"));//glVersion but failed
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		System.out.println("finish test");
+		org = imp;
+		displayMode = dispMode;
 	}
 
 	/*
 	 * https://imagej.net/plugins/3d-viewer/display-a-stack
 	 */
-	private void run(ImagePlus imp, Integer dispMode) {
-        // Create a universe and show it
-		univ = new Image3DUniverse();
-		univ.show();
-		/*
-		 * after show(); do setLocationRelativeTo.
-		 */
-		univ.getWindow().setLocationRelativeTo(null);
-		
-		@SuppressWarnings("unused")
-		ij3d.Content content = null;
-		
-		switch (dispMode) {
-		case ORTHO:
-			content = univ.addOrthoslice(imp);
-			break;
-		case VOLUME:
-			content = univ.addVoltex(imp);
-			break;
-		case SURFACE:
-			content = univ.addSurfacePlot(imp);
-			break;
-		default:
-			content = univ.addVoltex(imp);
-			break;
+	public void run() {
+		final ImagePlus imp2;
+		if (org.getType() != ImagePlus.GRAY8 && org.getType() != ImagePlus.COLOR_256
+				&& org.getType() != ImagePlus.COLOR_RGB) {
+			int slices = org.getNSlices();
+			ImageStack stack = new ImageStack(org.getWidth(), org.getHeight(), slices);
+			for (int i = 0; i < slices; i++) {
+				org.setPosition(i + 1);
+				ImageProcessor bp = org.getProcessor().convertToByte(true);
+				stack.setProcessor(bp, (i + 1));
+			}
+			
+			imp2 = new ImagePlus("dup", stack);
+			imp2.setCalibration(org.getCalibration().copy());
+		} else {
+			imp2 = org;
 		}
 		
-		// Add the image as a volume rendering
-//		ij3d.Content c = addVoltex(dup);
+		/*
+		 * 3D Viewer does not read same name imp.
+		 */
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddSSS");
+		Date now = new Date();
+		String formattedDate = sdf.format(now);
+		imp2.setTitle(imp2.getTitle()+"_"+formattedDate);
 
-		// Display mode change
-//		c.displayAs(this.displayMode);
+		SwingUtilities.invokeLater(() -> {
+			ImageWindow3D win3d;
+			Window win = WindowManager.getWindow(ConfigInfo.D3ViewerWindow.toString());
+			if(win == null) {
+				univ = new Image3DUniverse();
+				univ.show();
+				win3d = (ImageWindow3D) univ.getWindow();
+				win3d.setName(ConfigInfo.D3ViewerWindow.toString());
+				WindowManager.addWindow(win3d);
+				win3d.setTitle("ImageJ 3D Viewer GRAPHY built-in");
+				//after show(); do setLocationRelativeTo.
+				win3d.setLocationRelativeTo(null);
+				ImageCanvas3D canvas3D = (ImageCanvas3D) univ.getCanvas();
+				canvas3D.getView().setMinimumFrameCycleTime(20);
+				
+				WindowAdapter ada = new WindowAdapter() {
+					@Override
+					public void windowClosing(WindowEvent e) {
+						WindowManager.removeWindow(win3d);
+					}
+				};
+				win3d.addWindowListener(ada);
+				
+			}else {
+				win3d = (ImageWindow3D)win;
+				if(!win3d.isVisible()) {
+					win3d.setVisible(true);
+				}
+				win3d.toFront();
+				univ = (Image3DUniverse)win3d.getUniverse();
+			}
+			
+			switch (displayMode) {
+			case ORTHO:
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						univ.addOrthoslice(imp2);
+					}
+				}).start();
+				break;
+			case VOLUME:
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						univ.addVoltex(imp2);
+					}
+				}).start();
+				break;
+			case SURFACE:
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						univ.addSurfacePlot(imp2);
+					}
+				}).start();
+				break;
+			default:
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						univ.addVoltex(imp2);
+					}
+				}).start();
+				break;
+			}
 
-		// Remove the content
-//		removeContent(c.getName());
-
-		// Add an isosurface
-//		c = addMesh(imp);
-
-		// display slice 10 as a surface plot
-//		removeContent(c.getName());
-//		imp.setSlice(10);
-//		c = addSurfacePlot(imp);
-
-		// remove all contents
-//		removeAllContents();
+			win3d.getContentPane().revalidate();
+			win3d.getContentPane().repaint();
+		});
 	}
-	
+
+	public void test3D() {
+		SwingUtilities.invokeLater(() -> {
+			JFrame f = new JFrame();
+			f.setTitle("Simple Java 3D Example");
+			f.setSize(800, 600);
+//			f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+			// Canvas3D
+			GraphicsConfiguration config = SimpleUniverse.getPreferredConfiguration();
+			Canvas3D canvas3D = new Canvas3D(config);
+
+			f.getContentPane().add(canvas3D, BorderLayout.CENTER);
+
+			// SimpleUniverse
+			SimpleUniverse universe = new SimpleUniverse(canvas3D);
+			universe.getViewer().getView().setMinimumFrameCycleTime(5);
+			
+			System.out.println("GraphicsConfiguration: " + canvas3D.getGraphicsConfiguration());
+			System.out.println("SimpleUniverse state: " + universe.toString());
+			
+			universe.getViewingPlatform().setNominalViewingTransform();
+
+			// Scene
+			// BranchGroup: Root of scene
+			BranchGroup root = new BranchGroup();
+
+			// ColorCube
+			ColorCube cube = new ColorCube(0.4);
+			root.addChild(cube);
+
+			// Lighting
+			Color3f lightColor = new Color3f(1.0f, 1.0f, 1.0f); // white
+			BoundingSphere bounds = new BoundingSphere(); // range
+
+			Vector3f lightDir = new Vector3f(4.0f, -7.0f, -12.0f); // light direction
+			DirectionalLight light = new DirectionalLight(lightColor, lightDir);
+			light.setInfluencingBounds(bounds);
+			root.addChild(light);
+
+			root.compile();
+			universe.addBranchGraph(root);
+
+			f.setVisible(true);
+			f.requestFocus();
+			f.getContentPane().revalidate();
+			f.getContentPane().repaint();
+		});
+	}
+
 	/**
 	 * https://github.com/morphonets/SNT/blob/ea139559ee8356d306eea83e38ab1a50bd32e3d2/src/main/java/sc/fiji/snt/viewer/Viewer3D.java#L430
 	 */
@@ -176,8 +277,15 @@ public class Viewer3DFrame_IJ{
 		 * https://github.com/processing/processing/issues/5476. Since it has no
 		 * (apparent) side effects, we'll use it here for all platforms
 		 */
-		if(Platform.getOS()==Platform.LINUX) {
+		if (Platform.getOS() == Platform.LINUX) {
 			System.setProperty("jogl.disable.openglcore", System.getProperty("jogl.disable.openglcore", "false"));
 		}
+		// in JRE 7 from causing redraw problems (i.e. the Java 3D canvas is sometimes
+		// drawn as a blank gray rectangle).
+		/*
+		 * Conversely, if it is drawn in black, it is not possible to tell whether
+		 * Canvas3D is running correctly, so it is commented out.
+		 */
+//        System.setProperty("sun.awt.noerasebackground", "true"); 
 	}
 }

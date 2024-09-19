@@ -42,7 +42,7 @@ import javax.swing.JPanel;
 public class EventGlass extends JPanel{
 	
 	private static final long serialVersionUID = 7710077045453881915L;
-
+	
 	public EventGlass() {
 		setOpaque(false);
 		setFocusable(true);

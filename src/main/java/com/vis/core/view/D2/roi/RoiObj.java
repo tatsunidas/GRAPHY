@@ -2003,34 +2003,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 	}
 
+	/**
+	 * see also CanvasGlass:mouseReleased
+	 * @param screenX
+	 * @param screenY
+	 */
 	public void handleMouseUp(int screenX, int screenY) {
 		setState(NORMAL);
 		setModificationState(NO_MODS);
 		Log.logger.fine("Roi RELEASED, state to be normal");
-//		if (imp==null) return;
-//		imp.draw(clipX-5, clipY-5, clipWidth+10, clipHeight+10);
-		// tatsu
-//		if (Recorder.record) {
-//			String method;
-//			if (type==OVAL)
-//				Recorder.record("makeOval", x, y, width, height);
-//			else if (!(this instanceof TextRoi)) {
-//				if (cornerDiameter==0)
-//					Recorder.record("makeRectangle", x, y, width, height);
-//				else {
-//					if (Recorder.scriptMode())
-//						Recorder.recordCall("imp.setRoi(new Roi("+x+","+y+","+width+","+height+","+cornerDiameter+"));");
-//					else
-//						Recorder.record("makeRectangle", x, y, width, height, cornerDiameter);
-//				}
-//			}
-//		}
-		// TODO tatsu
-//		if (Toolbar.getToolId()==Toolbar.OVAL&&Toolbar.getBrushSize()>0)  {
-//			int flags = ic!=null?ic.getModifiers():16;
-//			if ((flags&16)==0) // erase ROI Brush
-//				{imp.draw(); return;}
-//		}
 		modifyRoi();
 	}
 
@@ -2242,68 +2223,14 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	/**
-	 * add modify history
-	 * 
-	 * TODO remove saveRoi() in here...
+	 * TODO
+	 * future work, record modify history
 	 */
 	void modifyRoi() {
-		if (previousRoi == null || previousRoi.modState == NO_MODS || imp==null) {
-			/*
-			 * DO NOT DO THIS
-			 * this will cause Roi creation not intend.  
-			 */
-			if (slide != null) {
-//				slide.saveRoi(this);
-			}
-			return ;
-		}
-
-		if (type == RoiType.POINT.id() || previousRoi.getType() == RoiType.POINT.id()) {
-			if (type == RoiType.POINT.id() && previousRoi.getType() == RoiType.POINT.id()) {
-				addPoint();
-			} else if (isArea() && previousRoi.getType() == RoiType.POINT.id()
-					&& previousRoi.modState == SUBTRACT_FROM_ROI)
-				subtractPoints();
-			if (slide != null) {
-				slide.saveRoi(this);
-			}
+		if(getState() == CONSTRUCTING) {
 			return;
 		}
-		RoiObj previous = (RoiObj) previousRoi.clone();
-		previous.modState = NO_MODS;
-		// TODO
-//		ShapeRoi s1 = null;
-//		ShapeRoi s2 = null;
-//		if (previousRoi instanceof ShapeRoi)
-//			s1 = (ShapeRoi)previousRoi;
-//		else
-//			s1 = new ShapeRoi(previousRoi);
-//		if (this instanceof ShapeRoi)
-//			s2 = (ShapeRoi)this;
-//		else
-//			s2 = new ShapeRoi(this);
-//		if (previousRoi.modState==ADD_TO_ROI)
-//			s1.or(s2);
-//		else
-//			s1.not(s2);
-		previousRoi.modState = NO_MODS;
-		// TODO
-//		RoiObj[] rois = s1.getRois();
-//		if (rois.length==0) return;
-//		int type2 = rois[0].getType();
-//		RoiObj roi2 = null;
-//		if (rois.length==1 && (type2==POLYGON||type2==FREEROI))
-//			roi2 = rois[0];
-//		else
-//			roi2 = s1;
-//		if (roi2!=null)
-//			roi2.copyAttributes(previousRoi);
-		previousRoi = previous;
-		if (slide != null) {
-			slide.saveRoi(this);
-		}
-		// todo
-		// setBasicStatistics2Popup();
+		//do something...
 	}
 
 	protected void mouseDownInHandle(int handle, int sx, int sy) {

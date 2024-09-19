@@ -312,6 +312,7 @@ public class Praparat extends JPanel {
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
 		List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
 		if(Utils.isDebug){
+			Log.logger.fine("Localizer debugging:");
 			System.out.println(src.getHeader().getString(TagDict.forName("InstanceNumber")));
 			System.out.println(target.getHeader().getString(TagDict.forName("InstanceNumber")));
 			Point2D p0_leftlower = shapes.get(0);
@@ -483,13 +484,18 @@ public class Praparat extends JPanel {
 	 */
 	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
 		if (images == null || images.getStackSize() < 1) {
-			logger.warning("Please set not null images, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
-			return;
+			throw new IllegalArgumentException("Images is null or empty, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
 		}
 		// init
 		viewPanel.removeAll();
 		slides = new HashMap<Integer, SlideGlass>();
-		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, false/*treat as secondary*/);
+		boolean secondaryUse = false;
+		String sopClassUID = DicomTools.getTag(images, "0002,0012");
+		String instUID = DicomTools.getTag(images, "0002,0013");
+		if(sopClassUID == null || instUID == null) {
+			secondaryUse = true;
+		}
+		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse/*treat as secondary*/);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
 			slides.put(i, sg);
@@ -767,7 +773,7 @@ public class Praparat extends JPanel {
 		 * in equals(), the order may change because of sorting. Here, we pass a copy and
 		 * make no changes to the original.
 		 */
-		uids[3] = sopUIDs.clone();// String[],
+		uids[3] = sopUIDs != null ? sopUIDs.clone():null;// String[],
 		uids[4] = frameOfReferenceUID;
 		return uids;
 	}
@@ -1373,7 +1379,8 @@ public class Praparat extends JPanel {
 		viewPanel.add(currentGlass, top);
 		currentGlass.requestFocus();
 		currentGlass.setFocusGained(true);//for key listener
-		currentGlass.repaint();
+		currentGlass.revalidate();//check layout
+		currentGlass.repaint();//repaint all layered glasses(image/roi/text).
 	}
 	
 	public void setImagePositionTo(SlideGlass sg) {

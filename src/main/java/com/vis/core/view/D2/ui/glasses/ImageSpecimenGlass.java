@@ -324,7 +324,7 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	@Override
 	protected void paintComponent(Graphics g) {
-	    Graphics2D g2d = (Graphics2D) g.create();
+	    Graphics2D g2d = (Graphics2D) g;
 	    if(transparent) {
 	    	g2d.setComposite(AlphaComposite.getInstance(
 		            AlphaComposite.SRC_OVER, alpha));

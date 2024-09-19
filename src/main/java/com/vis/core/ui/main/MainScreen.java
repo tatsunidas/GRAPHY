@@ -156,6 +156,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		if(screenDevices != null && (lastMainScreenDeviceID != null && lastMainScreenDeviceID.length()!=0)) {
 			for(GraphicsDevice gd:screenDevices) {
 				if(gd.getIDstring().equals(lastMainScreenDeviceID)) {
+					Log.logger.fine("MainScreen::GraphicsConfiguration: " + gd.getDefaultConfiguration());
 					return gd.getDefaultConfiguration();
 				}
 			}
@@ -558,6 +559,11 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * @param patIDs
 	 */
 	public void resetBirdsEyeView(String[] patIDs) {
+		if(patIDs == null) {
+			//force reset
+			bev.resetViews(true);
+			return;
+		}
 		HashMap<String,String> pInfo = bev.getPatientInfo();
 		if(pInfo == null) {
 			return;

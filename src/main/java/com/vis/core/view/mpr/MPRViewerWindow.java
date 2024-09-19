@@ -43,46 +43,18 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Point;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.AdjustmentEvent;
-import java.awt.event.AdjustmentListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
-import java.awt.image.ColorModel;
-import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
-import javax.swing.JLayer;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
-import org.dcm4che3.data.Tag;
-import org.joml.Vector2d;
 import org.joml.Vector3d;
-import org.scijava.vecmath.Point2d;
 
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -93,40 +65,14 @@ import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.dicom.DicomObject;
-import com.vis.dicom.DicomReader;
-import com.vis.dicom.DicomUtilities;
-import com.vis.dicom.TagDict;
-//import com.vis.mediareader.DICOMImage;
-//import com.vis.ui.utilities.PopUpMessage;
-//import com.vis.viewer2d.processing.ImagePlusDicomTagTools;
-//import com.vis.viewer2d.roi.ReferenceLine;
-//import com.vis.viewer2d.toolbar.Viewer2DToolBar;
-//import com.vis.viewer2d.ui.eyepiece.CanvasGlass;
-//import com.vis.viewer2d.ui.eyepiece.Praparat;
-//import com.vis.viewer2d.ui.eyepiece.SlideGlass;
-//import com.vis.viewer2d.ui.orientation.GeometryOfSlice;
-//import com.vis.viewer2d.ui.orientation.ImageOrientation;
-//import com.vis.viewer2d.ui.orientation.IntersectVolume;
-//import com.vis.viewer2d.ui.orientation.LocalizerPoster;
-//import com.vis.viewer2d.ui.orientation.ImageOrientation.CutSurface;
-import com.vis.dicom.image.DicomImage;
 
-import ij.CommandListener;
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.ImageCanvas;
-import ij.gui.ImageWindow;
 import ij.gui.NewImage;
 import ij.measure.Calibration;
 import ij.plugin.Duplicator;
-import ij.plugin.FolderOpener;
-import ij.plugin.ImageCalculator;
-import ij.process.ByteProcessor;
-import ij.process.ColorProcessor;
-import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import ij.process.ShortProcessor;
+
 
 /**
  * MPR view
@@ -135,20 +81,8 @@ import ij.process.ShortProcessor;
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotionListener, KeyListener, ActionListener, WindowListener, AdjustmentListener, MouseWheelListener, FocusListener, CommandListener, ComponentListener{
+public class MPRViewerWindow extends JFrame {
 	
-	//debug
-    public static void main(String[] args) {
-    	String dir = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
-    	ArrayList<String> path2imgs = new ArrayList<>();
-    	File listFiles[] = new File(dir).listFiles();
-    	for(File f:listFiles) {
-    		path2imgs.add(f.getAbsolutePath());
-    	}
-    	new MPRViewerWindow(dir);//ok, only for no-compression.
-    	
-    }
-    
     public static final int XY = 0;
     public static final int XZ = 1;
     public static final int YZ = 2;
@@ -170,9 +104,7 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 	
     private ImagePlus imp;//src imp, to backup.
     private DicomObject refDcm;//attribute holder to copy.
-    
-    //private ImageStack imageStack;
-    private boolean hyperstack;
+
     private ImagePlus xy_image, xz_image, yz_image, recon_image, init_image;
     
     private Praparat xy_prap = null;
@@ -191,7 +123,6 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
     
     boolean starting = true;
     boolean standalone= false;
-    boolean multiFrameFound = false;
     public boolean showCrossLines = true;
     
     int reconResolution = 5; // keep odd side value.
@@ -200,22 +131,22 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
     private Logger logger = Logger.getLogger(MPRViewerWindow.class.getName());
     
     /**
-     * debug
+     * debug purpose
      */
     public MPRViewerWindow() {}
     
     public MPRViewerWindow(Praparat prap) {
     	if(prap == null) {
-    		return;
+    		throw new IllegalArgumentException("Praparat is null...");
     	}
-    	imp = prap.getImagePlus();
+    	loadImagePlus(prap);
 		if(imp == null || imp.getStackSize() < 1) {
 			logger.info("Number of images not enough.");
-			return;
+			throw new IllegalArgumentException("Number of images not enough.");
 		}
 		
 		DicomObject refDcm = prap.getCurrentSlide().getHeader();
-		this.refDcm = DicomObject.newDicomObject(refDcm, null);
+		this.refDcm = DicomObject.newDicomObject(refDcm, null);//duplicate
 		
 		Color sc = prap.getStudyColor();
 		if(sc != null) {
@@ -230,17 +161,7 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		}
 		init();
 	}
-	
-    @Deprecated
-    /**
-     * can not read compressed dicom
-     * @param imgDir
-     */
-	public MPRViewerWindow(String imgDir) {
-		this(FolderOpener.open(imgDir), null);
-	}
-	
-    @Deprecated
+    
 	public MPRViewerWindow(ImagePlus imp, Color studyColor) {
 		if(imp == null || imp.getStackSize() < 3) {
 			return;
@@ -333,44 +254,16 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		this.imp = seriesStack.getImagePlus();
 	}
 	
-	private void init(){
-		if(multiFrameFound) {
-			return;
-		}
-		//check input
-		boolean isStack = imp.getStackSize()>1;
-        hyperstack = imp.isHyperStack();
-        if ((hyperstack||imp.isComposite()) && imp.getNSlices()<=1) {
-        	isStack = false;
-        }
-        if (!isStack) {
-        	String title = "Can not open...";
-        	String msg = "MPR Viewer requires a stack, or a hypertack with Z>1.";
-        	PopUpMessage.showDialog(this, title, msg, JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
-        	dispose();
-            return;
-        }
-        
-        if(imp.getRoi() != null) {
-        	imp.deleteRoi();
-        }
-        
-        PlanarSupport psup = new PlanarSupport();
-        srcCutSurface = psup.isPlanarOf(imp);
-        setCurrentMainPlaneType(srcCutSurface);
-        
-        //set initial loc in offscreen coords.
-        initImages();
-        initOrthogonals();//create ortho images
-        buildGUI();
-        addListeners();
-        
-        setVisible(true);
-        revalidate();
-      	repaint();
-      	
-      	initCrosses();
-      	
+	private void init() {
+		PlanarSupport psup = new PlanarSupport();
+		srcCutSurface = psup.isPlanarOf(imp);
+		setCurrentMainPlaneType(srcCutSurface);
+		// set initial loc in offscreen coords.
+		initImages();
+		initOrthogonals();// create ortho images
+		buildGUI();
+		initCrosses();
+		setVisible(true);
 	}
 	
 	private synchronized void buildGUI() {
@@ -505,7 +398,7 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
     
 	private void initRecon() {
 		/*
-		 * see also MPRMenuBar:Save as... if named "NOT-READY", return as null by
+		 * see also MPRMenuBar:Save as... if named "NOT-READY", return null by
 		 * getMPRImages()
 		 */
 		if (getCurrentMainPlaneType() == XY) {
@@ -522,48 +415,6 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 			recon_image = init_image;
 		}
 	}
-    
-	
-    /*
-     * set to all slideglasses
-     */
-	private void addListeners() {
-        addKeyListener(this);
-        addWindowListener (this);
-        addFocusListener(this);
-        addComponentListener(this);
-        addListener2SlideGlasses(xy_prap);
-        addListener2SlideGlasses(xz_prap);
-        addListener2SlideGlasses(yz_prap);
-    }
-	
-	private void addListener2SlideGlasses(Praparat prap) {
-		HashMap<Integer,SlideGlass> sglMap = prap.getAllSlides();
-		for(Integer key : sglMap.keySet()) {
-			SlideGlass sg = sglMap.get(key);
-			sg.addMouseMotionListener(this);
-			sg.addMouseListener(this);
-		}
-    }
-	
-//	private void removeListenerFromPraparat(Praparat prap) {
-//		HashMap<Integer,JLayer<SlideGlass>> sglMap = prap.getAllSlides();
-//		for(Integer key : sglMap.keySet()) {
-//			JLayer<SlideGlass> sgl = sglMap.get(key);
-//			sgl.getView().removeMouseMotionListener(this);
-//			sgl.getView().removeMouseListener(this);
-//		}
-//    }
-//	
-//	private boolean haveMouseMotionListener(MouseMotionListener mml, SlideGlass sg) {
-//		MouseListener[] mouseListeners = sg.getMouseListeners();
-//		MouseMotionListener[] motionListeners = sg.getMouseMotionListeners();
-//		System.out.println(mouseListeners.length);
-//		System.out.println(motionListeners.length);
-//		//check listeners name
-//		return false;
-//	}
-
 	
 	synchronized void update() {
         notify();
@@ -1383,10 +1234,6 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		recon_prap.prepareSlideGlassesUsingImagePlus(recon_image);
     	recon_prap.resetView();
     	recon_prap.repaint();
-    	/*
-    	 * add listeners to refreshed slideglasses(no praps...)
-    	 */
-        addListener2SlideGlasses(recon_prap);
 	}
 	
 	double[] calcImagePositionPatient(double row, double col, int slicePos) {
@@ -1476,9 +1323,12 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 		return null;
 	}
 	
-	//TODO 20240819
+	
 	void drawCross(Praparat pp, Point offScreenP) {
-//		pp.getCurrentSlide().
+		if(showCrossLines) {
+			CanvasGlass cg = (CanvasGlass)pp.getCurrentSlide().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			cg.drawCross(offScreenP);
+		}
 	}
 	
 	void drawReferenceLines() {
@@ -1537,246 +1387,5 @@ public class MPRViewerWindow extends JFrame implements MouseListener, MouseMotio
 			
 		}
 	}
-
-	@Override
-	public String commandExecuting(String command) {
-		return null;
-	}
-
-	@Override
-	public void focusGained(FocusEvent e) {
-	}
-
-	@Override
-	public void focusLost(FocusEvent e) {
-	}
-
-	@Override
-	public void mouseWheelMoved(MouseWheelEvent e) {
-	}
-
-	@Override
-	public void adjustmentValueChanged(AdjustmentEvent e) {
-	}
-
-	@Override
-	public void windowOpened(WindowEvent e) {
-	}
-
-	@Override
-	public void windowClosing(WindowEvent e) {
-	}
-
-	@Override
-	public void windowClosed(WindowEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void windowIconified(WindowEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void windowDeiconified(WindowEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void windowActivated(WindowEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void windowDeactivated(WindowEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void actionPerformed(ActionEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseDragged(MouseEvent e) {
-		/*
-		 * cross line drawing is trigered from slideglassUI.
-		 * here, simply just re-draw each view.
-		 */
-		if(!(e.getSource() instanceof SlideGlass)) {
-			System.out.println("Something odd ???");
-			System.out.println("Please check here::MPRView:mouseDragged");
-			return;
-		}
-		SlideGlass sg = (SlideGlass)e.getSource();
-		logger.log(Level.FINE, sg.getClass().getName()+": mouse dragged from MPRView...");
-		
-		
-		if (currentViewType == 0) {
-			if (showCrossLines) {
-				if (currentPrap == xy_prap) {
-					int xyX = sg.offScreenX(e.getX());
-					int xyY = sg.offScreenY(e.getY());
-					updateViewsUsingXY(new Point(xyX, xyY));
-					updateCrossByXY(xyX, xyY);
-				} else if (currentPrap == xz_prap) {
-					int xzX = sg.offScreenX(e.getX());// offScreen
-					int xzY = sg.offScreenY(e.getY());
-					updateViewsUsingXZ(new Point(xzX, xzY));
-					updateCrossByXZ(xzX, xzY);
-				} else if (currentPrap == yz_prap) {
-					int yzX = sg.offScreenX(e.getX());// offScreen
-					int yzY = sg.offScreenY(e.getY());
-					updateViewsUsingYZ(new Point(yzX, yzY));
-					updateCrossByYZ(yzX, yzY);
-				}
-			}
-		} else if (currentViewType == 1) {
-			if (currentPrap == xy_prap) {
-				int xyX = sg.offScreenX(e.getX());
-				int xyY = sg.offScreenY(e.getY());
-				updateViewsUsingXY(new Point(xyX, xyY));
-				if(getCurrentMainPlaneType() == XY) {
-					refLines.xYLine.mouseDragged(e);
-				}
-			} else if (currentPrap == xz_prap) {
-				int xzX = sg.offScreenX(e.getX());// offScreen
-				int xzY = sg.offScreenY(e.getY());
-				updateViewsUsingXZ(new Point(xzX, xzY));
-				if(getCurrentMainPlaneType() == XZ) {
-					refLines.xZLine.mouseDragged(e);
-				}
-			} else if (currentPrap == yz_prap) {
-				int yzX = sg.offScreenX(e.getX());// offScreen
-				int yzY = sg.offScreenY(e.getY());
-				updateViewsUsingYZ(new Point(yzX, yzY));
-				if(getCurrentMainPlaneType() == YZ) {
-					refLines.yZLine.mouseDragged(e);
-				}
-			}
-			 drawReferenceLines();
-		}
-	}
-
-	@Override
-	public void mouseMoved(MouseEvent e) {}
-
-	@Override
-	public void mouseClicked(MouseEvent e) {}
-
-	@Override
-	public void mousePressed(MouseEvent e) {
-		if(!(e.getSource() instanceof SlideGlass)) {
-			System.out.println("Something odd ???");
-			System.out.println("Please check here::MPRView:mouseDragged");
-			return;
-		}
-		//update current prap
-		SlideGlass sg = (SlideGlass)e.getSource();
-//		System.out.println(sg.getClass().getName()+": mouse dragged from MPRView...");
-//		System.out.println("check location in onImageCoordinate"+": "+sg.onImageX(e.getPoint().x)+", "+sg.onImageY(e.getPoint().y));
-		currentPrap = sg.getPraparat();
-		if(currentPrap == xy_prap) {
-			CanvasGlass cg = (CanvasGlass) xy_prap.getCurrentSlide().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.mousePressed(e);
-		}else if(currentPrap == xz_prap) {
-			CanvasGlass cg = (CanvasGlass) xz_prap.getCurrentSlide().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.mousePressed(e);
-		}else if(currentPrap == yz_prap) {
-			CanvasGlass cg = (CanvasGlass) yz_prap.getCurrentSlide().getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-			cg.mousePressed(e);
-		}
-		
-	}
-
-	@Override
-	public void mouseReleased(MouseEvent e) {
-		if(!(e.getSource() instanceof SlideGlass)) {
-			System.out.println("Something odd ???");
-			System.out.println("Please check here::MPRView:mouseDragged");
-			return;
-		}
-		SlideGlass sg = (SlideGlass)e.getSource();
-		if(currentViewType == 0) {
-			
-		}else if(currentViewType == 1) {
-			if (currentPrap == xy_prap) {
-				refLines.drawRect(refLines.xYLine,
-						((CanvasGlass) (sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER))).getGraphics());
-			} else if (currentPrap == xz_prap) {
-
-			} else if (currentPrap == yz_prap) {
-
-			}
-		}
-	}
-
-	@Override
-	public void mouseEntered(MouseEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseExited(MouseEvent e) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void componentResized(ComponentEvent e) {
-		logger.info("MPRViewerWindow resized ! ");
-		if(starting) {
-			return;
-		}
-		if(currentViewType == MPRViewerWindow.CROSS_MODE) {
-//			double mag = xy_prap.getCurrentSlide().getView().getMagnification();
-//			xyX = (int)(xyX * mag);
-//	    	xyY = (int)(xyY * mag);
-//			updateCrossesByXY(xyX, xyY);
-		}else if(currentViewType == MPRViewerWindow.SLICE_MODE){
-			refLines.updateResliceLineState();
-		}
-		revalidate();
-	}
-
-	@Override
-	public void componentMoved(ComponentEvent e) {}
-
-	@Override
-	public void componentShown(ComponentEvent e) {
-		logger.info("Shown !!!");
-		starting = false;
-		revalidate();
-		xy_prap.revalidate();
-		pack();
-	}
-
-	@Override
-	public void componentHidden(ComponentEvent e) {}
 	
 }

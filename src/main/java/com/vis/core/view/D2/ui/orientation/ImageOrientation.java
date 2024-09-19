@@ -15,7 +15,6 @@ import org.joml.Vector3d;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
-import com.vis.dicom.TagDict;
 
 import ij.ImagePlus;
 
@@ -32,9 +31,9 @@ public /*abstract*/ class ImageOrientation {
 	
 	public static void main(String[] args) {
 //		String ct_ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\JIRA_DICOM\\CT_LEE_IR87a.dcm";
-		String ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\AXI\\708912FE";
-		String cor = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\COR\\5E79345D";
-		String sag = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\SAG\\2CC10C72";
+//		String ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\AXI\\708912FE";
+//		String cor = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\COR\\5E79345D";
+//		String sag = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\SAG\\2CC10C72";
 //		DicomObject dcm_a = new DicomObject(ax, false);
 //		DicomObject dcm_c = new DicomObject(cor, false);
 //		DicomObject dcm_s = new DicomObject(sag, false);
@@ -238,7 +237,6 @@ public /*abstract*/ class ImageOrientation {
 	 * TODO
 	 */
 	public static boolean hasSameOrientation(Praparat series1, Praparat series2) {
-		// Test if the two series have the same orientation
 //	    if (series1 != null && series2 != null) {
 //	      DicomImageElement image1 = series1.getMedia(MEDIA_POSITION.MIDDLE, null, null);
 //	      DicomImageElement image2 = series2.getMedia(MEDIA_POSITION.MIDDLE, null, null);

@@ -138,7 +138,7 @@ public class ImagePlusDicomTagTools extends DICOM{
 				hdr = "";
 			}
 			int index1 = hdr.indexOf(tag);
-			if (index1 != -1) {// found
+			if (index1 != -1 && hdr.endsWith(">")) {// sequence found
 				if (hdr.charAt(index1 + 11) == '>') {
 					// ignore tags in sequences
 					index1 = hdr.indexOf(tag, index1 + 10);
@@ -216,7 +216,11 @@ public class ImagePlusDicomTagTools extends DICOM{
 					continue;
 				}
 				String ts = TagUtils.toDicomToolsString(t);
-				if(TagDict.vmOf(t).equals("1")) {
+				String vmString = TagDict.vmOf(t);
+				if(vmString == null) { // maybe private tag
+					continue;
+				}
+				if(vmString.equals("1")) {
 					setTag(imp,1,ts,header.getString(t));
 				}else {
 					String[] vals = header.getStrings(t);

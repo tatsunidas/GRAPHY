@@ -716,6 +716,7 @@ public class Viewer2DToolBar extends JToolBar{
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
+					
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
 					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
 					int size = selectedPraps.size();
@@ -724,12 +725,25 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					//show only first prap
 					Praparat prap = selectedPraps.get(0);
-					SwingUtilities.invokeLater(new Runnable() {
-						public void run() {
-							ImagePlus replica = prap.getImagePlus();
-							new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME);
-						}
+					ImagePlus replica = prap.getImagePlus();
+					if(prap == null || replica == null) {
+						throw new IllegalArgumentException("Does not have images.");
+					}
+					
+					SwingUtilities.invokeLater(() -> {
+						new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME).run();
 					});
+										
+//					new Thread(new Runnable() {
+//						@Override
+//						public void run() {
+//							// TODO Auto-generated method stub
+//							SwingUtilities.invokeLater(() -> {
+//								new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME).run();
+//							});
+//						}
+//					}).start();
+					
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}
@@ -738,21 +752,19 @@ public class Viewer2DToolBar extends JToolBar{
 		case "mpr":
 			btn.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent arg0) {
+				public void actionPerformed(ActionEvent arg) {
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
 					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
 					int size = selectedPraps.size();
 					if(selectedPraps == null || size < 1) {
 						return;
 					}
-					//show only first
 					Praparat prap = selectedPraps.get(0);
-					SwingUtilities.invokeLater(new Runnable() {
-						public void run() {
-							//TODO 20240815
-							new MPRViewerWindow(prap);
-						}
-					});
+					Thread thread = new Thread(() -> {
+						new MPRViewerWindow(prap);
+			        });
+					thread.start();
+					
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}

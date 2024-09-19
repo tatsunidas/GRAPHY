@@ -10,75 +10,42 @@
 package com.vis.core.view.D2.ui.orientation;
 
 import java.awt.geom.Point2D;
-import java.util.List;
-
-import javax.swing.JFrame;
-import javax.swing.JPanel;
 
 import org.joml.Vector3d;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
-import com.vis.dicom.TagDict;
-import com.vis.core.view.D2.processing.*;
 
 import ij.ImagePlus;
 
 /**
  * A class to describe the spatial geometry of a single cross-sectional image
  * slice.
+ * 
+ * <p>Example usage:</p>
+ * 
+ * <pre>
+ * {@code
+ * ImagePlus dcm_c = new ImagePlus(cor);
+ * ImagePlus dcm_s = new ImagePlus(sag);
+ * 
+ * GeometryOfSlice fromGeometry = new GeometryOfSlice(dcm_s);
+ * GeometryOfSlice toGeometry = new GeometryOfSlice(dcm_c);
+ * 
+ * LocalizerPoster localizerPoster = new IntersectVolume(toGeometry);
+ * List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(fromGeometry);
+ * 
+ * Point2D p0_leftlower = shapes.get(0);
+ * Point2D p1_rightlower = shapes.get(1);
+ * Point2D p2_rightupper = shapes.get(2);
+ * Point2D p3_leftupper = shapes.get(3);
+ * }
+ * </pre>
  *
  * @author David A. Clunie
  * @author Nicolas Roduit
  */
 public class GeometryOfSlice {
-	
-	public static void main(String[] args) {
-		String ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\AXI\\708912FE";
-		String cor = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\COR\\5E79345D";
-		String sag = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\SAG\\302C1E73";
-		
-//		DicomObject dcm_a = new DicomObject(ax, true);
-//		DicomObject dcm_c = new DicomObject(cor, true);
-//		DicomObject dcm_s = new DicomObject(sag, true);
-		
-		ImagePlus dcm_a = new ImagePlus(ax);
-		ImagePlus dcm_c = new ImagePlus(cor);
-		ImagePlus dcm_s = new ImagePlus(sag);
-		
-//		GeometryOfSlice fromGeometry = new GeometryOfSlice(dcm_a);
-		GeometryOfSlice fromGeometry = new GeometryOfSlice(dcm_s);
-		GeometryOfSlice toGeometry = new GeometryOfSlice(dcm_c);
-//		GeometryOfSlice toGeometry = new GeometryOfSlice(dcm_s);
-		
-		LocalizerPoster localizerPoster = new IntersectVolume(toGeometry);
-		List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(fromGeometry);
-		System.out.println(shapes.size());
-		Point2D p0_leftlower = shapes.get(0);
-		Point2D p1_rightlower = shapes.get(1);
-		Point2D p2_rightupper = shapes.get(2);
-		Point2D p3_leftupper = shapes.get(3);
-		System.out.println(p0_leftlower.getX()+" "+p0_leftlower.getY());
-		System.out.println(p1_rightlower.getX()+" "+p1_rightlower.getY());
-		System.out.println(p2_rightupper.getX()+" "+p2_rightupper.getY());
-		System.out.println(p3_leftupper.getX()+" "+p3_leftupper.getY());
-		JFrame f= new JFrame();
-		f.setSize(256,256);
-		@SuppressWarnings("serial")
-		JPanel p = new JPanel() {
-			@Override
-			public void paintComponent(java.awt.Graphics g) {
-				g.setColor(java.awt.Color.red);
-				Point2D p_lu = shapes.get(0);
-				Point2D p_rl = shapes.get(2);
-			    g.fillRect((int)p_lu.getX(), (int)p_lu.getY(), (int)(Math.abs(p_lu.getX()-p_rl.getX())), (int)(Math.abs(p_lu.getY()-p_rl.getY())));
-//			    g.setColor(java.awt.Color.blue);
-//			    g.drawString("Hello Java2D", 10, 50);
-			}
-		};
-		f.add(p);
-		f.setVisible(true);
-	}
 
 	protected Vector3d row;
 	protected Vector3d column;
@@ -134,13 +101,9 @@ public class GeometryOfSlice {
 		this.column = ImageOrientation.getColumnImagePosition(dcm);
 		this.tlhc = SubjectOrientation.getSubjectPosition(dcm);
 		double[] pixelSpacing = dcm.getDoubles(Tag.Pixel​Spacing);
-//		double spacingBetweenSlices = TagDict.getReadableValue(dcm, TagDict.At("SpacingBetweenSlices"), double[].class)[0];
 		Double spacingBetweenSlices = Double.parseDouble(dcm.getString(Tag.Spacing​Between​Slices));
-//		this.sliceThickness = TagDict.getReadableValue(dcm, TagDict.At("SliceThickness"), double[].class)[0];
 		this.sliceThickness = Double.parseDouble(dcm.getString(Tag.Slice​Thickness));//keep 1. fail safe
 		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices == null ? this.sliceThickness:spacingBetweenSlices});
-//		int numRow = TagDict.getReadableValue(dcm, TagDict.At("Rows"), int[].class)[0];
-//		int numColumn = TagDict.getReadableValue(dcm, TagDict.At("Columns"), int[].class)[0];
 		Integer numRow = Integer.parseInt(dcm.getString(Tag.Rows));
 		Integer numColumn = Integer.parseInt(dcm.getString(Tag.Columns));
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
@@ -152,6 +115,7 @@ public class GeometryOfSlice {
 	 * do not forget setPosition.
 	 * @param dcm
 	 */
+	@Deprecated
 	public void setUpFromDcmObj(ImagePlus dcm) {
 		if(dcm == null) {
 			return;

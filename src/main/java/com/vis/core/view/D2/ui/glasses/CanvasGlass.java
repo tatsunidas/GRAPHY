@@ -74,7 +74,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private final String sopUID;
 	public boolean paintSizeCaliper = true;
 	private RoiObj currentRoi = null;
-	private RoiObj previousRoi = null;
 	private RoiBrush brushTool = null;
 	private RoiObj brush = null;//roi brush, see also draw()
 	
@@ -103,7 +102,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	protected RoiObj activateAndGetCurrentRoiAt(int screenX, int screenY) {
 
 		if (currentRoi != null) {
-			previousRoi = currentRoi;
 			// polygonroi
 			int type = currentRoi.getType();
 			RoiType t = RoiType.find(type);
@@ -127,14 +125,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 				handle = roi.isHandle(screenX, screenY);
 				if (handle >= 0) {
 					roi.setActiveOverlayRoi(true);
-//					roi.showRoiPopupOnCanvas();//TODO
 					currentRoi = roi;
 					found = true;
 					break;
 				} 
 				if (roi.contains(ix, iy)) {
 					roi.setActiveOverlayRoi(true);
-//					roi.showRoiPopupOnCanvas();//TODO 20240817
 					currentRoi = roi;
 					found = true;
 					break;
@@ -147,18 +143,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 			} else {
 				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 				currentRoi = null;
-			}
-			/*
-			 * update previousRoi
-			 */
-			if (found) {
-				if (currentRoi != previousRoi && previousRoi != null) {
-//					previousRoi.setVisibleRoiPopup(false);//TODO
-				}
-			} else {
-//					if(previousRoi != null) {
-//						previousRoi.setVisibleRoiPopup(false);
-//					}
 			}
 		}
 		return currentRoi;
@@ -450,11 +434,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	private void drawReferenceLine(Graphics g) {
-		if (getRoiSet() == null || getRoiSet().size() < 1) {
-			if (pp.getReferenceLine() != null) {
-				ReferenceLine refLine = pp.getReferenceLine();
-				refLine.draw(g);
-			}
+		ReferenceLine refLine = pp.getReferenceLine();
+		if (refLine != null) {
+			refLine.draw(g);
 		}
 	}
 
@@ -470,17 +452,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public RoiObj findCurrentRoi() {
-		RoiObj currentRoi = getActiveRoi();
-		if (currentRoi != null) {
-			return currentRoi;
-		} else {
-			currentRoi = getCurrentRoi();
-			if(currentRoi == null) {
-				return getPreviousRoi();
-			}else {
-				return currentRoi;
-			}
-		}
+		return getActiveRoi();
 	}
 	
 	public RoiObj getActiveRoi() {
@@ -498,10 +470,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	
 	public RoiObj getCurrentRoi() {
 		return currentRoi;
-	}
-	
-	public RoiObj getPreviousRoi() {
-		return previousRoi;
 	}
 	
 	/**
@@ -878,7 +846,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
 			if(currentRoi.getState() != RoiObj.CONSTRUCTING) {
 				saveCurrentRoiSate();
-				previousRoi = currentRoi;
 			}
 		}
 		//brush
@@ -1067,7 +1034,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		return true;
 	}
 	
-	// http://alga.no.coocan.jp/paint.html
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);

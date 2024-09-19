@@ -43,7 +43,6 @@ import org.joml.Vector3d;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
-import com.vis.dicom.TagDict;
 
 import java.awt.Color;
 

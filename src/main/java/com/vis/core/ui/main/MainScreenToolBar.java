@@ -261,12 +261,14 @@ public class MainScreenToolBar extends JToolBar {
 		case Viewer:
 			btn.addActionListener(new ActionListener() {
 				@Override
-				public void actionPerformed(ActionEvent arg0) {
-					Viewer2DScreen viewer = Viewer2DScreen.getInstance();
-					if(viewer != null) {
-						viewer.loadImagesOnStage();
-						viewer.setVisible(true);
-					}
+				public void actionPerformed(ActionEvent e) {
+					SwingUtilities.invokeLater(() -> {
+						Viewer2DScreen viewer = Viewer2DScreen.getInstance();
+						if(viewer != null) {
+							viewer.loadImagesOnStage();
+							viewer.setVisible(true);
+						}
+					});
 				}	
 			});
 			break;

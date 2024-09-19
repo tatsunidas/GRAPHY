@@ -462,10 +462,10 @@ public class SlideGlass extends JLayeredPane {
 			}
 			return new Double[] { v_raw, v_cal };
 		} else {
+			//TODO NEED test 
 			ColorProcessor cp = (ColorProcessor) getCurrentDisplayImagePlus().getProcessor();
 			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
-			String color = cp.getColor(displayImageX, displayImageY).toString();
-			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2]), color };
+			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
 		}
 	}
 
@@ -960,17 +960,19 @@ public class SlideGlass extends JLayeredPane {
 	public double screenYD(double orgImageY) {
 		return ((orgImageY * getMagnification() * getScaleFactor()[1]) + imageSpecimen.getDisplayOriginY());
 	}
-
-	/**
-	 * SlideGlass reflect self.
-	 */
+	
+	//TODO 
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		imageSpecimen.repaint();
-		textOverlay.repaint();
-		roiOverlay.repaint();
-		// coverGlass.repaint();
+		/*
+		 * following code is deprecated.
+		 * SlideGlass.repaint() update all layered pane components.
+		 */
+//		imageSpecimen.repaint();
+//		textOverlay.repaint();
+//		roiOverlay.repaint();
+//		// coverGlass.repaint();
 	}
 
 	/**
@@ -1157,6 +1159,8 @@ public class SlideGlass extends JLayeredPane {
 	/**
 	 * Adjust to ViewPanel full size.
 	 * 
+	 * DO NOT USE SwingUtilities.invokeLater.
+	 * 
 	 * @param comp: ImageSpecimen, RoiOverlay, TextOverlay, MouseOverlay
 	 * @param compW
 	 * @param compH
@@ -1323,6 +1327,7 @@ public class SlideGlass extends JLayeredPane {
 		add(textOverlay, TEXT_LAYER, top_in_its_layers);
 		add(coverGlass, EVENT_LAYER, top_in_its_layers);
 	}
+	
 	/*
 	 * TODO
 	 */

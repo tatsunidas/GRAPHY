@@ -47,7 +47,9 @@ import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
 import com.vis.dicom.UIDUtils;
 
+import ij.IJ;
 import ij.ImagePlus;
+import ij.process.ColorProcessor;
 import ij.util.DicomTools;
 
 /**
@@ -68,7 +70,14 @@ public class ImagePlusToDicomImage {
 		HashMap<Integer,DicomImage> images = new HashMap<>();
 		int w = imp.getWidth();
 		int h = imp.getHeight();
-		int samples = imp.getNChannels();
+		/*
+		 * imp.getNChannels() may return 1 even if RGB images.
+		 * reproduce code
+		 * String url = "https://imagej.net/ij/images/flybrain.zip";
+		 * ImagePlus image = IJ.openImage(url);
+		 * sysout(image.getNChannels());//return 1
+		 */
+		int samples = imp.getProcessor() instanceof ColorProcessor ? 3:1;
 		int bits = imp.getBitDepth();
 		int s = imp.getNSlices();
 		for(int i=0;i<s;i++) {
@@ -225,7 +234,7 @@ public class ImagePlusToDicomImage {
 		setDoubles(dcm, Tag.Image​Orientation​Patient, imgOriPat);
 		
 //		String samplesPerPixel = DicomTools.getTag(imp, "0028,0002");
-		int samplesPerPixel = imp.getNChannels();/*if imp is non dcm, it dose not has attributes*/
+		int samplesPerPixel = imp.getProcessor() instanceof ColorProcessor ? 3:1; //DO NOT USE imp.getNChannels()
 		String planarConfigurationString = DicomTools.getTag(imp, "0028,0006");
 		int rows = imp.getHeight();//DicomTools.getTag(imp, "0028,0010");
 		int cols = imp.getWidth();//DicomTools.getTag(imp, "0028,0011");

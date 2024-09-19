@@ -321,7 +321,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 	
 	@Override
-	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixelSample, Object newFrame) {
+	public void setPixelData(int frame/*0 base*/, int w, int h, int samples, int bitsPerPixelSample, Object newFrame) {
 		
 		//byte[], short[], float[] or int[]
 		byte[] pixels = null;
@@ -341,14 +341,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			pixels = ByteUtils.intToBytes(newFrame_, true/*ignore alpha*/);
 		}
 		
-		if(frame > getNumOfFrames()) {
-			return;
-		}
-		if(frame < 0) {
-			return;
+		if(frame < 0 || frame > getNumOfFrames()) {
+			throw new IllegalArgumentException("num of frames is invalid...");
 		}
 		if(w != getWidth() || h != getHeight() || samples != getSamples()) {
-			return;
+			throw new IllegalArgumentException("num of pixels does not match...");
 		}
 		
 		int bitsAllocated = getBitsAllocated();

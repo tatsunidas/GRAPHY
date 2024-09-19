@@ -70,6 +70,8 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.db.DatabaseHandler;
 
+import ij3d.Image3DUniverse;
+
 /**
  * 
  * @author tatsunidas
@@ -544,9 +546,12 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		 * close StageViews
 		 */
 		String[] patIDs = sdm.getAllPatientList();
-		for(String patID : patIDs) {
-			sdm.deleteStage(patID);
+		if(patIDs != null) {
+			for(String patID : patIDs) {
+				sdm.deleteStage(patID);
+			}
 		}
+		
 		/*
 		 * reset birds eye
 		 */
