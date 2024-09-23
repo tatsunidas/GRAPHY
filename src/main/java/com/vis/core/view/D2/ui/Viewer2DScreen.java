@@ -48,6 +48,7 @@ import java.awt.event.WindowListener;
 import java.awt.event.WindowStateListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
@@ -453,7 +454,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		for(String pid:plist) {
 			StageView sv = sdm.getStage(pid);
 			Eyepiece eye = sv.getEyepiece();
-			ArrayList<PraparatContext> prapCons = eye.getAllPraparatContext();
+			List<PraparatContext> prapCons = eye.getAllPraparatContext();
 			if(prapCons != null && prapCons.size()>0) {
 				for(PraparatContext pcon:prapCons) {
 					/*
@@ -482,7 +483,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		for (String patID : patIDs) {
 			StageView sv = sdm.getStage(patID);
 			Eyepiece eye = sv.getEyepiece();
-			ArrayList<PraparatContext> pcon = eye.getAllPraparatContext();
+			List<PraparatContext> pcon = eye.getAllPraparatContext();
 			for (PraparatContext pc : pcon) {
 				Praparat pp = pc.getPraparat();
 				pp.revalidate();

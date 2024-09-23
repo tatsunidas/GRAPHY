@@ -399,6 +399,16 @@ public class DicomDuplicator {
 			if(secondaryCapture) {
 				header.setString(Tag.SOP​Class​UID, VR.UI, UID.SecondaryCaptureImageStorage.uid());
 			}
+			
+			//Series number
+			int numOfSeries = db.getNumOfSeries(pid, studyUID);
+			if(numOfSeries == -1) {
+				numOfSeries = 1;
+			}else {
+				numOfSeries += 1;
+			}
+			header.setString(Tag.Series​Number, VR.IS, numOfSeries+"");
+			
 			// change seriesUID and instUID
 			header.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);
 			header.setString(Tag.SOP​Instance​UID, VR.UI, newSopInstUID);
@@ -429,6 +439,13 @@ public class DicomDuplicator {
 		// single frame images
 		} else {
 			String newSeriesUID = DBUtils.createNewUIDNoExistingInDB("series");
+			//Series number
+			int numOfSeries = db.getNumOfSeries(pid, studyUID);
+			if(numOfSeries == -1) {
+				numOfSeries = 1;
+			}else {
+				numOfSeries += 1;
+			}
 			List<String> newSopUIDs = new ArrayList<>();
 			for (Integer key : keys) {
 				SlideGlass sg = slides.get(key);
@@ -436,6 +453,7 @@ public class DicomDuplicator {
 				PixelDataDecoder deco = new PixelDataDecoder();
 				byte[] pixels = deco.pixel2Byte(imp);
 				DicomObject core = sg.getDicomImage().getCore();
+				core.setString(Tag.Series​Number, VR.IS, numOfSeries+"");
 				core.setValue(Tag.Pixel​Data, VR.OB, pixels);
 				// change seriesUID and instUID
 				core.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);

@@ -224,7 +224,7 @@ public class StudyListTable extends JTable {
 		initTable();
 	}
 
-	public void cleanUpdatePresenceOnStageStudy(ArrayList<String> newStudyUIDs/*showing StudyUID*/) {
+	public void cleanUpdatePresenceOnStageStudy(List<String> newStudyUIDs/*showing StudyUID*/) {
 		onStageStudyList.clear();
 		for(String uid : newStudyUIDs) {
 			enterTheStageStudyUID(uid, false);

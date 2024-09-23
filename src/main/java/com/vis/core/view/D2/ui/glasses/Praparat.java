@@ -84,8 +84,10 @@ import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UID;
+import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
+import com.vis.dicom.image.GDicomTools;
 import com.vis.imageio.Codec;
 import com.vis.imageio.Decompressor;
 import com.vis.imageio.PDFReader;
@@ -96,7 +98,6 @@ import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
-import ij.util.DicomTools;
 
 /**
  * SeriesViewer
@@ -172,15 +173,23 @@ public class Praparat extends JPanel {
 		if(studyColor != null) {
 			this.studyColor = studyColor;
 		}
-		String patID = DicomTools.getTag(stack, "0010,0010");
-		String studyUID = DicomTools.getTag(stack, "0020,000D");
-		String seriesUID = DicomTools.getTag(stack, "0020,000E");
+		String patID = GDicomTools.getTag(stack, "0010,0020");
+		if(patID != null) patID = patID.trim();
+		String studyUID = GDicomTools.getTag(stack, "0020,000D");
+		if(studyUID != null) studyUID = studyUID.trim();
+		String seriesUID = GDicomTools.getTag(stack, "0020,000E");
+		if(seriesUID != null) seriesUID = seriesUID.trim();
 		String[] sopUIDs = new String[stack.getNSlices()];
 		for(int i = 1; i <= stack.getNSlices(); i++) {
 			stack.setPosition(i);
-			sopUIDs[i-1] = DicomTools.getTag(stack, "0008,0018");
+			String sopInstUid = GDicomTools.getTag(stack, "0008,0018");
+			if(sopInstUid==null || sopInstUid.trim().length()==0) {
+				sopInstUid = UIDUtils.createUID();
+			}else {
+				sopUIDs[i-1] = sopInstUid.trim();//need trim.
+			}
 		}
-		String refUID = DicomTools.getTag(stack, "0020,0052");
+		String refUID = GDicomTools.getTag(stack, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null);
 		init();
 		prepareSlideGlassesUsingImagePlus(stack);
@@ -323,7 +332,7 @@ public class Praparat extends JPanel {
 		}
 		String refUid = (String) con.getContextUIDs()[4];
 		// get praps which have same ref-uid
-		ArrayList<Praparat> praps = eye.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
+		List<Praparat> praps = eye.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
 		//remove previous localizers
 		for(Praparat p:praps) {
 			HashMap<Integer, SlideGlass> slides = p.slides;
@@ -357,6 +366,7 @@ public class Praparat extends JPanel {
 			SlideGlass sgl = slides.get(sglKey);
 			CanvasGlass cg = (CanvasGlass) sgl.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			cg.setCrossLine(null);
+			cg.repaint();
 		}
 	}
 	
@@ -476,8 +486,8 @@ public class Praparat extends JPanel {
 		viewPanel.removeAll();
 		slides = new HashMap<Integer, SlideGlass>();
 		boolean secondaryUse = false;
-		String sopClassUID = DicomTools.getTag(images, "0002,0012");
-		String instUID = DicomTools.getTag(images, "0002,0013");
+		String sopClassUID = GDicomTools.getTag(images, "0008,0016");
+		String instUID = GDicomTools.getTag(images, "0008,0018");
 		if(sopClassUID == null || instUID == null) {
 			secondaryUse = true;
 		}
@@ -509,7 +519,7 @@ public class Praparat extends JPanel {
 			this.slides.put(k, newsg);
 		}
 		if(Utils.isDebug) {
-			System.out.println(slides.size()+" images loaded.");
+			Log.logger.fine(slides.size()+" images loaded.");
 		}
 	}
 	
@@ -1055,7 +1065,7 @@ public class Praparat extends JPanel {
 		constructSlideGlassesFromImagePlus(images);
 		slider.initContext();
 		if(Utils.isDebug) {
-			System.out.println(slides.size()+" images loaded.");
+			Log.logger.fine(slides.size()+" images loaded.");
 		}
 	}
 	
@@ -1261,15 +1271,15 @@ public class Praparat extends JPanel {
 			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
-			updateInfoLabel(imageX, imageY, raw_v+"("+calibrated_v+")",scaleXY, mag,rotate);
+			updateInfoLabel(imageX, imageY, calibrated_v+"("+raw_v+")",scaleXY, mag,rotate);
 		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromDisplay(imageX, imageY);
+			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
 //			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
 //			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
-			updateInfoLabel(imageX, imageY, r+","+g+","+b, scaleXY, mag, rotate);
+			updateInfoLabel(imageX, imageY, "(r,g,b)"+r+","+g+","+b, scaleXY, mag, rotate);
 		}
 	}
 
@@ -1311,6 +1321,10 @@ public class Praparat extends JPanel {
 				getCurrentSlide().setAnnotationVisible(v);
 			}
 		}
+	}
+	
+	public void setEyepiece(Eyepiece eye) {
+		this.prapManager = eye;
 	}
 	
 	public List<SlideGlass> getSelectedGlasses() {

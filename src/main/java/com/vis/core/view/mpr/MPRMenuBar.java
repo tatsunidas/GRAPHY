@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.view.mpr;
 
 import java.awt.event.ActionEvent;
@@ -11,29 +48,39 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 
-import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.SaveImage;
 import com.vis.core.ui.function.DicomDuplicator;
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
+import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.db.DatabaseHandler;
-import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomWriter;
 import com.vis.dicom.Tag;
-import com.vis.dicom.TagDict;
 import com.vis.dicom.UID;
-import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.DicomImage;
-import com.vis.dicom.image.ImagePlusToDicomImage;
 
 import ij.ImagePlus;
+import ij.util.DicomTools;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 @SuppressWarnings("serial")
 public class MPRMenuBar extends JMenuBar implements ActionListener{
 	
 	MPRViewerWindow mpr_win;
 	
-	private final String ipp = "0020,0032";//image position patient
-	private final String iop = "0020,0037";//image orientation patient
+	private final String patIDTag = "0010,0020";
+	private final String studyUIDTag = "0020,000D";
+	private final String seriesUIDTag = "0020,000E";
+//	private final String refUIDTag = "0020,0052";
+//	private final String sopClassUIDTag = "0008,0016";
+//	private final String sopInstUIDTag = "0008,0018";	
+//	private final String ipp = "0020,0032";//image position patient
+//	private final String iop = "0020,0037";//image orientation patient
 	
 	public MPRMenuBar(MPRViewerWindow win) {
 		
@@ -41,8 +88,8 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 		
 		JMenu mainMenu = new JMenu("File");
 		
-		JMenuItem saveItem1 = new JMenuItem("Save reslice images as general format");
-		saveItem1.setName("Save reslice images as general format");
+		JMenuItem saveItem1 = new JMenuItem("Save reslice images as TIF");
+		saveItem1.setName("Save reslice images as TIF");
 		mainMenu.add(saveItem1);
 		saveItem1.addActionListener(this);
 		
@@ -51,10 +98,10 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 		mainMenu.add(saveItem2);
 		saveItem2.addActionListener(this);
 		
-//		JMenuItem saveItem3 = new JMenuItem("Save reslice images to DB");
-//		saveItem3.setName("Save reslice images to DB");
-//		mainMenu.add(saveItem3);
-//		saveItem3.addActionListener(this);
+		JMenuItem saveItem3 = new JMenuItem("Save reslice images to DB");
+		saveItem3.setName("Save reslice images to DB");
+		mainMenu.add(saveItem3);
+		saveItem3.addActionListener(this);
 		
 		add(mainMenu);
 		
@@ -67,7 +114,7 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 			return;
 		}
 		JMenuItem item = (JMenuItem)obj;
-		if(item.getName().equals("Save reslice images as general format")) {
+		if(item.getName().equals("Save reslice images as TIF")) {
 			ImagePlus recon = mpr_win.reconImage();
 			if(recon != null && recon.getNSlices() > 0) {
 				String title = "Save reslice images";
@@ -82,10 +129,11 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 		}else if(item.getName().equals("Save reslice images as dicom format")) {
 			ImagePlus recon = mpr_win.reconImage();
 			if(recon != null) {
-				String pid = mpr_win.getPatientID();
-				String studyUID = mpr_win.getStudyUID();
-				//String seriesUID = mpr_win.getSeriesUID();
-				if(pid == null || studyUID == null) {
+				Praparat pp = mpr_win.getPraparatAt(CutSurface.OBLIQUE);
+				String pid = (String)pp.getUIDs()[0];
+				String studyUID = (String)pp.getUIDs()[1];
+				String seriesUID = (String)pp.getUIDs()[2];
+				if(pid == null || studyUID == null || seriesUID == null) {
 					JOptionPane.showMessageDialog(this, "Can not create new series, this images does not have dicom attributes.");
 					return;
 				}
@@ -93,6 +141,7 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 				JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home")));
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+				chooser.setMultiSelectionEnabled(false);
 				chooser.setDialogTitle("Dicom save to...");
 				int res = chooser.showSaveDialog(mpr_win);
 				File dest = null;
@@ -102,31 +151,33 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 					return;
 				}
 				if(dest == null) {
-					dest = new File(System.getProperty("user.home"));
-					System.out.println("dicom file will saving to home dir.");
+					Log.logger.fine("Interupted save dicom files...");
+					return;
 				}
-				ImagePlusToDicomImage itd = new ImagePlusToDicomImage();
-				DicomObject refDcm = mpr_win.getSampleReferenceDcm();
-				ImagePlusDicomTagTools tool = new ImagePlusDicomTagTools();
-				int size = recon.getNSlices();
-				String seriesUID = UIDUtils.createUID();
-				Integer seriesNo = refDcm.getInt(Tag.Series​Number, 1);
-				seriesNo = seriesNo == null ? 100:100+seriesNo; 
-				String frameOfReferenceUID = refDcm.getString(Tag.Frame​Of​Reference​UID, null);
+				//Series number
+				Integer seriesNo = 100;
+				DatabaseHandler db = DatabaseHandler.getInstance();
+				if(db != null) {
+					seriesNo = db.getNumOfSeries(pid, studyUID);
+					if (seriesNo != -1) {
+						seriesNo += 1;
+					}
+				}
 				File destChi = new File(dest.getAbsoluteFile()+File.separator+seriesUID);
 				if(!destChi.exists()) {
 					destChi.mkdirs();
 				}
-				HashMap<Integer,DicomImage> images = ImagePlusToDicomImage.imagePlusToDcm(recon, true);
-				for(int i=0;i<images.size();i++) {
-					DicomWriter writer = DicomWriter.newDicomWriter();
-					String sopUID = images.get(i).getCore().getString(Tag.SOP​Instance​UID);
+				HashMap<Integer,SlideGlass> images = pp.getAllSlides();
+				DicomWriter writer = DicomWriter.newDicomWriter();
+				for(Integer i : images.keySet()) {
+					String sopUID = images.get(i).getDicomImage().getCore().getString(Tag.SOP​Instance​UID);
 					if(sopUID == null || sopUID.length() == 0) {
-						sopUID = ""+i;
+						throw new IllegalArgumentException("SOP Instance UID is null, Cannot save file as dicom.");
 					}
-					writer.write(images.get(i).getCore(), UID.ImplicitVRLittleEndian.uid(), destChi.getAbsolutePath()+File.separator+sopUID);
+					DicomImage dcm = images.get(i).getDicomImage();
+					writer.write(dcm.getCore(), UID.ImplicitVRLittleEndian.uid(), destChi.getAbsolutePath()+File.separator+sopUID);
 				}
-				JOptionPane.showMessageDialog(this, "Saving reslice series was done !");
+				JOptionPane.showMessageDialog(this, "Reslice series was saved !");
 			}else {
 				JOptionPane.showMessageDialog(this, "Can not create new series, do reslice first.");
 				return;
@@ -139,17 +190,15 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 			}
 			ImagePlus recon = mpr_win.reconImage();
 			if(recon != null) {
-				String pid = mpr_win.getPatientID();
-				String studyUID = mpr_win.getStudyUID();
-				String seriesUID = mpr_win.getSeriesUID();
+				String pid = DicomTools.getTag(recon, patIDTag);
+				String studyUID = DicomTools.getTag(recon, studyUIDTag);
+				String seriesUID = DicomTools.getTag(recon, seriesUIDTag);
 				if(pid == null || studyUID == null || seriesUID == null) {
 					JOptionPane.showMessageDialog(this, "Can not create new series, this images does not have dicom attributes.");
 					return;
 				}
-				boolean retainIOPIPP = true;
 				try {
-					//TODO 20240815
-					DicomDuplicator.createNewSeriesAndStore2DB(null, true);
+					DicomDuplicator.createNewSeriesAndStore2DB(mpr_win.getPraparatAt(CutSurface.OBLIQUE)/*recon_prap*/, true);
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}

@@ -205,7 +205,7 @@ public class ImageListTable extends JTable{
 		initTable(studyUID, seriesUID);
 	}
 	
-	public void cleanUpdatePresenceOnStageImages(ArrayList<String[]> newSopUIDs) {
+	public void cleanUpdatePresenceOnStageImages(List<String[]> newSopUIDs) {
 		onStageImageList.clear();
 		for(String[] uids:newSopUIDs) {
 			enterTheStageSopUID(uids, false);
@@ -246,7 +246,7 @@ public class ImageListTable extends JTable{
 				String patID = cake.getPatientInfo("PatientID");
 				Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(patID);
 				eye.lostAllPraparatFocusGained();
-				ArrayList<Praparat> praps = eye.getPraparatAmbiguously(patID, studyUID, seriesUID);
+				List<Praparat> praps = eye.getPraparatAmbiguously(patID, studyUID, seriesUID);
 				for(Praparat pp:praps) {
 					Object[] uids = pp.getUIDs();
 					String[] sopUIDinPrap = (String[])uids[3];

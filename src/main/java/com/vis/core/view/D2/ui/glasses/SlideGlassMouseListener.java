@@ -47,6 +47,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 
@@ -55,6 +56,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.mpr.MPRViewerWindow;
 
 /**
  * 
@@ -221,9 +223,40 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		Log.logger.fine("Dragging , ViewerTool is "+viewerToolType);
 		
 		// MPR
-		if(pp.mode == ViewMode.MPR && pp.isShowCrossLineMode()) {
-			cg.drawCross(e);
-			//return;//DO NOT RETURN
+		if(pp.mode == ViewMode.MPR) {
+			/*
+			 * When showCrossLineMode in MPR just draw cross lines, and update showing cut slices.
+			 */
+			//remove localizer line
+			Eyepiece eye = pp.getEyepiece();
+			if(eye != null) {
+				if(eye.crossViewMode && pp.isShowCrossLineMode()) {
+					java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
+					if(w instanceof MPRViewerWindow) {
+						MPRViewerWindow mprwin = (MPRViewerWindow) w;
+						int ox = slide.offScreenX(x);
+						int oy = slide.offScreenY(y);
+						mprwin.updateCrossSectionViews(pp, ox, oy);
+					}
+					if (pp.isShowCrossLineMode()) {
+						cg.createCross(e);
+					}
+					return;
+				}else if(eye.crossViewMode && !pp.isShowCrossLineMode()) {
+					java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
+					if(w instanceof MPRViewerWindow) {
+						MPRViewerWindow mprwin = (MPRViewerWindow) w;
+						int ox = slide.offScreenX(x);
+						int oy = slide.offScreenY(y);
+						mprwin.updateCrossSectionViews(pp, ox, oy);
+					}
+					return;
+				}else if(!eye.crossViewMode && pp.isShowCrossLineMode()) {
+					cg.createCross(e);
+					return;
+				}
+			}
+			//at here, do not return.
 		}
 		
 		if (pp.getViewMode() == ViewMode.Thumbnail) {
@@ -353,6 +386,22 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				viewerToolType = Viewer2DToolBar.Windowing;
 			}
 			
+			// MPR
+			if(pp.mode == ViewMode.MPR) {
+				//remove localizer line
+				Eyepiece eye = pp.getEyepiece();
+				if(eye != null && eye.crossViewMode) {
+					List<Praparat> praps = eye.getAllPraparat();
+					for(Praparat pp : praps) {
+						if(pp.getViewMode() == Praparat.ViewMode.MPR) {
+							SlideGlass sg = pp.getCurrentSlide();
+							CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+							cg.setLocalizerGeometry(null);
+						}
+					}
+				}
+			}
+			
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
 				cg.mousePressed(e);
 				return;
@@ -393,6 +442,19 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			cg.mouseReleased(e);
 		}
 		
+		// MPR
+		if (pp.mode == ViewMode.MPR) {
+			// remove cross line
+			Eyepiece eye = pp.getEyepiece();
+			if (eye != null && eye.crossViewMode) {
+				List<Praparat> praps = eye.getAllPraparat();
+				for (Praparat pp : praps) {
+					if (pp.getViewMode() == Praparat.ViewMode.MPR) {
+						pp.clearCrossLines();
+					}
+				}
+			}
+		}
 	}
 
 	@Override

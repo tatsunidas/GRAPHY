@@ -221,7 +221,7 @@ public class SeriesListTable extends JTable {
 		initTable(studyUID);
 	}
 	
-	public void cleanUpdatePresenceOnStageSeries(ArrayList<String> newSeriesUIDs) {
+	public void cleanUpdatePresenceOnStageSeries(List<String> newSeriesUIDs) {
 		onStageSeriesList.clear();
 		onStageSeriesList.addAll(newSeriesUIDs);
 		initTable(studyUID);
@@ -268,7 +268,7 @@ public class SeriesListTable extends JTable {
 				if(onStageSeriesList.contains(currentSeriesUID)) {
 					Eyepiece eye = Viewer2DScreen.getInstance().getEyepieceOnStageWhere(cake.getPatientInfo("PatientID"));
 					eye.lostAllPraparatFocusGained();
-					ArrayList<Praparat> praps = eye.getPraparatAmbiguously(cake.getPatientInfo("PatientID"), studyUID, currentSeriesUID);
+					List<Praparat> praps = eye.getPraparatAmbiguously(cake.getPatientInfo("PatientID"), studyUID, currentSeriesUID);
 					for(Praparat pp:praps) {
 						if(!pp.isFocusGained()) {
 							pp.setFocusGained(true);

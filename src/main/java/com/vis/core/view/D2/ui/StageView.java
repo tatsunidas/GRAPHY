@@ -50,6 +50,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.swing.JDialog;
 import javax.swing.JSplitPane;
@@ -260,13 +261,13 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		ui.setFloating(false, null);
 	}
 
-	public ArrayList<Object[]> getAllPraparatContextInfoSet(){
+	public List<Object[]> getAllPraparatContextInfoSet(){
 		/*
 		 * The PraparatContext is a set of images currently being displayed. 
 		 * It is a set of instances that are associated with a series.
 		 */
-		ArrayList<PraparatShelf.PraparatContext> praps = eye.getAllPraparatContext();
-		ArrayList<Object[]> praparatInfoSet = new ArrayList<>();
+		List<PraparatShelf.PraparatContext> praps = eye.getAllPraparatContext();
+		List<Object[]> praparatInfoSet = new ArrayList<>();
 		for(PraparatShelf.PraparatContext prap:praps) {
 			Object uids[] = prap.getContextUIDs();
 			praparatInfoSet.add(uids);

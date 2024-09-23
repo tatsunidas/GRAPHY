@@ -253,8 +253,6 @@ public class PixelDataDecoder {
 	 * 
 	 * then, you can get unsigned short by (pix_as_us & 0xffff) method.
 	 * 
-	 * これは、本来、Javaでint型レンジで扱う、UnsignedなShortを、
-	 * SignedなShortレンジで扱うための方法なので、こんがらがりやすい。
 	 */
 	void convertToUnsigned(short[] pixels) {
 		for (int i=0; i<pixels.length; i++) {

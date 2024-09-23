@@ -12,10 +12,10 @@ package com.vis.core.view.D2.ui.orientation;
 
 import org.joml.Vector3d;
 
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 
@@ -163,8 +163,7 @@ public /*abstract*/ class ImageOrientation {
 	}
 	
 	public static CutSurface getCutSurface(ImagePlus imp) {
-		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-		double[] iop = tools.getDoubles(imp, "0020,0037");
+		double[] iop = GDicomTools.getDoubles(imp, "0020,0037");
 		if(iop == null) {
 			return CutSurface.UNKNOWN;
 		}

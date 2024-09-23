@@ -45,6 +45,7 @@ import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -69,6 +70,10 @@ public class Eyepiece extends JPanel{
 	GridLayout gridLayout = new GridLayout();
 	HashMap<String, Color> studyColors;
 	
+	//MPR functions
+	public boolean crossViewMode;//
+	
+	
 	public Eyepiece(String patID) {
 		this.patID = patID;
 		init();
@@ -80,11 +85,13 @@ public class Eyepiece extends JPanel{
 		prapShelf = new PraparatShelf();
 		setLayout(gridLayout);
 		studyColors = new HashMap<>();
-		ArrayList<String> studyUIDs = db.getStudyUidList(patID);
-		int colorInd = 0;
-		for(String studyUID : studyUIDs) {
-			studyColors.put(studyUID, allocateStudyColor(colorInd));
-			colorInd+=10;
+		if(db !=null) {
+			ArrayList<String> studyUIDs = db.getStudyUidList(patID);
+			int colorInd = 0;
+			for(String studyUID : studyUIDs) {
+				studyColors.put(studyUID, allocateStudyColor(colorInd));
+				colorInd+=10;
+			}
 		}
 	}
 	
@@ -146,6 +153,14 @@ public class Eyepiece extends JPanel{
 		}
 	}
 	
+	/**
+	 * load images from db
+	 * @param patID
+	 * @param studyUID
+	 * @param seriesUID
+	 * @param sopUIDs
+	 * @param refUID
+	 */
 	public void addPraparat(String patID, String studyUID, String seriesUID,
 			String[] sopUIDs, String refUID) {
 		if(patID == null || studyUID == null) {
@@ -172,6 +187,11 @@ public class Eyepiece extends JPanel{
 		}
 	}
 	
+	public void addPraparat(Praparat pp) {
+		prapShelf.addPraparat(pp);
+		pp.setEyepiece(this);
+	}
+	
 	public Color allocateStudyColor(int index) {
 		ij.process.LUT studyColors = Resources.LUT_FIRE.loadLUT();
  		byte ind = (byte) index;//convert range to -128 ~ 127
@@ -182,14 +202,13 @@ public class Eyepiece extends JPanel{
 		return new Color(r,g,b);
 	}
 	
-	//TODO 20240814
 	public void updatePraparat(Praparat prevPrap, String newPatID, String newStudyUID, String newSeriesUID, String[] newSopUIDs, String newRefUID) {
 		Praparat pp = buildPraparat(newPatID, newStudyUID, newSeriesUID, newSopUIDs, newRefUID);
 		prapShelf.updatePraparatContext(prevPrap, pp);
 	}
 	
-	public ArrayList<Praparat> getPraparatAmbiguously(String patID, String studyUID, String seriesUID) {
-		ArrayList<PraparatContext> praps = getAllPraparatContext();
+	public List<Praparat> getPraparatAmbiguously(String patID, String studyUID, String seriesUID) {
+		List<PraparatContext> praps = getAllPraparatContext();
 		ArrayList<Praparat> result = new ArrayList<Praparat>();
 		for(PraparatContext pcon:praps) {
 			Object[] con = pcon.getContextUIDs();
@@ -203,9 +222,9 @@ public class Eyepiece extends JPanel{
 		return result;
 	}
 	
-	public ArrayList<Praparat> getAllPraparatByFrameOfReferenceUID(String patID, String studyUID, String refUID) {
-		ArrayList<PraparatContext> praps = getAllPraparatContext();
-		ArrayList<Praparat> result = new ArrayList<Praparat>();
+	public List<Praparat> getAllPraparatByFrameOfReferenceUID(String patID, String studyUID, String refUID) {
+		List<PraparatContext> praps = getAllPraparatContext();
+		List<Praparat> result = new ArrayList<Praparat>();
 		for(PraparatContext pcon:praps) {
 			Object[] con = pcon.getContextUIDs();
 			String patID_ = (String)con[0];
@@ -258,7 +277,19 @@ public class Eyepiece extends JPanel{
 		return praps;
 	}
 	
-	public ArrayList<PraparatContext> getAllPraparatContext(){
+	public List<Praparat> getAllPraparat(){
+		List<PraparatContext> pCons = getAllPraparatContext();
+		List<Praparat> praps = new ArrayList<>();
+		for(PraparatContext pcon: pCons) {
+			praps.add(pcon.getPraparat());
+		}
+		if(praps.isEmpty()) {
+			return null;
+		}
+		return praps;
+	}
+	
+	public List<PraparatContext> getAllPraparatContext(){
 		return prapShelf.getAllShelfContents();
 	}
 	
@@ -267,7 +298,7 @@ public class Eyepiece extends JPanel{
 	}
 	
 	public void lostAllPraparatFocusGained() {
-		ArrayList<PraparatContext> pcons = getAllPraparatContext();
+		List<PraparatContext> pcons = getAllPraparatContext();
 		for(PraparatContext pcon:pcons) {
 			Praparat pp = pcon.getPraparat();
 			pp.setFocusGained(false);

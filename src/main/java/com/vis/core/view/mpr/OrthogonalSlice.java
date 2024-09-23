@@ -4,9 +4,9 @@ import java.awt.image.ColorModel;
 
 import org.joml.Vector3d;
 
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -54,171 +54,172 @@ public class OrthogonalSlice {
 	public ImagePlus cutXZ(ImagePlus src, int y_cutPoint, int slicePos, boolean flipVertical, boolean rotate90) {
         
 		ImageStack is = getStack(src);
-        int width = is.getWidth();
-        int size = is.getSize();
-        ImageProcessor ip = is.getProcessor(1);
-        boolean rgb = src.getChannel() == 3;
-        ColorModel cm = rgb? null:src.getProcessor().getColorModel();
-        double min = src.getDisplayRangeMin();
-        double max = src.getDisplayRangeMax();
-        Calibration cal = src.getCalibration().copy();
-        String xunit = cal.getXUnit();
-        String yunit = cal.getYUnit();
-        String zunit = cal.getZUnit();
-        double src_pz = cal.pixelDepth;
-        double src_py = cal.pixelHeight;
-        double src_px = cal.pixelWidth;
-		double az = src_pz/src_px;
-        /*
-         * x and y is zero-based.
-         */
-        int y = y_cutPoint;
-        if(y_cutPoint < 0) {
-        	y = 0;
-        }else if(y_cutPoint > is.getHeight()) {
-        	y = is.getHeight()-1;
-        }
-        Object newpix = null;
-        ImageProcessor xz_ip = null;
-        ImagePlus xz_image = new ImagePlus();
-        // XZ
-        if (ip instanceof ShortProcessor) {
-            newpix = new short[width*size];
-            for (int i=0; i<size; i++) { 
-                Object pixels=is.getPixels(i+1);
-                if (flipVertical) {
-                	System.arraycopy(pixels, width*y, newpix, width*(size-i-1), width);
-                }else {
-                	System.arraycopy(pixels, width*y, newpix, width*i, width);
-                }
-                xz_ip = new ShortProcessor(width, size, (short[])newpix, ip.getCurrentColorModel());
-            }
-        }else if (ip instanceof ByteProcessor) {
-            newpix = new byte[width*size];
-            for (int i=0;i<size; i++) { 
-                Object pixels=is.getPixels(i+1);
-                if (flipVertical) {
-                	System.arraycopy(pixels, width*y, newpix, width*(size-i-1), width);
-                }else {
-                	System.arraycopy(pixels, width*y, newpix, width*i, width);
-                }
-                xz_ip = new ByteProcessor(width, size, (byte[])newpix, ip.getCurrentColorModel());
-            }
-        }else if(ip instanceof FloatProcessor) {
-            newpix = new float[width*size];
-            for (int i=0; i<size; i++) { 
-                Object pixels=is.getPixels(i+1);
-                if (flipVertical) {
-                	System.arraycopy(pixels, width*y, newpix, width*(size-i-1), width);
-                }else {
-                	System.arraycopy(pixels, width*y, newpix, width*i, width);
-                }
-                xz_ip = new FloatProcessor(width, size, (float[])newpix, ip.getCurrentColorModel());
-            }
-        }else if (ip instanceof ColorProcessor) {
-            newpix = new int[width*size];
-            for (int i=0;i<size; i++) { 
-                Object pixels=is.getPixels(i+1);
-                if (flipVertical) {
-                	System.arraycopy(pixels, width*y, newpix, width*(size-i-1), width);
-                }else {
-                	System.arraycopy(pixels, width*y, newpix, width*i, width);
-                }
-                xz_ip = new ColorProcessor(width, size, (int[])newpix);
-            }
-        }
+		int width = is.getWidth();
+		int size = is.getSize();
+		ImageProcessor ip = is.getProcessor(1);
+		boolean rgb = (ip instanceof ColorProcessor);
+		ColorModel cm = rgb ? null : src.getProcessor().getColorModel();
+		double min = src.getDisplayRangeMin();
+		double max = src.getDisplayRangeMax();
+		Calibration cal = src.getCalibration().copy();
+		String xunit = cal.getXUnit();
+		String yunit = cal.getYUnit();
+		String zunit = cal.getZUnit();
+		double src_pz = cal.pixelDepth;
+		double src_py = cal.pixelHeight;
+		double src_px = cal.pixelWidth;
+		double az = src_pz / src_px;
+		/*
+		 * x and y is zero-based.
+		 */
+		int y = y_cutPoint;
+		if (y_cutPoint < 0) {
+			y = 0;
+		} else if (y_cutPoint > src.getHeight()) {
+			y = src.getHeight() - 1;
+		}
+		Object newpix = null;
+		ImageProcessor xz_ip = null;
+		ImagePlus xz_image = new ImagePlus();
+		// XZ
+		if (ip instanceof ShortProcessor) {
+			newpix = new short[width * size];
+			//copy lines to newPixel
+			for (int i = 0; i < size; i++) {
+				Object pixels = is.getPixels(i + 1);
+				if (flipVertical) {
+					System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
+				} else {
+					System.arraycopy(pixels, width * y, newpix, width * i, width);
+				}
+			}
+			xz_ip = new ShortProcessor(width, size, (short[]) newpix, ip.getCurrentColorModel());
+		} else if (ip instanceof ByteProcessor) {
+			newpix = new byte[width * size];
+			for (int i = 0; i < size; i++) {
+				Object pixels = is.getPixels(i + 1);
+				if (flipVertical) {
+					System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
+				} else {
+					System.arraycopy(pixels, width * y, newpix, width * i, width);
+				}
+			}
+			xz_ip = new ByteProcessor(width, size, (byte[]) newpix, ip.getCurrentColorModel());
+		} else if (ip instanceof FloatProcessor) {
+			newpix = new float[width * size];
+			for (int i = 0; i < size; i++) {
+				Object pixels = is.getPixels(i + 1);
+				if (flipVertical) {
+					System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
+				} else {
+					System.arraycopy(pixels, width * y, newpix, width * i, width);
+				}
+			}
+			xz_ip = new FloatProcessor(width, size, (float[]) newpix, ip.getCurrentColorModel());
+		} else if (ip instanceof ColorProcessor) {
+			newpix = new int[width * size];
+			for (int i = 0; i < size; i++) {
+				Object pixels = is.getPixels(i + 1);
+				if (flipVertical) {
+					System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
+				} else {
+					System.arraycopy(pixels, width * y, newpix, width * i, width);
+				}
+			}
+			xz_ip = new ColorProcessor(width, size, (int[]) newpix);
+		}
         
-        if (rotate90) xz_ip = xz_ip.rotateRight();
-        
-        if (cm!=null && xz_ip!=null && xz_ip.getBitDepth()!=24) {
-        	xz_ip.setColorModel(cm);
-        }
-        
-        int width2 = xz_ip.getWidth();
-        int height2 = (int)Math.round(xz_ip.getHeight()*az);
-        if (height2 < 1) {
-        	height2 = 1;
-        }
-        if (width2 != xz_ip.getWidth() || height2 != xz_ip.getHeight()) {
-            xz_ip.setInterpolate(true);
-            ImageProcessor sxz_ip = xz_ip.resize(width2, height2);
-            if (!rgb) {
-            	sxz_ip.setMinAndMax(min, max);
-            }
-            xz_image.setProcessor("", sxz_ip);
-        } else {
-            if (!rgb) {
-            	xz_ip.setMinAndMax(min, max);
-            }
-            xz_image.setProcessor("", xz_ip);
-        }
-        
-        ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-        PlanarSupport psup = new PlanarSupport();
-        CutSurface planar = ImageOrientation.getCutSurface(src);
-        
-        double col = 0;//x direction
-        double row = y;
-        Vector3d ipp_vec = null;
+		if (rotate90)
+			xz_ip = xz_ip.rotateRight();
+
+		if (cm != null && xz_ip != null && xz_ip.getBitDepth() != 24) {
+			xz_ip.setColorModel(cm);
+		}
+
+		int width2 = xz_ip.getWidth();
+		int height2 = (int) Math.ceil(xz_ip.getHeight() * az);
+		if (height2 < 1) {
+			height2 = 1;
+		}
+		if (width2 != xz_ip.getWidth() || height2 != xz_ip.getHeight()) {
+			xz_ip.setInterpolate(false);//Nearest
+			ImageProcessor sxz_ip = xz_ip.resize(width2, height2);
+			if (!rgb) {
+				sxz_ip.setMinAndMax(min, max);
+			}
+			xz_image.setProcessor("", sxz_ip);
+		} else {
+			if (!rgb) {
+				xz_ip.setMinAndMax(min, max);
+			}
+			xz_image.setProcessor("", xz_ip);
+		}
+		
+		PlanarSupport psup = new PlanarSupport();
+		CutSurface planar = ImageOrientation.getCutSurface(src);
+
+		double col = 0;// x direction
+		double row = y;
+		Vector3d ipp_vec = null;
 		double[] iop = null;
 		src.setPosition(slicePos);
 		switch (planar) {
 		case SAGITTAL:
 			// YZ to YX in RCS
-			col = 0;//x direction
-	        row = y;
-	        src.setPosition(slicePos);
-	        ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
-	        if(ipp_vec !=null) {
+			col = 0;// x direction
+			row = y;
+			src.setPosition(slicePos);
+			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
+			if (ipp_vec != null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(xz_image, 1, ipp);
+				GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
 				src.setPosition(slicePos);
 				// SAG Image Orientation (Patient): 0\1\0\0\0\-1, in Degrees : 90\0\90\90\90\180
 				iop = psup.getNewImageOrientationPatient(src, 0, 0, 0, -90, 0, -90);
-				tools.setImageOrientationPatient(xz_image, 1, iop);
-	        }
+				GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
+			}
 			break;
 		case CORONAL:
 			// XZ to XY
-			col = 0;//x direction
-	        row = y;
-	        src.setPosition(slicePos);
-	        ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
-	        if(ipp_vec !=null) {
+			col = 0;// x direction
+			row = y;
+			src.setPosition(slicePos);
+			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
+			if (ipp_vec != null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(xz_image, 1,ipp);
+				GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
 				src.setPosition(slicePos);
 				// COR Image Orientation (Patient): 1\0\0\0\0\-1 ( in degrees 0\90\90\90\90\180)
 				iop = psup.getNewImageOrientationPatient(src, 0, 0, 0, 0, -90, -90);
-				tools.setImageOrientationPatient(xz_image,1, iop);
-	        }
+				GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
+			}
 			break;
 		case AXIAL:
 		case OBLIQUE:// here, treat as axial
 		case UNKNOWN:
 		default:
 			// XY to XZ
-	        src.setPosition(slicePos);
-	        ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, size);
-	        if(ipp_vec !=null) {
+			src.setPosition(slicePos);
+			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, size);
+			if (ipp_vec != null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(xz_image, 1,ipp);
+				GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
 				// 1\0\0\0\1\0, in degrees 0\90\90\90\0\90
 				src.setPosition(slicePos);
 				iop = psup.getNewImageOrientationPatient(src, 0, 0, 0, 0, 90, 90);
-				tools.setImageOrientationPatient(xz_image, 1,iop);
-	        }
+				GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
+			}
 			break;
 		}
-        Calibration cal_xz = new Calibration();
-        cal_xz.setXUnit(xunit);
-        cal_xz.setYUnit(zunit);
-        cal_xz.setZUnit(yunit);
-        cal_xz.pixelWidth = src_px;
-        cal_xz.pixelHeight = src_pz/az;
-        cal_xz.pixelDepth = src_py;
-        xz_image.setCalibration(cal_xz);
-        return xz_image;
+		Calibration cal_xz = new Calibration();
+		cal_xz.setXUnit(xunit);
+		cal_xz.setYUnit(zunit);
+		cal_xz.setZUnit(yunit);
+		cal_xz.pixelWidth = src_px;
+		cal_xz.pixelHeight = src_pz / az;
+		cal_xz.pixelDepth = src_py;
+		xz_image.setCalibration(cal_xz);
+		return xz_image;
 	}
 	
 	/**
@@ -235,128 +236,133 @@ public class OrthogonalSlice {
 	public ImagePlus cutYZ(ImagePlus src, int x_cutPoint, int slicePos, boolean flipVertical, boolean rotate90) {
 		
 		ImageStack is = getStack(src);
-        int width = is.getWidth();
-        int height = is.getHeight();
-        int size = is.getSize();
-        boolean rgb = src.getChannel() == 3;
-        ColorModel cm = rgb? null:src.getProcessor().getColorModel();
-        double min = src.getDisplayRangeMin();
-        double max = src.getDisplayRangeMax();
-        Calibration cal = src.getCalibration().copy();
-        String xunit = cal.getXUnit();
-        String yunit = cal.getYUnit();
-        String zunit = cal.getZUnit();
-        double src_pz = cal.pixelDepth;
-        double src_py = cal.pixelHeight;
-        double src_px = cal.pixelWidth;
-		double az = src_pz/src_px;//keep z/x relationship
-        
-        ImageProcessor ip = is.getProcessor(1);
-        ImageProcessor yz_ip = null;
-        ImagePlus yz_image = new ImagePlus();
-        /*
-         * x and y is zero-based.
-         */
-        int x =  x_cutPoint;
-        if(x < 0) {
-        	x = 0;
-        }else if(x >= width) {
-        	x = width-1;
-        }
-        Object newpix = null;
-        
-        if (ip instanceof FloatProcessor) {
-            newpix = new float[size*height];
-            for (int i=0;i<size; i++) { 
-                float[] pixels= (float[]) is.getPixels(i+1);//toFloatPixels(pixels);
-                for (int j=0;j<height;j++) {
-                	((float[])newpix)[(size-i-1)*height + j] = pixels[x + j * width];
-                }
-            }
-            yz_ip = new FloatProcessor(height, size, (float[])newpix, ip.getColorModel());
-        }else if (ip instanceof ByteProcessor) {
-            newpix = new byte[size*height];
-            for (int i=0;i<size; i++) { 
-                byte[] pixels= (byte[]) is.getPixels(i+1);//toFloatPixels(pixels);
-                for (int j=0;j<height;j++) {
-                	((byte[])newpix)[(size-i-1)*height + j] = pixels[x + j* width];
-                }
-            }
-            yz_ip = new ByteProcessor(height, size, (byte[])newpix, ip.getColorModel());
-        }else if (ip instanceof ShortProcessor) {
-            newpix = new short[size*height];
-            for (int i=0;i<size; i++) { 
-                short[] pixels= (short[]) is.getPixels(i+1);//toFloatPixels(pixels);
-                for (int j=0;j<height;j++) {
-                	((short[])newpix)[(size-i-1)*height + j] = pixels[x + j* width];
-                }
-            }
-            yz_ip = new ShortProcessor(height, size, (short[])newpix, ip.getColorModel());
-        }else if (ip instanceof ColorProcessor) {
-            newpix = new int[size*height];
-            for (int i=0;i<size; i++) { 
-                int[] pixels= (int[]) is.getPixels(i+1);//toFloatPixels(pixels);
-                for (int j=0;j<height;j++) {
-                	((int[])newpix)[(size-i-1)*height + j] = pixels[x + j* width];
-                }
-            }
-            yz_ip = new ColorProcessor(height, size, (int[])newpix);
-        }
-        
-        if (cm!=null && yz_ip!=null && yz_ip.getBitDepth()!=24) {
-        	yz_ip.setColorModel(cm);
-        }
-        
-        int width2 = yz_ip.getWidth();
-        int height2 = (int)Math.round(yz_ip.getHeight()*az);
-        if (width2!=yz_ip.getWidth()||height2!=yz_ip.getHeight()) {
-            yz_ip.setInterpolate(true);
-            ImageProcessor syz_ip=yz_ip.resize(width2, height2);
-            if (flipVertical) syz_ip.flipVertical();
-            if (rotate90) syz_ip = syz_ip.rotateRight();
-            if (!rgb) syz_ip.setMinAndMax(min, max);
-            yz_image.setProcessor("", syz_ip);
-        } else {
-        	if (flipVertical) yz_ip.flipVertical();
-        	if (rotate90) yz_ip = yz_ip.rotateRight();
-            if (!rgb) yz_ip.setMinAndMax(min, max);
-            yz_image.setProcessor("", yz_ip);
-        }
+		ImageProcessor ip = is.getProcessor(1);
+		int width = is.getWidth();
+		int height = is.getHeight();
+		int size = is.getSize();
+		boolean rgb = ip instanceof ColorProcessor;
+		ColorModel cm = rgb ? null : src.getProcessor().getColorModel();
+		double min = src.getDisplayRangeMin();
+		double max = src.getDisplayRangeMax();
+		Calibration cal = src.getCalibration().copy();
+		String xunit = cal.getXUnit();
+		String yunit = cal.getYUnit();
+		String zunit = cal.getZUnit();
+		double src_pz = cal.pixelDepth;
+		double src_py = cal.pixelHeight;
+		double src_px = cal.pixelWidth;
+		double az = src_pz / src_px;// keep z/x relationship
 
-        ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-        PlanarSupport psup = new PlanarSupport();
-        CutSurface planar = ImageOrientation.getCutSurface(src);
-        //allways ortho
-        Vector3d ipp_vec = null;
-        double[] ipp = null;
-        double[] iop = null;
-        double col = x;//x direction on prap
-        double row = 0;
+		ImageProcessor yz_ip = null;
+		ImagePlus yz_image = new ImagePlus();
+		/*
+		 * x and y is zero-based.
+		 */
+		int x = x_cutPoint;
+		if (x < 0) {
+			x = 0;
+		} else if (x >= width) {
+			x = width - 1;
+		}
+		Object newpix = null;
+
+		if (ip instanceof FloatProcessor) {
+			newpix = new float[size * height];
+			for (int i = 0; i < size; i++) {
+				float[] pixels = (float[]) is.getPixels(i + 1);// toFloatPixels(pixels);
+				for (int j = 0; j < height; j++) {
+					((float[]) newpix)[(size - i - 1) * height + j] = pixels[x + j * width];
+				}
+			}
+			yz_ip = new FloatProcessor(height, size, (float[]) newpix, ip.getColorModel());
+		} else if (ip instanceof ByteProcessor) {
+			newpix = new byte[size * height];
+			for (int i = 0; i < size; i++) {
+				byte[] pixels = (byte[]) is.getPixels(i + 1);// toFloatPixels(pixels);
+				for (int j = 0; j < height; j++) {
+					((byte[]) newpix)[(size - i - 1) * height + j] = pixels[x + j * width];
+				}
+			}
+			yz_ip = new ByteProcessor(height, size, (byte[]) newpix, ip.getColorModel());
+		} else if (ip instanceof ShortProcessor) {
+			newpix = new short[size * height];
+			for (int i = 0; i < size; i++) {
+				short[] pixels = (short[]) is.getPixels(i + 1);// toFloatPixels(pixels);
+				for (int j = 0; j < height; j++) {
+					((short[]) newpix)[(size - i - 1) * height + j] = pixels[x + j * width];
+				}
+			}
+			yz_ip = new ShortProcessor(height, size, (short[]) newpix, ip.getColorModel());
+		} else if (ip instanceof ColorProcessor) {
+			newpix = new int[size * height];
+			for (int i = 0; i < size; i++) {
+				int[] pixels = (int[]) is.getPixels(i + 1);// toFloatPixels(pixels);
+				for (int j = 0; j < height; j++) {
+					((int[]) newpix)[(size - i - 1) * height + j] = pixels[x + j * width];
+				}
+			}
+			yz_ip = new ColorProcessor(height, size, (int[]) newpix);
+		}
+
+		if (cm != null && yz_ip != null && yz_ip.getBitDepth() != 24) {
+			yz_ip.setColorModel(cm);
+		}
+
+		int width2 = yz_ip.getWidth();
+		int height2 = (int) Math.ceil(yz_ip.getHeight() * az);
+		if (width2 != yz_ip.getWidth() || height2 != yz_ip.getHeight()) {
+			yz_ip.setInterpolate(true);
+			ImageProcessor syz_ip = yz_ip.resize(width2, height2);
+			if (flipVertical)
+				syz_ip.flipVertical();
+			if (rotate90)
+				syz_ip = syz_ip.rotateRight();
+			if (!rgb)
+				syz_ip.setMinAndMax(min, max);
+			yz_image.setProcessor("", syz_ip);
+		} else {
+			if (flipVertical)
+				yz_ip.flipVertical();
+			if (rotate90)
+				yz_ip = yz_ip.rotateRight();
+			if (!rgb)
+				yz_ip.setMinAndMax(min, max);
+			yz_image.setProcessor("", yz_ip);
+		}
+
+		PlanarSupport psup = new PlanarSupport();
+		CutSurface planar = ImageOrientation.getCutSurface(src);
+		// allways ortho
+		Vector3d ipp_vec = null;
+		double[] ipp = null;
+		double[] iop = null;
+		double col = x;// x direction on prap
+		double row = 0;
 		switch (planar) {
 		case SAGITTAL:
 			// YZ to XZ
 			src.setPosition(slicePos);
 			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
-			if(ipp_vec != null) {
+			if (ipp_vec != null) {
 				ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(yz_image, 1,ipp);
+				GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
 				src.setPosition(slicePos);
-				//SAG Image Orientation (Patient): 0\1\0\0\0\-1, inDegrees : 90\0\90\90\90\180
-				iop = psup.getNewImageOrientationPatient(src, -90, 90, 0, 0, 0, 0);//1\0\0\0\0\-1
-				tools.setImageOrientationPatient(yz_image,1, iop);
+				// SAG Image Orientation (Patient): 0\1\0\0\0\-1, inDegrees : 90\0\90\90\90\180
+				iop = psup.getNewImageOrientationPatient(src, -90, 90, 0, 0, 0, 0);// 1\0\0\0\0\-1
+				GDicomTools.setImageOrientationPatient(yz_image, 1, iop);
 			}
 			break;
 		case CORONAL:
 			// XZ to YZ
 			src.setPosition(slicePos);
 			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, 1);
-			if(ipp_vec != null) {
+			if (ipp_vec != null) {
 				ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(yz_image, 1,ipp);
+				GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
 				src.setPosition(slicePos);
-				//COR Image Orientation (Patient): 1\0\0\0\0\-1, inDegrees : 0\90\90\90\90\180
-				iop = psup.getNewImageOrientationPatient(src, 90, -90, 0, 0, 0, 0);//0\1\0\0\0\-1
-				tools.setImageOrientationPatient(yz_image,1, iop);
+				// COR Image Orientation (Patient): 1\0\0\0\0\-1, inDegrees : 0\90\90\90\90\180
+				iop = psup.getNewImageOrientationPatient(src, 90, -90, 0, 0, 0, 0);// 0\1\0\0\0\-1
+				GDicomTools.setImageOrientationPatient(yz_image, 1, iop);
 			}
 			break;
 		case AXIAL:
@@ -366,26 +372,26 @@ public class OrthogonalSlice {
 			// to YZ
 			src.setPosition(slicePos);
 			ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, size);
-			if(ipp_vec != null) {
+			if (ipp_vec != null) {
 				ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				tools.setImagePositionPatient(yz_image, 1,ipp);
+				GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
 				src.setPosition(slicePos);
 				// AXI, 1\0\0\0\1\0, in degrees 0\90\90\90\0\90
-				iop = psup.getNewImageOrientationPatient(src, 90, -90, 0, 0, 90, 90);//0\1\0\0\0\-1
-				tools.setImageOrientationPatient(yz_image,1, iop);
+				iop = psup.getNewImageOrientationPatient(src, 90, -90, 0, 0, 90, 90);// 0\1\0\0\0\-1
+				GDicomTools.setImageOrientationPatient(yz_image, 1, iop);
 			}
 			break;
 		}
-        Calibration cal_yz = new Calibration();
-        cal_yz.setXUnit(yunit);
-        cal_yz.setYUnit(zunit);
-        cal_yz.setZUnit(xunit);
-        cal_yz.pixelWidth = src_py;
-        cal_yz.pixelHeight = src_pz/az;
-        cal_yz.pixelDepth = src_px;
-        yz_image.setCalibration(cal_yz);
-        return yz_image;
-    }
+		Calibration cal_yz = new Calibration();
+		cal_yz.setXUnit(yunit);
+		cal_yz.setYUnit(zunit);
+		cal_yz.setZUnit(xunit);
+		cal_yz.pixelWidth = src_py;
+		cal_yz.pixelHeight = src_pz / az;
+		cal_yz.pixelDepth = src_px;
+		yz_image.setCalibration(cal_yz);
+		return yz_image;
+	}
 	
 	
 	public ImageStack getStack(ImagePlus imp) {

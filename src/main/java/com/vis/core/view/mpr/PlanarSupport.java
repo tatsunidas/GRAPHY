@@ -4,11 +4,11 @@ import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.joml.Vector3d;
 
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
@@ -38,8 +38,7 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public CutSurface isPlanarOf(ImagePlus dcm) {
-		ImagePlusDicomTagTools tool = new ImagePlusDicomTagTools();
-		double[] image_ori = tool.getDoubles(dcm, iop);
+		double[] image_ori = GDicomTools.getDoubles(dcm, iop);
 		if(image_ori == null) {
 			return CutSurface.UNKNOWN;
 		}
@@ -56,10 +55,9 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
-		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
 		srcImp.setPosition(slicePos);
-		double[] ipp = tools.getDoubles(srcImp, this.ipp);//imagePositionPatient
-		double[] iop = tools.getDoubles(srcImp, this.iop);//imageOrientationPatient
+		double[] ipp = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient
+		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
 		if(ipp == null || iop == null) {
 			return null;
 		}
@@ -110,12 +108,11 @@ public class PlanarSupport {
 		if(srcImp.getNSlices() == 1 || slicePos == 1) {
 			return getNewImagePositionPatient2D(srcImp, col, row, 1);
 		}
-		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
 		srcImp.setPosition(1);//first image
-		double[] T1 = tools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
+		double[] T1 = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
 		srcImp.setPosition(slicePos);//last position
-		double[] Tn = tools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
-		double[] iop = tools.getDoubles(srcImp, this.iop);//imageOrientationPatient
+		double[] Tn = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
+		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
 		if(T1 == null || Tn == null || iop == null) {
 			return null;
 		}
@@ -163,12 +160,11 @@ public class PlanarSupport {
 		if(srcImp.getNSlices() == 1) {
 			return getNewImagePositionPatient2D(srcImp, col, row, 1);
 		}
-		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
 		srcImp.setPosition(1);//first image
-		double[] T1 = tools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
+		double[] T1 = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
 		srcImp.setPosition(slicePos);//current
-		double[] ipp = tools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
-		double[] iop = tools.getDoubles(srcImp, this.iop);//imageOrientationPatient
+		double[] ipp = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
+		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
 		if(ipp == null || iop == null) {
 			return null;
 		}
@@ -247,8 +243,7 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public double[] getNewImageOrientationPatient(ImagePlus srcImp, int row_rotateX, int row_rotateY, int row_rotateZ, int col_rotateX, int col_rotateY, int col_rotateZ) {
-		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-		double[] iop = tools.getDoubles(srcImp, this.iop);
+		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);
 //		boolean[] negative = new boolean[6];
 //		for(int i=0;i<iop.length;i++) {
 //			if(String.valueOf(iop[i]).startsWith("-")) {
@@ -297,8 +292,6 @@ public class PlanarSupport {
 //		System.out.println(Math.abs(col_v.lengthSquared() - 1));
 		
 		double[] res = new double[] {row_x_cos,row_y_cos,row_z_cos,col_x_cos,col_y_cos,col_z_cos};
-//		System.out.println("org iop : "+iop[0]+","+iop[1]+","+iop[2]+","+iop[3]+","+iop[4]+","+iop[5]);
-//		System.out.println("new iop : "+res[0]+","+res[1]+","+res[2]+","+res[3]+","+res[4]+","+res[5]);
 		return res;
 	}
 	
@@ -312,11 +305,10 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/*done setPosition*/, com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface to) {
-		com.vis.core.view.D2.processing.ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
         PlanarSupport psup = new PlanarSupport();
         com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface planar = com.vis.core.view.D2.ui.orientation.ImageOrientation.getCutSurface(from);
         if(planar.name().equals(to.name())) {
-        	return tools.getDoubles(from, this.iop);
+        	return GDicomTools.getDoubles(from, this.iop);
         }
 		switch (planar) {
 		case SAGITTAL:

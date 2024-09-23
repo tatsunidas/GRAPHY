@@ -128,43 +128,57 @@ public class CineSlider extends JPanel implements ActionListener {
 
 		public void initContext() {
 			if (pp.getNumberOfImages() < 0) {
-				if(initializing) {
+				if (initializing) {
 					initializing = false;
 				}
 				return;
 			}
-			initializing = true;//to ignore fire state changed when starting-up.
-//			setMajorTickSpacing(10);//DO NOT USE
-			setLabelTable(null);//needed to update slider ui
-			setMinorTickSpacing(1);
+			initializing = true;// to ignore fire state changed when starting-up.
+			setLabelTable(null);// needed to update slider ui
 			setMinimum(1);
 			setMaximum(pp.getNumberOfImages());
-			createLabelTableAndSet(10,pp.getNumberOfImages());
+
+			int majorTickSpacing = pp.getNumberOfImages() / 10;
+			/*
+			 * MinorTickSpace is linked to the count of wheel moves.
+			 * One wheel move is one slice move.
+			 */
+			int minorTickSpacing = 1;
+			if (majorTickSpacing <= 1) {
+				majorTickSpacing = 1;
+			}
+			setMajorTickSpacing(majorTickSpacing);
+			setMinorTickSpacing(minorTickSpacing);
+
+			createLabelTableAndSet(majorTickSpacing, pp.getNumberOfImages());
 			setPaintTicks(true);
 			setPaintLabels(true);
 			setSnapToTicks(true);
 			initializing = false;
-			//IMPORTANT
-			/*if slider inputed same index, not to fire state changed.*/
-			/*here, intend to fire state changed, set -1*/
+			/* if slider inputed same index, not fire state change. */
 			currentSliceIndex = -1;
 			setValue(currentSliceIndex);
 		}
 		
-		private void createLabelTableAndSet(int majorTickSpacing, int numOfSlices){
+		private void createLabelTableAndSet(int majorTickSpacing, int numOfSlices) {
+			if (numOfSlices <= 0) {
+				return;
+			}
 			// Create the label table
-			Hashtable<Integer,JLabel> labelTable = new Hashtable<Integer,JLabel>();
-			labelTable.put(Integer.valueOf(1), new JLabel("1"));//start
-			labelTable.put(Integer.valueOf(numOfSlices), new JLabel(String.valueOf(numOfSlices)));//end
-			if(numOfSlices < majorTickSpacing) {
+			Hashtable<Integer, JLabel> labelTable = new Hashtable<Integer, JLabel>();
+			labelTable.put(Integer.valueOf(1), new JLabel("1"));// start
+			labelTable.put(Integer.valueOf(numOfSlices), new JLabel(String.valueOf(numOfSlices)));// end
+			if (numOfSlices < majorTickSpacing) {
 				setLabelTable(labelTable);
-			}else {
-				double numOfTick = numOfSlices/majorTickSpacing;
+			} else {
+				// this case means num of slices less than 5.
+				double numOfTick = numOfSlices / majorTickSpacing;
 				BigDecimal bd = new BigDecimal(String.valueOf(numOfTick));
-				BigDecimal bd1 = bd.setScale(0, RoundingMode.DOWN);//cut off under decimal point.
+				BigDecimal bd1 = bd.setScale(0, RoundingMode.DOWN);// cut off under decimal point.
 				int numOfTickInt = bd1.intValue();
-				for(int i=1;i<=numOfTickInt;i++) {
-					labelTable.put(Integer.valueOf(i*majorTickSpacing), new JLabel(String.valueOf(i*majorTickSpacing)));
+				for (int i = 1; i <= numOfTickInt; i++) {
+					labelTable.put(Integer.valueOf(i * majorTickSpacing),
+							new JLabel(String.valueOf(i * majorTickSpacing)));
 				}
 				setLabelTable(labelTable);
 			}

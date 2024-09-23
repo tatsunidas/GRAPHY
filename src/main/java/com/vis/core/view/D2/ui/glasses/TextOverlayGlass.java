@@ -261,6 +261,9 @@ public class TextOverlayGlass extends JPanel{
 		tags.add(Tag.Pixel​Spacing);
 		tags.add(Tag.Spacing​Between​Slices);
 		
+		tags.add(Tag.Rows);
+		tags.add(Tag.Columns);
+		
 		return tags;
 	}
 	

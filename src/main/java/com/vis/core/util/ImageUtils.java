@@ -50,12 +50,11 @@ import java.util.HashMap;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.image.DicomImage;
-import com.vis.dicom.image.ImagePlusToDicomImage;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
@@ -317,11 +316,11 @@ public class ImageUtils {
 		if (imp == null) {
 			return null;
 		}
-		HashMap<Integer, DicomImage> images = ImagePlusToDicomImage.imagePlusToDcm(imp, dealWithSecondaryCapture);
+		HashMap<Integer, DicomImage> images = GDicomTools.imagePlusToDcm(imp, dealWithSecondaryCapture);
 		return images;
 	}
 
 	public static ImagePlus dcmImgToImgPlus(DicomImage dcmImg) {
-		return ImagePlusDicomTagTools.dcmImgToImagePlus(dcmImg);
+		return GDicomTools.dcmImgToImagePlus(dcmImg);
 	}
 }

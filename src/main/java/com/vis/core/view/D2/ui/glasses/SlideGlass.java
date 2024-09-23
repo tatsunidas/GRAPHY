@@ -60,7 +60,6 @@ import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.core.util.Utils;
-import com.vis.core.view.D2.processing.ImagePlusDicomTagTools;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -73,6 +72,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
@@ -278,7 +278,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public ImagePlus convertToImagePlus() {
-		return ImagePlusDicomTagTools.dcmImgToImagePlus(getDicomImage());
+		return GDicomTools.dcmImgToImagePlus(getDicomImage());
 	}
 
 	public ImagePlus cropRect() {
@@ -437,13 +437,7 @@ public class SlideGlass extends JLayeredPane {
 	public String getPixelSpacingUnit() {
 		return getOriginalCalibration().getUnit();
 	}
-
-	/*
-	 * return no calibrate val and calibrated val at displayImageX and displayImageY
-	 * are coordinate on the display image. displayImageX and displayImageY are not
-	 * slideX/Y. slideXY has praparat origin. displayImage have origin(0,0), but it
-	 * was magnified and scaled.
-	 */
+	
 	public Object[] getPixelValueFromDisplay(int displayImageX, int displayImageY) {
 		if (!isRGB()) {
 			int pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
@@ -452,16 +446,13 @@ public class SlideGlass extends JLayeredPane {
 			double v_cal = 0;
 			if (dcmImg.getBitsAllocated() == 32) {
 				v_raw = Float.intBitsToFloat(pix_raw);
-			} else if (dcmImg.isSigned()) {
-				v_raw = pix_cal;// -32768 by calibration function
-				v_cal = pix_raw;// original scale
+				v_cal = pix_cal;
 			} else {
 				v_raw = pix_raw;
 				v_cal = pix_cal;
 			}
 			return new Double[] { v_raw, v_cal };
 		} else {
-			//TODO NEED test 
 			ColorProcessor cp = (ColorProcessor) getCurrentDisplayImagePlus().getProcessor();
 			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
 			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
@@ -485,8 +476,7 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			ColorProcessor cp = (ColorProcessor) getOriginalImage().getProcessor();
 			int[] rgb = cp.getPixel(orgImageX, orgImageY, null);
-			String color = cp.getColor(orgImageX, orgImageY).toString();
-			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2]), color };
+			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
 		}
 	}
 
@@ -626,11 +616,6 @@ public class SlideGlass extends JLayeredPane {
 	 * @param dataset
 	 */
 	private void initImageInfo(DicomObject dataset) {
-		if (dataset == null) {
-			// for MPR ?
-			initImageInfoUsingImagePlus();
-			return;
-		}
 		if (this.header == null) {
 			this.header = dataset;
 		}
@@ -653,25 +638,21 @@ public class SlideGlass extends JLayeredPane {
 		double pixelSpacingX = 1.0;
 		double pixelSpacingY = 1.0;
 		double pixelSpacingZ = 1.0;
+		boolean pixelSpacingFound = false;
 		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
 		double[] pixelSpacing = dataset.getDoubles(Tag.Pixel​Spacing);
-		double spacingBetweenSlices = dataset.getDouble(Tag.Spacing​Between​Slices, -1);
 		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
 			pixelSpacingX = pixelSpacing[1];// column
 			pixelSpacingY = pixelSpacing[0];// row
-			if (spacingBetweenSlices != -1) {
-				pixelSpacingZ = spacingBetweenSlices;
-			} else {
-				double sliceThickness = dataset.getDouble(Tag.Slice​Thickness, -1);
-				if (sliceThickness != -1) {
-					pixelSpacingZ = sliceThickness;
-				}
-			}
+			pixelSpacingFound = true;
+		}
+		pixelSpacingZ = GDicomTools.getVoxelDepth(dataset);
+		if(pixelSpacingFound) {
 			/*
 			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
 			 * definition.
 			 */
-			originalCal.setUnit("mm");//
+			originalCal.setUnit("mm");
 		}
 		// then, set to cal
 		originalCal.pixelWidth = pixelSpacingX;
@@ -687,6 +668,7 @@ public class SlideGlass extends JLayeredPane {
 		String modality = getModality();
 		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
 			if (!intercept.isNaN() && !slope.isNaN()) {
+				//need more test...
 				// y = a + bx
 				double[] coeff = new double[2];// [a,b]
 				coeff[0] = intercept - 32768;
@@ -696,7 +678,6 @@ public class SlideGlass extends JLayeredPane {
 			} else {
 				originalCal.setSigned16BitCalibration();
 			}
-			originalCal.getCTable();// to make cTable.
 			if (modality != null && modality.equals("CT")) {
 				originalCal.setValueUnit("HU");
 			}
@@ -709,59 +690,6 @@ public class SlideGlass extends JLayeredPane {
 		}
 		// adjust WW/WL
 		resetWindowing();
-		setOriginalCalibration(originalCal.copy());
-	}
-
-	@Deprecated
-	private void initImageInfoUsingImagePlus() {
-		ImagePlus org = getOriginalImage();
-		Calibration originalCal = org.getCalibration().copy();
-		isRGB = org.getType() == ImagePlus.COLOR_RGB;// choice suitable one.
-		if (isRGB()) {
-			org.getProcessor().snapshot();
-		}
-//		if (org.getNChannels() == 1) {
-//			/*
-//			 * set density calibration
-//			 */
-////			if(!originalCal.scaled()) {//DO NOT USE
-//			/*
-//			 * see, ij.measure.Calibration.setImage()
-//			 */
-//			// 0 = unsigned, 1 = signed , Tag.PixelRepresentation
-//			if (getModality().equals("CT") && org.getType() == ImagePlus.GRAY16) {
-//				double slope = Double.parseDouble(DicomTools.getTag(org, "0028,1053").trim());
-//				double intercept = Double.parseDouble(DicomTools.getTag(org, "0028,1052").trim());
-//				if (intercept == 0 && originalCal.isSigned16Bit()) {
-////					double[] coeff = new double[2];
-////					coeff[0] = -32768.0;
-////					coeff[1] = slope;// 1.0
-//					String pixelValUnit = "HU";
-////					originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, pixelValUnit);
-//					originalCal.setSigned16BitCalibration();
-//					originalCal.setValueUnit(pixelValUnit);
-//				} else {
-//					if (slope != -1 && intercept != -1) {
-//						originalCal.setFunction(Calibration.STRAIGHT_LINE, new double[] { intercept, slope }, "HU");
-//					}
-//				}
-//			}else if(originalCal.isSigned16Bit() && org.getType() == ImagePlus.GRAY16) {
-//				originalCal.setSigned16BitCalibration();
-//			}
-////			}
-//			// adjust WW/WL
-//			/*
-//			 * 0x00281050;
-//			 * 0028,1051
-//			 */
-//			int WL = Integer.parseInt(DicomTools.getTag(org, "0028,1050").trim());
-//			int WW = Integer.parseInt(DicomTools.getTag(org, "0028,1051").trim());
-//			if (WL == -1 || WW == -1) {
-//				autoWindow();
-//			} else {
-//				changeWindow(WL, WW);
-//			}
-//		}
 		setOriginalCalibration(originalCal);
 	}
 
@@ -1070,29 +998,6 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.reset();
 		repaint();
 	}
-
-//	void releasePanning() {
-//		if (panningInAction) {
-//			// https://stackoverflow.com/questions/2654839/rounding-a-double-to-turn-it-into-an-int-java
-//			double reverseToNoScaleOriginX = imageSpecimen.originX / getScaleFactor();
-//			double reverseToNoScaleOriginY = imageSpecimen.originY / getScaleFactor();
-//			if (reverseToNoScaleOriginX >= 0) {
-//				imageSpecimen.originX = (int) (reverseToNoScaleOriginX + 0.5);
-//			} else {
-//				imageSpecimen.originX = (int) (reverseToNoScaleOriginX - 0.5);
-//			}
-//			if (reverseToNoScaleOriginY >= 0) {
-//				imageSpecimen.originY = (int) (reverseToNoScaleOriginY + 0.5);
-//			} else {
-//				imageSpecimen.originY = (int) (reverseToNoScaleOriginY - 0.5);
-//			}
-//			// update lastOrigin
-//			lastOriginX = imageSpecimen.originX;
-//			lastOriginY = imageSpecimen.originY;
-//		}
-//		this.panningInAction = false;
-//		System.out.println("panning released, in action ? " + panningInAction);
-//	}
 
 	public void resetWindowing() {
 		// adjust WW/WL

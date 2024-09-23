@@ -84,7 +84,7 @@ public interface DicomImage {
 	
 	public abstract void setCore(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
-	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object newFrame);
+	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object pixels);
 	public void decompressed(boolean decompressed);
 	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID

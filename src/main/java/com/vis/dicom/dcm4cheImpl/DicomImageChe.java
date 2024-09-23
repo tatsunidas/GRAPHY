@@ -169,11 +169,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			return null;
 		}
 		
-		if(frame < 0) {
-			return null;
-		}
-		
-		if(frame > getNumOfFrames()) {
+		if(frame < 0 || frame > getNumOfFrames()) {
 			return null;
 		}
 		
@@ -321,24 +317,23 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 	
 	@Override
-	public void setPixelData(int frame/*0 base*/, int w, int h, int samples, int bitsPerPixelSample, Object newFrame) {
+	public void setPixelData(int frame/*0 base*/, int w, int h, int samples, int bitsPerPixelSample, Object pixels) {
 		
-		//byte[], short[], float[] or int[]
-		byte[] pixels = null;
-		if(newFrame instanceof byte[]) {
-			pixels = (byte[])newFrame;
-		}else if(newFrame instanceof short[]) {
-			short[] newFrame_ = (short[])newFrame;
-			pixels = ByteUtils.shortToBytes(newFrame_);
-		}else if(newFrame instanceof float[]) {
-			float[] newFrame_ = (float[])newFrame;
-			pixels = ByteUtils.floatToBytes(newFrame_);
-		}else if(newFrame instanceof double[]) {
-			double[] newFrame_ = (double[])newFrame;
-			pixels = ByteUtils.doubleToBytes(newFrame_);
-		}else if(newFrame instanceof int[]) {//RGB
-			int[] newFrame_ = (int[])newFrame;
-			pixels = ByteUtils.intToBytes(newFrame_, true/*ignore alpha*/);
+		byte[] pixelsByte = null;
+		if(pixels instanceof byte[]) {
+			pixelsByte = (byte[])pixels;
+		}else if(pixels instanceof short[]) {
+			short[] pixels_ = (short[])pixels;
+			pixelsByte = ByteUtils.shortToBytes(pixels_);
+		}else if(pixels instanceof float[]) {
+			float[] pixels_ = (float[])pixels;
+			pixelsByte = ByteUtils.floatToBytes(pixels_);
+		}else if(pixels instanceof double[]) {
+			double[] pixels_ = (double[])pixels;
+			pixelsByte = ByteUtils.doubleToBytes(pixels_);
+		}else if(pixels instanceof int[] && samples == 3) {//RGB
+			int[] pixels_ = (int[])pixels;
+			pixelsByte = ByteUtils.intToBytes(pixels_, true/*ignore alpha*/);
 		}
 		
 		if(frame < 0 || frame > getNumOfFrames()) {
@@ -353,35 +348,32 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		Object bulk = null;
 		// load from original bitsAllocated
 		if(bitsAllocated == 32 && samples == 1) {
-			bulk = this.core.getValue(Tag.FloatPixelData);
+			bulk = core.getValue(Tag.FloatPixelData);
 		}else if(bitsAllocated == 64 && samples == 1) {
-			bulk = this.core.getValue(Tag.DoubleFloatPixelData);
+			bulk = core.getValue(Tag.DoubleFloatPixelData);
 		}else {
-			bulk = this.core.getValue(Tag.PixelData);
+			bulk = core.getValue(Tag.PixelData);
 		}
-		
-		if(bulk instanceof Fragments) {
-			Fragments frags = (Fragments)bulk;
-			Object frag = frags.get(frame+1);//frame number count from 1
-			if(frag instanceof byte[]) {
-				frags.set(frame+1, newFrame);
+
+		if (bulk instanceof Fragments) {
+			Fragments frags = (Fragments) bulk;
+			Object frag = frags.get(frame + 1);// frame number count from 1
+			if (frag instanceof byte[]) {
+				frags.set(frame + 1, pixels);
 			}
-//			core.setValue(tag, vr, fragments)
-		}else if(bulk instanceof byte[] || bulk == null/*from scratch*/) {
-			if(bitsAllocated == 32 && samples == 1) {
-				core.setBytes(Tag.FloatPixelData, VR.OF, pixels);
-				
-				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),  getWidth(),
-			            pixels, core); 
-				
-			}else if(bitsAllocated == 64 && samples == 1) {
-				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixels);
-			}else {
-				if(bitsAllocated > 8 && bitsAllocated <= 16) {
-					core.setBytes(Tag.PixelData, VR.OW, pixels);
-				}else {
-					core.setBytes(Tag.PixelData, VR.OB, pixels);
-				}
+		} else if (bulk instanceof byte[] || bulk == null/* from scratch */) {
+			if (bitsAllocated == 32 && samples == 1) {
+				core.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
+
+				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),
+						getWidth(), pixelsByte, core);
+
+			} else if (bitsAllocated == 64 && samples == 1) {
+				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
+			} else if (bitsAllocated > 8 && bitsAllocated <= 16) {
+				core.setBytes(Tag.PixelData, VR.OW, pixelsByte);
+			} else {
+				core.setBytes(Tag.PixelData, VR.OB, pixelsByte);
 			}
 		}
 	}

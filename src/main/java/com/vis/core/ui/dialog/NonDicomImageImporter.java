@@ -31,7 +31,7 @@ import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.dimse.DimseUtilities;
 import com.vis.dicom.image.DicomImage;
-import com.vis.dicom.image.ImagePlusToDicomImage;
+import com.vis.dicom.image.GDicomTools;
 import com.vis.dicom.image.PhotometricInterpretation;
 import com.vis.imageio.PDFReader;
 import com.vis.imageio.VideoReader;
@@ -374,7 +374,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			if(imp.getNSlices() > 1) {
 				continue;
 			}
-			HashMap<Integer,DicomImage> img = ImagePlusToDicomImage.imagePlusToDcm(imp, true/*as secondary*/);
+			HashMap<Integer,DicomImage> img = GDicomTools.imagePlusToDcm(imp, true/*as secondary*/);
 			if(img == null || img.size()==0) {
 				System.out.println("Could not convert imp to dcmimg");
 				continue;

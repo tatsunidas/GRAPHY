@@ -46,6 +46,7 @@ import com.vis.core.view.D2.ui.glasses.PraparatShelf;
 import java.awt.BorderLayout;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Indicates what images showing StageView on with patient level.
@@ -132,10 +133,10 @@ public class PatientInfoCake extends JPanel{
 		return images.getSelectedSopUIDs();
 	}
 		
-	public void linkWithEyepiece(ArrayList<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> prapcons) {
-		ArrayList<String> studyUIDSet = new ArrayList<String>();
-		ArrayList<String> seriesUIDSet = new ArrayList<String>();
-		ArrayList<String[]> sopUIDSet = new ArrayList<String[]>();
+	public void linkWithEyepiece(List<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> prapcons) {
+		List<String> studyUIDSet = new ArrayList<String>();
+		List<String> seriesUIDSet = new ArrayList<String>();
+		List<String[]> sopUIDSet = new ArrayList<String[]>();
 		for(PraparatShelf.PraparatContext pcon:prapcons) {
 			Object uids[] = pcon.getContextUIDs();
 			studyUIDSet.add((String)uids[1]);

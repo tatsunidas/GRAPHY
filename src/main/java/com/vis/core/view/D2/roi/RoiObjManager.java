@@ -387,7 +387,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			rois = new HashMap<>();//init
 		}
 		StageView stage = Viewer2DScreen.getInstance().getStageViewAt(patID);
-		ArrayList<Object[]> prapCons = stage.getAllPraparatContextInfoSet();
+		List<Object[]> prapCons = stage.getAllPraparatContextInfoSet();
 		for (Object[] uids : prapCons) {
 			// get current praparat
 			String studyUID = (String) uids[1];

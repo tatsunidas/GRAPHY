@@ -368,40 +368,21 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 	
-	public void drawCross(MouseEvent e) {
-		Point currentScreenPos = e.getPoint();
+	public void createCross(MouseEvent e) {
+		//No AffineTransform
+		Point p = e.getPoint();
 		GeneralPath path = new GeneralPath();
-		int sx = currentScreenPos.x;
-		int sy = currentScreenPos.y;
-		path.moveTo(0f, sy);
-		path.lineTo(getWidth(), sy);
-		path.moveTo(sx, 0f);
-		path.lineTo(sx, getHeight());
+		int ix = sg.offScreenX(p.x);
+		int iy = sg.offScreenY(p.y);
+		path.moveTo(0f, iy);
+		path.lineTo(sg.getOriginalImage().getWidth(), iy);
+		path.moveTo(ix, 0f);
+		path.lineTo(ix, sg.getOriginalImage().getHeight());
 		setCrossLine(path);
 		repaint();
 	}
-
-	public void drawCross(Point onOrgImageCoordinatePoint) {
-		GeneralPath path = new GeneralPath();
-		int sx = sg.screenX(onOrgImageCoordinatePoint.x);
-		int sy = sg.screenY(onOrgImageCoordinatePoint.y);
-		path.moveTo(0f, sy);
-		path.lineTo(getWidth(), sy);
-		path.moveTo(sx, 0f);
-		path.lineTo(sx, getHeight());
-		setCrossLine(path);
-		// do not return
-		repaint();
-	}
-
-	private void drawCanvas(Graphics g) {
-		if (paintSizeCaliper) {
-			showCaliper(g);
-		}
-		drawRoi(g);
-		drawReferenceLine(g);
-		drawLocalizerLine(g);
-		//show cross line
+	
+	private void drawCross(Graphics g) {
 		if(crossLine != null) {
 			Graphics2D g2 = (Graphics2D)g;
 			g2.setColor(crossLineColor);
@@ -410,20 +391,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 
+	private void drawCanvas(Graphics g) {
+		//AffinTransform is done in performed by paintComponent.
+		drawRoi(g);
+		drawReferenceLine(g);
+		drawLocalizerLine(g);
+		drawCross(g);
+	}
+
 	private void drawLocalizerLine(Graphics g) {
 		if (localizerGeo != null) {
-			
-			AffineTransform aTx = new AffineTransform();
-			Graphics2D g2d = (Graphics2D)g;
-			double mag = sg.getMagnification();
-			double scaleXY[] = sg.getScaleFactor();
-			Point offset = sg.getDisplayImageOriginXY();
-			//First, translate image origin without mag and component scale.
-			aTx.translate(offset.x, offset.y);
-			//Second, scale Roi graphics
-			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-			g2d.setTransform(aTx);
-			
 			Point2D p0_leftUpper = localizerGeo.get(0);
 			Point2D p1_rightUpper = localizerGeo.get(1);
 			Point2D p2_rightLower = localizerGeo.get(2);
@@ -448,16 +425,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private void drawReferenceLine(Graphics g) {
 		ReferenceLine refLine = pp.getReferenceLine();
 		if (refLine != null) {
-			AffineTransform aTx = new AffineTransform();
-			Graphics2D g2d = (Graphics2D)g;
-			double mag = sg.getMagnification();
-			double scaleXY[] = sg.getScaleFactor();
-			Point offset = sg.getDisplayImageOriginXY();
-			//First, translate image origin without mag and component scale.
-			aTx.translate(offset.x, offset.y);
-			//Second, scale Roi graphics
-			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-			g2d.setTransform(aTx);
+//			AffineTransform aTx = new AffineTransform();
+//			Graphics2D g2d = (Graphics2D)g;
+//			double mag = sg.getMagnification();
+//			double scaleXY[] = sg.getScaleFactor();
+//			Point offset = sg.getDisplayImageOriginXY();
+//			//First, translate image origin without mag and component scale.
+//			aTx.translate(offset.x, offset.y);
+//			//Second, scale Roi graphics
+//			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
+//			g2d.setTransform(aTx);
 			refLine.draw(g);
 		}
 	}
@@ -744,7 +721,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	
 	public void mouseDragged(MouseEvent e) {
 		if (pp.isShowCrossLineMode()) {
-			drawCross(e);
+			createCross(e);
 		}
 		if (pp.getReferenceLine() != null) {
 			//TODO 20240819
@@ -1056,9 +1033,28 @@ public class CanvasGlass extends javax.swing.JPanel {
 		return true;
 	}
 	
+	/**
+	 * Handle draw event on OffScreen (without Caliper).
+	 */
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
+		
+		if (paintSizeCaliper) {
+			showCaliper(g);
+		}
+		
+		AffineTransform aTx = new AffineTransform();
+		Graphics2D g2d = (Graphics2D)g;
+		double mag = sg.getMagnification();
+		double scaleXY[] = sg.getScaleFactor();
+		Point offset = sg.getDisplayImageOriginXY();
+		//First, translate image origin without mag and component scale.
+		aTx.translate(offset.x, offset.y);
+		//Second, scale Roi graphics
+		aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
+		g2d.setTransform(aTx);
+		//then draw all
 		drawCanvas(g);
 	}
 	

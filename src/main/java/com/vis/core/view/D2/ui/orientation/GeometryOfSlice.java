@@ -15,6 +15,7 @@ import org.joml.Vector3d;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 
@@ -101,9 +102,8 @@ public class GeometryOfSlice {
 		this.column = ImageOrientation.getColumnImagePosition(dcm);
 		this.tlhc = SubjectOrientation.getSubjectPosition(dcm);
 		double[] pixelSpacing = dcm.getDoubles(Tag.Pixel​Spacing);
-		Double spacingBetweenSlices = Double.parseDouble(dcm.getString(Tag.Spacing​Between​Slices));
-		this.sliceThickness = Double.parseDouble(dcm.getString(Tag.Slice​Thickness));//keep 1. fail safe
-		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices == null ? this.sliceThickness:spacingBetweenSlices});
+		this.sliceThickness = GDicomTools.getVoxelDepth(dcm);
+		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],sliceThickness});
 		Integer numRow = Integer.parseInt(dcm.getString(Tag.Rows));
 		Integer numColumn = Integer.parseInt(dcm.getString(Tag.Columns));
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});

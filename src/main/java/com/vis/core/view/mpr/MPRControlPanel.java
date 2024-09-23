@@ -28,7 +28,9 @@ import ij.util.Tools;
 public class MPRControlPanel extends JPanel implements ItemListener, KeyListener{
 	
 	//mode
-	String[] modeType = new String[] {"Orthogonal","Reslice"};//,"Oblique"};
+	String[] modeType = new String[] {"Orthogonal","Reslice"};
+	final String crossViewMode = "Cross View Mode";
+	final String showCrossLineMode = "Show Cross Lines";
 	//recon mode
 	String[] reconType = new String[] {"SLICECUT","MEAN"};
 	String[] mainPlaneType = new String[] {"XY","XZ", "YZ"};
@@ -37,6 +39,8 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	JFormattedTextField sgText;//gap, 0d >=
 	JFormattedTextField snText;//num of slice, 1 >=
 	JComboBox<String> reconSelect;
+	JCheckBox crossViewChk;
+	JCheckBox showCrossLineChk;
 //	double defaultGap;//gap is not specified on xz,yz planes at initilized
 	double defaultThickness;
 	double currentThickness;
@@ -79,11 +83,20 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		JPanel p = new JPanel();
 		FlowLayout layout = (FlowLayout) p.getLayout();
 		layout.setAlignment(FlowLayout.LEFT );
-		JCheckBox jcb = new JCheckBox("Show CrossLines");
-		jcb.setName("SHOW_CROSSLINES");
-		jcb.setSelected(mprWin.showCrossLines);
-		jcb.addItemListener(this);
-		p.add(jcb);
+		/*
+		 * Enable auto slice position mouse dragging auto 
+		 */
+		crossViewChk = new JCheckBox(crossViewMode);
+		crossViewChk.setName(crossViewMode);
+		crossViewChk.setSelected(mprWin.crossViewMode);
+		crossViewChk.addItemListener(this);
+		p.add(crossViewChk);
+		
+		showCrossLineChk = new JCheckBox(showCrossLineMode);
+		showCrossLineChk.setName(showCrossLineMode);
+		showCrossLineChk.setSelected(mprWin.showCrossLine);
+		showCrossLineChk.addItemListener(this);
+		p.add(showCrossLineChk);
 		
 		return p;
 	}
@@ -95,14 +108,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		
 		JLabel planelbl = new JLabel("Slice plane");
 		p.add(planelbl);
-		
-		//20240919 dropout
-//		JComboBox<?> planeSelect = new JComboBox<>(mainPlaneType);
-//		planeSelect.setName("PLANE_SELECT");
-//		planeSelect.setSize(100, 12);
-//		planeSelect.setSelectedIndex(0);
-//		planeSelect.addItemListener(this);
-//		p.add(planeSelect);
 		
 		JLabel l1 = new JLabel("SliceThickness");
 		p.add(l1);
@@ -288,27 +293,14 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 			if(name.equals("MODE_SELECT")) {
 				updateSettingsPanel((String)cb.getSelectedItem());
 			}
-			//20240919 dropout
-//			else if(name.equals("PLANE_SELECT")) {
-//				String item = (String)cb.getSelectedItem();
-//				if(item.equals(mainPlaneType[0])) {
-//					mprWin.changeMainPlane(MPRViewerWindow.XY);
-//				}else if(item.equals(mainPlaneType[1])) {
-//					mprWin.changeMainPlane(MPRViewerWindow.XZ);
-//				}else {
-//					mprWin.changeMainPlane(MPRViewerWindow.YZ);
-//				}
-//			}
 		}else if(obj instanceof JCheckBox) {
 			JCheckBox cb = (JCheckBox)obj;
 			String name = cb.getName();
-			if(name.equals("SHOW_CROSSLINES")) {
-				mprWin.showCrossLines(cb.isSelected());
+			if(name.equals(crossViewMode)) {
+				mprWin.crossViewModeOn(cb.isSelected());
+			}else if(name.equals(showCrossLineMode)) {
+				mprWin.showCrossLine(cb.isSelected());
 			}
-		}
-		if(mprWin != null && mprWin.isVisible()) {
-			mprWin.revalidate();
-			mprWin.pack();
 		}
 	}
 
