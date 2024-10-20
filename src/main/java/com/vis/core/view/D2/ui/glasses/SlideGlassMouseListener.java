@@ -227,33 +227,39 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			/*
 			 * When showCrossLineMode in MPR just draw cross lines, and update showing cut slices.
 			 */
-			//remove localizer line
 			Eyepiece eye = pp.getEyepiece();
 			if(eye != null) {
-				if(eye.crossViewMode && pp.isShowCrossLineMode()) {
-					java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
-					if(w instanceof MPRViewerWindow) {
-						MPRViewerWindow mprwin = (MPRViewerWindow) w;
-						int ox = slide.offScreenX(x);
-						int oy = slide.offScreenY(y);
-						mprwin.updateCrossSectionViews(pp, ox, oy);
+				java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
+				MPRViewerWindow mprwin = null;
+				if(w instanceof MPRViewerWindow) {
+					mprwin = (MPRViewerWindow) w;
+				}
+				if (mprwin != null) {
+					if (mprwin.getCurrentViewType() == MPRViewerWindow.CROSS_MODE) {
+						if (eye.crossViewMode && pp.isShowCrossLineMode()) {
+							int ox = slide.offScreenX(x);
+							int oy = slide.offScreenY(y);
+							mprwin.updateCrossSectionViews(pp, ox, oy);
+							if (pp.isShowCrossLineMode()) {
+								cg.createCross(e);
+							}
+							return;
+						} else if (eye.crossViewMode && !pp.isShowCrossLineMode()) {
+							int ox = slide.offScreenX(x);
+							int oy = slide.offScreenY(y);
+							mprwin.updateCrossSectionViews(pp, ox, oy);
+							return;
+						} else if (!eye.crossViewMode && pp.isShowCrossLineMode()) {
+							cg.createCross(e);
+							return;
+						}
+					}else if(mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {
+						if(cg.referenceLineHereAt(x, y)!=null) {
+							cg.mouseDragged(e);
+							Log.logger.fine("ReferenceLine Dragging");
+							return;
+						}
 					}
-					if (pp.isShowCrossLineMode()) {
-						cg.createCross(e);
-					}
-					return;
-				}else if(eye.crossViewMode && !pp.isShowCrossLineMode()) {
-					java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
-					if(w instanceof MPRViewerWindow) {
-						MPRViewerWindow mprwin = (MPRViewerWindow) w;
-						int ox = slide.offScreenX(x);
-						int oy = slide.offScreenY(y);
-						mprwin.updateCrossSectionViews(pp, ox, oy);
-					}
-					return;
-				}else if(!eye.crossViewMode && pp.isShowCrossLineMode()) {
-					cg.createCross(e);
-					return;
 				}
 			}
 			//at here, do not return.
@@ -333,6 +339,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		slide.mouseX = x;
 		slide.mouseY = y;
 		slide.updatePrapInfoLabel(x, y);
+		
+		// MPR
+		if(pp.mode == ViewMode.MPR) {
+			cg.mouseMoved(e);
+		}
+		
 		// roi
 		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
 			cg.mouseMoved(e);

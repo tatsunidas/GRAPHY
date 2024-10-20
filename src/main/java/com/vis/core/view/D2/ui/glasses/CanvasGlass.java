@@ -57,6 +57,8 @@ import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
+import com.vis.core.view.D2.ui.cursor.RotateCursor;
+import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
 
 /**
@@ -423,7 +425,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * @param g
 	 */
 	private void drawReferenceLine(Graphics g) {
-		ReferenceLine refLine = pp.getReferenceLine();
+		ReferenceLineMPR refLine = pp.getReferenceLineMPR();
 		if (refLine != null) {
 //			AffineTransform aTx = new AffineTransform();
 //			Graphics2D g2d = (Graphics2D)g;
@@ -593,8 +595,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 			flags = InputEvent.BUTTON1_DOWN_MASK;
 		}
 		//is reference line?
-		if(referenceLineHereAt(dragSX, dragSY) != null) {
-			pp.getReferenceLine().mouseDrag(dragSX, dragSY, flags);
+		ReferenceLine refLine = referenceLineHereAt(dragSX, dragSY);
+		if(refLine != null) {
+			refLine.mouseDrag(dragSX, dragSY, flags);
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
 			return true;
@@ -702,12 +705,18 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mouseMoved(MouseEvent e) {
-//		int toolType = Viewer2DScreen.getInstance().getCurrentToolType();
-		if(pp.getReferenceLine() != null) {
+		/*
+		 * Reference line is not included in rois array.
+		 * It is need to handle as another object.
+		 */
+		if(pp.getReferenceLineMPR() != null) {
+			//find and activate reference line.
 			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
 			if(refLine != null) {
-				return;
+				Log.logger.fine("CanvasComponent: "+refLine.getClass().getName());
 			}
+			
+			//do something
 		}
 		//update currentRoi
 		activateAndGetCurrentRoiAt(e.getX(), e.getY());
@@ -723,17 +732,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (pp.isShowCrossLineMode()) {
 			createCross(e);
 		}
-		if (pp.getReferenceLine() != null) {
-			//TODO 20240819
-			// do something
-			return;// attention
-		}
 		int dragSX = e.getX();
 		int dragSY = e.getY();
 		int flags = e.getModifiersEx();
-		/*
-		 * drag roi or popup
-		 */
+		//Brush tool
 		int roiType = pp.getCurrentViewerToolType();//from viewer2d
 		if(roiType == Viewer2DToolBar.Brush) {
 			if(brushTool == null) {
@@ -748,12 +750,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		//is reference line?
 		if(referenceLineHereAt(dragSX, dragSY) != null) {
-			pp.getReferenceLine().mouseDrag(dragSX, dragSY, flags);
+			ReferenceLine rl = referenceLineHereAt(dragSX, dragSY);
+			rl.mouseDrag(dragSX, dragSY, flags);
+			Log.logger.fine("ReferenceLine Dragging");
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
 			return;
 		}
-		//is dialog ?
+		//is roi info dialog ?
 		if(sg.isHereRoiPopup(e)) {
 //			System.out.println("RoiDialog DRAGGING!!!");
 			RoiPopUpDialog dialog = getRoiPopupAt(e);
@@ -1069,9 +1073,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int ix = sg.offScreenX(screenX);
 		int iy = sg.offScreenY(screenY);
 		int handle = -1;
+		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
 		boolean found = false;
-		if (pp.getReferenceLine() != null) {
-			ReferenceLine refLine = pp.getReferenceLine();
+		if (refLineMPR != null) {
+			ReferenceLine refLine = refLineMPR.referenceLineFrom(pp);
 			refLine.setActiveOverlayRoi(false);// reset activate
 			handle = refLine.isHandle(screenX, screenY);
 			if (handle >= 0) {
@@ -1081,14 +1086,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 				refLine.setActiveOverlayRoi(true);
 				found = true;
 			}
-			if (handle >= 0) {
+			if (handle >= 0 && handle <3) {
 				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
-			} else if (found && refLine.contains(ix, iy)) {
-				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+			} else if (handle >= 3) {
+				sg.setCursor(new RotateCursor(null).createCursor());
 			} else {
 				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 			}
-			return refLine;
+			if(found) {
+				return refLine;
+			}
 		}
 		return null;
 	}

@@ -1,11 +1,14 @@
 package com.vis.core.view.mpr;
 
+import java.util.Arrays;
+
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.joml.Vector3d;
 
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
@@ -14,355 +17,253 @@ import ij.ImagePlus;
 import ij.measure.Calibration;
 
 public class PlanarSupport {
-	
+
 	public static void main(String[] args) {
 //		String dir = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
 //		ImagePlus mri = FolderOpener.open(dir);
+
+		double[] sagittalIOP = { 0, 1, 0, 0, 0, 1 }; // Sagittal IOP
+
+//	    // 1. Y軸周りに -90度回転（Sagittal -> Axial）
+//	    double[] intermediateIOP = rotateImageOrientationPatient(sagittalIOP, 0, 90, 0);
+//
+//	    // 2. Z軸周りに 90度回転（正しい向きにする）
+//	    double[] axialIOP = rotateImageOrientationPatient(intermediateIOP, 0, 0, 90);
+
+		double[] axialIOP = rotateImageOrientationPatient2(sagittalIOP, 0, 90, 90);
+
+		// 1 Axial IOP: [-1.0, 6.123233995736766E-17, 0.0, 6.123233995736766E-17, 1.0,
+		// 6.123233995736766E-17]
+		// 結果を出力
+		System.out.println("Axial IOP: " + Arrays.toString(axialIOP));
+
 	}
-	
-	private final String ipp = "0020,0032";//image position patient
-	private final String iop = "0020,0037";//image orientation patient
-	
-	public String isPlanarOf(DicomObject dcm) {
+
+	private static final String ipp = "0020,0032";// image position patient
+	private static final String iop = "0020,0037";// image orientation patient
+
+	public static String planarOf(DicomObject dcm) {
 		double[] image_ori = dcm.getDoubles(Tag.Image​Orientation​Patient);
-		if(image_ori == null) {
+		if (image_ori == null) {
 			return CutSurface.UNKNOWN.name();
 		}
 		return ImageOrientation.getCutSurface(dcm).name();
 	}
 	
-	/**
-	 * 
-	 * @param dcm
-	 * @param tag: imageplus tag format e.g., "0010,0010"
-	 * @return
-	 */
-	public CutSurface isPlanarOf(ImagePlus dcm) {
+	public static CutSurface planarOf(ImagePlus dcm) {
 		double[] image_ori = GDicomTools.getDoubles(dcm, iop);
-		if(image_ori == null) {
+		if (image_ori == null) {
 			return CutSurface.UNKNOWN;
 		}
 		return ImageOrientation.getCutSurface(dcm);
 	}
-	
+
 	/**
 	 * 
 	 * https://nipy.org/nibabel/dicom/dicom_orientation.html
+	 * 
 	 * @param srcImp
-	 * @param col: col pos on src imp
-	 * @param row: row pos on src imp
+	 * @param col:      col pos on src imp
+	 * @param row:      row pos on src imp
 	 * @param slicePos: slice pos on src imp (1 to N)
 	 * @return
 	 */
 	public Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
 		srcImp.setPosition(slicePos);
-		double[] ipp = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient
-		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
-		if(ipp == null || iop == null) {
+		double[] ipp = GDicomTools.getDoubles(srcImp, PlanarSupport.ipp);// imagePositionPatient
+		double[] iop = GDicomTools.getDoubles(srcImp, PlanarSupport.iop);// imageOrientationPatient
+		if (ipp == null || iop == null) {
 			return null;
 		}
-				
+
 		Calibration cal = srcImp.getCalibration();
-		double px = cal.pixelWidth;//Column in Dicom Pixel Spacing
-		double py = cal.pixelHeight;//Row in Dicom Pixel Spacing
-		
+		double px = cal.pixelWidth;// Column in Dicom Pixel Spacing
+		double py = cal.pixelHeight;// Row in Dicom Pixel Spacing
+
 		/*
 		 * it code is also OK to use single image.
 		 */
-		double[][] mat0 = new double[][] {
-			new double[] {iop[3]*py,iop[0]*px,0.0,ipp[0]},
-			new double[] {iop[4]*py,iop[1]*px,0.0,ipp[1]},
-			new double[] {iop[5]*py,iop[2]*px,0.0,ipp[2]},
-			new double[] {0.0      ,0.0      ,0.0,1.0}
-		};
-		
-		double[][] mat1 = new double[][] {
-			new double[] {row},
-			new double[] {col},
-			new double[] {0},//keep zero.
-			new double[] {1}
-		};
-		
+		double[][] mat0 = new double[][] { new double[] { iop[3] * py, iop[0] * px, 0.0, ipp[0] },
+				new double[] { iop[4] * py, iop[1] * px, 0.0, ipp[1] },
+				new double[] { iop[5] * py, iop[2] * px, 0.0, ipp[2] }, new double[] { 0.0, 0.0, 0.0, 1.0 } };
+
+		double[][] mat1 = new double[][] { new double[] { row }, new double[] { col }, new double[] { 0 }, // keep zero.
+				new double[] { 1 } };
+
 		RealMatrix matrix0 = new Array2DRowRealMatrix(mat0);
 		RealMatrix matrix1 = new Array2DRowRealMatrix(mat1);
-		RealMatrix res = matrix0.multiply(matrix1);//same as dot products
+		RealMatrix res = matrix0.multiply(matrix1);// same as dot products
 		double[][] newIpp = res.getData();
-		
-		//System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+" "+newIpp[2][0]);
-		return new Vector3d(newIpp[0][0],newIpp[1][0],newIpp[2][0]);
+
+		// System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+"
+		// "+newIpp[2][0]);
+		return new Vector3d(newIpp[0][0], newIpp[1][0], newIpp[2][0]);
 	}
-	
+
 	/**
-	 * @deprecated
 	 * 
-	 * This method is need fix. (can not change z axis value.)
-	 * https://nipy.org/nibabel/dicom/dicom_orientation.html#working-out-the-z-coordinates-for-a-set-of-slices
+	 * row direction cosine is; [→]
+	 * col direction cosine is; [↓]
+	 * 
+	 * Row direction is means X direction in RCS. Column direction is means Y
+	 * direction in RCS.
+	 * 
+	 * If Anatomical Orientation Type (0010,2210) is absent or has a value of BIPED,
+	 * the x-axis is increasing to the left hand side of the patient. The y-axis is
+	 * increasing to the posterior side of the patient. The z-axis is increasing
+	 * toward the head of the patient.
+	 * 
+	 * Plus/Minus of direction cosine is determine direction.
+	 * If plus, direction specify plus direction, minus means another side direction. 
 	 * 
 	 * @param srcImp
-	 * @param col
-	 * @param row
-	 * @param slicePos
+	 * @param rotateX
+	 * @param rotateY
+	 * @param rotateZ
 	 * @return
 	 */
-	public Vector3d getNewImagePositionPatient3D(ImagePlus srcImp, double col, double row, int slicePos) {
-		if(srcImp.getNSlices() == 1 || slicePos == 1) {
-			return getNewImagePositionPatient2D(srcImp, col, row, 1);
-		}
-		srcImp.setPosition(1);//first image
-		double[] T1 = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
-		srcImp.setPosition(slicePos);//last position
-		double[] Tn = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
-		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
-		if(T1 == null || Tn == null || iop == null) {
-			return null;
-		}
-
-		int N = slicePos;//srcImp.getNSlices();
-		Calibration cal = srcImp.getCalibration();
-		double px = cal.pixelWidth;//Column in Dicom Pixel Spacing
-		double py = cal.pixelHeight;//Row in Dicom Pixel Spacing
-
-		double[][] mat0 = new double[][] {
-			new double[] {iop[3]*py,iop[0]*px,(Tn[0]-T1[0])/(N-1),T1[0]},
-			new double[] {iop[4]*py,iop[1]*px,(Tn[1]-T1[1])/(N-1),T1[1]},
-			new double[] {iop[5]*py,iop[2]*px,(Tn[2]-T1[2])/(N-1),T1[2]},
-			new double[] {0.0      ,0.0      ,0.0                ,1.0}
-		};
-		
-		double[][] mat1 = new double[][] {
-			new double[] {row},
-			new double[] {col},
-			new double[] {0},
-			new double[] {1}
-		};
-		
-		RealMatrix matrix0 = new Array2DRowRealMatrix(mat0);
-		RealMatrix matrix1 = new Array2DRowRealMatrix(mat1);
-		RealMatrix res = matrix0.multiply(matrix1);//same as dot products
-		double[][] newIpp = res.getData();
-		System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+" "+newIpp[2][0]);
-		return new Vector3d(newIpp[0][0],newIpp[1][0],newIpp[2][0]);
+	public static double[] rotateImageOrientationPatient(ImagePlus srcImp, int rotateX, int rotateY, int rotateZ) {
+		double[] iop = GDicomTools.getDoubles(srcImp, PlanarSupport.iop);
+		return rotateImageOrientationPatient(iop, rotateX, rotateY, rotateZ);
 	}
-	
-	/**
-	 * @deprecated
-	 * 
-	 * This method is need fix. (can not change z axis value.)
-	 * https://nipy.org/nibabel/dicom/dicom_orientation.html#working-out-the-z-coordinates-for-a-set-of-slices
-	 * 
-	 * @param srcImp
-	 * @param col
-	 * @param row
-	 * @param slicePos
-	 * @return
-	 */
-	public Vector3d getNewImagePositionPatient3D_2(ImagePlus srcImp, double col, double row, int slicePos) {
-		if(srcImp.getNSlices() == 1) {
-			return getNewImagePositionPatient2D(srcImp, col, row, 1);
-		}
-		srcImp.setPosition(1);//first image
-		double[] T1 = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of first slice
-		srcImp.setPosition(slicePos);//current
-		double[] ipp = GDicomTools.getDoubles(srcImp, this.ipp);//imagePositionPatient of last slice
-		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);//imageOrientationPatient
-		if(ipp == null || iop == null) {
-			return null;
-		}
-		Vector3d col_f = new Vector3d(iop[3], iop[4], iop[5]);
-		Vector3d row_f = new Vector3d(iop[0], iop[1], iop[2]);
-		Vector3d n_ = col_f.cross(row_f);
-		
-		Calibration cal = srcImp.getCalibration();
-		double px = cal.pixelWidth;//Column in Dicom Pixel Spacing
-		double py = cal.pixelHeight;//Row in Dicom Pixel Spacing
-		double pz = cal.pixelDepth;//Row in Dicom Pixel Spacing
 
-		double[][] mat0 = new double[][] {
-			new double[] {iop[3]*py,iop[0]*px,(T1[0]+pz*slicePos*n_.x()),T1[0]},
-			new double[] {iop[4]*py,iop[1]*px,(T1[1]+pz*slicePos*n_.y()),T1[1]},
-			new double[] {iop[5]*py,iop[2]*px,(T1[2]+pz*slicePos*n_.z()),T1[2]},
-			new double[] {0.0      ,0.0      ,0.0                		,1.0}
-		};
-		
-		double[][] mat1 = new double[][] {
-			new double[] {row},
-			new double[] {col},
-			new double[] {0},
-			new double[] {1}
-		};
-		
-		RealMatrix matrix0 = new Array2DRowRealMatrix(mat0);
-		RealMatrix matrix1 = new Array2DRowRealMatrix(mat1);
-		RealMatrix res = matrix0.multiply(matrix1);//same as dot products
-		double[][] newIpp = res.getData();
-		System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+" "+newIpp[2][0]);
-		return new Vector3d(newIpp[0][0],newIpp[1][0],newIpp[2][0]);
+	public static double[] rotateImagePositionPatient(double[] ipp, double rotateX, double rotateY, double rotateZ) {
+		ipp = applyRotation(ipp, rotateX, rotateY, rotateZ);
+		return ipp;
 	}
-	
-	/**
-	 * e.g,
-	 * [ r00 r01 r02 r03 r04 ]
-	 * [ r10 r11 r12 r13 r14 ]
-	 * [ r20 r21 r22 r23 r24 ]
-	 * [ r30 r31 r32 r33 r34 ]
-	 * 
-	 * 
-	 * row direction cosine is;
-	 * [ r00     --->    r04 ]
-	 * 
-	 * col direction cosine is;
-	 * [ r00  ...]
-	 * [ ||   ...]
-	 * [ \/   ...]
-	 * [ r30  ...]
-	 * 
-	 * Row direction is means X direction in RCS.
-	 * Column direction is means Y direction in RCS.
-	 * 
-	 * Do not worry about the +/- of the angle you specify.
-	 *　Whether positive or negative, it will be negative if it exceeds 90.
-	 * 
-	 * Proof,
-	 * Math.cos(Math.toRadians(0));//1
-	 * Math.cos(Math.toRadians(-0));//1
-	 * Math.cos(Math.toRadians(90));//0
-	 * Math.cos(Math.toRadians(-90));//0, same as 90 degrees.
-	 * Math.cos(Math.toRadians(180));//-1
-	 * Math.cos(Math.toRadians(-180));//-1, same as 180 degrees.
-	 * Math.cos(Math.toRadians(90+100));//-0.98
-	 * 
-	 * Math.toDegrees(Math.acos(-1));//180
-	 * 
-	 * @param srcImp
-	 * @param row_rotateX
-	 * @param row_rotateY
-	 * @param row_rotateZ
-	 * @param col_rotateX
-	 * @param col_rotateY
-	 * @param col_rotateZ
-	 * @return
-	 */
-	public double[] getNewImageOrientationPatient(ImagePlus srcImp, int row_rotateX, int row_rotateY, int row_rotateZ, int col_rotateX, int col_rotateY, int col_rotateZ) {
-		double[] iop = GDicomTools.getDoubles(srcImp, this.iop);
-//		boolean[] negative = new boolean[6];
-//		for(int i=0;i<iop.length;i++) {
-//			if(String.valueOf(iop[i]).startsWith("-")) {
-//				negative[i] = true;
-//			}else {
-//				negative[i] = false;
-//			}
-//			//System.out.println(negative[i]);
-//		}
-		return rotateImageOrientationPatient(iop, row_rotateX, row_rotateY, row_rotateZ, col_rotateX, col_rotateY, col_rotateZ);
+
+	public static double[] rotateImageOrientationPatient(double[] iop, double rotateX, double rotateY, double rotateZ) {
+		// iop is [rx, ry, rz, cx, cy, cz]
+		double[] rowDirectionCos = { iop[0], iop[1], iop[2] };
+		double[] colDirectionCos = { iop[3], iop[4], iop[5] };
+
+		// Create a rotation matrix and apply rotation to each axis
+		double[] rotatedRow = rotateVector(rowDirectionCos, rotateX, rotateY, rotateZ);
+		double[] rotatedCol = rotateVector(colDirectionCos, rotateX, rotateY, rotateZ);
+
+		return new double[] { rotatedRow[0], rotatedRow[1], rotatedRow[2], rotatedCol[0], rotatedCol[1],
+				rotatedCol[2] };
 	}
-	
+
+	public static double[] rotateVector(double[] vec, double rotateX, double rotateY, double rotateZ) {
+		// X axis rotate matrix
+		double[][] rotX = { { 1, 0, 0 }, { 0, Math.cos(Math.toRadians(rotateX)), -Math.sin(Math.toRadians(rotateX)) },
+				{ 0, Math.sin(Math.toRadians(rotateX)), Math.cos(Math.toRadians(rotateX)) } };
+
+		// Y axis rotate matrix
+		double[][] rotY = { { Math.cos(Math.toRadians(rotateY)), 0, Math.sin(Math.toRadians(rotateY)) }, { 0, 1, 0 },
+				{ -Math.sin(Math.toRadians(rotateY)), 0, Math.cos(Math.toRadians(rotateY)) } };
+
+		// Z axis rotate matrix
+		double[][] rotZ = { { Math.cos(Math.toRadians(rotateZ)), -Math.sin(Math.toRadians(rotateZ)), 0 },
+				{ Math.sin(Math.toRadians(rotateZ)), Math.cos(Math.toRadians(rotateZ)), 0 }, { 0, 0, 1 } };
+
+		// apply each rotate
+		vec = multiplyMatrixAndVector(rotX, vec);
+		vec = multiplyMatrixAndVector(rotY, vec);
+		vec = multiplyMatrixAndVector(rotZ, vec);
+
+		return vec;
+	}
+
+	private static double[] multiplyMatrixAndVector(double[][] matrix, double[] vector) {
+		double[] result = new double[3];
+		for (int i = 0; i < 3; i++) {
+			result[i] = matrix[i][0] * vector[0] + matrix[i][1] * vector[1] + matrix[i][2] * vector[2];
+		}
+		return result;
+	}
+
 	/**
-	 * TODO...
-	 * Should be use Vector3d.rotateXYZ...
+	 * can reproduce same result of rotateImageOrientationPatient.
 	 * 
 	 * @param iop
-	 * @param row_rotateX
-	 * @param row_rotateY
-	 * @param row_rotateZ
-	 * @param col_rotateX
-	 * @param col_rotateY
-	 * @param col_rotateZ
+	 * @param rotateX
+	 * @param rotateY
+	 * @param rotateZ
 	 * @return
 	 */
-	public double[] rotateImageOrientationPatient(double[] iop, int row_rotateX, int row_rotateY, int row_rotateZ, int col_rotateX, int col_rotateY, int col_rotateZ) {
-
-		double row_x_angle = Math.toDegrees(Math.acos(iop[0]));
-		double row_y_angle = Math.toDegrees(Math.acos(iop[1]));
-		double row_z_angle = Math.toDegrees(Math.acos(iop[2]));
-		double col_x_angle = Math.toDegrees(Math.acos(iop[3]));
-		double col_y_angle = Math.toDegrees(Math.acos(iop[4]));
-		double col_z_angle = Math.toDegrees(Math.acos(iop[5]));
-		
-		double row_x_cos = Math.cos(Math.toRadians(row_x_angle+row_rotateX));
-		double row_y_cos = Math.cos(Math.toRadians(row_y_angle+row_rotateY));
-		double row_z_cos = Math.cos(Math.toRadians(row_z_angle+row_rotateZ));
-		double col_x_cos = Math.cos(Math.toRadians(col_x_angle+col_rotateX));
-		double col_y_cos = Math.cos(Math.toRadians(col_y_angle+col_rotateY));
-		double col_z_cos = Math.cos(Math.toRadians(col_z_angle+col_rotateZ));
-		
-		//validate
-//		Vector3d row_v = new Vector3d(row_x_cos,row_y_cos,row_z_cos);
-//		Vector3d col_v = new Vector3d(col_x_cos,col_y_cos,col_z_cos);
-//		System.out.println(Math.abs(row_v.lengthSquared() - 1));//shal be zero
-//		System.out.println(Math.abs(col_v.lengthSquared() - 1));
-		
-		double[] res = new double[] {row_x_cos,row_y_cos,row_z_cos,col_x_cos,col_y_cos,col_z_cos};
-		return res;
+	public static double[] rotateImageOrientationPatient2(double[] iop, double rotateX, double rotateY,
+			double rotateZ) {
+		double[] row = { iop[0], iop[1], iop[2] };
+		double[] col = { iop[3], iop[4], iop[5] };
+		row = applyRotation(row, rotateX, rotateY, rotateZ);
+		col = applyRotation(col, rotateX, rotateY, rotateZ);
+		return new double[] { row[0], row[1], row[2], col[0], col[1], col[2] };
 	}
-	
+
+	public static double[] applyRotation(double[] vec, double rotateX, double rotateY, double rotateZ) {
+		// X axis rotation
+		vec = rotateAroundX(vec, rotateX);
+		// Y axis rotation
+		vec = rotateAroundY(vec, rotateY);
+		// Z axis rotation
+		vec = rotateAroundZ(vec, rotateZ);
+		return vec;
+	}
+
+	public static double[] rotateAroundX(double[] vec, double angle) {
+		double radians = Math.toRadians(angle);
+		double y = vec[1] * Math.cos(radians) - vec[2] * Math.sin(radians);
+		double z = vec[1] * Math.sin(radians) + vec[2] * Math.cos(radians);
+		return new double[] { vec[0], y, z };
+	}
+
+	public static double[] rotateAroundY(double[] vec, double angle) {
+		double radians = Math.toRadians(angle);
+		double x = vec[0] * Math.cos(radians) + vec[2] * Math.sin(radians);
+		double z = -vec[0] * Math.sin(radians) + vec[2] * Math.cos(radians);
+		return new double[] { x, vec[1], z };
+	}
+
+	public static double[] rotateAroundZ(double[] vec, double angle) {
+		double radians = Math.toRadians(angle);
+		double x = vec[0] * Math.cos(radians) - vec[1] * Math.sin(radians);
+		double y = vec[0] * Math.sin(radians) + vec[1] * Math.cos(radians);
+		return new double[] { x, y, vec[2] };
+	}
+
 	/**
 	 * 
-	 * TODO...
-	 * Should be use Vector3d.rotateXYZ...
 	 * 
 	 * @param from
 	 * @param to
 	 * @return
 	 */
-	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/*done setPosition*/, com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface to) {
-        PlanarSupport psup = new PlanarSupport();
-        com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface planar = com.vis.core.view.D2.ui.orientation.ImageOrientation.getCutSurface(from);
-        if(planar.name().equals(to.name())) {
-        	return GDicomTools.getDoubles(from, this.iop);
-        }
+	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/* done setPosition */,
+			com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface to) {
+		com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface planar = com.vis.core.view.D2.ui.orientation.ImageOrientation
+				.getCutSurface(from);
+		if (planar.name().equals(to.name())) {
+			return GDicomTools.getDoubles(from, PlanarSupport.iop);
+		}
 		switch (planar) {
 		case SAGITTAL:
-			//YZ 0\1\0\0\0\-1
-			// YZ to XY
-			if(to.name().equals(CutSurface.AXIAL.name())) {
-				return psup.getNewImageOrientationPatient(from, -90, 90, 0, 0, -90, 90);// 1\0\0\0\1\0
-			}else {// YZ to XZ
-				return psup.getNewImageOrientationPatient(from, -90, 90, 0, 0, 0, 0);// 1\0\0\0\0\-1
+			// YZ 0\1\0\0\0\-1 :e.g, head iop.
+			if (to.name().equals(CutSurface.AXIAL.name())) {
+				return rotateImageOrientationPatient(from, 0, -90, 90);
+			} else {// YZ to XZ
+				return rotateImageOrientationPatient(from, 0, 0, -90);
 			}
 		case CORONAL:
-			//XZ 1\0\0\0\0\-1
+			// XZ 1\0\0\0\0\-1:e.g, head iop.
 			// XZ to XY
-			if(to.name().equals(CutSurface.AXIAL.name())) {
-				return psup.getNewImageOrientationPatient(from, 0, 0, 0, 0, -90, 90);// 1\0\0\0\1\0
-			}else {// XZ to YZ
-				return psup.getNewImageOrientationPatient(from, 90, -90, 0, 0, 0, 0);// 0\1\0\0\0\-1
+			if (to.name().equals(CutSurface.AXIAL.name())) {
+				return rotateImageOrientationPatient(from, 90, 0, 0);
+			} else {// XZ to YZ
+				return rotateImageOrientationPatient(from, 0, 0, 90);
 			}
 		case AXIAL:
 		case OBLIQUE:// here, treat as axial
 		case UNKNOWN:
 		default:
-			//XY 1\0\0\0\1\0 -> 0\90\90\90\0\90
-			//XY to XZ
-			if(to.name().equals(CutSurface.CORONAL.name())) {
-				return psup.getNewImageOrientationPatient(from, 0, 0, 0, 0, 90, 90);// 1\0\0\0\0\-1
-			}else {// XY to YZ
-				return psup.getNewImageOrientationPatient(from, 90, -90, 0, 0, 90, 90);// 0\1\0\0\0\-1
+			// XY to XZ
+			if (to.name().equals(CutSurface.CORONAL.name())) {
+				return rotateImageOrientationPatient(from, -90, 0, 0);
+			} else {// XY to YZ
+				return rotateImageOrientationPatient(from, -90, 90, 0);
 			}
 		}
 	}
-	
-	@Deprecated
-	public Vector3d searchCoordinateByIPP(Vector3d ippAtPoint, ImagePlus src) {
-		Vector3d c = null;
-		double distanceError = Double.MAX_VALUE;
-		int w = src.getWidth();
-		int h = src.getHeight();
-		int s = src.getNSlices();
-		for(int k=0;k<s;k++) {
-			for(int j=0;j<h;j++) {
-				for(int i=0;i<w;i++) {
-					Vector3d v = getNewImagePositionPatient2D(src, j, i, k+1);
-					double ds = v.distance(ippAtPoint);
-					if(ds < distanceError) {
-						distanceError = ds;
-						c = new Vector3d(i,j,k);
-						if(distanceError < 0.01) {
-							return c;
-						}
-					}
-				}
-			}
-		}
-		return c;
-	}
+
 }

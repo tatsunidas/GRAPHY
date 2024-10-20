@@ -68,7 +68,6 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.BirdsEyeView;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
-import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.ui.SeriesWindow;
@@ -77,6 +76,7 @@ import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
+import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
@@ -145,7 +145,7 @@ public class Praparat extends JPanel {
 		
 	private boolean crossLineCursorMode = false;//mpr
 
-	private ReferenceLine refLine;
+	private ReferenceLineMPR refLineMPR;
 
 	private ArrayList<String> pathToImages = null;
 	Eyepiece prapManager;
@@ -314,9 +314,34 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	private List<Point2D> calcLocalizer(SlideGlass src, SlideGlass target) {
+	private List<Point2D> calcLocalizer(SlideGlass src/*will draw*/, SlideGlass target/*be posted*/) {
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
 		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
+		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
+		List<Point2D> shape = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
+		return shape;
+	}
+	
+	/**
+	 * 
+	 * @param row from src
+	 * @param col from src
+	 * @param iop from src
+	 * @param ipp from src
+	 * @param voxelSize from src
+	 * @param row_ from target
+	 * @param col_ from target
+	 * @param iop_ from target
+	 * @param ipp_ from target
+	 * @param voxelSize_ from target
+	 * @return
+	 */
+	public List<Point2D> calcLocalizer(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/,
+			int row_, int col_, double[] iop_, double[] ipp_, double[] voxelSize_){
+		GeometryOfSlice localizerGeometry = new GeometryOfSlice();//src
+		localizerGeometry.setUp(row, col, iop, ipp, voxelSize);
+		GeometryOfSlice postImageGeometry = new GeometryOfSlice();//target
+		postImageGeometry.setUp(row_, col_, iop_, ipp_, voxelSize_);
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
 		List<Point2D> shape = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
 		return shape;
@@ -343,28 +368,28 @@ public class Praparat extends JPanel {
 			}
 		}
 		// show localizer on slideglass
-		SlideGlass target = getCurrentSlide(); 
+		SlideGlass from = getCurrentSlide(); 
 		for(Praparat p:praps) {
 			//if self, skip
 			if(p == this) {
 				continue;
 			}
-			SlideGlass src = p.getCurrentSlide();
+			SlideGlass to = p.getCurrentSlide();
 			List<Point2D> loca_geo = null;
 			try {
-				loca_geo = calcLocalizer(src, target);
+				loca_geo = calcLocalizer(to, from);
 			}catch(Exception e) {
 				loca_geo = null;
 			}
-			src.drawLocalizer(loca_geo);
+			to.drawLocalizer(loca_geo);
 		}
 	}
 	
 	public void clearCrossLines() {
 		HashMap<Integer,SlideGlass> slides = getAllSlides();
-		for(Integer sglKey : slides.keySet()) {
-			SlideGlass sgl = slides.get(sglKey);
-			CanvasGlass cg = (CanvasGlass) sgl.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		for(Integer sgKey : slides.keySet()) {
+			SlideGlass sg = slides.get(sgKey);
+			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 			cg.setCrossLine(null);
 			cg.repaint();
 		}
@@ -695,8 +720,8 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	public ReferenceLine getReferenceLine() {
-		return this.refLine;
+	public ReferenceLineMPR getReferenceLineMPR() {
+		return this.refLineMPR;
 	}
 	
 	/**
@@ -1465,8 +1490,8 @@ public class Praparat extends JPanel {
 		setImagePositionUsingSlider(currentSlice-1);
 	}
 		
-	public void setReferenceLine(ReferenceLine refLine) {
-		this.refLine = refLine;
+	public void setReferenceLineMPR(ReferenceLineMPR refLine) {
+		this.refLineMPR = refLine;
 	}
 	
 	/**

@@ -22,23 +22,29 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.NumberFormatter;
 
+import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+
 import ij.util.Tools;
 
 @SuppressWarnings("serial")
 public class MPRControlPanel extends JPanel implements ItemListener, KeyListener{
 	
-	//mode
-	String[] modeType = new String[] {"Orthogonal","Reslice"};
+	//mode (Match with MPRViewerWindow viewType index.)
+	final static String[] modeType = new String[] {"Orthogonal","Reslice"};
+	String currentMode = modeType[0];
+	//functions of Orthogonal mode
 	final String crossViewMode = "Cross View Mode";
 	final String showCrossLineMode = "Show Cross Lines";
 	//recon mode
-	String[] reconType = new String[] {"SLICECUT","MEAN"};
-	String[] mainPlaneType = new String[] {"XY","XZ", "YZ"};
-	String currentMode = modeType[0];
+	final static String[] reconType = new String[] {"SLICECUT","MEAN"};
+	String currentReconType = reconType[0];
+	CutSurface targetSlicePlane = CutSurface.AXIAL;
 	JFormattedTextField stText;//thickness, 0d >
 	JFormattedTextField sgText;//gap, 0d >=
 	JFormattedTextField snText;//num of slice, 1 >=
-	JComboBox<String> reconSelect;
+	JComboBox<String> reconSelect;//names "RECON"
+	JComboBox<String> targetSlicePlaneSelect;
 	JCheckBox crossViewChk;
 	JCheckBox showCrossLineChk;
 //	double defaultGap;//gap is not specified on xz,yz planes at initilized
@@ -66,6 +72,11 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		add(constructSettingsPanel((String)modeSelect.getSelectedItem()), BorderLayout.CENTER);
 	}
 	
+	/**
+	 * change control panel
+	 * @param mode
+	 * @return
+	 */
 	JPanel constructSettingsPanel(String mode) {
 		if(mode.equals(modeType[MPRViewerWindow.CROSS_MODE])) {
 			return createOrthogonalSettings();
@@ -97,7 +108,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		showCrossLineChk.setSelected(mprWin.showCrossLine);
 		showCrossLineChk.addItemListener(this);
 		p.add(showCrossLineChk);
-		
 		return p;
 	}
 	
@@ -106,9 +116,15 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		FlowLayout layout = (FlowLayout) p.getLayout();
 		layout.setAlignment(FlowLayout.LEFT );
 		
-		JLabel planelbl = new JLabel("Slice plane");
-		p.add(planelbl);
-		
+		JLabel l0 = new JLabel("SlicePlane");
+		p.add(l0);
+		targetSlicePlaneSelect = new JComboBox<>( new String[] {CutSurface.AXIAL.name(), CutSurface.CORONAL.name(), CutSurface.SAGITTAL.name()});
+		targetSlicePlaneSelect.setName("TargetSlicePlaneSelect");
+		targetSlicePlaneSelect.setSize(100, 12);
+		targetSlicePlaneSelect.setSelectedIndex(0);
+		targetSlicePlaneSelect.addItemListener(this);
+		p.add(targetSlicePlaneSelect);
+				
 		JLabel l1 = new JLabel("SliceThickness");
 		p.add(l1);
 		if(stText == null) {
@@ -199,8 +215,8 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		reconSelect.setName("RECON");
 		reconSelect.setSize(100, 12);
 		reconSelect.setSelectedIndex(0);
+		reconSelect.addItemListener(this);
 		p.add(reconSelect);
-		
 		return p;
 	}
 	
@@ -215,13 +231,23 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		BorderLayout layout = (BorderLayout)getLayout();
 		remove(layout.getLayoutComponent(BorderLayout.CENTER));
 		add(constructSettingsPanel(mode), BorderLayout.CENTER);
-		revalidate();
-		repaint();
 		currentMode = mode;
 		currentThickness = getSliceThickness();
 		currentGap = getSliceGap();
 		currentNumOfSlice = getNumberOfSlices();
-		mprWin.updateState(Arrays.binarySearch(modeType, mode));
+		mprWin.initState(Arrays.asList(modeType).indexOf(mode));
+		Log.logger.fine(""+Arrays.asList(modeType).indexOf(mode));
+		Log.logger.fine("ViewMode changed: "+mode);
+		/*
+		 * I know, revalidate and repaint were already done in updateSate.
+		 * But sometimes not repainting, re-run it.
+		 */
+		revalidate();
+		repaint();
+	}
+	
+	void updateSliceTargetPlane() {
+		mprWin.setSliceTargetPlane(targetSlicePlane);
 	}
 	
 	public Double getSliceThickness() {
@@ -248,11 +274,19 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		return (Integer)snText.getValue();
 	}
 	
-	public String getReconType() {
-		if(reconSelect == null) {
+	String getReconType() {
+		if(reconSelect == null || !currentMode.equals(modeType[1])) {
 			return null;
 		}
 		return (String)reconSelect.getSelectedItem();
+	}
+	
+	public CutSurface getTargetSlicePlane() {
+		return targetSlicePlane;
+	}
+		
+	public String getCurrentMode() {
+		return currentMode;
 	}
 	
 	JFormattedTextField createDoubleField() {
@@ -292,6 +326,19 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 			String name = cb.getName();
 			if(name.equals("MODE_SELECT")) {
 				updateSettingsPanel((String)cb.getSelectedItem());
+			}else if(name.equals("RECON")){
+				String reconType = (String)cb.getSelectedItem();
+				this.currentReconType = reconType;
+			}else if(name.equals("TargetSlicePlaneSelect")) {
+				String plane = (String)cb.getSelectedItem();
+				if(plane.equals("AXIAL")) {
+					this.targetSlicePlane = CutSurface.AXIAL;
+				}else if(plane.equals("CORONAL")) {
+					this.targetSlicePlane = CutSurface.CORONAL;
+				}else if(plane.equals("SAGITTAL")) {
+					this.targetSlicePlane = CutSurface.SAGITTAL;
+				}
+				updateSliceTargetPlane();
 			}
 		}else if(obj instanceof JCheckBox) {
 			JCheckBox cb = (JCheckBox)obj;

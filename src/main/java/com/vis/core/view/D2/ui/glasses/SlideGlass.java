@@ -69,6 +69,7 @@ import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
@@ -519,9 +520,14 @@ public class SlideGlass extends JLayeredPane {
 		return this.pp;
 	}
 
+	/**
+	 * If MPR viewtype with RESLICE mode, return ReferenceLine.
+	 * @return
+	 */
 	public ReferenceLine getReferenceLine() {
 		if (pp != null) {
-			return pp.getReferenceLine();
+			ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
+			return refLineMPR != null ? refLineMPR.referenceLineFrom(pp):null;
 		} else {
 			return null;
 		}

@@ -36,15 +36,16 @@ import ij.ImagePlus;
  * LocalizerPoster localizerPoster = new IntersectVolume(toGeometry);
  * List<Point2D> shapes = localizerPoster.getOutlineOnLocalizerForThisGeometry(fromGeometry);
  * 
- * Point2D p0_leftlower = shapes.get(0);
- * Point2D p1_rightlower = shapes.get(1);
- * Point2D p2_rightupper = shapes.get(2);
- * Point2D p3_leftupper = shapes.get(3);
+ * Point2D p0_leftupper = shapes.get(0);
+ * Point2D p1_rightupper = shapes.get(1);
+ * Point2D p2_rightlower = shapes.get(2);
+ * Point2D p3_leftlower = shapes.get(3);
  * }
  * </pre>
  *
  * @author David A. Clunie
  * @author Nicolas Roduit
+ * @author Tatsuaki Kobayashi
  */
 public class GeometryOfSlice {
 
@@ -60,6 +61,11 @@ public class GeometryOfSlice {
 
 	protected Vector3d dimensions; // number of rows, then number of columns, then number of slices
 
+	/**
+	 * do setUp()
+	 */
+	public GeometryOfSlice() {}
+	
 	/**
 	 * Construct the geometry.
 	 *
@@ -87,14 +93,14 @@ public class GeometryOfSlice {
 	}
 	
 	public GeometryOfSlice(DicomObject SrcOrTarget) {
-		setUpFromDcmObj(SrcOrTarget);
+		setUp(SrcOrTarget);
 	}
 	
 	public GeometryOfSlice(ImagePlus SrcOrTarget) {
-		setUpFromDcmObj(SrcOrTarget);
+		setUp(SrcOrTarget);
 	}
 	
-	public void setUpFromDcmObj(DicomObject dcm) {
+	public void setUp(DicomObject dcm) {
 		if(dcm == null) {
 			return;
 		}
@@ -109,6 +115,19 @@ public class GeometryOfSlice {
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
 	}
 	
+	public void setUp(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/) {
+		//row vector
+		this.row = new Vector3d(iop[0],iop[1],iop[2]);
+		//column vector
+		this.column = new Vector3d(iop[3],iop[4],iop[5]);
+		this.tlhc = SubjectOrientation.getSubjectPosition(ipp);
+		this.sliceThickness = voxelSize[2];
+		this.voxelSpacing = new Vector3d(voxelSize);
+		Integer numRow = row;
+		Integer numColumn = col;
+		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
+	}
+	
 	/**
 	 * TODO 20231008
 	 * 
@@ -116,26 +135,25 @@ public class GeometryOfSlice {
 	 * @param dcm
 	 */
 	@Deprecated
-	public void setUpFromDcmObj(ImagePlus dcm) {
+	public void setUp(ImagePlus dcm) {
 		if(dcm == null) {
 			return;
 		}
-//		ImagePlusDicomTagTools tools = new ImagePlusDicomTagTools();
-//		double[] iop = tools.getDoubles(dcm, "0020,0037");
-//		if(iop == null) {
-//			System.err.println("Can not read ImageOrientationPatient !!");
-//			return;
-//		}
-//		this.row = new Vector3d(iop[0],iop[1],iop[2]);
-//		this.column = new Vector3d(iop[3],iop[4],iop[5]);
-//		this.tlhc = SubjectOrientation.getSubjectPosition(tools.getDoubles(dcm, "0020,0032"));
-//		double[] pixelSpacing = new double[] {dcm.getCalibration().pixelWidth, dcm.getCalibration().pixelHeight};
-//		Double spacingBetweenSlices = dcm.getCalibration().pixelDepth;
-//		this.sliceThickness = spacingBetweenSlices;
-//		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices});
-//		Integer numRow = dcm.getHeight();
-//		Integer numColumn = dcm.getWidth();
-//		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
+		double[] iop = GDicomTools.getDoubles(dcm, "0020,0037");
+		if(iop == null) {
+			System.err.println("Can not read ImageOrientationPatient !!");
+			return;
+		}
+		this.row = new Vector3d(iop[0],iop[1],iop[2]);
+		this.column = new Vector3d(iop[3],iop[4],iop[5]);
+		this.tlhc = SubjectOrientation.getSubjectPosition(GDicomTools.getDoubles(dcm, "0020,0032"));
+		double[] pixelSpacing = new double[] {dcm.getCalibration().pixelWidth, dcm.getCalibration().pixelHeight};
+		Double spacingBetweenSlices = dcm.getCalibration().pixelDepth;
+		this.sliceThickness = spacingBetweenSlices;
+		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices});
+		Integer numRow = dcm.getHeight();
+		Integer numColumn = dcm.getWidth();
+		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
 	}
 
 	/**

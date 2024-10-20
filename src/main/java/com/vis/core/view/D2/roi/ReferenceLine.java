@@ -37,8 +37,11 @@
  */
 package com.vis.core.view.D2.roi;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.event.MouseEvent;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
@@ -65,7 +68,8 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	double gap;
 	int numOfSlice = 1;//main line is always exists.
 	GeneralPath sliceLines;
-	Color sliceLineColor = new Color(230,0,126,200);
+	Color sliceLineColor = Color.CYAN;
+	Color center_support_line_color;//vertical line
 	int sliceLineStrokeWidth = 1;
 	
 	int imgW;
@@ -76,7 +80,9 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	double py;//pixel height
 	double pz;//pizel depth
 	
-	CutSurface plane;
+	CutSurface plane;//Praparat plane
+	
+	boolean isSliceTarget = false;
 	
 	/**
 	 * use offscreen coordinates.
@@ -84,8 +90,17 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	public ReferenceLine(CutSurface plane, double x1, double y1, double x2, double y2, SlideGlass slide) {
 		super(x1, y1, x2, y2, slide);
 		this.plane = plane;
+		if(plane == CutSurface.AXIAL) {
+			sliceLineColor = Color.red;
+			center_support_line_color = Color.blue;
+		}else if(plane == CutSurface.CORONAL) {
+			sliceLineColor = Color.green;
+			center_support_line_color = Color.red;
+		}else {
+			sliceLineColor = Color.blue;
+			center_support_line_color = Color.green;
+		}
 		setSpacialInfo(slide.getOriginalImage());
-//		setRoiPopupVisible(false);//TODO
 	}
 		
 	private void setSpacialInfo(ImagePlus imp) {
@@ -96,8 +111,6 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		this.px = cal.pixelWidth;
 		this.py = cal.pixelHeight;
 		this.pz = cal.pixelDepth;
-//		this.ay = this.py/this.px;
-//		this.az = this.pz/this.px;
 	}
 	
 	public void setThickness(double th) {
@@ -133,6 +146,42 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	
 	public CutSurface getPlane() {
 		return plane;
+	}
+	
+	public void setSliceTarget(boolean target) {
+		this.isSliceTarget = target;
+	}
+	
+	public boolean isSliceTarget() {
+		return isSliceTarget;
+	}
+	
+	@Override
+	public int isHandle(int sx, int sy) {
+		int size = HANDLE_SIZE+5;
+		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
+		int halfSize = size/2;
+		int sx1 = screenXD(getXBase()+x1R) - halfSize;
+		int sy1 = screenYD(getYBase()+y1R) - halfSize;
+		int sx2 = screenXD(getXBase()+x2R) - halfSize;
+		int sy2 = screenYD(getYBase()+y2R) - halfSize;
+		int sx3 = sx1 + (sx2-sx1)/2-1;
+		int sy3 = sy1 + (sy2-sy1)/2-1;
+		
+		//rotation handle
+		int sx4 = sx1 + (int)((sx2 - sx1) / 5.);// 1/5 location
+		int sy4 = sy1 + (int)((sy2 - sy1) / 5.);
+		int sx5 = sx1 + (int)((sx2 - sx1) - (sx2 - sx1) / 5.);
+		int sy5 = sy1 + (int)((sy2 - sy1) - (sy2 - sy1) / 5.);
+		
+		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
+		if (sx>=sx2&&sx<=sx2+size&&sy>=sy2&&sy<=sy2+size) return 1;
+		if (sx>=sx3&&sx<=sx3+size+2&&sy>=sy3&&sy<=sy3+size+2) return 2;
+		
+		if (sx>=sx4&&sx<=sx4+size&&sy>=sy4&&sy<=sy4+size) return 3;
+		if (sx>=sx5&&sx<=sx5+size&&sy>=sy5&&sy<=sy5+size) return 4;
+		
+		return -1;
 	}
 	
 	/**
@@ -191,7 +240,10 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		Point2d currentLineStart = null;
 		Point2d currentLineEnd = null;
 		
-//		System.out.println("create slice lines");
+		/*
+		 * if even number e.g, 4: || * | # * means center line.
+		 * if odd number e.g, 5: || * || 
+		 */
 		//start from 1 (to exclude main center line)
 		for(int i=0; i<numOfSlice;i++) {
 			if(i == 0) {
@@ -201,7 +253,7 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 				addSliceLine(sliceLines, (float)currentLineStart.x, (float)currentLineStart.y, (float)currentLineEnd.x, (float)currentLineEnd.y);
 				continue;
 			}
-			if(i <= numOfSlice/2) {// create upper slide slice
+			if(i <= numOfSlice/2) {// create upper side slice
 				Point2d[] nextPoints = nextParallelLinePoints(currentLineStart, currentLineEnd, true);
 				addSliceLine(sliceLines, (float)nextPoints[0].x, (float)nextPoints[0].y, (float)nextPoints[1].x, (float)nextPoints[1].y);
 				currentLineStart = nextPoints[0];
@@ -210,7 +262,7 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 					currentLineStart = new Point2d(centerLineX1, centerLineY1);
 					currentLineEnd = new Point2d(centerLineX2, centerLineY2);
 				}
-			}else {// create bottom slide slice
+			}else {// create bottom side slice
 				Point2d[] nextPoints = nextParallelLinePoints(currentLineStart, currentLineEnd, false);
 				addSliceLine(sliceLines, (float)nextPoints[0].x, (float)nextPoints[0].y, (float)nextPoints[1].x, (float)nextPoints[1].y);
 				currentLineStart = nextPoints[0];
@@ -233,13 +285,11 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		}
 		GeneralPath sliceLinesOnScreen = new GeneralPath();
 		ArrayList<float[]> points = getPoints(offScreenSliceLines);
-//		System.out.println("number of ref line pair "+points.size()/2);
 		for(int i=0;i<points.size();i+=2) {
 			float x_m = (float) slide.screenXD(points.get(i)[0]);
 			float y_m = (float) slide.screenYD(points.get(i)[1]);
 			float x_l = (float) slide.screenXD(points.get(i+1)[0]);
 			float y_l = (float) slide.screenYD(points.get(i+1)[1]);
-//			System.out.println(x_m+" "+y_m+" "+x_l+" "+y_l);
 			addSliceLine(sliceLinesOnScreen, x_m, y_m, x_l,y_l);
 		}
 		return sliceLinesOnScreen;
@@ -443,10 +493,65 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		addSliceLine(verLine, (float)(x1Rot-extendX), (float)(y1Rot-extendY), (float)(x2Rot+extendX), (float)(y2Rot+extendY));
 		return verLine;
 	}
+		
+	public void draw(Graphics g) {	
+		int x3 = x1 + (int)((x2 - x1) / 2.);
+		int y3 = y1 + (int)((y2 - y1) / 2.);
+		//rotation handle
+		int x4 = x1 + (int)((x2 - x1) / 5.);// 1/5 location
+		int y4 = y1 + (int)((y2 - y1) / 5.);
+		int x5 = x1 + (int)((x2 - x1) - (x2 - x1) / 5.);
+		int y5 = y1 + (int)((y2 - y1) - (y2 - y1) / 5.);
+		
+		Graphics2D g2d = (Graphics2D) g;
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+
+		//draw main reference line
+		if(isActiveOverlayRoi()) {
+			g2d.setColor(Color.CYAN);
+		}else {
+			g2d.setColor(sliceLineColor);
+		}
+		g2d.drawLine(x1, y1, x2, y2);
+		//draw virtical line
+		g2d.setColor(center_support_line_color);
+		GeneralPath verLine_ = getCrossVerticalLine(x1d, y1d, x2d, y2d);
+		g2d.draw(verLine_);
+		BasicStroke bs2 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 1.0f, new float[] {6}, 0);
+		g2d.setStroke(bs2);
+		g2d.setColor(sliceLineColor);
+		//draw slice lines
+		if(getSliceLines() != null && isSliceTarget) {
+			GeneralPath sliceLines_ = getSliceLines();//toScreenCoordinates(getSliceLines());
+			if (sliceLines_ != null) {
+				g2d.setColor(sliceLineColor);
+				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
+						1.0f, new float[] { 6 }, 0);
+				g2d.setStroke(bs3);
+				g2d.draw(sliceLines_);
+			}
+		}
+		
+		//draw handles
+		drawHandle(g, x1, y1);
+		drawHandle(g, x2, y2);
+		//middle handle
+		drawHandle(g, x3, y3);
+		//rotate handle
+		drawHandle(g, x4, y4);
+		drawHandle(g, x5, y5);
+		
+	}
 	
 	@Override
-	public void mouseDragged(MouseEvent e) {
-		super.mouseDragged(e);
+	public void move(int sx, int sy) {
+		super.move(sx,sy);
+		createSliceLinesWithOffScreenCoordinates();
+	}
+	
+	@Override
+	public void moveHandle(int sx, int sy) {
+		super.moveHandle(sx,sy);
 		createSliceLinesWithOffScreenCoordinates();
 	}
 }

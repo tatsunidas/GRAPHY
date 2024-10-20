@@ -52,6 +52,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 import org.joml.Vector3d;
 
@@ -87,13 +88,14 @@ import ij.process.ImageProcessor;
 @SuppressWarnings("serial")
 public class MPRViewerWindow extends JFrame {
 
+	//praparat position
 	public static final int XY = 0;
 	public static final int XZ = 1;
 	public static final int YZ = 2;
 	public static final int RECON = 3;
 
-	public static final int CROSS_MODE = 0;
-	public static final int SLICE_MODE = 1;
+	public static final int CROSS_MODE = 0;//ORTHO
+	public static final int SLICE_MODE = 1;//RESLICE
 
 	final MPRViewerWindow own;
 
@@ -101,8 +103,7 @@ public class MPRViewerWindow extends JFrame {
 	 * https://forum.image.sc/t/rotate-line-roi-via-rotating-point-coordinates/8323
 	 */
 	private MPRControlPanel contP;
-	private int currentViewType = 0;
-	private int previousViewType = 0;
+	private int currentViewType = CROSS_MODE;
 
 	private ImagePlus imp;// src imp, to backup.
 
@@ -116,7 +117,7 @@ public class MPRViewerWindow extends JFrame {
 	private Praparat currentPrap = null;// for mouse action
 
 	private ReferenceLineMPR refLines;
-	private CutSurface srcCutSurface;
+	private CutSurface srcCutSurface;/*original image plane*/
 
 	private final String patID;
 	private final String studyUID;
@@ -183,6 +184,14 @@ public class MPRViewerWindow extends JFrame {
 	public Integer getNumberOfSlices() {
 		return contP.getNumberOfSlices();
 	}
+	
+	public int getCurrentViewType() {
+		return currentViewType;
+	}
+	
+	public ImagePlus getSrcImage() {
+		return imp;
+	}
 
 	public void crossViewModeOn(boolean on) {
 		crossViewMode = on;
@@ -210,7 +219,7 @@ public class MPRViewerWindow extends JFrame {
 
 	private void init() {
 		PlanarSupport psup = new PlanarSupport();
-		srcCutSurface = psup.isPlanarOf(imp);
+		srcCutSurface = psup.planarOf(imp);
 		// set initial loc in offscreen coords.
 		initImages();
 		initOrthogonals();// create ortho images
@@ -281,7 +290,6 @@ public class MPRViewerWindow extends JFrame {
 	 * 0:ortho 1:reslice
 	 */
 	public void setCurrentViewType(int viewType) {
-		this.previousViewType = this.currentViewType;
 		this.currentViewType = viewType;
 	}
 
@@ -323,7 +331,7 @@ public class MPRViewerWindow extends JFrame {
 	 * @param cutSurface
 	 * @return
 	 */
-	private int[] calculateOrthogonalImageSize(ImagePlus src, CutSurface srcCutSurface, CutSurface targetCutSurface) {
+	int[] calculateOrthogonalImageSize(ImagePlus src, CutSurface srcCutSurface, CutSurface targetCutSurface) {
 
 		if (srcCutSurface == targetCutSurface) {
 			return new int[] { src.getWidth(), src.getHeight() };
@@ -725,9 +733,9 @@ public class MPRViewerWindow extends JFrame {
 		xy_prap.clearCrossLines();
 		xz_prap.clearCrossLines();
 		yz_prap.clearCrossLines();
-		xy_prap.setReferenceLine(null);
-		xz_prap.setReferenceLine(null);
-		yz_prap.setReferenceLine(null);
+		xy_prap.setReferenceLineMPR(null);
+		xz_prap.setReferenceLineMPR(null);
+		yz_prap.setReferenceLineMPR(null);
 	}
 
 	void initReslice() {
@@ -738,7 +746,6 @@ public class MPRViewerWindow extends JFrame {
 		xz_prap.clearCrossLines();
 		yz_prap.clearCrossLines();
 		updateReferenceLineMPR();
-		repaint();
 	}
 
 	/*
@@ -1072,6 +1079,7 @@ public class MPRViewerWindow extends JFrame {
 		if (refLines == null) {
 			refLines = new ReferenceLineMPR(this);
 		}
+		refLines.setSliceTarget(getSliceTargetPlane());
 		refLines.updateResliceLineState();
 	}
 
@@ -1111,11 +1119,21 @@ public class MPRViewerWindow extends JFrame {
 		}
 		return null;
 	}
+	
+	public CutSurface getSliceTargetPlane() {
+		return contP.getTargetSlicePlane();
+	}
 
+	public void setSliceTargetPlane(CutSurface currentSliceTarget) {
+		if(refLines != null) {
+			refLines.setSliceTarget(currentSliceTarget);
+		}
+	}
+	
 	public CutSurface getSrcSurface() {
 		return srcCutSurface;
 	}
-
+	
 	void drawReferenceLines() {
 
 		if (xz_image == null || yz_image == null) {
@@ -1159,20 +1177,30 @@ public class MPRViewerWindow extends JFrame {
 		getContentPane().repaint();
 	}
 
-	public void updateState(int newViewType) {
-		setCurrentViewType(newViewType);
-		if (newViewType == previousViewType) {
+	public void initState(int newViewType) {
+		if (newViewType == currentViewType) {
+			Log.logger.fine("Same viewType, return");
 			return;
 		}
+		setCurrentViewType(newViewType);
 		if (currentViewType == MPRViewerWindow.CROSS_MODE) {
 			initCrosses(showCrossLine);
+			Log.logger.fine("init Cross mode");
 		} else if (currentViewType == MPRViewerWindow.SLICE_MODE) {
 			initReslice();
+			Log.logger.fine("init reslice mode");
 		} else if (currentViewType == 2) {
-
+			//add more
 		}
-		revalidate();
-		repaint();
+		xy_prap.repaint();
+		xz_prap.repaint();
+		yz_prap.repaint();
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				revalidate();
+				repaint();
+			}
+		});
 	}
-
 }

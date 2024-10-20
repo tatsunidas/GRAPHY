@@ -25,6 +25,7 @@ import ij.plugin.LutLoader;
 public enum Resources {
 	
 	Splash("icon/splash.png"),
+	RotateCursor("icon/rotateIcon.png"),
 	
 	GraphyIcon("icon/GRAPHY-512.png"),
 	LocalIcon("icon/outline_house_black_18dp.png"),

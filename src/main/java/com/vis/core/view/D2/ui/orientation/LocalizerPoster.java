@@ -166,9 +166,9 @@ public abstract class LocalizerPoster {
     Vector3d normal = new Vector3d(row).cross(column);
 
     Vector3d distanceAlongRow = new Vector3d(row);
-    distanceAlongRow.mul((dimensions.y /* cols */) * voxelSpacing.y /* between cols */);
+    distanceAlongRow.mul((dimensions.y) * voxelSpacing.y);
     Vector3d distanceAlongColumn = new Vector3d(column);
-    distanceAlongColumn.mul((dimensions.x /* rows */) * voxelSpacing.x /* between rows */);
+    distanceAlongColumn.mul((dimensions.x) * voxelSpacing.x);
     Vector3d distanceAlongNormal = new Vector3d(normal);
     distanceAlongNormal.mul(
         (dimensions.z / 2) * sliceThickness); // divide by two ... half on either side

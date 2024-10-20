@@ -57,7 +57,6 @@ public class PreferencesWin extends JFrame{
 	private static PreferencesWin prefWin = new PreferencesWin();
 
 	private PreferencesWin() {
-		
 		setContents();
 		setTitle(name);
 		setName(name);//for window manager

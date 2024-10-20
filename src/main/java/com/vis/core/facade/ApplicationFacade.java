@@ -231,14 +231,9 @@ public class ApplicationFacade{
 			mainScreen.setVisible(true);
 			mainScreen.loadLocalStudiesBySearchKey();
 			WindowManager.addWindow(mainScreen);
-			
+			//add preferenceWin
 			WindowManager.addWindow(PreferencesWin.getInstance());
 			
-			// TODO 20231003
-//			//init viewer2dframe no-visible state.
-//			Viewer2DFrame viewer2DWin = Viewer2DFrame.getInstance();
-//			WindowManager.addWindow(viewer2DWin);
-//			viewer2DWin.setDatabase(db);
 		});
 		
 		String fontSize = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);
