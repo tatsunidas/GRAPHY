@@ -218,11 +218,9 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	private void init() {
-		PlanarSupport psup = new PlanarSupport();
-		srcCutSurface = psup.planarOf(imp);
-		// set initial loc in offscreen coords.
+		srcCutSurface = PlanarSupport.planarOf(imp);
 		initImages();
-		initOrthogonals();// create ortho images
+		initOrthogonals();// create orthogonal images
 		buildGUI();
 		initCrosses(showCrossLine);
 		revalidate();
@@ -448,7 +446,7 @@ public class MPRViewerWindow extends JFrame {
 			boolean rotateXZ = false;
 			String seriesUID = UIDUtils.createUID();
 			for (int z = 0; z < size; z++) {
-				ImagePlus xy_ = orthTool.cutXZ(src, z, 1, flipXZ, rotateXZ);
+				ImagePlus xy_ = orthTool.cutHorizontally(src, z, 1);
 				if (cal == null) {
 					cal = xy_.getCalibration();
 				}
@@ -462,7 +460,7 @@ public class MPRViewerWindow extends JFrame {
 			boolean rotateXZ = true;
 			String seriesUID = UIDUtils.createUID();
 			for (int z = 0; z < size; z++) {
-				ImagePlus xy_ = orthTool.cutXZ(src, z, 1, flipXZ, rotateXZ);
+				ImagePlus xy_ = orthTool.cutHorizontally(src, z, 1);
 				if (cal == null) {
 					cal = xy_.getCalibration();
 				}
@@ -498,24 +496,20 @@ public class MPRViewerWindow extends JFrame {
 			String seriesUID = UIDUtils.createUID();
 			int size = src.getHeight();
 			for (int y = 0; y < size; y++) {
-				ImagePlus xz_ = orthTool.cutXZ(src, y, 1, flipXZ, rotateXZ);
-				if (cal == null) {
-					cal = xz_.getCalibration();
-				}
+				ImagePlus xz_ = orthTool.cutHorizontally(src, y, 1);
+				cal = xz_.getCalibration();
 				addUIDs(xz_, 1, seriesUID);
 				stack.addSlice(xz_.getProcessor());
 				stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 			}
-		} else {
+		} else { // SAGITTAL
 			boolean flipYZ = false;
 			boolean rotateYZ = true;
 			String seriesUID = UIDUtils.createUID();
 			int size = src.getWidth();
 			for (int w = 0; w < size; w++) {
-				ImagePlus xz_ = orthTool.cutYZ(src, w, 1, flipYZ, rotateYZ);
-				if (cal == null) {
-					cal = xz_.getCalibration();
-				}
+				ImagePlus xz_ = orthTool.cutVirtically(src, w, 1);
+				cal = xz_.getCalibration();
 				addUIDs(xz_, 1, seriesUID);
 				stack.addSlice(xz_.getProcessor());
 				stack.setSliceLabel(xz_.getInfoProperty(), w + 1);
@@ -554,7 +548,7 @@ public class MPRViewerWindow extends JFrame {
 			String seriesUID = UIDUtils.createUID();
 			int size = src.getHeight();
 			for (int w = 0; w < size; w++) {
-				ImagePlus yz_ = orthTool.cutYZ(src, w, 1, flipYZ, rotateYZ);
+				ImagePlus yz_ = orthTool.cutVirtically(src, w, 1);
 				if (cal == null) {
 					cal = yz_.getCalibration();
 				}
@@ -568,7 +562,7 @@ public class MPRViewerWindow extends JFrame {
 			String seriesUID = UIDUtils.createUID();
 			int size = src.getWidth();
 			for (int w = 0; w < size; w++) {
-				ImagePlus yz_ = orthTool.cutYZ(src, w, 1, flipYZ, rotateYZ);
+				ImagePlus yz_ = orthTool.cutVirtically(src, w, 1);
 				if (cal == null) {
 					cal = yz_.getCalibration();
 				}
@@ -1038,27 +1032,6 @@ public class MPRViewerWindow extends JFrame {
 		}
 		org.joml.Vector3d ipp = psup.getNewImagePositionPatient2D(this.xy_image, col, row, slicePos);
 		return new double[] { ipp.x, ipp.y, ipp.z };
-	}
-
-	/**
-	 * row and col direction, it is easy to get confused. When images are axial
-	 * plane, row direction cosine means X direction in RCS. col direction cosine
-	 * means Y direction in RCS.
-	 * 
-	 * @param row_rotateX in degree
-	 * @param row_rotateY in degree
-	 * @param row_rotateZ in degree
-	 * @param col_rotateX in degree
-	 * @param col_rotateY in degree
-	 * @param col_rotateZ in degree
-	 * @return
-	 */
-	double[] calcImageOrientationPatient(int row_rotateX, int row_rotateY, int row_rotateZ, int col_rotateX,
-			int col_rotateY, int col_rotateZ) {
-		PlanarSupport psup = new PlanarSupport();
-		double[] iop = psup.getNewImageOrientationPatient(this.xy_image, row_rotateX, row_rotateY, row_rotateZ,
-				col_rotateX, col_rotateY, col_rotateZ);
-		return iop;// nullable
 	}
 
 //	void updateResliceLineState() {

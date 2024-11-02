@@ -317,7 +317,7 @@ public class Praparat extends JPanel {
 	private List<Point2D> calcLocalizer(SlideGlass src/*will draw*/, SlideGlass target/*be posted*/) {
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
 		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
-		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
+		IntersectVolume localizerPoster = new IntersectVolume(localizerGeometry);
 		List<Point2D> shape = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
 		return shape;
 	}

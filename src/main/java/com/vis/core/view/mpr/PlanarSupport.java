@@ -18,24 +18,37 @@ import ij.measure.Calibration;
 
 public class PlanarSupport {
 
+	//debug
 	public static void main(String[] args) {
-//		String dir = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
-//		ImagePlus mri = FolderOpener.open(dir);
+		String dir = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
+		ImagePlus mri = ij.plugin.FolderOpener.open(dir);
+		
 
-		double[] sagittalIOP = { 0, 1, 0, 0, 0, 1 }; // Sagittal IOP
-
+//		double[] axIOP = { 1, 0, 0, 0, 1, 0 }; // Axial IOP(Head First)
+//		// double[] sagIOP = { 0, 1, 0, 0, 0, -1 }; // Sagittal IOP(HeadFirst, Head image)
+//		// double[] corIOP = { 1, 0, 0, 0, 0, -1 }; // Coronal IOP(HeadFirst, Head image)
+//		
+//		// ax to cor
+//		double[] corIOP = rotateImageOrientationPatient(axIOP, 90, 0, 0);
+//		System.out.println("Coronal IOP: " + Arrays.toString(corIOP));
+//		
+//		// ax to sag
+//		double[] sagIOP = rotateImageOrientationPatient(axIOP, -90, 0, 90);
+//		System.out.println("Coronal IOP: " + Arrays.toString(sagIOP));
+//		
+//		// sag to axi
+//		double[] axialIOP = rotateImageOrientationPatient(sagIOP, 0, 90, -90);
+//		System.out.println("Axial IOP: " + Arrays.toString(axialIOP));
+//
+//		//can get same results
+//		double[] axialIOP2 = rotateImageOrientationPatient2(sagIOP, 0, 90, -90);
+//		System.out.println("Axial IOP: " + Arrays.toString(axialIOP2));
+		
 //	    // 1. Y軸周りに -90度回転（Sagittal -> Axial）
 //	    double[] intermediateIOP = rotateImageOrientationPatient(sagittalIOP, 0, 90, 0);
-//
+
 //	    // 2. Z軸周りに 90度回転（正しい向きにする）
-//	    double[] axialIOP = rotateImageOrientationPatient(intermediateIOP, 0, 0, 90);
-
-		double[] axialIOP = rotateImageOrientationPatient2(sagittalIOP, 0, 90, 90);
-
-		// 1 Axial IOP: [-1.0, 6.123233995736766E-17, 0.0, 6.123233995736766E-17, 1.0,
-		// 6.123233995736766E-17]
-		// 結果を出力
-		System.out.println("Axial IOP: " + Arrays.toString(axialIOP));
+//	    double[] axialIOP3 = rotateImageOrientationPatient(intermediateIOP, 0, 0, -90);
 
 	}
 
@@ -228,15 +241,21 @@ public class PlanarSupport {
 	 * 
 	 * @param from
 	 * @param to
-	 * @return
+	 * @return : new iop
 	 */
-	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/* done setPosition */,
+	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/* already done setPosition */,
 			com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface to) {
 		com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface planar = com.vis.core.view.D2.ui.orientation.ImageOrientation
 				.getCutSurface(from);
 		if (planar.name().equals(to.name())) {
 			return GDicomTools.getDoubles(from, PlanarSupport.iop);
 		}
+		
+		//TODO 体位によって変わる。
+		/*
+		 * 現状は、Headファーストのみに対応している。
+		 */
+		
 		switch (planar) {
 		case SAGITTAL:
 			// YZ 0\1\0\0\0\-1 :e.g, head iop.
@@ -264,6 +283,40 @@ public class PlanarSupport {
 				return rotateImageOrientationPatient(from, -90, 90, 0);
 			}
 		}
+	}
+	
+	/**
+	 * 
+	 * HFP:Head First-Prone
+	 * HFS:Head First-Supine
+	 * HFDR:Head First-Decubitus Right
+	 * HFDL:Head First-Decubitus Left
+	 * FFDR:Feet First-Decubitus Right
+	 * FFDL:Feet First-Decubitus Left
+	 * FFP:Feet First-Prone
+	 * FFS:Feet First-Supine
+	 * LFP:Left First-Prone
+	 * LFS:Left First-Supine
+	 * RFP:Right First-Prone
+	 * RFS:Right First-Supine
+	 * AFDR:Anterior First-Decubitus Right
+	 * AFDL:Anterior First-Decubitus Left
+	 * PFDR:Posterior First-Decubitus Right
+	 * PFDL:Posterior First-Decubitus Left
+	 * 
+	 * @param imp
+	 * @return
+	 */
+	public static boolean isHeadFirst(ImagePlus imp) {
+		String ptpos = GDicomTools.getTag(imp, "0018,5100");
+		if(ptpos == null) {
+			return true;//handle as head first
+		}
+		if(ptpos.startsWith("F")) {
+			return false;
+		}
+		//H** and others
+		return true;
 	}
 
 }

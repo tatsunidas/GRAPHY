@@ -12,7 +12,6 @@ package com.vis.core.view.D2.ui.orientation;
 
 import org.joml.Vector3d;
 
-import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
@@ -29,36 +28,6 @@ import ij.ImagePlus;
  * @author Tatsuaki Kobayashi
  */
 public /*abstract*/ class ImageOrientation {
-	
-	public static void main(String[] args) {
-//		String ct_ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\JIRA_DICOM\\CT_LEE_IR87a.dcm";
-//		String ax = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\AXI\\708912FE";
-//		String cor = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\COR\\5E79345D";
-//		String sag = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\Localizer\\SAG\\2CC10C72";
-//		DicomObject dcm_a = new DicomObject(ax, false);
-//		DicomObject dcm_c = new DicomObject(cor, false);
-//		DicomObject dcm_s = new DicomObject(sag, false);
-//		//get cut surface
-//		CutSurface res_a = ImageOrientation.getCutSurface(dcm_a);
-//		CutSurface res_c = ImageOrientation.getCutSurface(dcm_c);
-//		CutSurface res_s = ImageOrientation.getCutSurface(dcm_s);
-//		System.out.println(res_a.name());
-//		System.out.println(res_c.name());
-//		System.out.println(res_s.name());
-//		//get orientation
-//		boolean biped_a = SubjectOrientation.isBiped(dcm_a);
-//		boolean biped_c = SubjectOrientation.isBiped(dcm_c);
-//		boolean biped_s = SubjectOrientation.isBiped(dcm_s);
-////		System.out.println(biped_a);//true
-////		System.out.println(biped_c);//true
-////		System.out.println(biped_s);//true
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getRowImagePosition(dcm_a), !biped_a));
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getColumnImagePosition(dcm_a), !biped_a));
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getRowImagePosition(dcm_c), !biped_c));
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getColumnImagePosition(dcm_c), !biped_c));
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getRowImagePosition(dcm_s), !biped_s));
-//		System.out.println(ImageOrientation.getOrientation(ImageOrientation.getColumnImagePosition(dcm_s), !biped_s));
-	}
 
 	public enum CutSurface {
 		UNKNOWN, AXIAL, SAGITTAL, CORONAL, OBLIQUE
@@ -226,18 +195,6 @@ public /*abstract*/ class ImageOrientation {
 			return SubjectOrientation.getOppositeOrientation(SubjectOrientation.Quadruped.valueOf(val)).name();
 		}
 		return SubjectOrientation.getOppositeOrientation(SubjectOrientation.Biped.valueOf(val)).name();
-	}
-
-	/*
-	 * TODO
-	 */
-	public static boolean hasSameOrientation(Praparat series1, Praparat series2) {
-//	    if (series1 != null && series2 != null) {
-//	      DicomImageElement image1 = series1.getMedia(MEDIA_POSITION.MIDDLE, null, null);
-//	      DicomImageElement image2 = series2.getMedia(MEDIA_POSITION.MIDDLE, null, null);
-//	      return hasSameOrientation(image1, image2);
-//	    }
-		return false;
 	}
 
 	public static boolean hasSameOrientation(DicomObject image1, DicomObject image2) {

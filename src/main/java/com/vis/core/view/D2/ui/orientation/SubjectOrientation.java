@@ -56,9 +56,6 @@ import java.awt.Color;
  */
 public class SubjectOrientation {
 	
-	//how to information to use this class
-	public static void main(String[] args) {
-	}
 	
 	public static final Color blue = new Color(44783);
 	public static final Color red = new Color(15539236);

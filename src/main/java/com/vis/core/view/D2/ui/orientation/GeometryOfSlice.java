@@ -109,10 +109,10 @@ public class GeometryOfSlice {
 		this.tlhc = SubjectOrientation.getSubjectPosition(dcm);
 		double[] pixelSpacing = dcm.getDoubles(Tag.Pixel​Spacing);
 		this.sliceThickness = GDicomTools.getVoxelDepth(dcm);
-		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],sliceThickness});
+		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[1],pixelSpacing[0],sliceThickness});
 		Integer numRow = Integer.parseInt(dcm.getString(Tag.Rows));
 		Integer numColumn = Integer.parseInt(dcm.getString(Tag.Columns));
-		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
+		this.dimensions = new Vector3d(new double[] {numColumn,numRow,1});
 	}
 	
 	public void setUp(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/) {
@@ -125,7 +125,7 @@ public class GeometryOfSlice {
 		this.voxelSpacing = new Vector3d(voxelSize);
 		Integer numRow = row;
 		Integer numColumn = col;
-		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
+		this.dimensions = new Vector3d(new double[] {numColumn,numRow,1});
 	}
 	
 	/**
