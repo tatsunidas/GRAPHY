@@ -18,6 +18,8 @@ import org.apache.commons.math3.util.MathUtils;
 import org.joml.Matrix3d;
 import org.joml.Vector3d;
 
+import com.vis.core.log.Log;
+
 /**
  * An abstract class that provides the basis for posting the position of specified slices and
  * volumes on (usually orthogonal) localizer images.
@@ -42,11 +44,11 @@ import org.joml.Vector3d;
  */
 public abstract class LocalizerPoster {
 
-  protected Vector3d localizerRow;
+  protected Vector3d localizerRow;//X direction cosine
 
-  protected Vector3d localizerColumn;
+  protected Vector3d localizerColumn;//Y direction cosine
 
-  protected Vector3d localizerNormal;
+  protected Vector3d localizerNormal;//Z direction cosine
 
   protected Vector3d localizerTLHC;
 
@@ -96,6 +98,21 @@ public abstract class LocalizerPoster {
       throw new IllegalArgumentException("Row and column vectors are not orthogonal");
     }
   }
+  
+	public static void validateDirectionCosines(double[] iop) {
+		Vector3d row = new Vector3d(iop[0], iop[1], iop[2]);
+		Vector3d column = new Vector3d(iop[3], iop[4], iop[5]);
+		if (Math.abs(row.lengthSquared() - 1) > 0.001) {
+			throw new IllegalArgumentException("Row not a unit vector");
+		}
+		if (Math.abs(column.lengthSquared() - 1) > 0.001) {
+			throw new IllegalArgumentException("Column not a unit vector");
+		}
+		if (row.dot(column) > 0.005) { // dot product should be cos(90)=0 if orthogonal
+			Log.logger.fine(row.dot(column)+"");
+			throw new IllegalArgumentException("Row and column vectors are not orthogonal");
+		}
+	}
 
   /**
    * Get the corners of a slice in the 3D coordinate space of that slice.

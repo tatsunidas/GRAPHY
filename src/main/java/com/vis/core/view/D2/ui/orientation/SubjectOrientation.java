@@ -255,24 +255,17 @@ public class SubjectOrientation {
       }
 
       /**
-       * get direction cosines from Tag.ImagePositionPatient
+       * get image position
        * @param dcm : dicom object
        * @return 3d-vector idirection cosines of ImagePositionPatient
        */
-      public static Vector3d getSubjectPosition(DicomObject dcm) {
+      public static Vector3d getImagePositionPatient(DicomObject dcm) {
         double[] patientPosition = dcm.getDoubles(Tag.Image​Position​Patient);
         if (patientPosition != null && patientPosition.length == 3) {
           return new Vector3d(patientPosition);
         }
         return null;
       }
-      
-	  public static Vector3d getSubjectPosition(double[] patientPosition) {
-			if (patientPosition != null && patientPosition.length == 3) {
-				return new Vector3d(patientPosition);
-			}
-			return null;
-		}
       
       public static boolean isBiped(DicomObject dcm) {
     	  //Anatomical Orientation Type (0010,2210) is absent or has a value of BIPED

@@ -65,6 +65,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
@@ -128,7 +129,7 @@ public class MPRViewerWindow extends JFrame {
 	boolean starting = true;
 	boolean standalone = false;
 	public boolean crossViewMode = true;
-	public boolean showCrossLine = true;
+	public boolean showCrossLine = false;
 
 	int reconResolution = 5; // keep odd value.
 	private final String reconNotReady = "NOT-READY";
@@ -136,9 +137,25 @@ public class MPRViewerWindow extends JFrame {
 	private Logger logger = Log.logger;
 
 	public static void main(String[] args) {
-		ImagePlus imp = FolderOpener.open(
-				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		new MPRViewerWindow(imp, null);
+		//axi src
+//		ImagePlus ax = FolderOpener.open(
+//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		new MPRViewerWindow(ax, null);
+		
+		//cor src
+//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+//		ImagePlus xz = FolderOpener.open(corDir);
+//		new MPRViewerWindow(xz, null);
+		
+		//sag src
+//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//		ImagePlus yz = FolderOpener.open(sagDir);
+//		new MPRViewerWindow(yz, null);
+		
+		//other
+		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
+		ImagePlus o = FolderOpener.open(otherDir);
+		new MPRViewerWindow(o, null);
 	}
 
 	public MPRViewerWindow(Praparat prap) {
@@ -218,9 +235,8 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	private void init() {
-		srcCutSurface = PlanarSupport.planarOf(imp);
-		initImages();
-		initOrthogonals();// create orthogonal images
+		srcCutSurface = ImageOrientation.getCutSurface(imp);
+		initImages();// create orthogonal images
 		buildGUI();
 		initCrosses(showCrossLine);
 		revalidate();
@@ -252,7 +268,7 @@ public class MPRViewerWindow extends JFrame {
 		MPRMenuBar bar = new MPRMenuBar(this);
 		setJMenuBar(bar);
 		// control panel
-		contP = new MPRControlPanel(this, imp.getCalibration().pixelDepth);
+		contP = new MPRControlPanel(this, GDicomTools.getVoxelDepth(imp));
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
 
@@ -313,13 +329,13 @@ public class MPRViewerWindow extends JFrame {
 	private void addUIDs(ImagePlus imp, int pos /* 1 to N */, String seriesUID) {
 		imp.setPosition(pos);
 		// SOPClassUID
-		GDicomTools.setTag(imp, 1, "0008,0016", sopClassUID);
-		GDicomTools.setTag(imp, 1, "0010,0020", patID);
-		GDicomTools.setTag(imp, 1, "0020,000D", studyUID);
-		GDicomTools.setTag(imp, 1, "0020,000E", seriesUID);
-		GDicomTools.setTag(imp, 1, "0020,0052", refUID);
+		GDicomTools.setTag(imp, pos, "0008,0016", sopClassUID);
+		GDicomTools.setTag(imp, pos, "0010,0020", patID);
+		GDicomTools.setTag(imp, pos, "0020,000D", studyUID);
+		GDicomTools.setTag(imp, pos, "0020,000E", seriesUID);
+		GDicomTools.setTag(imp, pos, "0020,0052", refUID);
 		// SOPInstUID
-		GDicomTools.setTag(imp, 1, "0008,0018", UIDUtils.createUID());
+		GDicomTools.setTag(imp, pos, "0008,0018", UIDUtils.createUID());
 	}
 
 	/**
@@ -380,16 +396,25 @@ public class MPRViewerWindow extends JFrame {
 	private void initImages() {
 		if (srcCutSurface == CutSurface.AXIAL) {
 			xy_image = new Duplicator().run(imp);
-			xz_image = new ImagePlus();
-			yz_image = new ImagePlus();
+			Calibration cal = imp.getCalibration();
+			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			xy_image.setCalibration(cal);
+			xz_image = constructXZ(xy_image);
+			yz_image = constructYZ(xy_image);
 		} else if (srcCutSurface == CutSurface.CORONAL) {
 			xz_image = new Duplicator().run(imp);
-			xy_image = new ImagePlus();
-			yz_image = new ImagePlus();
-		} else {
+			Calibration cal = imp.getCalibration();
+			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			xz_image.setCalibration(cal);
+			xy_image = constructXY(xz_image);
+			yz_image = constructYZ(xy_image);
+		} else if (srcCutSurface == CutSurface.SAGITTAL){
 			yz_image = new Duplicator().run(imp);
-			xy_image = new ImagePlus();
-			xz_image = new ImagePlus();
+			Calibration cal = imp.getCalibration();
+			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			yz_image.setCalibration(cal);
+			xy_image = constructXY(yz_image);
+			xz_image = constructXZ(xy_image);
 		}
 		initRecon();
 	}
@@ -418,58 +443,23 @@ public class MPRViewerWindow extends JFrame {
 	synchronized void update() {
 		notify();
 	}
-
-	void initOrthogonals() {
-		if (srcCutSurface == CutSurface.AXIAL) {
-			xz_image = constructXZ(xy_image);
-			yz_image = constructYZ(xy_image);
-		} else if (srcCutSurface == CutSurface.CORONAL) {
-			xy_image = constructXY(xz_image);
-			yz_image = constructYZ(xz_image);
-		} else {
-			xy_image = constructXY(yz_image);
-			xz_image = constructXZ(yz_image);
-		}
-	}
-
+	
 	ImagePlus constructXY(ImagePlus src) {
-		if (srcCutSurface == CutSurface.AXIAL) {
-			xy_image = src;
-			return xy_image;
-		}
-		OrthogonalSlice orthTool = new OrthogonalSlice();
-		ImageStack stack = new ImageStack();
+		ImagePlus xy = null;
 		Calibration cal = null;
 		if (srcCutSurface == CutSurface.CORONAL) {
-			int size = src.getHeight();
-			boolean flipXZ = false;
-			boolean rotateXZ = false;
-			String seriesUID = UIDUtils.createUID();
-			for (int z = 0; z < size; z++) {
-				ImagePlus xy_ = orthTool.cutHorizontally(src, z, 1);
-				if (cal == null) {
-					cal = xy_.getCalibration();
-				}
-				addUIDs(xy_, 1, seriesUID);
-				stack.addSlice(xy_.getProcessor());
-				stack.setSliceLabel(xy_.getInfoProperty(), z + 1);
-			}
-		} else {// SAG
-			int size = src.getWidth();
-			boolean flipXZ = false;
-			boolean rotateXZ = true;
-			String seriesUID = UIDUtils.createUID();
-			for (int z = 0; z < size; z++) {
-				ImagePlus xy_ = orthTool.cutHorizontally(src, z, 1);
-				if (cal == null) {
-					cal = xy_.getCalibration();
-				}
-				addUIDs(xy_, 1, seriesUID);
-				stack.addSlice(xy_.getProcessor());
-				stack.setSliceLabel(xy_.getInfoProperty(), z + 1);
-			}
+			xy =new OrthogonalSlice().coronalToAxial(src);
+		} else if (srcCutSurface == CutSurface.SAGITTAL){// SAG
+			xy =new OrthogonalSlice().sagittalToAxial(src);
+		}else {
+			throw new IllegalArgumentException("Cannnot create Axial images.");
 		}
-		orthTool = null;
+		cal = xy.getCalibration();
+		String seriesUID = UIDUtils.createUID();
+		int size = xy.getNSlices();
+		for (int z = 1; z <= size; z++) {
+			addUIDs(xy, z, seriesUID);
+		}
 		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
 		calHolder.pixelWidth = cal.pixelWidth;
 		calHolder.pixelHeight = cal.pixelHeight;
@@ -477,55 +467,39 @@ public class MPRViewerWindow extends JFrame {
 		calHolder.setXUnit(cal.getXUnit());
 		calHolder.setYUnit(cal.getYUnit());
 		calHolder.setZUnit(cal.getZUnit());
-		ImagePlus xy_imp = new ImagePlus("XY", stack);
-		xy_imp.setCalibration(calHolder);
-		return xy_imp;
+		xy.setCalibration(calHolder);
+		if (src.getProcessor().isSigned16Bit()) {
+			xy.getCalibration().setSigned16BitCalibration();
+		}
+		return xy;
 	}
 
 	ImagePlus constructXZ(ImagePlus src) {
-		if (srcCutSurface == CutSurface.CORONAL) {
-			xz_image = src;
-			return xz_image;
+		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
+			throw new IllegalArgumentException("Cannot create XZ...");
 		}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
 		ImageStack stack = new ImageStack();
 		Calibration cal = null;
-		if (srcCutSurface == CutSurface.AXIAL) {
-			boolean flipXZ = true;
-			boolean rotateXZ = false;
-			String seriesUID = UIDUtils.createUID();
-			int size = src.getHeight();
-			for (int y = 0; y < size; y++) {
-				ImagePlus xz_ = orthTool.cutHorizontally(src, y, 1);
+		String seriesUID = UIDUtils.createUID();
+		int size = src.getHeight();
+		for (int y = 0; y < size; y++) {
+			ImagePlus xz_ = orthTool.cutHorizontally(src, y);
+			if(cal == null) {
 				cal = xz_.getCalibration();
-				addUIDs(xz_, 1, seriesUID);
-				stack.addSlice(xz_.getProcessor());
-				stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 			}
-		} else { // SAGITTAL
-			boolean flipYZ = false;
-			boolean rotateYZ = true;
-			String seriesUID = UIDUtils.createUID();
-			int size = src.getWidth();
-			for (int w = 0; w < size; w++) {
-				ImagePlus xz_ = orthTool.cutVirtically(src, w, 1);
-				cal = xz_.getCalibration();
-				addUIDs(xz_, 1, seriesUID);
-				stack.addSlice(xz_.getProcessor());
-				stack.setSliceLabel(xz_.getInfoProperty(), w + 1);
-			}
+			addUIDs(xz_, 1, seriesUID);
+			stack.addSlice(xz_.getProcessor());
+			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 		}
-
 		orthTool = null;
 		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
-//		calHolder.setCTable(calHolder.getCTable(), null);
 		calHolder.pixelWidth = cal.pixelWidth;
 		calHolder.pixelHeight = cal.pixelHeight;
 		calHolder.pixelDepth = cal.pixelDepth;
 		calHolder.setXUnit(cal.getXUnit());
 		calHolder.setYUnit(cal.getYUnit());
 		calHolder.setZUnit(cal.getZUnit());
-
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
 		xz_imp.setCalibration(calHolder);
 		if (src.getProcessor().isSigned16Bit()) {
@@ -535,41 +509,22 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	ImagePlus constructYZ(ImagePlus src) {
-		if (srcCutSurface == CutSurface.SAGITTAL) {
-			yz_image = src;
-			return yz_image;
+		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
+			throw new IllegalArgumentException("Cannot create YZ...");
 		}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
 		ImageStack stack = new ImageStack();
 		Calibration cal = null;
-		if (srcCutSurface == CutSurface.AXIAL) {
-			boolean flipYZ = false;
-			boolean rotateYZ = false;
-			String seriesUID = UIDUtils.createUID();
-			int size = src.getHeight();
-			for (int w = 0; w < size; w++) {
-				ImagePlus yz_ = orthTool.cutVirtically(src, w, 1);
-				if (cal == null) {
-					cal = yz_.getCalibration();
-				}
-				addUIDs(yz_, 1, seriesUID);
-				stack.addSlice(yz_.getProcessor());
-				stack.setSliceLabel(yz_.getInfoProperty(), w + 1);
+		String seriesUID = UIDUtils.createUID();
+		int width = src.getWidth();
+		for (int w = 0; w < width; w++) {
+			ImagePlus yz_ = orthTool.cutVirtically(src, w);
+			if (cal == null) {
+				cal = yz_.getCalibration();
 			}
-		} else {// XZ
-			boolean flipYZ = true;
-			boolean rotateYZ = true;
-			String seriesUID = UIDUtils.createUID();
-			int size = src.getWidth();
-			for (int w = 0; w < size; w++) {
-				ImagePlus yz_ = orthTool.cutVirtically(src, w, 1);
-				if (cal == null) {
-					cal = yz_.getCalibration();
-				}
-				addUIDs(yz_, 1, seriesUID);
-				stack.addSlice(yz_.getProcessor());
-				stack.setSliceLabel(yz_.getInfoProperty(), w + 1);
-			}
+			addUIDs(yz_, 1, seriesUID);
+			stack.addSlice(yz_.getProcessor());
+			stack.setSliceLabel(yz_.getInfoProperty(), w + 1);
 		}
 		orthTool = null;
 		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
@@ -581,6 +536,9 @@ public class MPRViewerWindow extends JFrame {
 		calHolder.setZUnit(cal.getZUnit());
 		ImagePlus yz_imp = new ImagePlus("YZ", stack);
 		yz_imp.setCalibration(calHolder);
+		if (src.getProcessor().isSigned16Bit()) {
+			yz_imp.getCalibration().setSigned16BitCalibration();
+		}
 		return yz_imp;
 	}
 
@@ -588,7 +546,6 @@ public class MPRViewerWindow extends JFrame {
 	 * 
 	 * @param p : offscreen x and y.
 	 */
-	@SuppressWarnings("unused")
 	private void updateCrossSectionUsingXY(Point xyP) {
 		if (xy_prap == null) {
 			return;
@@ -600,25 +557,19 @@ public class MPRViewerWindow extends JFrame {
 		 * Since it is not an ISO voxel, the position of the cross-section is
 		 * recalculated from each voxel size.
 		 */
-		// update xz
-		Calibration cal_xy = xy_image.getCalibration();
-		double xy_px = cal_xy.pixelWidth;
-		double xy_py = cal_xy.pixelHeight;
-		double xy_pz = cal_xy.pixelDepth;
-		int xzX = xyX;
-		int xzY = (int) (xyZ * (xy_pz / xy_px));// xz_size - xzZ;
-		int xzZ = (int) (xyY * (xy_py / xy_px));
+		// update xz		
+		double az = xz_image.getNSlices()/(double)xy_image.getHeight();
+		int xzZ = (int) (xyY * az);
 		if (xzZ < 0) {
 			xzZ = 0;
 		} else if (xzZ > xz_image.getNSlices() - 1) {
-			xyZ = xz_image.getNSlices() - 1;
+			xzZ = xz_image.getNSlices() - 1;
 		}
 		xz_prap.setImagePositionUsingSlider(xzZ);
 
 		// update yz
-		int yzX = (int) (xyY * (xy_py / xy_px));
-		int yzY = (int) (xyZ * (xy_pz / xy_px));
-		int yzZ = xyX;
+		az = yz_image.getNSlices()/(double)xy_image.getWidth();
+		int yzZ = (int) (xyX * az);
 		if (yzZ < 0) {
 			yzZ = 0;
 		} else if (yzZ > yz_image.getNSlices() - 1) {
@@ -636,16 +587,25 @@ public class MPRViewerWindow extends JFrame {
 		int xzX = xzP.x;
 		int xzY = xzP.y;
 		int xzZ = xz_prap.getCurrentSlidePos();
-		int xz_size = xz_image.getHeight();// xz_prap.getNumberOfImages();
+		boolean slicingToUpper = false;
+		
+		int prev_pos = xy_image.getCurrentSlice();
+		double[] ipp1 = GDicomTools.getImagePositionPatient(xy_image, 1);
+		double[] ipp2 = GDicomTools.getImagePositionPatient(xy_image, 2);
+		if(ipp1 != null && ipp2 != null) {
+			//back to prev pos
+			xy_image.setSlice(prev_pos);
+			slicingToUpper = ipp1[2] < ipp2[2];
+		}
 
 		// update xy
-		Calibration cal_xy = xy_image.getCalibration();
-		double xy_px = cal_xy.pixelWidth;
-		double xy_py = cal_xy.pixelHeight;
-		double xy_pz = cal_xy.pixelDepth;
-		int xyX = xzX;
-		int xyY = (int) (xzZ / (xy_py / xy_px));// xz_size - xzZ;
-		int xyZ = (int) ((xz_size - xzY) / (xy_pz / xy_px));
+		double az = xy_image.getNSlices()/(double)xz_image.getHeight();
+		int xyZ = 0;
+		if(slicingToUpper) {
+			xyZ = (int) ((xz_image.getHeight() - xzY) *az);
+		}else {
+			xyZ = (int) (xzY *az);
+		}
 		if (xyZ < 0) {
 			xyZ = 0;
 		} else if (xyZ > xy_image.getNSlices() - 1) {
@@ -654,9 +614,8 @@ public class MPRViewerWindow extends JFrame {
 		xy_prap.setImagePositionUsingSlider(xyZ);
 
 		// update yz
-		int yzX = (int) (xyY * (xy_py / xy_px));
-		int yzY = (int) (xyZ * (xy_pz / xy_px));
-		int yzZ = xyX;
+		az = yz_image.getNSlices()/(double)xz_image.getWidth();
+		int yzZ = (int) (xzX * az);
 		if (yzZ < 0) {
 			yzZ = 0;
 		} else if (yzZ > yz_image.getNSlices() - 1) {
@@ -670,21 +629,29 @@ public class MPRViewerWindow extends JFrame {
 	 * 
 	 * @param p : point on YZ slideglass
 	 */
-	@SuppressWarnings("unused")
 	private void updateCrossSectionUsingYZ(Point yzP) {
 		int yzX = yzP.x;
 		int yzY = yzP.y;
-		int yzZ = yz_prap.getCurrentSlidePos();
 		int yz_size = yz_image.getHeight();
-
-		// update xy
-		Calibration cal_xy = xy_image.getCalibration();
-		double xy_px = cal_xy.pixelWidth;
-		double xy_py = cal_xy.pixelHeight;
-		double xy_pz = cal_xy.pixelDepth;
-		int xyX = (int) (yzZ / (xy_py / xy_px));
-		int xyY = yzX;
-		int xyZ = (int) ((yz_size - yzY) / (xy_pz / xy_px));
+		
+		boolean slicingToUpper = false;
+		
+		int prev_pos = xy_image.getCurrentSlice();
+		double[] ipp1 = GDicomTools.getImagePositionPatient(xy_image, 1);
+		double[] ipp2 = GDicomTools.getImagePositionPatient(xy_image, 2);
+		if(ipp1 != null && ipp2 != null) {
+			//back to prev pos
+			xy_image.setSlice(prev_pos);
+			slicingToUpper = ipp1[2] < ipp2[2];
+		}
+		
+		double az = xy_image.getNSlices()/(double)yz_image.getHeight();
+		int xyZ = 0;
+		if(slicingToUpper) {
+			xyZ = (int) ((yz_size - yzY) * az);
+		}else {
+			xyZ = (int) (yzY * az);
+		}
 		if (xyZ < 0) {
 			xyZ = 0;
 		} else if (xyZ > xy_image.getNSlices() - 1) {
@@ -693,9 +660,8 @@ public class MPRViewerWindow extends JFrame {
 		xy_prap.setImagePositionUsingSlider(xyZ);
 
 		// update xz
-		int xzX = xyX;
-		int xzY = (int) (xyZ * (xy_pz / xy_px));
-		int xzZ = (int) (xyY * (xy_py / xy_px));
+		az = xz_image.getNSlices()/(double)yz_image.getWidth();
+		int xzZ = (int) (yzX * az);
 		if (xzZ < 0) {
 			xzZ = 0;
 		} else if (xzZ > xz_image.getNSlices() - 1) {
@@ -798,7 +764,7 @@ public class MPRViewerWindow extends JFrame {
 
 				if (srcCutSurface == CutSurface.AXIAL) {// creating CORONAL or sagittal
 					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, mainPlane.getNSlices());
-					double[] iop = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.AXIAL);
+					double[] iop = null;//TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.AXIAL);
 					int angle = (int) refLines.getAngleXY();
 					Vector3d row = new Vector3d(iop[0], iop[1], iop[2]);// direction cosine
 					Vector3d col = new Vector3d(iop[3], iop[4], iop[5]);// direction cosine
@@ -839,7 +805,7 @@ public class MPRViewerWindow extends JFrame {
 					count++;
 				} else if (srcCutSurface == CutSurface.CORONAL) {// creating sagittal or axial
 					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, 1);
-					double[] iop_sag = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.CORONAL);
+					double[] iop_sag = null;//TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.CORONAL);
 					int angle = (int) refLines.getAngleXZ();
 					Vector3d row = new Vector3d(iop_sag[0], iop_sag[1], iop_sag[2]);
 					Vector3d col = new Vector3d(iop_sag[3], iop_sag[4], iop_sag[5]);
@@ -875,7 +841,7 @@ public class MPRViewerWindow extends JFrame {
 					count++;
 				} else {// creating coronal or axial
 					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, 1);
-					double[] iop_sag = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.SAGITTAL);
+					double[] iop_sag = null; // TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.SAGITTAL);
 					int angle = (int) refLines.getAngleYZ();
 					Vector3d row = new Vector3d(iop_sag[0], iop_sag[1], iop_sag[2]);
 					Vector3d col = new Vector3d(iop_sag[3], iop_sag[4], iop_sag[5]);

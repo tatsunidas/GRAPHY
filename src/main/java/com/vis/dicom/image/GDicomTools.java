@@ -171,13 +171,26 @@ public class GDicomTools extends ij.util.DicomTools{
 	public static double getVoxelDepth(DicomObject header) {
 		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, Double.NaN);
 		double sliceThickness = header.getDouble(Tag.Slice​Thickness, Double.NaN);
-		if (spacingBetweenSlices != Double.NaN) {
+		if (!Double.isNaN(spacingBetweenSlices)) {
 			return spacingBetweenSlices;//prior
 		}
-		if (sliceThickness != Double.NaN){
+		if (!Double.isNaN(sliceThickness)){
 			return sliceThickness;
 		}
 		return 1d;
+	}
+	
+	public static double getVoxelDepth(ImagePlus imp) {
+		double z = imp.getCalibration().pixelDepth;
+		double spacingBetweenSlices = getDouble(imp, 1, "0018,0088");
+		double sliceThickness = getDouble(imp, 1, "0018,0050");
+		if (!Double.isNaN(spacingBetweenSlices)) {
+			return spacingBetweenSlices;//prior
+		}
+		if (!Double.isNaN(sliceThickness)){
+			return sliceThickness;
+		}
+		return z;
 	}
 	
 	/**

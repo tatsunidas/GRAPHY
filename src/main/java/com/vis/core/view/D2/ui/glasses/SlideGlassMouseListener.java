@@ -240,9 +240,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 							int ox = slide.offScreenX(x);
 							int oy = slide.offScreenY(y);
 							mprwin.updateCrossSectionViews(pp, ox, oy);
-							if (pp.isShowCrossLineMode()) {
-								cg.createCross(e);
-							}
+//							if (pp.isShowCrossLineMode()) {
+//								cg.createCross(e);
+//							}
 							return;
 						} else if (eye.crossViewMode && !pp.isShowCrossLineMode()) {
 							int ox = slide.offScreenX(x);
@@ -250,7 +250,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 							mprwin.updateCrossSectionViews(pp, ox, oy);
 							return;
 						} else if (!eye.crossViewMode && pp.isShowCrossLineMode()) {
-							cg.createCross(e);
+//							cg.createCross(e);
 							return;
 						}
 					}else if(mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {

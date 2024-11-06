@@ -35,7 +35,7 @@ public /*abstract*/ class ImageOrientation {
 
 	private static final double OBLIQUITY_THRESHOLD = 0.8;
 
-	public static org.joml.Vector3d getRowImagePosition(DicomObject dcm) {
+	public static org.joml.Vector3d getRowDirection(DicomObject dcm) {
 		double[] imagePosition = dcm.getDoubles(Tag.Image​Orientation​Patient);
 		if (imagePosition != null && imagePosition.length == 6) {
 			return new Vector3d(imagePosition[0], imagePosition[1], imagePosition[2]);
@@ -43,7 +43,7 @@ public /*abstract*/ class ImageOrientation {
 		return null;
 	}
 
-	public static org.joml.Vector3d getColumnImagePosition(DicomObject dcm) {
+	public static org.joml.Vector3d getColumnDirection(DicomObject dcm) {
 		double[] imagePosition =dcm.getDoubles(Tag.Image​Orientation​Patient);
 		if (imagePosition != null && imagePosition.length == 6) {
 			return new Vector3d(imagePosition[3], imagePosition[4], imagePosition[5]);
@@ -123,8 +123,8 @@ public /*abstract*/ class ImageOrientation {
 	}
 
 	public static CutSurface getCutSurface(DicomObject obj) {
-		Vector3d vr = ImageOrientation.getRowImagePosition(obj);
-		Vector3d vc = ImageOrientation.getColumnImagePosition(obj);
+		Vector3d vr = ImageOrientation.getRowDirection(obj);
+		Vector3d vc = ImageOrientation.getColumnDirection(obj);
 		if (vr != null && vc != null) {
 			return ImageOrientation.getCutsurface(vr, vc);
 		}
@@ -200,10 +200,10 @@ public /*abstract*/ class ImageOrientation {
 	public static boolean hasSameOrientation(DicomObject image1, DicomObject image2) {
 		// Test if the two images have the same orientation
 		if (image1 != null && image2 != null) {
-			Vector3d vr1 = ImageOrientation.getRowImagePosition(image1);
-			Vector3d vc1 = ImageOrientation.getColumnImagePosition(image1);
-			Vector3d vr2 = ImageOrientation.getRowImagePosition(image2);
-			Vector3d vc2 = ImageOrientation.getColumnImagePosition(image2);
+			Vector3d vr1 = ImageOrientation.getRowDirection(image1);
+			Vector3d vc1 = ImageOrientation.getColumnDirection(image1);
+			Vector3d vr2 = ImageOrientation.getRowDirection(image2);
+			Vector3d vc2 = ImageOrientation.getColumnDirection(image2);
 			if (vr1 != null && vc1 != null && vr2 != null && vc2 != null) {
 				return hasSameOrientation(vr1, vc1, vr2, vc2);
 			}

@@ -105,8 +105,13 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		
 		showCrossLineChk = new JCheckBox(showCrossLineMode);
 		showCrossLineChk.setName(showCrossLineMode);
-		showCrossLineChk.setSelected(mprWin.showCrossLine);
+		showCrossLineChk.setSelected(mprWin.showCrossLine);//false
 		showCrossLineChk.addItemListener(this);
+		/*
+		 * 20241106
+		 * Not use show cross line as default.
+		 */
+		showCrossLineChk.setEnabled(false);
 		p.add(showCrossLineChk);
 		return p;
 	}

@@ -1,60 +1,77 @@
 package com.vis.core.view.mpr;
 
-import java.util.Arrays;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.joml.Vector3d;
 
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
-import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.plugin.FolderOpener;
 
 public class PlanarSupport {
 
 	//debug
+	@SuppressWarnings("unused")
 	public static void main(String[] args) {
-		String dir = "D:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-resource\\src\\test\\resources\\dicom_samples\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
-		ImagePlus mri = ij.plugin.FolderOpener.open(dir);
+		/*
+		 * Orthogonalな画像の再構成のためのIOP計算には、回転は使えない。
+		 * 回転すると、全方向余弦が回転する。
+		 * AX、COR、SAGのIOP変換で回転が使えるのは完全に回転がない面の状態のときのみ。
+		 * 多少でもどこかの成分に回転が含まれる場合、RowColから直行ベクトルを使う。
+		 * 直交した方向余弦を得たいときは、calculateNormal(row, col)で得る。
+		 */
+		//axi src
+//		ImagePlus src = FolderOpener.open(
+//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+
+		//cor src
+//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+//		ImagePlus src = FolderOpener.open(corDir);
 		
-
-//		double[] axIOP = { 1, 0, 0, 0, 1, 0 }; // Axial IOP(Head First)
-//		// double[] sagIOP = { 0, 1, 0, 0, 0, -1 }; // Sagittal IOP(HeadFirst, Head image)
-//		// double[] corIOP = { 1, 0, 0, 0, 0, -1 }; // Coronal IOP(HeadFirst, Head image)
-//		
-//		// ax to cor
-//		double[] corIOP = rotateImageOrientationPatient(axIOP, 90, 0, 0);
-//		System.out.println("Coronal IOP: " + Arrays.toString(corIOP));
-//		
-//		// ax to sag
-//		double[] sagIOP = rotateImageOrientationPatient(axIOP, -90, 0, 90);
-//		System.out.println("Coronal IOP: " + Arrays.toString(sagIOP));
-//		
-//		// sag to axi
-//		double[] axialIOP = rotateImageOrientationPatient(sagIOP, 0, 90, -90);
-//		System.out.println("Axial IOP: " + Arrays.toString(axialIOP));
-//
-//		//can get same results
-//		double[] axialIOP2 = rotateImageOrientationPatient2(sagIOP, 0, 90, -90);
-//		System.out.println("Axial IOP: " + Arrays.toString(axialIOP2));
+		//sag src
+		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+		ImagePlus src = FolderOpener.open(sagDir);
 		
-//	    // 1. Y軸周りに -90度回転（Sagittal -> Axial）
-//	    double[] intermediateIOP = rotateImageOrientationPatient(sagittalIOP, 0, 90, 0);
-
-//	    // 2. Z軸周りに 90度回転（正しい向きにする）
-//	    double[] axialIOP3 = rotateImageOrientationPatient(intermediateIOP, 0, 0, -90);
-
+		//Sag to Axi EXAMPLE
+		double[] srcIOP = GDicomTools.getImageOrientationPatient(src, 1);
+		double[] row = new double[] {srcIOP[0],srcIOP[1],srcIOP[2]};//Y vertor
+		double[] col = new double[] {srcIOP[3],srcIOP[4],srcIOP[5]};//Z vector
+		double[] norm = calculateNormal(row, col);//X vector
+		/*
+		 * {-1,0,0} to {1,0,0} of X vector in HFS
+		 */
+		if(norm[0] < 0.0) {
+			norm[0] *= -1;
+			norm[1] *= -1;
+			norm[2] *= -1;
+		}
+		
+		double[] axi_iop = new double[] {norm[0],norm[1],norm[2],row[0],row[1],row[2]};
+		
+		System.out.println(java.util.Arrays.toString(srcIOP));
+		System.out.println(java.util.Arrays.toString(axi_iop));
+		
+		LocalizerPoster.validateDirectionCosines(axi_iop);//clear
 	}
 
 	private static final String ipp = "0020,0032";// image position patient
 	private static final String iop = "0020,0037";// image orientation patient
 
+	/**
+	 * Use ImageOrientation.getCutSurface(dcm) instead this.
+	 * @param dcm
+	 * @return
+	 */
 	public static String planarOf(DicomObject dcm) {
 		double[] image_ori = dcm.getDoubles(Tag.Image​Orientation​Patient);
 		if (image_ori == null) {
@@ -63,6 +80,11 @@ public class PlanarSupport {
 		return ImageOrientation.getCutSurface(dcm).name();
 	}
 	
+	/**
+	 * Use ImageOrientation.getCutSurface(dcm) instead this.
+	 * @param dcm
+	 * @return
+	 */
 	public static CutSurface planarOf(ImagePlus dcm) {
 		double[] image_ori = GDicomTools.getDoubles(dcm, iop);
 		if (image_ori == null) {
@@ -76,8 +98,8 @@ public class PlanarSupport {
 	 * https://nipy.org/nibabel/dicom/dicom_orientation.html
 	 * 
 	 * @param srcImp
-	 * @param col:      col pos on src imp
-	 * @param row:      row pos on src imp
+	 * @param col:      col pos on src imp (0 to W-1)
+	 * @param row:      row pos on src imp (0 to H-1)
 	 * @param slicePos: slice pos on src imp (1 to N)
 	 * @return
 	 */
@@ -88,11 +110,9 @@ public class PlanarSupport {
 		if (ipp == null || iop == null) {
 			return null;
 		}
-
 		Calibration cal = srcImp.getCalibration();
 		double px = cal.pixelWidth;// Column in Dicom Pixel Spacing
 		double py = cal.pixelHeight;// Row in Dicom Pixel Spacing
-
 		/*
 		 * it code is also OK to use single image.
 		 */
@@ -153,23 +173,35 @@ public class PlanarSupport {
 		// Create a rotation matrix and apply rotation to each axis
 		double[] rotatedRow = rotateVector(rowDirectionCos, rotateX, rotateY, rotateZ);
 		double[] rotatedCol = rotateVector(colDirectionCos, rotateX, rotateY, rotateZ);
-
-		return new double[] { rotatedRow[0], rotatedRow[1], rotatedRow[2], rotatedCol[0], rotatedCol[1],
+		
+		double[] newIOP = new double[] { rotatedRow[0], rotatedRow[1], rotatedRow[2], rotatedCol[0], rotatedCol[1],
 				rotatedCol[2] };
+		
+		for(int i=0; i<newIOP.length; i++) {
+			newIOP[i] = truncate(newIOP[i], 6);
+		}
+		
+		return newIOP;
 	}
 
 	public static double[] rotateVector(double[] vec, double rotateX, double rotateY, double rotateZ) {
 		// X axis rotate matrix
-		double[][] rotX = { { 1, 0, 0 }, { 0, Math.cos(Math.toRadians(rotateX)), -Math.sin(Math.toRadians(rotateX)) },
+		double[][] rotX = { 
+				{ 1, 0, 0 }, 
+				{ 0, Math.cos(Math.toRadians(rotateX)), -Math.sin(Math.toRadians(rotateX)) },
 				{ 0, Math.sin(Math.toRadians(rotateX)), Math.cos(Math.toRadians(rotateX)) } };
 
 		// Y axis rotate matrix
-		double[][] rotY = { { Math.cos(Math.toRadians(rotateY)), 0, Math.sin(Math.toRadians(rotateY)) }, { 0, 1, 0 },
+		double[][] rotY = { 
+				{ Math.cos(Math.toRadians(rotateY)), 0, Math.sin(Math.toRadians(rotateY)) }, 
+				{ 0, 1, 0 },
 				{ -Math.sin(Math.toRadians(rotateY)), 0, Math.cos(Math.toRadians(rotateY)) } };
 
 		// Z axis rotate matrix
-		double[][] rotZ = { { Math.cos(Math.toRadians(rotateZ)), -Math.sin(Math.toRadians(rotateZ)), 0 },
-				{ Math.sin(Math.toRadians(rotateZ)), Math.cos(Math.toRadians(rotateZ)), 0 }, { 0, 0, 1 } };
+		double[][] rotZ = { 
+				{ Math.cos(Math.toRadians(rotateZ)), -Math.sin(Math.toRadians(rotateZ)), 0 },
+				{ Math.sin(Math.toRadians(rotateZ)), Math.cos(Math.toRadians(rotateZ)), 0 }, 
+				{ 0, 0, 1 } };
 
 		// apply each rotate
 		vec = multiplyMatrixAndVector(rotX, vec);
@@ -219,6 +251,8 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double y = vec[1] * Math.cos(radians) - vec[2] * Math.sin(radians);
 		double z = vec[1] * Math.sin(radians) + vec[2] * Math.cos(radians);
+		y = truncate(y, 6);
+		z = truncate(z, 6);
 		return new double[] { vec[0], y, z };
 	}
 
@@ -226,6 +260,8 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double x = vec[0] * Math.cos(radians) + vec[2] * Math.sin(radians);
 		double z = -vec[0] * Math.sin(radians) + vec[2] * Math.cos(radians);
+		x = truncate(x, 6);
+		z = truncate(z, 6);
 		return new double[] { x, vec[1], z };
 	}
 
@@ -233,56 +269,9 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double x = vec[0] * Math.cos(radians) - vec[1] * Math.sin(radians);
 		double y = vec[0] * Math.sin(radians) + vec[1] * Math.cos(radians);
+		x = truncate(x, 6);
+		y = truncate(y, 6);
 		return new double[] { x, y, vec[2] };
-	}
-
-	/**
-	 * 
-	 * 
-	 * @param from
-	 * @param to
-	 * @return : new iop
-	 */
-	public double[] rotateOrthogonallyImageOrientationPatient(ImagePlus from/* already done setPosition */,
-			com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface to) {
-		com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface planar = com.vis.core.view.D2.ui.orientation.ImageOrientation
-				.getCutSurface(from);
-		if (planar.name().equals(to.name())) {
-			return GDicomTools.getDoubles(from, PlanarSupport.iop);
-		}
-		
-		//TODO 体位によって変わる。
-		/*
-		 * 現状は、Headファーストのみに対応している。
-		 */
-		
-		switch (planar) {
-		case SAGITTAL:
-			// YZ 0\1\0\0\0\-1 :e.g, head iop.
-			if (to.name().equals(CutSurface.AXIAL.name())) {
-				return rotateImageOrientationPatient(from, 0, -90, 90);
-			} else {// YZ to XZ
-				return rotateImageOrientationPatient(from, 0, 0, -90);
-			}
-		case CORONAL:
-			// XZ 1\0\0\0\0\-1:e.g, head iop.
-			// XZ to XY
-			if (to.name().equals(CutSurface.AXIAL.name())) {
-				return rotateImageOrientationPatient(from, 90, 0, 0);
-			} else {// XZ to YZ
-				return rotateImageOrientationPatient(from, 0, 0, 90);
-			}
-		case AXIAL:
-		case OBLIQUE:// here, treat as axial
-		case UNKNOWN:
-		default:
-			// XY to XZ
-			if (to.name().equals(CutSurface.CORONAL.name())) {
-				return rotateImageOrientationPatient(from, -90, 0, 0);
-			} else {// XY to YZ
-				return rotateImageOrientationPatient(from, -90, 90, 0);
-			}
-		}
 	}
 	
 	/**
@@ -317,6 +306,33 @@ public class PlanarSupport {
 		}
 		//H** and others
 		return true;
+	}
+	
+	public static double truncate(double value, int places) {
+		if (places < 0)
+			throw new IllegalArgumentException();
+		BigDecimal bd = BigDecimal.valueOf(value);
+		bd = bd.setScale(places, RoundingMode.DOWN); // 小数点以下を指定した桁で切り捨て
+		return bd.doubleValue();
+	}
+
+	public static double[] truncate(double[] values, int places) {
+		double[] v = new double[values.length];
+		for (int i = 0; i < values.length; i++) {
+			v[i] = truncate(values[i], places);
+		}
+		return v;
+	}
+	
+	public static double[] calculateNormal(double[] row, double[] col) {
+	    // 外積を計算
+	    double nx = row[1] * col[2] - row[2] * col[1];
+	    double ny = row[2] * col[0] - row[0] * col[2];
+	    double nz = row[0] * col[1] - row[1] * col[0];
+
+	    // ベクトルの長さを計算して正規化
+	    double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+	    return new double[] {nx / length, ny / length, nz / length};
 	}
 
 }

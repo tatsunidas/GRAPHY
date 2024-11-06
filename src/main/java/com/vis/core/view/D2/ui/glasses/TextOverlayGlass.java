@@ -268,8 +268,8 @@ public class TextOverlayGlass extends JPanel{
 	}
 	
 	private void loadDirection(DicomObject dcm) {
-		Vector3d row_vec = ImageOrientation.getRowImagePosition(dcm);
-		Vector3d col_vec = ImageOrientation.getColumnImagePosition(dcm);
+		Vector3d row_vec = ImageOrientation.getRowDirection(dcm);
+		Vector3d col_vec = ImageOrientation.getColumnDirection(dcm);
 		if(row_vec == null || col_vec == null) {
 			return;
 		}

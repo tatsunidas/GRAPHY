@@ -13,6 +13,7 @@ import java.awt.geom.Point2D;
 
 import org.joml.Vector3d;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
@@ -104,15 +105,22 @@ public class GeometryOfSlice {
 		if(dcm == null) {
 			return;
 		}
-		this.row = ImageOrientation.getRowImagePosition(dcm);
-		this.column = ImageOrientation.getColumnImagePosition(dcm);
-		this.tlhc = SubjectOrientation.getSubjectPosition(dcm);
+		double[] iop = dcm.getDoubles(Tag.Image​Orientation​Patient);
+		if(iop == null) {
+			Log.logger.fine("ImageOrientationPatient is null...");
+			return;
+		}
+		this.row = new Vector3d(iop[0],iop[1],iop[2]);
+		this.column = new Vector3d(iop[3],iop[4],iop[5]);
+		//top left-hand corner
+		this.tlhc = SubjectOrientation.getImagePositionPatient(dcm);
 		double[] pixelSpacing = dcm.getDoubles(Tag.Pixel​Spacing);
 		this.sliceThickness = GDicomTools.getVoxelDepth(dcm);
 		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[1],pixelSpacing[0],sliceThickness});
 		Integer numRow = Integer.parseInt(dcm.getString(Tag.Rows));
 		Integer numColumn = Integer.parseInt(dcm.getString(Tag.Columns));
-		this.dimensions = new Vector3d(new double[] {numColumn,numRow,1});
+		// number of rows, then number of columns, then number of slices
+		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});//see, 
 	}
 	
 	public void setUp(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/) {
@@ -120,18 +128,17 @@ public class GeometryOfSlice {
 		this.row = new Vector3d(iop[0],iop[1],iop[2]);
 		//column vector
 		this.column = new Vector3d(iop[3],iop[4],iop[5]);
-		this.tlhc = SubjectOrientation.getSubjectPosition(ipp);
+		this.tlhc = new Vector3d(ipp);
 		this.sliceThickness = voxelSize[2];
 		this.voxelSpacing = new Vector3d(voxelSize);
 		Integer numRow = row;
 		Integer numColumn = col;
-		this.dimensions = new Vector3d(new double[] {numColumn,numRow,1});
+		// number of rows, then number of columns, then number of slices
+		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
 	}
 	
 	/**
-	 * TODO 20231008
-	 * 
-	 * do not forget setPosition.
+	 * do not forget setPosition/setSlice.
 	 * @param dcm
 	 */
 	@Deprecated
@@ -146,11 +153,12 @@ public class GeometryOfSlice {
 		}
 		this.row = new Vector3d(iop[0],iop[1],iop[2]);
 		this.column = new Vector3d(iop[3],iop[4],iop[5]);
-		this.tlhc = SubjectOrientation.getSubjectPosition(GDicomTools.getDoubles(dcm, "0020,0032"));
-		double[] pixelSpacing = new double[] {dcm.getCalibration().pixelWidth, dcm.getCalibration().pixelHeight};
+		this.tlhc = new Vector3d(GDicomTools.getDoubles(dcm, "0020,0032"));
+		double px = dcm.getCalibration().pixelWidth;
+		double py = dcm.getCalibration().pixelHeight;
 		Double spacingBetweenSlices = dcm.getCalibration().pixelDepth;
 		this.sliceThickness = spacingBetweenSlices;
-		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices});
+		this.voxelSpacing = new Vector3d(new double[] {px,py,spacingBetweenSlices});
 		Integer numRow = dcm.getHeight();
 		Integer numColumn = dcm.getWidth();
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});

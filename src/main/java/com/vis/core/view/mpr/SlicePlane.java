@@ -42,6 +42,9 @@ import org.joml.Vector3d;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 
 /**
+ * 
+ * TODO Use with GeometryOfSlice class.
+ * 
  * Line to Plane
  * @author tatsunidas
  *
@@ -53,7 +56,7 @@ public class SlicePlane {
 	double[] ipp;
 	Vector3d xVector;//row direction cosines
 	Vector3d yVector;//col direction cosines
-	Vector3d voxelSize;//x,y,z
+	Vector3d voxelSize;//x,y,z of voxel
 	Vector3d dimension;// [rows, cols, frames], i.e, [rows, cols, 1]
 	double sliceThickness;
 	Vector3d[] cubeVertices;
