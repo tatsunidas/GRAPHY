@@ -170,55 +170,60 @@ public abstract class LocalizerPoster {
    * @return an array of eight points that are the tlhcT, trhcT, brhcT, blhcT, tlhcB, trhcB, brhcB,
    *     blhcB of the volume
    */
-  public static Vector3d[] getCornersOfSourceCubeInSourceSpace(
-      Vector3d row,
-      Vector3d column,
-      Vector3d originalTLHC,
-      Vector3d voxelSpacing,
-      double sliceThickness,
-      Vector3d dimensions) {
+	public static Vector3d[] getCornersOfSourceCubeInSourceSpace(Vector3d row, Vector3d column, Vector3d originalTLHC,
+			Vector3d voxelSpacing/*py,px,pz*/, double sliceThickness, Vector3d dimensions) {
 
-    validateDirectionCosines(row, column);
-    // the normal to the plane is the cross product of the row and column
-    Vector3d normal = new Vector3d(row).cross(column);
+		validateDirectionCosines(row, column);
+		// the normal to the plane is the cross product of the row and column
+		Vector3d normal = new Vector3d(row).cross(column);
 
-    Vector3d distanceAlongRow = new Vector3d(row);
-    distanceAlongRow.mul((dimensions.y) * voxelSpacing.y);
-    Vector3d distanceAlongColumn = new Vector3d(column);
-    distanceAlongColumn.mul((dimensions.x) * voxelSpacing.x);
-    Vector3d distanceAlongNormal = new Vector3d(normal);
-    distanceAlongNormal.mul(
-        (dimensions.z / 2) * sliceThickness); // divide by two ... half on either side
-    // of center
+		Vector3d distanceAlongRow = new Vector3d(row);
+		distanceAlongRow.mul((dimensions.y) * voxelSpacing.y);
+		Vector3d distanceAlongColumn = new Vector3d(column);
+		distanceAlongColumn.mul((dimensions.x) * voxelSpacing.x);
+		Vector3d distanceAlongNormal = new Vector3d(normal);
+		distanceAlongNormal.mul((dimensions.z / 2) * sliceThickness); // divide by two ... half on either side
+		// of center
 
-    // Build the "top" square to project with 4 corners TLHC, TRHC, BRHC, BLHC ...
+		// Build the "top" square to project with 4 corners TLHC, TRHC, BRHC, BLHC ...
 
-    Vector3d tlhcT = new Vector3d(originalTLHC); // otherwise, original TLHC gets changed later on
-    tlhcT.add(distanceAlongNormal);
+		Vector3d tlhcT = new Vector3d(originalTLHC); // otherwise, original TLHC gets changed later on
+		tlhcT.add(distanceAlongNormal);
 
-    Vector3d trhcT = new Vector3d(tlhcT);
-    trhcT.add(distanceAlongRow);
-    Vector3d blhcT = new Vector3d(tlhcT);
-    blhcT.add(distanceAlongColumn);
-    Vector3d brhcT = new Vector3d(tlhcT);
-    brhcT.add(distanceAlongRow);
-    brhcT.add(distanceAlongColumn);
+		Vector3d trhcT = new Vector3d(tlhcT);
+		trhcT.add(distanceAlongRow);
+		Vector3d blhcT = new Vector3d(tlhcT);
+		blhcT.add(distanceAlongColumn);
+		Vector3d brhcT = new Vector3d(tlhcT);
+		brhcT.add(distanceAlongRow);
+		brhcT.add(distanceAlongColumn);
 
-    // Build the "bottom" square to project with 4 corners TLHC, TRHC, BRHC, BLHC ...
+		// Build the "bottom" square to project with 4 corners TLHC, TRHC, BRHC, BLHC
+		// ...
 
-    Vector3d tlhcB = new Vector3d(originalTLHC); // otherwise, original TLHC gets changed later on
-    tlhcB.sub(distanceAlongNormal);
+		Vector3d tlhcB = new Vector3d(originalTLHC); // otherwise, original TLHC gets changed later on
+		tlhcB.sub(distanceAlongNormal);
 
-    Vector3d trhcB = new Vector3d(tlhcB);
-    trhcB.add(distanceAlongRow);
-    Vector3d blhcB = new Vector3d(tlhcB);
-    blhcB.add(distanceAlongColumn);
-    Vector3d brhcB = new Vector3d(tlhcB);
-    brhcB.add(distanceAlongRow);
-    brhcB.add(distanceAlongColumn);
+		Vector3d trhcB = new Vector3d(tlhcB);
+		trhcB.add(distanceAlongRow);
+		Vector3d blhcB = new Vector3d(tlhcB);
+		blhcB.add(distanceAlongColumn);
+		Vector3d brhcB = new Vector3d(tlhcB);
+		brhcB.add(distanceAlongRow);
+		brhcB.add(distanceAlongColumn);
 
-    return new Vector3d[] {tlhcT, trhcT, brhcT, blhcT, tlhcB, trhcB, brhcB, blhcB};
-  }
+		return new Vector3d[] { tlhcT, trhcT, brhcT, blhcT, tlhcB, trhcB, brhcB, blhcB };
+	}
+  
+	public static Vector3d[] getCornersOfSourceCubeInSourceSpace(GeometryOfSlice geo) {
+		Vector3d row = geo.row;
+		Vector3d column = geo.column;
+		Vector3d originalTLHC = geo.tlhc;
+		Vector3d voxelSpacing = geo.voxelSpacing;
+		double sliceThickness = geo.getSliceThickness();
+		Vector3d dimensions = geo.dimensions;
+		return getCornersOfSourceCubeInSourceSpace(row, column, originalTLHC, voxelSpacing, sliceThickness, dimensions);
+	}
 
   /**
    * Transform a point into the "viewport" defined by the localizer that we are an instance of.

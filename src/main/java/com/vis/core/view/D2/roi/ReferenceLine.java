@@ -58,10 +58,14 @@ import ij.measure.Calibration;
 
 /**
  * Reference line for reslice.
+ * 
+ * Use Slab and SlicePlane instead.
+ * 
  * @author tatsunidas
  *
  */
 @SuppressWarnings("serial")
+@Deprecated
 public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 	
 	double thickness;//distance between lines
@@ -91,13 +95,13 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		super(x1, y1, x2, y2, slide);
 		this.plane = plane;
 		if(plane == CutSurface.AXIAL) {
-			sliceLineColor = Color.red;
+			sliceLineColor = Color.red;//horizontal
 			center_support_line_color = Color.blue;
 		}else if(plane == CutSurface.CORONAL) {
-			sliceLineColor = Color.green;
-			center_support_line_color = Color.red;
+			sliceLineColor = Color.green;//vertical
+			center_support_line_color = Color.red;//horizontal
 		}else {
-			sliceLineColor = Color.blue;
+			sliceLineColor = Color.blue;//horizontal
 			center_support_line_color = Color.green;
 		}
 		setSpacialInfo(slide.getOriginalImage());
@@ -517,20 +521,20 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		g2d.setColor(center_support_line_color);
 		GeneralPath verLine_ = getCrossVerticalLine(x1d, y1d, x2d, y2d);
 		g2d.draw(verLine_);
-		BasicStroke bs2 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 1.0f, new float[] {6}, 0);
-		g2d.setStroke(bs2);
-		g2d.setColor(sliceLineColor);
-		//draw slice lines
-		if(getSliceLines() != null && isSliceTarget) {
-			GeneralPath sliceLines_ = getSliceLines();//toScreenCoordinates(getSliceLines());
-			if (sliceLines_ != null) {
-				g2d.setColor(sliceLineColor);
-				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
-						1.0f, new float[] { 6 }, 0);
-				g2d.setStroke(bs3);
-				g2d.draw(sliceLines_);
-			}
-		}
+		/*
+		 * draw slab
+		 */
+//		g2d.setColor(sliceLineColor);
+//		if(getSliceLines() != null && isSliceTarget) {
+//			GeneralPath sliceLines_ = getSliceLines();//toScreenCoordinates(getSliceLines());
+//			if (sliceLines_ != null) {
+//				g2d.setColor(sliceLineColor);
+//				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
+//						1.0f, new float[] { 6 }, 0);
+//				g2d.setStroke(bs3);
+//				g2d.draw(sliceLines_);
+//			}
+//		}
 		
 		//draw handles
 		drawHandle(g, x1, y1);

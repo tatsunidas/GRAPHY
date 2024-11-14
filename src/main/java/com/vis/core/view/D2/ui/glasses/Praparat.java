@@ -337,11 +337,11 @@ public class Praparat extends JPanel {
 	 * @return
 	 */
 	public List<Point2D> calcLocalizer(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/,
-			int row_, int col_, double[] iop_, double[] ipp_, double[] voxelSize_){
+			double slicethickness, int row_, int col_, double[] iop_, double[] ipp_, double[] voxelSize_,double slicethickness_){
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice();//src
-		localizerGeometry.setUp(row, col, iop, ipp, voxelSize);
+		localizerGeometry.setUp(row, col, iop, ipp, voxelSize, slicethickness);
 		GeometryOfSlice postImageGeometry = new GeometryOfSlice();//target
-		postImageGeometry.setUp(row_, col_, iop_, ipp_, voxelSize_);
+		postImageGeometry.setUp(row_, col_, iop_, ipp_, voxelSize_, slicethickness_);
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
 		List<Point2D> shape = localizerPoster.getOutlineOnLocalizerForThisGeometry(postImageGeometry);
 		return shape;

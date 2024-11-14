@@ -24,6 +24,7 @@ import javax.swing.text.NumberFormatter;
 
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.util.Tools;
 
@@ -39,7 +40,11 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	//recon mode
 	final static String[] reconType = new String[] {"SLICECUT","MEAN"};
 	String currentReconType = reconType[0];
+	
+	//Cut slices from.
 	CutSurface targetSlicePlane = CutSurface.AXIAL;
+	JFormattedTextField fovHText;//fov, height
+	JFormattedTextField fovWText;//fov, width
 	JFormattedTextField stText;//thickness, 0d >
 	JFormattedTextField sgText;//gap, 0d >=
 	JFormattedTextField snText;//num of slice, 1 >=
@@ -47,17 +52,17 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	JComboBox<String> targetSlicePlaneSelect;
 	JCheckBox crossViewChk;
 	JCheckBox showCrossLineChk;
-//	double defaultGap;//gap is not specified on xz,yz planes at initilized
-	double defaultThickness;
+	double defaultGap = 0;
+	double currentFOV_H;
+	double currentFOV_W;
 	double currentThickness;
 	double currentGap;
 	int currentNumOfSlice = 1;
 	
 	MPRViewerWindow mprWin;
 	
-	public MPRControlPanel(MPRViewerWindow mprWin, double originalThickness) {
+	public MPRControlPanel(MPRViewerWindow mprWin) {
 		this.mprWin = mprWin;
-		defaultThickness = originalThickness;
 		setContents();
 	}
 	
@@ -129,13 +134,60 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		targetSlicePlaneSelect.setSelectedIndex(0);
 		targetSlicePlaneSelect.addItemListener(this);
 		p.add(targetSlicePlaneSelect);
+		
+		JLabel lfov = new JLabel("FOV[mm] W & H ");
+		p.add(lfov);
+		
+		if(fovWText == null) {
+			fovWText = createDoubleField();
+			fovWText.setColumns(4);
+			fovWText.setValue(defaultFOV_W());
+		}else {
+			fovWText.setValue(currentFOV_W);
+		}
+		fovWText.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				mprWin.updateReferenceLineMPR();
+			}
+			@Override
+			public void removeUpdate(DocumentEvent e) {}
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				mprWin.updateReferenceLineMPR();
+			}
+		});
+		fovWText.addKeyListener(this);
+		p.add(fovWText);
+		
+		if(fovHText == null) {
+			fovHText = createDoubleField();
+			fovHText.setColumns(4);
+			fovHText.setValue(defaultFOV_H());
+		}else {
+			fovHText.setValue(currentFOV_H);
+		}
+		fovHText.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				mprWin.updateReferenceLineMPR();
+			}
+			@Override
+			public void removeUpdate(DocumentEvent e) {}
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				mprWin.updateReferenceLineMPR();
+			}
+		});
+		fovHText.addKeyListener(this);
+		p.add(fovHText);
 				
 		JLabel l1 = new JLabel("SliceThickness");
 		p.add(l1);
 		if(stText == null) {
 			stText = createDoubleField();
-			stText.setColumns(7);
-			stText.setValue(defaultThickness);
+			stText.setColumns(4);
+			stText.setValue(defaultThickness());
 		}else {
 			stText.setValue(currentThickness);
 		}
@@ -155,12 +207,13 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		});
 		stText.addKeyListener(this);
 		p.add(stText);
+		
 		JLabel l2 = new JLabel("Slice gap");
 		p.add(l2);
 		if(sgText == null) {
 			sgText = createDoubleField();
-			sgText.setColumns(5);
-			sgText.setValue(0d);
+			sgText.setColumns(4);
+			sgText.setValue(defaultGap);
 		}else {
 			sgText.setValue(currentGap);
 		}
@@ -184,7 +237,7 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		p.add(l3);
 		if(snText == null) {
 			snText = createIntegerField();
-			snText.setColumns(5);
+			snText.setColumns(4);
 			snText.setValue(currentNumOfSlice);
 		}else {
 			snText.setValue(currentNumOfSlice);
@@ -225,6 +278,28 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		return p;
 	}
 	
+	private double defaultFOV_H() {
+		int h = mprWin.xyImage().getHeight();
+		double py = mprWin.xyImage().getCalibration().pixelHeight;
+		double fov_in_axi_h = PlanarSupport.truncate(h * py, 0);
+		return fov_in_axi_h;
+	}
+	
+	private double defaultFOV_W() {
+		int w = mprWin.xyImage().getWidth();
+		double px = mprWin.xyImage().getCalibration().pixelWidth;
+		double fov_in_axi_w = PlanarSupport.truncate(w * px, 0);
+		return fov_in_axi_w;
+	}
+	
+	private double defaultThickness() {
+		double pz = GDicomTools.getVoxelDepth(mprWin.xyImage());
+		if(pz <= 0) {
+			pz = 1;
+		}
+		return pz;
+	}
+	
 	JPanel createObliqueSettings() {
 		return new JPanel();
 	}
@@ -253,6 +328,30 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	
 	void updateSliceTargetPlane() {
 		mprWin.setSliceTargetPlane(targetSlicePlane);
+	}
+	
+	public Double getFOV() {
+		if(fovHText == null || fovWText == null) {
+			return Double.NaN;
+		}
+		if(fovHText.getText().length() == 0 || fovWText.getText().length()==0) {
+			return Double.NaN;
+		}
+		return (Double)fovHText.getValue() * (Double)fovWText.getValue();
+	}
+	
+	public Double getFOV_H() {
+		if(fovHText == null || fovHText.getText().length() == 0) {
+			return Double.NaN;
+		}
+		return (Double)fovHText.getValue();
+	}
+	
+	public Double getFOV_W() {
+		if(fovWText == null || fovWText.getText().length() == 0) {
+			return Double.NaN;
+		}
+		return (Double)fovWText.getValue();
 	}
 	
 	public Double getSliceThickness() {

@@ -88,9 +88,29 @@ public class GeometryOfSlice {
 		this.row = row;
 		this.column = column;
 		this.tlhc = tlhc;
-		this.voxelSpacing = voxelSpacing;
+		this.voxelSpacing = voxelSpacing;//py,px,pz
 		this.sliceThickness = sliceThickness;
 		this.dimensions = dimensions;
+	}
+	
+	/**
+	 * 
+	 * @param iop
+	 * @param ipp
+	 * @param voxelXYZ : px,py,pz order in image. Attention, however, Vector3d voxelSpacing means [pixRow(py), pixCol(px), pixZ].
+	 * @param sliceThickness
+	 * @param w
+	 * @param h
+	 * @param s
+	 */
+	public GeometryOfSlice(double[] iop, double[] ipp, double[] voxelXYZ, double sliceThickness,
+			int w, int h, int s) {
+		this.row = new Vector3d(iop[0], iop[1], iop[2]);
+		this.column = new Vector3d(iop[3], iop[4], iop[5]);
+		this.tlhc = new Vector3d(ipp[0], ipp[1], ipp[2]);
+		this.voxelSpacing = new Vector3d(voxelXYZ[1]/*Row*/, voxelXYZ[0]/*Col*/, voxelXYZ[2]/*Spacing between the centers of slices*/);
+		this.sliceThickness = sliceThickness;
+		this.dimensions = new Vector3d(h, w, s);
 	}
 	
 	public GeometryOfSlice(DicomObject SrcOrTarget) {
@@ -115,24 +135,25 @@ public class GeometryOfSlice {
 		//top left-hand corner
 		this.tlhc = SubjectOrientation.getImagePositionPatient(dcm);
 		double[] pixelSpacing = dcm.getDoubles(Tag.Pixel​Spacing);
-		this.sliceThickness = GDicomTools.getVoxelDepth(dcm);
-		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[1],pixelSpacing[0],sliceThickness});
+		double voxelSpacingZ = GDicomTools.getVoxelDepth(dcm);
+		this.sliceThickness = dcm.getDouble(Tag.Slice​Thickness, voxelSpacingZ);
+		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0]/*Row↓*/,pixelSpacing[1]/*Col→*/,sliceThickness});
 		Integer numRow = Integer.parseInt(dcm.getString(Tag.Rows));
 		Integer numColumn = Integer.parseInt(dcm.getString(Tag.Columns));
 		// number of rows, then number of columns, then number of slices
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});//see, 
 	}
 	
-	public void setUp(int row, int col, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/) {
+	public void setUp(int h, int w, double[] iop, double[] ipp, double[] voxelSize/*x,y,z*/, Double sliceThickness) {
 		//row vector
 		this.row = new Vector3d(iop[0],iop[1],iop[2]);
 		//column vector
 		this.column = new Vector3d(iop[3],iop[4],iop[5]);
 		this.tlhc = new Vector3d(ipp);
-		this.sliceThickness = voxelSize[2];
-		this.voxelSpacing = new Vector3d(voxelSize);
-		Integer numRow = row;
-		Integer numColumn = col;
+		this.sliceThickness = sliceThickness.isNaN() ? voxelSize[2]:sliceThickness;
+		this.voxelSpacing = new Vector3d(voxelSize[1]/*py*/, voxelSize[0]/*px*/, voxelSize[2]);
+		Integer numRow = h;
+		Integer numColumn = w;
 		// number of rows, then number of columns, then number of slices
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
 	}
@@ -141,7 +162,6 @@ public class GeometryOfSlice {
 	 * do not forget setPosition/setSlice.
 	 * @param dcm
 	 */
-	@Deprecated
 	public void setUp(ImagePlus dcm) {
 		if(dcm == null) {
 			return;
@@ -156,9 +176,12 @@ public class GeometryOfSlice {
 		this.tlhc = new Vector3d(GDicomTools.getDoubles(dcm, "0020,0032"));
 		double px = dcm.getCalibration().pixelWidth;
 		double py = dcm.getCalibration().pixelHeight;
-		Double spacingBetweenSlices = dcm.getCalibration().pixelDepth;
-		this.sliceThickness = spacingBetweenSlices;
-		this.voxelSpacing = new Vector3d(new double[] {px,py,spacingBetweenSlices});
+		Double spacingBetweenSlices = GDicomTools.getVoxelDepth(dcm);
+		this.sliceThickness = GDicomTools.getDouble(dcm, dcm.getCurrentSlice(),"0018,0050");
+		if(this.sliceThickness.isNaN()) {
+			this.sliceThickness = spacingBetweenSlices;
+		}
+		this.voxelSpacing = new Vector3d(new double[] {py/*row spacing*/,px/*column spacing*/,spacingBetweenSlices});
 		Integer numRow = dcm.getHeight();
 		Integer numColumn = dcm.getWidth();
 		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
@@ -195,6 +218,7 @@ public class GeometryOfSlice {
 	}
 
 	/**
+	 * ImagePositionPatient.
 	 * Get the position of the top left-hand corner.
 	 *
 	 * @return the position of the top left-hand corner of the slice as a point (X,
@@ -204,7 +228,7 @@ public class GeometryOfSlice {
 		return tlhc;
 	}
 
-	public final Vector3d getPosition(Point2D p) {
+	public final Vector3d getPosition(Point2D p/*offscreen*/) {
 		return new Vector3d(row.x * voxelSpacing.x * p.getX() + column.x * voxelSpacing.y * p.getY() + tlhc.x,
 				row.y * voxelSpacing.x * p.getX() + column.y * voxelSpacing.y * p.getY() + tlhc.y,
 				row.z * voxelSpacing.x * p.getX() + column.z * voxelSpacing.y * p.getY() + tlhc.z);
@@ -352,5 +376,71 @@ public class GeometryOfSlice {
 	 */
 	public final String getColumnOrientation() {
 		return getColumnOrientation(false);
+	}
+
+	public void setRowVector(Object rowVec) {
+		if (rowVec instanceof double[]) {
+			row = new Vector3d((double[]) rowVec);
+		} else {
+			row = (Vector3d) rowVec;
+		}
+	}
+
+	public void setColumnVector(Object colVec) {
+		if (colVec instanceof double[]) {
+			column = new Vector3d((double[]) colVec);
+		} else {
+			column = (Vector3d) colVec;
+		}
+	}
+
+	public void setImagePositionPatient(Object ipp) {
+		if (ipp instanceof double[]) {
+			tlhc = new Vector3d((double[]) ipp);
+		} else {
+			tlhc = (Vector3d) ipp;
+		}
+	}
+
+	public void setVoxelSpacing(Object voxelSpacing, boolean xyzOrder) {
+		if (voxelSpacing instanceof double[]) {
+			if (!xyzOrder) {// yxz order
+				this.voxelSpacing = new Vector3d((double[]) voxelSpacing);
+			} else {
+				double[] v = (double[]) voxelSpacing;
+				this.voxelSpacing = new Vector3d(v[1], v[0], v[2]);
+			}
+		} else {
+			if (!xyzOrder) {// yxz order
+				this.voxelSpacing = (Vector3d) voxelSpacing;
+			} else {
+				Vector3d v = (Vector3d) voxelSpacing;
+				this.voxelSpacing = new Vector3d(v.y, v.x, v.z);
+			}
+		}
+	}
+
+	public void setSliceThickness(Double thickness) {
+		if (thickness == null || thickness.isNaN()) {
+			throw new IllegalArgumentException("Invalid SliceThickness input...");
+		} else {
+			this.sliceThickness = thickness;
+		}
+	}
+
+	/**
+	 * 
+	 * @param dims : the row and column dimensions and 1 for the third
+	 */
+	public void setDimension(Object dims) {
+		if (dims instanceof int[]) {
+			int[] d = (int[]) dims;
+			dimensions = new Vector3d(d[0], d[1], d[2]);
+		} else if (dims instanceof double[]) {
+			double[] d = (double[]) dims;
+			dimensions = new Vector3d(d[0], d[1], d[2]);
+		} else {
+			dimensions = (Vector3d) dims;
+		}
 	}
 }

@@ -524,10 +524,9 @@ public class SlideGlass extends JLayeredPane {
 	 * If MPR viewtype with RESLICE mode, return ReferenceLine.
 	 * @return
 	 */
-	public ReferenceLine getReferenceLine() {
+	public ReferenceLineMPR getReferenceLineMPR() {
 		if (pp != null) {
-			ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
-			return refLineMPR != null ? refLineMPR.referenceLineFrom(pp):null;
+			return pp.getReferenceLineMPR();
 		} else {
 			return null;
 		}

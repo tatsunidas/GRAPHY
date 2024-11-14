@@ -138,9 +138,9 @@ public class MPRViewerWindow extends JFrame {
 
 	public static void main(String[] args) {
 		//axi src
-//		ImagePlus ax = FolderOpener.open(
-//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-//		new MPRViewerWindow(ax, null);
+		ImagePlus ax = FolderOpener.open(
+				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		new MPRViewerWindow(ax, null);
 		
 		//cor src
 //		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
@@ -153,9 +153,9 @@ public class MPRViewerWindow extends JFrame {
 //		new MPRViewerWindow(yz, null);
 		
 		//other
-		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
-		ImagePlus o = FolderOpener.open(otherDir);
-		new MPRViewerWindow(o, null);
+//		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
+//		ImagePlus o = FolderOpener.open(otherDir);
+//		new MPRViewerWindow(o, null);
 	}
 
 	public MPRViewerWindow(Praparat prap) {
@@ -188,6 +188,18 @@ public class MPRViewerWindow extends JFrame {
 
 	public ArrayList<Praparat> getSelectedPraps() {
 		return eye.getSelectingPraparats();
+	}
+	
+	public Double getFOV() {
+		return contP.getFOV();
+	}
+	
+	public Double getFOV_W() {
+		return contP.getFOV_W();
+	}
+	
+	public Double getFOV_H() {
+		return contP.getFOV_H();
 	}
 
 	public Double getSliceThickness() {
@@ -268,7 +280,7 @@ public class MPRViewerWindow extends JFrame {
 		MPRMenuBar bar = new MPRMenuBar(this);
 		setJMenuBar(bar);
 		// control panel
-		contP = new MPRControlPanel(this, GDicomTools.getVoxelDepth(imp));
+		contP = new MPRControlPanel(this);
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
 
@@ -277,7 +289,7 @@ public class MPRViewerWindow extends JFrame {
 		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR);
 		recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal);
 
-		xy_prap.setName("XY");
+		xy_prap.setName("XY");//IMPORTANT
 		xz_prap.setName("XZ");
 		yz_prap.setName("YZ");
 
@@ -709,6 +721,7 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	/*
+	 * TODO 20241107
 	 * TODO, byte, float, RGB
 	 */
 	protected void resliceAndShow() {
@@ -720,29 +733,30 @@ public class MPRViewerWindow extends JFrame {
 			return;
 		}
 		boolean excessAngle = false;
-		try {
-			if (srcCutSurface == CutSurface.AXIAL) {
-				excessAngle = refLines.xYLine().isHorizontal() ? false : true;
-			} else if (srcCutSurface == CutSurface.CORONAL) {
-				excessAngle = refLines.xZLine().isHorizontal();
-			} else {
-				excessAngle = refLines.yZLine().isHorizontal() ? false : true;
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			return;
-		}
+//		try {
+//			if (srcCutSurface == CutSurface.AXIAL) {
+//				excessAngle = refLines.xYLine().isHorizontal() ? false : true;
+//			} else if (srcCutSurface == CutSurface.CORONAL) {
+//				excessAngle = refLines.xZLine().isHorizontal();
+//			} else {
+//				excessAngle = refLines.yZLine().isHorizontal() ? false : true;
+//			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			return;
+//		}
 
+		//TODO 20241107
 		ArrayList<float[]> sortedPointPairList = null;
 		if (srcCutSurface == CutSurface.AXIAL) {
-			GeneralPath sliceLinePaths = refLines.xYLine().createSliceLinesWithOffScreenCoordinates();
-			sortedPointPairList = refLines.xYLine().getPoints(sliceLinePaths);
+//			GeneralPath sliceLinePaths = refLines.xYLine().createSliceLinesWithOffScreenCoordinates();
+//			sortedPointPairList = refLines.xYLine().getPoints(sliceLinePaths);
 		} else if (srcCutSurface == CutSurface.CORONAL) {
-			GeneralPath sliceLinePaths = refLines.xZLine().createSliceLinesWithOffScreenCoordinates();
-			sortedPointPairList = refLines.xZLine().getPoints(sliceLinePaths);
+//			GeneralPath sliceLinePaths = refLines.xZLine().createSliceLinesWithOffScreenCoordinates();
+//			sortedPointPairList = refLines.xZLine().getPoints(sliceLinePaths);
 		} else {
-			GeneralPath sliceLinePaths = refLines.yZLine().createSliceLinesWithOffScreenCoordinates();
-			sortedPointPairList = refLines.yZLine().getPoints(sliceLinePaths);
+//			GeneralPath sliceLinePaths = refLines.yZLine().createSliceLinesWithOffScreenCoordinates();
+//			sortedPointPairList = refLines.yZLine().getPoints(sliceLinePaths);
 		}
 
 		ImageStack stack = null;

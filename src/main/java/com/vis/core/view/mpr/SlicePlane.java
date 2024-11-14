@@ -39,50 +39,38 @@ package com.vis.core.view.mpr;
 
 import org.joml.Vector3d;
 
+import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 
 /**
  * 
- * TODO Use with GeometryOfSlice class.
- * 
- * Line to Plane
  * @author tatsunidas
  *
  */
 public class SlicePlane {
-	int rows;
-	int cols;
-	double[] iop;
-	double[] ipp;
-	Vector3d xVector;//row direction cosines
-	Vector3d yVector;//col direction cosines
-	Vector3d voxelSize;//x,y,z of voxel
-	Vector3d dimension;// [rows, cols, frames], i.e, [rows, cols, 1]
-	double sliceThickness;
+	
+	GeometryOfSlice geo;
 	Vector3d[] cubeVertices;
 	
 	public SlicePlane(
 			int rows,/*rows in slice*/ 
 			int cols,/*cols in slice*/ 
 			double[] iop, 
-			double[] ipp, double[] voxelSize, double sliceThickness){
-		this.rows = rows;
-		this.cols = cols;
-		this.iop = iop;
-		this.ipp = ipp;
-		this.sliceThickness = sliceThickness;
-		this.dimension = new Vector3d(rows, cols, 1);
-		initVertices(voxelSize);
+			double[] ipp, double[] voxelSize, Double sliceThickness){
+		//double[] iop, double[] ipp, double[] voxelXYZ, double sliceThickness, int w, int h, int s)
+		this(new GeometryOfSlice(iop, ipp, voxelSize, sliceThickness, cols, rows, 1));
 	}
 	
-	private void initVertices(double[] voxelSize) {
-		this.voxelSize = new Vector3d(voxelSize);
-		this.xVector = new Vector3d(iop[0], iop[1], iop[2]);
-		this.yVector = new Vector3d(iop[3], iop[4], iop[5]);
+	public SlicePlane(GeometryOfSlice geo) {
+		this.geo = geo;
+		initVertices();
+	}
+	
+	private void initVertices() {
 		/*
 		 * You need test. is these vertices corrects ?
 		 */
-		cubeVertices = LocalizerPoster.getCornersOfSourceCubeInSourceSpace(xVector, yVector, new Vector3d(ipp), this.voxelSize, sliceThickness, dimension);
+		cubeVertices = LocalizerPoster.getCornersOfSourceCubeInSourceSpace(geo);
 	}
 	
 	public Vector3d[] getCubeVerticesInOffScreenWorldCoordinate(){
@@ -91,9 +79,10 @@ public class SlicePlane {
 	
 	public Vector3d[] getCubeVerticesInOffScreenPixelUnit(){
 		Vector3d[] vers = new Vector3d[8];
+		Vector3d voxelSize = geo.getVoxelSpacing();//row↓, col→ and spacingZ↗
 		for(int i =0; i< 8; i++) {
 			Vector3d v = cubeVertices[i];
-			vers[i] = new Vector3d(v.x/voxelSize.x, v.y/voxelSize.y, v.z/sliceThickness);
+			vers[i] = new Vector3d(v.x/voxelSize.x, v.y/voxelSize.y, v.z/voxelSize.z);
 		}
 		return vers;
 	}
@@ -119,6 +108,11 @@ public class SlicePlane {
 	 * @param rotateZ
 	 */
 	public void rotateCube(double angle, boolean rotateX, boolean rotateY, boolean rotateZ) {
+		
+		if(angle < 0.001) {
+			return;
+		}
+		
 		double[] center = getCubeCenter();
 		for (Vector3d vertex : cubeVertices) {
 			// move shift to center
@@ -168,25 +162,32 @@ public class SlicePlane {
 			updateIOPAfterRotateFromCenter(0, 0, angle);
 			updateIPPAfterRotateFromCenter(center, 0, 0, angle);
 		}
+		initVertices();//re-calculate.
 	}
 	
 	public void updateIOPAfterRotateFromCenter(double rotateX, double rotateY, double rotateZ) {
-		this.iop = PlanarSupport.rotateImageOrientationPatient(iop, rotateX, rotateY, rotateZ);
+		Vector3d row = geo.getRow();
+		Vector3d col = geo.getColumn();
+		row = PlanarSupport.rotateImageOrientationPatient(row, rotateX, rotateY, rotateZ);
+		col = PlanarSupport.rotateImageOrientationPatient(col, rotateX, rotateY, rotateZ);
+		geo.setRowVector(row);
+		geo.setColumnVector(col);
 	}
 
 	public void updateIPPAfterRotateFromCenter(double[] center, double rotateX, double rotateY, double rotateZ) {
-		// ラジアンに変換
+		
+		Vector3d ipp = geo.getTLHC();
+		
 	    double radX = Math.toRadians(rotateX);
 	    double radY = Math.toRadians(rotateY);
 	    double radZ = Math.toRadians(rotateZ);
 
-	    // 元の位置を中心からの相対位置に変換
+	    // shift to center
 	    double[] relativePosition = new double[3];
-	    relativePosition[0] = ipp[0] - center[0];
-	    relativePosition[1] = ipp[1] - center[1];
-	    relativePosition[2] = ipp[2] - center[2];
+	    relativePosition[0] = ipp.x - center[0];
+	    relativePosition[1] = ipp.y - center[1];
+	    relativePosition[2] = ipp.z - center[2];
 
-	    // 回転行列の計算
 	    double[][] Rx = {
 	        {1, 0, 0},
 	        {0, Math.cos(radX), -Math.sin(radX)},
@@ -205,30 +206,54 @@ public class SlicePlane {
 	        {0, 0, 1}
 	    };
 
-	    // 回転の適用
 	    double[] rotatedPosition = new double[3];
 	    
 	    // P' = Rz * (Ry * (Rx * P_relative))
-	    // まずRxを適用
+	    // Rx
 	    double[] tempPosition = new double[3];
 	    tempPosition[0] = Rx[0][0] * relativePosition[0] + Rx[0][1] * relativePosition[1] + Rx[0][2] * relativePosition[2];
 	    tempPosition[1] = Rx[1][0] * relativePosition[0] + Rx[1][1] * relativePosition[1] + Rx[1][2] * relativePosition[2];
 	    tempPosition[2] = Rx[2][0] * relativePosition[0] + Rx[2][1] * relativePosition[1] + Rx[2][2] * relativePosition[2];
 	    
-	    // 次にRyを適用
+	    // Ry
 	    rotatedPosition[0] = Ry[0][0] * tempPosition[0] + Ry[0][1] * tempPosition[1] + Ry[0][2] * tempPosition[2];
 	    rotatedPosition[1] = Ry[1][0] * tempPosition[0] + Ry[1][1] * tempPosition[1] + Ry[1][2] * tempPosition[2];
 	    rotatedPosition[2] = Ry[2][0] * tempPosition[0] + Ry[2][1] * tempPosition[1] + Ry[2][2] * tempPosition[2];
 
-	    // 最後にRzを適用
+	    // Rz
 	    double[] finalPosition = new double[3];
 	    finalPosition[0] = Rz[0][0] * rotatedPosition[0] + Rz[0][1] * rotatedPosition[1] + Rz[0][2] * rotatedPosition[2];
 	    finalPosition[1] = Rz[1][0] * rotatedPosition[0] + Rz[1][1] * rotatedPosition[1] + Rz[1][2] * rotatedPosition[2];
 	    finalPosition[2] = Rz[2][0] * rotatedPosition[0] + Rz[2][1] * rotatedPosition[1] + Rz[2][2] * rotatedPosition[2];
 
-	    // 新しい位置を画像の中心に戻す
-	    ipp[0] = finalPosition[0] + center[0];
-	    ipp[1] = finalPosition[1] + center[1];
-	    ipp[2] = finalPosition[2] + center[2];
+	    // Move back to center.
+	    ipp.x = finalPosition[0] + center[0];
+	    ipp.y = finalPosition[1] + center[1];
+	    ipp.z = finalPosition[2] + center[2];
+	    
+	    geo.setImagePositionPatient(ipp);
+	}
+	
+	/**
+	 * offscreen pixel unit.
+	 * @param shiftX
+	 * @param shiftY
+	 * @param shiftZ
+	 */
+	public void move(int shiftX, int shiftY, int shiftZ) {
+		//shuft ipp and update vertices.
+		double sx = shiftX * geo.getVoxelSpacing().x;
+		double sy = shiftY * geo.getVoxelSpacing().y;
+		double sz = shiftZ * geo.getVoxelSpacing().z;
+//		for(int i =0; i< 8; i++) {
+//			Vector3d v = cubeVertices[i];
+//			cubeVertices[i] = new Vector3d(v.x + sx, v.y + sy, v.z + sz);
+//		}
+		Vector3d ipp = geo.getTLHC();
+		ipp.x = ipp.x + sx;
+		ipp.y = ipp.y + sy;
+		ipp.z = ipp.z + sz;
+		geo.setImagePositionPatient(ipp);
+		initVertices();
 	}
 }

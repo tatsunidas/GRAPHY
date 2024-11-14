@@ -254,7 +254,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 							return;
 						}
 					}else if(mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {
-						if(cg.referenceLineHereAt(x, y)!=null) {
+						if(cg.centerPositionLineHereAt(x, y)!=null) {
 							cg.mouseDragged(e);
 							Log.logger.fine("ReferenceLine Dragging");
 							return;

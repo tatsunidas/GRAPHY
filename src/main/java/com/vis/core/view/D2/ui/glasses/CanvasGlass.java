@@ -58,6 +58,7 @@ import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
+import com.vis.core.view.mpr.CenterPositionLine;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
 
@@ -402,7 +403,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	private void drawLocalizerLine(Graphics g) {
-		if (localizerGeo != null) {
+		if (localizerGeo != null && pp.getReferenceLineMPR()== null) {
 			Point2D p0_leftUpper = localizerGeo.get(0);
 			Point2D p1_rightUpper = localizerGeo.get(1);
 			Point2D p2_rightLower = localizerGeo.get(2);
@@ -425,8 +426,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * @param g
 	 */
 	private void drawReferenceLine(Graphics g) {
-		ReferenceLineMPR refLine = pp.getReferenceLineMPR();
-		if (refLine != null) {
+		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
+		if (refLineMPR != null) {
 //			AffineTransform aTx = new AffineTransform();
 //			Graphics2D g2d = (Graphics2D)g;
 //			double mag = sg.getMagnification();
@@ -437,7 +438,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //			//Second, scale Roi graphics
 //			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
 //			g2d.setTransform(aTx);
-			refLine.draw(g);
+			refLineMPR.draw(g, pp.getName());
 		}
 	}
 
@@ -541,11 +542,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
 		int roiType = pp.getCurrentViewerToolType();
-		if(referenceLineHereAt(sx,sy)!=null) {
-			ReferenceLine refLine = referenceLineHereAt(sx,sy);
-			int handle = refLine.isHandle(sx, sy);
-			refLine.setRoiModState(e, handle);
-			refLine.mouseDown(e);
+		if(centerPositionLineHereAt(sx,sy)!=null) {
+			CenterPositionLine cenLine = centerPositionLineHereAt(sx,sy);
+			int handle = cenLine.isHandle(sx, sy);
+			cenLine.setRoiModState(e, handle);
+			cenLine.mouseDown(e);
 			return;
 		}
 		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiType.POLYGON.id() && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
@@ -595,9 +596,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 			flags = InputEvent.BUTTON1_DOWN_MASK;
 		}
 		//is reference line?
-		ReferenceLine refLine = referenceLineHereAt(dragSX, dragSY);
-		if(refLine != null) {
-			refLine.mouseDrag(dragSX, dragSY, flags);
+		CenterPositionLine cenLine = centerPositionLineHereAt(dragSX, dragSY);
+		if(cenLine != null) {
+			cenLine.mouseDrag(dragSX, dragSY, flags);
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
 			return true;
@@ -711,9 +712,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		 */
 		if(pp.getReferenceLineMPR() != null) {
 			//find and activate reference line.
-			ReferenceLine refLine = referenceLineHereAt(e.getX(), e.getY());
-			if(refLine != null) {
-				Log.logger.fine("CanvasComponent: "+refLine.getClass().getName());
+			CenterPositionLine cenLine = centerPositionLineHereAt(e.getX(), e.getY());
+			if(cenLine != null) {
+				Log.logger.fine("CanvasComponent: "+cenLine.getClass().getName());
 			}
 			
 			//do something
@@ -749,8 +750,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 			flags = InputEvent.BUTTON1_DOWN_MASK;
 		}
 		//is reference line?
-		if(referenceLineHereAt(dragSX, dragSY) != null) {
-			ReferenceLine rl = referenceLineHereAt(dragSX, dragSY);
+		if(centerPositionLineHereAt(dragSX, dragSY) != null) {
+			CenterPositionLine rl = centerPositionLineHereAt(dragSX, dragSY);
 			rl.mouseDrag(dragSX, dragSY, flags);
 			Log.logger.fine("ReferenceLine Dragging");
 			sg.lastDraggedX = dragSX;
@@ -1063,12 +1064,13 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	/**
+	 * TODO check with Slab class.
 	 * set reference line activate color and change cursor
 	 * @param screenX
 	 * @param screenY
 	 * @return
 	 */
-	protected ReferenceLine referenceLineHereAt(int screenX, int screenY) {
+	protected CenterPositionLine centerPositionLineHereAt(int screenX, int screenY) {
 
 		int ix = sg.offScreenX(screenX);
 		int iy = sg.offScreenY(screenY);
@@ -1076,25 +1078,23 @@ public class CanvasGlass extends javax.swing.JPanel {
 		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
 		boolean found = false;
 		if (refLineMPR != null) {
-			ReferenceLine refLine = refLineMPR.referenceLineFrom(pp);
-			refLine.setActiveOverlayRoi(false);// reset activate
-			handle = refLine.isHandle(screenX, screenY);
-			if (handle >= 0) {
-				refLine.setActiveOverlayRoi(true);
+			CenterPositionLine cenLine = refLineMPR.centerPositionLineFrom(pp);
+			cenLine.setActiveOverlayRoi(false);// reset activate
+			handle = cenLine.isHandle(screenX, screenY);
+			if (handle == 3) {
+				cenLine.setActiveOverlayRoi(true);
 				found = true;
-			} else if (refLine.contains(ix, iy)) {
-				refLine.setActiveOverlayRoi(true);
+			} else if (cenLine.contains(ix, iy)) {
+				cenLine.setActiveOverlayRoi(true);
 				found = true;
 			}
-			if (handle >= 0 && handle <3) {
-				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
-			} else if (handle >= 3) {
+			if (handle == 3) {
 				sg.setCursor(new RotateCursor(null).createCursor());
 			} else {
 				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 			}
 			if(found) {
-				return refLine;
+				return cenLine;
 			}
 		}
 		return null;

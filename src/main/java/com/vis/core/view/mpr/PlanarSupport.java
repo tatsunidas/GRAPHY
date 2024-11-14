@@ -183,6 +183,26 @@ public class PlanarSupport {
 		
 		return newIOP;
 	}
+	
+	public static Vector3d rotateImageOrientationPatient(Vector3d rowOrCol, double rotateX, double rotateY, double rotateZ) {
+		// iop is [rx, ry, rz, cx, cy, cz]
+		// Create a rotation matrix and apply rotation to each axis
+		Vector3d rotated = rotateVector(rowOrCol, rotateX, rotateY, rotateZ);
+		rotated.x = truncate(rotated.x, 6);
+		rotated.y = truncate(rotated.y, 6);
+		rotated.z = truncate(rotated.z, 6);
+		return rotated;
+	}
+	
+	public static Vector3d rotateVector(Vector3d vec, double rotateX, double rotateY, double rotateZ) {
+		vec.rotateX(Math.toRadians(rotateX));
+		vec.rotateY(Math.toRadians(rotateY));
+		vec.rotateZ(Math.toRadians(rotateZ));
+		vec.x = truncate(vec.x, 6);
+		vec.y = truncate(vec.y, 6);
+		vec.z = truncate(vec.z, 6);
+		return vec;
+	}
 
 	public static double[] rotateVector(double[] vec, double rotateX, double rotateY, double rotateZ) {
 		// X axis rotate matrix

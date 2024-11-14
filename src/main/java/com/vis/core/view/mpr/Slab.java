@@ -37,11 +37,65 @@
  */
 package com.vis.core.view.mpr;
 
+import java.util.List;
+
+import org.joml.Vector3d;
+
 /**
  * Group of SlicePlanes
  * @author tatsunidas
  *
  */
 public class Slab {
-
+	
+	int rotateX =0; // rotation in YZ space
+	int rotateY =0; // rotation in XZ space
+	int rotateZ =0; // rotation in XY space
+	
+	private List<SlicePlane> reslicePlanes;
+	
+	public Slab(List<SlicePlane> reslicePlanes) {
+		setSlicePlanes(reslicePlanes);
+	}
+	
+	public void setSlicePlanes(List<SlicePlane> reslicePlanes) {
+		this.reslicePlanes = reslicePlanes;
+	}
+	
+	public List<SlicePlane> getSlicePlanes() {
+		return this.reslicePlanes;
+	}
+	
+	public void rotateSlab(int rx, int ry, int rz) {
+		for(SlicePlane sp : reslicePlanes) {
+			if(rx > 0) {
+				sp.rotateCube(rx, true, false, false);
+				rotateX += rx;
+			}
+			if(ry > 0) {
+				sp.rotateCube(ry, false, true, false);
+				rotateY += ry;
+			}
+			if(rx > 0) {
+				sp.rotateCube(rz, false, false, true);
+				rotateZ += rz;
+			}
+		}
+	}
+	
+	public Vector3d getRotations() {
+		return new Vector3d(rotateX, rotateY, rotateZ);
+	}
+	
+	/**
+	 * OffScreen pixel unit
+	 * @param x
+	 * @param y
+	 * @param z
+	 */
+	public void moveSlab(int x, int y, int z) {
+		for(SlicePlane sp : reslicePlanes) {
+			sp.move(x, y, z);
+		}
+	}
 }
