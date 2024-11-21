@@ -41,6 +41,8 @@ import java.util.List;
 
 import org.joml.Vector3d;
 
+import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
+
 /**
  * Group of SlicePlanes
  * @author tatsunidas
@@ -52,10 +54,14 @@ public class Slab {
 	int rotateY =0; // rotation in XZ space
 	int rotateZ =0; // rotation in XY space
 	
+	SlicePlane boundingBox;//cover of all slices.
 	private List<SlicePlane> reslicePlanes;
+	private double gap;
 	
-	public Slab(List<SlicePlane> reslicePlanes) {
+	public Slab(List<SlicePlane> reslicePlanes, double gap) {
 		setSlicePlanes(reslicePlanes);
+		this.gap = gap;
+		initBoundingBox(reslicePlanes);
 	}
 	
 	public void setSlicePlanes(List<SlicePlane> reslicePlanes) {
@@ -64,6 +70,26 @@ public class Slab {
 	
 	public List<SlicePlane> getSlicePlanes() {
 		return this.reslicePlanes;
+	}
+	
+	public void initBoundingBox(List<SlicePlane> reslicePlanes) {
+		//get first slice
+		GeometryOfSlice geo = reslicePlanes.get(0).getGeometryOfSlice();
+		Vector3d voxelSize = geo.getVoxelSpacing();
+		double thickness = geo.getSliceThickness();
+		double slabDepth = 0;
+		if(Double.isNaN(thickness)) {
+			slabDepth =  (voxelSize.z+gap)*(reslicePlanes.size()-1);
+		}else {
+			slabDepth =  (thickness+gap)*(reslicePlanes.size()-1);
+		}
+		boundingBox = new SlicePlane(
+				(int)geo.getDimensions().x, 
+				(int)geo.getDimensions().y, 
+				geo.getImageOrientationPatient(),
+				PlanarSupport.v2d(geo.getTLHC()),
+				new double[] {voxelSize.x, voxelSize.y, slabDepth},
+				slabDepth);
 	}
 	
 	public void rotateSlab(int rx, int ry, int rz) {

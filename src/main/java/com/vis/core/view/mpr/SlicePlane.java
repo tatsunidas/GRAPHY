@@ -100,6 +100,16 @@ public class SlicePlane {
         return center;
     }
 	
+	public GeometryOfSlice getGeometryOfSlice() {
+		return geo;
+	}
+	
+	public void rotateCube(double rotateX, double rotateY, double rotateZ) {
+		for (int i = 0; i < cubeVertices.length; i++) {
+			cubeVertices[i] = PlanarSupport.rotateVector(cubeVertices[i], rotateX, rotateY, rotateZ);
+		}
+	}
+	
 	/**
 	 * Rotate from center of gravity.
 	 * 

@@ -206,6 +206,17 @@ public class GeometryOfSlice {
 	public final Vector3d getColumn() {
 		return column;
 	}
+	
+	public double[] getImageOrientationPatient() {
+		return new double[] {
+				row.x,
+				row.y,
+				row.z,
+				column.x,
+				column.y,
+				column.z,
+		};
+	}
 
 	/**
 	 * Get the normal direction.

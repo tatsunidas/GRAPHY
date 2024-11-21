@@ -104,6 +104,9 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
+		if(slicePos < 1) {
+			throw new IllegalArgumentException("Slice position should be 1 <= slicePos <= stackSize");
+		}
 		srcImp.setPosition(slicePos);
 		double[] ipp = GDicomTools.getDoubles(srcImp, PlanarSupport.ipp);// imagePositionPatient
 		double[] iop = GDicomTools.getDoubles(srcImp, PlanarSupport.iop);// imageOrientationPatient
@@ -131,6 +134,25 @@ public class PlanarSupport {
 		// System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+"
 		// "+newIpp[2][0]);
 		return new Vector3d(newIpp[0][0], newIpp[1][0], newIpp[2][0]);
+	}
+	
+	public Vector3d getNewImagePositionPatient(int w, int h, double[] voxelSize, double[] iop, Vector3d centerIPP) {
+		Vector3d rcsCenter = centerIPP; // ipp on slice center
+		int rows = h;
+		int cols = w;
+		double voxelSizeX = voxelSize[0]; // x
+		double voxelSizeY = voxelSize[1]; // y
+		double voxelSizeZ = voxelSize[2]; // z
+
+		Vector3d rowVector = new Vector3d(iop[0], iop[1], iop[2]).normalize();
+		Vector3d colVector = new Vector3d(iop[3], iop[4], iop[5]).normalize();
+		Vector3d zDirection = new Vector3d(rowVector).cross(colVector).normalize();
+
+		Vector3d rowOffset = new Vector3d(rowVector).mul(-cols * voxelSizeX / 2.0);
+		Vector3d colOffset = new Vector3d(colVector).mul(-rows * voxelSizeY / 2.0);
+		Vector3d zOffset = new Vector3d(zDirection).mul(-voxelSizeZ / 2.0);
+
+		return new Vector3d(rcsCenter).add(rowOffset).add(colOffset).add(zOffset);
 	}
 
 	/**
@@ -231,7 +253,7 @@ public class PlanarSupport {
 		return vec;
 	}
 
-	private static double[] multiplyMatrixAndVector(double[][] matrix, double[] vector) {
+	public static double[] multiplyMatrixAndVector(double[][] matrix, double[] vector) {
 		double[] result = new double[3];
 		for (int i = 0; i < 3; i++) {
 			result[i] = matrix[i][0] * vector[0] + matrix[i][1] * vector[1] + matrix[i][2] * vector[2];
@@ -353,6 +375,10 @@ public class PlanarSupport {
 	    // ベクトルの長さを計算して正規化
 	    double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
 	    return new double[] {nx / length, ny / length, nz / length};
+	}
+	
+	public static double[] v2d(Vector3d vec) {
+		return new double[] {vec.x, vec.y, vec.z};
 	}
 
 }

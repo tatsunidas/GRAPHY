@@ -131,7 +131,7 @@ public class ReferenceLine extends com.vis.core.view.D2.roi.Line{
 		 * line center | interval + gap + interval | line center
 		 * 
 		 * here, need more accurate correlation.
-		 * caluculate again pixel size by sine theorem.
+		 * calculate again pixel size by sine theorem.
 		 */
 		double correctedPixelSize = getCorrectedPixelSizeInXY();
 		double thicknessInPixels = this.thickness/correctedPixelSize;

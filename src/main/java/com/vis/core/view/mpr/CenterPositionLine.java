@@ -80,19 +80,19 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		if(plane == CutSurface.AXIAL) {
 			sliceLineColor = Color.red;//horizontal
 			center_support_line_color = Color.blue;
-			if(x1 <= x2) {
+			if(x2 <= x1) {
 				throw new IllegalArgumentException("Seems not suitable line for Axial");
 			}
 		}else if(plane == CutSurface.CORONAL) {
 			sliceLineColor = Color.green;//vertical
 			center_support_line_color = Color.red;//horizontal
-			if(y1 <= y2) {
+			if(y2 <= y1) {
 				throw new IllegalArgumentException("Seems not suitable line for Coronal");
 			}
 		}else {
 			sliceLineColor = Color.blue;//horizontal
 			center_support_line_color = Color.green;
-			if(x1 <= x2) {
+			if(x2 <= x1) {
 				throw new IllegalArgumentException("Seems not suitable line for Sagittal");
 			}
 		}
@@ -154,9 +154,7 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 	}
 
 	public GeneralPath getCrossVerticalLine(double x1, double y1, double x2, double y2) {
-
 		GeneralPath verLine = new GeneralPath();
-//		//center point
 		double cx = (x1 + x2) / 2;
 		double cy = (y1 + y2) / 2;
 		double angle = 90;
@@ -164,18 +162,8 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		double y1Rot = cy + Math.sin(Math.toRadians(angle)) * (x1 - cx) + Math.cos(Math.toRadians(angle)) * (y1 - cy);
 		double x2Rot = cx + Math.cos(Math.toRadians(angle)) * (x2 - cx) - Math.sin(Math.toRadians(angle)) * (y2 - cy);
 		double y2Rot = cy + Math.sin(Math.toRadians(angle)) * (x2 - cx) + Math.cos(Math.toRadians(angle)) * (y2 - cy);
-
-		double extend = 20;
-//		double diffX = (l.x2 - l.x1);
-//		double diffY = (l.y2 - l.y1);
-		double diffX = (x2Rot - x1Rot);
-		double diffY = (y2Rot - y1Rot);
-		double distance = Math.sqrt(diffX * diffX + diffY * diffY);
-		double extendX = diffX * extend / distance;
-		double extendY = diffY * extend / distance;
-//		addSliceLine(verLine, (float)(l.x1d-extendX), (float)(l.y1d-extendY), (float)(l.x2d+extendX), (float)(l.y2d+extendY));
-		addSliceLine(verLine, (float) (x1Rot - extendX), (float) (y1Rot - extendY), (float) (x2Rot + extendX),
-				(float) (y2Rot + extendY));
+		addSliceLine(verLine, (float) (x1Rot), (float) (y1Rot), (float) (x2Rot),
+				(float) (y2Rot));
 		return verLine;
 	}
 

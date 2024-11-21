@@ -165,8 +165,8 @@ public enum Resources {
 	
 	public ImageIcon loadIconFromResource(){
 		if(pathInResource.endsWith("png") || pathInResource.endsWith("jpg") || pathInResource.endsWith("jpeg")) {
-//			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
-			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);//DO NOT USE
+			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
+//			InputStream stream = Resources.class.getClassLoader().getResourceAsStream(pathInResource);//DO NOT USE
 			ImageIcon ico = null;
 			try {
 				ico = new ImageIcon(javax.imageio.ImageIO.read(stream));

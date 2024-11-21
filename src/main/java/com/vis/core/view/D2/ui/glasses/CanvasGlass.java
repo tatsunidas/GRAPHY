@@ -94,6 +94,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public CanvasGlass(SlideGlass sg) {
 		setOpaque(false);
 		setLayout(null);
+		setDoubleBuffered(true);//fail safe
 		this.sopUID = sg.getSOPInstanceUID();
 		this.pp = sg.getPraparat();
 		this.sg = sg;
@@ -438,7 +439,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //			//Second, scale Roi graphics
 //			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
 //			g2d.setTransform(aTx);
-			refLineMPR.draw(g, pp.getName());
+			refLineMPR.draw(g, pp.getName()/*XY XZ YZ*/);
 		}
 	}
 
@@ -1045,12 +1046,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		
+		Graphics2D g2d = (Graphics2D) g;
+	    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
 		if (paintSizeCaliper) {
 			showCaliper(g);
 		}
 		
 		AffineTransform aTx = new AffineTransform();
-		Graphics2D g2d = (Graphics2D)g;
 		double mag = sg.getMagnification();
 		double scaleXY[] = sg.getScaleFactor();
 		Point offset = sg.getDisplayImageOriginXY();
