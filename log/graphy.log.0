@@ -1,64 +1,74 @@
-11月 22, 2024 6:40:12 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+11月 24, 2024 1:17:13 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 60 images loaded.
-11月 22, 2024 6:40:18 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+11月 24, 2024 1:17:19 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-11月 22, 2024 6:40:23 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+11月 24, 2024 1:17:24 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-11月 22, 2024 6:40:23 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+11月 24, 2024 1:17:24 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 1 images loaded.
-11月 22, 2024 6:40:23 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+11月 24, 2024 1:17:24 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-11月 22, 2024 6:40:27 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+11月 24, 2024 1:17:27 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-11月 22, 2024 6:40:27 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+11月 24, 2024 1:17:27 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-11月 22, 2024 6:41:00 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
-普通: CanvasComponent: null
-11月 22, 2024 6:41:00 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
-普通: CanvasComponent: null
-11月 22, 2024 6:41:00 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
-普通: CanvasComponent: null
-11月 22, 2024 6:41:00 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
-普通: CanvasComponent: null
-11月 22, 2024 6:41:02 午前 com.vis.core.view.mpr.MPRViewerWindow initState
+11月 24, 2024 1:18:56 午後 com.vis.core.view.mpr.MPRViewerWindow initState
 普通: init reslice mode
-11月 22, 2024 6:41:02 午前 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
+11月 24, 2024 1:18:56 午後 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
 普通: 1
-11月 22, 2024 6:41:02 午前 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
+11月 24, 2024 1:18:56 午後 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
 普通: ViewMode changed: Reslice
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:56 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:57 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:58 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:35 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:18:58 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:41 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:42 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:42 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:36 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null
-11月 22, 2024 6:41:37 午前 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:32:43 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:32:44 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:32:44 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:32:44 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:33:03 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:33:03 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:33:03 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:39:16 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
+普通: CanvasComponent: null
+11月 24, 2024 1:39:17 午後 com.vis.core.view.D2.ui.glasses.CanvasGlass mouseMoved
 普通: CanvasComponent: null

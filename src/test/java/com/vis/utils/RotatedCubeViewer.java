@@ -184,26 +184,22 @@ public class RotatedCubeViewer extends JFrame {
         
     }
     
-    private boolean isNearCorner(double mouseX, double mouseY) {
-        double threshold = 30.0;  // 10ピクセル以内なら四隅とみなす
-
-        // XYスライスの四隅（ここでは立方体のXY投影の頂点を使用）
-        double[][] cornersXY = projectVerticesXY();
-
-        // 四隅とマウス位置の距離を計算
-        for (double[] corner : cornersXY) {
-            double dx = corner[0] - mouseX;
-            double dy = corner[1] - mouseY;
-            double distance = Math.sqrt(dx * dx + dy * dy);
-            
-            // もし距離が閾値以内なら、四隅に近いと判断
-            if (distance < threshold) {
-                return true;
-            }
-        }
-        
-        return false;  // 四隅に近くない
-    }
+	private boolean isNearCorner(double mouseX, double mouseY) {
+		double threshold = 30.0; // 10ピクセル以内なら四隅とみなす
+		// XYスライスの四隅（ここでは立方体のXY投影の頂点を使用）
+		double[][] cornersXY = projectVerticesXY();
+		// 四隅とマウス位置の距離を計算
+		for (double[] corner : cornersXY) {
+			double dx = corner[0] - mouseX;
+			double dy = corner[1] - mouseY;
+			double distance = Math.sqrt(dx * dx + dy * dy);
+			// もし距離が閾値以内なら、四隅に近いと判断
+			if (distance < threshold) {
+				return true;
+			}
+		}
+		return false; // 四隅に近くない
+	}
 
  // 立方体の回転処理を修正し、指定された軸に沿って回転を適用
     private void rotateCube(boolean rotateX, boolean rotateY, boolean rotateZ) {

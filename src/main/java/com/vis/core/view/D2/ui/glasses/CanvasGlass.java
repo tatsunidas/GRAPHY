@@ -1084,12 +1084,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 			CenterPositionLine cenLine = refLineMPR.centerPositionLineFrom(pp);
 			cenLine.setActiveOverlayRoi(false);// reset activate
 			handle = cenLine.isHandle(screenX, screenY);
-			if (handle == 3) {
+			if (handle == 2) {
 				cenLine.setActiveOverlayRoi(true);
 				found = true;
+				Log.logger.fine("Find center !!");
 			} else if (cenLine.contains(ix, iy)) {
 				cenLine.setActiveOverlayRoi(true);
 				found = true;
+				Log.logger.fine("Find center !!");
 			}
 			if (handle == 3) {
 				sg.setCursor(new RotateCursor(null).createCursor());

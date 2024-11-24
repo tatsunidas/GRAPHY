@@ -48,82 +48,80 @@ import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
  *
  */
 public class SlicePlane {
-	
+
 	GeometryOfSlice geo;
 	Vector3d[] cubeVertices;
-	
-	public SlicePlane(
-			int rows,/*rows in slice*/ 
-			int cols,/*cols in slice*/ 
-			double[] iop, 
-			double[] ipp, double[] voxelSize, Double sliceThickness){
-		//double[] iop, double[] ipp, double[] voxelXYZ, double sliceThickness, int w, int h, int s)
+
+	public SlicePlane(int rows, /* rows in slice */
+			int cols, /* cols in slice */
+			double[] iop, double[] ipp, double[] voxelSize, Double sliceThickness) {
+		// double[] iop, double[] ipp, double[] voxelXYZ, double sliceThickness, int w,
+		// int h, int s)
 		this(new GeometryOfSlice(iop, ipp, voxelSize, sliceThickness, cols, rows, 1));
 	}
-	
+
 	public SlicePlane(GeometryOfSlice geo) {
 		this.geo = geo;
 		initVertices();
 	}
-	
+
 	private void initVertices() {
 		/*
 		 * You need test. is these vertices corrects ?
 		 */
 		cubeVertices = LocalizerPoster.getCornersOfSourceCubeInSourceSpace(geo);
 	}
-	
-	public Vector3d[] getCubeVerticesInOffScreenWorldCoordinate(){
+
+	public Vector3d[] getCubeVerticesInOffScreenWorldCoordinate() {
 		return cubeVertices;
 	}
-	
-	public Vector3d[] getCubeVerticesInOffScreenPixelUnit(){
+
+	public Vector3d[] getCubeVerticesInOffScreenPixelUnit() {
 		Vector3d[] vers = new Vector3d[8];
-		Vector3d voxelSize = geo.getVoxelSpacing();//row↓, col→ and spacingZ↗
-		for(int i =0; i< 8; i++) {
+		Vector3d voxelSize = geo.getVoxelSpacing();// row↓, col→ and spacingZ↗
+		for (int i = 0; i < 8; i++) {
 			Vector3d v = cubeVertices[i];
-			vers[i] = new Vector3d(v.x/voxelSize.x, v.y/voxelSize.y, v.z/voxelSize.z);
+			vers[i] = new Vector3d(v.x / voxelSize.x, v.y / voxelSize.y, v.z / voxelSize.z);
 		}
 		return vers;
 	}
-	
-	private double[] getCubeCenter() {
-        double[] center = {0, 0, 0};
-        for (Vector3d vertex : cubeVertices) {
-            center[0] += vertex.x;
-            center[1] += vertex.y;
-            center[2] += vertex.z;
-        }
-        center[0] /= cubeVertices.length;
-        center[1] /= cubeVertices.length;
-        center[2] /= cubeVertices.length;
-        return center;
-    }
-	
+
+	double[] getCubeCenter() {
+		double[] center = { 0, 0, 0 };
+		for (Vector3d vertex : cubeVertices) {
+			center[0] += vertex.x;
+			center[1] += vertex.y;
+			center[2] += vertex.z;
+		}
+		center[0] /= cubeVertices.length;
+		center[1] /= cubeVertices.length;
+		center[2] /= cubeVertices.length;
+		return center;
+	}
+
 	public GeometryOfSlice getGeometryOfSlice() {
 		return geo;
-	}
-	
-	public void rotateCube(double rotateX, double rotateY, double rotateZ) {
-		for (int i = 0; i < cubeVertices.length; i++) {
-			cubeVertices[i] = PlanarSupport.rotateVector(cubeVertices[i], rotateX, rotateY, rotateZ);
-		}
 	}
 	
 	/**
 	 * Rotate from center of gravity.
 	 * 
+	 * If the center is set to the center of each slice plane, the slices will
+	 * rotate around the center of each slice.
+	 * 
+	 * If the center is set to the center of the slab, each slice will rotate as the
+	 * slab rotates.
+	 * 
 	 * @param rotateX
 	 * @param rotateY
 	 * @param rotateZ
 	 */
-	public void rotateCube(double angle, boolean rotateX, boolean rotateY, boolean rotateZ) {
-		
-		if(angle < 0.001) {
+	public void rotateCube(double[] center, double angle, boolean rotateX, boolean rotateY, boolean rotateZ) {
+
+		if (angle < 0.001) {
 			return;
 		}
-		
-		double[] center = getCubeCenter();
+
 		for (Vector3d vertex : cubeVertices) {
 			// move shift to center
 			vertex.x -= center[0];
@@ -159,22 +157,22 @@ public class SlicePlane {
 			vertex.y += center[1];
 			vertex.z += center[2];
 		}
-		//updateIOP and ipp
-		if(rotateX) {
+		// updateIOP and ipp
+		if (rotateX) {
 			updateIOPAfterRotateFromCenter(angle, 0, 0);
 			updateIPPAfterRotateFromCenter(center, angle, 0, 0);
 		}
-		if(rotateY) {
+		if (rotateY) {
 			updateIOPAfterRotateFromCenter(0, angle, 0);
 			updateIPPAfterRotateFromCenter(center, 0, angle, 0);
 		}
-		if(rotateZ) {
+		if (rotateZ) {
 			updateIOPAfterRotateFromCenter(0, 0, angle);
 			updateIPPAfterRotateFromCenter(center, 0, 0, angle);
 		}
-		initVertices();//re-calculate.
+		initVertices();// re-calculate.
 	}
-	
+
 	public void updateIOPAfterRotateFromCenter(double rotateX, double rotateY, double rotateZ) {
 		Vector3d row = geo.getRow();
 		Vector3d col = geo.getColumn();
@@ -185,73 +183,68 @@ public class SlicePlane {
 	}
 
 	public void updateIPPAfterRotateFromCenter(double[] center, double rotateX, double rotateY, double rotateZ) {
-		
+
 		Vector3d ipp = geo.getTLHC();
-		
-	    double radX = Math.toRadians(rotateX);
-	    double radY = Math.toRadians(rotateY);
-	    double radZ = Math.toRadians(rotateZ);
 
-	    // shift to center
-	    double[] relativePosition = new double[3];
-	    relativePosition[0] = ipp.x - center[0];
-	    relativePosition[1] = ipp.y - center[1];
-	    relativePosition[2] = ipp.z - center[2];
+		double radX = Math.toRadians(rotateX);
+		double radY = Math.toRadians(rotateY);
+		double radZ = Math.toRadians(rotateZ);
 
-	    double[][] Rx = {
-	        {1, 0, 0},
-	        {0, Math.cos(radX), -Math.sin(radX)},
-	        {0, Math.sin(radX), Math.cos(radX)}
-	    };
+		// shift to center
+		double[] relativePosition = new double[3];
+		relativePosition[0] = ipp.x - center[0];
+		relativePosition[1] = ipp.y - center[1];
+		relativePosition[2] = ipp.z - center[2];
 
-	    double[][] Ry = {
-	        {Math.cos(radY), 0, Math.sin(radY)},
-	        {0, 1, 0},
-	        {-Math.sin(radY), 0, Math.cos(radY)}
-	    };
+		double[][] Rx = { { 1, 0, 0 }, { 0, Math.cos(radX), -Math.sin(radX) }, { 0, Math.sin(radX), Math.cos(radX) } };
 
-	    double[][] Rz = {
-	        {Math.cos(radZ), -Math.sin(radZ), 0},
-	        {Math.sin(radZ), Math.cos(radZ), 0},
-	        {0, 0, 1}
-	    };
+		double[][] Ry = { { Math.cos(radY), 0, Math.sin(radY) }, { 0, 1, 0 }, { -Math.sin(radY), 0, Math.cos(radY) } };
 
-	    double[] rotatedPosition = new double[3];
-	    
-	    // P' = Rz * (Ry * (Rx * P_relative))
-	    // Rx
-	    double[] tempPosition = new double[3];
-	    tempPosition[0] = Rx[0][0] * relativePosition[0] + Rx[0][1] * relativePosition[1] + Rx[0][2] * relativePosition[2];
-	    tempPosition[1] = Rx[1][0] * relativePosition[0] + Rx[1][1] * relativePosition[1] + Rx[1][2] * relativePosition[2];
-	    tempPosition[2] = Rx[2][0] * relativePosition[0] + Rx[2][1] * relativePosition[1] + Rx[2][2] * relativePosition[2];
-	    
-	    // Ry
-	    rotatedPosition[0] = Ry[0][0] * tempPosition[0] + Ry[0][1] * tempPosition[1] + Ry[0][2] * tempPosition[2];
-	    rotatedPosition[1] = Ry[1][0] * tempPosition[0] + Ry[1][1] * tempPosition[1] + Ry[1][2] * tempPosition[2];
-	    rotatedPosition[2] = Ry[2][0] * tempPosition[0] + Ry[2][1] * tempPosition[1] + Ry[2][2] * tempPosition[2];
+		double[][] Rz = { { Math.cos(radZ), -Math.sin(radZ), 0 }, { Math.sin(radZ), Math.cos(radZ), 0 }, { 0, 0, 1 } };
 
-	    // Rz
-	    double[] finalPosition = new double[3];
-	    finalPosition[0] = Rz[0][0] * rotatedPosition[0] + Rz[0][1] * rotatedPosition[1] + Rz[0][2] * rotatedPosition[2];
-	    finalPosition[1] = Rz[1][0] * rotatedPosition[0] + Rz[1][1] * rotatedPosition[1] + Rz[1][2] * rotatedPosition[2];
-	    finalPosition[2] = Rz[2][0] * rotatedPosition[0] + Rz[2][1] * rotatedPosition[1] + Rz[2][2] * rotatedPosition[2];
+		double[] rotatedPosition = new double[3];
 
-	    // Move back to center.
-	    ipp.x = finalPosition[0] + center[0];
-	    ipp.y = finalPosition[1] + center[1];
-	    ipp.z = finalPosition[2] + center[2];
-	    
-	    geo.setImagePositionPatient(ipp);
+		// P' = Rz * (Ry * (Rx * P_relative))
+		// Rx
+		double[] tempPosition = new double[3];
+		tempPosition[0] = Rx[0][0] * relativePosition[0] + Rx[0][1] * relativePosition[1]
+				+ Rx[0][2] * relativePosition[2];
+		tempPosition[1] = Rx[1][0] * relativePosition[0] + Rx[1][1] * relativePosition[1]
+				+ Rx[1][2] * relativePosition[2];
+		tempPosition[2] = Rx[2][0] * relativePosition[0] + Rx[2][1] * relativePosition[1]
+				+ Rx[2][2] * relativePosition[2];
+
+		// Ry
+		rotatedPosition[0] = Ry[0][0] * tempPosition[0] + Ry[0][1] * tempPosition[1] + Ry[0][2] * tempPosition[2];
+		rotatedPosition[1] = Ry[1][0] * tempPosition[0] + Ry[1][1] * tempPosition[1] + Ry[1][2] * tempPosition[2];
+		rotatedPosition[2] = Ry[2][0] * tempPosition[0] + Ry[2][1] * tempPosition[1] + Ry[2][2] * tempPosition[2];
+
+		// Rz
+		double[] finalPosition = new double[3];
+		finalPosition[0] = Rz[0][0] * rotatedPosition[0] + Rz[0][1] * rotatedPosition[1]
+				+ Rz[0][2] * rotatedPosition[2];
+		finalPosition[1] = Rz[1][0] * rotatedPosition[0] + Rz[1][1] * rotatedPosition[1]
+				+ Rz[1][2] * rotatedPosition[2];
+		finalPosition[2] = Rz[2][0] * rotatedPosition[0] + Rz[2][1] * rotatedPosition[1]
+				+ Rz[2][2] * rotatedPosition[2];
+
+		// Move back to center.
+		ipp.x = finalPosition[0] + center[0];
+		ipp.y = finalPosition[1] + center[1];
+		ipp.z = finalPosition[2] + center[2];
+
+		geo.setImagePositionPatient(ipp);
 	}
-	
+
 	/**
 	 * offscreen pixel unit.
+	 * 
 	 * @param shiftX
 	 * @param shiftY
 	 * @param shiftZ
 	 */
 	public void move(int shiftX, int shiftY, int shiftZ) {
-		//shuft ipp and update vertices.
+		// shuft ipp and update vertices.
 		double sx = shiftX * geo.getVoxelSpacing().x;
 		double sy = shiftY * geo.getVoxelSpacing().y;
 		double sz = shiftZ * geo.getVoxelSpacing().z;

@@ -41,6 +41,8 @@ import java.util.List;
 
 import org.joml.Vector3d;
 
+import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 
 /**
@@ -83,30 +85,102 @@ public class Slab {
 		}else {
 			slabDepth =  (thickness+gap)*(reslicePlanes.size()-1);
 		}
-		boundingBox = new SlicePlane(
-				(int)geo.getDimensions().x, 
-				(int)geo.getDimensions().y, 
-				geo.getImageOrientationPatient(),
-				PlanarSupport.v2d(geo.getTLHC()),
-				new double[] {voxelSize.x, voxelSize.y, slabDepth},
-				slabDepth);
+		
+		int numOfSlices = reslicePlanes.size();
+		if(numOfSlices%2 == 0/*even*/) {
+			Vector3d planeTLHC1 = reslicePlanes.get(numOfSlices/2-1).getGeometryOfSlice().getTLHC();
+			Vector3d planeTLHC2 = reslicePlanes.get(numOfSlices/2).getGeometryOfSlice().getTLHC();
+			Vector3d tlhc = new Vector3d(
+					new double[] {
+							(planeTLHC1.x+planeTLHC2.x)/2,
+							(planeTLHC1.y+planeTLHC2.y)/2,
+							(planeTLHC1.z+planeTLHC2.z)/2
+							}); 
+			boundingBox = new SlicePlane(
+					(int)geo.getDimensions().x, 
+					(int)geo.getDimensions().y, 
+					geo.getImageOrientationPatient(),
+					PlanarSupport.v2d(tlhc),
+					new double[] {voxelSize.x, voxelSize.y, slabDepth},
+					slabDepth);
+		}else {
+			int centerPos = (int)Math.floor(numOfSlices/2);//0 base
+			boundingBox = new SlicePlane(
+					(int)geo.getDimensions().x, 
+					(int)geo.getDimensions().y, 
+					geo.getImageOrientationPatient(),
+					PlanarSupport.v2d(reslicePlanes.get(centerPos).getGeometryOfSlice().getTLHC()),
+					new double[] {voxelSize.x, voxelSize.y, slabDepth},
+					slabDepth);
+		}
 	}
 	
-	public void rotateSlab(int rx, int ry, int rz) {
+	/**
+	 * Rotate slices from slab center.
+	 * @param rx
+	 * @param ry
+	 * @param rz
+	 */
+	public void rotateSlab(double rx, double ry, double rz) {
+		double[] center = boundingBox.getCubeCenter();
+		boundingBox.rotateCube(center, rx, true, false, false);
+		boundingBox.rotateCube(center, ry, false, true, false);
+		boundingBox.rotateCube(center, rz, false, false, true);
 		for(SlicePlane sp : reslicePlanes) {
-			if(rx > 0) {
-				sp.rotateCube(rx, true, false, false);
+			if(rx > 0.001) {
+				sp.rotateCube(center, rx, true, false, false);
 				rotateX += rx;
 			}
-			if(ry > 0) {
-				sp.rotateCube(ry, false, true, false);
+			if(ry > 0.001) {
+				sp.rotateCube(center, ry, false, true, false);
 				rotateY += ry;
 			}
-			if(rx > 0) {
-				sp.rotateCube(rz, false, false, true);
+			if(rz > 0.001) {
+				sp.rotateCube(center, rz, false, false, true);
 				rotateZ += rz;
 			}
 		}
+	}
+	
+	public boolean isNearCorner(Praparat pp/*on mouse*/, Vector3d ippOnMouse) {
+		// Draw XY projection of the cube
+		int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+		int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+		Vector3d cubeVertices[] = boundingBox.cubeVertices;
+		for (Vector3d vertex : boundingBox.cubeVertices) {
+			int x = (int) vertex.x;
+			int y = (int) vertex.y;
+			int z = (int) vertex.z;
+			minX = Math.min(minX, x);
+			minY = Math.min(minY, y);
+			minZ = Math.min(minZ, z);
+			maxX = Math.max(maxX, x);
+			maxY = Math.max(maxY, y);
+			maxZ = Math.max(maxZ, z);
+		}
+		
+		boolean isInside = ippOnMouse.x >= minX && ippOnMouse.x <= maxX &&
+				ippOnMouse.y >= minY && ippOnMouse.y <= maxY &&
+						ippOnMouse.z >= minZ && ippOnMouse.z <= maxZ;
+		
+		if(!isInside) {
+			return false;
+		}
+		
+		double threshold = 30.0; // 10ピクセル以内なら四隅とみなす
+
+		// 四隅とマウス位置の距離を計算
+		for (Vector3d corner : cubeVertices) {
+			double dx = corner.x - ippOnMouse.x;
+			double dy = corner.y - ippOnMouse.y;
+			double dz = corner.z - ippOnMouse.z;
+			double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+			// もし距離が閾値以内なら、四隅に近いと判断
+			if (distance < threshold) {
+				return true;
+			}
+		}
+		return false; // 四隅に近くない
 	}
 	
 	public Vector3d getRotations() {

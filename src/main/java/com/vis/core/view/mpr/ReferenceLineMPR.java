@@ -428,8 +428,18 @@ public class ReferenceLineMPR {
 		for(int i=0; i<numOfSlice;i++) {
 			addSlicePlane(centers[i], refVolume, iop, slices, half_x, half_y, voxelSize, thickness);
 		}
+		double rotateX = 0;
+		double rotateY = 0;
+		double rotateZ = 30;
+		if(slab != null) {
+			Vector3d angles = slab.getRotations();
+			rotateX = angles.x;
+			rotateY = angles.y;
+			rotateZ = 30;//angles.z;
+		}
 		slab = null;
 		slab = new Slab(slices, gap);
+		slab.rotateSlab(rotateX, rotateY, rotateZ);
 	}
 	
 	/**
@@ -459,7 +469,7 @@ public class ReferenceLineMPR {
 			Vector3d startPoint = new Vector3d(centerOfSlab.x, centerOfSlab.y-(thickness+gap)*centerPos, centerOfSlab.z);
 			//top to bottom
 			for(int i=0; i<numOfSlices; i++) {
-				centers[i] = new Vector3d(startPoint.x, centerOfSlab.y+(thickness+gap)*i, centerOfSlab.z);
+				centers[i] = new Vector3d(startPoint.x, startPoint.y+(thickness+gap)*i, startPoint.z);
 			}
 			return centers;
 		} else if (sliceTarget == CutSurface.CORONAL) {
@@ -534,20 +544,6 @@ public class ReferenceLineMPR {
 				voxelSize, 
 				thickness);
 		
-		double rotateX = 0;
-		double rotateY = 0;
-		double rotateZ = 0;
-		if(slab != null) {
-			Vector3d angles = slab.getRotations();
-			rotateX = angles.x;
-			rotateY = angles.y;
-			rotateZ = angles.z;
-		}
-		
-		slice.rotateCube(rotateX, true, false, false);
-		slice.rotateCube(rotateY, false, true, false);
-		slice.rotateCube(rotateZ, false, false, true);
-		
 		slices.add(slice);
 	}
 	
@@ -579,6 +575,22 @@ public class ReferenceLineMPR {
 			return t/py; 
 		}
 		return Double.NaN;
+	}
+	
+	public boolean isNearCorner(Praparat pp/*on mouse*/, double screenX, double screenY) {
+		if(slab == null || slab.getSlicePlanes()==null || slab.getSlicePlanes().size()==0) {
+			return false;
+		}
+		SlideGlass sg = pp.getCurrentSlide();
+		double ox = sg.offScreenXD((int)screenX);
+		double oy = sg.offScreenXD((int)screenY);
+		int oz = pp.getCurrentSlidePos();//0 base
+		ImagePlus ref = referenceVolume();
+		Vector3d ippOnMOuse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz);
+		if(ippOnMOuse == null) {
+			return false;
+		}
+		return slab.isNearCorner(pp, ippOnMOuse);
 	}
 		
 	private Integer find_yzY_Position(ImagePlus yz, ImagePlus xz, double xzX, double xzY) {
@@ -657,6 +669,28 @@ public class ReferenceLineMPR {
 			}
 		}
 		return coorY;
+	}
+	
+	private Praparat referencePraparat() {
+		if(sliceTarget == CutSurface.AXIAL) {
+			return xy_prap;
+		}else if(sliceTarget == CutSurface.CORONAL) {
+			return xz_prap;
+		}else if(sliceTarget == CutSurface.SAGITTAL) {
+			return yz_prap;
+		}
+		return null;
+	}
+	
+	private ImagePlus referenceVolume() {
+		if(sliceTarget == CutSurface.AXIAL) {
+			return xy;
+		}else if(sliceTarget == CutSurface.CORONAL) {
+			return xz;
+		}else if(sliceTarget == CutSurface.SAGITTAL) {
+			return yz;
+		}
+		return null;
 	}
 	
 	private Point2d[] getXYLeftUpperAndRightLowerOnXY_Prap() {
