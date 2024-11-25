@@ -719,10 +719,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 			
 			//do something
+			pp.getReferenceLineMPR().isNearCorner(pp, e.getX(), e.getY());
+//			Log.logger.fine("isNearCorner? "+pp.getReferenceLineMPR().isNearCorner(pp, e.getX(), e.getY()));
 		}
 		//update currentRoi
 		activateAndGetCurrentRoiAt(e.getX(), e.getY());
-		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
+//		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
 		int type = currentRoi != null ? currentRoi.getType() : -1;
 		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()||type==RoiType.MULTIPOINT.id()) 
 		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {

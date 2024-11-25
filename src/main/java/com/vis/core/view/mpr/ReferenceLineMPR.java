@@ -430,12 +430,12 @@ public class ReferenceLineMPR {
 		}
 		double rotateX = 0;
 		double rotateY = 0;
-		double rotateZ = 30;
+		double rotateZ = 0;
 		if(slab != null) {
 			Vector3d angles = slab.getRotations();
 			rotateX = angles.x;
 			rotateY = angles.y;
-			rotateZ = 30;//angles.z;
+			rotateZ = angles.z;
 		}
 		slab = null;
 		slab = new Slab(slices, gap);
@@ -583,14 +583,14 @@ public class ReferenceLineMPR {
 		}
 		SlideGlass sg = pp.getCurrentSlide();
 		double ox = sg.offScreenXD((int)screenX);
-		double oy = sg.offScreenXD((int)screenY);
+		double oy = sg.offScreenYD((int)screenY);
 		int oz = pp.getCurrentSlidePos();//0 base
 		ImagePlus ref = referenceVolume();
-		Vector3d ippOnMOuse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz);
-		if(ippOnMOuse == null) {
+		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
+		if(ippOnMouse == null) {
 			return false;
 		}
-		return slab.isNearCorner(pp, ippOnMOuse);
+		return slab.isNearCorner(pp, ippOnMouse);
 	}
 		
 	private Integer find_yzY_Position(ImagePlus yz, ImagePlus xz, double xzX, double xzY) {

@@ -104,7 +104,7 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
-		if(slicePos < 1) {
+		if(slicePos < 1 || slicePos > srcImp.getNSlices()) {
 			throw new IllegalArgumentException("Slice position should be 1 <= slicePos <= stackSize");
 		}
 		srcImp.setPosition(slicePos);
@@ -217,13 +217,14 @@ public class PlanarSupport {
 	}
 	
 	public static Vector3d rotateVector(Vector3d vec, double rotateX, double rotateY, double rotateZ) {
-		vec.rotateX(Math.toRadians(rotateX));
-		vec.rotateY(Math.toRadians(rotateY));
-		vec.rotateZ(Math.toRadians(rotateZ));
-		vec.x = truncate(vec.x, 6);
-		vec.y = truncate(vec.y, 6);
-		vec.z = truncate(vec.z, 6);
-		return vec;
+		Vector3d v = new Vector3d(vec);
+		v.rotateX(Math.toRadians(rotateX));
+		v.rotateY(Math.toRadians(rotateY));
+		v.rotateZ(Math.toRadians(rotateZ));
+		v.x = truncate(v.x, 6);
+		v.y = truncate(v.y, 6);
+		v.z = truncate(v.z, 6);
+		return v;
 	}
 
 	public static double[] rotateVector(double[] vec, double rotateX, double rotateY, double rotateZ) {

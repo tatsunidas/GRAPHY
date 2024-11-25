@@ -41,6 +41,7 @@ import java.util.List;
 
 import org.joml.Vector3d;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
@@ -129,25 +130,37 @@ public class Slab {
 		for(SlicePlane sp : reslicePlanes) {
 			if(rx > 0.001) {
 				sp.rotateCube(center, rx, true, false, false);
-				rotateX += rx;
+				rotateX = (int)rx;
 			}
 			if(ry > 0.001) {
 				sp.rotateCube(center, ry, false, true, false);
-				rotateY += ry;
+				rotateY = (int)ry;
 			}
 			if(rz > 0.001) {
 				sp.rotateCube(center, rz, false, false, true);
-				rotateZ += rz;
+				rotateZ = (int)rz;
 			}
 		}
 	}
 	
 	public boolean isNearCorner(Praparat pp/*on mouse*/, Vector3d ippOnMouse) {
+		//OBB : Oriented Bounding Box
+		//AABB : Axis Aligned Bounding Box
+		//First, convert all points to AABB state.
+		Vector3d cubeVertices[] = boundingBox.cubeVertices;
+		Vector3d aabbVertices[] = new Vector3d[8];
+		int i =0;
+		for(Vector3d v: cubeVertices) {
+			aabbVertices[i++] = PlanarSupport.rotateVector(v, -1*rotateX, -1*rotateY, -1*rotateZ);
+		}
+		Vector3d aabb_P = PlanarSupport.rotateVector(ippOnMouse, -1*rotateX, -1*rotateY, -1*rotateZ);
+		
+		
 		// Draw XY projection of the cube
 		int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
 		int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
-		Vector3d cubeVertices[] = boundingBox.cubeVertices;
-		for (Vector3d vertex : boundingBox.cubeVertices) {
+		
+		for (Vector3d vertex :aabbVertices) {
 			int x = (int) vertex.x;
 			int y = (int) vertex.y;
 			int z = (int) vertex.z;
@@ -159,12 +172,16 @@ public class Slab {
 			maxZ = Math.max(maxZ, z);
 		}
 		
-		boolean isInside = ippOnMouse.x >= minX && ippOnMouse.x <= maxX &&
-				ippOnMouse.y >= minY && ippOnMouse.y <= maxY &&
-						ippOnMouse.z >= minZ && ippOnMouse.z <= maxZ;
+		boolean isInside = aabb_P.x >= minX && aabb_P.x <= maxX &&
+				aabb_P.y >= minY && aabb_P.y <= maxY &&
+						aabb_P.z >= minZ && aabb_P.z <= maxZ;
+												
+//		Log.logger.fine("is inside ;" + isInside);
 		
 		if(!isInside) {
 			return false;
+		}else {
+			System.out.println("ok");
 		}
 		
 		double threshold = 30.0; // 10ピクセル以内なら四隅とみなす
