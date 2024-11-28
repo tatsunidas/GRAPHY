@@ -85,7 +85,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		return Tools.parseDouble(value);
 	}
 	
-	public static double[] getDoubles(ImagePlus imp, int pos, String tag) {
+	public static double[] getDoubles(ImagePlus imp, int pos/*1 to N*/, String tag) {
 		String res = getTag(imp, pos, tag);
 		if (res == null) return null;
 		String[] xyz = res.split("\\\\");
@@ -728,12 +728,16 @@ public class GDicomTools extends ij.util.DicomTools{
 		setDoubles(dcms, pos, "0020,0037", iop);
 	}
 	
-	public static double[] getImagePositionPatient(ImagePlus imp, int pos) {
+	public static void setImageOrientationPatient(ImagePlus dcms, int pos, Vector3d row, Vector3d col){
+		setImageOrientationPatient(dcms, pos, new double[] {row.x, row.y, row.z,col.x, col.y, col.z});
+	}
+	
+	public static double[] getImagePositionPatient(ImagePlus imp, int pos/*1 to N*/) {
 		double[] ipp = getDoubles(imp, pos, "0020,0032");
 		return ipp;
 	}
 	
-	public static double[] getImageOrientationPatient(ImagePlus imp, int pos) {
+	public static double[] getImageOrientationPatient(ImagePlus imp, int pos/*1 to N*/) {
 		double[] iop = getDoubles(imp, pos, "0020,0037");
 		return iop;
 	}

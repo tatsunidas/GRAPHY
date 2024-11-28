@@ -72,6 +72,7 @@ import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.NewImage;
@@ -725,13 +726,18 @@ public class MPRViewerWindow extends JFrame {
 	 * TODO, byte, float, RGB
 	 */
 	protected void resliceAndShow() {
-		/*
-		 * get sorted coordinates in general path get num of slice iterate dynamic
-		 * reslice show imp // debug
-		 */
+		
 		if (refLines == null) {
 			return;
 		}
+		
+		Slab slab = refLines.getSlab();
+		
+		if(slab == null || slab.size() < 1) {
+			return; // or set blank image ?
+		}
+		
+		//TODO 20241126
 		boolean excessAngle = false;
 //		try {
 //			if (srcCutSurface == CutSurface.AXIAL) {
@@ -746,150 +752,26 @@ public class MPRViewerWindow extends JFrame {
 //			return;
 //		}
 
-		//TODO 20241107
-		ArrayList<float[]> sortedPointPairList = null;
-		if (srcCutSurface == CutSurface.AXIAL) {
-//			GeneralPath sliceLinePaths = refLines.xYLine().createSliceLinesWithOffScreenCoordinates();
-//			sortedPointPairList = refLines.xYLine().getPoints(sliceLinePaths);
-		} else if (srcCutSurface == CutSurface.CORONAL) {
-//			GeneralPath sliceLinePaths = refLines.xZLine().createSliceLinesWithOffScreenCoordinates();
-//			sortedPointPairList = refLines.xZLine().getPoints(sliceLinePaths);
-		} else {
-//			GeneralPath sliceLinePaths = refLines.yZLine().createSliceLinesWithOffScreenCoordinates();
-//			sortedPointPairList = refLines.yZLine().getPoints(sliceLinePaths);
-		}
-
-		ImageStack stack = null;
+		ImageStack stack = new ImageStack();
 		ImagePlus mainPlane = this.imp;
 		int count = 1;
 		String reconType = contP.getReconType();
-		PlanarSupport psup = new PlanarSupport();
+		List<SlicePlane> planes = slab.getSlicePlanes();
+		Slicer slicer = new Slicer(mainPlane);
+		
 		if (reconType.equals("SLICECUT")) {
-			for (int i = 0; i < sortedPointPairList.size(); i += 2) {
-				double cx1 = sortedPointPairList.get(i)[0];
-				double cy1 = sortedPointPairList.get(i)[1];
-				double cx2 = sortedPointPairList.get(i + 1)[0];
-				double cy2 = sortedPointPairList.get(i + 1)[1];
-				ImageProcessor resliceIp = Slicer.slice(mainPlane, excessAngle, cx1, cy1, cx2, cy2);
-				if (stack == null) {
-					stack = new ImageStack(resliceIp.getWidth(), resliceIp.getHeight(), sortedPointPairList.size() / 2);
-				}
+			for (int i=0; i<planes.size();i++) {
+				SlicePlane plane = planes.get(i);
+				Vector3d ipp = plane.getGeometryOfSlice().getTLHC();
+				Vector3d row_v = plane.getGeometryOfSlice().getRow();
+				Vector3d col_v = plane.getGeometryOfSlice().getColumn();
+				ImageProcessor resliceIp = slicer.slice(plane, Slicer.SLICECUT);
 				resliceIp.resetMinAndMax();
-
-				if (srcCutSurface == CutSurface.AXIAL) {// creating CORONAL or sagittal
-					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, mainPlane.getNSlices());
-					double[] iop = null;//TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.AXIAL);
-					int angle = (int) refLines.getAngleXY();
-					Vector3d row = new Vector3d(iop[0], iop[1], iop[2]);// direction cosine
-					Vector3d col = new Vector3d(iop[3], iop[4], iop[5]);// direction cosine
-					/*
-					 * The axis of rotation does not move, but rotates the other axis. e.g., rotateZ
-					 * rotate only x and y.
-					 */
-					/*
-					 * row direction cosine : ---> vector col direction cosine : | | | \/ vector
-					 */
-					if (!excessAngle) {// COR
-						row = row.rotateZ(Math.toRadians(-angle));// angle near to horizontal (near 0 or +-180)
-						col = col.rotateX(Math.toRadians(-90));
-					} else {// SAG
-						row = row.rotateZ(Math.toRadians(-angle));// angle near vertical (near +-90).
-						col = col.rotateX(Math.toRadians(-90));
-					}
-
-					// System.out.println(row.distanceSquared(cx2, mainPlaneType, count));
-					iop = new double[] { row.x, row.y, row.z, col.x, col.y, col.z };
-
-					if (Math.abs(row.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Row not a unit vector");
-					}
-					if (Math.abs(col.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Column not a unit vector");
-					}
-					if (row.dot(col) > 0.005) { // dot product should be cos(90)=0 if orthogonal
-						throw new IllegalArgumentException("Row and column vectors are not orthogonal");
-					}
-
-					ImagePlus temp = new ImagePlus();
-					GDicomTools.setImagePositionPatient(temp, 1, ipp_v);
-					GDicomTools.setImageOrientationPatient(temp, 1, iop);
-					stack.setProcessor(resliceIp, count);
-					stack.setSliceLabel(temp.getInfoProperty(), count);// stack.addSlice(temp.getInfoProperty(),
-																		// resliceIp, count++);//do not use
-					count++;
-				} else if (srcCutSurface == CutSurface.CORONAL) {// creating sagittal or axial
-					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, 1);
-					double[] iop_sag = null;//TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.CORONAL);
-					int angle = (int) refLines.getAngleXZ();
-					Vector3d row = new Vector3d(iop_sag[0], iop_sag[1], iop_sag[2]);
-					Vector3d col = new Vector3d(iop_sag[3], iop_sag[4], iop_sag[5]);
-
-					if (excessAngle) {// AXI
-						row = row.rotateY(Math.toRadians(-angle));
-						col = col.rotateX(Math.toRadians(90));
-					} else {// SAG
-						row = row.rotateZ(Math.toRadians(90));
-						col = col.rotateY(Math.toRadians(-angle - 90));
-					}
-
-					// System.out.println(row.distanceSquared(cx2, mainPlaneType, count));
-					double[] iop = new double[] { row.x, row.y, row.z, col.x, col.y, col.z };
-
-					if (Math.abs(row.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Row not a unit vector");
-					}
-					if (Math.abs(col.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Column not a unit vector");
-					}
-					if (row.dot(col) > 0.005) { // dot product should be cos(90)=0 if orthogonal between row direction
-												// cosine and col direction cosine.
-						throw new IllegalArgumentException("Row and column vectors are not orthogonal:" + row.dot(col));
-					}
-
-					ImagePlus temp = new ImagePlus();
-					GDicomTools.setImagePositionPatient(temp, 1, ipp_v);
-					GDicomTools.setImageOrientationPatient(temp, 1, iop);
-					stack.setProcessor(resliceIp, count);
-					stack.setSliceLabel(temp.getInfoProperty(), count);// stack.addSlice(temp.getInfoProperty(),
-																		// resliceIp, count++);//do not use
-					count++;
-				} else {// creating coronal or axial
-					Vector3d ipp_v = psup.getNewImagePositionPatient2D(mainPlane, cx1, cy1, 1);
-					double[] iop_sag = null; // TODO psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.SAGITTAL);
-					int angle = (int) refLines.getAngleYZ();
-					Vector3d row = new Vector3d(iop_sag[0], iop_sag[1], iop_sag[2]);
-					Vector3d col = new Vector3d(iop_sag[3], iop_sag[4], iop_sag[5]);
-
-					if (!excessAngle) {// AXI
-						row = row.rotateZ(Math.toRadians(-90));
-						col = col.rotateX(Math.toRadians(angle + 90));
-					} else {// COR
-						row = row.rotateZ(Math.toRadians(-90));
-						col = col.rotateX(Math.toRadians(angle + 90));
-					}
-
-					// System.out.println(row.distanceSquared(cx2, mainPlaneType, count));
-					double[] iop = new double[] { row.x, row.y, row.z, col.x, col.y, col.z };
-
-					if (Math.abs(row.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Row not a unit vector");
-					}
-					if (Math.abs(col.lengthSquared() - 1) > 0.001) {
-						throw new IllegalArgumentException("Column not a unit vector");
-					}
-					if (row.dot(col) > 0.005) { // dot product should be cos(90)=0 if orthogonal
-						double res = row.dot(col);
-						throw new IllegalArgumentException("Row and column vectors are not orthogonal:" + res);
-					}
-
-					ImagePlus temp = new ImagePlus();
-					GDicomTools.setImagePositionPatient(temp, 1, ipp_v);
-					GDicomTools.setImageOrientationPatient(temp, 1, iop);
-					stack.setProcessor(resliceIp, count);
-					stack.setSliceLabel(temp.getInfoProperty(), count);// stack.addSlice(temp.getInfoProperty(),
-																		// resliceIp, count++);//do not use
-					count++;
-				}
+				ImagePlus temp = new ImagePlus("", resliceIp);
+				GDicomTools.setImagePositionPatient(temp, 1, ipp);
+				GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
+				stack.addSlice(temp.getProcessor());
+				stack.setSliceLabel(temp.getInfoProperty(), count++);
 			}
 		} else if (reconType.equals("MEAN")) {
 //			for(int i=0;i<sortedPointPairList.size();i+=2) {
@@ -954,60 +836,24 @@ public class MPRViewerWindow extends JFrame {
 		}
 		// construct imageplus
 		recon_image = new ImagePlus("reslice", stack);
-		double px;
-		double py;
-		double pz;
-		// set calibration
-		if (srcCutSurface == CutSurface.AXIAL) {
-			// SAG or COR
-			Calibration calHolder = xy_image.getCalibration().copy();
-			px = refLines.xYLine().getLength() / recon_image.getWidth();
-			/*
-			 * sag/cor images height set to [num slice * (pz/px)] therefore, pz is to be px.
-			 */
-			py = calHolder.pixelWidth;
-			pz = contP.getSliceThickness() + contP.getSliceGap();
-			calHolder.pixelWidth = px;
-			calHolder.pixelHeight = py;
-			calHolder.pixelDepth = pz;
-			recon_image.setCalibration(calHolder);
-		} else if (srcCutSurface == CutSurface.CORONAL) {
-			Calibration calHolder = xz_image.getCalibration().copy();
-			if (excessAngle) {// AXI
-				px = refLines.xZLine().getLength() / recon_image.getWidth();
-				py = calHolder.pixelHeight;
-			} else {// SAG
-				px = calHolder.pixelHeight;
-				py = refLines.xZLine().getLength() / recon_image.getHeight();
-			}
-			pz = contP.getSliceThickness() + contP.getSliceGap();
-			calHolder.pixelWidth = px;
-			calHolder.pixelHeight = py;
-			calHolder.pixelDepth = pz;
-			recon_image.setCalibration(calHolder);
-		} else {// YZ
-			Calibration calHolder = yz_image.getCalibration().copy();
-			if (!excessAngle) {// AXI
-				px = calHolder.pixelHeight;
-				py = refLines.yZLine().getLength() / recon_image.getHeight();
-			} else {// COR
-				px = calHolder.pixelDepth;
-				py = refLines.yZLine().getLength() / recon_image.getHeight();
-			}
-			pz = contP.getSliceThickness() + contP.getSliceGap();
-			calHolder.pixelWidth = px;
-			calHolder.pixelHeight = py;
-			calHolder.pixelDepth = pz;
-			recon_image.setCalibration(calHolder);
-		}
-		recon_prap.prepareSlideGlassesUsingImagePlus(recon_image);
-		recon_prap.resetView();
+		Calibration calHolder = mainPlane.getCalibration();
+		SlicePlane plane = planes.get(0);
+		double px = plane.getGeometryOfSlice().getVoxelSpacing().y;
+		double py = plane.getGeometryOfSlice().getVoxelSpacing().x;
+		double pz = plane.getGeometryOfSlice().getVoxelSpacing().z;
+		calHolder.pixelWidth = px;
+		calHolder.pixelHeight = py;
+		calHolder.pixelDepth = pz;
+		recon_image.setCalibration(calHolder);
+//		recon_prap.prepareSlideGlassesUsingImagePlus(recon_image);
+		IJ.save(recon_image, "/home/tatsunidas/デスクトップ/test.tif");
+//		recon_prap.resetView();
 	}
 
 	double[] calcImagePositionPatient(double row, double col, int slicePos) {
 		PlanarSupport psup = new PlanarSupport();
-		if (slicePos < 1) {
-			logger.info("SlicePos must be equal or than 1.");
+		if (slicePos < 1 || slicePos > xy_image.getNSlices()) {
+			logger.info("SlicePos out of range.");
 			return null;
 		}
 		org.joml.Vector3d ipp = psup.getNewImagePositionPatient2D(this.xy_image, col, row, slicePos);
@@ -1035,30 +881,6 @@ public class MPRViewerWindow extends JFrame {
 		refLines.setSliceTarget(getSliceTargetPlane());
 		refLines.updateResliceLineState();
 	}
-
-	/**
-	 * @return xy, xz, yz, recon array.
-	 */
-//	public ImagePlus[] getMPRImages() {
-//		ImagePlus xy = null;
-//		ImagePlus xz = null;
-//		ImagePlus yz = null;
-//		ImagePlus recon = null;
-//		if(xy_prap != null) {
-//			xy = xy_prap.getStackSeries();
-//		}
-//		if(xz_prap != null) {
-//			xz = xz_prap.getStackSeries();
-//		}
-//		if(yz_prap != null) {
-//			yz = yz_prap.getStackSeries();
-//		}
-//		if(recon_image != null && !recon_image.getTitle().equals("NOT-READY")) {
-//			recon = recon_image;
-//		}
-//		ImagePlus[] mprs = new ImagePlus[] {xy, xz, yz, recon};
-//		return mprs;
-//	}
 
 	public Praparat getPraparatAt(CutSurface cs) {
 		if (cs == CutSurface.AXIAL) {

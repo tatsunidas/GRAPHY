@@ -253,13 +253,57 @@ public class PlanarSupport {
 
 		return vec;
 	}
+	
+	public static void rotateFromCenter(Vector3d vertex, Vector3d center, double rotateX, double rotateY,
+			double rotateZ) {
+		// move shift to center
+		vertex.x -= center.x;
+		vertex.y -= center.y;
+		vertex.z -= center.z;
+
+		// rotate X in YZ plane
+		double tempY = vertex.y;
+		double tempZ = vertex.z;
+		vertex.y = tempY * Math.cos(rotateX) - tempZ * Math.sin(rotateX);
+		vertex.z = tempY * Math.sin(rotateX) + tempZ * Math.cos(rotateX);
+
+		// rotate Y in XZ plane
+		double tempX = vertex.x;
+		tempZ = vertex.z;
+		vertex.x = tempX * Math.cos(rotateY) + tempZ * Math.sin(rotateY);
+		vertex.z = -tempX * Math.sin(rotateY) + tempZ * Math.cos(rotateY);
+
+		// rotate Z in XY plane
+		tempX = vertex.x;
+		tempY = vertex.y;
+		vertex.x = tempX * Math.cos(rotateZ) - tempY * Math.sin(rotateZ);
+		vertex.y = tempX * Math.sin(rotateZ) + tempY * Math.cos(rotateZ);
+
+		// back to center
+		vertex.x += center.x;
+		vertex.y += center.y;
+		vertex.z += center.z;
+	}
 
 	public static double[] multiplyMatrixAndVector(double[][] matrix, double[] vector) {
-		double[] result = new double[3];
-		for (int i = 0; i < 3; i++) {
-			result[i] = matrix[i][0] * vector[0] + matrix[i][1] * vector[1] + matrix[i][2] * vector[2];
-		}
-		return result;
+//		double[] result = new double[3];
+//		for (int i = 0; i < 3; i++) {
+//			result[i] = matrix[i][0] * vector[0] + matrix[i][1] * vector[1] + matrix[i][2] * vector[2];
+//		}
+		double[] result = new double[matrix.length];
+	    for (int i = 0; i < matrix.length; i++) {
+	        for (int j = 0; j < vector.length; j++) {
+	            result[i] += matrix[i][j] * vector[j];
+	        }
+	    }
+	   return result;
+	}
+	
+	public static Vector3d[] transposeMatrix(Vector3d iop_row, Vector3d iop_col, Vector3d iop_norm) {
+		Vector3d transposedRow = new Vector3d(iop_row.x, iop_col.x, iop_norm.x);
+		Vector3d transposedCol = new Vector3d(iop_row.y, iop_col.y, iop_norm.y);
+		Vector3d transposedNorm = new Vector3d(iop_row.z, iop_col.z, iop_norm.z);
+		return new Vector3d[] { transposedRow, transposedCol, transposedNorm };
 	}
 
 	/**
@@ -368,18 +412,28 @@ public class PlanarSupport {
 	}
 	
 	public static double[] calculateNormal(double[] row, double[] col) {
-	    // 外積を計算
+	    // cross product
 	    double nx = row[1] * col[2] - row[2] * col[1];
 	    double ny = row[2] * col[0] - row[0] * col[2];
 	    double nz = row[0] * col[1] - row[1] * col[0];
-
-	    // ベクトルの長さを計算して正規化
+	    // normalize
 	    double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
 	    return new double[] {nx / length, ny / length, nz / length};
 	}
 	
+	public static Vector3d calculateNormal(Vector3d row, Vector3d col) {
+		Vector3d norm = new Vector3d();
+		row.cross(col, norm);
+		norm = norm.normalize();
+		return norm;
+	}
+	
 	public static double[] v2d(Vector3d vec) {
 		return new double[] {vec.x, vec.y, vec.z};
+	}
+	
+	public static Vector3d d2v(double[] vec) {
+		return new Vector3d (vec);
 	}
 
 }

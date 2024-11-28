@@ -8,21 +8,18 @@ import ij.util.Tools;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
+import java.util.List;
+
+import org.joml.Vector3d;
 
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
+import com.vis.imageio.PixelDataDecoder;
 
-/** Implements the Image/Stacks/Reslice command. Known shortcomings: 
-	for FREELINE or POLYLINE ROI, spatial calibration is ignored: 
-	the image is sampled at constant _pixel_ increments (distance 1), so 
-	(if y/x aspect ratio != 1 in source image) one dimension in the output is not
-	homogeneous (i.e. pixelWidth not the same everywhere).
-*/
 public class Slicer {
 
-	private boolean rotate;
-	private boolean flip;
-	private int sliceCount = 1;
-	private ImagePlus imp;
+	private ImagePlus ref;
+	double min = Double.MAX_VALUE;
+	double raw_min = Double.MAX_VALUE;
 	
 	public static final int SLICECUT = 0;
 	public static final int MEAN = 1;
@@ -31,67 +28,108 @@ public class Slicer {
 	public static final int MEDIAN = 4;
 	public static final int MODE = 5;
 	
-	
-	public Slicer() {
-		
+	public Slicer(ImagePlus ref) {
+		setReferenceImage(ref);
+		Calibration cal = ref.getCalibration();
+		int size = ref.getNSlices();
+		for(int i=0;i<size;i++) {
+			ref.setSlice(i+1);
+			double raw_v = ref.getProcessor().getStats().min;
+			double v = cal.getCValue(raw_v);
+			if(min > v) {
+				min = v;
+				raw_min = raw_v;
+			}
+		}
 	}
 	
 	public void setReferenceImage(ImagePlus imp){
-		this.imp =imp;
+		this.ref =imp;
 	}
 	
-	public void setReconstructionType() {
-		
-	}
-	
-	public void setThickness() {
-		
-	}
-	
-	public void setSliceGap() {
-		
+	public ImageProcessor slice(SlicePlane slicePlane, int mode/*reconstruction mode*/) {
+		if(mode == SLICECUT) {
+			int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;
+			int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;
+			int s = ref.getNSlices();
+			List<Vector3d> pixCoord = slicePlane.computeVoxelCoordinatesInPixelCoords(ref);
+			
+			ImageProcessor ip = ref.getProcessor();
+			if(ip instanceof ByteProcessor) {
+				byte[] pixels = new byte[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+						pixels[i] = (byte)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				return new ByteProcessor(w, h, pixels);
+			}else if(ip instanceof ShortProcessor) {
+				short[] pixels = new short[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					System.out.println(pixPos.toString());
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				ShortProcessor sp = new ShortProcessor(w, h);
+				sp.setPixels(pixels);
+				return sp;
+			}else if(ip instanceof FloatProcessor) {
+				float[] pixels = new float[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				return new FloatProcessor(w, h, pixels);
+			}else if(ip instanceof ColorProcessor) {
+				int[] pixels = new int[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				return new ColorProcessor(w, h, pixels);
+			}
+		}else if(mode == MEAN) {
+			
+		}else if(mode == MAX) {
+			
+		}else if(mode == MIN) {
+			
+		}else if(mode == MEDIAN) {
+			
+		}else {
+			return null;
+		}
+		return null;
 	}
 	
 	/**
 	 * 
 	 * @param imp
-	 * @param excessAngle: over angle.
-	 * @param startX
-	 * @param startY
-	 * @param endX
-	 * @param endY
+	 * @param roi : Line, FreeHand, PolygonLine. 
 	 * @return
 	 */
-	public static ImageProcessor slice(ImagePlus imp, boolean excessAngle, double startX, double startY, double endX, double endY) {
+	public ImageProcessor slice(ImagePlus imp, ij.gui.Roi roi) {
 		Dynamic_Reslice slicer = new Dynamic_Reslice(imp);
-		boolean flipVertical = true;
-		boolean rotate90 = false;
-		String cutSurface = ImageOrientation.getCutSurface(imp).name();
-		//UNKNOWN, AXIAL, SAGITTAL, CORONAL, OBLIQUE
-		switch(cutSurface){
-		case "AXIAL":
-		case "OBLIQUE":
-		case "UNKNOWN":
-			flipVertical = true;
-			rotate90 = false;
-			slicer.setFlip(flipVertical);
-			slicer.setRotate(rotate90);
-			return slicer.getSlice(imp, new ij.gui.Line(startX, startY, endX, endY));
-		case "CORONAL":
-			flipVertical = false;
-			rotate90 = excessAngle ? false:true;
-			slicer.setFlip(flipVertical);
-			slicer.setRotate(rotate90);
-			return slicer.getSlice(imp, new ij.gui.Line(startX, startY, endX, endY));
-		case "SAGITTAL":
-			flipVertical = false;
-			rotate90 = true;
-			slicer.setFlip(flipVertical);
-			slicer.setRotate(rotate90);
-			return slicer.getSlice(imp, new ij.gui.Line(startX, startY, endX, endY));
-		
-		}
-		return null;
+		return slicer.getSlice(imp, roi);
 	}
 
 //	public Slicer(ImagePlus imp) {

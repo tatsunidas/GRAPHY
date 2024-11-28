@@ -5,8 +5,6 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.RenderingHints;
-import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
@@ -17,7 +15,7 @@ import org.joml.Vector3d;
 import org.scijava.vecmath.Point2d;
 
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.ui.glasses.CanvasGlass;
+import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
@@ -54,6 +52,7 @@ public class ReferenceLineMPR {
 	public CenterPositionLine xYCenterLine;//horizontal to x, vertical to y, on XY.
 	public CenterPositionLine xZCenterLine;//horizontal to z, vertical to x, on XZ.
 	public CenterPositionLine yZCenterLine;//horizontal to y, vertical to z, on YZ.
+	public CenterPositionLine currentCenterLine = null;
 	
 	Color xyColor = Color.RED;//X coordinates color
 	Color xzColor = Color.BLUE;//Z coordinates color
@@ -71,6 +70,13 @@ public class ReferenceLineMPR {
 	Double currentThickness = -1.;//mm
 	Double currentGap = -1.;//mm
 	Integer currentNumOfSlice = -1;
+	
+	public int state = 3;
+	
+	final int NORMAL = RoiObj.NORMAL;//3
+	final int MOVING = RoiObj.MOVING;//1
+	final int MOVING_LINE = RoiObj.MOVING_HANDLE;//4, for line move.
+	final int ROTATE = 5;
 	
 	public ReferenceLineMPR(MPRViewerWindow mprWin) {
 		this.mprWin = mprWin;
@@ -113,14 +119,18 @@ public class ReferenceLineMPR {
 		}else if(cutSurfaceName.equals("YZ")) {
 			yZCenterLine.draw(g);
 		}
-		showSliceLinesAsLocalizer();
+		showSliceLinesAsLocalizer(g, cutSurfaceName);
 	}
 	
 	public void setSliceTarget(CutSurface sliceTarget) {
 		this.sliceTarget = sliceTarget;
 	}
 	
-	Graphics screenCoordinate(Graphics g, SlideGlass sg) {
+	public int getState() {
+		return state;
+	}
+	
+	Graphics2D screenCoordinate(Graphics g, SlideGlass sg) {
 		AffineTransform aTx = new AffineTransform();
 		Graphics2D g2d = (Graphics2D)g;
 		double mag = sg.getMagnification();
@@ -134,39 +144,43 @@ public class ReferenceLineMPR {
 		return g2d;
 	}
 	
-	void showSliceLinesAsLocalizer() {
+	void showSliceLinesAsLocalizer(Graphics g,String cutSurfaceName) {
 		if(slab == null || slab.getSlicePlanes().size() < 1) {
 			Log.logger.fine("SlicePlanes are null");
 			return;
 		}
+		CutSurface surface = null;
+		if (cutSurfaceName.equals("XY")) {
+			surface = CutSurface.AXIAL;
+		} else if (cutSurfaceName.equals("XZ")) {
+			surface = CutSurface.CORONAL;
+		} else if (cutSurfaceName.equals("YZ")) {
+			surface = CutSurface.SAGITTAL;
+		} else {
+			// do nothing
+			return;
+		}
+		
+		//debug
+//		if(surface != CutSurface.AXIAL) {
+//			return;
+//		}
+		
+		Praparat pp = mprWin.getPraparatAt(surface);
 		List<SlicePlane> slices = slab.getSlicePlanes();
-		SlideGlass xy_sg = xy_prap.getCurrentSlide();
-		CanvasGlass xy_cv = (CanvasGlass)xy_sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-		Graphics xy_g = xy_cv.getGraphics();
-		xy_g = screenCoordinate(xy_g, xy_sg);
+		SlideGlass sg = pp.getCurrentSlide();
+		Graphics2D g2 = screenCoordinate(g, sg);
 		GeneralPath path = new GeneralPath();
 		for(SlicePlane sp : slices) {
 			GeometryOfSlice geo = sp.getGeometryOfSlice();
-			List<Point2D> loca_geo0 = xy_prap.calcLocalizer(geo);
-			addSliceLine(path, loca_geo0);
-//			drawLocalizerLine(xy_g, loca_geo0);
-			List<Point2D> loca_geo1 = xz_prap.calcLocalizer(geo);
-//			SlideGlass xz_sg = xz_prap.getCurrentSlide();
-//			CanvasGlass xz_cv = (CanvasGlass)xz_sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-//			g = xz_cv.getGraphics();
-//			g = screenCoordinate(g, xz_sg);
-//			drawLocalizerLine(g, loca_geo1);
-//			List<Point2D> loca_geo2 = yz_prap.calcLocalizer(geo);
-//			SlideGlass yz_sg = yz_prap.getCurrentSlide();
-//			CanvasGlass yz_cv = (CanvasGlass)yz_sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-//			g = yz_cv.getGraphics();
-//			g = screenCoordinate(g, yz_sg);
-//			drawLocalizerLine(g, loca_geo2);
+			List<Point2D> loca_geo = pp.calcLocalizer(geo);
+			if(loca_geo != null) {
+				addSliceLine(path, loca_geo);
+			}
 		}
-		Graphics2D xy_g2 = (Graphics2D) xy_g;
-		xy_g2.setColor(axisColor());
-		xy_g2.setStroke(new BasicStroke(1));
-		xy_g2.draw(path);
+		g2.setColor(axisColor());
+		g2.setStroke(new BasicStroke(1));
+		g2.draw(path);
 	}
 	
 	private void addSliceLine(GeneralPath path, List<Point2D> localizerGeo) {
@@ -181,25 +195,67 @@ public class ReferenceLineMPR {
 		path.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
 	}
 	
-	private void drawLocalizerLine(Graphics g, List<Point2D> localizerGeo) {
-		if(localizerGeo == null) {
+	public void mouseDragged(Praparat pp, int dragSX, int dragSY, int flags) {
+		if(slab == null || slab.size() < 1) {
 			return;
 		}
-		Point2D p0_leftUpper = localizerGeo.get(0);
-		Point2D p1_rightUpper = localizerGeo.get(1);
-		Point2D p2_rightLower = localizerGeo.get(2);
-		Point2D p3_leftLower = localizerGeo.get(3);
-		GeneralPath loca = new GeneralPath();
-		loca.moveTo(p0_leftUpper.getX(), p0_leftUpper.getY());
-		loca.lineTo(p1_rightUpper.getX(), p1_rightUpper.getY());
-		loca.lineTo(p2_rightLower.getX(), p2_rightLower.getY());
-		loca.lineTo(p3_leftLower.getX(), p3_leftLower.getY());
-		loca.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
-		Graphics2D g2 = (Graphics2D) g;
-		g2.setColor(axisColor());
-		g2.setStroke(new BasicStroke(1));
-		g2.draw(loca);
-//		g2.dispose();
+		SlideGlass sg = pp.getCurrentSlide();
+		int offX = sg.offScreenX(dragSX);
+		int offY = sg.offScreenY(dragSY);
+		int lastOffX = sg.offScreenX(sg.lastDraggedX);
+		int lastOffY = sg.offScreenY(sg.lastDraggedY);
+		int shiftX = offX-lastOffX, shiftY = offY-lastOffY; 
+		if(state == MOVING) {
+			if(pp.getName().equals("XY")) {
+				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.AXIAL);
+				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				slab.moveSlab(shiftX, shiftY, 0);
+			}else if(pp.getName().equals("XZ")) {
+				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.CORONAL);
+				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				slab.moveSlab(shiftX, 0, shiftY);
+			}else if(pp.getName().equals("YZ")) {
+				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.SAGITTAL);
+				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				slab.moveSlab(0, shiftX, shiftY);
+			}else {
+				return;
+			}
+		}else if(state == ROTATE){
+			if(pp.getName().equals("XY")) {
+				slab.rotateSlab(0, 0, shiftX*0.5);
+			}else if(pp.getName().equals("XZ")) {
+				slab.rotateSlab(0, shiftX*0.5, 0);
+			}else if(pp.getName().equals("YZ")) {
+				slab.rotateSlab(shiftX*0.5, 0, 0);
+			}else {
+				return;
+			}
+		}
+	}
+	
+	public void mousePressed(Praparat pp, int dragSX, int dragSY) {
+		currentCenterLine = centerPositionLineHereAt(pp, dragSX, dragSY);
+		if(currentCenterLine != null) {
+			state = MOVING;//slab state
+			/*
+			 * Line objects can be moved in MOVE_HANDLE mode.
+			 */
+			currentCenterLine.mouseDownInHandle(2/*center*/, dragSX, dragSY);
+		}else if(isPeripheralArea(pp, dragSX, dragSY)) {
+			state = ROTATE;
+		}else {
+			state = NORMAL;
+		}
+	}
+	
+	public void mouseReleased() {
+		state = NORMAL;
+		if(currentCenterLine != null) {
+			currentCenterLine.setState(NORMAL);
+		}
+		//re-calculate center line positions
+		calculateCenterPositionsAndMove();
 	}
 
 	private Color axisColor() {
@@ -213,56 +269,23 @@ public class ReferenceLineMPR {
 		return Color.WHITE;
 	}
 	
-	//TODO
-	/**
-	 * Update reference slice lines on XY plane.
-	 * @param from
-	 * @param refLine
-	 */
-//	private void lineX(CutSurface from, ReferenceLine refLine) {
-//		if(from == CutSurface.AXIAL) {
-//			//do nothing
-//		}else if(from == CutSurface.CORONAL) {
-//			
-//		}else if(from == CutSurface.SAGITTAL) {
-//			
-//		}
-//		if (xy_prap == null) {
-//			return;
-//		}
-//		int xyX = xyP.x;
-//		int xyY = xyP.y;
-//		int xyZ = xy_prap.getCurrentSlidePos();
-//		/*
-//		 * Since it is not an ISO voxel, the position of the cross-section is
-//		 * recalculated from each voxel size.
-//		 */
-//		// update xz
-//		Calibration cal_xy = xy_image.getCalibration();
-//		double xy_px = cal_xy.pixelWidth;
-//		double xy_py = cal_xy.pixelHeight;
-//		double xy_pz = cal_xy.pixelDepth;
-//		int xzX = xyX;
-//		int xzY = (int) (xyZ * (xy_pz / xy_px));// xz_size - xzZ;
-//		int xzZ = (int) (xyY * (xy_py / xy_px));
-//		if (xzZ < 0) {
-//			xzZ = 0;
-//		} else if (xzZ > xz_image.getNSlices() - 1) {
-//			xyZ = xz_image.getNSlices() - 1;
-//		}
-//		xz_prap.setImagePositionUsingSlider(xzZ);
-//
-//		// update yz
-//		int yzX = (int) (xyY * (xy_py / xy_px));
-//		int yzY = (int) (xyZ * (xy_pz / xy_px));
-//		int yzZ = xyX;
-//		if (yzZ < 0) {
-//			yzZ = 0;
-//		} else if (yzZ > yz_image.getNSlices() - 1) {
-//			yzZ = yz_image.getNSlices() - 1;
-//		}
-//		yz_prap.setImagePositionUsingSlider(yzZ);
-//	}
+	public void calculateCenterPositionsAndMove() {
+		if(slab == null || slab.size()<1) {
+			return;
+		}
+		//XY
+		double[] coords = slab.getCenterOfVolumeInPixelCoords(xy);
+		CenterPositionLine cXY = centerPositionLineFrom(CutSurface.AXIAL);
+		cXY.setLocation(coords[0], coords[1]);
+		//XY
+		coords = slab.getCenterOfVolumeInPixelCoords(xz);
+		CenterPositionLine cXZ = centerPositionLineFrom(CutSurface.CORONAL);
+		cXZ.setLocation(coords[0]-10, coords[1]-10);
+		//YZ
+		coords = slab.getCenterOfVolumeInPixelCoords(yz);
+		CenterPositionLine cYZ = centerPositionLineFrom(CutSurface.SAGITTAL);
+		cYZ.setLocation(coords[0]-10, coords[1]-10);
+	}
 	
 	public CenterPositionLine centerPositionLineFrom(Praparat pp) {
 		Praparat xy = mprWin.getPraparatAt(CutSurface.AXIAL);
@@ -291,9 +314,33 @@ public class ReferenceLineMPR {
 		}
 	}
 	
+	public CenterPositionLine centerPositionLineHereAt(Praparat pp, int screenX, int screenY) {
+		SlideGlass sg = pp.getCurrentSlide();
+		int ix = sg.offScreenX(screenX);
+		int iy = sg.offScreenY(screenY);
+		int handle = -1;
+		boolean found = false;
+		CenterPositionLine cenLine = centerPositionLineFrom(pp);
+		cenLine.setActiveOverlayRoi(false);// reset activate
+		handle = cenLine.isHandle(screenX, screenY);
+		if (handle == 2) {
+			cenLine.setActiveOverlayRoi(true);
+			found = true;
+		} else if (cenLine.contains(ix, iy)) {
+			cenLine.setActiveOverlayRoi(true);
+			found = true;
+		}
+		if(found) {
+			Log.logger.fine("Find center !!");
+			return cenLine;
+		}
+		return null;
+	}
+	
 	/**
 	 * 
-	 * @return center position with reference volume coordinates(RCS space).
+	 * @param RCSCoordinates : true RCS, false offscreenCoord.
+	 * @return
 	 */
 	public Vector3d getCenterPosition(boolean RCSCoordinates) {
 		CenterPositionLine cpl = centerPositionLineFrom(sliceTarget);
@@ -305,7 +352,7 @@ public class ReferenceLineMPR {
 			if(RCSCoordinates) {
 				cx = xy.getCalibration().pixelWidth * cx;
 				cy = xy.getCalibration().pixelHeight * cy;
-				cz = (GDicomTools.getVoxelDepth(xy) * cz) - (GDicomTools.getVoxelDepth(xy) / 2.);
+				cz = (GDicomTools.getVoxelDepth(xy) * cz /2.);
 			}
 		}else if(sliceTarget == CutSurface.CORONAL) {
 			cz = xz_prap.getCurrentSlidePos();
@@ -452,6 +499,7 @@ public class ReferenceLineMPR {
 			return null;
 		}
 		Vector3d[] centers = new Vector3d[numOfSlices];
+		//slab center slice plane position.
 		int centerPos = 0;//0 base
 		if(numOfSlices%2 == 0/*even*/) {
 			centerPos = numOfSlices/2 -1;
@@ -462,6 +510,9 @@ public class ReferenceLineMPR {
 		if(numOfSlices == 1) {
 			return new Vector3d[]{centerOfSlab};
 		}
+		/*
+		 * Thickness and gap will be converted to pixel unit.
+		 */
 		Double thickness = getThicknessInPixelUnit();
 		Double gap = getGapInPixelUnit();
 		if (sliceTarget == CutSurface.AXIAL) {
@@ -534,8 +585,15 @@ public class ReferenceLineMPR {
 		
 		//check out of range center in reference volume...//TODO
 		
+		/*
+		 * SlicePlane ipp is shifted by half z, 
+		 * because centerline to be located at slice center position.
+		 */
+		voxelSize[2] = voxelSize[2]/2.;
 		Vector3d newIPP = new PlanarSupport().getNewImagePositionPatient(w, h, voxelSize, iop, centerIPP);
 		
+		//back scale
+		voxelSize[2] *= 2.;
 		SlicePlane slice = new SlicePlane(
 				h, //rows
 				w, //cols
@@ -577,7 +635,11 @@ public class ReferenceLineMPR {
 		return Double.NaN;
 	}
 	
-	public boolean isNearCorner(Praparat pp/*on mouse*/, double screenX, double screenY) {
+	public Slab getSlab() {
+		return slab;
+	}
+	
+	public boolean isPeripheralArea(Praparat pp/*on mouse*/, double screenX, double screenY) {
 		if(slab == null || slab.getSlicePlanes()==null || slab.getSlicePlanes().size()==0) {
 			return false;
 		}
@@ -585,12 +647,28 @@ public class ReferenceLineMPR {
 		double ox = sg.offScreenXD((int)screenX);
 		double oy = sg.offScreenYD((int)screenY);
 		int oz = pp.getCurrentSlidePos();//0 base
-		ImagePlus ref = referenceVolume();
+		ImagePlus ref = imagePlus(pp.getName());
 		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
 		if(ippOnMouse == null) {
 			return false;
 		}
-		return slab.isNearCorner(pp, ippOnMouse);
+		return slab.isPointInShrinkedBox(pp, ippOnMouse);
+	}
+	
+	public boolean isBoundingBox(Praparat pp/*on mouse*/, double screenX, double screenY) {
+		if(slab == null || slab.getSlicePlanes()==null || slab.getSlicePlanes().size()==0) {
+			return false;
+		}
+		SlideGlass sg = pp.getCurrentSlide();
+		double ox = sg.offScreenXD((int)screenX);
+		double oy = sg.offScreenYD((int)screenY);
+		int oz = pp.getCurrentSlidePos();//0 base
+		ImagePlus ref = imagePlus(pp.getName());
+		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
+		if(ippOnMouse == null) {
+			return false;
+		}
+		return slab.isBoundingBox(pp, ippOnMouse);
 	}
 		
 	private Integer find_yzY_Position(ImagePlus yz, ImagePlus xz, double xzX, double xzY) {
@@ -691,6 +769,18 @@ public class ReferenceLineMPR {
 			return yz;
 		}
 		return null;
+	}
+	
+	private ImagePlus imagePlus(String name) {
+		ImagePlus ref = null;
+		if(name.equals("XY")) {
+			ref = xy;
+		}else if(name.equals("XZ")) {
+			ref = xz;
+		}else if(name.equals("YZ")) {
+			ref = yz;
+		}
+		return ref;
 	}
 	
 	private Point2d[] getXYLeftUpperAndRightLowerOnXY_Prap() {

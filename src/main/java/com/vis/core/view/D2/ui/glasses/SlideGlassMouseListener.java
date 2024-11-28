@@ -54,9 +54,13 @@ import javax.swing.SwingUtilities;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
+import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.mpr.CenterPositionLine;
 import com.vis.core.view.mpr.MPRViewerWindow;
+import com.vis.core.view.mpr.ReferenceLineMPR;
 
 /**
  * 
@@ -224,14 +228,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		// MPR
 		if(pp.mode == ViewMode.MPR) {
-			/*
-			 * When showCrossLineMode in MPR just draw cross lines, and update showing cut slices.
-			 */
 			Eyepiece eye = pp.getEyepiece();
-			if(eye != null) {
+			if (eye != null) {
 				java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
 				MPRViewerWindow mprwin = null;
-				if(w instanceof MPRViewerWindow) {
+				if (w instanceof MPRViewerWindow) {
 					mprwin = (MPRViewerWindow) w;
 				}
 				if (mprwin != null) {
@@ -253,16 +254,17 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 //							cg.createCross(e);
 							return;
 						}
-					}else if(mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {
-						if(cg.centerPositionLineHereAt(x, y)!=null) {
-							cg.mouseDragged(e);
-							Log.logger.fine("ReferenceLine Dragging");
+					} else if (mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {
+						ReferenceLineMPR refLines = pp.getReferenceLineMPR();
+						if(refLines != null && refLines.getState() != RoiObj.NORMAL) {
+							refLines.mouseDragged(pp, x, y, e.getModifiersEx());
+							slide.lastDraggedX = x;
+							slide.lastDraggedY = y;
 							return;
 						}
 					}
 				}
 			}
-			//at here, do not return.
 		}
 		
 		if (pp.getViewMode() == ViewMode.Thumbnail) {
@@ -342,7 +344,29 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		// MPR
 		if(pp.mode == ViewMode.MPR) {
-			cg.mouseMoved(e);
+			/*
+			 * Reference line is not included in rois array.
+			 * It is need to handle as another object.
+			 */
+			ReferenceLineMPR refLines = pp.getReferenceLineMPR();
+			if(refLines != null) {
+				//find and activate reference line.
+				CenterPositionLine cenLine = refLines.centerPositionLineHereAt(pp, e.getX(), e.getY());
+				if(cenLine != null) {
+					Log.logger.fine("CanvasComponent: "+cenLine.getClass().getName());
+					slide.setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+				}else {
+					//do something
+					Log.logger.fine("isInBoundingBox? "+pp.getReferenceLineMPR().isBoundingBox(pp, e.getX(), e.getY()));
+					boolean rotateArea = pp.getReferenceLineMPR().isPeripheralArea(pp, e.getX(), e.getY());
+					Log.logger.fine("isNearCorner? "+rotateArea);
+					if(rotateArea) {
+						slide.setCursor(new RotateCursor(null).createCursor());
+					}else {
+						slide.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+					}
+				}
+			}
 		}
 		
 		// roi
@@ -391,6 +415,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		viewerToolType = pp.getViewer2DToolType();
 		
+		slide.lastDraggedX = e.getX();
+		slide.lastDraggedY = e.getY();
+		
 		if (SwingUtilities.isLeftMouseButton(e)) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
 			viewerToolType = pp.getViewer2DToolType();
@@ -411,6 +438,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 							cg.setLocalizerGeometry(null);
 						}
 					}
+				}
+				ReferenceLineMPR refLines = pp.getReferenceLineMPR();
+				if(refLines != null) {
+					//if will rotate or move referencelines, return
+					refLines.mousePressed(pp, e.getX(), e.getY());
+					if(refLines.getState() != RoiObj.NORMAL) {
+						return;
+					}//else, continue to following.
 				}
 			}
 			
@@ -465,6 +500,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 						pp.clearCrossLines();
 					}
 				}
+			}
+			ReferenceLineMPR refLines = pp.getReferenceLineMPR();
+			if(refLines != null) {
+				refLines.mouseReleased();
 			}
 		}
 	}

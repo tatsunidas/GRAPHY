@@ -128,7 +128,11 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		return -1;
 	}
 	
-	public void draw(Graphics g) {	
+	public void draw(Graphics g) {
+		
+		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
+		x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
+		
 		int x3 = x1 + (int)((x2 - x1) / 2.);
 		int y3 = y1 + (int)((y2 - y1) / 2.);
 		
@@ -162,14 +166,13 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		double y1Rot = cy + Math.sin(Math.toRadians(angle)) * (x1 - cx) + Math.cos(Math.toRadians(angle)) * (y1 - cy);
 		double x2Rot = cx + Math.cos(Math.toRadians(angle)) * (x2 - cx) - Math.sin(Math.toRadians(angle)) * (y2 - cy);
 		double y2Rot = cy + Math.sin(Math.toRadians(angle)) * (x2 - cx) + Math.cos(Math.toRadians(angle)) * (y2 - cy);
-		addSliceLine(verLine, (float) (x1Rot), (float) (y1Rot), (float) (x2Rot),
+		addLine(verLine, (float) (x1Rot), (float) (y1Rot), (float) (x2Rot),
 				(float) (y2Rot));
 		return verLine;
 	}
 
-	public void addSliceLine(GeneralPath sl, float x1, float y1, float x2, float y2) {
+	public void addLine(GeneralPath sl, float x1, float y1, float x2, float y2) {
 		sl.moveTo(x1, y1);
 		sl.lineTo(x2, y2);
 	}
-
 }

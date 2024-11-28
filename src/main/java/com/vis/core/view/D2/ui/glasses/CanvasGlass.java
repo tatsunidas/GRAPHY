@@ -154,7 +154,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void addRoi(RoiObj newRoi) {
-		if (newRoi instanceof ReferenceLine) {
+		if (newRoi instanceof CenterPositionLine) {
+			//For MPR.
 			return;
 		}
 		if (isExistsInRoiSet(newRoi)) {
@@ -172,7 +173,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	public void addRoi(RoiObj newRoi, boolean updateDB) {
-		if(newRoi instanceof ReferenceLine) {
+		if(newRoi instanceof CenterPositionLine) {
 			return;
 		}
 		if(updateDB) {
@@ -429,16 +430,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private void drawReferenceLine(Graphics g) {
 		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
 		if (refLineMPR != null) {
-//			AffineTransform aTx = new AffineTransform();
-//			Graphics2D g2d = (Graphics2D)g;
-//			double mag = sg.getMagnification();
-//			double scaleXY[] = sg.getScaleFactor();
-//			Point offset = sg.getDisplayImageOriginXY();
-//			//First, translate image origin without mag and component scale.
-//			aTx.translate(offset.x, offset.y);
-//			//Second, scale Roi graphics
-//			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-//			g2d.setTransform(aTx);
 			refLineMPR.draw(g, pp.getName()/*XY XZ YZ*/);
 		}
 	}
@@ -543,10 +534,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
 		int roiType = pp.getCurrentViewerToolType();
-		if(centerPositionLineHereAt(sx,sy)!=null) {
-			CenterPositionLine cenLine = centerPositionLineHereAt(sx,sy);
+		CenterPositionLine cenLine = centerPositionLineHereAt(sx,sy);
+		if(cenLine != null) {
 			int handle = cenLine.isHandle(sx, sy);
-			cenLine.setRoiModState(e, handle);
+			cenLine.mouseDownInHandle(handle, sx, sy);
 			cenLine.mouseDown(e);
 			return;
 		}
@@ -707,21 +698,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mouseMoved(MouseEvent e) {
-		/*
-		 * Reference line is not included in rois array.
-		 * It is need to handle as another object.
-		 */
-		if(pp.getReferenceLineMPR() != null) {
-			//find and activate reference line.
-			CenterPositionLine cenLine = centerPositionLineHereAt(e.getX(), e.getY());
-			if(cenLine != null) {
-				Log.logger.fine("CanvasComponent: "+cenLine.getClass().getName());
-			}
-			
-			//do something
-			pp.getReferenceLineMPR().isNearCorner(pp, e.getX(), e.getY());
-//			Log.logger.fine("isNearCorner? "+pp.getReferenceLineMPR().isNearCorner(pp, e.getX(), e.getY()));
-		}
 		//update currentRoi
 		activateAndGetCurrentRoiAt(e.getX(), e.getY());
 //		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
@@ -753,10 +729,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 			flags = InputEvent.BUTTON1_DOWN_MASK;
 		}
 		//is reference line?
-		if(centerPositionLineHereAt(dragSX, dragSY) != null) {
-			CenterPositionLine rl = centerPositionLineHereAt(dragSX, dragSY);
-			rl.mouseDrag(dragSX, dragSY, flags);
+		//see also mousePressed.
+		CenterPositionLine cpl = centerPositionLineHereAt(dragSX, dragSY);
+		if(cpl != null) {
 			Log.logger.fine("ReferenceLine Dragging");
+			cpl.mouseDrag(dragSX, dragSY, flags);
 			sg.lastDraggedX = dragSX;
 			sg.lastDraggedY = dragSY;
 			return;
@@ -785,60 +762,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		sg.mouseX = sx; 
 		sg.mouseY = sy;
 		switch (toolID) {
-//		case Viewer2DToolBar.MAGNIFIER:
-//			if (IJ.shiftKeyDown())
-//				zoomToSelection(ox, oy);
-//			else if ((flags & (Event.ALT_MASK|Event.META_MASK|Event.CTRL_MASK))!=0) {
-//				zoomOut(x, y);
-//				if (getMagnification()<1.0)
-//					imp.repaintWindow();
-//			} else {
-// 				zoomIn(x, y);
-//				if (getMagnification()<=1.0)
-//					imp.repaintWindow();
-//			}
-//			break;
-//		case Toolbar.HAND:
-//			setupScroll(ox, oy);
-//			break;
-//		case Toolbar.DROPPER:
-//			setDrawingColor(ox, oy, IJ.altKeyDown());
-//			break;
-//		case Toolbar.WAND:
-//			double tolerance = WandToolOptions.getTolerance();
-//			Roi roi = imp.getRoi();
-//			if (roi!=null && (tolerance==0.0||imp.isThreshold()) && roi.contains(ox, oy)) {
-//				Rectangle r = roi.getBounds();
-//				if (r.width==imageWidth && r.height==imageHeight)
-//					imp.deleteRoi();
-//				else if (!e.isAltDown()) {
-//					handleRoiMouseDown(e);
-//					return;
-//				}
-//			}
-//			if (roi!=null) {
-//				int handle = roi.isHandle(x, y);
-//				if (handle>=0) {
-//					roi.mouseDownInHandle(handle, x, y);
-//					return;
-//				}
-//			}
-//			setRoiModState(e, roi, -1);
-//			String mode = WandToolOptions.getMode();
-//			if (Prefs.smoothWand)
-//				mode = mode + " smooth";
-//			int npoints = IJ.doWand(ox, oy, tolerance, mode);
-//			if (Recorder.record && npoints>0) {
-//				if (Recorder.scriptMode())
-//					Recorder.recordCall("IJ.doWand(imp, "+ox+", "+oy+", "+tolerance+", \""+mode+"\");");
-//				else {
-//					if (tolerance==0.0 && mode.equals("Legacy"))
-//						Recorder.record("doWand", ox, oy);
-//					else
-//						Recorder.recordString("doWand("+ox+", "+oy+", "+tolerance+", \""+mode+"\");\n");
-//				}
-//			}
-//			break;
 		case Viewer2DToolBar.Brush:
 			handleRoiBrushMouseDown(e);
 			e.consume();
@@ -1076,33 +999,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * @return
 	 */
 	protected CenterPositionLine centerPositionLineHereAt(int screenX, int screenY) {
-
-		int ix = sg.offScreenX(screenX);
-		int iy = sg.offScreenY(screenY);
-		int handle = -1;
 		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
-		boolean found = false;
 		if (refLineMPR != null) {
-			CenterPositionLine cenLine = refLineMPR.centerPositionLineFrom(pp);
-			cenLine.setActiveOverlayRoi(false);// reset activate
-			handle = cenLine.isHandle(screenX, screenY);
-			if (handle == 2) {
-				cenLine.setActiveOverlayRoi(true);
-				found = true;
-				Log.logger.fine("Find center !!");
-			} else if (cenLine.contains(ix, iy)) {
-				cenLine.setActiveOverlayRoi(true);
-				found = true;
-				Log.logger.fine("Find center !!");
-			}
-			if (handle == 3) {
-				sg.setCursor(new RotateCursor(null).createCursor());
-			} else {
-				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-			}
-			if(found) {
-				return cenLine;
-			}
+			return refLineMPR.centerPositionLineHereAt(pp, screenX, screenY);
 		}
 		return null;
 	}
