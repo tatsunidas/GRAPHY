@@ -16,6 +16,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
 
 /**
  * 
@@ -136,8 +137,14 @@ public class CineSlider extends JPanel implements ActionListener {
 			initializing = true;// to ignore fire state changed when starting-up.
 			setLabelTable(null);// needed to update slider ui
 			setMinimum(1);
-			setMaximum(pp.getNumberOfImages());
-
+			
+			try {
+				setMaximum(pp.getNumberOfImages());
+			}catch(java.lang.NullPointerException e) {
+				// continue
+				Log.logger.fine(e.getLocalizedMessage());
+			}
+			
 			int majorTickSpacing = pp.getNumberOfImages() / 10;
 			/*
 			 * MinorTickSpace is linked to the count of wheel moves.

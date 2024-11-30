@@ -62,9 +62,19 @@ public class SlicePlane {
 	public SlicePlane(int rows, /* rows in slice */
 			int cols, /* cols in slice */
 			double[] iop, double[] ipp, double[] voxelSize, Double sliceThickness) {
+		this(new GeometryOfSlice(iop, ipp, voxelSize, sliceThickness, cols, rows, 1));
+	}
+	
+	public SlicePlane(
+			Vector3d rowVector, 
+			Vector3d colVector, 
+			Vector3d ipp, 
+			Vector3d voxelSize, 
+			Double sliceThickness,
+			Vector3d dimension) {
 		// double[] iop, double[] ipp, double[] voxelXYZ, double sliceThickness, int w,
 		// int h, int s)
-		this(new GeometryOfSlice(iop, ipp, voxelSize, sliceThickness, cols, rows, 1));
+		this(new GeometryOfSlice(rowVector, colVector, ipp, voxelSize, sliceThickness, dimension));
 	}
 
 	public SlicePlane(GeometryOfSlice geo) {
@@ -109,7 +119,7 @@ public class SlicePlane {
 
 		// Compute slice normal vector
 		Vector3d Rs = new Vector3d();
-		Rc.cross(Rr, Rs); // Rs = Rc × Rr
+		Rc.cross(Rr, Rs); // Rs = Rc × Rr (Not Rr × Rc)
 
 		// Compute pixel coordinates
 		Vector3d diff = new Vector3d(rcsCoord);
@@ -122,14 +132,28 @@ public class SlicePlane {
 		return new Vector3d(u, v, w);
 	}
 
+	/**
+	 * Returns the IPP of the slice in the reference volume closest to the IPP of
+	 * the SlicePlane.
+	 * 
+	 * @param baseIPP
+	 * @param baseIOP
+	 * @param sliceThickness
+	 * @return
+	 */
 	public Vector3d computeNearestIPP(Vector3d baseIPP, double[] baseIOP, double sliceThickness) {
 		Vector3d row = new Vector3d(baseIOP[0], baseIOP[1], baseIOP[2]);
 		Vector3d col = new Vector3d(baseIOP[3], baseIOP[4], baseIOP[5]);
-		Vector3d normal = PlanarSupport.calculateNormal(row, col);
+		Vector3d normal = PlanarSupport.calculateNormal(row, col, false);
 		return computeNearestIPP(geo.getTLHC(), baseIPP, normal, sliceThickness);
 	}
 
 	/**
+	 * In the reference volume space, calculate the IPP of the slice as the closest
+	 * reference volume (the slice position is not limited to the actual number of
+	 * slices) for the specified RCS coordinates. Extend and compute the virtual
+	 * slice cross section along the IOP and IPP of the reference image, even if it
+	 * is out of space.
 	 * 
 	 * @param virtualIPP
 	 * @param baseIPP
@@ -140,13 +164,13 @@ public class SlicePlane {
 	public Vector3d computeNearestIPP(Vector3d virtualIPP, Vector3d baseIPP, double[] baseIOP, double sliceThickness) {
 		Vector3d row = new Vector3d(baseIOP[0], baseIOP[1], baseIOP[2]);
 		Vector3d col = new Vector3d(baseIOP[3], baseIOP[4], baseIOP[5]);
-		Vector3d normal = PlanarSupport.calculateNormal(row, col);
+		Vector3d normal = PlanarSupport.calculateNormal(row, col, false);
 		return computeNearestIPP(virtualIPP, baseIPP, normal, sliceThickness);
 	}
 
 	/**
 	 * 
-	 * @param virtualIPP     : SlicePlane IPP
+	 * @param virtualIPP     : Any SlicePlane IPP
 	 * @param baseIPP        : Reference Volume IPP at 0 slice.
 	 * @param sliceNormal    : Reference volume IOP cross product norm.
 	 * @param sliceThickness : Reference volume slice thickness.
@@ -159,56 +183,35 @@ public class SlicePlane {
 		Vector3d nearestIPP = new Vector3d(sliceNormal).mul(sliceIndex * sliceThickness).add(baseIPP);
 		return nearestIPP;
 	}
-	
-	/**
-	 * In RSC coords.
-	 * @return
-	 */
-	public List<Vector3d> computeVoxelCoordinates() {
-		Vector3d ipp = geo.getTLHC();
-		Vector3d rowVector = geo.getRow();
-		Vector3d colVector = geo.getColumn();
-		double pixelSpacingX = geo.getVoxelSpacing().y;
-		double pixelSpacingY = geo.getVoxelSpacing().x;
-		double width = geo.getDimensions().y;
-		double height = geo.getDimensions().x;
-		return computeVoxelCoordinates(ipp, rowVector, colVector, pixelSpacingX, pixelSpacingY, width, height);
+
+	public static Vector3d computeRCS(Vector3d ipp, Vector3d row, Vector3d col, double u/* x */, double v/* y */) {
+		Vector3d rcs = new Vector3d(ipp);
+		Vector3d rowOffset = new Vector3d(row);
+		Vector3d colOffset = new Vector3d(col);
+		rowOffset.mul(u);
+		colOffset.mul(v);
+		rcs = rcs.add(rowOffset).add(colOffset);
+		return rcs;
 	}
-	
-	/**
-	 * In RSC coords.
-	 * @return
-	 */
-	public List<Vector3d> computeVoxelCoordinates(Vector3d ipp, Vector3d rowVector, Vector3d colVector,
-			double pixelSpacingX, double pixelSpacingY, double width, double height) {
+
+	public List<Vector3d> computeVoxelCoordinatesInPixelCoords(ImagePlus ref) {
 		List<Vector3d> voxelCoordinates = new ArrayList<>();
-		for (int i = 0; i < height; i++) {
-			for (int j = 0; j < width; j++) {
-				// calculate with RCS coordinates
-				Vector3d voxelCoord = new Vector3d(ipp).add(new Vector3d(rowVector).mul(j * pixelSpacingX))
-						.add(new Vector3d(colVector).mul(i * pixelSpacingY));
-				voxelCoordinates.add(voxelCoord);
+		int w = (int)Math.ceil(geo.getDimensions().y);
+		int h = (int)Math.ceil(geo.getDimensions().x);
+		Vector3d voxelSize = geo.getVoxelSpacing();
+		
+		double vx = voxelSize.y;//col size
+		double vy = voxelSize.x;//row size
+		
+		Vector3d ipp = geo.getTLHC();
+		Vector3d row = geo.getRow();
+		Vector3d column = geo.getColumn();
+		for(int y=0; y<h; y++) {
+			for(int x=0; x<w; x++) {
+				Vector3d rcs = computeRCS(ipp, row, column, x*vx, y*vy);
+				Vector3d pixCoord = toPixelCoordinates(rcs, ref);
+				voxelCoordinates.add(pixCoord);
 			}
-		}
-		return voxelCoordinates;
-	}
-	
-	public List<Vector3d> computeVoxelCoordinatesInPixelCoords(ImagePlus ref){
-		Vector3d baseIPP = new Vector3d(GDicomTools.getImagePositionPatient(ref, 1));
-		double[] baseIOP = GDicomTools.getImageOrientationPatient(ref, 1);
-		Vector3d row = new Vector3d(baseIOP[0], baseIOP[1], baseIOP[2]);
-		Vector3d col = new Vector3d(baseIOP[3], baseIOP[4], baseIOP[5]);
-		Vector3d normal = PlanarSupport.calculateNormal(row, col);
-		double thickness = GDicomTools.getVoxelDepth(ref);
-		List<Vector3d> voxelCoordinates = computeVoxelCoordinates();
-		for(Vector3d p : voxelCoordinates) {
-			Vector3d diff = new Vector3d(p).sub(baseIPP);
-			double sliceIndex = diff.dot(normal) / thickness;
-			Vector3d nearestIPP = new Vector3d(normal).mul(sliceIndex * thickness).add(baseIPP);
-			Vector2d xy = mapToPixelCoordinates(p, nearestIPP);
-			p.x = xy.x;
-			p.y = xy.y;
-			p.z = sliceIndex;
 		}
 		return voxelCoordinates;
 	}
@@ -237,6 +240,30 @@ public class SlicePlane {
 		double pixelX = diff.dot(row) / pixelSpacingX;
 		double pixelY = diff.dot(col) / pixelSpacingY;
 		return new Vector2d(pixelX, pixelY);
+	}
+
+	public Vector3d toPixelCoordinates(Vector3d rcsPoint, ImagePlus ref) {
+		// Load DICOM metadata
+		double[] imagePosition = GDicomTools.getImagePositionPatient(ref, 1);
+		double[] imageOrientation = GDicomTools.getImageOrientationPatient(ref, 1);
+		double[] pixelSpacing = new double[] { ref.getCalibration().pixelWidth, ref.getCalibration().pixelHeight };
+		double sliceThickness = GDicomTools.getVoxelDepth(ref);
+
+		Vector3d ipp = new Vector3d(imagePosition);
+
+		// Extract orientation vectors
+		Vector3d Rc = new Vector3d(imageOrientation[0], imageOrientation[1], imageOrientation[2]);
+		Vector3d Rr = new Vector3d(imageOrientation[3], imageOrientation[4], imageOrientation[5]);
+		Vector3d Rs = new Vector3d();
+		//IMPORTANT, Rc.cross(Rr). Not Rr.cross(Rc)
+		Rc.cross(Rr, Rs);
+
+		// Compute pixel coordinates
+		double u = (rcsPoint.dot(Rc) - ipp.dot(Rc)) / pixelSpacing[1];
+		double v = (rcsPoint.dot(Rr) - ipp.dot(Rr)) / pixelSpacing[0];
+		double w = (rcsPoint.dot(Rs) - ipp.dot(Rs)) / sliceThickness;
+
+		return new Vector3d(u, v, w);
 	}
 
 	/**
@@ -417,10 +444,7 @@ public class SlicePlane {
 				min = v;
 			}
 		}
-		// shift ipp and update vertices.
-//		double sx = shiftX * geo.getVoxelSpacing().x;
-//		double sy = shiftY * geo.getVoxelSpacing().y;
-//		double sz = shiftZ * geo.getVoxelSpacing().z;
+		// move ipp and update vertices.
 		double sx = shiftX * min;
 		double sy = shiftY * min;
 		double sz = shiftZ * min;

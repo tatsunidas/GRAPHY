@@ -307,6 +307,7 @@ public class MPRViewerWindow extends JFrame {
 				xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2 - 1);
 				xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2 - 1);
 				yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2 - 1);
+				recon_prap.setImagePositionUsingSlider(0);
 			}
 		}).start();
 		eye.autoLayout();// 2 * 2 grid layout
@@ -755,85 +756,25 @@ public class MPRViewerWindow extends JFrame {
 		ImageStack stack = new ImageStack();
 		ImagePlus mainPlane = this.imp;
 		int count = 1;
-		String reconType = contP.getReconType();
+		//String reconType = contP.getReconType();
+		int reconMode = reconMode();
 		List<SlicePlane> planes = slab.getSlicePlanes();
 		Slicer slicer = new Slicer(mainPlane);
 		
-		if (reconType.equals("SLICECUT")) {
-			for (int i=0; i<planes.size();i++) {
-				SlicePlane plane = planes.get(i);
-				Vector3d ipp = plane.getGeometryOfSlice().getTLHC();
-				Vector3d row_v = plane.getGeometryOfSlice().getRow();
-				Vector3d col_v = plane.getGeometryOfSlice().getColumn();
-				ImageProcessor resliceIp = slicer.slice(plane, Slicer.SLICECUT);
-				resliceIp.resetMinAndMax();
-				ImagePlus temp = new ImagePlus("", resliceIp);
-				GDicomTools.setImagePositionPatient(temp, 1, ipp);
-				GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
-				stack.addSlice(temp.getProcessor());
-				stack.setSliceLabel(temp.getInfoProperty(), count++);
-			}
-		} else if (reconType.equals("MEAN")) {
-//			for(int i=0;i<sortedPointPairList.size();i+=2) {
-//				double cx1 = sortedPointPairList.get(i)[0];
-//				double cy1 = sortedPointPairList.get(i)[1];
-//				double cx2 = sortedPointPairList.get(i+1)[0];
-//				double cy2 = sortedPointPairList.get(i+1)[1];
-//				double thicknessInPixel = refLines.xYLine().getDepthSpacingInPixel();
-//				//center slicecut
-//				ImageProcessor resliceIp = slicer.getSlice(mainPlane, new ij.gui.Line(cx1,cy1,cx2,cy2));
-//				ImagePlus resliceImpFloat = new ImagePlus("",resliceIp.convertToFloat());
-//				
-//				/*
-//				 * e.g, 5 reconResolution(resolution is must be odd number).
-//				 * shift amount = thickness / (reconResolution-1)
-//				 * num of bar equals reconResolution, spaces is shift.
-//				 * |<-|<-|->|->|
-//				 */
-//				double subPixelShift = thicknessInPixel/(reconResolution-1.0d);
-//				//sub slices
-//				if(isXZ) {//cor, shift on y
-//					int iterEnd = (reconResolution-1)/2;
-//					for(int m=1;m<=iterEnd;m++) {
-//						ImageProcessor subIpU = slicer.getSlice(mainPlane, new ij.gui.Line(cx1,cy1+subPixelShift*m,cx2,cy2+subPixelShift*m));
-//						ImageProcessor subIpL = slicer.getSlice(mainPlane, new ij.gui.Line(cx1,cy1-subPixelShift*m,cx2,cy2-subPixelShift*m));
-//						//add these slices
-//						ImagePlus impU = new ImagePlus("", subIpU.convertToFloat());
-//						ImagePlus impL = new ImagePlus("", subIpL.convertToFloat());
-//						resliceImpFloat = new ImageCalculator().run("add create float", resliceImpFloat, impU);
-//						resliceImpFloat = new ImageCalculator().run("add create float", resliceImpFloat, impL);
-//					}
-//				}else {//sag, shift on x
-//					int iterEnd = (reconResolution-1)/2;
-//					for(int m=1;m<=iterEnd;m++) {
-//						ImageProcessor subIpL = slicer.getSlice(mainPlane, new ij.gui.Line(cx1+subPixelShift*m,cy1,cx2+subPixelShift*m,cy2));
-//						ImageProcessor subIpR = slicer.getSlice(mainPlane, new ij.gui.Line(cx1-subPixelShift*m,cy1,cx2-subPixelShift*m,cy2));
-//						//add these slices
-//						ImagePlus impL = new ImagePlus("", subIpL.convertToFloat());
-//						ImagePlus impR = new ImagePlus("", subIpR.convertToFloat());
-//						resliceImpFloat = new ImageCalculator().run("add create float", resliceImpFloat, impL);
-//						resliceImpFloat = new ImageCalculator().run("add create float", resliceImpFloat, impR);
-//					}
-//				}
-//				resliceImpFloat.getProcessor().multiply(1.0/reconResolution);
-//				if(mainPlane.getBitDepth() == 8) {
-//					resliceImpFloat.setDisplayRange(0, 255);
-//					resliceImpFloat = new ImagePlus("", resliceImpFloat.getProcessor().convertToByteProcessor());
-//				}else if(mainPlane.getBitDepth() == 16) {
-//					resliceImpFloat.setDisplayRange(0, 65536);
-//					resliceImpFloat = new ImagePlus("", resliceImpFloat.getProcessor().convertToShortProcessor());
-//				}
-//				resliceImpFloat.resetDisplayRange();
-//				resliceIp = resliceImpFloat.getProcessor();
-//				if(stack == null) {
-//					stack = new ImageStack(resliceIp.getWidth(),resliceIp.getHeight(), sortedPointPairList.size()/2);
-//				}
-//				resliceIp.resetMinAndMax();
-//				stack.setProcessor(resliceIp, count++);
-//			}
-		} else {
-			// do other algorithms
+		for (int i=0; i<planes.size();i++) {
+			SlicePlane plane = planes.get(i);
+			Vector3d ipp = plane.getGeometryOfSlice().getTLHC();
+			Vector3d row_v = plane.getGeometryOfSlice().getRow();
+			Vector3d col_v = plane.getGeometryOfSlice().getColumn();
+			ImageProcessor resliceIp = slicer.slice(plane, reconMode);
+//			resliceIp.resetMinAndMax();
+			ImagePlus temp = new ImagePlus("", resliceIp);
+			GDicomTools.setImagePositionPatient(temp, 1, ipp);
+			GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
+			stack.addSlice(temp.getProcessor());
+			stack.setSliceLabel(temp.getInfoProperty(), count++);
 		}
+		
 		// construct imageplus
 		recon_image = new ImagePlus("reslice", stack);
 		Calibration calHolder = mainPlane.getCalibration();
@@ -845,9 +786,13 @@ public class MPRViewerWindow extends JFrame {
 		calHolder.pixelHeight = py;
 		calHolder.pixelDepth = pz;
 		recon_image.setCalibration(calHolder);
-//		recon_prap.prepareSlideGlassesUsingImagePlus(recon_image);
-		IJ.save(recon_image, "/home/tatsunidas/デスクトップ/test.tif");
-//		recon_prap.resetView();
+		String seUID = UIDUtils.createUID();
+		for(int i=1; i<= recon_image.getNSlices(); i++) {
+			addUIDs(recon_image, i, seUID);
+		}
+		SwingUtilities.invokeLater(() -> {
+			recon_prap.reloadSlideGlasses(recon_image);
+		});
 	}
 
 	double[] calcImagePositionPatient(double row, double col, int slicePos) {
@@ -859,21 +804,7 @@ public class MPRViewerWindow extends JFrame {
 		org.joml.Vector3d ipp = psup.getNewImagePositionPatient2D(this.xy_image, col, row, slicePos);
 		return new double[] { ipp.x, ipp.y, ipp.z };
 	}
-
-//	void updateResliceLineState() {
-//		if(sliceLine == null) {
-//			//keep AXIAL, Any surface of this.imp shall be treated as an XY surface.
-//			sliceLine = new ReferenceLine(CutSurface.AXIAL, 0, imp.getHeight()/2, imp.getWidth()-1, imp.getHeight()/2, xy_prap.getCurrentSlide().getView());
-//			xy_prap.setReferenceLine(sliceLine);
-//			xy_prap.getCurrentSlide().getView().setViewer2DToolType(Viewer2DToolBar.LineRoi);
-//		}
-//	    sliceLine.setThickness(contP.getSliceThickness());
-//	    sliceLine.setGap(contP.getSliceGap());
-//	    sliceLine.setNumOfSlice(contP.getNumberOfSlices());
-//	    sliceLine.createSliceLinesWithOffScreenCoordinates();
-//		xy_prap.repaint();
-//	}
-
+	
 	void updateReferenceLineMPR() {
 		if (refLines == null) {
 			refLines = new ReferenceLineMPR(this);
@@ -907,6 +838,25 @@ public class MPRViewerWindow extends JFrame {
 	
 	public CutSurface getSrcSurface() {
 		return srcCutSurface;
+	}
+	
+	private int reconMode() {
+		String reconType = contP.getReconType();
+		if(reconType.equals(MPRControlPanel.reconType[0])) {
+			return Slicer.SLICECUT;
+		}else if(reconType.equals(MPRControlPanel.reconType[1])) {
+			return Slicer.MEAN;
+		}else if(reconType.equals(MPRControlPanel.reconType[2])) {
+			return Slicer.MAX;
+		}else if(reconType.equals(MPRControlPanel.reconType[3])) {
+			return Slicer.MIN;
+		}else if(reconType.equals(MPRControlPanel.reconType[4])) {
+			return Slicer.MEDIAN;
+		}else if(reconType.equals(MPRControlPanel.reconType[5])) {
+			return Slicer.MODE;
+		}else {
+			return Slicer.SLICECUT;
+		}
 	}
 	
 	void drawReferenceLines() {

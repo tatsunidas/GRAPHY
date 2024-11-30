@@ -37,8 +37,8 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	//functions of Orthogonal mode
 	final String crossViewMode = "Cross View Mode";
 	final String showCrossLineMode = "Show Cross Lines";
-	//recon mode
-	final static String[] reconType = new String[] {"SLICECUT","MEAN"};
+	//recon mode : See also Slicer's mode.
+	final static String[] reconType = new String[] {"SLICECUT","MEAN", "MAX", "MIN", "MEDIAN","MODE"};
 	String currentReconType = reconType[0];
 	
 	//Cut slices from.
@@ -263,7 +263,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		resliceBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				mprWin.updateReferenceLineMPR();
 				mprWin.resliceAndShow();
 			}
 		});

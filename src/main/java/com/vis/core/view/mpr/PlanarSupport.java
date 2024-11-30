@@ -2,11 +2,15 @@ package com.vis.core.view.mpr;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.joml.Vector3d;
 
+import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
@@ -57,9 +61,6 @@ public class PlanarSupport {
 		}
 		
 		double[] axi_iop = new double[] {norm[0],norm[1],norm[2],row[0],row[1],row[2]};
-		
-		System.out.println(java.util.Arrays.toString(srcIOP));
-		System.out.println(java.util.Arrays.toString(axi_iop));
 		
 		LocalizerPoster.validateDirectionCosines(axi_iop);//clear
 	}
@@ -130,9 +131,6 @@ public class PlanarSupport {
 		RealMatrix matrix1 = new Array2DRowRealMatrix(mat1);
 		RealMatrix res = matrix0.multiply(matrix1);// same as dot products
 		double[][] newIpp = res.getData();
-
-		// System.out.println("new ipp:"+newIpp[0][0]+" "+newIpp[1][0]+"
-		// "+newIpp[2][0]);
 		return new Vector3d(newIpp[0][0], newIpp[1][0], newIpp[2][0]);
 	}
 	
@@ -421,10 +419,12 @@ public class PlanarSupport {
 	    return new double[] {nx / length, ny / length, nz / length};
 	}
 	
-	public static Vector3d calculateNormal(Vector3d row, Vector3d col) {
+	public static Vector3d calculateNormal(Vector3d row, Vector3d col, boolean normalize) {
 		Vector3d norm = new Vector3d();
-		row.cross(col, norm);
-		norm = norm.normalize();
+		col.cross(row, norm);//keep col cross row.
+		if(normalize) {
+			norm = norm.normalize();
+		}
 		return norm;
 	}
 	
@@ -435,5 +435,41 @@ public class PlanarSupport {
 	public static Vector3d d2v(double[] vec) {
 		return new Vector3d (vec);
 	}
-
+	
+	public static List<SlicePlane> divideSlice(
+			GeometryOfSlice orgGeo, int resolution) {
+		if (resolution %2 ==0 ) {
+			Log.logger.fine("SubResolution must be odd number.");
+			resolution -= 1;
+		}
+		if (resolution < 0) {
+			throw new IllegalArgumentException("SubResolution must be > 0");
+		}
+		Vector3d originalIPP = new Vector3d(orgGeo.getTLHC());
+		Vector3d rowVector = new Vector3d(orgGeo.getRow());
+		Vector3d colVector = new Vector3d(orgGeo.getColumn());
+		Vector3d dimension = new Vector3d(orgGeo.getDimensions());
+		Vector3d voxelSize = new Vector3d(orgGeo.getVoxelSpacing());
+		Double sliceThickness = orgGeo.getSliceThickness();
+		if(sliceThickness == null || sliceThickness == Double.NaN) {
+			sliceThickness = orgGeo.getVoxelSpacing().z;
+		}
+		
+		// Rs = Rc × Rr
+		Vector3d normalVector = new Vector3d(colVector).cross(rowVector).normalize();
+		// Create SubResolution SlicePlanes
+		double step = sliceThickness / (resolution-1);
+		
+		voxelSize.z = step;
+		
+		List<SlicePlane> dividedPlanes = new ArrayList<>();
+        // 分割をオリジナルIPPを中心に配置
+        int half = resolution / 2;
+        for (int i = -half; i <= half; i++) {
+            Vector3d newIPP = new Vector3d(normalVector).mul(i * step).add(originalIPP);
+            SlicePlane inner = new SlicePlane(rowVector, colVector, newIPP, voxelSize, step, dimension);
+            dividedPlanes.add(inner);
+        }
+		return dividedPlanes;
+	}
 }

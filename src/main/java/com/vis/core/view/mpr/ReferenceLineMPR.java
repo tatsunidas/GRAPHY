@@ -274,15 +274,15 @@ public class ReferenceLineMPR {
 			return;
 		}
 		//XY
-		double[] coords = slab.getCenterOfVolumeInPixelCoords(xy);
+		double[] coords = slab.getCenterOfVolumeInPixelCoords2(xy);
 		CenterPositionLine cXY = centerPositionLineFrom(CutSurface.AXIAL);
 		cXY.setLocation(coords[0], coords[1]);
 		//XY
-		coords = slab.getCenterOfVolumeInPixelCoords(xz);
+		coords = slab.getCenterOfVolumeInPixelCoords2(xz);
 		CenterPositionLine cXZ = centerPositionLineFrom(CutSurface.CORONAL);
 		cXZ.setLocation(coords[0]-10, coords[1]-10);
 		//YZ
-		coords = slab.getCenterOfVolumeInPixelCoords(yz);
+		coords = slab.getCenterOfVolumeInPixelCoords2(yz);
 		CenterPositionLine cYZ = centerPositionLineFrom(CutSurface.SAGITTAL);
 		cYZ.setLocation(coords[0]-10, coords[1]-10);
 	}
@@ -378,10 +378,10 @@ public class ReferenceLineMPR {
 		if(xYCenterLine == null || xZCenterLine == null || yZCenterLine == null) {
 			initLines();
 		}
-		updateReslicePlanes();
+		initReslicePlanes();
 	}
 	
-	public void updateReslicePlanes() {
+	public void initReslicePlanes() {
 		Double fovW = mprWin.getFOV_W();//mm
 		Double fovH = mprWin.getFOV_H();//mm
 		Double thickness = mprWin.getSliceThickness();//mm

@@ -13,6 +13,7 @@ import java.util.List;
 import org.joml.Vector3d;
 
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
+import com.vis.dicom.image.GDicomTools;
 import com.vis.imageio.PixelDataDecoder;
 
 public class Slicer {
@@ -49,9 +50,13 @@ public class Slicer {
 	
 	public ImageProcessor slice(SlicePlane slicePlane, int mode/*reconstruction mode*/) {
 		if(mode == SLICECUT) {
+			
 			int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;
 			int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;
-			int s = ref.getNSlices();
+			
+			int parent_w = ref.getWidth();
+			int parent_h = ref.getHeight();
+			int parent_s = ref.getNSlices();
 			List<Vector3d> pixCoord = slicePlane.computeVoxelCoordinatesInPixelCoords(ref);
 			
 			ImageProcessor ip = ref.getProcessor();
@@ -59,7 +64,7 @@ public class Slicer {
 				byte[] pixels = new byte[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
 						pixels[i] = (byte)raw_min;
 						continue;
 					}
@@ -71,8 +76,7 @@ public class Slicer {
 				short[] pixels = new short[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					System.out.println(pixPos.toString());
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
 						pixels[i] = (short)raw_min;
 						continue;
 					}
@@ -86,7 +90,7 @@ public class Slicer {
 				float[] pixels = new float[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
 						pixels[i] = (short)raw_min;
 						continue;
 					}
@@ -98,7 +102,7 @@ public class Slicer {
 				int[] pixels = new int[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > w - 1 || pixPos.y > h - 1 || pixPos.z > s - 1)) {
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
 						pixels[i] = (short)raw_min;
 						continue;
 					}
@@ -107,20 +111,90 @@ public class Slicer {
 				}
 				return new ColorProcessor(w, h, pixels);
 			}
-		}else if(mode == MEAN) {
-			
-		}else if(mode == MAX) {
-			
-		}else if(mode == MIN) {
-			
-		}else if(mode == MEDIAN) {
-			
 		}else {
-			return null;
+			return createSlice(slicePlane, ref, mode);
 		}
 		return null;
 	}
 	
+	public ImageProcessor createSlice(SlicePlane slicePlane, ImagePlus ref, int mode) {
+		
+		double refZ = GDicomTools.getVoxelDepth(ref);
+		double resolution = slicePlane.getGeometryOfSlice().getVoxelSpacing().z/refZ;
+		int numOfSubSlice = (int)Math.round(resolution);
+		if(numOfSubSlice <= 2/*see, PlanarSupport.divideSlice*/) {
+			return slice(slicePlane, SLICECUT);
+		}
+		
+		int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;
+		int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;
+		
+		int parent_w = ref.getWidth();
+		int parent_h = ref.getHeight();
+		int parent_s = ref.getNSlices();
+		ImageProcessor ip = ref.getProcessor();
+		
+		List<SlicePlane> subPlanes = PlanarSupport.divideSlice(slicePlane.getGeometryOfSlice(), numOfSubSlice);
+		
+		ImageStack subStack = new ImageStack((int)slicePlane.getGeometryOfSlice().getDimensions().y, (int)slicePlane.getGeometryOfSlice().getDimensions().x);
+		
+		for(SlicePlane sub: subPlanes) {
+			List<Vector3d> pixCoord = sub.computeVoxelCoordinatesInPixelCoords(ref);
+			if(ip instanceof ByteProcessor) {
+				byte[] pixels = new byte[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+						pixels[i] = (byte)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				subStack.addSlice(new ByteProcessor(w, h, pixels));
+			}else if(ip instanceof ShortProcessor) {
+				short[] pixels = new short[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				ShortProcessor sp = new ShortProcessor(w, h);
+				sp.setPixels(pixels);
+				subStack.addSlice(sp);
+			}else if(ip instanceof FloatProcessor) {
+				float[] pixels = new float[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				subStack.addSlice(new FloatProcessor(w, h, pixels));
+			}else if(ip instanceof ColorProcessor) {
+				int[] pixels = new int[w*h];
+				for(int i=0;i<w*h;i++) {
+					Vector3d pixPos = pixCoord.get(i);
+					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					ref.setSlice((int)pixPos.z+1);
+					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+				}
+				subStack.addSlice(new ColorProcessor(w, h, pixels));
+			}
+		}
+		return applyCalculateMode(subStack, mode);
+	}
+
 	/**
 	 * 
 	 * @param imp
@@ -130,6 +204,138 @@ public class Slicer {
 	public ImageProcessor slice(ImagePlus imp, ij.gui.Roi roi) {
 		Dynamic_Reslice slicer = new Dynamic_Reslice(imp);
 		return slicer.getSlice(imp, roi);
+	}
+	
+	private ImageProcessor applyCalculateMode(ImageStack stack, int mode) {
+		int w = stack.getWidth();
+		int h = stack.getHeight();
+		int s = stack.getSize();
+		float[] res = new float[stack.getWidth()*stack.getHeight()];
+		int itr = 0;
+		for(int y=0; y< h; y++) {
+			for(int x=0; x<w; x++) {
+				int[] v = new int[s];
+				for(int z=0; z<s; z++) {
+					ImageProcessor ip = stack.getProcessor(z+1);
+					v[z] = ip.get(x, y);
+				}
+				float pix = (float)min;
+				if(mode == MEAN) {
+					pix = (float)calculateAverage(v);
+				}else if(mode == MAX) {
+					pix = (float)findMax(v);
+				}else if(mode == MIN) {
+					pix = (float)findMin(v);
+				}else if(mode == MEDIAN) {
+					pix = (float)findMedian(v);
+				}else if(mode == MODE) {
+					pix = (float)findMode(v);
+				}
+				res[itr++] = pix;
+			}
+		}
+		ImageProcessor ip = stack.getProcessor(1);
+		ImageProcessor ip_res = null;
+		if(ip instanceof ByteProcessor) {
+			byte[] arr = toByte(res);
+			ip_res = new ByteProcessor(w, h, arr);
+		}else if(ip instanceof ShortProcessor) {
+			short[] arr = toShort(res);
+			ip_res = new ShortProcessor(w, h);
+			ip_res.setPixels(arr);
+		}else if(ip instanceof FloatProcessor) {
+			ip_res = new FloatProcessor(w, h, res);
+		}else if(ip instanceof ColorProcessor) {
+			int[] arr =toInt(res);
+			ip_res = new ColorProcessor(w, h, arr);
+		}
+		return ip_res;
+	}
+	
+	// 平均値を計算
+    public static double calculateAverage(int[] array) {
+        int sum = 0;
+        for (int num : array) {
+            sum += num;
+        }
+        return (double) sum / array.length;
+    }
+
+    // 最大値を取得
+    public static int findMax(int[] array) {
+        int max = array[0];
+        for (int num : array) {
+            if (num > max) {
+                max = num;
+            }
+        }
+        return max;
+    }
+
+    // 最小値を取得
+    public static int findMin(int[] array) {
+        int min = array[0];
+        for (int num : array) {
+            if (num < min) {
+                min = num;
+            }
+        }
+        return min;
+    }
+
+    // 中央値を計算
+    public static double findMedian(int[] array) {
+        Arrays.sort(array);
+        int middle = array.length / 2;
+        if (array.length % 2 == 0) {
+            return (array[middle - 1] + array[middle]) / 2.0;
+        } else {
+            return array[middle];
+        }
+    }
+
+    // 最頻値を計算
+    public static int findMode(int[] array) {
+        Map<Integer, Integer> frequencyMap = new HashMap<>();
+        for (int num : array) {
+            frequencyMap.put(num, frequencyMap.getOrDefault(num, 0) + 1);
+        }
+
+        int mode = array[0];
+        int maxCount = 0;
+
+        for (Map.Entry<Integer, Integer> entry : frequencyMap.entrySet()) {
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                mode = entry.getKey();
+            }
+        }
+
+        return mode;
+    }
+    
+	private byte[] toByte(float[] arr) {
+		byte[] byteArray = new byte[arr.length];
+		for (int i = 0; i < arr.length; i++) {
+			byteArray[i] = (byte) Math.round(arr[i]);
+		}
+		return byteArray;
+	}
+
+	private short[] toShort(float[] floatArray) {
+		short[] shortArray = new short[floatArray.length];
+		for (int i = 0; i < floatArray.length; i++) {
+			shortArray[i] = (short) Math.round(floatArray[i]);
+		}
+		return shortArray;
+	}
+	
+	private int[] toInt(float[] floatArray) {
+		int[] intArray = new int[floatArray.length];
+		for (int i = 0; i < floatArray.length; i++) {
+			intArray[i] = (int) Math.round(floatArray[i]);
+		}
+		return intArray;
 	}
 
 //	public Slicer(ImagePlus imp) {

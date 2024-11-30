@@ -263,6 +263,7 @@ public class Slab {
 		return new Vector3d(rotateX, rotateY, rotateZ);
 	}
 	
+	@Deprecated
 	public double[] getCenterOfVolumeInPixelCoords(ImagePlus referenceVolume) {
 		Vector3d[] rcsCoords = boundingBox.cubeVertices;
 		Vector3d[] nearestSliceIPPOfEachPoint = new Vector3d[rcsCoords.length];/*各座標が属する面のIPP*/
@@ -282,6 +283,28 @@ public class Slab {
 		int c = 0;
 		for (Vector3d vertex : pixelCoords) {
 			if (vertex==null) continue;
+			center[0] += vertex.x;
+			center[1] += vertex.y;
+			center[2] += vertex.z;
+			c++;
+		}
+		center[0] /= c;
+		center[1] /= c;
+		center[2] /= c;
+		return center;
+	}
+	
+	public double[] getCenterOfVolumeInPixelCoords2(ImagePlus referenceVolume) {
+		Vector3d[] rcsCoords = boundingBox.cubeVertices;
+		Vector3d[] pixelCoords = new Vector3d[8];
+		for (int i = 0; i < 8; i++) {
+			pixelCoords[i] = boundingBox.toPixelCoordinates(rcsCoords[i], referenceVolume);
+		}
+		double[] center = { 0, 0, 0 };
+		int c = 0;
+		for (Vector3d vertex : pixelCoords) {
+			if (vertex == null)
+				continue;
 			center[0] += vertex.x;
 			center[1] += vertex.y;
 			center[2] += vertex.z;

@@ -1097,7 +1097,9 @@ public class Praparat extends JPanel {
 		currentSlice = 0;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		constructSlideGlassesFromImagePlus(images);
-		slider.initContext();
+		if(slider != null) {
+			slider.initContext();
+		}
 		if(Utils.isDebug) {
 			Log.logger.fine(slides.size()+" images loaded.");
 		}
@@ -1112,11 +1114,6 @@ public class Praparat extends JPanel {
 		currentSlice = 0;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		constructSlideGlassesFromDicom(paths);
-		if(slider != null) {
-			slider.initContext();
-		}
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
 		if(slider != null) {
 			slider.initContext();
 		}
