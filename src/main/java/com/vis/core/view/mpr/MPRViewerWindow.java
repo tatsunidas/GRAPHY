@@ -264,7 +264,7 @@ public class MPRViewerWindow extends JFrame {
 		// init view
 		setTitle(ConfigInfo.MPRWindow.toString());
 		setName(ConfigInfo.MPRWindow.toString());
-		setSize(new Dimension(1000, 800));
+		setSize(new Dimension(1200, 800));
 
 		WindowAdapter ada = new WindowAdapter() {
 			@Override
@@ -897,7 +897,7 @@ public class MPRViewerWindow extends JFrame {
 			xz_prap.getCurrentSlide().drawLocalizer(xz_shapes);
 			yz_prap.getCurrentSlide().drawLocalizer(yz_shapes);
 		} else {// recon prap
-
+			//do nothing
 		}
 		getContentPane().repaint();
 	}

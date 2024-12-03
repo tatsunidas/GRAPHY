@@ -434,9 +434,8 @@ public class ReferenceLineMPR {
 			double py = refVolume.getCalibration().pixelHeight;
 			double pz = GDicomTools.getVoxelDepth(refVolume);
 			//recon image half dimension
-			half_x = (fovW/2.)/refVolume.getCalibration().pixelWidth;
-			half_y = (fovH/2.)/refVolume.getCalibration().pixelHeight;
-			
+			half_x = (fovW/2.)/px;
+			half_y = (fovH/2.)/px;// pz/(pz/px)
 			//coronal voxel
 			voxelSize = new double[] {
 					px, 
@@ -446,21 +445,26 @@ public class ReferenceLineMPR {
 			//iop from sagittal
 			iop = GDicomTools.getImageOrientationPatient(yz, 1);
 			refVolume = xz;
-			//recon image half dimension
-			half_y = (fovW/2.)/GDicomTools.getVoxelDepth(refVolume);
-			half_z = (fovH/2.)/refVolume.getCalibration().pixelHeight;
-			half_x = (thickness/2.)/refVolume.getCalibration().pixelWidth;
+			double px = refVolume.getCalibration().pixelWidth;
+			double py = refVolume.getCalibration().pixelHeight;
+			double pz = GDicomTools.getVoxelDepth(refVolume);//distance between slices.(No RCS Z axis size)
+			//recon image half dimension for sagittal
+			half_x = (fovW/2.)/py;// pz/(pz/py)
+			half_y = (fovH/2.)/py;
+			//sagittal voxel
 			voxelSize = new double[] {
-					GDicomTools.getVoxelDepth(refVolume), 
-					refVolume.getCalibration().pixelHeight, 
-					refVolume.getCalibration().pixelWidth};
+					py,//pz/(pz/py) 
+					py, 
+					thickness};
 		}else if(sliceTarget == CutSurface.SAGITTAL) {
 			//iop from axial
 			iop = GDicomTools.getImageOrientationPatient(xy, 1);
 			refVolume = yz;
-			half_x = (fovW/2.)/GDicomTools.getVoxelDepth(refVolume);
-			half_y = (fovH/2.)/refVolume.getCalibration().pixelWidth;
-			half_z = (thickness/2.)/refVolume.getCalibration().pixelHeight;
+			double px = refVolume.getCalibration().pixelWidth;
+			double py = refVolume.getCalibration().pixelHeight;
+			double pz = GDicomTools.getVoxelDepth(refVolume);//distance between slices.(No RCS Z axis size)
+			half_x = (fovW/2.)/px;
+			half_y = (fovH/2.)/px;
 			voxelSize = new double[] {
 					GDicomTools.getVoxelDepth(refVolume), 
 					refVolume.getCalibration().pixelWidth, 
