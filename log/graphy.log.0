@@ -1,998 +1,220 @@
-12月 02, 2024 2:13:54 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
-普通: 60 images loaded.
-12月 02, 2024 2:14:02 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 22, 2025 3:01:15 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-12月 02, 2024 2:14:08 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 22, 2025 3:01:15 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+普通: 25 images loaded.
+1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-12月 02, 2024 2:14:08 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 1 images loaded.
-12月 02, 2024 2:14:08 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:14:11 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:24 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:14:11 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:24 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:14:12 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:14:12 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:14:12 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:17:11 午後 com.vis.core.view.mpr.MPRViewerWindow initState
-普通: init reslice mode
-12月 02, 2024 2:17:11 午後 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
-普通: 1
-12月 02, 2024 2:17:11 午後 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
-普通: ViewMode changed: Reslice
-12月 02, 2024 2:17:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:36 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:17:55 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:17:55 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:17:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:17:56 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):303 123
-12月 02, 2024 2:17:56 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):339 125
+1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:56 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:57 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:58 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:17:59 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:00 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:01 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
-普通: 1 images loaded.
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:20 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:20 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:22 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:22 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:27 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:31 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:31 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:31 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:31 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:39 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:39 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:39 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:39 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:40 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:40 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:40 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:40 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:41 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:41 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:42 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:42 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:42 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:42 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:43 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:44 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:45 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:46 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:46 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:46 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:47 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:48 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:48 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:49 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:49 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:49 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):300 126
-12月 02, 2024 2:18:50 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:50 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:51 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: ROI State: 4
-12月 02, 2024 2:18:52 午後 com.vis.core.view.D2.roi.RoiObj mouseDrag
-普通: MOVING_HANDLE
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:18:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:18:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):307 29
-12月 02, 2024 2:19:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:06 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:19:07 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:19:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:19:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:08 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:19:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:19:08 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:19:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:19:08 午後 com.vis.core.view.mpr.ReferenceLineMPR centerPositionLineHereAt
-普通: Find center !!
-12月 02, 2024 2:19:08 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: CanvasComponent: com.vis.core.view.mpr.CenterPositionLine
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:09 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:10 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? true
-12月 02, 2024 2:19:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? true
-12月 02, 2024 2:19:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):320 30
-12月 02, 2024 2:19:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:11 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:12 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:13 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
-普通: 1 images loaded.
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:19 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:23 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:24 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:25 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
-12月 02, 2024 2:19:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isInBoundingBox? false
-12月 02, 2024 2:19:26 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
-普通: isNearCorner? false
+1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+普通: Dragging , ViewerTool is -1
+1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 22, 2025 3:02:08 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...

@@ -44,7 +44,6 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,11 +58,9 @@ import org.joml.Vector3d;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
-import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
@@ -72,7 +69,6 @@ import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.NewImage;
@@ -137,11 +133,14 @@ public class MPRViewerWindow extends JFrame {
 
 	private Logger logger = Log.logger;
 
+	/*
+	 * debug
+	 */
 	public static void main(String[] args) {
 		//axi src
-		ImagePlus ax = FolderOpener.open(
-				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		new MPRViewerWindow(ax, null);
+//		ImagePlus ax = FolderOpener.open(
+//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		new MPRViewerWindow(ax, null);
 		
 		//cor src
 //		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
@@ -149,9 +148,9 @@ public class MPRViewerWindow extends JFrame {
 //		new MPRViewerWindow(xz, null);
 		
 		//sag src
-//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-//		ImagePlus yz = FolderOpener.open(sagDir);
-//		new MPRViewerWindow(yz, null);
+		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+		ImagePlus yz = FolderOpener.open(sagDir);
+		new MPRViewerWindow(yz, null);
 		
 		//other
 //		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
@@ -566,7 +565,7 @@ public class MPRViewerWindow extends JFrame {
 		}
 		int xyX = xyP.x;
 		int xyY = xyP.y;
-		int xyZ = xy_prap.getCurrentSlidePos();
+//		int xyZ = xy_prap.getCurrentSlidePos();
 		/*
 		 * Since it is not an ISO voxel, the position of the cross-section is
 		 * recalculated from each voxel size.
@@ -739,18 +738,9 @@ public class MPRViewerWindow extends JFrame {
 		}
 		
 		//TODO 20241126
-		boolean excessAngle = false;
+//		boolean excessAngle = false;
 //		try {
-//			if (srcCutSurface == CutSurface.AXIAL) {
-//				excessAngle = refLines.xYLine().isHorizontal() ? false : true;
-//			} else if (srcCutSurface == CutSurface.CORONAL) {
-//				excessAngle = refLines.xZLine().isHorizontal();
-//			} else {
-//				excessAngle = refLines.yZLine().isHorizontal() ? false : true;
-//			}
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//			return;
+			//do something ??
 //		}
 
 		ImageStack stack = new ImageStack();

@@ -465,7 +465,12 @@ public class Praparat extends JPanel {
 			}
 			// images
 			int size = header.getInt(Tag.Number​Of​Frames, -1);
-			isMultiframe = size > 0;//general image type does not have NumberOfFrames tag.
+			/*
+			 * isMultiFrame
+			 * 1.General image types do not have NumberOfFrames tag.(means -1).
+			 * 2.When image acquiring in 3d sequence on MRI, number of frame is 1 (of each image).
+			 */
+			isMultiframe = size > 1;
 			//single frame
 			if(!isMultiframe) {
 				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), backend);
