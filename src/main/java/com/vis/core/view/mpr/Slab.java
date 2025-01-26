@@ -37,15 +37,11 @@
  */
 package com.vis.core.view.mpr;
 
-import java.awt.geom.Point2D;
 import java.util.List;
 
-import org.joml.Vector2d;
 import org.joml.Vector3d;
 
-import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
-import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.dicom.image.GDicomTools;
 
@@ -238,18 +234,6 @@ public class Slab {
 		double halfWidth = sizeInRCS[1] * shrinkFactor / 2.0;
 		double halfHeight = sizeInRCS[0] * shrinkFactor / 2.0;
 		double halfDepth = sizeInRCS[2] * shrinkFactor / 2.0;
-		
-		// 点が縮小された直方体の外側にあるか判定
-//		if(pp.getName().equals("XY")) {
-//			
-//		}else if(pp.getName().equals("XZ")) {
-//			
-//		}else if(pp.getName().equals("YZ")) {
-//			
-//		}else {
-//			// this is not MPR pp.
-//			return false;
-//		}
 		
 		isOutsideShrinked = 
 				(aabb_P.x <= minX+halfWidth) || (aabb_P.x >= maxX-halfWidth) ||

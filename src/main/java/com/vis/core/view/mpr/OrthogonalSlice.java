@@ -98,15 +98,19 @@ public class OrthogonalSlice {
 //		xz.show();
 //		yz.show();
 		
-//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
-//		ImagePlus xz = FolderOpener.open(corDir);
-//		ImagePlus xy = slicer.coronalToAxial(xz);
+		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+		ImagePlus xz = FolderOpener.open(corDir);
+		ImagePlus xy = slicer.coronalToAxial(xz);
+		xy.show();
+		
+//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//		ImagePlus yz = FolderOpener.open(sagDir);
+//		ImagePlus xy = slicer.sagittalToAxial(yz);
 //		xy.show();
 		
-		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-		ImagePlus yz = FolderOpener.open(sagDir);
-		ImagePlus xy = slicer.sagittalToAxial(yz);
-		xy.show();
+//		Vector3d row = new Vector3d(1.0, 0.0, 0.0);
+//		Vector3d col = new Vector3d(0.0, -0.372, -0.927);
+//		System.out.println(row.cross(col).normalize().toString());
 	}
 	
 	/**
@@ -147,7 +151,7 @@ public class OrthogonalSlice {
 		ImageProcessor xz_ip = null;
 		ImagePlus xz_image = new ImagePlus();
 		boolean isHeadFirst = PlanarSupport.isHeadFirst(src);
-		boolean isSlicingToUpperZ = isSlicingToUpperZSide(src);
+		boolean isSlicingToUpperZ = PlanarSupport.isSlicingToUpperZSide(src);
 		if (ip instanceof ShortProcessor) {
 			newpix = new short[width * size];
 		} else if (ip instanceof ByteProcessor) {
@@ -207,27 +211,27 @@ public class OrthogonalSlice {
 
 		double col = 0;// x direction
 		double row = y;// y direction
-		int pos_z = getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
+		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
 		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
 		double[] colY = new double[]{axi_iop[3],axi_iop[4],axi_iop[5]};
-		double[] zVec = PlanarSupport.calculateNormal(rowX, colY);
+		Vector3d zVec = PlanarSupport.calculateNormal(new Vector3d(rowX), new Vector3d(colY), true);
 		if(isHeadFirst) {
-			if(zVec[2] > 0.0) {
-				zVec[0] *= -1;
-				zVec[1] *= -1;
-				zVec[2] *= -1;
+			if(zVec.z > 0.0) {
+				zVec.x *= -1;
+				zVec.y *= -1;
+				zVec.z *= -1;
 			}
-			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec[0], zVec[1],zVec[2]};
+			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec.x, zVec.y,zVec.z};
 		}else {
-			if(zVec[2] < 0.0) {
-				zVec[0] *= -1;
-				zVec[1] *= -1;
-				zVec[2] *= -1;
+			if(zVec.z < 0.0) {
+				zVec.x *= -1;
+				zVec.y *= -1;
+				zVec.z *= -1;
 			}
-			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec[0], zVec[1],zVec[2]};
+			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec.x, zVec.y,zVec.z};
 		}
 		if (ipp_vec != null && iop !=null) {
 			double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
@@ -291,7 +295,7 @@ public class OrthogonalSlice {
 		Object newpix = null;
 		
 		boolean isHeadFirst = PlanarSupport.isHeadFirst(src);
-		boolean isSlicingToUpperZ = isSlicingToUpperZSide(src);
+		boolean isSlicingToUpperZ = PlanarSupport.isSlicingToUpperZSide(src);
 		if (ip instanceof ShortProcessor) {
 			newpix = new short[height * size];
 		} else if (ip instanceof ByteProcessor) {
@@ -354,27 +358,27 @@ public class OrthogonalSlice {
 		PlanarSupport psup = new PlanarSupport();
 		double col = x;// x direction
 		double row = 0;// y direction
-		int pos_z = getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
+		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
 		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
 		double[] colY = new double[]{axi_iop[3],axi_iop[4],axi_iop[5]};
-		double[] zVec = PlanarSupport.calculateNormal(rowX, colY);
+		Vector3d zVec = PlanarSupport.calculateNormal(new Vector3d(rowX), new Vector3d(colY), true);
 		if(isHeadFirst) {
-			if(zVec[2] > 0.0) {
-				zVec[0] *= -1;
-				zVec[1] *= -1;
-				zVec[2] *= -1;
+			if(zVec.z > 0.0) {
+				zVec.x *= -1;
+				zVec.y *= -1;
+				zVec.z *= -1;
 			}
-			iop = new double[] {colY[0],colY[1],colY[2],zVec[0], zVec[1],zVec[2]};
+			iop = new double[] {colY[0],colY[1],colY[2],zVec.x, zVec.y,zVec.z};
 		}else {
-			if(zVec[2] < 0.0) {
-				zVec[0] *= -1;
-				zVec[1] *= -1;
-				zVec[2] *= -1;
+			if(zVec.z < 0.0) {
+				zVec.x *= -1;
+				zVec.y *= -1;
+				zVec.z *= -1;
 			}
-			iop = new double[] {colY[0],colY[1],colY[2],zVec[0], zVec[1],zVec[2]};
+			iop = new double[] {colY[0],colY[1],colY[2],zVec.x, zVec.y,zVec.z};
 		}
 //		if(isHeadFirst) {
 //			double[] cor_iop = PlanarSupport.rotateImageOrientationPatient(axi_iop, -90, 0, 0);
@@ -427,6 +431,23 @@ public class OrthogonalSlice {
 		}
 		ImageStack xy_stack = new ImageStack(width, newH);
 		boolean isHeadFirst = PlanarSupport.isHeadFirst(srcStack);
+		int pos_z = 1;//1 to N, always 1.
+		double[] cor_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
+		double[] rowVec = new double[] {cor_iop[0],cor_iop[1],cor_iop[2]};//X
+		double[] colVec = new double[] {cor_iop[3],cor_iop[4],cor_iop[5]};//Z
+		Vector3d yVec = null;
+		/*
+		 * In Coronal case, calculate cross product with row.cross(col).
+		 * In Sagittal case, with col.cross(row).
+		 */
+		if(isHeadFirst) {
+			yVec = PlanarSupport.calculateNormal(new Vector3d(rowVec), new Vector3d(colVec), true);
+		}else {
+			yVec = PlanarSupport.calculateNormal(new Vector3d(colVec), new Vector3d(rowVec), true);
+		}
+		yVec = PlanarSupport.truncate(yVec, 6);
+		double[] iop = new double[] {rowVec[0], rowVec[1], rowVec[2], yVec.x, yVec.y, yVec.z};
+		
 		for(int y =0; y<height; y++) {
 			Object newpix = null;
 			ImageProcessor xy_ip = null;
@@ -473,36 +494,8 @@ public class OrthogonalSlice {
 			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
 			
 			PlanarSupport psup = new PlanarSupport();
-
-			double col = 0;// x direction
-			double row = y;// y direction
-			int pos_z = 1;//1 to N
-			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, col, row, pos_z);
-			double[] cor_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
-			double[] rowVec = new double[] {cor_iop[0],cor_iop[1],cor_iop[2]};//X
-			double[] colVec = new double[] {cor_iop[3],cor_iop[4],cor_iop[5]};//Z
-			double[] yVec = PlanarSupport.calculateNormal(rowVec, colVec);//Y
-			yVec = PlanarSupport.truncate(yVec, 6);
-			//if y vector in yVec is minus, reverse yVec.
-			if(yVec[1] < 0.0) {
-				yVec[0] *= -1;
-				yVec[1] *= -1;
-				yVec[2] *= -1;
-			}
-			double[] iop = null;
-			if(isHeadFirst) {
-				iop = new double[] {rowVec[0], rowVec[1], rowVec[2], yVec[0], yVec[1], yVec[2]};
-//				System.out.println(java.util.Arrays.toString(iop));
-//				LocalizerPoster.validateDirectionCosines(iop);
-			}else {
-				iop = new double[] {rowVec[0], rowVec[1], rowVec[2], yVec[0], yVec[1], yVec[2]};
-			}
+			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z);
 			
-//			if(isHeadFirst) {
-//				iop = PlanarSupport.rotateImageOrientationPatient(srcStack, 90, 0, 0);
-//			}else {
-//				iop = PlanarSupport.rotateImageOrientationPatient(srcStack, -90, 0, 0);
-//			}
 			if (ipp_vec != null && iop !=null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
 //				System.out.println("CORONAL ImagePosition: " + Arrays.toString(ipp));
@@ -531,7 +524,7 @@ public class OrthogonalSlice {
 		ImageProcessor ip = is.getProcessor(1);
 		int width = is.getWidth();//newH
 		int height = is.getHeight();//newDepth
-		int size = is.getSize();
+		int size = is.getSize();//newW
 		boolean rgb = ip instanceof ColorProcessor;
 		ColorModel cm = rgb ? null : srcStack.getProcessor().getColorModel();
 		double min = srcStack.getDisplayRangeMin();
@@ -550,6 +543,19 @@ public class OrthogonalSlice {
 		}
 		ImageStack xy_stack = new ImageStack(newW, width);
 		boolean isHeadFirst = PlanarSupport.isHeadFirst(srcStack);
+		
+		int pos_z = 1; // always 1
+		double[] sag_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
+		Vector3d sag_rowVec = new Vector3d(sag_iop[0],sag_iop[1],sag_iop[2]);
+		Vector3d sag_colVec = new Vector3d(sag_iop[3],sag_iop[4],sag_iop[5]);
+		Vector3d xVec = null;
+		if(isHeadFirst) {
+			xVec = PlanarSupport.calculateNormal(sag_colVec, sag_rowVec, true);
+		}else {
+			xVec = PlanarSupport.calculateNormal(sag_rowVec, sag_colVec, true);
+		}
+		double[] iop = new double[] {xVec.x, xVec.y, xVec.z, sag_rowVec.x, sag_rowVec.y, sag_rowVec.z};
+
 		for(int y =0; y<height; y++) {//num of slices in axial
 			Object newpix = null;
 			ImageProcessor xy_ip = null;
@@ -593,40 +599,11 @@ public class OrthogonalSlice {
 				xy_ip.setMinAndMax(min, max);
 			}
 			/*
-			 * To adding iop and ipp.
+			 * add iop and ipp.
 			 */
 			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
-			
 			PlanarSupport psup = new PlanarSupport();
-
-			double col = 0;// x direction
-			double row = y;// y direction
-			int pos_z = 1;//1 to N
-			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, col, row, pos_z);
-			double[] sag_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
-			double[] rowVec = new double[] {sag_iop[0],sag_iop[1],sag_iop[2]};//Y
-			double[] colVec = new double[] {sag_iop[3],sag_iop[4],sag_iop[5]};//Z
-			double[] xVec = PlanarSupport.calculateNormal(rowVec, colVec);//X
-			xVec = PlanarSupport.truncate(xVec, 6);
-			double[] iop = null;
-			if(isHeadFirst) {
-				if(xVec[0] < 0.0) {
-					xVec[0] *= -1;
-					xVec[1] *= -1;
-					xVec[2] *= -1;
-//					rowVec[0] *= -1;
-				}
-				iop = new double[] {xVec[0], xVec[1], xVec[2], rowVec[0], rowVec[1], rowVec[2]};
-//				System.out.println(java.util.Arrays.toString(iop));
-//				LocalizerPoster.validateDirectionCosines(iop);
-			}else {
-				if(xVec[0] > 0.0) {
-					xVec[0] *= -1;
-					xVec[1] *= -1;
-					xVec[2] *= -1;
-				}
-				iop = new double[] {xVec[0], xVec[1], xVec[2], rowVec[0], rowVec[1], rowVec[2]};
-			}
+			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z/*1*/);
 			if (ipp_vec != null && iop !=null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
 				GDicomTools.setImagePositionPatient(xy_slice, 1, ipp);
@@ -688,81 +665,6 @@ public class OrthogonalSlice {
 		}
 	}
 	
-	/**
-	 * If true with HFS/HFP position, it slicing Foot->Head direction in RCS.
-	 * @param imp
-	 * @return
-	 */
-	public boolean isSlicingToUpperZSide(ImagePlus imp) {
-		if(ImageOrientation.getCutSurface(imp) != CutSurface.AXIAL) {
-			throw new IllegalArgumentException("This images are not AXIAL...");
-		}
-		int size = imp.getNSlices();
-		int prev_pos = imp.getCurrentSlice();
-		if(size > 1) {
-			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2);
-			if(ipp1 != null && ipp2 != null) {
-				//back to prev pos
-				imp.setSlice(prev_pos);
-				return ipp1[2] < ipp2[2];
-			}
-		}
-		return false;
-	}
 	
-	/**
-	 * If true with HFS position, it slicing A->P direction in RCS.
-	 * @param imp
-	 * @return
-	 */
-	public boolean isSlicingToUpperYSide(ImagePlus imp) {
-		if(ImageOrientation.getCutSurface(imp) != CutSurface.CORONAL) {
-			throw new IllegalArgumentException("This images are not CORONAL...");
-		}
-		int size = imp.getNSlices();
-		int prev_pos = imp.getCurrentSlice();
-		if(size > 1) {
-			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
-			if(ipp1 != null && ipp2 != null) {
-				//back to prev pos
-				imp.setSlice(prev_pos);
-				return ipp1[1] < ipp2[1];
-			}
-		}
-		return false;
-	}
-	
-	/**
-	 * If true with HFS position, it slicing R->L direction in RCS.
-	 * @param imp
-	 * @return
-	 */
-	public boolean isSlicingToUpperXSide(ImagePlus imp) {
-		if(ImageOrientation.getCutSurface(imp) != CutSurface.SAGITTAL) {
-			throw new IllegalArgumentException("This images are not SAGITTAL...");
-		}
-		int size = imp.getNSlices();
-		int prev_pos = imp.getCurrentSlice();
-		if(size > 1) {
-			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
-			if(ipp1 != null && ipp2 != null) {
-				//back to prev pos
-				imp.setSlice(prev_pos);
-				return ipp1[0] < ipp2[0];
-			}
-		}
-		return false;
-	}
-	
-	private int getOriginSlicePosition(int totalSliceSize, boolean isSlicingToUpperZ, boolean isHeadFirst) {
-		if (isHeadFirst && isSlicingToUpperZ) return totalSliceSize;
-		if (!isHeadFirst && isSlicingToUpperZ) return 1;
-		if (isHeadFirst && !isSlicingToUpperZ) return 1;
-		if (!isHeadFirst && !isSlicingToUpperZ) return totalSliceSize;
-		return 1;
-	}
 
 }

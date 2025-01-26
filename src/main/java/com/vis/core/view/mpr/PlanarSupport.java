@@ -28,8 +28,6 @@ public class PlanarSupport {
 	@SuppressWarnings("unused")
 	public static void main(String[] args) {
 		/*
-		 * Orthogonalな画像の再構成のためのIOP計算には、回転は使えない。
-		 * 回転すると、全方向余弦が回転する。
 		 * AX、COR、SAGのIOP変換で回転が使えるのは完全に回転がない面の状態のときのみ。
 		 * 多少でもどこかの成分に回転が含まれる場合、RowColから直行ベクトルを使う。
 		 * 直交した方向余弦を得たいときは、calculateNormal(row, col)で得る。
@@ -48,19 +46,19 @@ public class PlanarSupport {
 		
 		//Sag to Axi EXAMPLE
 		double[] srcIOP = GDicomTools.getImageOrientationPatient(src, 1);
-		double[] row = new double[] {srcIOP[0],srcIOP[1],srcIOP[2]};//Y vertor
-		double[] col = new double[] {srcIOP[3],srcIOP[4],srcIOP[5]};//Z vector
-		double[] norm = calculateNormal(row, col);//X vector
+		double[] row = new double[] {srcIOP[0],srcIOP[1],srcIOP[2]};//Z vertor
+		double[] col = new double[] {srcIOP[3],srcIOP[4],srcIOP[5]};//Y vector
+		Vector3d norm = calculateNormal(new Vector3d(row), new Vector3d(col), true);//X vector
 		/*
 		 * {-1,0,0} to {1,0,0} of X vector in HFS
 		 */
-		if(norm[0] < 0.0) {
-			norm[0] *= -1;
-			norm[1] *= -1;
-			norm[2] *= -1;
+		if(norm.x < 0.0) {
+			norm.x *= -1;
+			norm.y *= -1;
+			norm.z *= -1;
 		}
 		
-		double[] axi_iop = new double[] {norm[0],norm[1],norm[2],row[0],row[1],row[2]};
+		double[] axi_iop = new double[] {norm.x,norm.y,norm.z,row[0],row[1],row[2]};
 		
 		LocalizerPoster.validateDirectionCosines(axi_iop);//clear
 	}
@@ -393,6 +391,83 @@ public class PlanarSupport {
 		return true;
 	}
 	
+	/**
+	 * If true with HFS/HFP position, it slicing Foot->Head direction in RCS.
+	 * @param imp
+	 * @return
+	 */
+	public static boolean isSlicingToUpperZSide(ImagePlus imp) {
+		if(ImageOrientation.getCutSurface(imp) != CutSurface.AXIAL) {
+			throw new IllegalArgumentException("This images are not AXIAL...");
+		}
+		int size = imp.getNSlices();
+		int prev_pos = imp.getCurrentSlice();
+		if(size > 1) {
+			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1);
+			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2);
+			if(ipp1 != null && ipp2 != null) {
+				//back to prev pos
+				imp.setSlice(prev_pos);
+				return ipp1[2] < ipp2[2];
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * If true with HFS position, it slicing A->P direction in RCS.
+	 * @param imp
+	 * @return
+	 */
+	public static boolean isSlicingToUpperYSide(ImagePlus imp) {
+		if(ImageOrientation.getCutSurface(imp) != CutSurface.CORONAL) {
+			throw new IllegalArgumentException("This images are not CORONAL...");
+		}
+		int size = imp.getNSlices();
+		int prev_pos = imp.getCurrentSlice();
+		if(size > 1) {
+			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
+			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
+			if(ipp1 != null && ipp2 != null) {
+				//back to prev pos
+				imp.setSlice(prev_pos);
+				return ipp1[1] < ipp2[1];
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * If true with HFS position, it slicing R->L direction in RCS.
+	 * @param imp
+	 * @return
+	 */
+	public static boolean isSlicingToUpperXSide(ImagePlus imp) {
+		if(ImageOrientation.getCutSurface(imp) != CutSurface.SAGITTAL) {
+			throw new IllegalArgumentException("This images are not SAGITTAL...");
+		}
+		int size = imp.getNSlices();
+		int prev_pos = imp.getCurrentSlice();
+		if(size > 1) {
+			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
+			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
+			if(ipp1 != null && ipp2 != null) {
+				//back to prev pos
+				imp.setSlice(prev_pos);
+				return ipp1[0] < ipp2[0];
+			}
+		}
+		return false;
+	}
+	
+	public static int getOriginSlicePosition(int totalSliceSize, boolean isSlicingIncreaseAxisCoord, boolean isHeadFirst) {
+		if (isHeadFirst && isSlicingIncreaseAxisCoord) return totalSliceSize;
+		if (!isHeadFirst && isSlicingIncreaseAxisCoord) return 1;
+		if (isHeadFirst && !isSlicingIncreaseAxisCoord) return 1;
+		if (!isHeadFirst && !isSlicingIncreaseAxisCoord) return totalSliceSize;
+		return 1;
+	}
+	
 	public static double truncate(double value, int places) {
 		if (places < 0)
 			throw new IllegalArgumentException();
@@ -409,19 +484,30 @@ public class PlanarSupport {
 		return v;
 	}
 	
-	public static double[] calculateNormal(double[] row, double[] col) {
-	    // cross product
-	    double nx = row[1] * col[2] - row[2] * col[1];
-	    double ny = row[2] * col[0] - row[0] * col[2];
-	    double nz = row[0] * col[1] - row[1] * col[0];
-	    // normalize
-	    double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
-	    return new double[] {nx / length, ny / length, nz / length};
+	public static Vector3d truncate(Vector3d values, int places) {
+		Vector3d v = new Vector3d(values);
+		v.x = truncate(v.x, places);
+		v.y = truncate(v.y, places);
+		v.z = truncate(v.z, places);
+		return v;
 	}
 	
-	public static Vector3d calculateNormal(Vector3d row, Vector3d col, boolean normalize) {
+	/**
+	 * This will return v1.cross(v2).
+	 * 
+	 * E.g.,
+	 * Row=(1,0,0),Col=(0,1,0)
+	 * Row.cross(Col)=(0,0,1)
+	 * Col.cross(Row)=(0,0,−1)
+	 * 
+	 * @param v1 = vector 1
+	 * @param v2 = vector 2
+	 * @param normalize
+	 * @return
+	 */
+	public static Vector3d calculateNormal(Vector3d v1, Vector3d v2, boolean normalize) {
 		Vector3d norm = new Vector3d();
-		col.cross(row, norm);//keep col cross row.
+		v1.cross(v2, norm);//keep col cross row.
 		if(normalize) {
 			norm = norm.normalize();
 		}

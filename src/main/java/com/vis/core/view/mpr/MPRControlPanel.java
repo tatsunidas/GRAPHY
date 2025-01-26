@@ -326,7 +326,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	}
 	
 	void updateSliceTargetPlane() {
-		mprWin.setSliceTargetPlane(targetSlicePlane);
 		mprWin.updateReferenceLineMPR();
 	}
 	

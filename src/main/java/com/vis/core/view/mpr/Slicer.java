@@ -51,8 +51,8 @@ public class Slicer {
 	public ImageProcessor slice(SlicePlane slicePlane, int mode/*reconstruction mode*/) {
 		if(mode == SLICECUT) {
 			
-			int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;
-			int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;
+			int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;//column size
+			int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;//row size
 			
 			int parent_w = ref.getWidth();
 			int parent_h = ref.getHeight();
@@ -82,6 +82,9 @@ public class Slicer {
 					}
 					ref.setSlice((int)pixPos.z+1);
 					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					if(ip.isSigned16Bit()) {
+						pixels[i] += (short)32768;
+					}
 				}
 				ShortProcessor sp = new ShortProcessor(w, h);
 				sp.setPixels(pixels);

@@ -45,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -57,12 +58,19 @@ import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.process.ColorProcessor;
+import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 
 public class ImageUtils {
 
 	final static int AUTO_THRESHOLD = 5000;
+	
+	public final static int SORT_BY_Z = 0;
+	public final static int SORT_BY_Y = 0;
+	public final static int SORT_BY_X = 0;
+	public final static int SORT_BY_InstNo = 0;
 
 	// check file is general format image
 	public static boolean isImageFile(String path) {
@@ -322,5 +330,82 @@ public class ImageUtils {
 
 	public static ImagePlus dcmImgToImgPlus(DicomImage dcmImg) {
 		return GDicomTools.dcmImgToImagePlus(dcmImg);
+	}
+	
+	/**
+	 * 
+	 * @param imp
+	 * @param reverse
+	 * @param sortBy
+	 * @return sorted imageplus, referencing to imp.
+	 */
+	public static ImagePlus sort(ImagePlus imp, boolean reverse, int sortBy) {
+		ImagePlus sorted = new ImagePlus();
+		ImageStack stack = imp.getImageStack();
+		int nSlices = stack.getSize();
+		ImageStack newStack = new ImageStack(imp.getWidth(), imp.getHeight());
+		ArrayList<Double> positionKey = new ArrayList<>(); 
+		if(sortBy == SORT_BY_InstNo) {
+			for (int i=0; i<nSlices; i++) {
+				String instNo = GDicomTools.getTag(imp,(i+1),"0020,0013");
+				try {
+					if(instNo == null) {
+						return imp;
+					}
+					Double num = Double.valueOf(instNo);
+					positionKey.add(num);
+				}catch(NumberFormatException nfe) {
+					Log.logger.warning(nfe.getLocalizedMessage());
+					return imp;
+				}
+			}
+			if(!reverse) {
+				Collections.sort(positionKey);
+			}else {
+				Collections.sort(positionKey, Collections.reverseOrder());
+			}
+			for (Double instNo : positionKey) {
+				int n = instNo.intValue();
+				for(int j=0; j<nSlices; j++) {
+					String instNoStr = GDicomTools.getTag(imp,(j+1),"0020,0013");
+					if(n == Integer.valueOf(instNoStr)) {
+						newStack.addSlice(stack.getSliceLabel(j+1), stack.getProcessor(j+1));
+					}
+				}
+			}
+		}else if(sortBy == SORT_BY_Z || sortBy == SORT_BY_Y || sortBy == SORT_BY_X) {
+			int order = -1;
+			if(sortBy==SORT_BY_Z) {
+				order = 2;
+			}else if(sortBy==SORT_BY_Y) {
+				order = 1;
+			}else {
+				order = 0;
+			}
+			for (int i=0; i<nSlices; i++) {
+				double[] ipp = GDicomTools.getImagePositionPatient(imp, i+1);
+				if(ipp == null) {
+					Log.logger.warning("Cannot read ImagePosition Patient !! return not sorted images.");
+					return imp;
+				}
+				positionKey.add(ipp[order]);
+			}
+			if(!reverse) {
+				Collections.sort(positionKey);
+			}else {
+				Collections.sort(positionKey, Collections.reverseOrder());
+			}
+			for (Double pos : positionKey) {
+				for(int j=0; j<nSlices; j++) {
+					double[] ipp = GDicomTools.getImagePositionPatient(imp, j+1);
+					if(pos == ipp[order]) {
+						newStack.addSlice(stack.getSliceLabel(j+1), stack.getProcessor(j+1));
+					}
+				}
+			}
+		}
+		sorted.setStack(newStack);
+		sorted.setCalibration(imp.getCalibration());
+		return sorted;
 	}
 }

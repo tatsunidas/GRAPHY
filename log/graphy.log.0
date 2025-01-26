@@ -1,220 +1,152 @@
-1月 22, 2025 3:01:15 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 26, 2025 10:22:48 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-1月 22, 2025 3:01:15 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 26, 2025 10:22:49 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 25 images loaded.
-1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 26, 2025 10:22:54 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 512 images loaded.
-1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+1月 26, 2025 10:22:54 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
 普通: 1 images loaded.
-1月 22, 2025 3:01:21 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:54 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:24 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:58 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:24 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:59 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:59 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:59 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:25 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:22:59 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
-普通: mouse pressed (x,y):339 125
-1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:23:42 午前 com.vis.core.view.mpr.MPRViewerWindow initState
+普通: init reslice mode
+1月 26, 2025 10:23:42 午前 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
+普通: 1
+1月 26, 2025 10:23:42 午前 com.vis.core.view.mpr.MPRControlPanel updateSettingsPanel
+普通: ViewMode changed: Reslice
+1月 26, 2025 10:23:54 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+普通: 1 images loaded.
+1月 26, 2025 10:23:54 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:23:54 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:23:54 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:24:00 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+普通: 1 images loaded.
+1月 26, 2025 10:24:00 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:24:00 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:24:00 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+普通: ImageOrientationPatient is null...
+1月 26, 2025 10:24:01 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:01 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:01 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:01 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mousePressed
+普通: mouse pressed (x,y):329 121
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:49 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 2370.5 newMax 34969.5
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:50 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 7610.0 newMax 38544.0
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:51 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 13026.5 newMax 42225.5
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 15452.5 newMax 43775.5
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:52 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 17805.5 newMax 45000.5
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:53 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 16621.5 newMax 43712.5
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:02 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 16063.0 newMax 42859.0
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:54 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 15043.5 newMax 41010.5
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 13877.5 newMax 39604.5
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:55 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 13175.5 newMax 38672.5
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 13040.5 newMax 38439.5
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
 普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:24:03 午前 com.vis.core.view.D2.ui.glasses.SlideGlass changeWindowing
+情報: change ww/wl : newMin 13012.0 newMax 38400.0
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:04 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:10 午前 com.vis.core.view.D2.ui.glasses.Praparat prepareSlideGlassesUsingImagePlus
+普通: 1 images loaded.
+1月 26, 2025 10:24:10 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:56 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:24:10 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
+1月 26, 2025 10:24:10 午前 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
 普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:57 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:58 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:01:59 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:00 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:01 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:02 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:03 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:04 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:05 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:06 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseDragged
-普通: Dragging , ViewerTool is -1
-1月 22, 2025 3:02:07 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
-1月 22, 2025 3:02:08 午後 com.vis.core.view.D2.ui.orientation.GeometryOfSlice setUp
-普通: ImageOrientationPatient is null...
+1月 26, 2025 10:24:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:26 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isInBoundingBox? false
+1月 26, 2025 10:24:27 午前 com.vis.core.view.D2.ui.glasses.SlideGlassMouseListener mouseMoved
+普通: isNearCorner? false

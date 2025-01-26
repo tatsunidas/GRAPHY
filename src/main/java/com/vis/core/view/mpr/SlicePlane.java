@@ -194,7 +194,12 @@ public class SlicePlane {
 		return rcs;
 	}
 
-	public List<Vector3d> computeVoxelCoordinatesInPixelCoords(ImagePlus ref) {
+	/**
+	 * 
+	 * @param refAxial
+	 * @return pixel coordinates of each voxel in axial volume
+	 */
+	public List<Vector3d> computeVoxelCoordinatesInPixelCoords(ImagePlus refAxial) {
 		List<Vector3d> voxelCoordinates = new ArrayList<>();
 		int w = (int)Math.ceil(geo.getDimensions().y);
 		int h = (int)Math.ceil(geo.getDimensions().x);
@@ -209,7 +214,7 @@ public class SlicePlane {
 		for(int y=0; y<h; y++) {
 			for(int x=0; x<w; x++) {
 				Vector3d rcs = computeRCS(ipp, row, column, x*vx, y*vy);
-				Vector3d pixCoord = toPixelCoordinates(rcs, ref);
+				Vector3d pixCoord = toPixelCoordinates(rcs, refAxial);
 				voxelCoordinates.add(pixCoord);
 			}
 		}
@@ -242,25 +247,30 @@ public class SlicePlane {
 		return new Vector2d(pixelX, pixelY);
 	}
 
-	public Vector3d toPixelCoordinates(Vector3d rcsPoint, ImagePlus ref) {
+	public Vector3d toPixelCoordinates(Vector3d rcsPoint, ImagePlus refAxial) {
 		// Load DICOM metadata
-		double[] imagePosition = GDicomTools.getImagePositionPatient(ref, 1);
-		double[] imageOrientation = GDicomTools.getImageOrientationPatient(ref, 1);
-		double[] pixelSpacing = new double[] { ref.getCalibration().pixelWidth, ref.getCalibration().pixelHeight };
-		double sliceThickness = GDicomTools.getVoxelDepth(ref);
+		double[] imagePosition = GDicomTools.getImagePositionPatient(refAxial, 1);
+		double[] imageOrientation = GDicomTools.getImageOrientationPatient(refAxial, 1);
+		double[] pixelSpacing = new double[] { refAxial.getCalibration().pixelHeight, refAxial.getCalibration().pixelWidth};
+		double sliceThickness = GDicomTools.getVoxelDepth(refAxial);
 
 		Vector3d ipp = new Vector3d(imagePosition);
 
 		// Extract orientation vectors
-		Vector3d Rc = new Vector3d(imageOrientation[0], imageOrientation[1], imageOrientation[2]);
-		Vector3d Rr = new Vector3d(imageOrientation[3], imageOrientation[4], imageOrientation[5]);
+		Vector3d Rr = new Vector3d(imageOrientation[0], imageOrientation[1], imageOrientation[2]);
+		Vector3d Rc = new Vector3d(imageOrientation[3], imageOrientation[4], imageOrientation[5]);
 		Vector3d Rs = new Vector3d();
-		//IMPORTANT, Rc.cross(Rr). Not Rr.cross(Rc)
-		Rc.cross(Rr, Rs);
-
+		boolean isHeadFirst = PlanarSupport.isHeadFirst(refAxial);
+		if(isHeadFirst) {
+			Rc.cross(Rr, Rs);
+		}else {
+			Rr.cross(Rc, Rs);
+		}
+		Rs.normalize();
+		
 		// Compute pixel coordinates
-		double u = (rcsPoint.dot(Rc) - ipp.dot(Rc)) / pixelSpacing[1];
-		double v = (rcsPoint.dot(Rr) - ipp.dot(Rr)) / pixelSpacing[0];
+		double u = (rcsPoint.dot(Rr) - ipp.dot(Rr)) / pixelSpacing[1];
+		double v = (rcsPoint.dot(Rc) - ipp.dot(Rc)) / pixelSpacing[0];
 		double w = (rcsPoint.dot(Rs) - ipp.dot(Rs)) / sliceThickness;
 
 		return new Vector3d(u, v, w);

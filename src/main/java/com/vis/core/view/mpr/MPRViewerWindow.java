@@ -58,6 +58,7 @@ import org.joml.Vector3d;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.util.ImageUtils;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -143,14 +144,14 @@ public class MPRViewerWindow extends JFrame {
 //		new MPRViewerWindow(ax, null);
 		
 		//cor src
-//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
-//		ImagePlus xz = FolderOpener.open(corDir);
-//		new MPRViewerWindow(xz, null);
+		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+		ImagePlus xz = FolderOpener.open(corDir);
+		new MPRViewerWindow(xz, null);
 		
 		//sag src
-		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-		ImagePlus yz = FolderOpener.open(sagDir);
-		new MPRViewerWindow(yz, null);
+//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//		ImagePlus yz = FolderOpener.open(sagDir);
+//		new MPRViewerWindow(yz, null);
 		
 		//other
 //		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
@@ -319,6 +320,18 @@ public class MPRViewerWindow extends JFrame {
 	public void setCurrentViewType(int viewType) {
 		this.currentViewType = viewType;
 	}
+	
+	ImagePlus getSliceTargetImage(CutSurface axis) {
+		if(axis == CutSurface.AXIAL) {
+			return xyImage();
+		}else if(axis == CutSurface.CORONAL) {
+			return xzImage();
+		}else if(axis == CutSurface.SAGITTAL) {
+			return yzImage();
+		}else {
+			return xyImage();
+		}
+	}
 
 	public ImagePlus xyImage() {
 		return xy_image;
@@ -409,6 +422,9 @@ public class MPRViewerWindow extends JFrame {
 	private void initImages() {
 		if (srcCutSurface == CutSurface.AXIAL) {
 			xy_image = new Duplicator().run(imp);
+			if(PlanarSupport.isHeadFirst(imp)) {
+				xy_image = ImageUtils.sort(xy_image, true/*reverse order*/, ImageUtils.SORT_BY_Z);
+			}
 			Calibration cal = imp.getCalibration();
 			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
 			xy_image.setCalibration(cal);
@@ -462,7 +478,7 @@ public class MPRViewerWindow extends JFrame {
 		Calibration cal = null;
 		if (srcCutSurface == CutSurface.CORONAL) {
 			xy =new OrthogonalSlice().coronalToAxial(src);
-		} else if (srcCutSurface == CutSurface.SAGITTAL){// SAG
+		} else if (srcCutSurface == CutSurface.SAGITTAL){
 			xy =new OrthogonalSlice().sagittalToAxial(src);
 		}else {
 			throw new IllegalArgumentException("Cannnot create Axial images.");
@@ -722,7 +738,6 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	/*
-	 * TODO 20241107
 	 * TODO, byte, float, RGB
 	 */
 	protected void resliceAndShow() {
@@ -744,7 +759,10 @@ public class MPRViewerWindow extends JFrame {
 //		}
 
 		ImageStack stack = new ImageStack();
-		ImagePlus mainPlane = this.imp;
+//		ImagePlus mainPlane = getSliceTargetImage(getSliceTargetPlane());
+		ImagePlus mainPlane = xyImage();
+		double min = mainPlane.getDisplayRangeMin();
+		double max = mainPlane.getDisplayRangeMax();
 		int count = 1;
 		//String reconType = contP.getReconType();
 		int reconMode = reconMode();
@@ -757,7 +775,7 @@ public class MPRViewerWindow extends JFrame {
 			Vector3d row_v = plane.getGeometryOfSlice().getRow();
 			Vector3d col_v = plane.getGeometryOfSlice().getColumn();
 			ImageProcessor resliceIp = slicer.slice(plane, reconMode);
-//			resliceIp.resetMinAndMax();
+			resliceIp.setMinAndMax(min, max);
 			ImagePlus temp = new ImagePlus("", resliceIp);
 			GDicomTools.setImagePositionPatient(temp, 1, ipp);
 			GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
@@ -799,7 +817,7 @@ public class MPRViewerWindow extends JFrame {
 		if (refLines == null) {
 			refLines = new ReferenceLineMPR(this);
 		}
-		refLines.setSliceTarget(getSliceTargetPlane());
+		setSliceTargetPlane(getSliceTargetPlane());
 		refLines.updateResliceLineState();
 	}
 

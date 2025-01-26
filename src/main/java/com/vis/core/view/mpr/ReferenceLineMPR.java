@@ -213,11 +213,11 @@ public class ReferenceLineMPR {
 			}else if(pp.getName().equals("XZ")) {
 				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.CORONAL);
 				cpl.mouseDrag(dragSX, dragSY, flags);//Line
-				slab.moveSlab(shiftX, 0, shiftY);
+				slab.moveSlab(shiftX, 0, -1*shiftY);
 			}else if(pp.getName().equals("YZ")) {
 				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.SAGITTAL);
 				cpl.mouseDrag(dragSX, dragSY, flags);//Line
-				slab.moveSlab(0, shiftX, shiftY);
+				slab.moveSlab(0, shiftX, -1*shiftY);
 			}else {
 				return;
 			}
@@ -356,8 +356,18 @@ public class ReferenceLineMPR {
 			}
 		}else if(sliceTarget == CutSurface.CORONAL) {
 			cz = xz_prap.getCurrentSlidePos();
+			if(RCSCoordinates) {
+				cx = xz.getCalibration().pixelWidth * cx;
+				cy = xz.getCalibration().pixelHeight * cy;
+				cz = (GDicomTools.getVoxelDepth(xz) * cz /2.);
+			}
 		}else if(sliceTarget == CutSurface.SAGITTAL) {
 			cz = yz_prap.getCurrentSlidePos();
+			if(RCSCoordinates) {
+				cx = yz.getCalibration().pixelWidth * cx;
+				cy = yz.getCalibration().pixelHeight * cy;
+				cz = (GDicomTools.getVoxelDepth(yz) * cz /2.);
+			}
 		}
 		return new Vector3d(cx,cy,cz);
 	}
@@ -417,59 +427,38 @@ public class ReferenceLineMPR {
 		currentNumOfSlice = numOfSlice;
 		
 		ImagePlus refVolume = null;
+		ImagePlus targetVolume = null;
 		
 		//RCS base, with reference volume coordinates(pixel unit).
 		double half_x = 0;
 		double half_y = 0;
-		double half_z = 0;
 		
 		double[] voxelSize = null;
 		double[] iop = null;
-				
+		
 		if(sliceTarget == CutSurface.AXIAL) {
 			//iop from cornal
 			iop = GDicomTools.getImageOrientationPatient(xz, 1);
-			refVolume = xy;
-			double px = refVolume.getCalibration().pixelWidth;
-			double py = refVolume.getCalibration().pixelHeight;
-			double pz = GDicomTools.getVoxelDepth(refVolume);
-			//recon image half dimension
-			half_x = (fovW/2.)/px;
-			half_y = (fovH/2.)/px;// pz/(pz/px)
-			//coronal voxel
-			voxelSize = new double[] {
-					px, 
-					px, // pz/(pz/px)
-					thickness};
+			refVolume = xz;
+			targetVolume = xy;
 		}else if(sliceTarget == CutSurface.CORONAL) {
 			//iop from sagittal
 			iop = GDicomTools.getImageOrientationPatient(yz, 1);
-			refVolume = xz;
-			double px = refVolume.getCalibration().pixelWidth;
-			double py = refVolume.getCalibration().pixelHeight;
-			double pz = GDicomTools.getVoxelDepth(refVolume);//distance between slices.(No RCS Z axis size)
-			//recon image half dimension for sagittal
-			half_x = (fovW/2.)/py;// pz/(pz/py)
-			half_y = (fovH/2.)/py;
-			//sagittal voxel
-			voxelSize = new double[] {
-					py,//pz/(pz/py) 
-					py, 
-					thickness};
+			refVolume = yz;
+			targetVolume = xz;
 		}else if(sliceTarget == CutSurface.SAGITTAL) {
 			//iop from axial
 			iop = GDicomTools.getImageOrientationPatient(xy, 1);
-			refVolume = yz;
-			double px = refVolume.getCalibration().pixelWidth;
-			double py = refVolume.getCalibration().pixelHeight;
-			double pz = GDicomTools.getVoxelDepth(refVolume);//distance between slices.(No RCS Z axis size)
-			half_x = (fovW/2.)/px;
-			half_y = (fovH/2.)/px;
-			voxelSize = new double[] {
-					GDicomTools.getVoxelDepth(refVolume), 
-					refVolume.getCalibration().pixelWidth, 
-					refVolume.getCalibration().pixelHeight};
+			refVolume = xy;
+			targetVolume = yz;
 		}
+		double px = refVolume.getCalibration().pixelWidth;
+		double py = refVolume.getCalibration().pixelHeight;
+		//recon image half dimension in pixel coords
+		half_x = (fovW/2.)/px;
+		half_y = (fovH/2.)/py;
+		voxelSize = new double[] {px,py,thickness};
+		
 		Vector3d[] centers = calcSliceCentersBeforeRotation();
 		if(centers == null) {
 			slab = null;
@@ -477,7 +466,7 @@ public class ReferenceLineMPR {
 		}
 		List<SlicePlane> slices = new ArrayList<>();
 		for(int i=0; i<numOfSlice;i++) {
-			addSlicePlane(centers[i], refVolume, iop, slices, half_x, half_y, voxelSize, thickness);
+			addSlicePlane(centers[i], targetVolume, iop, slices, half_x, half_y, voxelSize, thickness);
 		}
 		double rotateX = 0;
 		double rotateY = 0;
@@ -494,7 +483,7 @@ public class ReferenceLineMPR {
 	}
 	
 	/**
-	 * 
+	 * Call from initReslicePanes() when initialize.
 	 * @return centers of slices in pixel unit in sliceTarget volume space.
 	 */
 	private Vector3d[] calcSliceCentersBeforeRotation() {
@@ -528,9 +517,19 @@ public class ReferenceLineMPR {
 			}
 			return centers;
 		} else if (sliceTarget == CutSurface.CORONAL) {
-
+			Vector3d startPoint = new Vector3d(centerOfSlab.x-(thickness+gap)*centerPos, centerOfSlab.y, centerOfSlab.z);
+			//left-corner to right-corner
+			for(int i=0; i<numOfSlices; i++) {
+				centers[i] = new Vector3d(startPoint.x+(thickness+gap)*i, startPoint.y, startPoint.z);
+			}
+			return centers;
 		} else if (sliceTarget == CutSurface.SAGITTAL) {
-
+			Vector3d startPoint = new Vector3d(centerOfSlab.x, centerOfSlab.y-(thickness+gap)*centerPos, centerOfSlab.z);
+			//left-corner to right-corner
+			for(int i=0; i<numOfSlices; i++) {
+				centers[i] = new Vector3d(startPoint.x, startPoint.y+(thickness+gap)*i, startPoint.z);
+			}
+			return centers;
 		}
 		return null;
 	}
@@ -560,7 +559,8 @@ public class ReferenceLineMPR {
 		}
 	}
 	
-	private Vector3d nextLineCenter(Point2d lineStart, Point2d lineEnd, boolean topSide) {
+	@Deprecated
+	Vector3d nextLineCenter(Point2d lineStart, Point2d lineEnd, boolean topSide) {
 		Vector3d center = getCenterPosition(false);//initial line center, to get Z position.
 		Point2d[] start_end = nextParallelLinePoints(lineStart, lineEnd, topSide);
 		double nextLineCenterX = (start_end[0].x+start_end[1].x)/2;
@@ -753,7 +753,11 @@ public class ReferenceLineMPR {
 		return coorY;
 	}
 	
-	private Praparat referencePraparat() {
+	/**
+	 * Not using 
+	 * @return prap
+	 */
+	Praparat referencePraparat() {
 		if(sliceTarget == CutSurface.AXIAL) {
 			return xy_prap;
 		}else if(sliceTarget == CutSurface.CORONAL) {
@@ -764,7 +768,11 @@ public class ReferenceLineMPR {
 		return null;
 	}
 	
-	private ImagePlus referenceVolume() {
+	/**
+	 * Not using 
+	 * @return ImagePlus
+	 */
+	ImagePlus referenceVolume() {
 		if(sliceTarget == CutSurface.AXIAL) {
 			return xy;
 		}else if(sliceTarget == CutSurface.CORONAL) {
@@ -839,140 +847,4 @@ public class ReferenceLineMPR {
 		return yZCenterLine.getAngle();
 	}
 	
-//	private GeometryOfSlice slicelineToGeometry(ImagePlus mainPlane, double sx,double sy,double ex, double ey) {
-//		int currentPos = mainPlane.getCurrentSlice();
-//		int mainPlaneType = mprWin.getCurrentMainPlaneType();
-//		PlanarSupport psup = new PlanarSupport();
-//		if(mainPlaneType == MPRViewerWindow.XY) {
-//			Calibration cal = mainPlane.getCalibration();
-//			//stack left upper
-//			int x = (int)sx;
-//			int y = (int)sy; //(yZLine.x1 /(cal.pixelHeight/cal.pixelWidth));
-//			int startSlicePos = (int) ((xZLine.y1 /(cal.pixelDepth/cal.pixelWidth))+1);
-//			int endSlicePos = (int) ((xZLine.y2 /(cal.pixelDepth/cal.pixelWidth))+1);
-//			Vector3d ipp = psup.getNewImagePositionPatient2D(mainPlane, x, y, startSlicePos);
-//			
-//			//row direction (i.e. x direction)
-//			int row_rotate_x = (int)getAngleXY();
-//			int row_rotate_y = (int)getAngleYZ();
-//			int row_rotate_z = (int)getAngleXZ();
-//			int col_rotate_x = (int)getAngleXY();
-//			int col_rotate_y = (int)getAngleYZ();
-//			int col_rotate_z = (int)getAngleXZ();
-//			double[] iop_cor = psup.rotateOrthogonallyImageOrientationPatient(mainPlane, CutSurface.CORONAL);
-//			double[] iop = psup.rotateImageOrientationPatient(iop_cor, row_rotate_x, row_rotate_y, row_rotate_z, col_rotate_x, col_rotate_y, col_rotate_z);
-//			
-//			Vector3d iop_row = new Vector3d(iop[0], iop[1], iop[2]);
-//			Vector3d iop_col = new Vector3d(iop[3], iop[4], iop[5]);
-//			Vector3d tlhc = ipp;
-//			int numCol = (int) (new Vector2d(sx,sy).distance(ex, ey));
-//			int numRow = (int) (new Vector3d(sx,sy,startSlicePos).distance(ex, ey, endSlicePos));
-//			double[] pixelSpacing = new double[] {};
-//		}
-//		
-////		
-//////		double spacingBetweenSlices = TagDict.getReadableValue(dcm, TagDict.At("SpacingBetweenSlices"), double[].class)[0];
-////		Double spacingBetweenSlices = Double.parseDouble(dcm.getString(TagDict.At("SpacingBetweenSlices"), "-1"));
-//////		this.sliceThickness = TagDict.getReadableValue(dcm, TagDict.At("SliceThickness"), double[].class)[0];
-////		this.sliceThickness = Double.parseDouble(dcm.getString(TagDict.At("SliceThickness"), "1"));//keep 1. fail safe
-////		this.voxelSpacing = new Vector3d(new double[] {pixelSpacing[0],pixelSpacing[1],spacingBetweenSlices == null ? this.sliceThickness:spacingBetweenSlices});
-//////		int numRow = TagDict.getReadableValue(dcm, TagDict.At("Rows"), int[].class)[0];
-//////		int numColumn = TagDict.getReadableValue(dcm, TagDict.At("Columns"), int[].class)[0];
-////		Integer numRow = Integer.parseInt(dcm.getString(TagDict.At("Rows"), "-1"));
-////		Integer numColumn = Integer.parseInt(dcm.getString(TagDict.At("Columns"), "-1"));
-////		this.dimensions = new Vector3d(new double[] {numRow,numColumn,1});
-////		return new GeometryOfSlice();
-//		
-//		mainPlane.setPosition(currentPos);
-//		return null;
-//	}
-	
-	
-//	private GeneralPath rectPath(ReferenceLine refLine, Point2d leftUpper, Point2d rightLower) {
-//		GeneralPath rect = new GeneralPath();
-//		/*
-//		 * keep moveTo + lineTo pair. because, see,  refLine.toScreenCoordinates()
-//		 */
-//		refLine.addSliceLine(rect, (float)leftUpper.x,(float)leftUpper.y, (float)rightLower.x,(float)leftUpper.y);
-//		refLine.addSliceLine(rect, (float)rightLower.x,(float)leftUpper.y, (float)rightLower.x,(float)rightLower.y);
-//		refLine.addSliceLine(rect, (float)rightLower.x,(float)rightLower.y, (float)leftUpper.x,(float)rightLower.y);
-//		refLine.addSliceLine(rect, (float)leftUpper.x,(float)rightLower.y, (float)leftUpper.x,(float)leftUpper.y);
-//		return rect;
-//	}
-	
-//	public void drawRect(ReferenceLine refLine, Graphics g) {
-//		Graphics2D g2d = (Graphics2D) g;
-//		BasicStroke bs2 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 1.0f, new float[] {6}, 0);
-//		g2d.setStroke(bs2);
-//		if(refLine.getPlane() == CutSurface.AXIAL) {
-//			Point2d[] xyPs = getXYLeftUpperAndRightLowerOnXY_Prap();
-//			if(xyPs == null) {
-//				return;
-//			}
-//			GeneralPath xyRect = rectPath(refLine, xyPs[0],xyPs[1]);
-//			xyRect = xYCenterLine.toScreenCoordinates(xyRect);
-//			g2d.setColor(xyColor);
-//			g2d.draw(xyRect);
-//		}else if(refLine.getPlane() == CutSurface.CORONAL) {
-//			Point2d[] xzPs = getXZLeftUpperAndRightLowerOnXZ_Prap();
-//			GeneralPath xzRect = rectPath(refLine, xzPs[0],xzPs[1]);
-//			xzRect = xZCenterLine.toScreenCoordinates(xzRect);
-//			g2d.setColor(xzColor);
-//			g2d.draw(xzRect);
-//		}else if(refLine.getPlane() == CutSurface.SAGITTAL) {
-//			Point2d[] yzPs = getYZLeftUpperAndRightLowerOnYZ_Prap();
-//			GeneralPath yzRect = rectPath(refLine, yzPs[0],yzPs[1]);
-//			yzRect = yZCenterLine.toScreenCoordinates(yzRect);
-//			g2d.setColor(yzColor);
-//			g2d.draw(yzRect);
-//		}
-//	}
-	
-//	private void drawXY(Graphics g){
-//		drawHandles(refLine, g);
-//		drawRect(refLine, g);
-//		Graphics2D g2d = (Graphics2D) g;
-//		if(refLine.getSliceLines() != null) {
-//			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
-//			if (sliceLines_ != null) {
-//				g2d.setColor(xyColor);
-//				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
-//						1.0f, new float[] { 6 }, 0);
-//				g2d.setStroke(bs3);
-//				g2d.draw(sliceLines_);
-//			}
-//		}
-//	}
-//	
-//	private void drawXZ(ReferenceLine refLine, Graphics g, SlideGlass sg){
-//		drawHandles(refLine, g);
-//		drawRect(refLine, g);
-//		Graphics2D g2d = (Graphics2D) g;
-//		if(refLine.getSliceLines() != null && mprWin.getSrcSurface()==CutSurface.CORONAL) {
-//			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
-//			if (sliceLines_ != null) {
-//				g2d.setColor(xzColor);
-//				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
-//						1.0f, new float[] { 6 }, 0);
-//				g2d.setStroke(bs3);
-//				g2d.draw(sliceLines_);
-//			}
-//		}
-//	}
-//	
-//	private void drawYZ(ReferenceLine refLine, Graphics g){
-//		drawHandles(refLine, g);
-//		drawRect(refLine, g);
-//		Graphics2D g2d = (Graphics2D) g;
-//		if(refLine.getSliceLines() != null && mprWin.getSrcSurface()==CutSurface.SAGITTAL) {
-//			GeneralPath sliceLines_ = refLine.toScreenCoordinates(refLine.getSliceLines());
-//			if (sliceLines_ != null) {
-//				g2d.setColor(yzColor);
-//				BasicStroke bs3 = new BasicStroke(sliceLineStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL,
-//						1.0f, new float[] { 6 }, 0);
-//				g2d.setStroke(bs3);
-//				g2d.draw(sliceLines_);
-//			}
-//		}
-//	}
 }
