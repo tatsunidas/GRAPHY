@@ -507,7 +507,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			return;
 		}
 		ArrayList<String> selectedSeriesUIDs = new ArrayList<>();
-//		ArrayList<String> selectedImageUIDs = new ArrayList<>();
 		HashMap<String, ArrayList<String>> selectedImageUIDs = new HashMap<>();
 		for(DICOMNode n : selectedNodes) {
 			if(n.getLevel()==DICOMNode.SERIES) {

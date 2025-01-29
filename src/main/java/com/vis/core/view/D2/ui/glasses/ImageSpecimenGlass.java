@@ -51,7 +51,6 @@ import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
-import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
@@ -67,8 +66,11 @@ public class ImageSpecimenGlass extends JPanel{
 	 * single frame image screen
 	 */
 	private final DicomImage dcmImg;//src
-	private final ImagePlus orgImg;
-	private final Calibration orgCal;
+	/**
+	 * This orgImg is calibrated by SlideGlass.initImageInfo().
+	 * see also, GDicomTools.calibrate() function.
+	 */
+	private final ImagePlus orgImg;//without calibration
 	private final String sopUID;
 	private final SlideGlass sg;
 	public ImagePlus displayImg;
@@ -91,7 +93,6 @@ public class ImageSpecimenGlass extends JPanel{
 		orgCols = orgImg.getWidth();
 		orgRows = orgImg.getHeight();
 		setOpaque(false);
-		orgCal = orgImg.getCalibration();
 		displayImg = createInitialDisplayImage();//init display image
 	}
 	
@@ -262,10 +263,6 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	int getDisplayOriginY() {
 		return originY;
-	}
-	
-	public Calibration getOriCalibration() {
-		return orgCal;
 	}
 	
 	public ImagePlus getDisplayImage() {

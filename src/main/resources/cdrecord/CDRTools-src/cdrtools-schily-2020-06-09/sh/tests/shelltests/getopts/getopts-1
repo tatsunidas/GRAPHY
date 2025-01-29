@@ -1,3 +1,0 @@
-# Switch off localization for tests to allow to compare the output
-LC_ALL=C
-getopts "abf:" OPT -s

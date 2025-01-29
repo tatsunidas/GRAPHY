@@ -230,7 +230,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg) {
 		if(!dcmImg.isMultiFrame()) {
-			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0));
+			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0).duplicate());
 			DicomObject header = dcmImg.getCore();
 			int[] tags = header.tags();
 			for(int t : tags) {
@@ -250,7 +250,9 @@ public class GDicomTools extends ij.util.DicomTools{
 					for(String val:vals) {
 						v = v + val+"\\";
 					}
-					v = v.substring(0, v.length()-1);//remove last "\\"
+					if(v.length() != 0) {
+						v = v.substring(0, v.length()-1);//remove last "\\"
+					}
 					setTag(imp,1,ts,v);
 				}
 			}
@@ -653,24 +655,26 @@ public class GDicomTools extends ij.util.DicomTools{
 		boolean isSigned = header.getInt(Tag.Pixel​Representation, 0) != 0;
 		if (header.getInt(Tag.Bits​Allocated, -1) == 16 && isSigned) {
 			if (!intercept.isNaN() && !slope.isNaN()) {
-				double[] coeff = new double[2];
-				coeff[0] = slope*(-32768) + intercept;
+				//y = a + bx
+				double[] coeff = new double[2];//[a,b]
+				coeff[0] = intercept - 32768;
 				coeff[1] = slope;
 				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-				originalCal.getCTable();//to make cTable.
-//				originalCal.setSigned16BitCalibration();//DO NOT USE
-				if(modality != null && modality.equals("CT")) {
-					originalCal.setValueUnit("HU");
-				}
 				//add another modalities unit...
+				//...
+			}else {
+				originalCal.setSigned16BitCalibration();
+			}
+			if(modality != null && modality.equals("CT")) {
+				originalCal.setValueUnit("HU");
 			}
 		}else if (intercept!=0.0 && slope==1.0) {
 			double[] coeff = new double[2];
 			coeff[0] = intercept;
 			coeff[1] = slope;
 			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-			originalCal.getCTable();//to make cTable.
 		}
+		imp.setCalibration(originalCal);
 		// adjust WW/WL
 		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
 		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
@@ -685,7 +689,6 @@ public class GDicomTools extends ij.util.DicomTools{
 				imp.setDisplayRange(newMin, newMax);
 			}
 		}
-		imp.setCalibration(originalCal);
 	}
 	
 	

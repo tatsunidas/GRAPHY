@@ -59,6 +59,7 @@ public enum ConfigInfo {
 	TemporalDirName("temp"),
 	PluginDirName("plugins"),
 	LutDirName("luts"),
+	LibDirName("lib"),
 	//DBDirName("graphydb"),
 	
 	//natives
@@ -88,6 +89,7 @@ public enum ConfigInfo {
 	 * paths in the resource.
 	 */
 	GRAPHY_Props("./conf/graphy.properties"),
+	VERSION("application.properties"),
 	CDRTOOL_Props("./conf/native/native_cdrtools/cdrecord.properties"),
 	
 	WEASIS("/weasis/weasis-portable/"),// resource in jar, must handle in stream.

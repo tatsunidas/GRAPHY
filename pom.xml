@@ -7,9 +7,9 @@
 	<version>0.0.1-SNAPSHOT</version>
 
 	<properties>
+		<exec.mainClass>com.vis.core.launcher.Launcher</exec.mainClass>
 		<java.version>11</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
 		<imagej-version>1.54f</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
 		<derby-version>10.14.2.0</derby-version>
@@ -17,6 +17,7 @@
 		<apache-commons-io-version>2.13.0</apache-commons-io-version>
 		<radiance-substance-version>4.5.0</radiance-substance-version>
 		<joml-version>1.10.5</joml-version>
+		<asm-version>9.5</asm-version>
 	</properties>
 
 	<build>
@@ -104,15 +105,25 @@
 			</plugin>
 		</plugins>
 		<resources>
-			<resource>
-				<directory>src/main/resources</directory>
-				<includes>
-					<include>**/*</include>
-				</includes>
-				<excludes>
-					<exclude>**/*test*.*</exclude>
-				</excludes>
-			</resource>
+			<!-- テキストファイルのみフィルタリング：application.properties用 -->
+       	<resource>
+          		<directory>src/main/resources</directory>
+            	<filtering>true</filtering>
+            	<includes>
+                	<include>**/*.properties</include>
+            	</includes>
+        	</resource>
+	        <!-- バイナリファイルはフィルタリングしない -->
+    	   	<resource>
+          		<directory>src/main/resources</directory>
+            	<filtering>false</filtering>
+            	<includes>
+              	<include>**/*</include> <!-- すべてのファイルを対象にする -->
+            	</includes>
+            	<excludes>
+              	<exclude>**/*.properties</exclude>
+            	</excludes>
+        	</resource>
 		</resources>
 	</build>
 
@@ -385,6 +396,11 @@
 			<groupId>org.jcodec</groupId>
 			<artifactId>jcodec-javase</artifactId>
 			<version>0.2.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.ow2.asm</groupId>
+			<artifactId>asm</artifactId>
+			<version>${asm-version}</version>
 		</dependency>
 	</dependencies>
 </project>

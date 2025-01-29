@@ -46,6 +46,9 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 
+import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.plugin.PlugInCompiler;
+import com.vis.core.plugin.PluginShelf;
 import com.vis.core.ui.dialog.HelpDialog;
 import com.vis.core.ui.function.DicomDuplicator;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -197,35 +200,45 @@ public class ViewerMenu extends JMenuBar {
 //		mnPrefs.add(mntmSettings);
 	}
 	
+	void addCompileItem() {
+		JMenuItem pluginItem = new JMenuItem("Compile...");// getText() can get key name.
+		pluginItem.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				PlugInCompiler.selectAndCompile();
+			}
+		});
+		pluginMenu.add(pluginItem);
+	}
+	
 	public void updatePluginsMenuItem(){
-		if(this.pluginMenu == null) {
+		
+		if(ApplicationFacade.pluginShelf == null) {
 			return;
 		}
-		/*
-		 * TODO 20231006
-		 */
-//		if(ApplicationContext.pluginShelf == null) {
-//			return;
-//		}
-//		PluginShelf pluginShelf = ApplicationContext.pluginShelf;
-//		java.util.HashMap<String,String> plugins = pluginShelf.getLoadedPluginNames();
-//		if(plugins.size() < 1) {
-//			return;
-//		}
-//		this.pluginMenu.removeAll();//init menuItems
-//		java.util.Set<String> keys = plugins.keySet();
-//		for (String key : keys) {
-//			JMenuItem pluginItem = new JMenuItem(key);// getText() can get key name.
-//			pluginItem.addActionListener(new ActionListener() {
-//				@Override
-//				public void actionPerformed(ActionEvent e) {
-//					/*
-//					 * here, always run without args. TODO ??
-//					 */
-//					ApplicationContext.pluginShelf.runPlugIn(key, null);
-//				}
-//			});
-//			pluginMenu.add(pluginItem);
-//		}
+		this.pluginMenu.removeAll();//init menuItems
+		//First, add compile menu
+		addCompileItem();
+		
+		PluginShelf pluginShelf = ApplicationFacade.pluginShelf;
+		java.util.HashMap<String,String> plugins = pluginShelf.getLoadedPluginNames();
+		if(plugins.size() < 1) {
+			return;
+		}
+		
+		java.util.Set<String> keys = plugins.keySet();
+		for (String key : keys) {
+			JMenuItem pluginItem = new JMenuItem(key);// getText() can get key name.
+			pluginItem.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					/*
+					 * here, always run without args. TODO ??
+					 */
+					pluginShelf.runPlugIn(key, null);
+				}
+			});
+			pluginMenu.add(pluginItem);
+		}
 	}
 }

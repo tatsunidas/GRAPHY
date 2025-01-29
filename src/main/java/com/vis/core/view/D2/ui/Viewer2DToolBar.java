@@ -42,9 +42,11 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -56,6 +58,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -64,7 +67,9 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.ImageUtils;
@@ -76,6 +81,7 @@ import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
 import com.vis.core.view.mpr.MPRViewerWindow;
 
 import ij.ImagePlus;
+import ij.plugin.filter.Duplicater;
 
 /**
  * buttons design https://material.io/tools/icons/?style=outline
@@ -729,10 +735,52 @@ public class Viewer2DToolBar extends JToolBar{
 					if(prap == null || replica == null) {
 						throw new IllegalArgumentException("Does not have images.");
 					}
+					//to validate getImage().
+//					SwingUtilities.invokeLater(() -> {
+//						replica.show();
+//					});
+					/*
+					 * Currently, the image may not be displayed in 3D if it is consumed by another window. Minimize (iconize) the other windows once to void with this.
+					 */
+					PopUpMessage.showDialog(null, "3D Window Information", "MainScreen and 2D Viewer are minimumized temporally.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+					Window win = WindowManager.getMainScreen();
+					if (win != null) {
+						((JFrame) win).setState(JFrame.ICONIFIED);
+					}
+
+					Window viewer2d = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
+					if (viewer2d != null) {
+						((JFrame) viewer2d).setState(JFrame.ICONIFIED);
+					}
 					
-					SwingUtilities.invokeLater(() -> {
-						new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME).run();
-					});
+					Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME);
+					d3.run();
+					/*
+					 * to wait load all images on 3D Window.
+					 */
+					while(!d3.isVisible()) {
+						System.out.println("waiting show 3D window ");
+					}
+					/*
+					 * If the window is returned to normal too soon, it will not display properly in 3D.
+					 */
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							try {
+								Thread.sleep(5000); // 5 seconds
+							} catch (InterruptedException ex) {
+								ex.printStackTrace();
+							}
+							if (win != null) {
+								((JFrame) win).setState(JFrame.NORMAL);
+							}
+							if (viewer2d != null) {
+								((JFrame) viewer2d).setState(JFrame.NORMAL);
+							}
+						}
+					}).start();
+
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}

@@ -1,1 +1,0 @@
-#b maketest dosh './.clean && cd psmake && ./MAKE-all && cd .. && psmake/smake' maketest

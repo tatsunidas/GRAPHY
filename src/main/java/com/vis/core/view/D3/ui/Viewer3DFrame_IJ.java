@@ -98,14 +98,19 @@ public class Viewer3DFrame_IJ {
 	ImagePlus org;
 	int displayMode = ij3d.Content.ORTHO;
 
+	ImageWindow3D win3d;
 	Image3DUniverse univ;
 
 	public static void main(String args[]) {
 		//test case 1
-//		String url = "https://imagej.net/ij/images/flybrain.zip";
-//		ImagePlus image = IJ.openImage(url);
-//		Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(image, VOLUME);
-//		d3.run();
+		/*
+		 * たくさん画像を開いているときに起動しようとするとスクリーンが描画されないことがある。
+		 * 一旦、他のウィンドウを最小化すると表示される。
+		 */
+		String url = "https://imagej.net/ij/images/flybrain.zip";
+		ImagePlus image = ij.IJ.openImage(url);
+		Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(image, VOLUME);
+		d3.run();
 		
 		//test case 2
 //		Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(null, VOLUME);
@@ -148,9 +153,9 @@ public class Viewer3DFrame_IJ {
 		imp2.setTitle(imp2.getTitle()+"_"+formattedDate);
 		
 		Window win = WindowManager.getWindow(ConfigInfo.D3ViewerWindow.toString());
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
+//		new Thread(new Runnable() {
+//			@Override
+//			public void run() {
 				if (win == null) {
 					MainScreen ms = WindowManager.getMainScreen();
 					if (ms != null) {
@@ -162,7 +167,7 @@ public class Viewer3DFrame_IJ {
 					}
 					univ = new Image3DUniverse();
 					univ.show();
-					ImageWindow3D win3d = (ImageWindow3D) univ.getWindow();
+					win3d = (ImageWindow3D) univ.getWindow();
 					win3d.setName(ConfigInfo.D3ViewerWindow.toString());
 					WindowManager.addWindow(win3d);
 					win3d.setTitle("ImageJ 3D Viewer GRAPHY built-in");
@@ -185,7 +190,7 @@ public class Viewer3DFrame_IJ {
 						((Viewer2DScreen) viewer2DScreen).ignoreRepaintAllSlides(false);
 					}
 				} else {
-					ImageWindow3D win3d = (ImageWindow3D) win;
+					win3d = (ImageWindow3D) win;
 					if (!win3d.isVisible()) {
 						win3d.setVisible(true);
 					}
@@ -228,10 +233,17 @@ public class Viewer3DFrame_IJ {
 					break;
 				}
 
-				univ.getWindow().getContentPane().revalidate();
-				univ.getWindow().getContentPane().repaint();
-			}
-		}).start();
+				win3d.getContentPane().revalidate();
+				win3d.getContentPane().repaint();
+//			}
+//		}).start();
+	}
+	
+	public boolean isVisible() {
+		if(win3d == null) {
+			return false;
+		}
+		return win3d.isVisible() && univ.getContents().size() > 0;
 	}
 
 	public void test3D() {

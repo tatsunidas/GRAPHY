@@ -60,13 +60,15 @@ import com.vis.dicom.image.GDicomTools;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.ColorProcessor;
-import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 
 public class ImageUtils {
 
 	final static int AUTO_THRESHOLD = 5000;
 	
+	/**
+	 * X, Y, Z are RCS space axis.
+	 */
 	public final static int SORT_BY_Z = 0;
 	public final static int SORT_BY_Y = 0;
 	public final static int SORT_BY_X = 0;

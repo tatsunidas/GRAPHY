@@ -2,19 +2,11 @@ package com.vis.core.view.mpr;
 
 import ij.*;
 import ij.process.*;
-import ij.gui.*;
 import ij.measure.*;
-import ij.util.Tools;
-import java.awt.*;
-import java.awt.event.*;
 import java.util.*;
 import java.util.List;
-
 import org.joml.Vector3d;
-
-import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.dicom.image.GDicomTools;
-import com.vis.imageio.PixelDataDecoder;
 
 public class Slicer {
 

@@ -40,10 +40,15 @@ package com.vis.core.facade;
 import java.awt.Font;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
@@ -81,13 +86,16 @@ public class ApplicationFacade{
 	
 	private static GraphySplashScreen splash;
 	private static Locale locale;
-	private static PluginShelf pluginShelf;
+	public static PluginShelf pluginShelf;
 	private static DatabaseHandler db; 
 	private static LookAndFeels laf;
 	public static final DICOMBackend backend = DICOMBackend.getCurrent();
 	
+	public static String version;
+	
 	public ApplicationFacade(HashMap<StartingUpConfigurations, String[]> args) {
 		readyToStart(args.get(StartingUpConfigurations.no_splash) != null);
+		
 		runMainScreen();
 	}
 	
@@ -104,6 +112,7 @@ public class ApplicationFacade{
 		com.vis.core.util.Platform.setSystemProperties();
 		// # 1
 		initConfigurationFolders();
+		load_version();
 		// # 2
 		loadLocale();//before show splash
 		// # 3
@@ -126,12 +135,13 @@ public class ApplicationFacade{
 	}
 	
 	private void initConfigurationFolders() {
-		for(ConfigInfo name : new ConfigInfo[] {ConfigInfo.ConfDirName, ConfigInfo.LogDirName, ConfigInfo.PluginDirName, ConfigInfo.TemporalDirName}) {
+		for(ConfigInfo name : new ConfigInfo[] {ConfigInfo.ConfDirName, ConfigInfo.LogDirName, ConfigInfo.PluginDirName, ConfigInfo.TemporalDirName, ConfigInfo.LibDirName}) {
 			if(!new File("./"+name.toString()).exists()) {
 				switch (name) {
 				case LogDirName:
 				case PluginDirName:
 				case TemporalDirName:
+				case LibDirName:
 					new File("./"+name.toString()).mkdirs();
 					break;
 				case ConfDirName:
@@ -201,6 +211,7 @@ public class ApplicationFacade{
 	}
 	
 	private void initPlugInShelf() {
+		loadExternalLibraries();
 		pluginShelf = new PluginShelf();
 		pluginShelf.loadPlugins();
 	}
@@ -215,6 +226,32 @@ public class ApplicationFacade{
 			}
 		}
 		db.deleteMissingLinkedFiles();
+	}
+	
+	/**
+	 * add class path of all jars in ./lib folder.
+	 */
+	void loadExternalLibraries() {
+		File libDir = new File("./lib"); // ライブラリのあるディレクトリ
+		if(!libDir.exists()) {
+			Log.logger.info("lib folder not found.");
+			return;
+		}
+		File[] jars = libDir.listFiles((dir, name) -> name.endsWith(".jar"));
+		if (jars != null && jars.length > 0) {
+			URL[] urls = new URL[jars.length];
+			for (int i = 0; i < jars.length; i++) {
+				try {
+					urls[i] = jars[i].toURI().toURL();
+				} catch (MalformedURLException e) {
+					e.printStackTrace();
+					Log.logger.severe(e.getLocalizedMessage());
+				}
+			}
+			URLClassLoader classLoader = new URLClassLoader(urls, ClassLoader.getSystemClassLoader());
+			Thread.currentThread().setContextClassLoader(classLoader);
+		}
+		Log.logger.fine("External libraries loaded successfully!");
 	}
 
 	private void runMainScreen() {
@@ -252,6 +289,21 @@ public class ApplicationFacade{
 	
 	public static LookAndFeels getLookAndFeels() {
 		return laf;
+	}
+	
+	public static void load_version() {
+		Properties properties = new Properties();
+        try (InputStream input = ApplicationFacade.class.getClassLoader().getResourceAsStream(ConfigInfo.VERSION.toString())) {
+            if (input == null) {
+                System.out.println("Sorry, unable to find application.properties");
+                return;
+            }
+            properties.load(input);
+            String version = properties.getProperty("app.version");
+            System.out.println("Application Version: " + version);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 	}
 	
 	public static boolean exitApp(Level level, String exitString) throws Throwable {

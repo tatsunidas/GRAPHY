@@ -119,7 +119,7 @@ public class SlideGlassGrid extends JScrollPane{
 		if (!useGridLayout) {
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((((r+1)*cols) + c)<=numOfImage) {
+					if(((r*cols) + c)<numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
 						sg.setSize(cellSize, cellSize);
 						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
@@ -138,7 +138,7 @@ public class SlideGlassGrid extends JScrollPane{
 		} else {
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((((r+1)*cols) + c)<=numOfImage) {
+					if(((r*cols) + c)<=numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
 						sg.setSize(cellSize, cellSize);
 						view.add(sg);
@@ -165,7 +165,7 @@ public class SlideGlassGrid extends JScrollPane{
 			Log.logger.fine("cell size:"+cellSize);
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((((r+1)*cols) + c)<=numOfImage) {
+					if(((r*cols) + c)<numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
 						sg.setSize(cellSize, cellSize);
 						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
@@ -185,7 +185,7 @@ public class SlideGlassGrid extends JScrollPane{
 		} else {
 			for (int r = 0; r < rows; r++) {
 				for (int c = 0; c < cols; c++) {
-					if((((r+1)*cols) + c)<=numOfImage) {
+					if(((r*cols) + c)<numOfImage) {
 						SlideGlass sg = slides.get((r*cols) + c);
 						sg.setSize(cellSize, cellSize);
 						view.add(sg);

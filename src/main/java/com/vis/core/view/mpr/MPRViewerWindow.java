@@ -759,12 +759,14 @@ public class MPRViewerWindow extends JFrame {
 //		}
 
 		ImageStack stack = new ImageStack();
+		/*
+		 *IMPORTANT, Keep using axial for reference volume. 
+		 */
 //		ImagePlus mainPlane = getSliceTargetImage(getSliceTargetPlane());
 		ImagePlus mainPlane = xyImage();
 		double min = mainPlane.getDisplayRangeMin();
 		double max = mainPlane.getDisplayRangeMax();
 		int count = 1;
-		//String reconType = contP.getReconType();
 		int reconMode = reconMode();
 		List<SlicePlane> planes = slab.getSlicePlanes();
 		Slicer slicer = new Slicer(mainPlane);

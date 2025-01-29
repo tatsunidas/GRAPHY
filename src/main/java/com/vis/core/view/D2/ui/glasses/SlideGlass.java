@@ -61,7 +61,6 @@ import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
-import com.vis.core.view.D2.roi.ReferenceLine;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
@@ -691,7 +690,7 @@ public class SlideGlass extends JLayeredPane {
 			coeff[0] = intercept;
 			coeff[1] = slope;
 			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-			originalCal.getCTable();// to make cTable.
+			//originalCal.getCTable();// to make cTable.
 		}
 		// adjust WW/WL
 		resetWindowing();

@@ -689,12 +689,15 @@ public class Praparat extends JPanel {
 			return null;
 		}
 		int size = getNumberOfImages();
-		ImageStack stack = new ImageStack(getCurrentSlide().getOriginalImage().getWidth(),
-				getCurrentSlide().getOriginalImage().getHeight(), size);
-		Calibration cal = getCurrentSlide().getOriginalImage().getCalibration().copy();
+		ImagePlus org = getCurrentSlide().getOriginalImage();
+		Calibration cal = org.getCalibration();
+		ImageStack stack = new ImageStack(org.getWidth(),org.getHeight(), size);
 		for (int arrayOrder : slides.keySet()) {
 			SlideGlass sg = slides.get(arrayOrder);
-			ImagePlus imp = sg.convertToImagePlus();//to get SOP Class UID
+			ImagePlus imp = sg.convertToImagePlus();
+			/*
+			 * calibration is gone here, so finally add it.
+			 */
 			ImageProcessor ip = imp.getProcessor();
 			if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
 				ip.snapshot();// keep original pixels

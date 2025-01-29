@@ -208,11 +208,8 @@ public class OrthogonalSlice {
 		xz_image.setProcessor(""+y, xz_ip);
 		
 		PlanarSupport psup = new PlanarSupport();
-
-		double col = 0;// x direction
-		double row = y;// y direction
 		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, pos_z);
+		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, 0/*x*/, y, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
@@ -235,7 +232,6 @@ public class OrthogonalSlice {
 		}
 		if (ipp_vec != null && iop !=null) {
 			double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-//			System.out.println("CORONAL ImagePosition: " + Arrays.toString(ipp));
 			GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
 			GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
 		}
@@ -359,7 +355,7 @@ public class OrthogonalSlice {
 		double col = x;// x direction
 		double row = 0;// y direction
 		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, col, row, pos_z);
+		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, x, 0/*y*/, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
@@ -380,14 +376,6 @@ public class OrthogonalSlice {
 			}
 			iop = new double[] {colY[0],colY[1],colY[2],zVec.x, zVec.y,zVec.z};
 		}
-//		if(isHeadFirst) {
-//			double[] cor_iop = PlanarSupport.rotateImageOrientationPatient(axi_iop, -90, 0, 0);
-//			iop = new double[] {row_y_vec[0],row_y_vec[1],row_y_vec[2],cor_iop[3],cor_iop[4],cor_iop[5]};
-//			//System.out.println(java.util.Arrays.toString(iop));
-//		}else {
-//			double[] cor_iop = PlanarSupport.rotateImageOrientationPatient(axi_iop, 90, 0, 0);
-//			iop = new double[] {row_y_vec[0],row_y_vec[1],row_y_vec[2],cor_iop[3],cor_iop[4],cor_iop[5]};
-//		}
 		if (ipp_vec != null && iop !=null) {
 			double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
 			GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
@@ -437,7 +425,7 @@ public class OrthogonalSlice {
 		double[] colVec = new double[] {cor_iop[3],cor_iop[4],cor_iop[5]};//Z
 		Vector3d yVec = null;
 		/*
-		 * In Coronal case, calculate cross product with row.cross(col).
+		 * In Coronal case, calculate cross product with row.cross(col) in head first.
 		 * In Sagittal case, with col.cross(row).
 		 */
 		if(isHeadFirst) {
@@ -549,6 +537,9 @@ public class OrthogonalSlice {
 		Vector3d sag_rowVec = new Vector3d(sag_iop[0],sag_iop[1],sag_iop[2]);
 		Vector3d sag_colVec = new Vector3d(sag_iop[3],sag_iop[4],sag_iop[5]);
 		Vector3d xVec = null;
+		/*
+		 * In Sagittal case, with col.cross(row) in head first.
+		 */
 		if(isHeadFirst) {
 			xVec = PlanarSupport.calculateNormal(sag_colVec, sag_rowVec, true);
 		}else {

@@ -1,1 +1,0 @@
-CFILES=		getopt.c opt_data.c getsubopt.c
