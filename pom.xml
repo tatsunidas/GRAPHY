@@ -5,6 +5,22 @@
 	<groupId>com.vis.graphy</groupId>
 	<artifactId>graphy</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	
+	<licenses>
+		<license>
+			<name>The Mozilla Public License, Version 1.1 </name>
+	    	<url>https://www.mozilla.org/media/MPL/1.1/index.0c5913925d40.txt</url>
+	  	</license>
+	</licenses>
+	
+	<developers>
+		<developer>
+      		<name>Tatsuaki Kobayashi</name>
+      		<email>t_kobayashi@vis-ionary.com</email>
+      		<organization>Visionry Imaging Services, Inc.</organization>
+      		<organizationUrl>https://www.vis-ionary.com</organizationUrl>
+    	</developer>
+	</developers>
 
 	<properties>
 		<exec.mainClass>com.vis.core.launcher.Launcher</exec.mainClass>
@@ -156,11 +172,15 @@
 	<dependencies>
 		<!-- IMAGES LIBRARIES -->
 		<!-- https://mvnrepository.com/artifact/net.imagej/ij -->
+		<!-- https://mvnrepository.com/artifact/sc.fiji/3D_Viewer -->
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
+		<!-- https://mvnrepository.com/artifact/io.github.tatsunidas/radiomicsj -->
 		<dependency>
-			<groupId>net.imagej</groupId>
-			<artifactId>ij</artifactId>
-			<version>${imagej-version}</version>
+		    <groupId>io.github.tatsunidas</groupId>
+		    <artifactId>radiomicsj</artifactId>
+		    <version>2.1.4a</version>
 		</dependency>
+
 		<dependency>
 			<groupId>org.jogamp.gluegen</groupId>
 			<artifactId>gluegen-rt-main</artifactId>
@@ -171,19 +191,7 @@
 			<artifactId>jogl-all-main</artifactId>
 			<version>2.3.2</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/sc.fiji/3D_Viewer -->
-		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>3D_Viewer</artifactId>
-			<version>4.0.5</version>
-			<exclusions>
-				<exclusion>
-					<groupId>net.imagej</groupId>
-					<artifactId>ij</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-
+		
 		<!-- DB LIBRARIES -->
 
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derby -->
@@ -194,34 +202,28 @@
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.derby/derbyclient -->
 		<dependency>
-			<groupId>
-				org.apache.derby</groupId>
+			<groupId>org.apache.derby</groupId>
 			<artifactId>derbyclient</artifactId>
-			<version>
-				${derby-version}</version>
+			<version>${derby-version}</version>
 		</dependency>
 
 		<!-- DICOM LIBRARIES -->
 
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>
-				dcm4che-core</artifactId>
+			<artifactId>dcm4che-core</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio-rle -->
 		<dependency>
-			<groupId>
-				org.dcm4che</groupId>
+			<groupId>org.dcm4che</groupId>
 			<artifactId>dcm4che-imageio-rle</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-imageio -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>
-				dcm4che-imageio</artifactId>
+			<artifactId>dcm4che-imageio</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
@@ -231,8 +233,7 @@
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.sun.media/clib_jiio -->
 		<dependency>
-			<groupId>
-				com.sun.media</groupId>
+			<groupId>com.sun.media</groupId>
 			<artifactId>clib_jiio</artifactId>
 			<version>1.2-pre-dr-b04</version>
 			<type>
@@ -240,25 +241,21 @@
 		</dependency>
 		<dependency>
 			<groupId>com.sun.media</groupId>
-			<artifactId>
-				clibwrapper_jiio</artifactId>
+			<artifactId>clibwrapper_jiio</artifactId>
 			<version>1.2-pre-dr-b04</version>
 			<type>pom</type>
 		</dependency>
 		<!-- when use open-cv, set run comfigration
 		-Djava.library.path="E:/Dropbox/Graphy-WorkSpace2/graphy-parent/graphy-imageio/image-io-nativelib/windows-x86-64/" -->
 		<dependency>
-			<groupId>
-				org.dcm4che</groupId>
+			<groupId>org.dcm4che</groupId>
 			<artifactId>dcm4che-imageio-opencv</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-emf -->
 		<dependency>
 			<groupId>org.dcm4che</groupId>
-			<artifactId>
-				dcm4che-emf</artifactId>
+			<artifactId>dcm4che-emf</artifactId>
 			<version>5.23.1</version><!-- keep this version -->
 		</dependency>
 		<!--
@@ -266,14 +263,12 @@
 		<dependency>
 			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-common</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<!--
 		https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-storescu -->
 		<dependency>
-			<groupId>
-				org.dcm4che.tool</groupId>
+			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-storescu</artifactId>
 			<version>${dcm4che-version}</version>
 		</dependency>
@@ -282,8 +277,7 @@
 		<dependency>
 			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-dcmqrscp</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.dcm4che/dcm4che-net -->
 		<dependency>
@@ -294,11 +288,9 @@
 		<!--
 		https://mvnrepository.com/artifact/org.dcm4che.tool/dcm4che-tool-dcm2xml -->
 		<dependency>
-			<groupId>
-				org.dcm4che.tool</groupId>
+			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-dcm2xml</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.dcm4che.tool</groupId>
@@ -308,14 +300,12 @@
 		<dependency>
 			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-movescu</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.dcm4che.tool</groupId>
 			<artifactId>dcm4che-tool-getscu</artifactId>
-			<version>
-				${dcm4che-version}</version>
+			<version>${dcm4che-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.dcm4che</groupId>
@@ -338,8 +328,7 @@
 			<version>${apache-commons-io-version}</version>
 		</dependency>
 
-		<!--
-		https://mvnrepository.com/artifact/org.pushing-pixels/radiance-substance -->
+		<!--https://mvnrepository.com/artifact/org.pushing-pixels/radiance-substance -->
 		<dependency>
 			<groupId>org.pushing-pixels</groupId>
 			<artifactId>radiance-substance</artifactId>
@@ -375,12 +364,7 @@
 			<artifactId>iso9660-writer</artifactId>
 			<version>2.1.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-math3</artifactId>
-			<version>3.6.1</version>
-		</dependency>
+		
 		<!-- https://mvnrepository.com/artifact/javax.media/jmf -->
 		<dependency>
 			<groupId>javax.media</groupId>

@@ -70,6 +70,7 @@ public enum Resources {
 	WindowContrastIcon("icon/baseline_perm_data_setting_black_48dp.png"),
 	CropIcon("icon/crop_48.png"),
 	CutIcon("icon/outline_content_cut_black_48dp.png"),
+	RadiomicsJIcon("icon/RadiomicsJ_icon.png"),
 	
 	//pref
 	PrefsIcon("icon/ic_build_black_36dp.png"),
