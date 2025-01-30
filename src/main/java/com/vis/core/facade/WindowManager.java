@@ -49,6 +49,11 @@ import com.vis.core.ui.FontSettings;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.MainScreen;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class WindowManager {
 
 	private static HashMap<String, Window> wins = new HashMap<>();

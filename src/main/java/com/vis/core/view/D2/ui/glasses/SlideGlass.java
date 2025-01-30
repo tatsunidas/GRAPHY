@@ -675,7 +675,7 @@ public class SlideGlass extends JLayeredPane {
 				//need more test...
 				// y = a + bx
 				double[] coeff = new double[2];// [a,b]
-				coeff[0] = intercept - 32768;
+				coeff[0] = intercept - 32768*slope;
 				coeff[1] = slope;
 				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
 				// add another modalities unit...
@@ -685,7 +685,7 @@ public class SlideGlass extends JLayeredPane {
 			if (modality != null && modality.equals("CT")) {
 				originalCal.setValueUnit("HU");
 			}
-		} else if (intercept != 0.0 && slope == 1.0) {
+		} else if (!intercept.isNaN() && !slope.isNaN()) {
 			double[] coeff = new double[2];
 			coeff[0] = intercept;
 			coeff[1] = slope;

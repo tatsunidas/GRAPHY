@@ -42,7 +42,6 @@ import java.util.List;
 
 import javax.swing.table.DefaultTableModel;
 import javax.swing.undo.AbstractUndoableEdit;
-import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEdit;
 
 public class UndoableTableModel extends DefaultTableModel {

@@ -37,6 +37,7 @@
  */
 package com.vis.core.util;
 
+import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,6 +69,11 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class Utils {
 
 	public static boolean isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()
@@ -335,5 +341,20 @@ public class Utils {
 		long diff = studydate.getTime() - birth.getTime();
 		int diffDays = (int) (diff / (24 * 60 * 60 * 1000));
 		return (int) diffDays / 365;
+	}
+	
+	 
+	public static Color colorFromString(String colorName) {
+		if (colorName == null) {
+			throw new IllegalArgumentException("Need colorName");
+		}
+		Color color = null;
+		try {
+			java.lang.reflect.Field field = Class.forName("java.awt.Color").getField(colorName.trim());
+			color = (Color) field.get(null);
+		} catch (Exception e) {
+			color = null; // Not defined
+		}
+		return color;
 	}
 }

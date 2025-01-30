@@ -28,6 +28,11 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 @SuppressWarnings({ "serial"})
 public class LutPicker extends JDialog implements WindowListener{
 	

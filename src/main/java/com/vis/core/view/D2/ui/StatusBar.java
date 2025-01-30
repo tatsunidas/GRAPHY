@@ -8,7 +8,6 @@ import java.awt.FlowLayout;
 import java.awt.Graphics;
 
 import javax.swing.Icon;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 

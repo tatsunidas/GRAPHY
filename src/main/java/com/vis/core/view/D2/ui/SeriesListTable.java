@@ -55,7 +55,6 @@ import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
 import com.vis.core.log.Log;
-import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;

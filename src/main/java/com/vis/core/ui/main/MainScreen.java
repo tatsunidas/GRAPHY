@@ -472,9 +472,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
 		//set window title
 		if (!isDebug) {
-			setTitle(ConfigInfo.AppName.toString()+" "+ConfigInfo.Version.toString());
+			setTitle(ConfigInfo.AppName.toString()+" "+ApplicationFacade.version);
 		} else {
-			setTitle(ConfigInfo.AppName.toString()+" "+ConfigInfo.Version.toString()+" -debug mode-");
+			setTitle(ConfigInfo.AppName.toString()+" "+ApplicationFacade.version+" -debug mode-");
 		}
 		//set icon
 		setIconImage(Resources.MainWindowIcon.loadIconFromResource().getImage());

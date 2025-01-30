@@ -46,7 +46,6 @@ import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -64,7 +63,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 
 import com.vis.configuration.ConfigInfo;
@@ -81,7 +79,6 @@ import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
 import com.vis.core.view.mpr.MPRViewerWindow;
 
 import ij.ImagePlus;
-import ij.plugin.filter.Duplicater;
 
 /**
  * buttons design https://material.io/tools/icons/?style=outline
@@ -736,7 +733,7 @@ public class Viewer2DToolBar extends JToolBar{
 						throw new IllegalArgumentException("Does not have images.");
 					}
 					//to validate getImage().
-//					SwingUtilities.invokeLater(() -> {
+//					javax.swing.SwingUtilities.invokeLater(() -> {
 //						replica.show();
 //					});
 					/*
@@ -762,7 +759,7 @@ public class Viewer2DToolBar extends JToolBar{
 						System.out.println("waiting show 3D window ");
 					}
 					/*
-					 * If the window is returned to normal too soon, it will not display properly in 3D.
+					 * If the window is returned to normal too soon, it will not display properly 3D universe.
 					 */
 					new Thread(new Runnable() {
 						@Override

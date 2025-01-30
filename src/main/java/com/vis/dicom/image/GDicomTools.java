@@ -60,6 +60,11 @@ import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.util.Tools;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class GDicomTools extends ij.util.DicomTools{
 	
 	public static String getTag(ImagePlus imp, String id) {
@@ -657,7 +662,7 @@ public class GDicomTools extends ij.util.DicomTools{
 			if (!intercept.isNaN() && !slope.isNaN()) {
 				//y = a + bx
 				double[] coeff = new double[2];//[a,b]
-				coeff[0] = intercept - 32768;
+				coeff[0] = intercept - 32768*slope;
 				coeff[1] = slope;
 				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
 				//add another modalities unit...
@@ -668,7 +673,7 @@ public class GDicomTools extends ij.util.DicomTools{
 			if(modality != null && modality.equals("CT")) {
 				originalCal.setValueUnit("HU");
 			}
-		}else if (intercept!=0.0 && slope==1.0) {
+		}else if (!intercept.isNaN() && !slope.isNaN()) {
 			double[] coeff = new double[2];
 			coeff[0] = intercept;
 			coeff[1] = slope;

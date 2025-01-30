@@ -41,7 +41,6 @@ import java.awt.FlowLayout;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 import javax.swing.JFrame;

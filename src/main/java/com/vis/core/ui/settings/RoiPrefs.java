@@ -59,7 +59,7 @@ import java.awt.Font;
 
 /**
  * 
- * Role of this class move to ROI toolbar.
+ * Use ROI toolbar instead.
  * 
  * @author tatsunidas
  *
@@ -251,25 +251,6 @@ public class RoiPrefs extends JPanel implements ItemListener {
 	private Integer[] brushSizes() {
 		Integer[] s = new Integer[] { 3, 5, 7, 10, 12, 15, 17, 20, 25, 30, 35, 40, 50, 70 };
 		return s;
-	}
-
-	private Color colorFromString(String colorName) {
-		if (colorName == null) {
-			return Color.orange;
-		}
-		Color color = null;
-		;
-		try {
-			java.lang.reflect.Field field = Class.forName("java.awt.Color").getField(colorName.trim());
-			color = (Color) field.get(null);
-		} catch (Exception e) {
-			color = null; // Not defined
-		}
-		if (color == null) {
-			return Color.orange;
-		} else {
-			return color;
-		}
 	}
 
 	@Override

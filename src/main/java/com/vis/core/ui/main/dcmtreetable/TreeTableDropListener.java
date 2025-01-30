@@ -50,18 +50,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
-import javax.swing.JOptionPane;
-
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.function.DicomImporter;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomFileCollection;
 
 /**
  * to adapt drop image files to DICOMTreeTable to import.
- * 
+ * @author tatsunidas
  */
 public class TreeTableDropListener implements DropTargetListener{
 	
@@ -129,7 +125,7 @@ public class TreeTableDropListener implements DropTargetListener{
 			File[] files = candidates.toArray(new File[candidates.size()]);
 			DicomFileCollection collec = new DicomFileCollection(files);
 			collec.collectCandidates();
-			boolean saveAsLink = false;
+			//boolean saveAsLink = false;//save as link is never using. 
 			if(collec.getNumOfTotalDcmFiles()>0) {
 				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);

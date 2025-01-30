@@ -39,9 +39,15 @@ package com.vis.configuration;
 
 import java.io.File;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public enum ConfigInfo {
-	//version
-	Version("1.0.0"),
+	/*
+	 * version: see ApplicationFacade.version
+	 */
 	//name
 	AppName("GRAPHY"),
 	
