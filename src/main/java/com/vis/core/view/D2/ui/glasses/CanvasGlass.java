@@ -51,7 +51,9 @@ import java.util.Iterator;
 
 import javax.swing.JTextArea;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
@@ -294,6 +296,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 			String sopUID = uids.get(ContextKey.SOPInstanceUID);
 			String roiID = uids.get(ContextKey.RoiID);
 			deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager.toString());
+			if(rom != null) {
+				rom.updateState();
+			}
 		}
 		repaint();
 	}

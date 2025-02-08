@@ -270,17 +270,18 @@ public class ApplicationFacade{
 	
 	public static void load_version() {
 		Properties properties = new Properties();
-        try (InputStream input = ApplicationFacade.class.getClassLoader().getResourceAsStream(ConfigInfo.VERSION.toString())) {
-            if (input == null) {
-                System.out.println("Sorry, unable to find application.properties");
-                return;
-            }
-            properties.load(input);
-            String version = properties.getProperty("app.version");
-            System.out.println("Application Version: " + version);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
+		try (InputStream input = ApplicationFacade.class.getClassLoader()
+				.getResourceAsStream(ConfigInfo.VERSION.toString())) {
+			if (input == null) {
+				System.out.println("Sorry, unable to find application.properties");
+				return;
+			}
+			properties.load(input);
+			version = properties.getProperty("app.version");
+			Log.logger.info("Application Version: " + version);
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
 	}
 	
 	public static boolean exitApp(Level level, String exitString) throws Throwable {

@@ -101,7 +101,7 @@ public class DicomImporter implements Task {
 		// create new thread and add to main importer thread group.
 		thisThread = new Thread(this);
 		stopped = false;
-		sleepScheduled = true;//useful for debug
+		sleepScheduled = false;//useful for debug
 		suspended = false;
 		con = new ImportingStateContext(studyUID, this);
 		con.setThreadId(thisThread.getId());

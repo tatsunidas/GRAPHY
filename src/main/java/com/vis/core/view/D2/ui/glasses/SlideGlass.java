@@ -53,7 +53,6 @@ import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
-import javax.swing.JOptionPane;
 import javax.swing.border.Border;
 
 import com.vis.configuration.ContextKey;
@@ -61,12 +60,10 @@ import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
-import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
 import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.roi.TextRoi;
-import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.dicom.DicomObject;
@@ -919,52 +916,6 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.updateOrigin(imageSpecimen.originX - (int) moveX, imageSpecimen.originY - (int) moveY);
 		logger.fine("Panning : originX " + imageSpecimen.originX + " ," + " originY " + imageSpecimen.originY);
 		updatePanningState();
-	}
-
-	public ImagePlus processCropRect(RoiObj rectRoi) {
-		if (rectRoi == null) {
-			return null;
-		}
-		RoiObj roi = rectRoi;
-		RoiType type = roi.getRoiType();
-		System.out.println(type);
-		if (type != RoiType.RECTANGLE && type != RoiType.OVAL && type != RoiType.POLYGON) {
-			return null;
-		}
-		Rectangle2D rect = roi.getBounds();
-//		Roi r = new RoiConverter().convert2Roi(roi);
-		Roi r = new Roi(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
-		ImagePlus orgImp = getOriginalImage();
-		ImageProcessor ip = orgImp.getProcessor().duplicate();
-		ip.setRoi(r);
-		ip = ip.crop();
-		ImagePlus cropImp = getOriginalImage().createImagePlus();
-		cropImp.setProcessor(ip);
-		return cropImp;
-	}
-
-	/**
-	 * TODO 20240803
-	 * 
-	 * @param roi
-	 */
-	public void processCut(RoiObj roi) {
-		if (roi == null) {
-			return;
-		}
-		RoiType roiType = roi.getRoiType();
-		if (roiType == RoiType.ANGLE || roiType == RoiType.ARROW || roiType == RoiType.FREELINE || roiType == RoiType.POINT
-				|| roiType == RoiType.LINE) {
-			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "You need set closed type roi.");
-			return;
-		}
-		ImagePlus imp = getOriginalImage();
-		Roi ijRoi = new RoiConverter().convert2Roi(roi);
-		imp.setRoi(ijRoi);
-//		imp.getProcessor().fill();
-//		imp.getProcessor().set(0);
-//		setOriginalImage(imp);
-		repaint();
 	}
 	
 	public void repaintCanvasGlass() {

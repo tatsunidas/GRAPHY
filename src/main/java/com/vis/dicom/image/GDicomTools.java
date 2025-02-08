@@ -108,12 +108,27 @@ public class GDicomTools extends ij.util.DicomTools{
 		return getDoubles(imp, imp.getCurrentSlice(),tag);
 	}
 	
+	/**
+	 * Add / update meta data in ImagePlus.
+	 * Sequence tag are ignored.
+	 * @param imp
+	 * @param pos
+	 * @param tag = No sequence tag.
+	 * @param value
+	 */
 	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag, String value) {
 		if(imp.getNSlices() > 1) {
 			ImageStack stack = imp.getStack();
 			String hdr = stack.getSliceLabel(pos);
 			if(hdr == null) {
 				hdr = "";
+			}
+			/*
+			 * Remove "\n" if "\n" in first line head
+			 * DicomTools.getTag() return null when hdr head "\n".
+			 */
+			if(hdr.indexOf("\n")==0) {
+				hdr = hdr.substring(1, hdr.length());
 			}
 			int index1 = hdr.indexOf(tag);
 			if (index1 != -1) {// found
@@ -139,8 +154,11 @@ public class GDicomTools extends ij.util.DicomTools{
 			if (hdr == null) {
 				hdr = "";
 			}
+			if(hdr.indexOf("\n")==0) {
+				hdr = hdr.substring(1, hdr.length());
+			}
 			int index1 = hdr.indexOf(tag);
-			if (index1 != -1 && hdr.endsWith(">")) {// sequence found
+			if (index1 != -1 && hdr.endsWith(">")) {// found
 				if (hdr.charAt(index1 + 11) == '>') {
 					// ignore tags in sequences
 					index1 = hdr.indexOf(tag, index1 + 10);
@@ -150,7 +168,30 @@ public class GDicomTools extends ij.util.DicomTools{
 				int index2 = hdr.indexOf("\n", index1);
 				String after = hdr.substring(index2);
 				hdr = upper + value + after;
-			} else {// not found
+			} else if(index1 != -1){ // found
+				// 行ごとに分割
+				String[] lines = hdr.split("\n");
+				// 結果を格納するためのStringBuilder
+				StringBuilder result = new StringBuilder();
+				// 各行を処理
+				for (String line : lines) {
+					if(line.length() ==0) {
+						continue;
+					}
+					// tag文字を取り出す
+					try {
+					String prefix = line.substring(0, 9);
+					String v = line.substring(11);// [gggg,eeee: ]
+					if (prefix.equals(tag)) {
+						v = value; // replace
+					}
+					result.append(prefix).append(": ").append(v).append("\n");
+					}catch(java.lang.StringIndexOutOfBoundsException e) {
+						Log.logger.severe(e.getLocalizedMessage());
+					}
+				}
+				hdr = result.toString();
+			}else {
 				if(hdr.equals("")) {
 					hdr = hdr + tag + ": " + value + "\n";
 				}else if (!hdr.endsWith("\n")) {
@@ -318,6 +359,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
 		int bits = imp.getBitDepth();
 		int s = imp.getNSlices();
+		//16 bit
 		boolean signed16 = imp.getProcessor().isSigned16Bit();
 		for (int i = 0; i < s; i++) {
 			DicomObject core = DicomObject.newDicomObject();

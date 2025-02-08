@@ -405,7 +405,7 @@ public class DatabaseHandler {
 					File seriesDir = new File(parent.getAbsolutePath());
 					parent = seriesDir.getParentFile();
 					if (!seriesDir.delete()) {
-						logger.log(Level.SEVERE, "Cannot delete empty series dir...\n" + seriesDir.getAbsolutePath());
+						logger.log(Level.SEVERE, "Cannot delete series dir...\n" + seriesDir.getAbsolutePath());
 					}
 					if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
 						if (getNumOfSeries(patID, studyUID) == 0) {

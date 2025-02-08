@@ -656,7 +656,6 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					Eyepiece eye = activeStage.getEyepiece();
 					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
-					currentTool = Windowing;//to allow windowing in series window
 					for(Praparat pp:selectedPraps) {
 						pp.cropRectangle(true);//TODO crop using current roi
 					}
@@ -676,7 +675,7 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					
 					for(Praparat pp:selectedPraps) {
-						pp.processCut();//cut current roi area
+						pp.processCut(true);//cut current roi area
 					}
 					currentTool = Windowing;
 					setSelectedToolBackground();

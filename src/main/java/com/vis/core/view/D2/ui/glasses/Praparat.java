@@ -68,8 +68,8 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.main.BirdsEyeView;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
+import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
-import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
@@ -569,36 +569,15 @@ public class Praparat extends JPanel {
 		if(roi == null) {
 			return null;
 		}
-		int res = JOptionPane.showConfirmDialog(this, "process all slide in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		int res = JOptionPane.showConfirmDialog(this, "Process all slides in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		final ImagePlus crop;
 		if(res != JOptionPane.YES_OPTION) {
-			crop = sg.processCropRect(roi);
+			ImagePlus imp = getImagePlus();
+			imp.setSlice(getCurrentSlidePos()+1);
+			crop = new ImageProcessing().cropRect(imp, roi, false);
 		}else {
-			HashMap<Integer,SlideGlass> slides = getAllSlides();
-			Set<Integer> keys = slides.keySet();
-			int size = keys.size();
-			int pos = 1;
-			ImageStack cropStack = null;
-			Calibration cal = null;
-			for(Integer k : keys) {
-				SlideGlass slide = slides.get(k);
-				ImagePlus c = slide.processCropRect(roi);
-				if(c == null) {
-					System.err.println("something happened...crop failed.");
-					return null;
-				}
-				/*
-				 * init at first crop iteration
-				 */
-				if(cropStack == null) {
-					cropStack = new ImageStack(c.getWidth(), c.getHeight(), size);
-					cal = sg.getOriginalCalibration().copy();
-				}
-				cropStack.setProcessor(c.getProcessor().duplicate(), pos++);
-				c =  null;//init
-			}
-			crop = new ImagePlus("crop", cropStack);
-			crop.setCalibration(cal);
+			ImagePlus imp = getImagePlus();
+			crop = new ImageProcessing().cropRect(imp, roi, true);
 		}
 		if(crop == null || crop.getNSlices() < 1) {
 			return null;
@@ -688,10 +667,11 @@ public class Praparat extends JPanel {
 		if (slides == null || slides.size() < 1) {
 			return null;
 		}
-		int size = getNumberOfImages();
 		ImagePlus org = getCurrentSlide().getOriginalImage();
 		Calibration cal = org.getCalibration();
-		ImageStack stack = new ImageStack(org.getWidth(),org.getHeight(), size);
+		ImageStack stack = new ImageStack();
+		String info = "";
+		int iter = 0;
 		for (int arrayOrder : slides.keySet()) {
 			SlideGlass sg = slides.get(arrayOrder);
 			ImagePlus imp = sg.convertToImagePlus();
@@ -702,12 +682,29 @@ public class Praparat extends JPanel {
 			if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
 				ip.snapshot();// keep original pixels
 			}
-			String header = imp.getInfoProperty();// imp.getStack().getSliceLabel(1);
-//			imp.setProperty("Info", header);//use setSliceLabel instead.
-			stack.setSliceLabel(header, arrayOrder + 1);// 1<=N<=slices
-			stack.setProcessor(ip, arrayOrder + 1);// 1<=N<=slices
+			/*
+			 * In this case, allways return only one slice.
+			 * It case use getInfoProperty().
+			 */
+			String header = imp.getInfoProperty();
+			/*
+			 * if header has "\n" in head (at index 0), 
+			 * DicomTools.getTag() return null.
+			 */
+//			String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
+			if(iter == 0){
+				info = header;
+				iter++;
+			}
+			stack.addSlice(header, ip);
 		}
 		ImagePlus stacked = new ImagePlus("stack-series", stack);
+		/*
+		 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
+		 */
+		if(stacked.getNSlices() == 1) {
+			stacked.setProp("Info", info);
+		}
 		stacked.setCalibration(cal);
 		return stacked;
 	}
@@ -1130,31 +1127,34 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	public void processCut() {
+	public ImagePlus processCut(boolean show) {
 		SlideGlass sg = getCurrentSlide();
 		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		RoiObj currentRoi = cg.findCurrentRoi();
 		if(currentRoi == null ) {
-			return;
+			Log.logger.info("Current ROI is null...");
+			return null;
 		}
-		int roiType = currentRoi.getType();
-		RoiType t = RoiType.find(roiType);
-		if(t == RoiType.ANGLE || t == RoiType.ARROW || t == RoiType.FREELINE || t == RoiType.POINT || t==RoiType.LINE) {
-			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "Cut process needed closed type roi.");
-			return;
-		}
-		int res = JOptionPane.showConfirmDialog(this, "process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-		if(res == JOptionPane.YES_OPTION) {
-			HashMap<Integer,SlideGlass> slides = getAllSlides();
-			Set<Integer> keys = slides.keySet();
-			for(Integer k : keys) {
-				SlideGlass s = slides.get(k);
-				s.processCut(currentRoi);
-			}
+		final ImagePlus cut;
+		int res = JOptionPane.showConfirmDialog(this, "Process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		if(res != JOptionPane.YES_OPTION) {
+			ImagePlus imp2 = getImagePlus();
+			imp2.setSlice(getCurrentSlidePos()+1);
+			cut = new ImageProcessing().cut(imp2, currentRoi, false);
 		}else {
-			SlideGlass s = getCurrentSlide();
-			s.processCut(currentRoi);
+			ImagePlus imp2 = getImagePlus();
+			cut = new ImageProcessing().cut(imp2, currentRoi, true);
 		}
+		if(show) {
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					Praparat prap = new Praparat(cut, getStudyColor(), mode);
+					new SeriesWindow(prap);
+				}
+			});
+		}
+		return cut;
 	}
 
 	public void processFlipHF() {

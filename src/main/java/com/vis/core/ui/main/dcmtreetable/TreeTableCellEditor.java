@@ -33,7 +33,6 @@ public class TreeTableCellEditor extends AbstractCellEditor implements TableCell
 
 	@Override
 	public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int r, int c) {
-		// TODO Auto-generated method stub
 		return tree;
 	}
 

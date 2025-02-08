@@ -95,6 +95,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
@@ -200,6 +201,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				}
 			}
 		});
+		
+		WindowManager.addWindow(this);
+		
 	}
 	
 	private void setUp() {
@@ -208,7 +212,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		setSize(600,300);
 		setLayout(new BorderLayout());
 		setLocationRelativeTo(Viewer2DScreen.getInstance());
-		setName(ConfigInfo.RoiManager.name());
+		/*
+		 * For WindowManager
+		 */
+		setName(ConfigInfo.RoiManager.toString());
 		
 		patList = new JComboBox<>();
 		patComboModel = new DefaultComboBoxModel<>();
