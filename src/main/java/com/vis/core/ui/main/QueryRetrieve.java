@@ -116,11 +116,9 @@ public class QueryRetrieve implements Task {
 		 * today query is default
 		 */
 		boolean fuzzy = false;
-		List<String> patKeys = new ArrayList<String>();
-		patKeys.add("*");// anybody
 		List<String> studyKeys = new ArrayList<String>();
-		studyKeys.add("StudyDate=" + QRHandler.getTodayString("/"));
-		return query(dest, fuzzy, patKeys, studyKeys, null, null);
+		studyKeys.add("StudyDate=" + QRHandler.getTodayString(""));//yyyyMMdd
+		return query(dest, fuzzy, null /*patKeys*/, studyKeys, null, null);
 	}
 
 	public DICOMNode querySimpleSearchKeys(String serverNickname, String patID, String patName, String from, String to,
@@ -411,8 +409,8 @@ public class QueryRetrieve implements Task {
 		option.add("60000");// 1 minutes
 		option.add("-L");
 		option.add("SERIES");
-		option.add("-M");
-		option.add("StudyRoot");// keep study root
+//		option.add("-M");
+//		option.add("StudyRoot");// keep study root
 
 		// SERIES LEVEL Response
 		ArrayList<String> response = new ArrayList<>();
@@ -436,7 +434,7 @@ public class QueryRetrieve implements Task {
 		ArrayList<String> querySeries = new ArrayList<>();
 		querySeries.addAll(connectTo);
 		querySeries.addAll(option);
-		querySeries = setPairedPatIDToQuery(querySeries, patID);
+//		querySeries = setPairedPatIDToQuery(querySeries, patID);
 		querySeries = setPairedStudyIUIDToQuery(querySeries, studyIUID);
 		querySeries = setPairedKeyToQuery(querySeries, seriesKeys);
 		querySeries.addAll(response);
@@ -971,7 +969,9 @@ public class QueryRetrieve implements Task {
 
 	public void stopImport() {
 //		watchThread.interrupt();
-		thisThread.interrupt();
+		if(thisThread != null) {
+			thisThread.interrupt();
+		}
 	}
 
 	/*

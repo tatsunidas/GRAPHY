@@ -141,15 +141,17 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public static MainScreen getInstance() {
+		//20250210
 		if (mainScreen == null) {
-			synchronized (MainScreen.class) {
+//			synchronized (MainScreen.class) {
 				if (mainScreen == null) {
 					mainScreen = new MainScreen();
 				}
-			}
+//			}
 		}
 		return mainScreen;
 	}
+	
 	private static GraphicsConfiguration loadLastGraphicConfiguration() {
 		GraphicsDevice[] screenDevices = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
 		String lastMainScreenDeviceID = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.MainScreenDeviceID.name());
