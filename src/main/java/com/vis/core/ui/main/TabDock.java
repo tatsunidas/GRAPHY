@@ -25,8 +25,6 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
-import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
-import com.vis.core.ui.main.dcmtreetable.TreeTableModelAdapter;
 import com.vis.core.ui.main.dcmtreetable.TableColumnResizer;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -39,7 +37,7 @@ import com.vis.core.util.Utils;
 @SuppressWarnings("serial")
 public class TabDock extends JToolBar implements AncestorListener{
 	
-	public boolean home = false;
+	public boolean isHome = false;
 	public JTabbedPane pane;
 	public String title = "";
 	private JPanel basePanel;
@@ -52,11 +50,11 @@ public class TabDock extends JToolBar implements AncestorListener{
 	/*
 	 * Tab index was changed when dock/redock, so do not use it to control.
 	 */
-	public TabDock(boolean home, String nickname, JCheckBox keepTop, JScrollPane tableScroll, JTabbedPane pane) {
+	public TabDock(boolean isHome, String nickname, JCheckBox keepTop, JScrollPane tableScroll, JTabbedPane pane) {
 		super(nickname);//setName
 		this.title = nickname;
-		this.home = home;
-		if(home) {
+		this.isHome = isHome;
+		if(isHome) {
 			this.title = "HOME";
 		}
 		this.tableScroll = tableScroll;
@@ -86,11 +84,10 @@ public class TabDock extends JToolBar implements AncestorListener{
 	
 	public void setKeepTopSate(boolean isTop) {
 		keepTopChck.setSelected(isTop);
-		keepTopChck.repaint();
 	}
 	
 	public boolean isHomeTab() {
-		return home;
+		return isHome;
 	}
 	
 	public String getTitle() {
@@ -110,14 +107,8 @@ public class TabDock extends JToolBar implements AncestorListener{
 		int[] selectedRows = treeTable.getSelectedRows();//using table no good	
 		//get already opened tree node locations
 		ArrayList<Integer> willExpand = treeTable.getExpandedRowsPos();
-		
-		/*
-		 * TODO 20231005
-		 */
-		((DICOMTreeTableModel) treeTable.getTree().getModel()).setRoot((Object)newRoot);
-		((DICOMTreeTableModel) treeTable.getTree().getModel()).reload(newRoot);
+		treeTable.reload(newRoot);
 		TableColumnResizer.adjustColumnPreferredWidths(treeTable);
-		((TreeTableModelAdapter)treeTable.getModel()).fireTableDataChanged();
 		//re-expand tree nodes
 		for (int i = 0; i < willExpand.size(); i++) {
 			treeTable.getTree().expandRow(willExpand.get(i));
@@ -182,7 +173,7 @@ public class TabDock extends JToolBar implements AncestorListener{
 			}else {
 				//when re-docking, replaced last tab automatically.
 				int pos = pane.getComponentCount()-1;
-				if (home) {
+				if (isHome) {
 					pane.setTitleAt(pos, title);
 					pane.setIconAt(pos, Resources.LocalIcon.loadIconFromResource());
 				} else {

@@ -84,4 +84,6 @@ public interface TreeTableModel extends TreeModel
      * at column number <code>column</code>.
      */
     public void setValueAt(Object aValue, Object node, int column);
+    
+    public void reload(Object node);
 }

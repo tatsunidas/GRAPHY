@@ -40,20 +40,19 @@ import javax.swing.tree.*;
 import javax.swing.event.*;
 
 /**
- * An abstract implementation of the TreeTableModel interface, handling the list
- * of listeners.
- * 
+ * @version 1.2 10/27/98
+ * An abstract implementation of the TreeTableModel interface, handling the list 
+ * of listeners. 
  * @author Philip Milne
- * @author Tatsunidas
  */
 
-public abstract class AbstractTreeTableModel extends DefaultTreeModel implements TreeTableModel {
-
-	private static final long serialVersionUID = -8054430590238177578L;
+public abstract class AbstractTreeTableModel implements TreeTableModel {
+	
+	protected Object root;
 	protected EventListenerList listenerList = new EventListenerList();
 
 	public AbstractTreeTableModel(Object root) {
-		super((DICOMNode)root);
+		this.root = root;
 	}
 
 	//
@@ -61,21 +60,9 @@ public abstract class AbstractTreeTableModel extends DefaultTreeModel implements
 	//
 
 	public Object getRoot() {
-		return super.getRoot();
-	}
-
-	public void setRoot(Object root) {
-		super.setRoot((DICOMNode)root);
+		return root;
 	}
 	
-	public void reload() {
-		super.reload();
-	}
-	
-	public void reload(Object root) {
-		super.reload((DICOMNode)this.root);
-	}
-
 	public boolean isLeaf(Object node) {
 		return getChildCount(node) == 0;
 	}
@@ -212,9 +199,9 @@ public abstract class AbstractTreeTableModel extends DefaultTreeModel implements
 	public void setValueAt(Object aValue, Object node, int column) {}
 
 	// Left to be implemented in the subclass:
-	public Object getChild(Object parent, int index) {return null;}
-	public int getChildCount(Object parent) {return -1;};
-	public int getColumnCount() {return -1;}
-	public String getColumnName(Object node, int column) {return null;}
-	public Object getValueAt(Object node, int column) {return null;}
+//	public Object getChild(Object parent, int index) {return null;}
+//	public int getChildCount(Object parent) {return -1;};
+//	public int getColumnCount() {return -1;}
+//	public String getColumnName(Object node, int column) {return null;}
+//	public Object getValueAt(Object node, int column) {return null;}
 }

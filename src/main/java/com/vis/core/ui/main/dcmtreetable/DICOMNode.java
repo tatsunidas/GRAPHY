@@ -1,16 +1,17 @@
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
+import com.vis.core.log.Log;
+
 /**
  * Hierarchy
  * -Root
- * -Patient //add 2020/05/04
+ * -Patient
  * -STUDY
  * -SERIES
  * -IMAGE
@@ -22,11 +23,11 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	private static final long serialVersionUID = 3509301784538157522L;
 	//levels
 	int level = -1;
-	public static int ROOT = 0;
-	public static int PATIENT = 1;
-	public static int STUDY = 2;
-	public static int SERIES = 3;
-	public static int IMAGE = 4;
+	public final static int ROOT = 0;
+	public final static int PATIENT = 1;
+	public final static int STUDY = 2;
+	public final static int SERIES = 3;
+	public final static int IMAGE = 4;
 	/*
 	 * if use for QR,
 	 * exchange String to Boolean:Boolean.valueOf("true");
@@ -41,9 +42,8 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	
 	/*
 	 * Keys
-	 * Should be match in DB SQL
 	 */
-//	public static final String Archived = "Archived";
+	//following keys Should be match in DB SQL
 	public static final String PatientName = "PatientName";
 	public static final String PatientID = "PatientID";
 	public static final String StudyDate= "StudyDate";
@@ -69,8 +69,10 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	public static final String SOPInstanceUID= "SOPInstanceUID";
 	
 	/**
-	 * If changed, check DICOMTableModel.java columnName
+	 * check DICOMTableModel.java columnName
+	 * 
 	 * node level
+	 * 
 	 * pname			PATIENT
 	 * pid				PATIENT
 	 * studyDate		STUDY
@@ -89,7 +91,7 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	 * acquisitionNumber	IMAGE
 	 * instanceNumber		IMAGE
 	 * numOfSeries		STUDY
-	 * numOfInstances		STUDY
+	 * numOfInstances		STUDY/SERIES
 	 * "StudyInstanceUID"	STUDY//no visible
 	 * "SeriesInstanceUID"	SERIES//no visible
 	 * "SOPInstanceUID"		IMAGE//no visible
@@ -105,11 +107,10 @@ public class DICOMNode extends DefaultMutableTreeNode{
 					"", "", "", "", "");
 			this.children = children;
 			if (this.children == null) {
-	            this.children = Collections.emptyList();
 	            this.children = new ArrayList<>();
 	        }
 		}else {
-			System.out.println("DICOMNode:this is not root!! return.");
+			Log.logger.warning("DICOMNode:this is not root!! return.");
 			return;
 		}
 	}
@@ -134,20 +135,15 @@ public class DICOMNode extends DefaultMutableTreeNode{
 				numOfSeries, numOfInstances, studyUID, seriesUID, sopInstaceUID);
 		this.children = children;
 		if (this.children == null) {
-            this.children = Collections.emptyList();
             this.children = new ArrayList<>();
         }
 	}
 	
-	/*
-	 * TreeTableヘッダー名とは対応していないものがあるので注意。
-	 */
 	private void setData(String pname, String pid, String studyDate, String seriesDate,
 			String studyTime, String acquisitiontime, String studyDesc, String seriesDesc, String modality, String sex,
 			String bod, String age, String institution, String modelName, String seriesNumber, String acquisitionNumber,
 			String instanceNumber, String accessionNumber,String numOfSeries, String numOfInstances, String studyUID, String seriesUID,
 			String sopInstaceUID) {
-		// TODO Auto-generated method stub
 		map = new HashMap<>();
 		map.put(PatientName, pname);
 		map.put(PatientID, pid);
@@ -188,7 +184,7 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	
 	public void setData(String key, String value) {
 		if(!map.containsKey(key)) {
-			System.out.println("DICOMNode::Map does not contain this key...");
+			Log.logger.warning("DICOMNode::Map does not contain this key...");
 			return;
 		}
 		map.put(key,value);//replace value
@@ -204,11 +200,11 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	
 	public void replaceParticularChildrenNode(int candidateNodeLevel, String uidOfWillSetNode, DICOMNode childNode) {
 		if (candidateNodeLevel == PATIENT || candidateNodeLevel == ROOT) {
-			System.out.println("DICOMNode:setParticularNodeChildren::you shold set study/series/image level...");
+			Log.logger.warning("DICOMNode:setParticularNodeChildren::you should set study/series/image level...");
 			return;
 		}
 		if (!isLowerLevel(candidateNodeLevel)) {
-			System.out.println("DICOMNode:setParticularNodeChildren::you shold set candidate node child level...");
+			Log.logger.warning("DICOMNode:setParticularNodeChildren::you should set candidate node child level...");
 			return;
 		}
 		
@@ -250,7 +246,6 @@ public class DICOMNode extends DefaultMutableTreeNode{
     @Override
 	public DICOMNode getFirstChild() {
         return children.get(0);
-//        return children.get(1);//why 1? what is suitable case ??
     }
 
     public void addChild(DICOMNode child) {
@@ -317,12 +312,4 @@ public class DICOMNode extends DefaultMutableTreeNode{
     	 */
         this.children.remove(index);
     }
-	
-	@Override
-	public String toString() {
-		if(isRoot) {
-			return "root";
-		}
-		return getData("PatientID");//Or unique id??
-	}
 }

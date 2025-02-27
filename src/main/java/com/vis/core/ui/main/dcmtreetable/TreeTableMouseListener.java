@@ -45,6 +45,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.db.DatabaseHandler;
 
@@ -86,7 +87,7 @@ public class TreeTableMouseListener implements MouseListener{
 //			popup.add(item1);
 //			popup.show(e.getComponent(), e.getX(), e.getY());
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() != 2) {
-			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());
+			int row = treeTable.rowAtPoint(e.getPoint());
 			DICOMNode target = treeTable.nodeForRow(row);
 			if(target == null) {
 				return;
@@ -100,13 +101,19 @@ public class TreeTableMouseListener implements MouseListener{
 			 * double clicked
 			 * show 2d viewer
 			 */
-			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());
-			DICOMNode node = treeTable.nodeForRow(row);//ATTENTION, getParent return null.
-//			ArrayList<DICOMNode> nodes = WindowManager.getMainScreen().getSelectedNode();
-//			if (nodes == null || nodes.size() < 1) {
-//				System.out.println("Viewer2DWindow is needed DICOMNode selection. return.");
-//				return;
-//			}
+			
+			//if icon in tree is double clicked, return and do not show on 2dviewer.
+			//to avoid tree expand traffic. see, JTreeTable.TreeTableCellEditor. 
+			int columnIndex = treeTable.columnAtPoint(e.getPoint());
+			//Datasets column (tree icon column) have TreeTable.class as ColumnClass.
+			if (treeTable.getColumnClass(columnIndex) == TreeTableModel.class) {
+				return;
+			}
+			
+			int row = treeTable.rowAtPoint(e.getPoint());
+//			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());//same result
+			DICOMNode node = treeTable.nodeForRow(row);
+			if(node == null) return;
 			
 			Viewer2DScreen viewer = (Viewer2DScreen) WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
 			if (viewer == null) {
@@ -129,7 +136,7 @@ public class TreeTableMouseListener implements MouseListener{
 						viewer.loadImagesOnStage(patID, studyUID, seriesUID,
 								instUIDs.toArray(new String[instUIDs.size()]), frameOfRefUID);
 					}else {
-						System.out.println("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
+						Log.logger.info("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
 					}
 				}
 			}else if(level == DICOMNode.SERIES) {
@@ -140,7 +147,7 @@ public class TreeTableMouseListener implements MouseListener{
 					viewer.loadImagesOnStage(patID, studyUID, seriesUID,
 							instUIDs.toArray(new String[instUIDs.size()]), frameOfRefUID);
 				}else {
-					System.out.println("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
+					Log.logger.info("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
 				}
 			}else if(level == DICOMNode.IMAGE){
 				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
@@ -151,8 +158,6 @@ public class TreeTableMouseListener implements MouseListener{
 			if (!viewer.isVisible()) {
 				viewer.setVisible(true);
 			}
-			viewer.revalidate();
-			viewer.repaint();
 		}
 	}
 

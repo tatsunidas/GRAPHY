@@ -533,6 +533,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			@Override
 			public void run() {
 				pack();
+				revalidate();
 				repaint();
 			}
 		});

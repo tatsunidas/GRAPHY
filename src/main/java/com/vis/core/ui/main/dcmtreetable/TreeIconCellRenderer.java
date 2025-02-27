@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.Component;
@@ -18,83 +55,32 @@ import com.vis.configuration.Resources;
 public class TreeIconCellRenderer extends DefaultTreeCellRenderer {
 
 	private static final long serialVersionUID = 5759419998482053684L;
-	private boolean showsIcons = true;
 	Icon defaultIcon = UIManager.getIcon("FileView.directoryIcon");
-//	int iconSize = 12;
-
-	TreeIconCellRenderer() {}
-
-	public Icon getClosedIcon() {
-		return (showsIcons ? super.getClosedIcon() : null);
-	}
-
-	public Icon getDefaultClosedIcon() {
-		return (showsIcons ? super.getDefaultClosedIcon() : null);
-	}
-
-	public Icon getDefaultLeafIcon() {
-		return (showsIcons ? super.getDefaultLeafIcon() : null);
-	}
-
-	public Icon getDefaultOpenIcon() {
-		return (showsIcons ? super.getDefaultOpenIcon() : null);
-	}
-
-	public Icon getLeafIcon() {
-		return (showsIcons ? super.getLeafIcon() : null);
-	}
-
-	public Icon getOpenIcon() {
-		return (showsIcons ? super.getOpenIcon() : null);
-	}
-
+	
+	ImageIcon TreeStudyLevelOpenIcon = Resources.TreeStudyLevelOpenIcon.loadIconFromResource();
+	ImageIcon TreeStudyLevelCloseIcon = Resources.TreeStudyLevelOpenIcon.loadIconFromResource();
+	ImageIcon TreeSeriesLevelIcon = Resources.TreeSeriesLevelIcon.loadIconFromResource();
+	ImageIcon TreeImageLevelIcon = Resources.TreeImageLevelIcon.loadIconFromResource();
+	
 	public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, boolean expanded,
 			boolean leaf, int row, boolean hasFocus) {
 
 		DICOMNode node = (DICOMNode) value;
 		JLabel iconLabel = new JLabel();
-		
-//		if (node.getLevel() == DICOMNode.PATIENT) {
-//			iconLabel.setIcon(UIManager.getIcon("FileView.directoryIcon"));
-//		}
-		
 		ImageIcon im = null;
-		
 		if (node.getLevel() == DICOMNode.STUDY) {
 			if(expanded) {
-				im = Resources.TreeStudyLevelOpenIcon.loadIconFromResource();
+				im = TreeStudyLevelOpenIcon;
 			}else {
-				im = Resources.TreeStudyLevelCloseIcon.loadIconFromResource();
+				im = TreeStudyLevelCloseIcon;
 			}
-			if(im != null) {
-				iconLabel.setIcon(im);
-			}else {
-				iconLabel.setIcon(defaultIcon);
-			}
-			String desc = node.getData(DICOMNode.StudyDescription);
-			if(desc == null || desc.isBlank() || desc.isEmpty()) {
-				desc = "NO-STUDY-DESC";
-			}
-			//iconLabel.setText(desc);
+			iconLabel.setIcon(im);
 		} else if (node.getLevel() == DICOMNode.SERIES) {
-			im = Resources.TreeSeriesLevelIcon.loadIconFromResource();			
-			if(im != null) {
-				iconLabel.setIcon(im);
-			}else {
-				iconLabel.setIcon(defaultIcon);
-			}
-			String desc = node.getData(DICOMNode.SeriesDescription);
-			if(desc == null || desc.isBlank() || desc.isEmpty()) {
-				desc = "NO-SERIES-DESC";
-			}
-			//iconLabel.setText(desc);
+			im = TreeSeriesLevelIcon;		
+			iconLabel.setIcon(im);
 		} else if (node.getLevel() == DICOMNode.IMAGE) {
-			im = Resources.TreeImageLevelIcon.loadIconFromResource();			
-			if(im != null) {
-				iconLabel.setIcon(im);
-			}else {
-				iconLabel.setIcon(defaultIcon);
-			}
+			im = TreeImageLevelIcon;	
+			iconLabel.setIcon(im);
 		}else {
 			iconLabel.setIcon(defaultIcon);
 		}

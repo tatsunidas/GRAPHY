@@ -51,7 +51,6 @@ import javax.swing.table.*;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -66,94 +65,53 @@ import java.util.EventObject;
 import java.util.List;
 
 /**
- * This example shows how to create a simple JTreeTable component, by using a
- * JTree as a renderer (and editor) for the cells in a particular column in the
- * JTable.
- * 
- * https://www.comp.nus.edu.sg/~cs3283/ftp/Java/swingConnect/tech_topics/tables_trees_2/tables_trees_2.html
- *
- * @author Philip Milne
- * @author Scott Violet
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class DICOMTreeTable extends JTable implements Autoscroll {
+public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 	
 	private final int col_minWidth = 90;
 	private final int rowHeight = 24;
 	
 	public boolean isQR = false;
 	private DicomCommunicationNode remote;
-	private TreeTableModelAdapter adapter; 
-	protected TreeTableCellRenderer tree;//sub class of jtree
 	protected Point viewLocation;
 	
 	// drop target
 	DragSource dragSource = DragSource.getDefaultDragSource();
 	protected DICOMNodeDragSourceListener sourceListener;
 	protected ArrayList<DICOMNode> draggedComponent;
-
-	//////////////////////////////
-	// Convenience routines //
-	/////////////////////////////
-
+	
 	private boolean treeEditable = true;
-	private boolean showsIcons = true;
-
-	public DICOMTreeTable(TreeTableModel treeTableModel, boolean isQR, DicomCommunicationNode remote) {
-		super();
+	private boolean showsIcons = true;//tree icon
+	
+	public DICOMTreeTable(DICOMTreeTableModel model, boolean isQR, DicomCommunicationNode remote) {
+		super(model);
 		this.isQR = isQR;
-		
 		if(this.isQR) {
 			if(remote == null) {
-				try {
-					throw new Exception();
-				} catch (Exception e1) {
-					e1.printStackTrace();
-					return;
-				}
+				throw new IllegalArgumentException("DICOMTreeTable QR mode is needed remote communication node information.");
 			}
 			this.remote = remote;
 		}
-		
-		// Create the tree. It will be used as a renderer and editor.
-		tree = new TreeTableCellRenderer(this, treeTableModel);
-
-		// set root node no visible
-		tree.setRootVisible(false);
-
-		// Install a tableModel representing the visible rows in the tree.
-		adapter = new TreeTableModelAdapter(treeTableModel, tree);
-		super.setModel(adapter);
-		
-		// Force the JTable and JTree to share their row selection models.
-		ListToTreeSelectionModelWrapper selectionWrapper = new ListToTreeSelectionModelWrapper(tree);
-		tree.setSelectionModel(selectionWrapper);
-		
-		super.setSelectionModel(selectionWrapper.getListSelectionModel());
-
-		// Install the tree editor renderer and editor.
-		setDefaultRenderer(TreeTableModel.class, tree);
-		setDefaultEditor(TreeTableModel.class,  new TreeTableCellEditor(tree,this));
-
 		if (isQR) {
 			QRStateCellEditor sce = new QRStateCellEditor(this.remote);
 			QRStateCellRenderer scr= new QRStateCellRenderer(sce);
-			getColumn("Archived").setCellRenderer(scr);
-			getColumn("Archived").setCellEditor(sce);
+			getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(scr);
+			getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(sce);
 		} else {
 			// int mode, int state, Integer row, Integer col,Integer progress,Integer
 			// total,JTextField holder
 			ArchiveCellRendererableEditor srcre = new ArchiveCellRendererableEditor(null);
-			getColumn("Archived").setCellRenderer(srcre);
-			getColumn("Archived").setCellEditor(srcre);
+			getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(srcre);
+			getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(srcre);
 		}
 
+		getTree().setCellRenderer(new TreeIconCellRenderer());
+		setRootVisible(false);
 		setShowGrid(true);
 		setShowHorizontalLines(true);
 
-		// No internal cell spacing
-		setIntercellSpacing(new Dimension(0, 0));
 		setAutoResizeMode(JTable.AUTO_RESIZE_OFF);// need to show horizontal scroll
 		setRowHeight(rowHeight);
 		// set column cell's min size
@@ -241,33 +199,15 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 		 */
 		//treeTable is JTable, tree is JTree
 		setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
-		tree.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
+		getTree().setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
 	}
+
 
 	/**
 	 * Overridden to message super and forward the method to the tree. Since the
 	 * tree is not actually in the component hieachy it will never receive this
 	 * unless we forward it in this manner.
 	 */
-	public void updateUI() {
-		super.updateUI();
-		if (tree != null) {
-			tree.updateUI();
-			// Do this so that the editor is referencing the current renderer
-			// from the tree. The renderer can potentially change each time
-			// laf changes.
-			
-			int w = WindowManager.getMainScreen().getWidth();
-			setSize(w,getHeight());
-			
-			//do not set tatsu
-//			setDefaultEditor(TreeTableModel.class, new TreeTableCellEditor());
-		}
-		// Use the tree's default foreground and background colors in the
-		// table.
-		/* using Swing LAF */
-		LookAndFeel.installColorsAndFont(this, "Tree.background", "Tree.foreground", "Tree.font");
-	}
 	
 	public boolean getTreeEditable() {
 		return treeEditable;
@@ -286,15 +226,15 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 	}
 
 	public void setRootVisible(boolean visible) {
-		tree.setRootVisible(visible);
+		getTree().setRootVisible(visible);
 	}
 
 	public boolean getShowsRootHandles() {
-		return tree.getShowsRootHandles();
+		return getTree().getShowsRootHandles();
 	}
 
 	public void setShowsRootHandles(boolean newValue) {
-		tree.setShowsRootHandles(newValue);
+		getTree().setShowsRootHandles(newValue);
 	}
 
 	/*
@@ -324,70 +264,18 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 		return expanded;
 	}
 	
-	public int getRowCount() {
-		if(adapter == null) {//
-			return 0;
-		}
-		return adapter.getRowCount();
-	}
 	
 	/* DO NOT USE avoid column value confuse. */
 //	public String getValueAt(int row,int col) {
 //		return (String)adapter.getValueAt(row, col);
 //	}
 
-	/**
-	 * Workaround for BasicTableUI anomaly. Make sure the UI never tries to resize
-	 * the editor. The UI currently uses different techniques to paint the renderers
-	 * and editors and overriding setBounds() below is not the right thing to do for
-	 * an editor. Returning -1 for the editing row in this case, ensures the editor
-	 * is never painted.
-	 */
-	public int getEditingRow() {
-		return (getColumnClass(editingColumn) == TreeTableModel.class) ? -1 : editingRow;
-	}
-
-	/**
-	 * Returns the actual row that is editing as <code>getEditingRow</code> will
-	 * always return -1.
-	 */
-	private int realEditingRow() {
-		return editingRow;
-	}
-	
 	public void selectRow(int[] indexes) {
 		if(indexes == null || indexes.length == 0) {
 			return;
 		}
 		for(int i=0;i<indexes.length;) {
 			setEditingRow(i);
-		}
-	}
-
-	/**
-	 * This is overriden to invoke supers implementation, and then, if the receiver
-	 * is editing a Tree column, the editors bounds is reset. The reason we have to
-	 * do this is because JTable doesn't think the table is being edited, as
-	 * <code>getEditingRow</code> returns -1, and therefore doesn't automaticly
-	 * resize the editor for us.
-	 */
-	public void sizeColumnsToFit(int resizingColumn) {
-		super.sizeColumnsToFit(resizingColumn);
-		if (getEditingColumn() != -1 && getColumnClass(editingColumn) == TreeTableModel.class) {
-			Rectangle cellRect = getCellRect(realEditingRow(), getEditingColumn(), false);
-			Component component = getEditorComponent();
-			component.setBounds(cellRect);
-			component.validate();
-		}
-	}
-
-	/**
-	 * Overridden to pass the new rowHeight to the tree.
-	 */
-	public void setRowHeight(int rowHeight) {
-		super.setRowHeight(rowHeight);
-		if (tree != null && tree.getRowHeight() != rowHeight) {
-			tree.setRowHeight(getRowHeight());
 		}
 	}
 
@@ -450,6 +338,16 @@ public class DICOMTreeTable extends JTable implements Autoscroll {
 			columns = Arrays.asList(columnOrder.split("\\s*,\\s*"));
 			return columns;
 		}
+	}
+	
+	/**
+	 * 1, tree it was set with TreeTableModel(TreeModel)
+	 *  2, table it was set with TreeTableModelAdapter(TableModel) 
+	 * @param root
+	 */
+	public void reload(DICOMNode root) {
+		TreeTableModelAdapter modelAda = (TreeTableModelAdapter)getModel();
+		modelAda.reload(root);
 	}
 
 	/* to get current named "Archived" Column position */

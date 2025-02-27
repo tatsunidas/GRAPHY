@@ -66,6 +66,8 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.task.Task;
 import com.vis.core.task.TaskContext;
+import com.vis.core.task.TaskManager;
+import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
@@ -99,6 +101,9 @@ public class QueryRetrieve implements Task {
 	private ArrayList<String[]> candidateInfoSet;
 	private DicomCommunicationNode dest;
 	private QRStateCellEditor cellEditor;
+	
+	TaskContext con;
+	
 	// Threading
 	private Thread thisThread;
 	// watch folder thread
@@ -109,7 +114,12 @@ public class QueryRetrieve implements Task {
 	protected boolean suspended;
 	public final static int SLEEP_TIME = 3000;
 	
-	public QueryRetrieve() {}
+	public QueryRetrieve() {
+		thisThread = new Thread(this);
+		stopped = false;
+		sleepScheduled = false;//useful for debug
+		suspended = false;
+	}
 
 	public DICOMNode startQRTable(DicomCommunicationNode dest) {
 		/*
@@ -130,7 +140,7 @@ public class QueryRetrieve implements Task {
 			patKeys.add("PatientID=" + patID);
 		}
 		if (patName != null) {
-//			patKeys.add("SpecificCharacterSet=\\ISO 2022 IR 87");//why, cannot do this...
+//			patKeys.add("SpecificCharacterSet=\\\\ISO 2022 IR 87");
 //			patKeys.add("PatientName="+QRUtil.convertPatientNameForQuery(patName));
 			/* if you use asterisk, input first word correctly.*/
 			/* SHIBUYA^YASUK -> SHIBUYA* */
@@ -716,9 +726,11 @@ public class QueryRetrieve implements Task {
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		int arcInd = treeTable.getArchivedColumnPosition();
 		TableColumnModel tcm = treeTable.getColumnModel();
+		this.cellEditor = (QRStateCellEditor) tcm.getColumn(arcInd).getCellEditor();
 		
-		//20231010
-//		this.cellEditor = (QRStateCellEditor) tcm.getColumn(arcInd).getCellEditor();
+		/*
+		 * TODO 20250226
+		 */
 //		this.cellEditor.addImportingState(retrieveinfoset, this, candidateInfoSet.size());
 		
 		// create new thread and add to main importer thread group.
@@ -727,6 +739,13 @@ public class QueryRetrieve implements Task {
 		 * TODO 20230829
 		 */
 //		thisThread = new Thread(ApplicationContext.importerThreadGroup, this);
+		
+//		con = new ImportingStateContext(studyUID, this);
+		
+		con.setThreadId(thisThread.getId());
+		setContext(con);
+		TaskManager tm = TaskManager.getInstance();
+		tm.addTask(thisThread.getId(), con);
 		
 		stopped = false;
 		sleepScheduled = true;// useful for debug
@@ -846,10 +865,6 @@ public class QueryRetrieve implements Task {
 			stopImport();
 			return;
 		}
-		
-		//TODO 20230829
-//		ApplicationContext.importing = true;
-		
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
@@ -875,7 +890,7 @@ public class QueryRetrieve implements Task {
 			/* get info from QRTable */
 			int currentRow = treeTable.getParticularStudyRow(infoset[0], infoset[1]);
 			int currentCol = treeTable.getArchivedColumnPosition();
-			System.out.println("QR:Retrieving, ProgressAt:" + currentRow + " " + currentCol);
+			Log.logger.fine("QR:Retrieving, ProgressAt:" + currentRow + " " + currentCol);
 			updateProgress(cellEditor, infoset, currentRow, currentCol, count + 1);
 			treeTable.revalidate();// NEED
 			treeTable.repaint();
@@ -910,10 +925,6 @@ public class QueryRetrieve implements Task {
 
 	protected void doneRetrieve(QRStateCellEditor cellEditor, String[] infoset) {
 		stopImport();
-		//TODO 20230829
-		
-//		ApplicationContext.importing = false;
-		
 		cellEditor.importingIsDone(infoset);
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
@@ -934,12 +945,8 @@ public class QueryRetrieve implements Task {
 	public ArrayList<String[]> getCandidateFilesList() {
 		return this.candidateInfoSet;
 	}
-
-	public void startImport() {
-		thisThread.start();
-	}
-
-	public synchronized void resumeImport() {
+	
+	public synchronized void resume() {
 		this.notify();
 	}
 
@@ -974,28 +981,6 @@ public class QueryRetrieve implements Task {
 		}
 	}
 
-	/*
-	 * all time do single thread, AllAndWait never call...maybe. tatsu
-	 */
-	public static void cancelAllAndWait() {
-		
-		//TODO 20230829
-//		int count = ApplicationContext.importerThreadGroup.activeCount();
-//		
-//		Thread[] threads = new Thread[count];
-//		
-//		count = ApplicationContext.importerThreadGroup.enumerate(threads);
-//		ApplicationContext.importerThreadGroup.interrupt();
-//		
-//		for (int i = 0; i < count; i++) {
-//			try {
-//				threads[i].join();
-//			} catch (InterruptedException ie) {
-//			}
-//			;
-//		}
-	}
-
 	/* run retrieve */
 	@Override
 	public void run() {
@@ -1004,20 +989,18 @@ public class QueryRetrieve implements Task {
 
 	@Override
 	public void setContext(TaskContext con) {
-		// TODO Auto-generated method stub
-		
+		this.con = con;
 	}
 
 	@Override
 	public TaskContext getContext() {
 		// TODO Auto-generated method stub
-		return null;
+		return con;
 	}
 
 	@Override
 	public void start() {
-		// TODO Auto-generated method stub
-		
+		thisThread.start();
 	}
 
 	@Override

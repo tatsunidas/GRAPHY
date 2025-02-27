@@ -62,7 +62,7 @@ import com.vis.core.ui.main.QueryRetrieve;
  */
 public class ImportingStateContext implements TaskContext{
 	
-	JProgressBar importingBar = new JProgressBar();
+	JProgressBar progressBar = new JProgressBar();
 	long threadId;
 	int currentIndex=0;//progress
 	int total;
@@ -88,19 +88,19 @@ public class ImportingStateContext implements TaskContext{
 		suspendBtn.setContentAreaFilled(false);
 		suspendBtn.setBorderPainted(false);
 		suspendBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-		importingBar = new JProgressBar();
-		LayoutManager overlay = new OverlayLayout(importingBar);
-		importingBar.setLayout(overlay);
+		progressBar = new JProgressBar();
+		LayoutManager overlay = new OverlayLayout(progressBar);
+		progressBar.setLayout(overlay);
 		total = importer.totalSize();
-		importingBar.setMaximum(total);
-		importingBar.setValue(0);
+		progressBar.setMaximum(total);
+		progressBar.setValue(0);
 		/*
 		 * if Bar.setStringPainted(true),
 		 * can not update treetable cell at the end of task.
 		 */
-		importingBar.setStringPainted(false);//do not show percentage
-		importingBar.setForeground(Color.CYAN);
-		importingBar.add(suspendBtn);
+		progressBar.setStringPainted(false);//do not show percentage
+		progressBar.setForeground(Color.CYAN);
+		progressBar.add(suspendBtn);
 		suspendBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -119,7 +119,7 @@ public class ImportingStateContext implements TaskContext{
 		});
 	}
 	
-	public ImportingStateContext(String studyUID, int total, QueryRetrieve qrTask) {
+	public ImportingStateContext(String studyUID, QueryRetrieve qrTask) {
 		this.qrTask = qrTask;
 		/*
 		 * this cancel button rendered as cancel button by CellEditor.
@@ -131,18 +131,19 @@ public class ImportingStateContext implements TaskContext{
 		suspendBtn.setContentAreaFilled(false);
 		suspendBtn.setBorderPainted(false);
 		suspendBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-		importingBar = new JProgressBar();
-		LayoutManager overlay = new OverlayLayout(importingBar);
-		importingBar.setLayout(overlay);
-		this.total = total;
-		importingBar.setMaximum(total);
-		importingBar.setValue(0);
-		importingBar.setIndeterminate(true);
-		importingBar.add(suspendBtn);
+		progressBar = new JProgressBar();
+		LayoutManager overlay = new OverlayLayout(progressBar);
+		progressBar.setLayout(overlay);
+		//TODO
+//		this.total = qrTask.
+		progressBar.setMaximum(total);
+		progressBar.setValue(0);
+		progressBar.setIndeterminate(true);
+		progressBar.add(suspendBtn);
 	}
 	
 	private JProgressBar getProgressBar() {
-		return importingBar;
+		return progressBar;
 	}
 
 	public String getStudyUID() {
@@ -191,16 +192,28 @@ public class ImportingStateContext implements TaskContext{
 
 	@Override
 	public void suspend() {
-		importer.setSuspended(true);
+		if(importer != null) {
+			importer.setSuspended(true);
+		}else {
+			qrTask.setSuspended(true);
+		}
 	}
 
 	@Override
 	public void resume() {
-		importer.resume();
+		if(importer != null) {
+			importer.resume();
+		}else {
+			qrTask.resume();
+		}
 	}
 
 	@Override
 	public void stop() {
-		importer.setStopped(true);
+		if(importer != null) {
+			importer.setStopped(true);
+		}else {
+			qrTask.setStopped(true);
+		}
 	}
 }

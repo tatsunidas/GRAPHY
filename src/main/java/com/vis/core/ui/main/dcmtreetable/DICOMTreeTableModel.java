@@ -43,12 +43,11 @@ package com.vis.core.ui.main.dcmtreetable;
  *
  */
 public class DICOMTreeTableModel extends AbstractTreeTableModel {
-
-	private static final long serialVersionUID = 1L;
+	
+	public static final String DatasetsCol = "Datasets"; 
+	public static final String ArchivedCol = "Archived"; 
 
 	/*
-	 * see, DICOMNode class
-	 * 
 	 * LEVEL
 	 *  pname
 	 *  pid
@@ -70,14 +69,16 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 	 *  numOfSeries
 	 *  numOfInstances
 	 */
-	//include "Archived" for "Retrieve" btn action
-	static protected String[] columnNames = { "Datasets", "Archived", "PatientName", "PatientID", "StudyDate",
-			"SeriesDate", "StudyTime", "AquisitionTime", "StudyDesc", "SeriesDesc", "Modality", "Sex", "BirthDate",
-			"Age", "Institution", "ModelName", "SeriesNo", "AcquisitionNo", "InstanceNo", "NumOfSeries",
+	static final public String[] columnNames = { DatasetsCol, ArchivedCol, DICOMNode.PatientName, DICOMNode.PatientID, DICOMNode.StudyDate,
+			DICOMNode.SeriesDate, DICOMNode.StudyTime, DICOMNode.AcquisitionTime, "StudyDesc", "SeriesDesc", DICOMNode.Modality, DICOMNode.Sex, DICOMNode.BirthDate,
+			DICOMNode.Age, DICOMNode.Institution, DICOMNode.ModelName, "SeriesNo", "AcquisitionNo", "InstanceNo", "NumOfSeries",
 			"NumOfInstances" };
 	
-	/* columnTypeでテーブル列に入るオブジェクトを管理する。一列目はTreeTableModel */
-	static protected Class<?>[] columnTypes = { TreeTableModel.class, String.class, String.class, String.class,
+	/**
+	 * if TreeTableModel.class was set, it's column is handle editable(do something) column in TreeTableCellEditor, else ignored.
+	 * see, JTreeTable.TreeTableCellEditor.isCellEditable
+	 */
+	static protected Class<?>[] columnTypes = { TreeTableModel.class/*tree icon*/, String.class, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
 			String.class, String.class, String.class };
@@ -85,17 +86,21 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 	public boolean isQR = false;
 
 	public DICOMTreeTableModel(Object root) {
-		super(root);
+		/**
+		 * set root at super class.
+		 */
+		super(null);
+		this.root = root;
 	}
 	
 	@Override
-	public Object getChild(Object parent, int index) {
-        return ((DICOMNode) parent).getChildren().get(index);
+	public Object getChild(Object node, int index) {
+        return ((DICOMNode) node).getChildren().get(index);
     }
 	
 	@Override
-	public int getChildCount(Object parent) {
-        return ((DICOMNode) parent).getChildren().size();
+	public int getChildCount(Object node) {
+        return ((DICOMNode) node).getChildren().size();
     }
 	
 	@Override
@@ -108,52 +113,15 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 	public String getColumnName(int column) {
 		/*
 		 * Future work-> localize...
+		 * e.g., ApplicationContext.currentBundle.getString("MainScreen.patientIdColumn.text");
 		 */
-//		switch (column) {
-//		case 2:
-//			return ApplicationContext.currentBundle.getString("MainScreen.patientIdColumn.text");
-//		case 3:
-//			return ApplicationContext.currentBundle.getString("MainScreen.patientNameColumn.text");
-//		case 4:
-//			return ApplicationContext.currentBundle.getString("MainScreen.dobColumn.text");
-//		case 5:
-//			return ApplicationContext.currentBundle.getString("MainScreen.accessionNoColumn.text");
-//		case 6:
-//			return ApplicationContext.currentBundle.getString("MainScreen.studyDateColumn.text");
-//		case 7:
-//			return ApplicationContext.currentBundle.getString("MainScreen.studyDescColumn.text");
-//		case 8:
-//			return ApplicationContext.currentBundle.getString("MainScreen.modalityColumn.text");
-//		case 9:
-//			return ApplicationContext.currentBundle.getString("MainScreen.imagesColumn.text");
-//		}
 		return columnNames[column];
 	}
-    
+	
     @Override
 	public Class<?> getColumnClass(int column) {
     	return columnTypes[column];
     }
-    
-    @Override
-	public boolean isCellEditable(Object node, int column) {
-//		if (node instanceof StudyNode) {
-//			switch (((StudyNode) node).isRoot()) {
-//			case 1: // Important to activate tree expand listener
-//				if (column == 0) {
-//					return true;
-//				}
-//				break;
-//			case 0:
-//				if (column != 0 && column != -1 && column != 9) {
-//					return true;
-//				}
-//				break;
-//			}
-//		}
-//		return false;
-		return true; // Important to activate TreeExpandListener
-	}
     
 	@Override
 	public Object getValueAt(Object node, int column) {
@@ -162,9 +130,9 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 		}
 		switch (column) {
 		case 0:
-			return ((DICOMNode) node).getLevelString();//level string
-		case 1:// retrieved//Archived
-			return null;//((DICOMNode) node).getData(DICOMNode.Archived);
+			return null;//((DICOMNode) node).getLevelString();//level string
+		case 1://Archived
+			return null;
 		case 2:// pname
 			return ((DICOMNode) node).getData(DICOMNode.PatientName);
 		case 3:// pid
@@ -209,36 +177,8 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 		return null;
 	}
 	
-	/* TODO DB updation  */
-	public void setValueAt(String colName, Object aValue, Object node) {
-		
-		switch (colName) {
-		case DICOMNode.PatientName:
-			((DICOMNode) node).setData(DICOMNode.PatientID, (String)aValue);
-			break;
-		case DICOMNode.PatientID:
-			((DICOMNode) node).setData(DICOMNode.PatientName, (String)aValue);
-			break;
-//		case 4:
-//			((DICOMNode) node).setDob(String.valueOf(aValue));
-//			break;
-//		case 5:
-//			((DICOMNode) node).setAccessionNo(String.valueOf(aValue));
-//			break;
-//		case 6:
-//			((DICOMNode) node).setStudyDate(String.valueOf(aValue));
-//			break;
-//		case 7:
-//			((DICOMNode) node).setStudyDescription(String.valueOf(aValue));
-//			break;
-//		case 8:
-//			((DICOMNode) node).setModalitiesInStudy(String.valueOf(aValue));
-//			break;
-//		case 9:
-//			((DICOMNode) node).setStudyReleatedInstances(String.valueOf(aValue));
-//			break;
-		}
-		//create dataset copy ??
-		//TODO UPDATE DB ??
+	public void reload(Object node) {
+		this.root = node;
+		fireTreeStructureChanged(DICOMTreeTableModel.this, new Object[] {node}, null, null);
 	}
 }

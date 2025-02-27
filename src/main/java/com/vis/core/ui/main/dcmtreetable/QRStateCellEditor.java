@@ -61,9 +61,6 @@ import com.vis.core.ui.main.QRHandler;
 import com.vis.core.ui.main.QueryRetrieve;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomCommunicationNode;
-//import com.vis.dimse.delegate.QRHandler;
-//import com.vis.dimse.delegate.QueryRetrieve;
-//import com.vis.ui.form.dialog.DicomImporter;
 
 /**
  * @author tatsunidas
@@ -91,7 +88,7 @@ public class QRStateCellEditor extends JButton implements TableCellEditor{
 			//retrieve
 			QueryRetrieve qr = new QueryRetrieve();
 			qr.prepareRetrieve(remote,node);
-			new Thread(qr).start();
+			qr.start();
 			fireEditingStopped();//to show progressbar
 		}
 	};
@@ -108,31 +105,28 @@ public class QRStateCellEditor extends JButton implements TableCellEditor{
 	public Component getTableCellEditorComponent(JTable table, Object obj, boolean selected, int row, int col) {
 		/* Retrieving State */
 		DICOMTreeTable treeTable = (DICOMTreeTable)table;
-		System.out.println("Editor "+row+"  "+col);
-		ImportingStateContext isc = getImportingCellStateAt(row, col);
+		ImportingStateContext isc = null;//getImportingCellStateAt(row, col);
 		if (isc != null) {
 			//TODO 20231010
-//			isc.getSuspendButton().addActionListener(new ActionListener() {
-//				@Override
-//				public void actionPerformed(ActionEvent arg0) {
-//					// suspend current import thread
-//					isc.getQueryRetrieve().setSuspended(true);
-//					int res = JOptionPane.showConfirmDialog(table, "Would you cancel this import ?", "Cancel Importing",
-//							JOptionPane.YES_NO_OPTION);
-//					if (res == JOptionPane.YES_OPTION) {
-//						// stop
-//						isc.getQueryRetrieve().setStopped(true);
-//						isc.getQueryRetrieve().stopImport();
-//						importInterupted(isc);
-//						WindowManager.getMainScreen().updateQRTreeTables();
-//					} else {
-//						// resume
-//						isc.getQueryRetrieve().resumeImport();
-//					}
-//				}
-//			});
-//			isc.getSuspendButton().setText("Suspend");// NEEDED
-//			return isc.getProgressBar();// keep return progressbar which added cancelBtn.
+			addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					// suspend current import thread
+					isc.suspend();
+					int res = JOptionPane.showConfirmDialog(table, "Would you cancel this import ?", "Cancel Importing",
+							JOptionPane.YES_NO_OPTION);
+					if (res == JOptionPane.YES_OPTION) {
+						// stop
+						isc.stop();
+						importInterupted(isc);
+						WindowManager.getMainScreen().updateQRTreeTables();
+					} else {
+						// resume
+						isc.resume();
+					}
+				}
+			});
+			setText("Suspend");// NEEDED
 		/* Waiting State */
 		} else {
 			DICOMNode node = treeTable.nodeForRow(row);
@@ -142,29 +136,22 @@ public class QRStateCellEditor extends JButton implements TableCellEditor{
 			if (node.getLevel() == DICOMNode.STUDY) {
 				if (QRHandler.archivedInLocalAllInstance(node)) {
 					setRetrievable(false,node);
-					return this;
 				} else {
 					setRetrievable(true,node);
-					return this;
 				}
 			} else if (node.getLevel() == DICOMNode.SERIES) {
 				if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
 					setRetrievable(false,node);
-					return this;
 				} else {
 					setRetrievable(true,node);
-					return this;
 				}
 			} else if (node.getLevel() == DICOMNode.IMAGE){
 				if (QRHandler.inLocalInstance(node)) {
 					setRetrievable(false,node);
-					return this;
 				} else {
 					setRetrievable(true,node);
-					return this;
 				}
 			}
-			return this;
 		}
 		return this;
 	}
@@ -219,51 +206,6 @@ public class QRStateCellEditor extends JButton implements TableCellEditor{
 //		}
 	}
 	
-	
-	/*
-	 * progress is 1 start based.
-	 */
-//	public void setProgressAt(String[] infoset, int row, int col,int progress) {
-////		fireEditingStopped();
-//		ImportingStateContext context = getParticularImportingStateContext(infoset);
-//		if(context == null) {
-//			return;
-//		}
-//		context.setImportingRow(row);
-//		context.setImportingCol(col);
-//		/* importing done is not recognize here, see, while loop ending */
-////		if (progress == context.getTotal()) {
-////			importingIsDone(infoset);
-////			return;
-////		}
-//		//see, DicomImporter::updateProgress
-//		SwingUtilities.invokeLater(new Runnable() {
-//			@Override
-//			public void run() {
-//				context.getProgressBar().setValue(progress);//already increment 1, see performRetrieve()
-//				JButton btn = (JButton) context.getProgressBar().getComponent(0);
-//				btn.setText((progress) + " / " + context.getTotal());
-//				btn.repaint();
-//				context.getProgressBar().revalidate();
-//				context.getProgressBar().repaint();
-//			}
-//		});
-//	}
-	
-	private ImportingStateContext getImportingCellStateAt(int row, int col) {
-//		if(importingList.size() == 0) {
-//			return null;
-//		}
-//		for (int i = 0; i < importingList.size(); i++) {
-//			ImportingStateContext isc = importingList.get(i);
-//			int r = isc.getImportingRow();
-//			int c = isc.getImportingCol();
-//			if (r == row && c == col) {
-//				return isc;
-//			}
-//		}
-		return null;
-	}
 	
 	public ArrayList<ImportingStateContext> getImportingStateContext(){
 		return importingList;

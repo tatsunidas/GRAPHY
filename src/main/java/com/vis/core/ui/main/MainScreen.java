@@ -61,7 +61,6 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
-import com.vis.core.ui.main.dcmtreetable.TreeTableModel;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -226,8 +225,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		// Local/QR TreeTables Manager
 		tabDockManager = new TreeTableDockManager();//TabbedPane
 		/* Local(HOME) TreeTable */
-		TreeTableModel treeTableModel = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
-		localTreeTable = new DICOMTreeTable(treeTableModel,false,null);
+		DICOMTreeTableModel model = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
+		localTreeTable = new DICOMTreeTable(model,false,null);
 		try {
 			tabDockManager.addTreeTable(true, "HOME", localTreeTable);
 		} catch (URISyntaxException e) {
@@ -249,8 +248,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				if(!svrReady) {
 					continue;
 				}
-				DICOMTreeTableModel qrTreeTableModel = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
-				DICOMTreeTable qrTreeTable = new DICOMTreeTable(qrTreeTableModel, true,svr);
+				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
+				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
 					if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
@@ -611,11 +610,11 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTable prevTreeTable = prevDock.getDICOMTreeTable();
 				DICOMNode root = (DICOMNode) prevTreeTable.getTree().getModel().getRoot();
 				//create new TabDock and set tabDockManager
-				TreeTableModel model = new DICOMTreeTableModel(root);
+				DICOMTreeTableModel model = new DICOMTreeTableModel(root);
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 			}else{//addNew
-				DICOMTreeTableModel qrTreeTableModel = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
-				qrTreeTable = new DICOMTreeTable(qrTreeTableModel, true, svr);
+				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
+				qrTreeTable = new DICOMTreeTable(model, true, svr);
 				/* add or update Dock */
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
@@ -629,9 +628,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		}
 		// Add 20231003
 		tabDockManager.startRefreshQRTableTimer();
-		/*
-		 * searchDBUsingThisConditions() updation ?? TODO
-		 */
 	}
 
 	@Override

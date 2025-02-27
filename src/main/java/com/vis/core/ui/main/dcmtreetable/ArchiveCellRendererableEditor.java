@@ -27,14 +27,10 @@ import ij.ImagePlus;
 public class ArchiveCellRendererableEditor extends DefaultCellEditor implements TableCellRenderer, TableCellEditor{
 
 	private static final long serialVersionUID = -4324960997246613616L;
-		
-	int mode = -1;
-	int state = -1;
 	
 	private JLabel localLabel = new JLabel("",SwingConstants.CENTER);
 	private JLabel linkLabel = new JLabel("",SwingConstants.CENTER);
 	private JLabel bothLabel = new JLabel("",SwingConstants.CENTER);
-	int progress, total;
 	DICOMTreeTable homeTable;
 	
 	public ArchiveCellRendererableEditor(JTextField holder) {
