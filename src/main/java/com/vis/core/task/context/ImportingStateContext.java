@@ -37,137 +37,68 @@
  */
 package com.vis.core.task.context;
 
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.LayoutManager;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.HashMap;
-
-import javax.swing.JButton;
-import javax.swing.JOptionPane;
-import javax.swing.JProgressBar;
-import javax.swing.OverlayLayout;
-
-import com.vis.core.facade.WindowManager;
 import com.vis.core.task.TaskContext;
-import com.vis.core.ui.function.DicomImporter;
-import com.vis.core.ui.main.QueryRetrieve;
+import com.vis.core.task.TaskType;
 
 /**
- * TaskContext, such as progress state, component, and so on.
  * to show progressbar on treetable in study level.
  * @author tatsunidas
  *
  */
 public class ImportingStateContext implements TaskContext{
 	
-	JProgressBar progressBar = new JProgressBar();
-	long threadId;
+	final long threadId;
 	int currentIndex=0;//progress
 	int total;
+	final TaskType type;
 	/*
 	 * studyUid is used for unique key.
 	 * if perform multiple importer tasks at same time,
 	 * and these have same studyuid,
 	 * randomly show progressbar in contexts.
 	 */
-	String suid;//
-	DicomImporter importer;//Task
-	QueryRetrieve qrTask;//Task TODO
+	final String suid;
+	HashMap<String, Object> con;
 	
-	public ImportingStateContext(String studyInstanceUID, DicomImporter importer) {
+	public ImportingStateContext(String studyInstanceUID, HashMap<String, Object> con) {
+		if(!validateContext(con)) {
+			throw new IllegalArgumentException("TaskContext is not valid.");
+		}
 		this.suid = studyInstanceUID;
-		this.importer = importer;
-		/**
-		 * Suspend btn behaves as textLabel and transparent btn.
-		 */
-		JButton suspendBtn = new JButton();
-		suspendBtn.setIcon(null);
-		suspendBtn.setOpaque(false);
-		suspendBtn.setContentAreaFilled(false);
-		suspendBtn.setBorderPainted(false);
-		suspendBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-		progressBar = new JProgressBar();
-		LayoutManager overlay = new OverlayLayout(progressBar);
-		progressBar.setLayout(overlay);
-		total = importer.totalSize();
-		progressBar.setMaximum(total);
-		progressBar.setValue(0);
-		/*
-		 * if Bar.setStringPainted(true),
-		 * can not update treetable cell at the end of task.
-		 */
-		progressBar.setStringPainted(false);//do not show percentage
-		progressBar.setForeground(Color.CYAN);
-		progressBar.add(suspendBtn);
-		suspendBtn.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				// suspend current import thread
-				suspend();
-				int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Would you cancel import ?", "Cancel Importing",
-						JOptionPane.YES_NO_OPTION);
-				if (res == JOptionPane.YES_OPTION) {
-					// stop
-					stop();
-				} else {
-					// resume
-					resume();
-				}
-			}
-		});
+		this.con = con;
+		this.type = (TaskType)con.get(TaskContext.TASK_TYPE);
+		total = (Integer)con.get(TaskContext.SIZE);
+		threadId = (Long)con.get(TaskContext.THREAD_ID);
+	}
+		
+	public boolean validateContext(HashMap<String, Object> con) {
+		if(con == null) {
+			return false;
+		}
+		TaskType type = (TaskType) con.get(TaskContext.TASK_TYPE);
+		if(type == null) {
+			return false;
+		}
+		if(con.get(TaskContext.THREAD_ID) == null) {
+			return false;
+		}
+		return true;
 	}
 	
-	public ImportingStateContext(String studyUID, QueryRetrieve qrTask) {
-		this.qrTask = qrTask;
-		/*
-		 * this cancel button rendered as cancel button by CellEditor.
-		 */
-		JButton suspendBtn = new JButton();
-		suspendBtn.setIcon(null);
-		suspendBtn.setText("importing");
-		suspendBtn.setOpaque(false);
-		suspendBtn.setContentAreaFilled(false);
-		suspendBtn.setBorderPainted(false);
-		suspendBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-		progressBar = new JProgressBar();
-		LayoutManager overlay = new OverlayLayout(progressBar);
-		progressBar.setLayout(overlay);
-		//TODO
-//		this.total = qrTask.
-		progressBar.setMaximum(total);
-		progressBar.setValue(0);
-		progressBar.setIndeterminate(true);
-		progressBar.add(suspendBtn);
-	}
-	
-	private JProgressBar getProgressBar() {
-		return progressBar;
-	}
-
 	public String getStudyUID() {
 		return suid;
 	}
-
-	@Override
-	public Component getCellRenderableComponent() {
-		return getProgressBar();
-	}
 	
 	@Override
-	public void updateState(HashMap<String, Object> obj) {
-		Object currentInd = obj.get("CurrentIndex");
-		if(currentInd != null) {
-			currentIndex = (Integer)currentInd;
+	public void updateState(HashMap<String, Object> updated_con) {
+		for(String key : updated_con.keySet()) {
+			Object obj = updated_con.get(key);
+			this.con.put(key, obj);
+			if(key.equals(TaskContext.CURRENT_IND)) {
+				currentIndex = (Integer)obj;
+			}
 		}
-		JProgressBar progress = getProgressBar();
-		progress.setValue(currentIndex);
-		int progressCount = currentIndex()+1;//progressbar is start from 1.
-		JButton susbtn = (JButton) getProgressBar().getComponent(0);
-		susbtn.setText(progressCount + " / " + maxSize());
-		susbtn.repaint();
-		getProgressBar().repaint();
 	}
 
 	@Override
@@ -176,44 +107,16 @@ public class ImportingStateContext implements TaskContext{
 	}
 
 	@Override
-	public int maxSize() {
+	public int totalSize() {
 		return total;
+	}
+	
+	public TaskType getType() {
+		return type;
 	}
 
 	@Override
 	public long getThreadId() {
 		return threadId;
-	}
-
-	@Override
-	public void setThreadId(final long tid) {
-		this.threadId = tid;
-	}
-
-	@Override
-	public void suspend() {
-		if(importer != null) {
-			importer.setSuspended(true);
-		}else {
-			qrTask.setSuspended(true);
-		}
-	}
-
-	@Override
-	public void resume() {
-		if(importer != null) {
-			importer.resume();
-		}else {
-			qrTask.resume();
-		}
-	}
-
-	@Override
-	public void stop() {
-		if(importer != null) {
-			importer.setStopped(true);
-		}else {
-			qrTask.setStopped(true);
-		}
 	}
 }

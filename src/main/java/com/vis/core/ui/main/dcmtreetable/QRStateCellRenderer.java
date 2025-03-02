@@ -37,10 +37,10 @@ public class QRStateCellRenderer extends JButton implements TableCellRenderer{
 			int col) {
 		DICOMTreeTable treeTable = (DICOMTreeTable)table;
 		ImportingStateContext isc = null;
-		if (treeTable.getArchivedColumnPosition() == col) {
-			importingList = cellEditor.getImportingStateContext();
-			isc = getImportingCellStateAt(importingList,row, col);
-		}
+//		if (treeTable.getArchivedColumnPosition() == col) {
+//			importingList = cellEditor.getImportingStateContext();
+//			isc = getImportingCellStateAt(importingList,row, col);
+//		}
 		if (isc != null) {
 //			return isc.getProgressBar();//20231010
 		} else {// waiting state
@@ -93,20 +93,4 @@ public class QRStateCellRenderer extends JButton implements TableCellRenderer{
 		return this;
 	}
 
-	private ImportingStateContext getImportingCellStateAt(ArrayList<ImportingStateContext> importingList,int row, int col) {
-		if(importingList == null || importingList.size() == 0) {
-			return null;
-		}
-		//20231010
-//		for (int i = 0; i < importingList.size(); i++) {
-//			ImportingStateContext isc = importingList.get(i);
-//			int r = isc.getImportingRow();
-//			int c = isc.getImportingCol();
-//			
-//			if (r == row && c == col) {
-//				return isc;
-//			}
-//		}
-		return null;
-	}
 }

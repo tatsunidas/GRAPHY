@@ -85,14 +85,6 @@ public class QRHandler {
 		return str;
 	}
 	
-//	public static ImageIcon qrReadyIcon() {
-//		return ImageIconLoader.loadIcon(qr_ready_icon);
-//	}
-//	
-//	public static ImageIcon localIcon() {
-//		return ImageIconLoader.loadIcon(archived_icon);
-//	}
-	
 	public static boolean archivedInLocalAllInstance(DICOMNode qrNodeStudy) {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		String patID = qrNodeStudy.getData("PatientID");

@@ -67,6 +67,7 @@ import com.vis.core.log.Log;
 import com.vis.core.task.Task;
 import com.vis.core.task.TaskContext;
 import com.vis.core.task.TaskManager;
+import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
@@ -100,7 +101,6 @@ public class QueryRetrieve implements Task {
 	// patID,studyUID,seUID,instUID
 	private ArrayList<String[]> candidateInfoSet;
 	private DicomCommunicationNode dest;
-	private QRStateCellEditor cellEditor;
 	
 	TaskContext con;
 	
@@ -112,7 +112,7 @@ public class QueryRetrieve implements Task {
 	protected boolean stopped;// same as cancel
 	protected boolean sleepScheduled;
 	protected boolean suspended;
-	public final static int SLEEP_TIME = 3000;
+	public final static int SLEEP_TIME = 1000;
 	
 	public QueryRetrieve() {
 		thisThread = new Thread(this);
@@ -720,32 +720,10 @@ public class QueryRetrieve implements Task {
 		retrieveinfoset[3] = (studynode.getData(DICOMNode.SOPInstanceUID) != null
 				? studynode.getData(DICOMNode.SOPInstanceUID)
 				: "");
-		/* set celleditor */
-		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
-		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
-		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
-		int arcInd = treeTable.getArchivedColumnPosition();
-		TableColumnModel tcm = treeTable.getColumnModel();
-		this.cellEditor = (QRStateCellEditor) tcm.getColumn(arcInd).getCellEditor();
-		
-		/*
-		 * TODO 20250226
-		 */
-//		this.cellEditor.addImportingState(retrieveinfoset, this, candidateInfoSet.size());
-		
-		// create new thread and add to main importer thread group.
-		/* shared main importer thread group */
-		/**
-		 * TODO 20230829
-		 */
-//		thisThread = new Thread(ApplicationContext.importerThreadGroup, this);
-		
-//		con = new ImportingStateContext(studyUID, this);
-		
-		con.setThreadId(thisThread.getId());
-		setContext(con);
+		thisThread = new Thread(this);
+		//add to task manager
 		TaskManager tm = TaskManager.getInstance();
-		tm.addTask(thisThread.getId(), con);
+		tm.addTask(thisThread.getId(), this);
 		
 		stopped = false;
 		sleepScheduled = true;// useful for debug
@@ -853,13 +831,7 @@ public class QueryRetrieve implements Task {
 				"SOPInstanceUID=" + sopIUID, "--directory", Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)};
 		GetSCU.main(args);
 	}
-
-	/*
-	 * tmpフォルダを監視する。 getscuでフォルダにコピーが作られる 監視がこれを見つけ、storeが実行される
-	 * storeされると、DBに登録され、自動的にファイルは削除される これをインスタンス単位で繰り返す
-	 * 
-	 * ↑はインタラプトエラーが起こるときがあるので、やめた。 スタンダードにやる。
-	 */
+	
 	private void performRetrieve() {
 		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
 			stopImport();
@@ -868,8 +840,7 @@ public class QueryRetrieve implements Task {
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
-		treeTable.getTableHeader().setEnabled(false);// stop table sort feature. can not ??
-//		startWatching(candidateInfoSet.size());
+		treeTable.getTableHeader().setEnabled(false);// stop table sort feature.
 		int count = 0;
 		int size = candidateInfoSet.size();
 		while (!(count == size) && !(isStopped())) {
@@ -891,9 +862,20 @@ public class QueryRetrieve implements Task {
 			int currentRow = treeTable.getParticularStudyRow(infoset[0], infoset[1]);
 			int currentCol = treeTable.getArchivedColumnPosition();
 			Log.logger.fine("QR:Retrieving, ProgressAt:" + currentRow + " " + currentCol);
-			updateProgress(cellEditor, infoset, currentRow, currentCol, count + 1);
-			treeTable.revalidate();// NEED
-			treeTable.repaint();
+			
+			//20250227 replace update_con
+			HashMap<String, Object> update_con = new HashMap<>();
+			update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+			update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+			update_con.put(TaskContext.SIZE, candidateInfoSet.size());
+			update_con.put(TaskContext.CURRENT_IND, count);
+			if(count == 0) {
+				con = new ImportingStateContext(infoset[1], update_con);
+			}else {
+				con.updateState(update_con);
+			}
+//			treeTable.revalidate();// NEED
+//			treeTable.repaint();
 			/* count up */
 			count++;
 			synchronized (this) {
@@ -912,20 +894,15 @@ public class QueryRetrieve implements Task {
 				break;
 			}
 		} // while loop end
-		doneRetrieve(cellEditor, candidateInfoSet.get(count - 1));// -1 is to subtract last pseudo count up
+		done();
 		treeTable.getTableHeader().setEnabled(true);
 	}
-
-	/*
-	 * TODO 20231010
-	 */
-	protected void updateProgress(QRStateCellEditor stateCell, String[] infoset, int row, int col, int progress) {
-//		stateCell.setProgressAt(infoset, row, col, progress);
-	}
-
-	protected void doneRetrieve(QRStateCellEditor cellEditor, String[] infoset) {
+	
+	public void done() {
 		stopImport();
-		cellEditor.importingIsDone(infoset);
+		retreiveReady = false;
+		TaskManager tm = TaskManager.getInstance();
+		tm.removeTask(con.getThreadId());
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -947,6 +924,7 @@ public class QueryRetrieve implements Task {
 	}
 	
 	public synchronized void resume() {
+//		thisThread.notify();//DO NOT DO THIS
 		this.notify();
 	}
 
@@ -959,7 +937,14 @@ public class QueryRetrieve implements Task {
 	}
 
 	public synchronized void setSuspended(boolean suspend) {
-		suspended = suspend;
+		// already suspended, restart.
+		if (suspended && !suspend) {
+			suspended = suspend;
+			resume();
+		} else {
+			// suspend.
+			suspended = suspend;
+		}
 	}
 
 	public synchronized boolean isSuspended() {
@@ -977,7 +962,7 @@ public class QueryRetrieve implements Task {
 	public void stopImport() {
 //		watchThread.interrupt();
 		if(thisThread != null) {
-			thisThread.interrupt();
+			setStopped(true);
 		}
 	}
 
@@ -988,13 +973,7 @@ public class QueryRetrieve implements Task {
 	}
 
 	@Override
-	public void setContext(TaskContext con) {
-		this.con = con;
-	}
-
-	@Override
 	public TaskContext getContext() {
-		// TODO Auto-generated method stub
 		return con;
 	}
 
@@ -1003,15 +982,4 @@ public class QueryRetrieve implements Task {
 		thisThread.start();
 	}
 
-	@Override
-	public void terminate() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void done() {
-		// TODO Auto-generated method stub
-		
-	}
 }

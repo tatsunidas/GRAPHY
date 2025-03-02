@@ -1,62 +1,109 @@
-2月 27, 2025 12:18:42 午後 com.vis.core.facade.ApplicationFacade load_version
+3月 01, 2025 5:24:18 午後 com.vis.core.facade.ApplicationFacade load_version
 情報: Application Version: 0.0.1-SNAPSHOT
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf loadPlugins
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf loadPlugins
 情報: Loading PlugIns...
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugInWithExternals.jar
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugIn.class
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugInInJar.jar
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/./lib/jfreechart-1.5.5.jar
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/./lib/javax.servlet-api-4.0.1.jar
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST START*************
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugInInJar - HelloGraphyPlugInInJar
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugInInJarWithExternalJars - HelloGraphyPlugInInJarWithExternalJars
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugIn - HelloGraphyPlugIn
-2月 27, 2025 12:18:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 01, 2025 5:24:19 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST END**************
-2月 27, 2025 12:18:43 午後 com.vis.db.DatabaseHandler startingUp
+3月 01, 2025 5:24:20 午後 com.vis.db.DatabaseHandler startingUp
 情報: Current DB location: /home/tatsunidas/TEST_DB2
-2月 27, 2025 12:18:47 午後 com.vis.core.ui.main.MainScreen loadLastGraphicConfiguration
-普通: MainScreen::GraphicsConfiguration: X11GraphicsConfig[dev=X11GraphicsDevice[screen=0],vis=0x21]
-2月 27, 2025 12:18:48 午後 com.vis.dicom.dimse.EchoImpl echo
-情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-2月 27, 2025 12:18:49 午後 com.vis.dicom.dimse.EchoImpl echo
-情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-2月 27, 2025 12:18:49 午後 com.vis.dicom.dimse.EchoImpl echo
-情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-2月 27, 2025 12:18:49 午後 com.vis.core.ui.main.TabDock ancestorAdded
+3月 01, 2025 5:24:24 午後 com.vis.core.ui.main.MainScreen loadLastGraphicConfiguration
+普通: MainScreen::GraphicsConfiguration: X11GraphicsConfig[dev=X11GraphicsDevice[screen=1],vis=0x21]
+3月 01, 2025 5:24:25 午後 com.vis.core.ui.main.TabDock ancestorAdded
 情報: debug : In Main Frame: HOME
-2月 27, 2025 12:18:55 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
+3月 01, 2025 5:24:29 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
 普通: QR Pane : Home
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
-普通: 5 images loaded.
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
-普通: 5 images loaded.
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 110
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:110
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 110
-2月 27, 2025 12:19:02 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:110
-2月 27, 2025 12:19:06 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
-普通: 5 images loaded.
-2月 27, 2025 12:19:06 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
-普通: 5 images loaded.
-2月 27, 2025 12:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: FilmGridCellSize: 110
-2月 27, 2025 12:19:06 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
-普通: cell size:110
-2月 27, 2025 12:53:08 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
-普通: QR Pane : Home
-2月 27, 2025 12:53:11 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
-普通: QR Pane : Home
+3月 01, 2025 5:24:31 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 01, 2025 5:24:45 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of dicomdir is 0 found
+3月 01, 2025 5:24:45 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of instances is 6 found
+3月 01, 2025 5:24:48 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(2),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 01, 2025 5:24:48 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(2), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 01, 2025 5:24:49 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(2)
+3月 01, 2025 5:24:50 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(4),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 01, 2025 5:24:50 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(4), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 01, 2025 5:24:50 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(4)
+3月 01, 2025 5:24:51 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(6),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 01, 2025 5:24:51 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(6), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 01, 2025 5:24:52 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(6)
+3月 01, 2025 5:25:31 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 01, 2025 5:26:01 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of dicomdir is 0 found
+3月 01, 2025 5:26:01 午後 com.vis.dicom.DicomFileCollection collectCandidates
+普通: Number of instances is 6 found
+3月 01, 2025 5:26:04 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(8),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 01, 2025 5:26:04 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(8), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 01, 2025 5:26:04 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(8)
+3月 01, 2025 5:26:05 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(10),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 01, 2025 5:26:05 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(10), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 01, 2025 5:26:05 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(10)
+3月 01, 2025 5:26:06 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(12),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 01, 2025 5:26:06 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(12), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 01, 2025 5:26:06 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(12)
+3月 01, 2025 5:26:07 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(14),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 01, 2025 5:26:07 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(14), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/D1117D36
+3月 01, 2025 5:26:07 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(14)
+3月 01, 2025 5:26:09 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(16),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 01, 2025 5:26:09 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(16), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/5B13D698
+3月 01, 2025 5:26:09 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(16)
+3月 01, 2025 5:26:10 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(18),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 01, 2025 5:26:10 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(18), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/6D339127
+3月 01, 2025 5:26:10 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(18)
+3月 01, 2025 5:26:16 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed

@@ -42,6 +42,7 @@ import com.vis.core.log.Log;
 import com.vis.core.task.Task;
 import com.vis.core.task.TaskContext;
 import com.vis.core.task.TaskManager;
+import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
@@ -71,7 +72,7 @@ public class DicomImporter implements Task {
 	boolean ignorePrivate = false;
 	private ArrayList<String> candidateList;// Dicom Files exclude dicomdir
 	private HashMap<Integer,Object> willEditTo;//data will be edited this patient information.
-	TaskContext con;
+	TaskContext con = null;
 
 	int total = -1;
 	
@@ -81,7 +82,9 @@ public class DicomImporter implements Task {
 	protected boolean sleepScheduled;
 	protected boolean suspended;
 	
-	public final static int SLEEP_TIME = 50;
+	final String studyUID;
+	
+	public final static int SLEEP_TIME = 1000;
 
 	/**
 	 * Import dicom files AS-IS.
@@ -98,16 +101,15 @@ public class DicomImporter implements Task {
 		this.candidateList = candidate;
 		total = candidateList.size();
 		this.willEditTo = info;
-		// create new thread and add to main importer thread group.
-		thisThread = new Thread(this);
 		stopped = false;
-		sleepScheduled = false;//useful for debug
+		sleepScheduled = Utils.isDebug;//useful for debug
 		suspended = false;
-		con = new ImportingStateContext(studyUID, this);
-		con.setThreadId(thisThread.getId());
-		setContext(con);
+		this.con = null;
+		this.studyUID = studyUID;
+		thisThread = new Thread(this);
+		//add to task manager
 		TaskManager tm = TaskManager.getInstance();
-		tm.addTask(thisThread.getId(), con);
+		tm.addTask(thisThread.getId(), this);
 	}
 	
 	private void showImportResult() {
@@ -170,6 +172,16 @@ public class DicomImporter implements Task {
 						}
 					}
 				}
+				HashMap<String, Object> update_con = new HashMap<>();
+				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+				update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+				update_con.put(TaskContext.SIZE, candidateList.size());
+				update_con.put(TaskContext.CURRENT_IND, count);
+				if(count == 0) {
+					con = new ImportingStateContext(studyUID, update_con);
+				}else {
+					con.updateState(update_con);
+				}
 				HashMap<String, Object> updation = new HashMap<>();
 				updation.put("CurrentIndex", count++);
 				//task context always update, even if failed import.
@@ -184,25 +196,20 @@ public class DicomImporter implements Task {
 		done();
 	}
 
-//	private void editPatientInfo(DicomObject data) {
-//		//keywords are defined by DicomImporterPanel 
-//		data.setString(Tag.Patient​ID, VR.LO, (String)willEditTo.get(Tag.Patient​ID));
-//		data.setString(Tag.Patient​Name, VR.PN, (String)willEditTo.get(Tag.Patient​Name));
-//		data.setString(Tag.Patient​Birth​Date, VR.DA, (String)willEditTo.get(Tag.Patient​Birth​Date));
-//		data.setString(Tag.Patient​Sex, VR.CS, (String)willEditTo.get(Tag.Patient​Sex));
-//	}
-
 	@Override
 	public void run() {
 		perform();
 	}
 
 	public void done() {
+		setStopped(true);
+		showImportResult();//show first
+		//clear from task manager
 		TaskManager tm = TaskManager.getInstance();
-		tm.removeAndCleanUpTasks(con.getThreadId());
-		showImportResult();
+		tm.removeTask(con.getThreadId());
 		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		treeTable.getTableHeader().setEnabled(true);
+		//finally, update table cells
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 	}
 
@@ -225,6 +232,7 @@ public class DicomImporter implements Task {
 	}
 
 	public synchronized void resume() {
+//		thisThread.notify();//DO NOT DO THIS
 		this.notify();
 	}
 
@@ -237,7 +245,14 @@ public class DicomImporter implements Task {
 	}
 
 	public synchronized void setSuspended(boolean suspend) {
-		suspended = suspend;
+		//already suspended, restart.
+		if(suspended && !suspend) {
+			suspended = suspend;
+			resume();
+		}else {
+			//suspend.
+			suspended = suspend;
+		}
 	}
 
 	public synchronized boolean isSuspended() {
@@ -246,27 +261,10 @@ public class DicomImporter implements Task {
 
 	public synchronized void setStopped(boolean stop) {
 		stopped = stop;
-		if(stopped) {
-			done();
-		}
 	}
 
 	public synchronized boolean isStopped() {
 		return stopped;
-	}
-
-	public void terminate() {
-		thisThread.interrupt();
-		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
-		treeTable.getTableHeader().setEnabled(true);
-		if (Utils.isDebug) {
-			Log.logger.info("import interupted.");
-		}
-	}
-
-	@Override
-	public void setContext(TaskContext con) {
-		this.con = con;
 	}
 
 	@Override

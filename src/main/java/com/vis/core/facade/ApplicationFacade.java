@@ -60,6 +60,7 @@ import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.log.Log;
 import com.vis.core.plugin.PluginClassLoader;
 import com.vis.core.plugin.PluginShelf;
+import com.vis.core.task.TaskManager;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.settings.PreferencesWin;
@@ -287,6 +288,10 @@ public class ApplicationFacade{
 	public static boolean exitApp(Level level, String exitString) throws Throwable {
 		if (splash != null) {
 			splash.dispose();
+		}
+		TaskManager tm = TaskManager.getInstance();
+		if(tm != null) {
+			tm.shutdown();
 		}
 		Log.logger.log(level, exitString);
 		boolean close = true;

@@ -76,9 +76,12 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 	
 	/**
 	 * if TreeTableModel.class was set, it's column is handle editable(do something) column in TreeTableCellEditor, else ignored.
-	 * see, JTreeTable.TreeTableCellEditor.isCellEditable
+	 * see, this.isCellEditable()
+	 * and also see JTreeTable.TreeTableCellEditor.isCellEditable
+	 * 
+	 * if this.isCellEditable == false, cannot run cell component on TreeTableCellEditor.
 	 */
-	static protected Class<?>[] columnTypes = { TreeTableModel.class/*tree icon*/, String.class, String.class, String.class,
+	static protected Class<?>[] columnTypes = { TreeTableModel.class/*tree icon*/, TreeTableModel.class/*Archived*/, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
 			String.class, String.class, String.class };
@@ -175,6 +178,10 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 			break;
 		}
 		return null;
+	}
+	
+	public boolean isCellEditable(Object node, int column) {
+		return getColumnClass(column) == TreeTableModel.class;
 	}
 	
 	public void reload(Object node) {

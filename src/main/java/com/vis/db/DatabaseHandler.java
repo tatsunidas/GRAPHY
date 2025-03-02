@@ -395,7 +395,7 @@ public class DatabaseHandler {
 				}
 			}
 		} else {
-			if (pstmt.executeUpdate() == 1) {
+			if (pstmt.executeUpdate() == 1) {//delete in record first
 				File instance = new File(storeURI);
 				File parent = instance.getParentFile();
 				if (!instance.delete()) {

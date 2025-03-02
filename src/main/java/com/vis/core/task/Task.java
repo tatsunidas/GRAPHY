@@ -44,18 +44,9 @@ package com.vis.core.task;
  */
 public interface Task extends Runnable{
 	
-	public enum TaskType{
-		TypeImport,
-		TypeExport,
-		TypeProcessing,
-		// add task...
-	}
-	
-	public void setContext(TaskContext con);
 	public TaskContext getContext();
-	
 	public void start();
-	public void terminate();//thread interrupt
+//	public void terminate();//use setStopped instead.
 	public void done();
 	
 	/**

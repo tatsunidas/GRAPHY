@@ -35,39 +35,46 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.task;
+package com.vis.core.util;
 
-import java.util.HashMap;
+import java.io.File;
 
 /**
  * 
  * @author tatsunidas
  *
  */
-public interface TaskContext {
-	
-	//context keys
-	public static final String TASK_TYPE = "TASK_TYPE";
-	public static final String THREAD_ID = "THREAD_ID";
-	public static final String SIZE = "SIZE";
-	public static final String CURRENT_IND = "CURRENT_INDEX";// 0 to n-1.
-	//add more...
-	
-	/**
-	 * update state case by case.
-	 * @param obj
-	 */
-	public boolean validateContext(HashMap<String, Object> context);
-	public void updateState(HashMap<String, Object> context);
-	public int currentIndex();
-	public int totalSize();
-	public TaskType getType();
-	public long getThreadId();
-	
-	/*
-	 * following function are delegate Task impl class.
-	 */
-//	public void suspend();
-//	public void resume();
-//	public void stop();
+public class DeleteFolder {
+    public static void main(String[] args) {
+        File seriesDir = new File("path/to/folder"); // 削除したいフォルダのパスを指定
+
+        if (deleteDirectory(seriesDir)) {
+            System.out.println("フォルダを削除しました: " + seriesDir.getAbsolutePath());
+        } else {
+            System.out.println("フォルダを削除できませんでした: " + seriesDir.getAbsolutePath());
+        }
+    }
+
+    public static boolean deleteDirectory(File dir) {
+        if (!dir.exists()) {
+            return false;
+        }
+
+        // フォルダ内のファイル・サブフォルダを取得
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                // ファイルなら削除、フォルダなら再帰的に削除
+                if (file.isDirectory()) {
+                    deleteDirectory(file);
+                } else {
+                    file.delete();
+                }
+            }
+        }
+
+        // 最後にフォルダ自体を削除
+        return dir.delete();
+    }
 }
+

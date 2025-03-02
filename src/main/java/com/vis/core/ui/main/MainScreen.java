@@ -165,11 +165,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		return null;
 	}
 	
-	//no use...
-	public static void setImportingState(boolean importing) {
-		MainScreen.importing = importing;
-	}
-	
 	public void clearPatientInfo() {
 		bev.resetViews(true);
 	}

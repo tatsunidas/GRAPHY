@@ -94,18 +94,13 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 			}
 			this.remote = remote;
 		}
-		if (isQR) {
-			QRStateCellEditor sce = new QRStateCellEditor(this.remote);
-			QRStateCellRenderer scr= new QRStateCellRenderer(sce);
-			getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(scr);
-			getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(sce);
-		} else {
-			// int mode, int state, Integer row, Integer col,Integer progress,Integer
-			// total,JTextField holder
-			ArchiveCellRendererableEditor srcre = new ArchiveCellRendererableEditor(null);
-			getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(srcre);
-			getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(srcre);
-		}
+		//keep default cell renderer with JTreeTable.TreeTableCellRenderer
+		//change default cell editor to ICOMTreeTableCellEditor, to handle Archive col actions.
+		setDefaultEditor(TreeTableModel.class, new DICOMTreeTableCellEditor(this));
+		ArchiveCellRenderer acr = new ArchiveCellRenderer(isQR);
+		ArchiveCellEditor ace = new ArchiveCellEditor(this);
+		getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(acr);
+		getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(ace);
 
 		getTree().setCellRenderer(new TreeIconCellRenderer());
 		setRootVisible(false);
@@ -124,7 +119,7 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		 * Set Listeners
 		 */
 		/*set mouse listener*/
-		new TreeTableMouseListener(this);
+//		new TreeTableMouseListener(this);
 		if(!isQR) {
 			/* set drop listener for importing */
 			new DropTarget(this, new TreeTableDropListener());
@@ -278,20 +273,21 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 			setEditingRow(i);
 		}
 	}
+	
+	public int rowForNode(DICOMNode node) {
+		TreeTableModelAdapter ttm = (TreeTableModelAdapter) getModel();
+		for (int i = 0; i < ttm.getRowCount(); i++) {
+			DICOMNode n = (DICOMNode) ttm.nodeForRow(i);
+			if (node == n) {
+				return i;
+			}
+		}
+		return -1;
+	}
 
 	public DICOMNode nodeForRow(int row) {
 //		int ind = convertRowIndexToModel(row);//DO NOT USE for nodeForRow.
 		return (DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row);
-	}
-
-	public ArchiveCellRendererableEditor getStateCellEditorAtArchiveColumn(int col_index) {
-		TableColumnModel tcm = getColumnModel();
-		return (ArchiveCellRendererableEditor) tcm.getColumn(col_index).getCellEditor();
-	}
-	
-	public QRStateCellEditor getQRStateCellEditorAtArchiveColumn(int col_index) {
-		TableColumnModel tcm = getColumnModel();
-		return (QRStateCellEditor) tcm.getColumn(col_index).getCellEditor();
 	}
 
 	public int getParticularStudyRow(String patID,String StudyUID) {
@@ -305,12 +301,17 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		return -1;
 	}
 	
-	public void setColumnOrder(List<String> order) {
+	public void setColumnOrder(List<String> order) throws Exception {
 		TableColumnModel columnModel = getColumnModel();
 		for (int i = 0; i < order.size(); i++) {
 			String colname = order.get(i);
 			/* get default position */
-			int initialInd = columnModel.getColumnIndex(colname);
+			int initialInd = -1;
+			try {
+				initialInd = columnModel.getColumnIndex(colname);
+			}catch(java.lang.IllegalArgumentException e) {
+				throw new Exception(e.getLocalizedMessage());
+			}
 			columnModel.moveColumn(initialInd, i);//convertColumnIndexToView(i));
 		}
 	}
@@ -322,11 +323,14 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		}
 		List<String> order = readColumnOrderFromProp();
 		if(order != null) {
-			setColumnOrder(order);
+			try {
+				setColumnOrder(order);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		}else {
 			return;
 		}
-		
 	}
 	
 	public List<String> readColumnOrderFromProp(){
@@ -349,11 +353,15 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		TreeTableModelAdapter modelAda = (TreeTableModelAdapter)getModel();
 		modelAda.reload(root);
 	}
+	
+	public int getColumnPosition(String colName) {
+		TableColumnModel tcm = getColumnModel();
+		return tcm.getColumnIndex(colName);
+	}
 
 	/* to get current named "Archived" Column position */
 	public int getArchivedColumnPosition() {
-		TableColumnModel tcm = getColumnModel();
-		return tcm.getColumnIndex(DICOMTreeTableModel.columnNames[1]);//"Archived"
+		return getColumnPosition(DICOMTreeTableModel.ArchivedCol);//"Archived"
 	}
 
 	public ArrayList<DICOMNode> getSelectedNodes() {
@@ -386,6 +394,10 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 
 	public JTable getTable() {
 		return this;
+	}
+	
+	public DicomCommunicationNode getRemoteDicomCommunicationNode() {
+		return remote;
 	}
 
 	public DefaultTreeModel getTreeModelInTreeTable() {

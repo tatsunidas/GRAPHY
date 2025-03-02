@@ -40,6 +40,7 @@ package com.vis.core.ui.main.dcmtreetable;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.tree.MutableTreeNode;
 import javax.swing.tree.TreePath;
 
 import javax.swing.event.TreeExpansionEvent;
@@ -130,6 +131,18 @@ public class TreeTableModelAdapter extends AbstractTableModel {
 			return treePath.getLastPathComponent();
 		}
 		return null;
+	}
+	
+	public void removeRow(int row) {
+		TreePath path = tree.getPathForRow(row);
+		if (path != null) {
+			MutableTreeNode node = (MutableTreeNode) path.getLastPathComponent();
+			MutableTreeNode parent = (MutableTreeNode) node.getParent();
+			if (parent != null) {
+				parent.remove(node); // 親ノードから削除
+				reload(parent); // モデルを更新
+			}
+		}
 	}
 
 	public Object getValueAt(int row, int column) {

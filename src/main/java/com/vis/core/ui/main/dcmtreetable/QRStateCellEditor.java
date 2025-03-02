@@ -108,24 +108,24 @@ public class QRStateCellEditor extends JButton implements TableCellEditor{
 		ImportingStateContext isc = null;//getImportingCellStateAt(row, col);
 		if (isc != null) {
 			//TODO 20231010
-			addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent arg0) {
-					// suspend current import thread
-					isc.suspend();
-					int res = JOptionPane.showConfirmDialog(table, "Would you cancel this import ?", "Cancel Importing",
-							JOptionPane.YES_NO_OPTION);
-					if (res == JOptionPane.YES_OPTION) {
-						// stop
-						isc.stop();
-						importInterupted(isc);
-						WindowManager.getMainScreen().updateQRTreeTables();
-					} else {
-						// resume
-						isc.resume();
-					}
-				}
-			});
+//			addActionListener(new ActionListener() {
+//				@Override
+//				public void actionPerformed(ActionEvent arg0) {
+//					// suspend current import thread
+//					isc.suspend();
+//					int res = JOptionPane.showConfirmDialog(table, "Would you cancel this import ?", "Cancel Importing",
+//							JOptionPane.YES_NO_OPTION);
+//					if (res == JOptionPane.YES_OPTION) {
+//						// stop
+//						isc.stop();
+//						importInterupted(isc);
+//						WindowManager.getMainScreen().updateQRTreeTables();
+//					} else {
+//						// resume
+//						isc.resume();
+//					}
+//				}
+//			});
 			setText("Suspend");// NEEDED
 		/* Waiting State */
 		} else {
