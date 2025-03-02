@@ -47,6 +47,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomReader;
@@ -64,6 +65,14 @@ public class DeleteImage {
 			PopUpMessage.showDialog(MainScreen.getInstance(), "Files not selected.", "Please select files to delete.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
+		
+		//delete trreTable rows
+		DICOMTreeTable homeTable = WindowManager.getMainScreen().getLocalTreeTable();
+		for(DICOMNode node : nodeList) {
+			int r = homeTable.rowForNode(node);
+			homeTable.removeRow(r);
+		}
+		
 		ArrayList<String[]> deleteList = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(nodeList);
 		deleteImages(deleteList, true);
 	}

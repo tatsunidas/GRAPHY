@@ -35,67 +35,22 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.utils;
+package com.vis.core.ui.main.dcmtreetable;
 
-import javax.swing.*;
-import javax.swing.table.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.CardLayout;
+import java.awt.Component;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.concurrent.ExecutionException;
 
-public class ProgressButtonTable {
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("JTable with Progress Button");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+import javax.swing.AbstractCellEditor;
+import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.JTable;
+import javax.swing.SwingWorker;
+import javax.swing.table.TableCellEditor;
 
-            String[] columnNames = {"Task", "Progress"};
-            Object[][] data = {
-                    {"Task 1", "Start"},
-                    {"Task 2", "Start"},
-                    {"Task 3", "Start"}
-            };
-
-            DefaultTableModel model = new DefaultTableModel(data, columnNames);
-            JTable table = new JTable(model);
-
-            // カラムのレンダラーとエディターを設定
-            table.getColumnModel().getColumn(1).setCellRenderer(new ButtonProgressRenderer());
-            table.getColumnModel().getColumn(1).setCellEditor(new ButtonProgressEditor(table));
-
-            frame.add(new JScrollPane(table));
-            frame.setSize(400, 200);
-            frame.setVisible(true);
-        });
-    }
-}
-
-// カラムのボタン＆プログレスバーのレンダラー
-class ButtonProgressRenderer extends JPanel implements TableCellRenderer {
-    private final JButton button = new JButton("Start");
-    private final JProgressBar progressBar = new JProgressBar(0, 100);
-
-    public ButtonProgressRenderer() {
-        setLayout(new CardLayout());
-        add(button, "Button");
-        add(progressBar, "Progress");
-        progressBar.setStringPainted(true);
-    }
-
-    @Override
-    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-        if (value instanceof Integer) {
-            progressBar.setValue((Integer) value);
-            ((CardLayout) getLayout()).show(this, "Progress");
-        } else {
-            button.setText(value.toString());
-            ((CardLayout) getLayout()).show(this, "Button");
-        }
-        return this;
-    }
-}
-
-// カラムのエディター（ボタン & プログレスバーの切り替えと処理制御）
 class ButtonProgressEditor extends AbstractCellEditor implements TableCellEditor {
     private final JPanel panel = new JPanel(new CardLayout());
     private final JButton button = new JButton("Start");
@@ -178,17 +133,29 @@ class ButtonProgressEditor extends AbstractCellEditor implements TableCellEditor
     }
 
     @Override
-    public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-        this.row = row;
-        if (value instanceof Integer) {
-            progressBar.setValue((Integer) value);
-            ((CardLayout) panel.getLayout()).show(panel, "Progress");
-        } else {
-            button.setText(value.toString());
-            ((CardLayout) panel.getLayout()).show(panel, "Button");
-        }
-        return panel;
-    }
+	public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+		if (value == null) {
+			return panel;
+		}
+		this.row = row;
+		String v = (String) value;
+		try {
+			int number = Integer.parseInt(v);
+			progressBar.setValue((Integer) number);
+			((CardLayout) panel.getLayout()).show(panel, "Progress");
+		} catch (NumberFormatException e) {
+			button.setText(value.toString());
+			((CardLayout) panel.getLayout()).show(panel, "Button");
+		}
+//		if (value instanceof Integer) {
+//			progressBar.setValue((Integer) value);
+//			((CardLayout) panel.getLayout()).show(panel, "Progress");
+//		} else {
+//			button.setText(value.toString());
+//			((CardLayout) panel.getLayout()).show(panel, "Button");
+//		}
+		return panel;
+	}
 
     @Override
     public Object getCellEditorValue() {

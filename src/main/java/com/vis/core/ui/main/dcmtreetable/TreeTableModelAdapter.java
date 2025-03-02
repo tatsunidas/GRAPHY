@@ -40,7 +40,8 @@ package com.vis.core.ui.main.dcmtreetable;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.tree.MutableTreeNode;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
 import javax.swing.event.TreeExpansionEvent;
@@ -119,9 +120,10 @@ public class TreeTableModelAdapter extends AbstractTableModel {
 		return tree.getRowCount();
 	}
 	
-	public void reload(Object node) {
-		treeTableModel.reload(node);//tree will reload.
-//		tree.setModel(treeTableModel);
+	public void reload(Object root/*MUST be Root*/) {
+		DefaultTreeModel treeModel = (DefaultTreeModel)tree.getModel();
+		treeModel.setRoot((DefaultMutableTreeNode)root);
+		((AbstractTreeTableModel)treeTableModel).fireTreeStructureChanged(this, new Object[] {root}, null, null);
 		delayedFireTableDataChanged();
 	}
 
@@ -133,16 +135,30 @@ public class TreeTableModelAdapter extends AbstractTableModel {
 		return null;
 	}
 	
+	/**
+	 * 
+	 * @param node
+	 * @return row index. if node not visible(close in tree), return -1.
+	 */
+	public int rowForNode(Object node) {
+		DefaultMutableTreeNode n = (DefaultMutableTreeNode)node;
+		TreePath pathToNode3 = new TreePath(n.getPath());
+       return tree.getRowForPath(pathToNode3);
+	}
+	
+	/**
+	 * Once STUDY/SERIES level nodes are specified, any child nodes they have are also recursively deleted.
+	 * @param row
+	 */
 	public void removeRow(int row) {
 		TreePath path = tree.getPathForRow(row);
 		if (path != null) {
-			MutableTreeNode node = (MutableTreeNode) path.getLastPathComponent();
-			MutableTreeNode parent = (MutableTreeNode) node.getParent();
-			if (parent != null) {
-				parent.remove(node); // 親ノードから削除
-				reload(parent); // モデルを更新
+			DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+			if (selectedNode != null) {
+				((DefaultTreeModel) tree.getModel()).removeNodeFromParent(selectedNode);
 			}
 		}
+		fireTableDataChanged();
 	}
 
 	public Object getValueAt(int row, int column) {
@@ -154,6 +170,7 @@ public class TreeTableModelAdapter extends AbstractTableModel {
 	}
 
 	public void setValueAt(Object value, int row, int column) {
+		//see, DICOMTreeModel setValueAt.
 		treeTableModel.setValueAt(value, nodeForRow(row), column);
 	}
 

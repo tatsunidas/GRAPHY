@@ -45,7 +45,9 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.AnimatingSheet;
+import com.vis.core.ui.main.TabDock;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
+import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
@@ -129,6 +131,9 @@ public class DicomImporter implements Task {
 	
 	private void perform() {
 		int count = 0;
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TabDock homeDock = tabDockMng.getHomeDock();
+		DICOMTreeTable treeTable = homeDock.getDICOMTreeTable();
 		while (count != total && !isStopped()) {
 			if(total <= 0) {
 				setStopped(true);
@@ -138,7 +143,6 @@ public class DicomImporter implements Task {
 				if (isSuspended()) {
 					try {
 						this.wait();
-						setSuspended(false);
 					} catch (InterruptedException ie) {
 						setStopped(true);
 						break;
@@ -172,22 +176,28 @@ public class DicomImporter implements Task {
 						}
 					}
 				}
-				HashMap<String, Object> update_con = new HashMap<>();
-				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-				update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-				update_con.put(TaskContext.SIZE, candidateList.size());
-				update_con.put(TaskContext.CURRENT_IND, count);
-				if(count == 0) {
+				if(count ==0) {
+					HashMap<String, Object> update_con = new HashMap<>();
+					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+					update_con.put(TaskContext.SIZE, candidateList.size());
+					update_con.put(TaskContext.CURRENT_IND, count);
 					con = new ImportingStateContext(studyUID, update_con);
 				}else {
-					con.updateState(update_con);
+					HashMap<String, Object> updation = new HashMap<>();
+					updation.put(TaskContext.CURRENT_IND, count);
+					//task context always update, even if failed import.
+					con.updateState(updation);
 				}
-				HashMap<String, Object> updation = new HashMap<>();
-				updation.put("CurrentIndex", count++);
-				//task context always update, even if failed import.
-				con.updateState(updation);
+				//update count
+				count ++;
 				//update treetable
 				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+				/*
+				 * IMPRTANT
+				 */
+				treeTable.revalidate();
+				treeTable.repaint();
 			} catch (Exception e) {
 				Log.logger.severe("DicomImporter::perform():Unable to import file. Stoped import...\n"+e.getMessage());
 				return;
@@ -196,21 +206,22 @@ public class DicomImporter implements Task {
 		done();
 	}
 
+	/**
+	 * Use start().
+	 */
 	@Override
 	public void run() {
 		perform();
 	}
 
 	public void done() {
-		setStopped(true);
+		setStopped(true);//fail safe
 		showImportResult();//show first
 		//clear from task manager
-		TaskManager tm = TaskManager.getInstance();
-		tm.removeTask(con.getThreadId());
 		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		treeTable.getTableHeader().setEnabled(true);
-		//finally, update table cells
-		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+		TaskManager tm = TaskManager.getInstance();
+		tm.removeTask(con.getThreadId());
 	}
 
 	public Thread getThread() {
@@ -245,13 +256,15 @@ public class DicomImporter implements Task {
 	}
 
 	public synchronized void setSuspended(boolean suspend) {
-		//already suspended, restart.
-		if(suspended && !suspend) {
-			suspended = suspend;
+		if(suspended && suspend) {
+			//do nothing
+		}else if(!suspended && suspend) {
+			suspended = true;
+		}else if(suspended && !suspend) {
+			suspended = false;
 			resume();
-		}else {
-			//suspend.
-			suspended = suspend;
+		}else if(!suspended && !suspend) {
+			//do nothing
 		}
 	}
 

@@ -55,6 +55,8 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 			fileChooser.setVisible(false);
 			fileChooser = null;
 		}
+		//update home treetable
+		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 		dispose();
 	}
 

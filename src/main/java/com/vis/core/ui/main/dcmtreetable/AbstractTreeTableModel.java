@@ -44,15 +44,16 @@ import javax.swing.event.*;
  * An abstract implementation of the TreeTableModel interface, handling the list 
  * of listeners. 
  * @author Philip Milne
+ * @author tatsunidas (add extends DefaultTreeTable)
  */
 
-public abstract class AbstractTreeTableModel implements TreeTableModel {
+public abstract class AbstractTreeTableModel extends DefaultTreeModel/*for remove action*/ implements TreeTableModel {
 	
-	protected Object root;
+	private static final long serialVersionUID = 6931748550258929144L;
 	protected EventListenerList listenerList = new EventListenerList();
 
 	public AbstractTreeTableModel(Object root) {
-		this.root = root;
+		super((DefaultMutableTreeNode)root);
 	}
 
 	//
@@ -60,7 +61,11 @@ public abstract class AbstractTreeTableModel implements TreeTableModel {
 	//
 
 	public Object getRoot() {
-		return root;
+		return super.getRoot();
+	}
+	
+	public void setRoot(DefaultMutableTreeNode root) {
+		super.setRoot(root);
 	}
 	
 	public boolean isLeaf(Object node) {

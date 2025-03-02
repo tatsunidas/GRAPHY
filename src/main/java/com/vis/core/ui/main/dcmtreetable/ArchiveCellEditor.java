@@ -73,6 +73,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 	final DicomCommunicationNode remote;
 	private final JPanel panel = new JPanel(new CardLayout());
 	private final JButton button = new JButton();
+	private final JPanel empty = new JPanel();
 	private final JProgressBar progressBar = new JProgressBar(0, 100);
 	final DICOMTreeTable treeTable;
 	
@@ -87,11 +88,11 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			if(remote == null || node == null) {
 				return;
 			}
+			((CardLayout) panel.getLayout()).show(panel, "Progress");
+			fireEditingStopped();// to show progressbar
 			QueryRetrieve qr = new QueryRetrieve();
 			qr.prepareRetrieve(remote, node);
 			qr.start();
-			//fireEditingStopped();// to show progressbar
-			((CardLayout) panel.getLayout()).show(panel, "Progress");
 		}
 	};
 	
@@ -108,6 +109,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 
 		panel.add(button, "Button");
 		panel.add(progressBar, "Progress");
+		panel.add(empty, "Empty");
 		progressBar.setStringPainted(true);
 
 		if (isRemote) {
@@ -121,6 +123,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			}
 		});
 	}
+	
 	
 	@Override
 	public boolean isCellEditable(EventObject e) {
@@ -136,113 +139,74 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 	}
     
 	private void toggleSuspendResume() {
-		if (node == null) {
-			return;
-		}
 		Task t = getTaskTypeImportByCellLocationAt(node);
-		ImportingStateContext isc = null;
-		if (t != null) {
-			isc = (ImportingStateContext) t.getContext();
-		} else {
+		if (t == null) {
 			return;
 		}
-		if (isc == null)
-			return;
-		if (!t.isSuspended()) {
-			t.setSuspended(true);
-			progressBar.setEnabled(false);
-			progressBar.setString("Suspended");
-			int res = JOptionPane.showConfirmDialog(treeTable, "Would you cancel this import/retrieve ?",
-					"Cancel Importing", JOptionPane.YES_NO_OPTION);
-			if (res == JOptionPane.YES_OPTION) {
-				// stop
-				t.setStopped(true);
-				reset(false);
-				//WindowManager.getMainScreen().updateQRTreeTables();
-			} else {
-				// resume
-				t.setSuspended(false);
-				progressBar.setString(null);
-				progressBar.setEnabled(true);
-				((CardLayout) panel.getLayout()).show(panel, "Progress");
-			}
-		}else {
+		t.setSuspended(true);
+		progressBar.setEnabled(false);
+		progressBar.setString("Suspended");
+		int choice = JOptionPane.showOptionDialog(
+                treeTable,
+                "Would you cancel this import/retrieve ?",
+                "Suspend Options",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                new String[]{"Resume", "Cancel"},
+                "Resume"
+        );
+		
+		if (choice == JOptionPane.YES_OPTION) {
+			// resume
+			t.setSuspended(false);
 			progressBar.setString(null);
-			((CardLayout) panel.getLayout()).show(panel, "Progress");
+			progressBar.setEnabled(true);
+			/*
+			 * notice for treetable that cell editing was finished to render component.
+			 */
+			fireEditingStopped();//IMPORTANT
+		} else {
+			// stop
+			t.setStopped(true);
+			progressBar.setString(null);
+			//to avoid editing loop
+			TaskManager.getInstance().removeTask(t.getContext().getThreadId()); // task is deleted as explicit.
+			//progressBar.setString(null);
+			reset(isRemote, null);
+			fireEditingStopped();//IMPORTANT
 		}
+	}
+	
+	private void updateProgress(TaskContext con) {
+		progressBar.setMinimum(0);
+		progressBar.setMaximum(con.totalSize());
+		SwingUtilities.invokeLater(() -> progressBar.setValue((Integer) con.currentIndex() + 1));// 1 base for progress bar
+		((CardLayout) panel.getLayout()).show(panel, "Progress");
 	}
 
 	@Override
 	public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
 		
 		DICOMTreeTable treeTable = (DICOMTreeTable)table;
-		DICOMNode node = treeTable.nodeForRow(row);
-		if(node ==null) return panel; 
+		node = treeTable.nodeForRow(row);
+		if(node ==null) {
+			((CardLayout) panel.getLayout()).show(panel, "Empty");
+			return panel; 
+		}
 		
-		setRetrieveDICOMNode(node);
 		Task t = getTaskTypeImportByCellLocationAt(node);
-//		ImportingStateContext isc = null;
-//		if(t != null) {
-//			isc = (ImportingStateContext)t.getContext();
-//		}
 		if (t != null /* importing or suspending */) {/* STUDY Level */
 			final ImportingStateContext isc = (ImportingStateContext) t.getContext();
-			if (progressBar.getMinimum() == Integer.MIN_VALUE) {
-				progressBar.setMinimum(0);
-				progressBar.setMaximum(isc.totalSize());
-			}
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					progressBar.setValue((Integer) isc.currentIndex() + 1);// 1 base for progress bar
-				}
-			});
-			
 			if(isc.totalSize() == (isc.currentIndex() + 1) || t.isStopped()) {
-				reset(false/*retrievable*/);
+				reset(false, null);
 			}else {
-				((CardLayout) panel.getLayout()).show(panel, "Progress");
+				updateProgress(isc);
 			}
 		}else {
-			if(!isRemote) {//HOME
-				if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
-					reset(false);
-				} else if (node.getLevel() == DICOMNode.IMAGE){
-					if (QRHandler.inLocalInstance(node)) {
-						reset(false);
-					} else {//missing
-						button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
-						button.setEnabled(false);
-						((CardLayout) panel.getLayout()).show(panel, "Button");
-					}
-				}
-			}else {//REMOTE
-				if (node.getLevel() == DICOMNode.STUDY) {
-					if (QRHandler.archivedInLocalAllInstance(node)) {
-						reset(false);
-					} else {
-						reset(true);
-					}
-				} else if (node.getLevel() == DICOMNode.SERIES) {
-					if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
-						reset(false);
-					} else {
-						reset(true);
-					}
-				} else if (node.getLevel() == DICOMNode.IMAGE){
-					if (QRHandler.inLocalInstance(node)) {
-						reset(false);
-					} else {//retrievable
-						reset(true);
-					}
-				}
-			}
+			reset(isRemote, null);
 		}
 		return panel;
-	}
-	
-	public void cancelCellEditing() {
-		super.fireEditingStopped();
 	}
 	
 	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
@@ -266,28 +230,51 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 		return null;
 	}
 	
+	private void reset(boolean isRemote, Boolean dummy) {
+		if(!isRemote) {//HOME
+			if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
+				reset(false);
+			} else if (node.getLevel() == DICOMNode.IMAGE){
+				if (QRHandler.inLocalInstance(node)) {
+					reset(false);
+				} else {//missing
+					button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
+					button.setEnabled(false);
+					((CardLayout) panel.getLayout()).show(panel, "Button");
+				}
+			}
+		}else {//REMOTE
+			if (node.getLevel() == DICOMNode.STUDY) {
+				if (QRHandler.archivedInLocalAllInstance(node)) {
+					reset(false);
+				} else {
+					reset(true);
+				}
+			} else if (node.getLevel() == DICOMNode.SERIES) {
+				if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
+					reset(false);
+				} else {
+					reset(true);
+				}
+			} else if (node.getLevel() == DICOMNode.IMAGE){
+				if (QRHandler.inLocalInstance(node)) {
+					reset(false);
+				} else {//retrievable
+					reset(true);
+				}
+			}
+		}
+	}
+	
 	private void reset(boolean retrievable) {
 		if(!retrievable) {
 			button.setEnabled(false);
 			button.setIcon(localIcon);
-			button.removeActionListener(retrieve);
 		}else {
 			button.setEnabled(true);
 			button.setIcon(qrReadyIcon);
-			button.addActionListener(retrieve);
 		}
-		//reset progressbar
-		progressBar.setMinimum(Integer.MIN_VALUE);
-		progressBar.setMaximum(Integer.MAX_VALUE);
-		SwingUtilities.invokeLater(() -> {
-			((CardLayout) panel.getLayout()).show(panel, "Button");
-			cancelCellEditing();
-	        treeTable.revalidate();  // レイアウト更新
-	        treeTable.repaint();     // 画面を再描画
-	    });
+		((CardLayout) panel.getLayout()).show(panel, "Button");
 	}
 	
-	private void setRetrieveDICOMNode(DICOMNode node) {
-		this.node = node;
-	}
 }

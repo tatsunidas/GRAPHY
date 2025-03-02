@@ -44,6 +44,7 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	 * Keys
 	 */
 	//following keys Should be match in DB SQL
+	public static final String Archive = "Archive";//for archive cell
 	public static final String PatientName = "PatientName";
 	public static final String PatientID = "PatientID";
 	public static final String StudyDate= "StudyDate";
@@ -145,6 +146,7 @@ public class DICOMNode extends DefaultMutableTreeNode{
 			String instanceNumber, String accessionNumber,String numOfSeries, String numOfInstances, String studyUID, String seriesUID,
 			String sopInstaceUID) {
 		map = new HashMap<>();
+		map.put(Archive, null);
 		map.put(PatientName, pname);
 		map.put(PatientID, pid);
 		map.put(StudyDate, studyDate);

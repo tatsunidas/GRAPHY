@@ -74,11 +74,13 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 
 	private final JButton button;
 	private final JProgressBar progressBar;
+	private final JPanel empty = new JPanel();
 	
 	final ImageIcon qrReadyIcon;
 	final ImageIcon localIcon;
 	
 	DICOMTreeTable treeTable;
+	DICOMNode node;
 	
 	//now not using...
 //	ImageIcon linkIcon= Resources.LinkIcon.loadIconFromResource();
@@ -100,19 +102,20 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 		progressBar.setStringPainted(true);
 		add(button, "Button");
        add(progressBar, "Progress");
+       add(empty, "Empty");
 		//load icons
 		localIcon = Resources.ArchivedIcon.loadIconFromResource();
 		qrReadyIcon = Resources.QR_Ready_Icon.loadIconFromResource();
 	}
 
 	@Override
-	public Component getTableCellRendererComponent(JTable table, Object value/*null*/, boolean isSelected, boolean hasFocus,
+	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
 			int row, int column) {
 		DICOMTreeTable treeTable = (DICOMTreeTable)table;
-		DICOMNode node = treeTable.nodeForRow(row);
-		
+		node = treeTable.nodeForRow(row);
 		if(node == null) {
-			return null;
+			((CardLayout) getLayout()).show(this, "Empty");
+			return this;
 		}
 		
 		Task t = getTaskTypeImportByCellLocationAt(node);
@@ -122,46 +125,12 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 		}
 		
 		if(isc != null) {
-			if(progressBar.getMinimum()==Integer.MIN_VALUE && !t.isStopped()) {
-				progressBar.setMinimum(0);
-				progressBar.setMaximum(isc.totalSize());
-			}
+			progressBar.setMinimum(0);
+			progressBar.setMaximum(isc.totalSize());
 			progressBar.setValue((Integer) isc.currentIndex()+1);//1 base for progress bar
 			((CardLayout) getLayout()).show(this, "Progress");
 		}else {
-			if(!isRemote) {//HOME
-				if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
-					reset(false);
-				} else if (node.getLevel() == DICOMNode.IMAGE){
-					if (QRHandler.inLocalInstance(node)) {
-						reset(false);
-					} else {//missing
-						button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
-						button.setEnabled(false);
-						((CardLayout)getLayout()).show(this, "Button");
-					}
-				}
-			}else {//REMOTE
-				if (node.getLevel() == DICOMNode.STUDY) {
-					if (QRHandler.archivedInLocalAllInstance(node)) {
-						reset(false);
-					} else {
-						reset(true);
-					}
-				} else if (node.getLevel() == DICOMNode.SERIES) {
-					if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
-						reset(false);
-					} else {
-						reset(true);
-					}
-				} else if (node.getLevel() == DICOMNode.IMAGE){
-					if (QRHandler.inLocalInstance(node)) {
-						reset(false);
-					} else {//retrievable
-						reset(true);
-					}
-				}
-			}
+			reset(isRemote, null);
 		}
 		return this;
 	}
@@ -177,7 +146,7 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 					ImportingStateContext isc = (ImportingStateContext) con;
 					if(isc.getThreadId() == tid) {
 						Thread thr = tm.getThread(tid);
-						if(t != null && thr.isAlive() && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
+						if(t != null && thr != null && thr.isAlive() && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
 							return t;
 						}
 					}
@@ -185,6 +154,42 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 			}
 		}
 		return null;
+	}
+	
+	private void reset(boolean isRemote, Boolean dummy) {
+		if(!isRemote) {//HOME
+			if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
+				reset(false);
+			} else if (node.getLevel() == DICOMNode.IMAGE){
+				if (QRHandler.inLocalInstance(node)) {
+					reset(false);
+				} else {//missing
+					button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
+					button.setEnabled(false);
+					((CardLayout) getLayout()).show(this, "Button");
+				}
+			}
+		}else {//REMOTE
+			if (node.getLevel() == DICOMNode.STUDY) {
+				if (QRHandler.archivedInLocalAllInstance(node)) {
+					reset(false);
+				} else {
+					reset(true);
+				}
+			} else if (node.getLevel() == DICOMNode.SERIES) {
+				if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
+					reset(false);
+				} else {
+					reset(true);
+				}
+			} else if (node.getLevel() == DICOMNode.IMAGE){
+				if (QRHandler.inLocalInstance(node)) {
+					reset(false);
+				} else {//retrievable
+					reset(true);
+				}
+			}
+		}
 	}
 	
 	private void reset(boolean retrievable) {
@@ -196,8 +201,5 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 			button.setIcon(qrReadyIcon);
 		}
 		((CardLayout) getLayout()).show(this, "Button");
-		//reset progressbar
-		progressBar.setMinimum(Integer.MIN_VALUE);
-		progressBar.setMaximum(Integer.MAX_VALUE);
 	}
 }

@@ -275,19 +275,26 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 	}
 	
 	public int rowForNode(DICOMNode node) {
-		TreeTableModelAdapter ttm = (TreeTableModelAdapter) getModel();
-		for (int i = 0; i < ttm.getRowCount(); i++) {
-			DICOMNode n = (DICOMNode) ttm.nodeForRow(i);
-			if (node == n) {
-				return i;
-			}
-		}
-		return -1;
+//		TreeTableModelAdapter ttm = (TreeTableModelAdapter) getModel();
+//		for (int i = 0; i < ttm.getRowCount(); i++) {
+//			DICOMNode n = (DICOMNode) ttm.nodeForRow(i);
+//			if (node == n) {
+//				return i;
+//			}
+//		}
+//		return -1;
+		return ((TreeTableModelAdapter) getModel()).rowForNode(node);
 	}
 
 	public DICOMNode nodeForRow(int row) {
 //		int ind = convertRowIndexToModel(row);//DO NOT USE for nodeForRow.
 		return (DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row);
+	}
+	
+	public void removeRow(int row) {
+		if(row >= 0) {
+			((TreeTableModelAdapter) getModel()).removeRow(row);
+		}
 	}
 
 	public int getParticularStudyRow(String patID,String StudyUID) {

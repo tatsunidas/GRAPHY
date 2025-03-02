@@ -37,13 +37,19 @@
  */
 package com.vis.core.ui.main.dcmtreetable;
 
+import javax.swing.tree.DefaultMutableTreeNode;
+
 /**
+ * TreeModel for DICOMTreeTable.
+ * 
+ * If you want something to do, you can handle by "TreeTableModelAdapter".
  * 
  * @author tatsunidas
  *
  */
-public class DICOMTreeTableModel extends AbstractTreeTableModel {
+public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 	
+	private static final long serialVersionUID = -4830975177975801077L;
 	public static final String DatasetsCol = "Datasets"; 
 	public static final String ArchivedCol = "Archived"; 
 
@@ -92,8 +98,7 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 		/**
 		 * set root at super class.
 		 */
-		super(null);
-		this.root = root;
+		super((DefaultMutableTreeNode)root);
 	}
 	
 	@Override
@@ -129,11 +134,11 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 	@Override
 	public Object getValueAt(Object node, int column) {
 		if (node == null) {
-			return node;
+			return null;
 		}
 		switch (column) {
 		case 0:
-			return null;//((DICOMNode) node).getLevelString();//level string
+			return ((DICOMNode) node).getLevel();//level (int)
 		case 1://Archived
 			return null;
 		case 2:// pname
@@ -180,12 +185,99 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel {
 		return null;
 	}
 	
+	/**
+	 * aValue will handle as String.
+	 * if Date obj, throw exception. it should be convert to String before setData().
+	 */
+	@Override
+	public void setValueAt(Object aValue, Object node, int column) {
+		if (node == null) {
+			return;
+		}
+		if(aValue instanceof java.util.Date || aValue instanceof java.sql.Date) {
+			throw new IllegalArgumentException("Date obj should be convert String before setData.");
+		}
+		//numeric to string
+		String v = String.valueOf(aValue);
+		switch (column) {
+		case 0:
+			//do nothing
+			break;
+		case 1://Archived
+			((DICOMNode) node).setData(DICOMNode.Archive, v);
+			break;
+		case 2:// pname
+			((DICOMNode) node).setData(DICOMNode.PatientName, v);
+			break;
+		case 3:// pid
+			((DICOMNode) node).setData(DICOMNode.PatientID, v);
+			break;
+		case 4:// studyDate
+			((DICOMNode) node).setData(DICOMNode.StudyDate, v);
+			break;
+		case 5:// seriesDate
+			((DICOMNode) node).setData(DICOMNode.SeriesDate, v);
+			break;
+		case 6:// studyTime
+			((DICOMNode) node).setData(DICOMNode.StudyTime, v);
+			break;
+		case 7:// acquisitiontime
+			((DICOMNode) node).setData(DICOMNode.AcquisitionTime,v);
+			break;
+		case 8:// studyDesc
+			((DICOMNode) node).setData(DICOMNode.StudyDescription,v);
+			break;
+		case 9:// seriesDesc
+			((DICOMNode) node).setData(DICOMNode.SeriesDescription,v);
+			break;
+		case 10:// modality
+			((DICOMNode) node).setData(DICOMNode.Modality,v);
+			break;
+		case 11:// sex
+			((DICOMNode) node).setData(DICOMNode.Sex,v);
+			break;
+		case 12:// birthDate
+			((DICOMNode) node).setData(DICOMNode.BirthDate,v);
+			break;
+		case 13:// age
+			((DICOMNode) node).setData(DICOMNode.Age,v);
+			break;
+		case 14:// institution
+			((DICOMNode) node).setData(DICOMNode.Institution,v);
+			break;
+		case 15:// modelname
+			((DICOMNode) node).setData(DICOMNode.ModelName,v);
+			break;
+		case 16:// seriesNumber
+			((DICOMNode) node).setData(DICOMNode.SeriesNumber,v);
+			break;
+		case 17:// acquisitionNumber
+			((DICOMNode) node).setData(DICOMNode.AcquisitionNumber,v);
+			break;
+		case 18:// instanceNumber
+			((DICOMNode) node).setData(DICOMNode.InstanceNumber,v);
+			break;
+		case 19:// numOfSeries
+			((DICOMNode) node).setData(DICOMNode.NumOfSeries,v);
+			break;
+		case 20:// numOfInstances
+			((DICOMNode) node).setData(DICOMNode.NumOfInstances,v);
+			break;
+		default:
+			break;
+		}
+	}
+	
 	public boolean isCellEditable(Object node, int column) {
 		return getColumnClass(column) == TreeTableModel.class;
 	}
 	
-	public void reload(Object node) {
-		this.root = node;
-		fireTreeStructureChanged(DICOMTreeTableModel.this, new Object[] {node}, null, null);
+	@Deprecated
+	/**
+	 * Use TreeTableModeAdapter.reload() instead.
+	 */
+	public void reload(Object root) {
+		setRoot((DefaultMutableTreeNode)root);
+		fireTreeStructureChanged(DICOMTreeTableModel.this, new Object[] {root}, null, null);
 	}
 }

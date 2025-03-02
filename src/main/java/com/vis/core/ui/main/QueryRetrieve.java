@@ -54,7 +54,6 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.table.TableColumnModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.dcm4che3.data.Attributes;
@@ -73,7 +72,6 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
-import com.vis.core.ui.main.dcmtreetable.QRStateCellEditor;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
@@ -106,8 +104,6 @@ public class QueryRetrieve implements Task {
 	
 	// Threading
 	private Thread thisThread;
-	// watch folder thread
-	private Thread watchThread;
 	boolean suspend = false;
 	protected boolean stopped;// same as cancel
 	protected boolean sleepScheduled;
@@ -757,52 +753,6 @@ public class QueryRetrieve implements Task {
 		}
 	}
 
-	public void startWatching(int totalNumOfWillRetreive) {
-		/* start temp folder listening */
-		Runnable task = new Runnable() {
-			@Override
-			public void run() {
-				try {
-					watchTempDir(totalNumOfWillRetreive);
-				} catch (IOException | InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-		};
-		watchThread = new Thread(task);
-		watchThread.start();
-	}
-
-	/* do in thread::startWatching */
-	private void watchTempDir(int totalNumOfWillRetreive) throws IOException, InterruptedException {
-		Path dir = Paths.get(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName));
-		WatchService watcher = FileSystems.getDefault().newWatchService();
-		dir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE);
-		int process = 0;
-		while (totalNumOfWillRetreive != process) {
-			WatchKey watchKey = watcher.take();
-			for (WatchEvent<?> event : watchKey.pollEvents()) {
-				if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-					continue;
-				} else if (event.kind() == StandardWatchEventKinds.ENTRY_DELETE) {
-					continue;
-				}
-				WatchEvent<Path> ev = cast(event);
-				Path name = ev.context();
-				Path child = dir.resolve(name);
-				String newfile = String.format("%s", child);// full path
-				store(newfile);
-//				deleteFile(newfile, name);//see, StoreSCU.storeInstance2Graphy
-				process = process + 1;
-			}
-			watchKey.reset();
-		}
-		Log.logger.info("Watching Loop process end...");
-		if (process != totalNumOfWillRetreive) {
-			Log.logger.warning("Should check whether done correctly retrieve images...");
-		}
-	}
-
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
 		return (WatchEvent<T>) event;
@@ -834,7 +784,7 @@ public class QueryRetrieve implements Task {
 	
 	private void performRetrieve() {
 		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
-			stopImport();
+			setStopped(true);
 			return;
 		}
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
@@ -844,6 +794,20 @@ public class QueryRetrieve implements Task {
 		int count = 0;
 		int size = candidateInfoSet.size();
 		while (!(count == size) && !(isStopped())) {
+			synchronized (this) {
+				if (isSuspended()) {
+					try {
+						this.wait();
+					} catch (InterruptedException ie) {
+						setStopped(true);
+						break;
+					}
+				}
+			}
+			if (Thread.interrupted()) {
+				setStopped(true);
+				break;
+			}
 			if (sleepScheduled) {
 				try {
 					Thread.sleep(SLEEP_TIME);
@@ -864,45 +828,33 @@ public class QueryRetrieve implements Task {
 			Log.logger.fine("QR:Retrieving, ProgressAt:" + currentRow + " " + currentCol);
 			
 			//20250227 replace update_con
-			HashMap<String, Object> update_con = new HashMap<>();
-			update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-			update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-			update_con.put(TaskContext.SIZE, candidateInfoSet.size());
-			update_con.put(TaskContext.CURRENT_IND, count);
-			if(count == 0) {
+			if(count  == 0) {
+				HashMap<String, Object> update_con = new HashMap<>();
+				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+				update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+				update_con.put(TaskContext.SIZE, candidateInfoSet.size());
+				update_con.put(TaskContext.CURRENT_IND, count);
 				con = new ImportingStateContext(infoset[1], update_con);
 			}else {
-				con.updateState(update_con);
+				HashMap<String, Object> updation = new HashMap<>();
+				updation.put(TaskContext.CURRENT_IND, count);
+				//task context always update, even if failed import.
+				con.updateState(updation);
 			}
-//			treeTable.revalidate();// NEED
-//			treeTable.repaint();
 			/* count up */
 			count++;
-			synchronized (this) {
-				if (isSuspended()) {
-					try {
-						this.wait();
-						setSuspended(false);
-					} catch (InterruptedException ie) {
-						setStopped(true);
-						break;
-					}
-				}
-			}
-			if (Thread.interrupted()) {
-				setStopped(true);
-				break;
-			}
+			/*
+			 * IMPRTANT
+			 */
+			treeTable.revalidate();
+			treeTable.repaint();
 		} // while loop end
 		done();
-		treeTable.getTableHeader().setEnabled(true);
 	}
 	
 	public void done() {
-		stopImport();
+		setStopped(true);
 		retreiveReady = false;
-		TaskManager tm = TaskManager.getInstance();
-		tm.removeTask(con.getThreadId());
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -910,9 +862,15 @@ public class QueryRetrieve implements Task {
 				if(win != null) {
 					MainScreen main = (MainScreen)win;
 					main.updateQRTreeTables();
+					TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+					TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
+					DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
+					treeTable.getTableHeader().setEnabled(true);
 				}
 			}
 		});
+		TaskManager tm = TaskManager.getInstance();
+		tm.removeTask(con.getThreadId());
 	}
 
 	public Thread getThread() {
@@ -937,13 +895,15 @@ public class QueryRetrieve implements Task {
 	}
 
 	public synchronized void setSuspended(boolean suspend) {
-		// already suspended, restart.
-		if (suspended && !suspend) {
-			suspended = suspend;
+		if(suspended && suspend) {
+			//do nothing
+		}else if(!suspended && suspend) {
+			suspended = true;
+		}else if(suspended && !suspend) {
+			suspended = false;
 			resume();
-		} else {
-			// suspend.
-			suspended = suspend;
+		}else if(!suspended && !suspend) {
+			//do nothing
 		}
 	}
 
@@ -960,7 +920,6 @@ public class QueryRetrieve implements Task {
 	}
 
 	public void stopImport() {
-//		watchThread.interrupt();
 		if(thisThread != null) {
 			setStopped(true);
 		}
