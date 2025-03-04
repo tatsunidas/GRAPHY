@@ -32,6 +32,7 @@ public enum GraphyProp {
 	Viewer2DScreenY,
 	LookAndFeels,
 	RefreshQRTreeTableOn,
+	IgnoreNullSearchKeyWarning,
 	Viewer2DScreenWidth,
 	MainScreenWidth,
 	FontSize,

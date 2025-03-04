@@ -55,7 +55,6 @@ import java.util.Properties;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -69,8 +68,6 @@ import org.jdatepicker.impl.JDatePanelImpl;
 import org.jdatepicker.impl.JDatePickerImpl;
 import org.jdatepicker.impl.UtilDateModel;
 
-import com.vis.core.facade.WindowManager;
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.StringUtils;
 import com.vis.dicom.Modality;
 
@@ -85,6 +82,8 @@ public class SearchToolBar extends JToolBar{
 	 */
 	private static final long serialVersionUID = 2534156319392459059L;
 	
+	MainScreen dbScreen;
+	
 	private JPanel panel;
 	private JButton searchBtn;
 	private JTextField patIDField;
@@ -97,7 +96,8 @@ public class SearchToolBar extends JToolBar{
 	private final String datePattern = "yyyy/MM/dd";
 	private SimpleDateFormat dateFormatter = new SimpleDateFormat(datePattern);
 	
-	public SearchToolBar() {
+	public SearchToolBar(MainScreen dbScreen) {
+		this.dbScreen = dbScreen;
 		init();
 	}
 	
@@ -133,7 +133,7 @@ public class SearchToolBar extends JToolBar{
 		searchBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				searchDBOnCurrentConditions();
+				dbScreen.searchCurrentConditions();
 			}
 		});
 		Font font = new Font(Font.SANS_SERIF, Font.BOLD, 14);
@@ -268,17 +268,17 @@ public class SearchToolBar extends JToolBar{
 		return new DocumentListener() {
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				queryAndUpdateTreeTableByPID();
+				queryAndUpdateTreeTableByDocumentListnerWithPID();
 			}
 			
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				queryAndUpdateTreeTableByPID();
+				queryAndUpdateTreeTableByDocumentListnerWithPID();
 			}
 			
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				queryAndUpdateTreeTableByPID();
+				queryAndUpdateTreeTableByDocumentListnerWithPID();
 			}
 		};
 	}
@@ -293,31 +293,16 @@ public class SearchToolBar extends JToolBar{
 		return selected;
 	}
 	
-	public void queryAndUpdateTreeTableByPID() {
+	/**
+	 * for DocumentListener.
+	 */
+	private void queryAndUpdateTreeTableByDocumentListnerWithPID() {
 		String pid = patIDField.getText();
 		if (pid != null && !pid.trim().isBlank()) {
-			searchDBOnCurrentConditions();
+			dbScreen.searchCurrentConditions();
 		}
 	}
 	
-	public void searchDBOnCurrentConditions(){
-		String patID = getString(patIDField);
-		String patName = getString(pNameField);
-		String from = getTermFrom();
-		String to = getTermTo();
-		if(isTodaySelected()) {
-			from = getTodayString();
-			to = null;
-		}
-		ArrayList<String> m = getSelectedModalities();
-		if(nullSearchKeys()) {
-			int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show whole dataset in DB ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			if(res != JOptionPane.OK_OPTION) {
-				return;
-			}
-		}
-		new QueryRetrieve().queryAndUpadateTreeTableByTextSearch(patID, patName, from, to, m);
-	}
 	
 	public boolean nullSearchKeys() {
 		String patID = getString(patIDField);

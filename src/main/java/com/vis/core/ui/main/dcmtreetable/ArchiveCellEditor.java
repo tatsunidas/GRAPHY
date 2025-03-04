@@ -63,7 +63,7 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.MissingIcon;
-import com.vis.core.ui.main.QRHandler;
+import com.vis.core.ui.main.QRUtil;
 import com.vis.core.ui.main.QueryRetrieve;
 import com.vis.dicom.DicomCommunicationNode;
 
@@ -235,7 +235,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
 				reset(false);
 			} else if (node.getLevel() == DICOMNode.IMAGE){
-				if (QRHandler.inLocalInstance(node)) {
+				if (QRUtil.inLocalInstance(node)) {
 					reset(false);
 				} else {//missing
 					button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
@@ -245,19 +245,19 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			}
 		}else {//REMOTE
 			if (node.getLevel() == DICOMNode.STUDY) {
-				if (QRHandler.archivedInLocalAllInstance(node)) {
+				if (QRUtil.archivedInLocalAllInstance(node)) {
 					reset(false);
 				} else {
 					reset(true);
 				}
 			} else if (node.getLevel() == DICOMNode.SERIES) {
-				if (QRHandler.archivedInAllInstancesRelatedSeries(node)) {
+				if (QRUtil.archivedInAllInstancesRelatedSeries(node)) {
 					reset(false);
 				} else {
 					reset(true);
 				}
 			} else if (node.getLevel() == DICOMNode.IMAGE){
-				if (QRHandler.inLocalInstance(node)) {
+				if (QRUtil.inLocalInstance(node)) {
 					reset(false);
 				} else {//retrievable
 					reset(true);

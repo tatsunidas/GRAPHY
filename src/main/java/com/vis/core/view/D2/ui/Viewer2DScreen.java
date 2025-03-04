@@ -179,7 +179,11 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			return;
 		}
 		ArrayList<DICOMNode> nodes = WindowManager.getMainScreen().getSelectedNode();
-		loadImagesOnStageThroughDB(nodes);
+		if(nodes == null) {
+			Log.logger.info("Plase select table rows.");
+			return;
+		}
+		loadImagesOnStage(nodes);
 		String patID = nodes.get(0).getData(DICOMNode.PatientID);
 		sdm.toTop(patID);
 		revalidate();
@@ -196,7 +200,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 	 * 
 	 * @param nodes
 	 */
-	private void loadImagesOnStageThroughDB(ArrayList<DICOMNode> nodes) {
+	public void loadImagesOnStage(ArrayList<DICOMNode> nodes) {
 		if (this.db == null) {
 			return;
 		}
@@ -216,7 +220,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		
 		ArrayList<String> doneImages = new ArrayList<String>();
 		
-		// search selected node on study level
+		// search study level
 		for (DICOMNode node : nodes) {
 			int level = node.getLevel();
 			if (level == DICOMNode.STUDY) {
@@ -229,7 +233,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			}
 		}
 
-		// search selected node on series level
+		// search series level node from selected node
 		for (DICOMNode node : nodes) {
 			int level = node.getLevel();
 			if (level == DICOMNode.SERIES) {
@@ -239,13 +243,16 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				if (!selectedSeries.contains(patID + studyUID + seriesUID)) {
 					selectedSeries.add(patID + studyUID + seriesUID);
 				}
+				/*
+				 * if series was specified, will not load all images from study.
+				 */
 				if (selectedStudies.contains(patID + studyUID)) {
 					selectedStudies.remove(patID + studyUID);
 				}
 			}
 		}
 		
-		//search selected node on image level (primary)
+		//search image level node from selected node
 		for (DICOMNode imageNode : nodes) {
 			int level = imageNode.getLevel();
 			if (level == DICOMNode.IMAGE) {
@@ -253,13 +260,19 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				String studyUID = imageNode.getData(DICOMNode.StudyInstanceUID);
 				String seriesUID = imageNode.getData(DICOMNode.SeriesInstanceUID);
 				imageLevelNodes.add(imageNode);
-				// check whether selected upper level
+				/*
+				 * if image was specified, will not load all images in series.
+				 */
+				// check whether already selected above
 				if (selectedSeries.contains(patID + studyUID + seriesUID)) {
 					selectedSeries.remove(patID + studyUID + seriesUID);
 				}
 			}
 		}
 
+		/*
+		 * load collected datasets
+		 */
 		// search study node
 		for (DICOMNode node : nodes) {
 			int level = node.getLevel();
@@ -267,11 +280,14 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				String patID = node.getData(DICOMNode.PatientID);
 				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 				/*
-				 * Study nodes for which no series node was selected will display all images.
+				 * Study nodes for which no series node were selected will display all images.
 				 */
 				if(!selectedStudies.contains(patID+studyUID)) {
 					continue;
 				}
+				/*
+				 * if through, load all series and images in study. 
+				 */
 				// search series
 				ArrayList<DICOMNode> seriesNodes = (ArrayList<DICOMNode>) node.getChildren();
 				for (DICOMNode seriesNode : seriesNodes) {
@@ -304,7 +320,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			}
 		} // end selected study node loop
 
-		// second, select series level nodes
+		// second, load series level nodes
 		for (DICOMNode node : nodes) {
 			int level = node.getLevel();
 			if (level == DICOMNode.SERIES) {
@@ -317,6 +333,9 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				if (!selectedSeries.contains(patID + studyUID + seriesUID)) {
 					continue;
 				}
+				/*
+				 * if go through, load all images in series.
+				 */
 				// search images in selected node
 				ArrayList<String> sopUIDs = new ArrayList<String>();
 				ArrayList<DICOMNode> img_nodes = (ArrayList<DICOMNode>) node.getChildren();
@@ -342,12 +361,15 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 			}
 		} // end selected series node loop
 		
-		// finally, aggregate image level nodes
+		// finally, load remaining image level nodes
 		for (DICOMNode node : imageLevelNodes) {
 			String patID = node.getData(DICOMNode.PatientID);
 			String studyUID = node.getData(DICOMNode.StudyInstanceUID);
 			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
 			String sopUID = node.getData(DICOMNode.SOPInstanceUID);
+			/*
+			 * if already loaded above, skipped.
+			 */
 			if(doneImages.contains(patID + studyUID + seriesUID + sopUID)) {
 				continue;
 			}

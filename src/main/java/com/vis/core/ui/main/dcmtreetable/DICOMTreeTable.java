@@ -53,7 +53,6 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
 import com.vis.core.util.PropertiesUtil;
-import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 
@@ -95,7 +94,7 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 			this.remote = remote;
 		}
 		//keep default cell renderer with JTreeTable.TreeTableCellRenderer
-		//change default cell editor to ICOMTreeTableCellEditor, to handle Archive col actions.
+		//change default cell editor to DICOMTreeTableCellEditor, to handle Archive col actions.
 		setDefaultEditor(TreeTableModel.class, new DICOMTreeTableCellEditor(this));
 		ArchiveCellRenderer acr = new ArchiveCellRenderer(isQR);
 		ArchiveCellEditor ace = new ArchiveCellEditor(this);
@@ -119,7 +118,7 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		 * Set Listeners
 		 */
 		/*set mouse listener*/
-//		new TreeTableMouseListener(this);
+		new TreeTableMouseListener(this);
 		if(!isQR) {
 			/* set drop listener for importing */
 			new DropTarget(this, new TreeTableDropListener());
@@ -135,26 +134,6 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		
 		/* To avoid mouse moving tree node selection */
 		setDragEnabled(false);//get dnd.InvalidDnDOperationException: Drag and drop in progress
-		
-		/*
-		 * Sort
-		 */
-		DICOMTreeTable dcmTreeTable = this;
-		getTableHeader().addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent e) {
-				int col = columnAtPoint(e.getPoint());
-				String colname = getColumnName(col);
-				if(Utils.isDebug) System.out.println("Column index selected " + col + " " + colname);
-				// sortTree
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						new TreeTableNodeSorter().sort(dcmTreeTable, colname);
-					}
-				});
-			}
-		});
 		
 		/* to manage column order */
 		getColumnModel().addColumnModelListener(new TableColumnModelListener() {
@@ -182,6 +161,25 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 	        @Override
 	        public void columnSelectionChanged(ListSelectionEvent e) {}
 	    });
+		
+		/*
+		 * Sort.
+		 * Sorter acquire tree table model, so set near end to fail safe set-up.
+		 */
+		TreeTableNodeSorter sorter = new TreeTableNodeSorter(this);
+		getTableHeader().addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int col = columnAtPoint(e.getPoint());
+				String colname = getColumnName(col);
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						sorter.sort(colname);
+					}
+				});
+			}
+		});
 		
 		/*
 		 * View settings

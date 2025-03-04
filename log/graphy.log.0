@@ -1,71 +1,628 @@
-3月 02, 2025 8:19:42 午後 com.vis.core.facade.ApplicationFacade load_version
+3月 04, 2025 3:39:55 午後 com.vis.core.facade.ApplicationFacade load_version
 情報: Application Version: 0.0.1-SNAPSHOT
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf loadPlugins
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf loadPlugins
 情報: Loading PlugIns...
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugInWithExternals.jar
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugIn.class
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/plugins/HelloGraphyPlugInInJar.jar
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/./lib/jfreechart-1.5.5.jar
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginClassLoader addJar
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginClassLoader addJar
 情報: plugin class or jar: file:/home/tatsunidas/graphy-workspace3/graphy/./lib/javax.servlet-api-4.0.1.jar
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST START*************
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugInInJar - HelloGraphyPlugInInJar
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugInInJarWithExternalJars - HelloGraphyPlugInInJarWithExternalJars
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: Loaded plugins:HelloGraphyPlugIn - HelloGraphyPlugIn
-3月 02, 2025 8:19:42 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
+3月 04, 2025 3:39:55 午後 com.vis.core.plugin.PluginShelf checkLoadedPlugIns
 情報: ************PLUGINS LIST END**************
-3月 02, 2025 8:19:43 午後 com.vis.db.DatabaseHandler startingUp
+3月 04, 2025 3:39:56 午後 com.vis.db.DatabaseHandler startingUp
 情報: Current DB location: /home/tatsunidas/TEST_DB2
-3月 02, 2025 8:19:46 午後 com.vis.core.ui.main.MainScreen loadLastGraphicConfiguration
-普通: MainScreen::GraphicsConfiguration: X11GraphicsConfig[dev=X11GraphicsDevice[screen=0],vis=0x21]
-3月 02, 2025 8:19:47 午後 com.vis.dicom.dimse.EchoImpl echo
+3月 04, 2025 3:40:00 午後 com.vis.dicom.dimse.EchoImpl echo
 情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-3月 02, 2025 8:19:48 午後 com.vis.dicom.dimse.EchoImpl echo
+3月 04, 2025 3:40:01 午後 com.vis.dicom.dimse.EchoImpl echo
 情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-3月 02, 2025 8:19:48 午後 com.vis.dicom.dimse.EchoImpl echo
+3月 04, 2025 3:40:01 午後 com.vis.dicom.dimse.EchoImpl echo
 情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
-3月 02, 2025 8:19:48 午後 com.vis.core.ui.main.TabDock ancestorAdded
+3月 04, 2025 3:40:01 午後 com.vis.core.ui.main.TabDock ancestorAdded
 情報: debug : In Main Frame: HOME
-3月 02, 2025 8:19:55 午後 com.vis.core.ui.main.QueryRetrieve queryAndUpadateTreeTableByTextSearch
-普通: QR Pane : Home
-3月 02, 2025 8:20:16 午後 com.vis.dicom.DicomFileCollection collectCandidates
-普通: Number of dicomdir is 0 found
-3月 02, 2025 8:20:16 午後 com.vis.dicom.DicomFileCollection collectCandidates
-普通: Number of instances is 6 found
-3月 02, 2025 8:20:19 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
-情報: M-WRITE:GRAPHY<-STORESCU(8),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
-3月 02, 2025 8:20:19 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
-情報: RENAME:GRAPHY<-STORESCU(8), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
-3月 02, 2025 8:20:21 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+3月 04, 2025 3:40:06 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:40:15 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:40:16 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:40:16 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:40:16 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:40:16 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:40:16 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:40:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 04, 2025 3:40:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/6D339127
+3月 04, 2025 3:40:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 04, 2025 3:40:20 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/5B13D698
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/D1117D36
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF
+3月 04, 2025 3:40:21 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4
+3月 04, 2025 3:40:23 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:40:25 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:40:31 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : LocalSVR
+3月 04, 2025 3:40:31 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:40:36 午後 com.vis.core.ui.main.dcmtreetable.TreeTableMouseListener mouseClicked
+警告: 2D Viewer missing...
+3月 04, 2025 3:44:37 午後 com.vis.core.view.D2.ui.Viewer2DToolBar setAction
+普通: reset
+3月 04, 2025 3:46:50 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:47:45 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:47:48 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:47:50 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 04, 2025 3:47:50 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 04, 2025 3:47:51 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 04, 2025 3:47:51 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
+普通: Datasets column pressed
+3月 04, 2025 3:47:52 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:47:53 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : LocalSVR
+3月 04, 2025 3:47:53 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:47:57 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:47:59 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:49:17 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:49:25 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(38),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:49:25 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(38), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 04, 2025 3:49:26 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
 情報: DB-WROTE
-GRAPHY<-STORESCU(8)
-3月 02, 2025 8:20:22 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
-情報: M-WRITE:GRAPHY<-STORESCU(10),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
-3月 02, 2025 8:20:22 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
-情報: RENAME:GRAPHY<-STORESCU(10), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
-3月 02, 2025 8:20:23 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+GRAPHY<-STORESCU(38)
+3月 04, 2025 3:49:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:49:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(41),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(41), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
 情報: DB-WROTE
-GRAPHY<-STORESCU(10)
-3月 02, 2025 8:20:24 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
-情報: M-WRITE:GRAPHY<-STORESCU(12),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
-3月 02, 2025 8:20:24 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
-情報: RENAME:GRAPHY<-STORESCU(12), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
-3月 02, 2025 8:20:24 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+GRAPHY<-STORESCU(41)
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:49:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:49:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(44),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(44), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/6D339127
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
 情報: DB-WROTE
-GRAPHY<-STORESCU(12)
-3月 02, 2025 8:21:51 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
-普通: Datasets column pressed
-3月 02, 2025 8:21:51 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
-普通: Datasets column pressed
-3月 02, 2025 8:21:52 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
-普通: Datasets column pressed
-3月 02, 2025 8:21:52 午後 com.vis.core.ui.main.dcmtreetable.DICOMTreeTableCellEditor isCellEditable
-普通: Datasets column pressed
+GRAPHY<-STORESCU(44)
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:49:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:49:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(47),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(47), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/D1117D36
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(47)
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:49:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:49:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(50),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(50), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/5B13D698
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(50)
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:49:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:49:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(53),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(53), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(53)
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:49:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:49:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:49:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:49:32 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:49:33 午後 com.vis.core.view.D2.ui.StageView componentAdded
+普通: added !!!
+3月 04, 2025 3:52:13 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:52:16 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:52:17 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:52:17 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:52:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:52:17 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:52:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:52:18 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/6D339127
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/5B13D698
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteFile
+普通: Success file deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/D1117D36
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF
+3月 04, 2025 3:52:20 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4
+3月 04, 2025 3:52:21 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(57),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(57), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/3A65785F
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(57)
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:52:26 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:52:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:26 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(60),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(60), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/A4783051
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(60)
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:52:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:52:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(63),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(63), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/6D339127
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(63)
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:52:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:52:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(66),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(66), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/D1117D36
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(66)
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:52:29 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:29 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:52:29 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:29 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(69),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(69), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/5B13D698
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(69)
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:52:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:52:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(72),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(72), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/EA35C0D0
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(72)
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:52:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:52:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:52:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:52:31 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:52:35 午後 com.vis.core.view.D2.ui.StageView ancestorAdded
+普通: ...StageDock still stay in dock: LGG-104
+3月 04, 2025 3:52:47 午後 com.vis.core.view.D2.ui.Viewer2DScreen windowClosing
+普通: Viewer2DScreen::Viewer2DScreen closing...
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(76),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(76), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/FBDF64E5
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(76)
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.282458327535946361056329805465
+3月 04, 2025 3:55:27 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:55:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:27 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(79),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(79), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/96D7C44F
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(79)
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.144840175916404829102580067370
+3月 04, 2025 3:55:28 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:55:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:28 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(82),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(82), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/A69CB822/2AB1E4B3
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(82)
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151/1.3.6.1.4.1.14519.5.2.1.3344.2526.235676319780793771342804283078
+3月 04, 2025 3:55:30 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.290843139448249569449245338151
+3月 04, 2025 3:55:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:30 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(85),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(85), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/11EB1E13
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(85)
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.822300353163249433135796359543
+3月 04, 2025 3:55:31 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:55:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:31 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(88),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(88), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/65622F64
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(88)
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.454184915119417464610546013810
+3月 04, 2025 3:55:32 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:55:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:32 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.DcmQRSCP storeTo
+情報: M-WRITE:GRAPHY<-STORESCU(91),/home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.DcmQRSCP renameTo
+情報: RENAME:GRAPHY<-STORESCU(91), /home/tatsunidas/TEST_DB2/archive/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400, /home/tatsunidas/TEST_DB2/archive/DICOM/317F62D4/681BADCF/153D4BCF/0F41E506
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.DcmQRSCP$CStoreSCPImpl store
+情報: DB-WROTE
+GRAPHY<-STORESCU(91)
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *Temp Graphy Image File Deleted after stored*
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002/1.3.6.1.4.1.14519.5.2.1.3344.2526.297543010293189724140766218400
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.StoreSCU storeInstance2Graphy
+普通: *********************************************
+3月 04, 2025 3:55:33 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523/1.3.6.1.4.1.14519.5.2.1.3344.2526.641668975271574884290627862002
+3月 04, 2025 3:55:33 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104/1.3.6.1.4.1.14519.5.2.1.3344.2526.291265840929678567019499305523
+3月 04, 2025 3:55:33 午後 com.vis.core.util.DeleteFolder deleteDirectory
+普通: Success folder deletion: /home/tatsunidas/graphy-workspace3/graphy/./temp/LGG-104
+3月 04, 2025 3:55:33 午後 com.vis.dicom.dimse.EchoImpl echo
+情報: C-ECHO:localDcmURL:GRAPHY_Echo@localhost:22221
+3月 04, 2025 3:55:34 午後 com.vis.core.view.D2.ui.StageView componentAdded
+普通: added !!!
+3月 04, 2025 3:55:37 午後 com.vis.core.view.D2.ui.StageView ancestorAdded
+普通: ...StageDock still stay in dock: LGG-104
+3月 04, 2025 3:55:42 午後 com.vis.core.view.D2.ui.Viewer2DScreen windowClosing
+普通: Viewer2DScreen::Viewer2DScreen closing...
+3月 04, 2025 3:56:38 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:56:41 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:56:45 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:56:46 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:58:57 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:58:58 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:58:59 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:59:16 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:59:16 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:59:20 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:59:21 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 3:59:23 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 3:59:49 午後 com.vis.core.ui.main.MainScreen queryAndUpadateTreeTable
+普通: TreeTableDock : Home
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 3:59:52 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:00:08 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:00:10 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:00:11 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:00:22 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:00:22 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:00:24 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:00:25 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:05:30 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:05:32 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 4:05:32 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 4:05:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:05:32 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:05:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:05:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:05:39 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:09:28 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:09:29 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: LocalSVR
+3月 04, 2025 4:09:30 午後 com.vis.core.ui.main.TabDock ancestorAdded
+情報: debug : In Main Frame: HOME
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 3 images loaded.
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:09:33 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.Praparat constructSlideGlassesFromPraparat
+普通: 5 images loaded.
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: FilmGridCellSize: 125
+3月 04, 2025 4:09:35 午後 com.vis.core.view.D2.ui.glasses.SlideGlassGrid update
+普通: cell size:125
+3月 04, 2025 4:09:52 午後 com.vis.core.facade.ApplicationFacade exitApp
+情報: Shutting down graphy...
+3月 04, 2025 4:09:54 午後 com.vis.db.DatabaseHandler shutdownDB
+情報: com.vis.db.DatabaseHandler: shutdown correctly, graphydb

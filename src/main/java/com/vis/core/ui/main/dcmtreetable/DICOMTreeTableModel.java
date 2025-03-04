@@ -274,7 +274,7 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 	
 	@Deprecated
 	/**
-	 * Use TreeTableModeAdapter.reload() instead.
+	 * Use TreeTableModelAdapter.reload() instead.
 	 */
 	public void reload(Object root) {
 		setRoot((DefaultMutableTreeNode)root);

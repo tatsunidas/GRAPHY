@@ -54,6 +54,7 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.DateUtils;
+import com.vis.core.util.DeleteFolder;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiGeometry;
 import com.vis.dicom.DicomCommunicationNode;
@@ -371,6 +372,7 @@ public class DatabaseHandler {
 		 * file, delete parent directory folder too.
 		 */
 		boolean saveAsLink = isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID);
+		//file path
 		String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
 
 		String statement = "DELETE FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
@@ -380,7 +382,7 @@ public class DatabaseHandler {
 		pstmt.setString(3, seriesUID);
 		pstmt.setString(4, sopUID);
 
-		if (saveAsLink) {
+		if (saveAsLink) {/*delete only record*/
 			if (pstmt.executeUpdate() == 1) {// execute deletion
 				if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) == 0) {
 					if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
@@ -394,39 +396,42 @@ public class DatabaseHandler {
 					}
 				}
 			}
-		} else {
-			if (pstmt.executeUpdate() == 1) {//delete in record first
-				File instance = new File(storeURI);
-				File parent = instance.getParentFile();
-				if (!instance.delete()) {
-					logger.log(Level.SEVERE, "Cannot delete image instance file...\n" + instance.getAbsolutePath());
-				}
-				if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) == 0) {
-					File seriesDir = new File(parent.getAbsolutePath());
-					parent = seriesDir.getParentFile();
-					if (!seriesDir.delete()) {
-						logger.log(Level.SEVERE, "Cannot delete series dir...\n" + seriesDir.getAbsolutePath());
-					}
-					if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
-						if (getNumOfSeries(patID, studyUID) == 0) {
-							File studyDir = new File(parent.getAbsolutePath());
-							parent = studyDir.getParentFile();
-							if (!studyDir.delete()) {
-								logger.log(Level.SEVERE,
-										"Cannot delete empty study dir...\n" + studyDir.getAbsolutePath());
-							}
-							if (deleteStudyRecord(patID, studyUID)) {
-								if (getNumOfStudyParticularPatient(patID) == 0) {
-									if (!parent.delete()) {
+		} else {//delete both record and file
+			File instance = new File(storeURI);
+			File seriesDir = instance.getParentFile();
+			if(DeleteFolder.deleteFile(instance)) {//delete file first
+				if (pstmt.executeUpdate() == 1) {
+					if (getNumOfInstanceInSeries(patID, studyUID, seriesUID) == 0) {
+						File studyDir = seriesDir.getParentFile();
+						if(DeleteFolder.deleteDirectory(seriesDir)) {//delete file first
+							if (deleteSeriesRecord(patID, studyUID, seriesUID)) {
+								if (getNumOfSeries(patID, studyUID) == 0) {
+									File patDir = studyDir.getParentFile();
+									if(DeleteFolder.deleteDirectory(studyDir)) {
+										if (deleteStudyRecord(patID, studyUID)) {
+											if (getNumOfStudyParticularPatient(patID) == 0) {
+												if(DeleteFolder.deleteDirectory(patDir)) {
+													//ask would you like delete patient level record ???
+													deletePatientRecord(patID);
+												}else {
+													logger.log(Level.SEVERE,
+															"Cannot delete patient dir...\n" + patDir.getAbsolutePath());
+												}
+											}
+										}
+									}else {
 										logger.log(Level.SEVERE,
-												"Cannot delete empty patient dir...\n" + parent.getAbsolutePath());
+												"Cannot delete study dir...\n" + studyDir.getAbsolutePath());
 									}
-									deletePatientRecord(patID);
 								}
 							}
+						}else {
+							logger.log(Level.SEVERE, "Cannot delete series dir...\n" + seriesDir.getAbsolutePath());
 						}
 					}
 				}
+			}else {
+				logger.log(Level.SEVERE, "Cannot delete image instance file...\n" + storeURI);
 			}
 		}
 		if (pstmt != null && !pstmt.isClosed()) {
@@ -4188,9 +4193,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	/*
-	 * nodeにuserObjectとして各マテリアルをもたせる。
-	 */
+	
 	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeys(String patID, String from, String to,
 			ArrayList<String> modalities) {
 
@@ -4376,17 +4379,18 @@ public class DatabaseHandler {
 		return studiesList;// DO NOT return NULL.
 	}
 
+	/**
+	 * TODO 
+	 * 
+	 * @param patID
+	 * @param patName
+	 * @param from
+	 * @param to
+	 * @param modalities
+	 * @return
+	 */
 	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeysUsingPatName(String patID, String patName,
 			String from, String to, ArrayList<String> modalities) {
-
-		// debug
-//		logger.info("Search performed...");
-//		System.out.println(patID);
-//		System.out.println(patName);
-//		System.out.println(from);
-//		System.out.println(to);
-//		System.out.println(modalities);
-
 		/* Construct STUDY Query Statement */
 		ArrayList<String> keys = new ArrayList<>();
 		StringBuilder sb = new StringBuilder();

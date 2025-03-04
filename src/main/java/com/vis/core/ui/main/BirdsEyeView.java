@@ -378,13 +378,11 @@ public class BirdsEyeView extends JPanel{
 		
 		/*
 		 * film grid view
-		 * Exclude following series
-		 * - Series includes only one image.
-		 * - PDF, MultiFrame
+		 * Exclude MultiFrame
 		 */
-		
 		//show same series in single grid view
-		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
+//		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
+		if(!isMultiFrame) {
 			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(null);

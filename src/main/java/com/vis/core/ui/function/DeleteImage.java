@@ -113,7 +113,7 @@ public class DeleteImage {
 			try {
 				DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 			} catch (SQLException e) {
-				e.printStackTrace();
+				Log.logger.severe(e.getLocalizedMessage());
 			}
 		}
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();

@@ -54,8 +54,10 @@ import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.LookAndFeels;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
@@ -69,6 +71,7 @@ import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.DimseUtilities;
 
 import javax.swing.JMenuBar;
+import javax.swing.JOptionPane;
 
 import java.awt.BorderLayout;
 import java.awt.Cursor;
@@ -189,7 +192,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		}
 	}
 	
-	public TreeTableDockManager getCurrentTreeTableManager() {
+	public TreeTableDockManager getTreeTableDockManager() {
 		return this.tabDockManager;
 	}
 	
@@ -243,7 +246,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				if(!svrReady) {
 					continue;
 				}
-				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
+				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve().queryToDay(svr));
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
@@ -283,7 +286,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		 * today query is default
 		 */
 		String patID = null;//anybody
-		String from = QRHandler.getTodayString("/");
+		String from = QRUtil.getTodayString("/");
 		String to = null;
 		ArrayList<String> modalities = null;
 		//study list
@@ -311,10 +314,12 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		});
 	}
-
-	// see QueryRetrieve
+	
+	/**
+	 * mimic method, but easy to use for me.
+	 */
 	public void refleshAnchorTreeTable() {
-		getMainSearchToolBar().searchDBOnCurrentConditions();
+		searchCurrentConditions();
 	}
 	
 	/**
@@ -338,6 +343,60 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenHeight, lastMainScreenH);
 	}
 	
+	/**
+	 * to avoid mimic confusion for me. 
+	 */
+	public void searchCurrentConditions(){
+		queryAndUpadateTreeTable();
+	}
+	
+	public void queryAndUpadateTreeTable(){
+		if(searchToolBar.nullSearchKeys() && !Utils.ignoreNullSearchKeyWarning()) {
+			int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			if(res != JOptionPane.OK_OPTION) {
+				return;
+			}
+		}
+		HashMap<String, Object> keys = searchToolBar.getCurrentSearchConditions();
+		String patID = (String)keys.get("PatientID");
+		String patName = (String)keys.get("PatientName");
+		String from = (String)keys.get("From");
+		String to = (String)keys.get("To");
+		@SuppressWarnings("unchecked")
+		ArrayList<String> m = (ArrayList<String>)keys.get("Modalities");
+		queryAndUpadateTreeTable(patID, patName, from, to, m, false/*ask null search key*/);
+	}
+	
+	public void queryAndUpadateTreeTable(String patID, String patName, String from, String to,
+			ArrayList<String> modalities, boolean askNullSearchKey) {
+		if(askNullSearchKey) {
+			if(searchToolBar.nullSearchKeys()) {
+				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				if(res != JOptionPane.OK_OPTION) {
+					return;
+				}
+			}
+		}
+		TreeTableDockManager tabDockMng = getTreeTableDockManager();
+		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
+		if (anchorTreeTableTitle.equals("HOME")) {
+			Log.logger.fine("TreeTableDock : Home");
+			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
+					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
+			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
+			TabDock currentDock = tabDockMng.getHomeDock();
+			currentDock.updateTreeTable(newRoot);
+		} else {
+			Log.logger.fine("TreeTableDock : " + anchorTreeTableTitle);
+			TabDock anchorDock = tabDockMng.getParticularDockFromMap(anchorTreeTableTitle);
+			String nickname = anchorTreeTableTitle;
+			/* root */
+			DICOMNode queryResults = new QueryRetrieve().querySimpleSearchKeys(nickname, patID, patName, from, to,
+					modalities);
+			anchorDock.updateTreeTable(queryResults);
+		}
+	}
+	
 	private void setContents() {
 		//Menubar
 		mainMenu = new MainScreenMenu();
@@ -354,7 +413,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		mainNorthPanel.add(mainToolBar,BorderLayout.NORTH);
 		
 		/* SearchToolBar */
-		searchToolBar = new SearchToolBar();
+		searchToolBar = new SearchToolBar(this);
 		mainNorthPanel.add(searchToolBar,BorderLayout.CENTER);
 		add(mainNorthPanel, BorderLayout.NORTH);
 		
@@ -482,7 +541,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 
 	public void showImagesOnBirdsEye() {
-		TreeTableDockManager ttdm = getCurrentTreeTableManager();
+		TreeTableDockManager ttdm = getTreeTableDockManager();
 		if(!ttdm.getCurrentAnchorTitle().equals(TreeTableDockManager.homeTabName)) {
 			return;
 		}
@@ -608,7 +667,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTableModel model = new DICOMTreeTableModel(root);
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 			}else{//addNew
-				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve().startQRTable(svr));
+				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve().queryToDay(svr));
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 				/* add or update Dock */
 				try {

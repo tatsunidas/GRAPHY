@@ -40,13 +40,6 @@ package com.vis.core.ui.main;
 import java.awt.Window;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,7 +47,6 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -69,9 +61,9 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
-import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.core.util.DeleteFolder;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
@@ -110,6 +102,8 @@ public class QueryRetrieve implements Task {
 	protected boolean suspended;
 	public final static int SLEEP_TIME = 1000;
 	
+	boolean copyToTemp = false;
+	
 	public QueryRetrieve() {
 		thisThread = new Thread(this);
 		stopped = false;
@@ -117,13 +111,13 @@ public class QueryRetrieve implements Task {
 		suspended = false;
 	}
 
-	public DICOMNode startQRTable(DicomCommunicationNode dest) {
+	public DICOMNode queryToDay(DicomCommunicationNode dest) {
 		/*
 		 * today query is default
 		 */
 		boolean fuzzy = false;
 		List<String> studyKeys = new ArrayList<String>();
-		studyKeys.add("StudyDate=" + QRHandler.getTodayString(""));//yyyyMMdd
+		studyKeys.add("StudyDate=" + QRUtil.getTodayString(""));//yyyyMMdd
 		return query(dest, fuzzy, null /*patKeys*/, studyKeys, null, null);
 	}
 
@@ -153,7 +147,7 @@ public class QueryRetrieve implements Task {
 		return query(dest, false, patKeys, studyKeys, modalities);
 	}
 
-	public DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
+	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
 			ArrayList<String> modalities) {
 		ArrayList<DICOMNode> rootResultList = new ArrayList<DICOMNode>();
 		if (modalities != null && modalities.size() > 0) {
@@ -166,14 +160,6 @@ public class QueryRetrieve implements Task {
 			rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, null, null));
 		}
 		rootResultList.removeAll(Collections.singleton(null));
-		if (rootResultList == null || rootResultList.size() == 0 || rootResultList.isEmpty()) {
-			int noKeys = JOptionPane.showConfirmDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()),
-					"This query does not have any search keys, continue to load all study ?", "No search keys",
-					JOptionPane.OK_CANCEL_OPTION);
-			if (noKeys == JOptionPane.CANCEL_OPTION) {
-				return null;
-			}
-		}
 		List<DICOMNode> studies = new ArrayList<DICOMNode>();
 		for (DICOMNode rootResult : rootResultList) {
 			List<DICOMNode> studiesResult = (List<DICOMNode>) rootResult.getChildren();
@@ -186,7 +172,7 @@ public class QueryRetrieve implements Task {
 	 * keys-> -m,"key=value"... statements; usage=findscu [options] -c
 	 * <aet>@<host>:<port> [--] [<dicom-file>|<xml-file>...]
 	 */
-	public DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
+	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
 			List<String> seriesKeys, List<String> instKeys) {
 		// echo
 		if (!DimseUtilities.echo(dest)) {
@@ -214,14 +200,6 @@ public class QueryRetrieve implements Task {
 		studyKeys.removeAll(Collections.singleton(null));
 		seriesKeys.removeAll(Collections.singleton(null));
 		instKeys.removeAll(Collections.singleton(null));
-		if ((patKeys.size() == 0) && (studyKeys.size() == 0) && (seriesKeys.size() == 0) && (instKeys.size() == 0)) {
-			int noKeys = JOptionPane.showConfirmDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()),
-					"This query does not have any search keys, continue to load all study ?", "No search keys",
-					JOptionPane.OK_CANCEL_OPTION);
-			if (noKeys == JOptionPane.CANCEL_OPTION) {
-				return null;
-			}
-		}
 		// Patient Level QR and set root.
 		ArrayList<Attributes> patResps = queryPatientLevel(dest, patKeys, fuzzy);
 		if (patResps != null) {
@@ -267,10 +245,9 @@ public class QueryRetrieve implements Task {
 	}
 
 	/*
-	 * http://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_C.3.4.
-	 * html
+	 * http://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_C.3.4.html
 	 */
-	public ArrayList<Attributes> queryPatientLevel(DicomCommunicationNode dest, List<String> patKeys, boolean fuzzy) {
+	private ArrayList<Attributes> queryPatientLevel(DicomCommunicationNode dest, List<String> patKeys, boolean fuzzy) {
 		// set dest
 		ArrayList<String> connectTo = new ArrayList<>();
 		connectTo.add("-c");
@@ -332,7 +309,7 @@ public class QueryRetrieve implements Task {
 	 * queryKeys can include pid and pname, study date study time ModalitiesInStudy
 	 * StudyIUID
 	 */
-	public ArrayList<Attributes> queryStudyLevel(DicomCommunicationNode dest, String patID, List<String> studyKeys) {
+	private ArrayList<Attributes> queryStudyLevel(DicomCommunicationNode dest, String patID, List<String> studyKeys) {
 
 		// set dest
 		ArrayList<String> connectTo = new ArrayList<>();
@@ -402,7 +379,7 @@ public class QueryRetrieve implements Task {
 	 * @param seriesKeys
 	 * @return
 	 */
-	public ArrayList<Attributes> querySeriesLevel(DicomCommunicationNode dest, String patID, String studyIUID,
+	private ArrayList<Attributes> querySeriesLevel(DicomCommunicationNode dest, String patID, String studyIUID,
 			List<String> seriesKeys) {
 		// create series request
 		// set dest
@@ -468,7 +445,7 @@ public class QueryRetrieve implements Task {
 	 * @param instKeys
 	 * @return
 	 */
-	public ArrayList<Attributes> queryInstanceLevel(DicomCommunicationNode dest, String patID, String studyIUID,
+	private ArrayList<Attributes> queryInstanceLevel(DicomCommunicationNode dest, String patID, String studyIUID,
 			String seriesIUID, List<String> instKeys) {
 		// create image request
 		// set dest
@@ -699,11 +676,23 @@ public class QueryRetrieve implements Task {
 		}
 		return candidate;
 	}
-
-	/*
-	 * image by image retrieve.
+	
+	/**
+	 * Prepare import to DB.
+	 * @param dest
+	 * @param studynode
 	 */
 	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode) {
+		prepareRetrieve(dest, studynode, false);
+	}
+
+	/**
+	 * 
+	 * @param dest
+	 * @param studynode
+	 * @param copyToTemp : if true, do not store to db. just output temp file dir(temp/studyUID/seriesUID/./). 
+	 */
+	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode, boolean copyToTemp) {
 		this.candidateInfoSet = null;
 		this.candidateInfoSet = prepareCandidate(studynode);
 		this.dest = dest;
@@ -721,73 +710,70 @@ public class QueryRetrieve implements Task {
 		TaskManager tm = TaskManager.getInstance();
 		tm.addTask(thisThread.getId(), this);
 		
+		this.copyToTemp = copyToTemp;
+		
 		stopped = false;
 		sleepScheduled = true;// useful for debug
 		suspended = false;
 		/* must to run first this method */
 		retreiveReady = true;
 	}
-
-	public void queryAndUpadateTreeTableByTextSearch(String patID, String patName, String from, String to,
-			ArrayList<String> modalities) {
-		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
-		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
-		if (anchorTreeTableTitle.equals("HOME")) {
-			Log.logger.fine("QR Pane : Home");
-			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
-					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
-//			if(selectedStudiesMaterials == null || selectedStudiesMaterials.size() < 1) {
-//				return;
-//			}
-			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
-			TabDock currentDock = tabDockMng.getHomeDock();
-			currentDock.updateTreeTable(newRoot);
-		} else {
-			if(Utils.isDebug) Log.logger.info("QR Pane : " + anchorTreeTableTitle);
-			TabDock anchorDock = tabDockMng.getParticularDockFromMap(anchorTreeTableTitle);
-			String nickname = anchorTreeTableTitle;
-			/* root */
-			DICOMNode queryResults = new QueryRetrieve().querySimpleSearchKeys(nickname, patID, patName, from, to,
-					modalities);
-			anchorDock.updateTreeTable(queryResults);
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
-		return (WatchEvent<T>) event;
-	}
-
+	
 	// need synchronizes
 	/**
 	 * used to only QR task!
 	 */
-	public synchronized void store(String read_file) {
+	public synchronized void store(String read_file, File tempStoredDirWillDelete) {
 		String listenerDetail[] = DatabaseHandler.getInstance().getListenerDetails();
 		String aet = listenerDetail[0];
 		String host = listenerDetail[1];
 		int port = Integer.valueOf(listenerDetail[2]);
 		String args[] = { "-c", aet + "@" + host + ":" + port, read_file };
 		com.vis.dicom.dimse.StoreSCU.storeInstance2Graphy(args, true);
+		if(tempStoredDirWillDelete != null) {
+			DeleteFolder.deleteDirectory(tempStoredDirWillDelete);
+		}
 	}
 
-	public void getInstanceToTemp(DicomCommunicationNode dest, String patID, String studyIUID, String seriesIUID,
-			String sopIUID) {
-		String aet = dest.getAETitle();
-		String host = dest.getHostName();
-		int port = dest.getPort();
+	/**
+	 * 
+	 * @param dest()
+	 * @param patID
+	 * @param studyIUID
+	 * @param seriesIUID
+	 * @param sopIUID
+	 * @return retrieve destination
+	 * @throws IOException
+	 */
+	public File getInstanceToTemp(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
+			String sopIUID) throws IOException {
+		String aet = remote.getAETitle();
+		String host = remote.getHostName();
+		int port = remote.getPort();
+		/*
+		 * keep strict substance path for instance.
+		 */
+		File tempRetriveDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID+File.separator+studyIUID+File.separator+seriesIUID);
+		if(!tempRetriveDir.exists()) {
+			if(!tempRetriveDir.mkdirs()) {
+				IOException e = new IOException("Cannot create temp dir for retrive...");
+				throw e;
+			}
+		}
 		String args[] = { "-c", aet + "@" + host + ":" + port, "-L", "IMAGE", "-m", "PatientID=" + patID, "-m",
 				"StudyInstanceUID=" + studyIUID, "-m", "SeriesInstanceUID=" + seriesIUID, "-m",
-				"SOPInstanceUID=" + sopIUID, "--directory", Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)};
+				"SOPInstanceUID=" + sopIUID, "--directory", tempRetriveDir.getAbsolutePath()};
 		GetSCU.main(args);
+		return tempRetriveDir;
 	}
 	
 	private void performRetrieve() {
 		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
 			setStopped(true);
+			Log.logger.warning("Retrieve taget is null ?? please check what you wolud retrieve.");
 			return;
 		}
-		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		treeTable.getTableHeader().setEnabled(false);// stop table sort feature.
@@ -818,16 +804,21 @@ public class QueryRetrieve implements Task {
 			/* retrieve */
 			String infoset[] = candidateInfoSet.get(count);
 			// copy to temp dir
-			getInstanceToTemp(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
-			// retrieve and delete temp file
-			String instancePath = new File(ConfigInfo.getPath(ConfigInfo.TemporalDirName)).listFiles()[0].getAbsolutePath();
-			store(instancePath);
-			/* get info from QRTable */
-			int currentRow = treeTable.getParticularStudyRow(infoset[0], infoset[1]);
-			int currentCol = treeTable.getArchivedColumnPosition();
-			Log.logger.fine("QR:Retrieving, ProgressAt:" + currentRow + " " + currentCol);
+			File retrieveDir = null;
+			try {
+				retrieveDir = getInstanceToTemp(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
+			} catch (IOException e) {
+				Log.logger.severe(e.getLocalizedMessage());
+				break;
+			}
+			File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+infoset[0]);
 			
-			//20250227 replace update_con
+			if(!copyToTemp) {
+				// retrieve and delete temp file
+				String instancePath = retrieveDir.listFiles()[0].getAbsolutePath();
+				store(instancePath, tempRetriveParentDir/*delete after stored*/);
+			}
+			
 			if(count  == 0) {
 				HashMap<String, Object> update_con = new HashMap<>();
 				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
@@ -844,7 +835,7 @@ public class QueryRetrieve implements Task {
 			/* count up */
 			count++;
 			/*
-			 * IMPRTANT
+			 * IMPRTANT to update cell editor.
 			 */
 			treeTable.revalidate();
 			treeTable.repaint();
@@ -862,7 +853,7 @@ public class QueryRetrieve implements Task {
 				if(win != null) {
 					MainScreen main = (MainScreen)win;
 					main.updateQRTreeTables();
-					TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+					TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 					TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
 					DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 					treeTable.getTableHeader().setEnabled(true);
@@ -940,5 +931,4 @@ public class QueryRetrieve implements Task {
 	public void start() {
 		thisThread.start();
 	}
-
 }

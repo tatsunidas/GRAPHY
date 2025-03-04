@@ -357,4 +357,20 @@ public class Utils {
 		}
 		return color;
 	}
+	
+	public static boolean isQRRefreshOn() {
+		String refreshOnString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn);
+		if(refreshOnString == null || refreshOnString.isBlank()) {
+			return false;
+		}
+		return Boolean.parseBoolean(refreshOnString.toLowerCase());
+	}
+	
+	public static boolean ignoreNullSearchKeyWarning() {
+		String ignore = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.IgnoreNullSearchKeyWarning);
+		if(ignore == null || ignore.isBlank()) {
+			return false;
+		}
+		return Boolean.parseBoolean(ignore.toLowerCase());
+	}
 }

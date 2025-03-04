@@ -66,6 +66,7 @@ import com.vis.core.ui.FontSettings;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.PropertiesUtil;
+import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 
 import java.awt.Component;
@@ -93,6 +94,7 @@ public class GeneralPrefs extends JPanel{
 	JComboBox<String> comboBox_laf;
 	JButton btnSetDefault;
 	JCheckBox chckbxOn;
+	JCheckBox chckbxIgnore;
 	
 	LookAndFeels laf = ApplicationFacade.getLookAndFeels();
 	final Integer defaultFontSize = 12;
@@ -249,15 +251,34 @@ public class GeneralPrefs extends JPanel{
 		gbc_chckbxOn.gridy = 6;
 		add(chckbxOn, gbc_chckbxOn);
 		
-		String refreshOnString = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn);
-		if(refreshOnString !=null) {
-			//if "true", return true. no exception.
-			boolean refreshOn = Boolean.parseBoolean(refreshOnString.toLowerCase());
-			if(refreshOn) {
-				chckbxOn.setSelected(true);
-			}else {
-				chckbxOn.setSelected(false);
-			}
+		if(Utils.isQRRefreshOn()) {
+			chckbxOn.setSelected(true);
+		}else {
+			chckbxOn.setSelected(false);
+		}
+		
+		JLabel lblInoreNullSearchKey = new JLabel("Ignore null search key warning");
+		GridBagConstraints gbc_lblInoreNullSearchKey = new GridBagConstraints();
+		gbc_lblInoreNullSearchKey.anchor = GridBagConstraints.EAST;
+		gbc_lblInoreNullSearchKey.insets = new Insets(0, 0, 5, 5);
+		gbc_lblInoreNullSearchKey.gridx = 2;
+		gbc_lblInoreNullSearchKey.gridy = 7;
+		add(lblInoreNullSearchKey, gbc_lblInoreNullSearchKey);
+		
+		chckbxIgnore = new JCheckBox("Ignore");
+		chckbxIgnore.setToolTipText("Ignore null search key warning");
+		GridBagConstraints gbc_chckbxIgnore = new GridBagConstraints();
+		gbc_chckbxIgnore.anchor = GridBagConstraints.WEST;
+		gbc_chckbxIgnore.gridwidth = 4;
+		gbc_chckbxIgnore.insets = new Insets(0, 0, 5, 5);
+		gbc_chckbxIgnore.gridx = 3;
+		gbc_chckbxIgnore.gridy = 7;
+		add(chckbxIgnore, gbc_chckbxIgnore);
+		
+		if(Utils.ignoreNullSearchKeyWarning()) {
+			chckbxIgnore.setSelected(true);
+		}else {
+			chckbxIgnore.setSelected(false);
 		}
 		
 		Component rigidArea_2 = Box.createRigidArea(new Dimension(20, 20));
@@ -428,13 +449,24 @@ public class GeneralPrefs extends JPanel{
 				if (e.getStateChange() == ItemEvent.SELECTED) {
 					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn, "true");
 					WindowManager.getMainScreen().qrAutoRefreshOn = true;
-					TreeTableDockManager dttm = WindowManager.getMainScreen().getCurrentTreeTableManager();
+					TreeTableDockManager dttm = WindowManager.getMainScreen().getTreeTableDockManager();
 					dttm.startRefreshQRTableTimer();
 				} else {
 					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn, "false");
 					WindowManager.getMainScreen().qrAutoRefreshOn = false;
-					TreeTableDockManager dttm = WindowManager.getMainScreen().getCurrentTreeTableManager();
+					TreeTableDockManager dttm = WindowManager.getMainScreen().getTreeTableDockManager();
 					dttm.stopRefreshQRTableTimer();
+				}
+			}
+		});
+		
+		chckbxIgnore.addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() == ItemEvent.SELECTED) {
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.IgnoreNullSearchKeyWarning, "true");
+				} else {
+					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.IgnoreNullSearchKeyWarning, "false");
 				}
 			}
 		});

@@ -63,7 +63,7 @@ public class JTreeTable extends JTable {
 		tree.setExpandsSelectedPaths(true);
 		
 		// Install a tableModel representing the visible rows in the tree.
-		super.setModel(new TreeTableModelAdapter(treeTableModel, tree));
+		setModel(new TreeTableModelAdapter(treeTableModel, tree));
 
 		// Force the JTable and JTree to share their row selection models.
 		ListToTreeSelectionModelWrapper selectionWrapper = new ListToTreeSelectionModelWrapper();

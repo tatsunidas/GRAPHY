@@ -20,6 +20,7 @@ import javax.swing.event.ChangeListener;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
+import com.vis.core.ui.main.QRUpdater;
 import com.vis.core.ui.main.TabDock;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -238,7 +239,8 @@ public class TreeTableDockManager extends JTabbedPane {
 	public void startRefreshQRTableTimer() {
 		boolean refreshOn = Boolean.parseBoolean(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RefreshQRTreeTableOn));
 		if(this.updater == null && refreshOn && docks.size() > 1) {
-			this.updater = new QRUpdater();//run
+			this.updater = new QRUpdater();
+			this.updater.start(3000, 20000);//run
 		}else if (this.updater != null && refreshOn){
 			stopRefreshQRTableTimer();
 			startRefreshQRTableTimer();

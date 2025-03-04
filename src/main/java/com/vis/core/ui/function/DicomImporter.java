@@ -131,7 +131,7 @@ public class DicomImporter implements Task {
 	
 	private void perform() {
 		int count = 0;
-		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getCurrentTreeTableManager();
+		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 		TabDock homeDock = tabDockMng.getHomeDock();
 		DICOMTreeTable treeTable = homeDock.getDICOMTreeTable();
 		while (count != total && !isStopped()) {

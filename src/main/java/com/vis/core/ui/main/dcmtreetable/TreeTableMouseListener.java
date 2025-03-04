@@ -40,12 +40,18 @@ package com.vis.core.ui.main.dcmtreetable;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.main.QueryRetrieve;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.db.DatabaseHandler;
 
@@ -57,10 +63,12 @@ import com.vis.db.DatabaseHandler;
 public class TreeTableMouseListener implements MouseListener{
 	
 	private DICOMTreeTable treeTable;
+	private final boolean isRemote;
 	
 	public TreeTableMouseListener(DICOMTreeTable treeTable) {
 		this.treeTable=treeTable;
 		this.treeTable.addMouseListener(this);
+		isRemote = treeTable.isQR;
 	}
 
 	@Override
@@ -87,76 +95,70 @@ public class TreeTableMouseListener implements MouseListener{
 //			popup.add(item1);
 //			popup.show(e.getComponent(), e.getX(), e.getY());
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() != 2) {
-			int row = treeTable.rowAtPoint(e.getPoint());
-			DICOMNode target = treeTable.nodeForRow(row);
-			if(target == null) {
-				return;
+			if(!isRemote) {
+				int row = treeTable.rowAtPoint(e.getPoint());
+				DICOMNode target = treeTable.nodeForRow(row);
+				if(target == null) {
+					return;
+				}
+				/*
+				 * show on the bird's eye
+				 */
+				WindowManager.getMainScreen().showImagesOnBirdsEye();
+			}else {
+				//do nothiing
 			}
-			/*
-			 * show on the bird's eye
-			 */
-			WindowManager.getMainScreen().showImagesOnBirdsEye();
 		}else if(SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2) {
-			/*
-			 * double clicked
-			 * show 2d viewer
-			 */
-			
-			//if icon in tree is double clicked, return and do not show on 2dviewer.
-			//to avoid tree expand traffic. see, JTreeTable.TreeTableCellEditor. 
 			int columnIndex = treeTable.columnAtPoint(e.getPoint());
 			//Datasets column (tree icon column) have TreeTable.class as ColumnClass.
 			if (treeTable.getColumnClass(columnIndex) == TreeTableModel.class) {
 				return;
 			}
-			
 			int row = treeTable.rowAtPoint(e.getPoint());
 //			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());//same result
 			DICOMNode node = treeTable.nodeForRow(row);
 			if(node == null) return;
-			
-			Viewer2DScreen viewer = (Viewer2DScreen) WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
+			final Viewer2DScreen viewer = Viewer2DScreen.getInstance();//WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());/*may cause null*/
 			if (viewer == null) {
-				viewer = Viewer2DScreen.getInstance();
+				Log.logger.warning("2D Viewer missing...");
+				return;
 			}
-			
-			int level = node.getLevel();
-			String patID = node.getData(DICOMNode.PatientID);
-			String studyUID = node.getData(DICOMNode.StudyInstanceUID);
-			DatabaseHandler db = DatabaseHandler.getInstance();
-			
-			if (level == DICOMNode.STUDY) {
-				// search series
-				ArrayList<String> seriesUIDs = db.getSeriesUidList(patID, studyUID);
-				for(String seriesUID:seriesUIDs) {
-					ArrayList<String> instUIDs = db.getInstanceUidList(patID, studyUID, seriesUID);
-					String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID" ,patID, studyUID, seriesUID, instUIDs.get(0));
-					if (instUIDs.size() > 0) {
-						//load image through db
-						viewer.loadImagesOnStage(patID, studyUID, seriesUID,
-								instUIDs.toArray(new String[instUIDs.size()]), frameOfRefUID);
-					}else {
-						Log.logger.info("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
-					}
-				}
-			}else if(level == DICOMNode.SERIES) {
-				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-				ArrayList<String> instUIDs = db.getInstanceUidList(patID, studyUID, seriesUID);
-				if (instUIDs.size() > 0) {
-					String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID" ,patID, studyUID, seriesUID, instUIDs.get(0));
-					viewer.loadImagesOnStage(patID, studyUID, seriesUID,
-							instUIDs.toArray(new String[instUIDs.size()]), frameOfRefUID);
-				}else {
-					Log.logger.info("This study does not has any images..., pid:"+patID+", studyuid:"+studyUID);
-				}
-			}else if(level == DICOMNode.IMAGE){
-				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-				String instUID = node.getData(DICOMNode.SOPInstanceUID);
-				String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID" ,patID, studyUID, seriesUID, instUID);
-				viewer.loadImagesOnStage(patID, studyUID, seriesUID, new String[] {instUID}, frameOfRefUID);
-			}
-			if (!viewer.isVisible()) {
+			if(!isRemote) {
+				ArrayList<DICOMNode> clicked = new ArrayList<>();
+				clicked.add(node);
+				viewer.loadImagesOnStage(clicked);
 				viewer.setVisible(true);
+				viewer.toFront();
+			}else{
+				String msg = "GRAPHY will retrieve to show images on viewer.\n";
+				msg += "YES : Retrieve to DB and then show images on viewer.\n";
+				msg += "NO : Cancel";
+				int res = JOptionPane.showOptionDialog(
+						treeTable, 
+						"Load images from Remote DB?", 
+						msg, 
+						JOptionPane.YES_NO_OPTION, 
+						JOptionPane.QUESTION_MESSAGE,
+						null,
+						new String[] {"Retrieve", "Cancel"},
+						"Retrieve"	);
+				if(res == JOptionPane.YES_OPTION) {
+					QueryRetrieve qr = new QueryRetrieve();
+					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node, false/* false means will load to db*/);
+					qr.start();
+					new Thread(() -> {
+						try {
+							qr.getThread().join(); // waiting finish qr task on background.
+							Thread.sleep(1000);
+						} catch (InterruptedException ie) {
+							Log.logger.warning(ie.getLocalizedMessage());
+						}
+						viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
+								(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
+						viewer.setVisible(true);
+						viewer.toFront();
+					}).start();
+				}
 			}
 		}
 	}

@@ -37,6 +37,11 @@
  */
 package com.vis.core.task;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public enum TaskType {
 
 	TypeImport,

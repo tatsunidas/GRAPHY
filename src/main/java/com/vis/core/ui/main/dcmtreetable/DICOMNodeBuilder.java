@@ -21,9 +21,9 @@ public class DICOMNodeBuilder {
 	 * @return
 	 */
 	public DICOMNode buildRootNodeUsingTreeNodes(ArrayList<DefaultMutableTreeNode> rootMaterials) {
-//		if(rootMaterials == null) {
-//			return null;
-//		}
+		if(rootMaterials == null) {
+			throw new IllegalArgumentException("DICOMNodeBuilder acquire non null root node materials.");
+		}
 		ArrayList<DICOMNode> studies = new ArrayList<DICOMNode>();
 		for(DefaultMutableTreeNode studyMaterialNode:rootMaterials) {//study loop
 			@SuppressWarnings("unchecked")

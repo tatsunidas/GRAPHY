@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.util.ArrayList;
@@ -10,11 +47,15 @@ import javax.swing.event.RowSorterEvent;
 import javax.swing.event.RowSorterListener;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
-import javax.swing.tree.DefaultTreeModel;
 
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements RowSorterListener{
 	
 	DICOMTreeTable treeTable;
@@ -22,19 +63,11 @@ public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements R
 	TreeTableModelAdapter adapter;//for table
 	
 	// reject if colName is included in rejectlist
-	// SHOULD keep same value to TreeTable Column Names, check also DICOMNode keys(but not same as this.).
-	String[] rejectListStrings = new String[] { "Datasets", "Archived", "SeriesDate", "AquisitionTime",
-			"SeriesDesc", "SeriesNo", "AcquisitionNo", "InstanceNo", "SeriesInstanceUID" };
-	/**/
-//	columnNames
-//	{ "Dataset", "Archived", "PatientName", "PatientID", "StudyDate",
-//			"SeriesDate", "StudyTime", "AquisitionTime", "StudyDesc", "SeriesDesc", "Modality", "Sex", "BirthDate",
-//			"Age", "Institution", "ModelName", "SeriesNo", "AcquisitionNo", "InstanceNo", "NumOfSeries",
-//			"NumOfInstances" };
-	/**/
-	ArrayList<String> rejectFilter = new ArrayList<>(Arrays.asList(rejectListStrings));
+	// SHOULD keep same value to DICOMTreeTableModel Column Names.
+	String[] rejectListStrings = new String[] { DICOMTreeTableModel.DatasetsCol, DICOMTreeTableModel.ArchivedCol, DICOMNode.SeriesDate, DICOMNode.AcquisitionTime,
+			"SeriesDesc", "SeriesNo", "AcquisitionNo", "InstanceNo"};
 	
-	public TreeTableNodeSorter() {}//for table sort
+	ArrayList<String> rejectFilter = new ArrayList<>(Arrays.asList(rejectListStrings));
 	
 	public TreeTableNodeSorter(DICOMTreeTable treeTable) {
 		super((TreeTableModelAdapter) treeTable.getModel());
@@ -51,45 +84,16 @@ public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements R
 		}
 	}
 	
-	/* for treetable sort */
-	void sort(	DICOMTreeTable treeTable, String columnName) {
-		/*
-		 * 実際使うときには、たくさんのソート項目は不要。
-		 * Studyレベルの項目をソート可能にする
-		 * 
-		 * //Keys
-		 * Dataset：return(Tree selves)
-		 * "Retrieved":return
-		 * "PatientName"(root>patient pattern || root>study pattern)
-		 * "PatientID"(root>patient pattern || root>study pattern)
-		 * "StudyDate"(root>study pattern)
-		 * "SeriesDate":return
-		 * "StudyTime":return（スタディDATEと間違えそうなので）
-		 * "AquisitionTime":return
-		 * "StudyDescription":(root>study pattern)
-		 * "SeriesDescription":return
-		 * "Modality"(root>study pattern)
-		 * "Sex"(root>patient pattern || root>study pattern)
-		 * "BirthDate"(root>patient pattern || root>study pattern)
-		 * "Age"(root>patient pattern || root>study pattern)
-		 * "Institution"(root>study pattern)
-		 * "ModelName"(root>study pattern)
-		 * "SeriesNumber":return
-		 * "AcquisitionNumber":return
-		 * "InstanceNumber":return
-		 * "AccessionNumber":(root>study pattern)
-		 * "NumOfSeries":(root>study pattern)
-		 * "NumOfInstances":(root>study pattern)
-		 * "StudyInstanceUID"(root>study pattern)
-		 * "SeriesInstanceUID":return
-		 * "SOPInstanceUID":(root>study pattern)
-		 */
-		
+	void sort(String columnName) {
+		sort(treeTable, columnName);
+	}
+	
+	private void sort(DICOMTreeTable treeTable, String columnName) {
 		if (rejectFilter.contains(columnName)) {
-			System.out.println("Canceled TreeTableSorting. selecteded col was found in reject list");
+			Log.logger.warning(getClass().getName()+" : Canceled TreeTableSorting. Selected col is listed in reject list");
 			return;
 		} else {
-			System.out.println("TreeTable sorting, " + "using " + columnName + " key.");
+			Log.logger.fine("TreeTable sorting, " + "using " + columnName + " key.");
 		}
 		
 		DICOMNode root = (DICOMNode) treeTable.getTree().getModel().getRoot();//keep this code for sort.
@@ -98,140 +102,93 @@ public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements R
 		DICOMNode chi = (DICOMNode) root.getChild(0);//getFirstChild(); DO NOT USE
 		String nodeLevel = chi.getLevelString();
 		
-		//DICOMTreeTableはPATIENTレベルのツリー表示には対応しない。STUDYレベルのみ対応する
+		//DICOMTreeTable does not handle with PATIENT level tree node (less or equals STUDY).
 		if(nodeLevel.equals("PATIENT")) {
-			System.out.println("node level is "+nodeLevel);
-			System.out.println("this treetable has patient level tree. cannot sort.return");
+			Log.logger.fine("This treetable has PATIENT level tree nodes. Cannot sort.");
 			return;
 		}
 		
-		/*
-		 * 昇順降順の調査をしてから、
-		 * その反対にソートする
-		 * すべて文字列として扱う。
-		 */
 		sortedroot = getSortedNodesByString(sortedroot, columnName);
-		DefaultTreeModel model = (DefaultTreeModel) treeTable.getTree().getModel();
-		model.setRoot(sortedroot);
-		model.reload(sortedroot);
-		model.nodeChanged(sortedroot);// or should use .reload(root)
-		treeTable.getTree().revalidate();
+		adapter.reload(sortedroot);
+		/*
+		 * memo
+		 */
+//		javax.swing.tree.DefaultTreeModel model = (javax.swing.tree.DefaultTreeModel) treeTable.getTree().getModel();
+//		model.setRoot(sortedroot);
+//		model.reload(sortedroot);
+//		model.nodeChanged(sortedroot);// or should use .reload(root)
+		treeTable.revalidate();
 		treeTable.repaint();// needed
 		root = null;
 	}
 	
-	/* deprecated */
-	void sort(	String columnName) {
-		/*
-		 * 実際使うときには、たくさんのソート項目は不要。
-		 * Studyレベルの項目をソート可能にする
-		 * 
-		 * //Keys
-		 * Dataset：return(Tree selves)
-		 * "Retrieved":return
-		 * "PatientName"(root>patient pattern || root>study pattern)
-		 * "PatientID"(root>patient pattern || root>study pattern)
-		 * "StudyDate"(root>study pattern)
-		 * "SeriesDate":return
-		 * "StudyTime":return（スタディDATEと間違えそうなので）
-		 * "AquisitionTime":return
-		 * "StudyDescription":(root>study pattern)
-		 * "SeriesDescription":return
-		 * "Modality"(root>study pattern)
-		 * "Sex"(root>patient pattern || root>study pattern)
-		 * "BirthDate"(root>patient pattern || root>study pattern)
-		 * "Age"(root>patient pattern || root>study pattern)
-		 * "Institution"(root>study pattern)
-		 * "ModelName"(root>study pattern)
-		 * "SeriesNumber":return
-		 * "AcquisitionNumber":return
-		 * "InstanceNumber":return
-		 * "AccessionNumber":(root>study pattern)
-		 * "NumOfSeries":(root>study pattern)
-		 * "NumOfInstances":(root>study pattern)
-		 * "StudyInstanceUID"(root>study pattern)
-		 * "SeriesInstanceUID":return
-		 * "SOPInstanceUID":(root>study pattern)
-		 */
-		
-		if (rejectFilter.contains(columnName)) {
-			System.out.println("Canceled TreeTableSorting. selecteded col was found in reject list");
-			return;
-		} else {
-			System.out.println("TreeTable sorting, " + "using " + columnName + " key.");
-		}
-		
-		DICOMNode root = (DICOMNode) treeTableModel.getRoot();
-		DICOMNode sortedroot = (DICOMNode)root.clone();
-		//get level
-		DICOMNode chi = (DICOMNode) root.getChild(0);//getFirstChild(); DO NOT USE
-		String nodeLevel = chi.getLevelString();
-		
-		//DICOMTreeTableはPATIENTレベルのツリー表示には対応しない。STUDYレベルのみ対応する
-		if(nodeLevel.equals("PATIENT")) {
-			System.out.println("node level is "+nodeLevel);
-			System.out.println("this treetable has patient level tree. cannot sort.return");
-			return;
-		}
-		
-		/*
-		 * 昇順降順の調査をしてから、
-		 * その反対にソートする
-		 * すべて文字列として扱う。
-		 */
-		sortedroot = getSortedNodesByString(sortedroot, columnName);
-		DefaultTreeModel model = (DefaultTreeModel) treeTable.getTree().getModel();
-		model.setRoot(sortedroot);
-		model.reload(sortedroot);
-		model.nodeChanged(sortedroot);// or should use .reload(root)
-		treeTable.getTree().revalidate();
-		treeTable.repaint();// needed
-		root = null;
-	}
 	
 	DICOMNode getSortedNodesByString(DICOMNode root, String columnName){
-		//指定された列の値リストを取得
+		//list specified col cell values 
 		ArrayList<String> list = new ArrayList<String>();
 		for(DICOMNode study:root.getChildren()) {
-			list.add(study.getData(columnName));
+			String v = study.getData(columnName);
+			if(columnName.equals(DICOMNode.BirthDate) && v == null) {
+				v = "1900/01/01";
+			}
+			list.add(v);
 		}
-		//remove duplicated value keeping order.
+		//remove duplicated value to keep order.
 		list = new ArrayList<String>(new LinkedHashSet<>(list));		
-		//check current sort order
+		
 		if (list == null || list.size() <= 1) {
 			return root;
 		}
+		
+		//check current sort order and sort values.
 		if(isSortedAlphabetically(list)) {
 			Collections.sort(list, Collections.reverseOrder(String.CASE_INSENSITIVE_ORDER));
 		}else {
 			Collections.sort(list);
 		}
-		//sort and re-construct nodes array
+		
+		//back to null
+		if (columnName.equals(DICOMNode.BirthDate)) {
+			String[] values = new String[list.size()];
+			int count = 0;
+			for(String v : list) {
+				if(v != null && v.equals("1900/01/01")) {
+					v = null;
+				}
+				values[count++] = v;
+			}
+			list = new ArrayList<>(Arrays.asList(values));
+		}
+		
+		//sort nodes and re-construct root
 		ArrayList<DICOMNode> sortedNodes = new ArrayList<DICOMNode>();
 		for(int i=0;i<list.size();i++) {
 			for(DICOMNode study:root.getChildren()) {
-				if(list.get(i).equals(study.getData(columnName))){
-					System.out.println(list.get(i));
+				Object v1 = list.get(i);
+				Object v2 = study.getData(columnName);
+				if(v1 == null && v2 == null) {
 					sortedNodes.add(study);
+					continue;
+				}else if(v1 == null && v2 != null) {
+					continue;
+				}else if(v1 != null && v2 == null) {
+					continue;
+				}else {
+					if(list.get(i).equals(study.getData(columnName))){
+						sortedNodes.add(study);
+					}
 				}
 			}
 		}
 		//validate
 		if(sortedNodes.size() != root.getChildCount()) {
+			Log.logger.severe("TreeTableSort task was failed. return AS-IS.");
 			System.out.println("Invalid list size, return:DICOMTreeTableNodeSorter");
-			System.out.println("tree has childrens :"+root.getChildCount());
-			System.out.println(sortedNodes.size());
+			System.out.println("original tree has childrens :"+root.getChildCount());
+			System.out.println("sorted nodes count :"+sortedNodes.size());
 			//throw something error or exceptions ??
 			return root;//as-is
 		}
-//		root.removeAllChildren();//java.lang.ArrayIndexOutOfBoundsException: node has no children
-//		int numOfChi = root.getChildCount();//get first.to avoid changes num of child.
-//		for(int i=0;i<numOfChi;i++) {
-//			root.remove(0);
-//		}
-//		for(int i=0;i<sortedNodes.size();i++) {
-//			root.addChild(sortedNodes.get(i));//DO NOT USE; add or insert
-//		}
 		return new DICOMNode(true, sortedNodes);
 	}
 	
@@ -264,22 +221,14 @@ public class TreeTableNodeSorter extends TableRowSorter<TableModel> implements R
 
 	@Override
 	public void sorterChanged(RowSorterEvent rse) {
-		// TODO Auto-generated method stub
 		if(Utils.isDebug) {
 			Log.logger.info("SortType: " + rse.getType());
 		}
 		if (rse.getType() == RowSorterEvent.Type.SORT_ORDER_CHANGED) {
 			java.util.List<? extends RowSorter.SortKey> keys = rse.getSource().getSortKeys();
-			/* 数回押すと、過去の分まで実行される */
-//			for (SortKey key : keys) {
-//				int colpos = key.getColumn();
-//				String colName = adapter.getColumnName(colpos);//columnの入れ替わりにも対応済み
-//				System.out.println("Column - " + colName + " is sorted");
-//				sort(colName);
-//			}
 			SortKey key = keys.get(0);
 			int colpos = key.getColumn();
-			String colName = adapter.getColumnName(colpos);// columnの入れ替わりにも対応済み
+			String colName = adapter.getColumnName(colpos);// this is ok when changed column order.
 			System.out.println("Column - " + colName + " is selected to table sort");
 			if(rejectFilter.contains(colName)) {
 				return;

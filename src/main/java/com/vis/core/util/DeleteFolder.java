@@ -38,6 +38,12 @@
 package com.vis.core.util;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import com.vis.core.log.Log;
 
 /**
  * 
@@ -45,36 +51,75 @@ import java.io.File;
  *
  */
 public class DeleteFolder {
-    public static void main(String[] args) {
-        File seriesDir = new File("path/to/folder"); // 削除したいフォルダのパスを指定
+	public static void main(String[] args) {
+		File seriesDir = new File("path/to/folder"); // 削除したいフォルダのパスを指定
 
-        if (deleteDirectory(seriesDir)) {
-            System.out.println("フォルダを削除しました: " + seriesDir.getAbsolutePath());
-        } else {
-            System.out.println("フォルダを削除できませんでした: " + seriesDir.getAbsolutePath());
-        }
-    }
+		if (deleteDirectory(seriesDir)) {
+			System.out.println("フォルダを削除しました: " + seriesDir.getAbsolutePath());
+		} else {
+			System.out.println("フォルダを削除できませんでした: " + seriesDir.getAbsolutePath());
+		}
+	}
 
-    public static boolean deleteDirectory(File dir) {
-        if (!dir.exists()) {
-            return false;
-        }
+	public static boolean deleteDirectory(File dir) {
+		if (!dir.exists()) {
+			return false;
+		}
+		if(!isDeletable(dir.getAbsolutePath())) {
+			Log.logger.severe("Cannot delete folder: Folder is in use, or has no access rights.->" + dir.getAbsolutePath());
+			return false;
+		}
 
-        // フォルダ内のファイル・サブフォルダを取得
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                // ファイルなら削除、フォルダなら再帰的に削除
-                if (file.isDirectory()) {
-                    deleteDirectory(file);
-                } else {
-                    file.delete();
-                }
-            }
-        }
+		// collect sub folders/files
+		File[] files = dir.listFiles();
+		if (files != null) {
+			for (File file : files) {
+				// delete recursively
+				if (file.isDirectory()) {
+					deleteDirectory(file);
+				} else {
+					deleteFile(file);
+				}
+			}
+		}
+		boolean success = dir.delete();
+		if(success) {
+			Log.logger.fine("Success folder deletion: " + dir.getAbsolutePath());
+			return true;
+		} else {
+			Log.logger.severe("Cannot delete folder: Folder may have child files, or is in use, or has no access rights.->" + dir.getAbsolutePath());
+			return false;
+		}
+	}
+	
+	public static boolean deleteFile(File file) {
+		return deleteFile(file.getAbsolutePath());
+	}
 
-        // 最後にフォルダ自体を削除
-        return dir.delete();
-    }
+	public static boolean deleteFile(String filePath) {
+		if (!isDeletable(filePath)) {
+			System.out.println("Cannot delete: File is in use or has no access rights.");
+			return false;
+		}
+		try {
+			Files.delete(Paths.get(filePath));
+			Log.logger.fine("Success file deletion: " + filePath);
+			return true;
+		} catch (IOException e) {
+			Log.logger.info("Cannot delete: File is in use or has no access rights.->" + filePath);
+			return false;
+		}
+	}
+
+	/**
+	 * Check exists and in referencing.
+	 * When target file referencing others, return false.
+	 * 
+	 * @param folder/filePath
+	 * @return
+	 */
+	public static boolean isDeletable(String filePath) {
+		Path path = Paths.get(filePath);
+		return Files.exists(path) && Files.isWritable(path);
+	}
 }
-
