@@ -103,7 +103,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	boolean isLocal;
 	/* Main Explorer */
 	private TreeTableDockManager tabDockManager;
-	private DICOMTreeTable localTreeTable;// home treetable
+	private DICOMTreeTable homeTreeTable;// local treetable
+	public final String home = TreeTableDockManager.homeTabName;
+	
 	/* Main menu */
 	MainScreenMenu mainMenu;
 	/* Main ToolBar */
@@ -129,7 +131,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 
 	Logger logger = Log.logger;
 	
-	public static boolean importing = false;
 	
 	/**
 	 * singleton
@@ -143,13 +144,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public static MainScreen getInstance() {
-		//20250210
 		if (mainScreen == null) {
-//			synchronized (MainScreen.class) {
-				if (mainScreen == null) {
-					mainScreen = new MainScreen();
-				}
-//			}
+			mainScreen = new MainScreen();
 		}
 		return mainScreen;
 	}
@@ -197,7 +193,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public DICOMTreeTable getLocalTreeTable() {
-		return localTreeTable;
+		return homeTreeTable;
 	}
 
 	/**
@@ -212,7 +208,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public ArrayList<DICOMNode> getSelectedNode() {
-		return localTreeTable.getSelectedNodes();
+		return homeTreeTable.getSelectedNodes();
 	}
 	
 	public void ignoreRepaintBirdsEye(boolean ignore) {
@@ -224,9 +220,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		tabDockManager = new TreeTableDockManager();//TabbedPane
 		/* Local(HOME) TreeTable */
 		DICOMTreeTableModel model = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
-		localTreeTable = new DICOMTreeTable(model,false,null);
+		homeTreeTable = new DICOMTreeTable(model,false,null);
 		try {
-			tabDockManager.addTreeTable(true, "HOME", localTreeTable);
+			tabDockManager.addTreeTable(true, home, homeTreeTable);
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 			try {
@@ -252,7 +248,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
 					if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
 						if (keepTopTitle.equals(svr.getNickname())) {
-							tabDockManager.setTopTab(keepTopTitle);
+							tabDockManager.setToTopTab(keepTopTitle);
 							break;
 						}
 					}
@@ -344,7 +340,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	/**
-	 * to avoid mimic confusion for me. 
+	 * to avoid mimic method confusion for me. 
 	 */
 	public void searchCurrentConditions(){
 		queryAndUpadateTreeTable();
@@ -367,6 +363,16 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		queryAndUpadateTreeTable(patID, patName, from, to, m, false/*ask null search key*/);
 	}
 	
+	/**
+	 * update current treetable.
+	 * If all docks are floating, update all.
+	 * @param patID
+	 * @param patName
+	 * @param from
+	 * @param to
+	 * @param modalities
+	 * @param askNullSearchKey
+	 */
 	public void queryAndUpadateTreeTable(String patID, String patName, String from, String to,
 			ArrayList<String> modalities, boolean askNullSearchKey) {
 		if(askNullSearchKey) {
@@ -377,23 +383,34 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				}
 			}
 		}
-		TreeTableDockManager tabDockMng = getTreeTableDockManager();
-		String anchorTreeTableTitle = tabDockMng.getCurrentAnchorTitle();
-		if (anchorTreeTableTitle.equals("HOME")) {
-			Log.logger.fine("TreeTableDock : Home");
+		TabDock dock = tabDockManager.getCurrentTopDockStayInTabbedPane();
+		if(dock == null /*floating all docks*/) {
+			//update all dock ?
+//			for(String nickName : tabDockManager.getAllNicknamesFromDocks()) {
+//				TabDock d = tabDockManager.getDock(nickName);
+//				queryAndUpadateTreeTable(d, patID, patName, from, to, modalities);
+//			}
+			String anchorNickName = tabDockManager.getCurrentAnchorTitle();
+			TabDock anchor = tabDockManager.getDock(anchorNickName);
+			queryAndUpadateTreeTable(anchor, patID, patName, from, to, modalities);
+		}else {
+			queryAndUpadateTreeTable(dock, patID, patName, from, to, modalities);
+		}
+	}
+	
+	private void queryAndUpadateTreeTable(TabDock dock, String patID, String patName, String from, String to, ArrayList<String> modalities) {
+		if (dock.getName().equals(home)) {
+			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + home+"]");
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
 			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
-			TabDock currentDock = tabDockMng.getHomeDock();
-			currentDock.updateTreeTable(newRoot);
+			dock.updateTreeTable(newRoot);
 		} else {
-			Log.logger.fine("TreeTableDock : " + anchorTreeTableTitle);
-			TabDock anchorDock = tabDockMng.getParticularDockFromMap(anchorTreeTableTitle);
-			String nickname = anchorTreeTableTitle;
+			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName()+"]");
 			/* root */
-			DICOMNode queryResults = new QueryRetrieve().querySimpleSearchKeys(nickname, patID, patName, from, to,
+			DICOMNode queryResults = new QueryRetrieve().querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
 					modalities);
-			anchorDock.updateTreeTable(queryResults);
+			dock.updateTreeTable(queryResults);
 		}
 	}
 	
@@ -636,19 +653,22 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 
 	public void updateQRTreeTables(){
 		//get serverlist
-		ArrayList<DicomCommunicationNode> servers = DatabaseHandler.getInstance().loadServerList();
+		ArrayList<DicomCommunicationNode> remoteServers = DatabaseHandler.getInstance().loadServerList();
 		String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
-		for(DicomCommunicationNode svr:servers) {
+		for(DicomCommunicationNode svr:remoteServers) {
 			//constructQRTreeTables
 			boolean svrReady = DimseUtilities.echo(svr);
 			if(!svrReady) {
-				//if existing on docks, remove it TODO
+				/*
+				 * if remote svr in non-communicate still stay in docks, remove it.
+				 */
+				tabDockManager.removeDockAt(svr.getNickname());
 				continue;
 			}
 			//check already on tabDock
 			boolean found = false;
-			for(String nickname:tabDockManager.getNicknameCurrentDocks()) {
-				if(nickname.toLowerCase().equals("home")) {
+			for(String nickname:tabDockManager.getAllNicknamesFromDocks()) {
+				if(nickname.equals(home)) {//is this dead code ?? home is not including remote. 
 					continue;
 				}
 				if(nickname.equals(svr.getNickname())) {
@@ -660,7 +680,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			if(found) {
 				//update tree
 				//get prev root node
-				TabDock prevDock = tabDockManager.getParticularDock(svr.getNickname());
+				TabDock prevDock = tabDockManager.getDock(svr.getNickname());
 				DICOMTreeTable prevTreeTable = prevDock.getDICOMTreeTable();
 				DICOMNode root = (DICOMNode) prevTreeTable.getTree().getModel().getRoot();
 				//create new TabDock and set tabDockManager
@@ -677,10 +697,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				}
 			}
 			if(keepTopTitle.equals(svr.getNickname())){
-				tabDockManager.setTopTab(keepTopTitle);
+				tabDockManager.setToTopTab(keepTopTitle);
 			}
 		}
-		// Add 20231003
 		tabDockManager.startRefreshQRTableTimer();
 	}
 

@@ -94,7 +94,7 @@ public class SeriesIntegrator{
 		//if including nor series or image level, return false.
 		for(DICOMNode node : selected) {
 			if(node.getLevel() != DICOMNode.SERIES && node.getLevel() != DICOMNode.IMAGE) {
-				JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Can not interate. Please select series/images.");
+				JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Can not interate. Please select series/images on HOME TreeTable.");
 				return false;
 			}
 		}

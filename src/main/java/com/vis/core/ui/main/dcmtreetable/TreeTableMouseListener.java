@@ -40,20 +40,14 @@ package com.vis.core.ui.main.dcmtreetable;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.QueryRetrieve;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
-import com.vis.db.DatabaseHandler;
 
 /**
  * 

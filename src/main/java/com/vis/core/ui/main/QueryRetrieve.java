@@ -774,7 +774,7 @@ public class QueryRetrieve implements Task {
 			return;
 		}
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
-		TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
+		TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
 		DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 		treeTable.getTableHeader().setEnabled(false);// stop table sort feature.
 		int count = 0;
@@ -854,7 +854,7 @@ public class QueryRetrieve implements Task {
 					MainScreen main = (MainScreen)win;
 					main.updateQRTreeTables();
 					TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
-					TabDock anchorDock = tabDockMng.getParticularDock(dest.getNickname());
+					TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
 					DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
 					treeTable.getTableHeader().setEnabled(true);
 				}

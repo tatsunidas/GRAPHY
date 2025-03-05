@@ -60,6 +60,7 @@ import com.vis.core.ui.function.PatientInfoEditor;
 import com.vis.core.ui.function.SeriesIntegrator;
 import com.vis.core.ui.function.SeriesSeparator;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 
 /**
  * @author tatsunidas 
@@ -71,6 +72,19 @@ public class MainScreenMenu extends JMenuBar{
 		setLayout(new FlowLayout(FlowLayout.LEADING));
 		setMenu();
 	}
+	
+	private boolean HOMEinAction() {
+		MainScreen ms = WindowManager.getMainScreen();
+		TreeTableDockManager dockManager = ms.getTreeTableDockManager();
+		TabDock topDock = dockManager.getCurrentTopDockStayInTabbedPane();
+		if(topDock == null /*floating*/) {
+			return true;
+		}
+		if(topDock.getName().equals(TreeTableDockManager.homeTabName)) {
+			return true;
+		}
+		return false;
+	}
 
 	private void setMenu() {
 		
@@ -81,7 +95,10 @@ public class MainScreenMenu extends JMenuBar{
 		importItem.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				// TODO Auto-generated method stub
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				DicomImporterDialog fcd = new  DicomImporterDialog(WindowManager.getMainScreen(),true);
 				fcd.setLocationRelativeTo(WindowManager.getMainScreen());
 				fcd.setVisible(true);
@@ -90,9 +107,14 @@ public class MainScreenMenu extends JMenuBar{
 		fileMenu.add(importItem);
 		
 		JMenuItem mntmExport = new JMenuItem("Export");
+		mntmExport.setToolTipText("Export dicom files selected on HOME TreeTable.");
 		mntmExport.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
 				if(win != null) {
 					MainScreen main = (MainScreen)win;
@@ -104,9 +126,14 @@ public class MainScreenMenu extends JMenuBar{
 		fileMenu.add(mntmExport);
 		
 		JMenuItem mntmDelete = new JMenuItem("Delete");
+		mntmDelete.setToolTipText("Delete dicom files selected on HOME TreeTable.");
 		mntmDelete.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				if(JOptionPane.showConfirmDialog(null, "Do you want to delete current selected images ?", "Delete images...", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION){
 					Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
 					if(win != null) {
@@ -126,6 +153,10 @@ public class MainScreenMenu extends JMenuBar{
 		mntmSeparate.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				new SeriesSeparator().separateSeries();
 			}
 		});
@@ -135,6 +166,10 @@ public class MainScreenMenu extends JMenuBar{
 		mntmIntegrate.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				new SeriesIntegrator().integrateSeries();
 			}
 		});
@@ -144,6 +179,10 @@ public class MainScreenMenu extends JMenuBar{
 		mntmPatientEdit.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
 				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
 				MainScreen main = (MainScreen) win;
 				ArrayList<DICOMNode> selected = main.getSelectedNode();
@@ -182,79 +221,6 @@ public class MainScreenMenu extends JMenuBar{
 				new HelpDialog();
 			}
 		});
-		mnHelp.add(mntmHelp);
-		
-
-//		
-//		JMenuItem debugMenuItem = new JMenuItem("Debug");
-//		debugMenuItem.addActionListener(new ActionListener() {
-//			@Override
-//			public void actionPerformed(ActionEvent arg0) {
-////				DatabaseHandler db = DatabaseHandler.getRunningInstance();
-////				String sopUid = DicomUtilities.getStudyInstanceUID("/home/tatsunidas/.GRAPHY/archive/DICOM/681BADCF/153D4BCF/5B13D698");
-////				System.out.println(sopUid);
-////				java.util.HashMap<String,String> patInfo = db.findPatientRecordByPatID("LGG-104");
-////				if(patInfo != null) {
-////					for(String key:patInfo.keySet()) {
-////						System.out.println(patInfo.get(key));
-////					}
-////				}
-////				new DicomExporter().createNoDuplicateImageListToExport(ApplicationContext.getInstance().mainScreen.getSelectedNode());
-//			}
-//		});
-//		mnFile.add(debugMenuItem);
-//
-//		JMenu mnNetwork = new JMenu("Network");
-//		add(mnNetwork);
-//
-//		JMenu mnEdit = new JMenu("Edit");
-//		add(mnEdit);
-//
-//		JMenu mnFormat = new JMenu("Format");
-//		add(mnFormat);
-//
-//		JMenu mnd2dviewer = new JMenu("2DViewer");
-//		add(mnd2dviewer);
-//
-//		JMenu mnd3dviewer = new JMenu("3DViewer");
-//		add(mnd3dviewer);
-//
-//		JMenu mnRoi = new JMenu("ROI");
-//		add(mnRoi);
-//
-//		JMenu mnPlugins = new JMenu("Plugins");
-//		add(mnPlugins);
-//
-//		JMenu mnOpenrecent = new JMenu("OpenRecent");
-//		add(mnOpenrecent);
-//
-//		JMenu mnWindow = new JMenu("Window");
-//		add(mnWindow);
-//
-//		JMenu mnPrefs = new JMenu("Preferences");
-//		add(mnPrefs);
-//
-//		JMenuItem mntmSettings = new JMenuItem("Settings");
-//		mntmSettings.addActionListener(new ActionListener() {
-//			@Override
-//			public void actionPerformed(ActionEvent e) {
-//				/* if showing, show to top, else, create new window */
-//				Frame[] allFrames = Frame.getFrames();
-//				for (Frame fr : allFrames) {
-//					String specificFrameName = fr.getClass().getName();
-//					if (specificFrameName.equals("com.vis.environment.PreferencesWin")) {
-//						// close the frame
-//						if (fr.isShowing()) {
-//							fr.toFront();
-//							return;
-//						}
-//					}
-//				}
-//				new PreferencesWin();
-//			}
-//		});
-//		mnPrefs.add(mntmSettings);
-		
-		
+		mnHelp.add(mntmHelp);		
 	}
 }

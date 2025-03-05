@@ -58,7 +58,7 @@ public class SeriesSeparator {
 	
 	public void separateSeries(ArrayList<DICOMNode> selected) {
 		if(!isSeparateReady(selected)) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Not ready to separate. Please select images from a series.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Not ready to separate. Please select images from a series on HOME TreeTable.");
 			return;
 		}
 		this.selected = selected;

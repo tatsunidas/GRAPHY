@@ -109,7 +109,7 @@ public class PACSConnectionPrefs extends JPanel {
 				constructTableModel(getTable());
 				/* 表示していたドックが削除された場合、タブから削除 */
 				TreeTableDockManager dttm = WindowManager.getMainScreen().getTreeTableDockManager();
-				for (String nickname : dttm.getNicknameCurrentDocks()) {
+				for (String nickname : dttm.getAllNicknamesFromDocks()) {
 					if (nickname.equals(identical)) {
 						dttm.removeDockAt(nickname);
 						break;

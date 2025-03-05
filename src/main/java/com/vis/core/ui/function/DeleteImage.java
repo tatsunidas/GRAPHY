@@ -61,7 +61,7 @@ public class DeleteImage {
 
 	public static void deleteImages(ArrayList<DICOMNode> nodeList){
 		if(nodeList == null || nodeList.size() <1) {
-			Log.logger.info("Please select node from TreeTable.");
+			Log.logger.info("Please select node from HOME TreeTable.");
 			PopUpMessage.showDialog(MainScreen.getInstance(), "Files not selected.", "Please select files to delete.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
