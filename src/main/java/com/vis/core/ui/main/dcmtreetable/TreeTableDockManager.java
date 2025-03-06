@@ -67,7 +67,9 @@ import javax.swing.event.ChangeListener;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.QRUpdater;
 import com.vis.core.ui.main.TabDock;
 import com.vis.core.util.PropertiesUtil;
@@ -114,6 +116,20 @@ public class TreeTableDockManager extends JTabbedPane {
 					return;
 				}
 				topTabNickname = getTitleAt(selIndex);
+			}
+		});
+		
+		addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				int selectedIndex = getSelectedIndex();
+				String title = getTitleAt(selectedIndex);
+				if (title != null && title.equals(homeTabName)) {
+					// do nothing
+				} else {
+					MainScreen screen = WindowManager.getMainScreen();
+					screen.resetBirdsEyeView(null);
+				}
 			}
 		});
 

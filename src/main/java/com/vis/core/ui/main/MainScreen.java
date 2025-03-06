@@ -636,7 +636,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 */
 	public void resetBirdsEyeView(String[] patIDs) {
 		if(patIDs == null) {
-			//force reset
+			//referencing by treeTableDockManager.
 			bev.resetViews(true);
 			return;
 		}
