@@ -1,12 +1,55 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.main.dcmtreetable;
 
 import java.awt.Component;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.image.BufferedImage;
 import java.net.URISyntaxException;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -14,7 +57,7 @@ import java.util.Set;
 
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
-import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -45,7 +88,10 @@ public class TreeTableDockManager extends JTabbedPane {
 	String topTabNickname = "";//for floating
 	QRUpdater updater;
 	
-	private int dragTabIndex = -1;
+	private boolean dragging = false;
+	private Image tabImage = null;
+	private Point currentMouseLocation = null;
+	private int draggedTabIndex = 0;
 	
 	public static final String homeTabName = "HOME";
 
@@ -55,41 +101,89 @@ public class TreeTableDockManager extends JTabbedPane {
 	 */
 	public TreeTableDockManager() {
 		docks = new HashMap<String, TabDock>();
-		currentAnchor  = loadKeepTopTreeTableNickName();
+		currentAnchor = loadKeepTopTreeTableNickName();
 		addContainerListener(new TabbedPaneContainerListener());
 		addChangeListener(new ChangeListener() {
 			@Override
 			public void stateChanged(ChangeEvent e) {
+				if(dragging) {
+					return;
+				}
 				int selIndex = getSelectedIndex();
-				if(selIndex < 0) {
+				if (selIndex < 0) {
 					return;
 				}
 				topTabNickname = getTitleAt(selIndex);
 			}
 		});
-		
-		/*
-		 * Tabのスワップ。非実装。
-		 */
-//		addMouseListener(new MouseAdapter() {
-//            @Override
-//            public void mousePressed(MouseEvent e) {
-//                dragTabIndex = indexAtLocation(e.getX(), e.getY());
-//            }
-//        });
-//
-//        addMouseMotionListener(new MouseAdapter() {
-//            @Override
-//            public void mouseDragged(MouseEvent e) {
-//                if (getTabCount() <= 1) return; // タブが1つしかない場合は処理しない
-//                
-//                int targetIndex = indexAtLocation(e.getX(), e.getY());
-//                if (dragTabIndex >= 0 && targetIndex >= 0 && dragTabIndex != targetIndex) {
-//                    swapTabs(dragTabIndex, targetIndex);
-//                    dragTabIndex = targetIndex;
-//                }
-//            }
-//        });
+
+		addMouseMotionListener(new MouseMotionAdapter() {
+			public void mouseDragged(MouseEvent e) {
+				if (!dragging) {
+					// Gets the tab index based on the mouse position
+					int tabNumber = getUI().tabForCoordinate(TreeTableDockManager.this, e.getX(), e.getY());
+
+					if (tabNumber >= 0) {
+						draggedTabIndex = tabNumber;
+						Rectangle bounds = getUI().getTabBounds(TreeTableDockManager.this, tabNumber);
+						// Paint the tabbed pane to a buffer
+						Image totalImage = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+						Graphics totalGraphics = totalImage.getGraphics();
+						totalGraphics.setClip(bounds);
+						// Don't be double buffered when painting to a static image.
+						setDoubleBuffered(false);
+						paintComponent(totalGraphics);
+
+						// Paint just the dragged tab to the buffer
+						tabImage = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+						Graphics graphics = tabImage.getGraphics();
+						graphics.drawImage(totalImage, 0, 0, bounds.width, bounds.height, bounds.x, bounds.y,
+								bounds.x + bounds.width, bounds.y + bounds.height, TreeTableDockManager.this);
+
+						dragging = true;
+						repaint();
+					}
+				} else {
+					currentMouseLocation = e.getPoint();
+					// Need to repaint
+					repaint();
+				}
+				super.mouseDragged(e);
+			}
+		});
+
+		addMouseListener(new MouseAdapter() {
+			public void mouseReleased(MouseEvent e) {
+				if (dragging) {
+					int tabNumber = getUI().tabForCoordinate(TreeTableDockManager.this, e.getX(), 10);
+					if (tabNumber >= 0) {
+						Component comp = getComponentAt(draggedTabIndex);
+						String title = getTitleAt(draggedTabIndex);
+						removeTabAt(draggedTabIndex);
+						ImageIcon icon = null;
+						if(title.equals(TreeTableDockManager.homeTabName)) {
+							icon = Resources.LocalIcon.loadIconFromResource();
+						}else {
+							icon = Resources.QRIcon.loadIconFromResource();
+						}
+						insertTab(title, icon, comp, null, tabNumber);
+						setSelectedIndex(tabNumber);
+					}
+				}
+				dragging = false;
+				tabImage = null;
+			}
+		});
+	}
+	
+	
+	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		// Are we dragging?
+		if (dragging && currentMouseLocation != null && tabImage != null) {
+			// Draw the dragged tab
+			g.drawImage(tabImage, currentMouseLocation.x, currentMouseLocation.y, this);
+		}
 	}
 
 	private String loadKeepTopTreeTableNickName() {
@@ -310,32 +404,6 @@ public class TreeTableDockManager extends JTabbedPane {
 		}
 	}
 	
-	private void swapTabs(int index1, int index2) {
-        if (index1 < 0 || index1 >= getTabCount() || index2 < 0 || index2 >= getTabCount()) {
-            return; // 範囲外の場合は処理しない
-        }
-
-        Component comp1 = getComponentAt(index1);
-        Component comp2 = getComponentAt(index2);
-        String title1 = getTitleAt(index1);
-        String title2 = getTitleAt(index2);
-        Icon icon1 = getIconAt(index1);
-        Icon icon2 = getIconAt(index2);
-        String tip1 = getToolTipTextAt(index1);
-        String tip2 = getToolTipTextAt(index2);
-
-        // タブ情報を入れ替え
-        setComponentAt(index1, comp2);
-        setComponentAt(index2, comp1);
-        setTitleAt(index1, title2);
-        setTitleAt(index2, title1);
-        setIconAt(index1, icon2);
-        setIconAt(index2, icon1);
-        setToolTipTextAt(index1, tip2);
-        setToolTipTextAt(index2, tip1);
-
-        setSelectedIndex(index2);
-    }
 	
 	public class KeepTopChckItemListener implements ItemListener{
 		
