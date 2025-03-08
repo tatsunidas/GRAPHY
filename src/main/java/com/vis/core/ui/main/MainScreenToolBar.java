@@ -169,7 +169,9 @@ public class MainScreenToolBar extends JToolBar {
 					 * only work when browsing on Home Dock.
 					 */
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
-					new DicomExporter(selected);
+					DicomExporter export = new DicomExporter(selected);
+					export.start();
+					export.monitorTasks();
 				}
 			});
 			break;
@@ -215,11 +217,11 @@ public class MainScreenToolBar extends JToolBar {
 						if(!Utils.isDebug) {
 							return;
 						}else {
-							Log.logger.fine("Continue in debug mode.");
+							Log.logger.fine("BurnCD function is running, continue in debug mode.");
 						}
 					}
-					File burnFileInTemp = Utils.createNewDirInTemp();
-					new BurnerWindow(burnFileInTemp, false /*with dicomdir*/);
+					File burnDestFileInTemp = Utils.createNewDirInTemp();
+					new BurnerWindow(burnDestFileInTemp, false /*with dicomdir*/);
 				}
 			});
 			break;

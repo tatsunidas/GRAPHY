@@ -44,6 +44,13 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
+
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -51,10 +58,15 @@ import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.task.Task;
+import com.vis.core.task.TaskContext;
+import com.vis.core.task.TaskManager;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomUtilities;
 import com.vis.imageio.Decompressor;
 
 /**
@@ -63,284 +75,241 @@ import com.vis.imageio.Decompressor;
  *
  */
 @SuppressWarnings("serial")
-public class DicomExporter extends JFrame implements Runnable {
+public class DicomExporter extends JFrame implements Task {
+	
+	private final ExecutorService executor;
+    private final BlockingQueue<Future<?>> tasks = new LinkedBlockingQueue<>();
+    private final ReentrantLock lock = new ReentrantLock();
+    
+    DatabaseHandler db = DatabaseHandler.getInstance();
+	
+	private ArrayList<String[]> dcmFilesUIDs;
+	private JFileChooser jfc;
+	private File dest;
+	final int doExport;
+	private ExportOptionPanel eop;
+	final String approveButtonText = "Export";
+	private boolean flatOutput = false;// default
+	private boolean decompress = false;// default
+	private boolean dicomDir = false;//default
 
-    //debug
-//	public static void main(String[] args) {
-//		// TODO Auto-generated method stub
-//		JFrame f = new JFrame();
-//		f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-//		JFileChooser jfc = new JFileChooser();
-//		jfc.setDialogTitle("Export Option Dialog");
-//		jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-//		jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
-//		ExportOptionPanel eop = new ExportOptionPanel();
-//		jfc.setAccessory(eop);
-//		jfc.setApproveButtonText("OK");
-//		jfc.setApproveButtonToolTipText("");
-//		new DicomExporter().doAction(jfc.showOpenDialog(f));
-//	}
-
-	boolean burnCD = false;
-	ArrayList<DICOMNode> targetNodes;
-	JFileChooser jfc;
-	ExportOptionPanel eop;
-	String approveButtonText = "Export";
-	boolean flatOutput = false;// default if hierarchical
-	boolean decompress = false;// default
-
-	Thread th;
-
-	public DicomExporter() {
-		th = new Thread(this);
-	}
-
+	TaskContext con = null;
+	
+	protected boolean sleepScheduled = false;
+	protected boolean suspended = false;//pause
+	boolean isCompleted = false;
+	
+	/**
+	 * Open dialog
+	 * @param targetNodes
+	 */
 	public DicomExporter(ArrayList<DICOMNode> targetNodes) {
+		this.executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+		doExport = showDialog();//choose settings
+		if(doExport != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+		dest = jfc.getSelectedFile();
+		if(dest == null) {
+			throw new IllegalArgumentException("Please input output destination folder.");
+		}
 		if (targetNodes == null || targetNodes.size() < 1) {
 			Log.logger.info("Please select node from TreeTable.");
 			PopUpMessage.showDialog(MainScreen.getInstance(), "Export files not selected.", "Please select files to export.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		th = new Thread(this);
-		this.targetNodes = targetNodes;
+		String[] selected = eop.getSelectedButtonsName();
+		flatOutput = selected[0].equals("flat");//hierarchical or flat
+		decompress = selected[1].equals("decompress");//decompress or asis
+		//UIDs of each dicom instance.
+		this.dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(targetNodes);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		jfc = new JFileChooser();
-		jfc.setDialogTitle("Export Option Dialog");
-		jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
-		eop = new ExportOptionPanel();
-		jfc.setAccessory(eop);
-		jfc.setApproveButtonText(approveButtonText);
-//		jfc.setApproveButtonToolTipText(approveToolTip);
-		int res = jfc.showOpenDialog(this);
-		if (res == JFileChooser.APPROVE_OPTION) {
-			th.start();
-		} else if (res == JFileChooser.CANCEL_OPTION) {
-			doClose();
-		} else {
-			doClose();
-		}
 	}
-
-	public DicomExporter(ArrayList<DICOMNode> targetNodes, boolean burnCD) {
+	
+	/**
+	 * Without dialog
+	 * @param targetNodes
+	 * @param flatOutput
+	 * @param decompress
+	 */
+	public DicomExporter(ArrayList<DICOMNode> targetNodes, File dest/*output dest folder*/, boolean flatOutput, boolean decompress, boolean dicomDir) {
+		this.executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+		doExport = JFileChooser.APPROVE_OPTION;
 		if (targetNodes == null || targetNodes.size() < 1) {
 			Log.logger.info("Please select node from TreeTable.");
+			PopUpMessage.showDialog(MainScreen.getInstance(), "Export files not selected.", "Please select files to export.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		this.burnCD = burnCD;
-		th = new Thread(this);
-		this.targetNodes = targetNodes;
-		if (!burnCD) {
-			setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-			jfc = new JFileChooser();
-			jfc.setDialogTitle("Export Option Dialog");
-			jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-			jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
-			eop = new ExportOptionPanel();
-			jfc.setAccessory(eop);
-			jfc.setApproveButtonText(approveButtonText);
+		if(dest == null) {
+			throw new IllegalArgumentException("Please input output destination folder.");
 		}
-		th.start();
+		this.flatOutput = flatOutput;
+		this.decompress = decompress;
+		this.dicomDir = dicomDir;
+		//UIDs of each dicom instance.
+		this.dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(targetNodes);
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 	}
 
-	ArrayList<DICOMNode> getTargetNodes() {
-		return this.targetNodes;
-	}
-
-	private void exportDICOM() {
-		//Home Dock only
-		ArrayList<String[]> exportSet = WindowManager.getMainScreen().getLocalTreeTable()
-				.createNoDuplicateImageList(getTargetNodes());
-		String[] selected = eop.getSelectedButtonsName();
-		Log.logger.fine("Export with Settings:" + selected[0] + " " + selected[1]);
-		// folder structure
-		if (!burnCD) {
-			switch (selected[0]) {
-			case "hierarchical":
-				flatOutput = false;
-				break;
-			case "flat":
-				flatOutput = true;
-				break;
-			default:
-			}
-			// decompress
-			switch (selected[1]) {
-			case "asis":
-				decompress = false;
-				break;
-			case "decompress":
-				decompress = true;
-				break;
-			default:
-			}
-			exportDICOM(flatOutput, decompress, jfc.getSelectedFile(), exportSet);
-		}else {
-			if(!new File("./tmp").exists()) {
-				try {
-					new File("./tmp").createNewFile();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			exportDICOM(false, false, new File("./tmp/"+"BURN2CD"), exportSet);
-		}
-		
-	}
-
-	private void exportDICOM(boolean flatOutput, boolean decompress, File selectedDir/*dest dir*/, ArrayList<String[]> exportSet) {
-		DatabaseHandler db = DatabaseHandler.getInstance();
-		ArrayList<String> patIDs = new ArrayList<String>();
-		ArrayList<String> studyIUIDs = new ArrayList<String>();
-		ArrayList<String> seriesIUIDs = new ArrayList<String>();
-		ArrayList<String> sopIUIDs = new ArrayList<String>();
-		for (String[] info : exportSet) {
-			patIDs.add(info[0]);
-			studyIUIDs.add(info[1]);
-			seriesIUIDs.add(info[2]);
-			sopIUIDs.add(info[3]);
-		}
-		patIDs = new ArrayList<>(new HashSet<>(patIDs));
-		studyIUIDs = new ArrayList<>(new HashSet<>(studyIUIDs));
-		seriesIUIDs = new ArrayList<>(new HashSet<>(seriesIUIDs));
-		sopIUIDs = new ArrayList<>(new HashSet<>(sopIUIDs));
-
-		boolean missingFilesFound = false;
-
-		// patient name, if null or "" -> noname
-		// study date, if null or "" -> studydate-null
-		// series desc, if null or "" -> seriesdesc-null
-		// image -> instanceNo. if null -> AS-IS
-		for (String patID : patIDs) {
-			for (String studyIUID : studyIUIDs) {
-				int instanceCount = 0;// for flat saving
-				for (String seriesIUID : seriesIUIDs) {
-					for (String sopIUID : sopIUIDs) {
-						if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
-							continue;
-						}
-						if (patID == null || patID.equals("") || patID.contentEquals(" ")) {
-							patID = "NULL-PatientID";
-						}
-						String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
-						if (studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
-//							studyDesc = "no-studydesc";//to avoid duplication, use UID.
-							studyDesc = studyIUID;
-							Log.logger.fine("studyDesc is null, uid used instead.");
-						}
-						String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID,
-								seriesIUID);
-						if (seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
-//							seriesDesc = "no-seriesDesc";
-							seriesDesc = seriesIUID;
-							Log.logger.fine("seriesDesc is null, uid used instead.");
-						}
-						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
-
-						if (!flatOutput) {// hierarchical
-							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator
-									+ studyDesc + File.separator + seriesDesc;
-							File destDirs = new File(destParent);
-							if (!destDirs.exists()) {
-								destDirs.mkdirs();
-							}
-							String dest = destParent + File.separator + instNo + ".dcm";
-							// copy to temp
-							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
-							File from = new File(dcmPath);
-							File to = new File(dest);
-							if (!from.exists()) {
-								missingFilesFound = true;
-								continue;
-							}
-							synchronized (to) {
-								try {
-									if(!decompress) {
-										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-									}else{
-										DICOMBackend backend = DICOMBackend.getCurrent();
-										Decompressor.newInstance(backend).decompress(from, to);
-									}
-								} catch (IOException e) {
-									e.printStackTrace();
-									return;
-								}
-							}
-						// flat
-						} else {
-							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator + studyDesc;
-							File destDirs = new File(destParent);
-							if (!destDirs.exists()) {
-								destDirs.mkdirs();
-							}
-							String dest = destParent + File.separator + instanceCount + ".dcm";
-							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
-							File from = new File(dcmPath);
-							File to = new File(dest);
-							if (!from.exists()) {
-								missingFilesFound = true;
-								continue;
-							}
-							synchronized (to) {
-								try {
-									if(!decompress) {
-										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-									}else{
-										DICOMBackend backend = DICOMBackend.getCurrent();
-										Decompressor.newInstance(backend).decompress(from, to);
-									}
-								} catch (IOException e) {
-									e.printStackTrace();
-									continue;
-								}
-								instanceCount++;
-							}
-						}
-					}
-				}
-			} // study loop
-		} // patient loop
-
-		if (missingFilesFound) {
-			JOptionPane.showConfirmDialog(null, "Missing files found, cannot completed exporting whole files.");
-			return;
-		}
-
-		// finally, create DICOMDIR?
-//		for(String path2PatDir:exportRootParentPathSet) {
-//			attachDICOMDIRFor(path2PatDir);
+	/**
+	 * Export dcm file from DB to any destination.
+	 * @param flatOutput
+	 * @param decompress
+	 * @param selectedDir
+	 * @param exportSet
+	 */
+//	private void exportDICOM(boolean flatOutput, boolean decompress, File selectedDir/*dest dir*/, ArrayList<String[]> exportSet) {
+//		
+//		ArrayList<String> patIDs = new ArrayList<String>();
+//		ArrayList<String> studyIUIDs = new ArrayList<String>();
+//		ArrayList<String> seriesIUIDs = new ArrayList<String>();
+//		ArrayList<String> sopIUIDs = new ArrayList<String>();
+//		for (String[] info : exportSet) {
+//			patIDs.add(info[0]);
+//			studyIUIDs.add(info[1]);
+//			seriesIUIDs.add(info[2]);
+//			sopIUIDs.add(info[3]);
 //		}
-		exportDone();
-	}
-
-	@Deprecated //see, DicomUtil
-	void attachDICOMDIRFor(String path2PatDir) {
-//		/*
-//		 * path:"DICOM" folder root:"Pname" folder
-//		 */
-//		String[] cmd = { "-c", path2PatDir + File.separator + "DICOMDIR", path2PatDir };
-//		try {
-//			new DcmDir().main(cmd);
-//		} catch (Exception e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
+//		patIDs = new ArrayList<>(new HashSet<>(patIDs));
+//		studyIUIDs = new ArrayList<>(new HashSet<>(studyIUIDs));
+//		seriesIUIDs = new ArrayList<>(new HashSet<>(seriesIUIDs));
+//		sopIUIDs = new ArrayList<>(new HashSet<>(sopIUIDs));
+//
+//		ArrayList<String> exportRootParentPathSet = new ArrayList<>();
+//		boolean missingFilesFound = false;
+//
+//		// patient name, if null or "" -> noname
+//		// study date, if null or "" -> studydate-null
+//		// series desc, if null or "" -> seriesdesc-null
+//		// image -> instanceNo. if null -> AS-IS
+//		for (String patID : patIDs) {
+//			for (String studyIUID : studyIUIDs) {
+//				int instanceCount = 0;// for flat saving
+//				for (String seriesIUID : seriesIUIDs) {
+//					for (String sopIUID : sopIUIDs) {
+//						if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+//							continue;
+//						}
+//						if (patID == null || patID.equals("") || patID.contentEquals(" ")) {
+//							patID = "NULL-PatientID";
+//						}
+//						//to add dicomdir
+//						exportRootParentPathSet.add(selectedDir.getAbsolutePath() + File.separator + patID);
+//						
+//						String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
+//						if (studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
+////							studyDesc = "no-studydesc";//to avoid duplication, use UID.
+//							studyDesc = studyIUID;
+//							Log.logger.fine("studyDesc is null, uid used instead.");
+//						}
+//						String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID,
+//								seriesIUID);
+//						if (seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
+////							seriesDesc = "no-seriesDesc";
+//							seriesDesc = seriesIUID;
+//							Log.logger.fine("seriesDesc is null, uid used instead.");
+//						}
+//						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
+//
+//						if (!flatOutput) {// hierarchical
+//							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator
+//									+ studyDesc + File.separator + seriesDesc;
+//							File destDirs = new File(destParent);
+//							if (!destDirs.exists()) {
+//								destDirs.mkdirs();
+//							}
+//							String dest = destParent + File.separator + instNo + ".dcm";
+//							// copy to temp
+//							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
+//							File from = new File(dcmPath);
+//							File to = new File(dest);
+//							if (!from.exists()) {
+//								missingFilesFound = true;
+//								continue;
+//							}
+//							synchronized (to) {
+//								try {
+//									if(!decompress) {
+//										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//									}else{
+//										DICOMBackend backend = DICOMBackend.getCurrent();
+//										Decompressor.newInstance(backend).decompress(from, to);
+//									}
+//								} catch (IOException e) {
+//									e.printStackTrace();
+//									return;
+//								}
+//							}
+//						// flat
+//						} else {
+//							String destParent = selectedDir.getAbsolutePath() + File.separator + patID + File.separator + studyDesc;
+//							File destDirs = new File(destParent);
+//							if (!destDirs.exists()) {
+//								destDirs.mkdirs();
+//							}
+//							String dest = destParent + File.separator + instanceCount + ".dcm";
+//							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
+//							File from = new File(dcmPath);
+//							File to = new File(dest);
+//							if (!from.exists()) {
+//								missingFilesFound = true;
+//								continue;
+//							}
+//							synchronized (to) {
+//								try {
+//									if(!decompress) {
+//										Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//									}else{
+//										DICOMBackend backend = DICOMBackend.getCurrent();
+//										Decompressor.newInstance(backend).decompress(from, to);
+//									}
+//								} catch (IOException e) {
+//									e.printStackTrace();
+//									continue;
+//								}
+//								instanceCount++;
+//							}
+//						}
+//					}
+//				}
+//			} // study loop
+//		} // patient loop
+//
+//		if (missingFilesFound) {
+//			JOptionPane.showConfirmDialog(null, "Missing files found, cannot completed exporting whole files.");
+//			return;
 //		}
-	}
-
-//	private String changePatientName(String name) {
-////		String name = tmpAttr.getString(Tag.PatientName);
-//		if (name.contains("=")) {
-//			name = name.substring(name.lastIndexOf("=") + 1);
+//
+//		// finally, create DICOMDIR
+//		if(dicomDir) {
+//			exportRootParentPathSet = new ArrayList<>(new HashSet<>(exportRootParentPathSet));
+//			for(String path2PatDir:exportRootParentPathSet) {
+//				DicomUtilities.attachDICOMDIRTo(path2PatDir);
+//			}
 //		}
-//		// replace space to under score.
-//		if (name.contains(" ") || name.contains("　")) {
-//			name = name.replaceAll(" ", "_");
-//			name = name.replaceAll("　", "_");
-//		}
-//		return name;
+//		done();
 //	}
-
-	private void exportDone() {
+	
+	/**
+	 * Export dcm file from DB to any destination.
+	 */
+	private void moveFile(File from, File to) {
+		try {
+			while (isSuspended()) {
+				Thread.sleep(100); // 一時停止中は定期的にチェック
+			}
+			if (!decompress) {
+				Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			} else {
+				DICOMBackend backend = DICOMBackend.getCurrent();
+				Decompressor.newInstance(backend).decompress(from, to);
+			}
+		} catch (IOException | InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void showExportResult() {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -351,16 +320,214 @@ public class DicomExporter extends JFrame implements Runnable {
 			}
 		});
 	}
+	
+	@Override
+	public TaskContext getContext() {
+		return con;
+	}
 
-	private void doClose() {
-		if (jfc != null) {
-			jfc.setVisible(false);
+	
+	public int showDialog() {
+		jfc = new JFileChooser();
+		jfc.setDialogTitle("Export Option Dialog");
+		jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
+		eop = new ExportOptionPanel();
+		jfc.setAccessory(eop);
+		jfc.setApproveButtonText(approveButtonText);
+//		jfc.setApproveButtonToolTipText(approveToolTip);
+		return jfc.showOpenDialog(this);
+	}
+	
+	public void monitorTasks() {
+		// monitor by another thread.
+		new Thread(() -> {
+			while (!isCompleted() && !executor.isShutdown()) {
+				try {
+					Thread.sleep(1000); // 1秒ごとに監視
+					tasks.removeIf(Future<?>::isDone);
+					System.out.println("Remaining tasks: " + tasks.size());
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+			TaskManager tm = TaskManager.getInstance();
+			tm.removeCompletedTasks();
+			System.out.println("Task completed or cancelled.");
+		}).start();
+	}
+	
+	@Override
+	public void start() {
+		/*
+		 * To export flat hierarchical, list each of level. 
+		 */
+		ArrayList<String> patIDs = new ArrayList<String>();
+		ArrayList<String> studyIUIDs = new ArrayList<String>();
+		ArrayList<String> seriesIUIDs = new ArrayList<String>();
+		ArrayList<String> sopIUIDs = new ArrayList<String>();
+		for (String[] info : dcmFilesUIDs) {
+			patIDs.add(info[0]);
+			studyIUIDs.add(info[1]);
+			seriesIUIDs.add(info[2]);
+			sopIUIDs.add(info[3]);
 		}
-		dispose();
+		patIDs = new ArrayList<>(new HashSet<>(patIDs));
+		studyIUIDs = new ArrayList<>(new HashSet<>(studyIUIDs));
+		seriesIUIDs = new ArrayList<>(new HashSet<>(seriesIUIDs));
+		sopIUIDs = new ArrayList<>(new HashSet<>(sopIUIDs));
+
+		ArrayList<String> missingFiles = new ArrayList<>();
+
+		/*
+		 * When use descriptions for folder name,
+		 * it may cause folder name duplication error.
+		 * Here, use UIDs for folders.
+		 * 
+		 * [NOT USE]
+		 * String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
+		 * String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID,seriesIUID);
+		 */
+		for (String patID : patIDs) {
+			for (String studyIUID : studyIUIDs) {
+				int instanceCount = 1;// for flat saving, reset counter
+				for (String seriesIUID : seriesIUIDs) {
+					for (String sopIUID : sopIUIDs) {
+						/*
+						 * here, drop instance which does not have accurate UID combination. 
+						 */
+						if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+							continue;
+						}
+						if (patID == null || patID.equals("") || patID.contentEquals(" "/*full-width*/)) {
+							patID = "NULL-PatientID";
+						}
+						
+						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
+						if(instNo == 0) {
+							Log.logger.warning("DICOMExport: this instance's instance number is zero. Such case is never occur as usual...");
+						}
+
+						if (!flatOutput) {// hierarchical
+							String destParent = dest.getAbsolutePath() + File.separator + patID + File.separator
+									+ studyIUID + File.separator + seriesIUID;
+							File destDirs = new File(destParent);
+							if (!destDirs.exists()) {
+								destDirs.mkdirs();
+							}
+							String dest = destParent + File.separator + instNo + ".dcm";
+							// copy to temp
+							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
+							File from = new File(dcmPath);
+							File to = new File(dest);
+							if (!from.exists()) {
+								missingFiles.add(from.getAbsolutePath());
+								continue;
+							}
+							Future<?> future = executor.submit(() -> moveFile(from, to));
+				           tasks.add(future);
+						// flat
+						} else {
+							String destParent = dest.getAbsolutePath() + File.separator + patID + File.separator + studyIUID;
+							File destDirs = new File(destParent);
+							if (!destDirs.exists()) {
+								destDirs.mkdirs();
+							}
+							String dest = destParent + File.separator + instanceCount + ".dcm";
+							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
+							File from = new File(dcmPath);
+							File to = new File(dest);
+							if (!from.exists()) {
+								missingFiles.add(from.getAbsolutePath());
+								continue;
+							}
+							Future<?> future = executor.submit(() -> moveFile(from, to));
+							tasks.add(future);
+							instanceCount++;
+						}
+					}
+				}
+			} // study loop
+		} // patient loop
+
+		if (!missingFiles.isEmpty()) {
+			String msg = "Missing files found, cannot completed exporting all files.\n";
+			JOptionPane.showConfirmDialog(MainScreen.getInstance(), msg);
+			for(String missing : missingFiles) {
+				msg += missing + "\n";
+			}
+			Log.logger.severe(msg);
+		}
+
+		// finally, create DICOMDIR
+		ArrayList<String> exportRootParentPathSet = new ArrayList<>();
+		if (dicomDir) {
+			exportRootParentPathSet = new ArrayList<>(new HashSet<>(exportRootParentPathSet));
+			for (String path2PatDir : exportRootParentPathSet) {
+				DicomUtilities.attachDICOMDIRTo(path2PatDir);
+			}
+		}
+		done();
 	}
 
 	@Override
-	public void run() {
-		exportDICOM();
+	public void done() {
+		if(jfc != null) {
+			jfc = null;
+		}
+		if(executor != null && !executor.isShutdown()) {
+			executor.shutdown();
+		}
+		showExportResult();
+		isCompleted = tasks.stream().allMatch(Future::isDone);
+		dispose();
+	}
+	
+	public boolean isCompleted() {
+		return isCompleted;
+	}
+
+	@Override
+	public void setSleepScheduled(boolean doSleep) {
+		sleepScheduled = doSleep;
+	}
+
+	@Override
+	public boolean isSleepScheduled() {
+		return sleepScheduled;
+	}
+
+	/**
+	 * suspend and resume.
+	 */
+	@Override
+	public void setSuspended(boolean suspend) {
+		lock.lock();
+		try {
+			suspended = suspend;
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	@Override
+	public boolean isSuspended() {
+		return suspended;
+	}
+
+	@Override
+	public void setStopped(boolean stop) {
+		if (stop) {
+			for (Future<?> task : tasks) {
+				task.cancel(true);
+			}
+			executor.shutdownNow();
+		}
+	}
+
+	@Override
+	public boolean isStopped() {
+		return false;
 	}
 }

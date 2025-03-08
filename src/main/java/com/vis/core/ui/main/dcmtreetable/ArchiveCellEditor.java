@@ -45,7 +45,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.EventObject;
-import java.util.HashMap;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -90,9 +90,10 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			}
 			((CardLayout) panel.getLayout()).show(panel, "Progress");
 			fireEditingStopped();// to show progressbar
-			QueryRetrieve qr = new QueryRetrieve();
+			QueryRetrieve qr = new QueryRetrieve(false/*queryOnly*/);
 			qr.prepareRetrieve(remote, node);
 			qr.start();
+			qr.monitorTasks();
 		}
 	};
 	
@@ -171,7 +172,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			t.setStopped(true);
 			progressBar.setString(null);
 			//to avoid editing loop
-			TaskManager.getInstance().removeTask(t.getContext().getThreadId()); // task is deleted as explicit.
+			TaskManager.getInstance().removeTask(t.getContext().getTaskId()); // task is deleted as explicit.
 			//progressBar.setString(null);
 			reset(isRemote, null);
 			fireEditingStopped();//IMPORTANT
@@ -212,9 +213,9 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
 		if(node.getLevel()==DICOMNode.STUDY) {
 			TaskManager tm = TaskManager.getInstance();
-			HashMap<Long, Task> tasks = tm.getAllTask();
-			for (long tid : tasks.keySet()) {
-				Task t = tasks.get(tid);
+			List<Integer> taskKeys = tm.getAllTaskIds();
+			for (int tid : taskKeys) {
+				Task t = tm.getTask(tid);
 				TaskContext con = t.getContext();
 				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;

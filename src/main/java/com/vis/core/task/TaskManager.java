@@ -37,9 +37,11 @@
  */
 package com.vis.core.task;
 
-import java.util.HashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.vis.core.log.Log;
 
@@ -50,62 +52,85 @@ import com.vis.core.log.Log;
  */
 public class TaskManager {
 	
-	private final ExecutorService monitoring = Executors.newCachedThreadPool();
+	private final Map<Integer, Task> tasks = new ConcurrentHashMap<>();
+    private final AtomicInteger taskIdCounter = new AtomicInteger(0);
 	
 	private static TaskManager tm = new TaskManager();
-	static HashMap<Long, Task> tasks = new HashMap<>();
 	
 	public static TaskManager getInstance() {
 		return tm;
 	}
 	
 	/**
-	 * Thread IDs are unique and will not change during their lifetime. When a thread is terminated, this thread ID may be reused.
 	 * 
-	 * @param threadID
-	 * @param con
+	 * @param t
+	 * @return task id
 	 */
-	public void addTask(long threadID, Task t) {
-		tasks.put(threadID, t);
+	public int addTask(Task t) {
+		int taskId = taskIdCounter.incrementAndGet();
+		tasks.put(taskId, t);
+		return taskId;
 	}
 	
-	public void removeAndCleanUpTasks(long threadID) {
-		for (Thread t : Thread.getAllStackTraces().keySet()) {
-			if (t.getId() == threadID) {
-				monitoring.submit(() -> {
-					try {
-						t.join(); // 別スレッドで待機
-						cleanupTask(threadID);
-					} catch (InterruptedException e) {
-						Log.logger.severe("Thread ID:[" + threadID + "] thread is still alive.");
-						Log.logger.severe(e.getLocalizedMessage());
-					}
-				});
-				break;
-			}
-		}
-	}
+	public void startTask(int taskId) {
+        Task task = tasks.get(taskId);
+        if (task != null) {
+            task.start();
+            task.monitorTasks();
+        }
+    }
 
-	private void cleanupTask(long threadID) {
-		Task ta = tasks.get(threadID);
-		if (ta != null) {
-			tasks.remove(threadID, ta);
-			ta = null;
-		}
+    public void pauseTask(int taskId) {
+        Task task = tasks.get(taskId);
+        if (task != null) {
+            task.setSuspended(true);
+        }
+    }
+
+    public void resumeTask(int taskId) {
+        Task task = tasks.get(taskId);
+        if (task != null) {
+        	task.setSuspended(false);
+        }
+    }
+
+    public void removeTask(int taskId) {
+        Task task = tasks.get(taskId);
+        if (task != null) {
+            task.setStopped(true);
+            tasks.remove(taskId);
+        }
+    }
+
+    public boolean isTaskCompleted(int taskId) {
+        Task task = tasks.get(taskId);
+        return task == null || task.isCompleted();
+    }
+
+    public List<Integer> getAllTaskIds() {
+        return new ArrayList<>(tasks.keySet());
+    }
+
+    public void removeCompletedTasks() {
+        tasks.entrySet().removeIf(entry -> entry.getValue().isCompleted());
+    }
+
+	public Task getTask(int taskID) {
+		return tasks.get(taskID);
 	}
 	
-	public void removeTask(long threadID) {
-		for (Thread t : Thread.getAllStackTraces().keySet()) {
-			if(t.getId() == threadID) {
-				Task ta = tasks.get(threadID);
-				tasks.remove(threadID, ta);
+	public void shutdownAndWait() {
+		List<Integer> taskIds = getAllTaskIds();
+		while (!taskIds.isEmpty()) {
+			taskIds.removeIf(this::isTaskCompleted);
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 				break;
 			}
 		}
-	}
-	
-	public Task getTask(long threadID) {
-		return tasks.get(threadID);
+		Log.logger.info("All tasks completed.");
 	}
 	
 	public Thread getThread(long tid) {
@@ -117,16 +142,8 @@ public class TaskManager {
 		return null;
 	}
 	
-	public HashMap<Long, Task> getAllTask() {
-		return tasks;
-	}
-	
 	public int size() {
 		return tasks.size();
 	}
 	
-	public void shutdown() {
-        monitoring.shutdown();
-    }
-
 }

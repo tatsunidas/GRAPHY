@@ -40,7 +40,7 @@ package com.vis.core.ui.main.dcmtreetable;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.util.HashMap;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -138,9 +138,9 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
 		if(node.getLevel()==DICOMNode.STUDY) {
 			TaskManager tm = TaskManager.getInstance();
-			HashMap<Long, Task> tasks = tm.getAllTask();
-			for (long tid : tasks.keySet()) {
-				Task t = tasks.get(tid);
+			List<Integer> taskKeys = tm.getAllTaskIds();
+			for (int tid : taskKeys) {
+				Task t = tm.getTask(tid);
 				TaskContext con = t.getContext();
 				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;

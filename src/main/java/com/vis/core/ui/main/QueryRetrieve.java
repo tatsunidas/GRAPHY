@@ -72,10 +72,18 @@ import com.vis.dicom.dimse.FindSCU;
 
 /**
  * 
+ * When execute query, can use query family methods.
+ * 
+ * When execute retrieve, do following.
+ * QueryRetrieve qr = new QueryRetrieve(false);
+ * qr.prepareRetrieve(DICOMCommunicationNode remote, DICOMNode retrieveTargetNode);
+ * qr.start();
+ * qr.monitorTasks();//remove after end of task.
+ * 
  * @author tatsunidas
  *
  */
-public class QueryRetrieve implements Task {
+public class QueryRetrieve implements Task, Runnable {
 
 	/*
 	 * Relational Queries have been in the DICOM standard since the start, \n but
@@ -97,18 +105,31 @@ public class QueryRetrieve implements Task {
 	// Threading
 	private Thread thisThread;
 	boolean suspend = false;
-	protected boolean stopped;// same as cancel
-	protected boolean sleepScheduled;
-	protected boolean suspended;
+	protected boolean stopped = false;// same as cancel
+	protected boolean sleepScheduled = false;
+	protected boolean suspended = false;
+	boolean isCompleted = false;
+	
+	/**
+	 * Set taskId by TaskManager when execute retrieve.
+	 * If query only, set -1.
+	 */
+	final int taskId;
+	
 	public final static int SLEEP_TIME = 1000;
 	
 	boolean copyToTemp = false;
 	
-	public QueryRetrieve() {
+	public QueryRetrieve(boolean queryOnly) {
 		thisThread = new Thread(this);
-		stopped = false;
-		sleepScheduled = false;//useful for debug
-		suspended = false;
+		sleepScheduled = Utils.isDebug;
+		if (!queryOnly) {
+			//add to task manager
+			TaskManager tm = TaskManager.getInstance();
+			taskId = tm.addTask(this);
+		}else {
+			taskId = -1;
+		}
 	}
 
 	public DICOMNode queryToDay(DicomCommunicationNode dest) {
@@ -144,29 +165,40 @@ public class QueryRetrieve implements Task {
 		} else if (from != null && to == null) {
 			studyKeys.add("StudyDate=" + from + "-");
 		}
-		return query(dest, false, patKeys, studyKeys, modalities);
-	}
-
-	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
-			ArrayList<String> modalities) {
-		ArrayList<DICOMNode> rootResultList = new ArrayList<DICOMNode>();
+		
+		List<String> seriesKeys = null;
 		if (modalities != null && modalities.size() > 0) {
 			for (String modality : modalities) {
-				List<String> seriesKeys = new ArrayList<String>();
+				seriesKeys = new ArrayList<String>();
 				seriesKeys.add("Modality=" + modality);
-				rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, seriesKeys, null));
 			}
 		} else {
-			rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, null, null));
+			seriesKeys = null;//explicit code
 		}
-		rootResultList.removeAll(Collections.singleton(null));
-		List<DICOMNode> studies = new ArrayList<DICOMNode>();
-		for (DICOMNode rootResult : rootResultList) {
-			List<DICOMNode> studiesResult = (List<DICOMNode>) rootResult.getChildren();
-			studies.addAll(studiesResult);
-		}
-		return new DICOMNode(true, studies);
+		
+		return query(dest, false, patKeys, studyKeys, seriesKeys, null);
 	}
+
+//	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
+//			ArrayList<String> modalities) {
+//		ArrayList<DICOMNode> rootResultList = new ArrayList<DICOMNode>();
+//		if (modalities != null && modalities.size() > 0) {
+//			for (String modality : modalities) {
+//				List<String> seriesKeys = new ArrayList<String>();
+//				seriesKeys.add("Modality=" + modality);
+//				rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, seriesKeys, null));
+//			}
+//		} else {
+//			rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, null, null));
+//		}
+//		rootResultList.removeAll(Collections.singleton(null));
+//		List<DICOMNode> studies = new ArrayList<DICOMNode>();
+//		for (DICOMNode rootResult : rootResultList) {
+//			List<DICOMNode> studiesResult = (List<DICOMNode>) rootResult.getChildren();
+//			studies.addAll(studiesResult);
+//		}
+//		return new DICOMNode(true, studies);
+//	}
 
 	/**
 	 * keys-> -m,"key=value"... statements; usage=findscu [options] -c
@@ -706,9 +738,6 @@ public class QueryRetrieve implements Task {
 				? studynode.getData(DICOMNode.SOPInstanceUID)
 				: "");
 		thisThread = new Thread(this);
-		//add to task manager
-		TaskManager tm = TaskManager.getInstance();
-		tm.addTask(thisThread.getId(), this);
 		
 		this.copyToTemp = copyToTemp;
 		
@@ -822,7 +851,8 @@ public class QueryRetrieve implements Task {
 			if(count  == 0) {
 				HashMap<String, Object> update_con = new HashMap<>();
 				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-				update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+				update_con.put(TaskContext.THREAD_ID, thisThread.getId());//necessary ?
+				update_con.put(TaskContext.TASK_ID, taskId);
 				update_con.put(TaskContext.SIZE, candidateInfoSet.size());
 				update_con.put(TaskContext.CURRENT_IND, count);
 				con = new ImportingStateContext(infoset[1], update_con);
@@ -860,8 +890,7 @@ public class QueryRetrieve implements Task {
 				}
 			}
 		});
-		TaskManager tm = TaskManager.getInstance();
-		tm.removeTask(con.getThreadId());
+		isCompleted = true;
 	}
 
 	public Thread getThread() {
@@ -916,7 +945,7 @@ public class QueryRetrieve implements Task {
 		}
 	}
 
-	/* run retrieve */
+	/* run from start() */
 	@Override
 	public void run() {
 		performRetrieve();
@@ -930,5 +959,36 @@ public class QueryRetrieve implements Task {
 	@Override
 	public void start() {
 		thisThread.start();
+	}
+
+	/**
+	 * set by done()
+	 */
+	@Override
+	public boolean isCompleted() {
+		return isCompleted;
+	}
+
+	@Override
+	public void monitorTasks() {
+		if(taskId == -1 /*local QR is ignored*/) {
+			return;
+		}
+		new Thread(() -> {
+			while (!isCompleted() && !isStopped()) {
+				try {
+					Thread.sleep(500); // monitor each 0.5 sec
+					int currentInd = con.currentIndex();
+					int total = con.totalSize();
+					System.out.println("Remaining tasks: " + (total - (currentInd + 1)));
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+			System.out.println("Task completed or cancelled.");
+			TaskManager tm = TaskManager.getInstance();
+			tm.removeCompletedTasks();
+		}).start();
 	}
 }

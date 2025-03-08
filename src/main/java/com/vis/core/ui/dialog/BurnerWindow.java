@@ -61,6 +61,7 @@ import com.vis.cdw.common.CDRToolsProperties;
 import com.vis.cdw.common.DriveUtil;
 import com.vis.cdw.common.MediaCreationException;
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
 
@@ -111,12 +112,12 @@ public class BurnerWindow extends JFrame implements WindowListener{
 	 * 
 	 * burnFile-DICOM and DICOMDIR (without weasis)
 	 */
-	public BurnerWindow(File burnFileInTemp, boolean debug) {
+	public BurnerWindow(File burnDestDirInTemp, boolean debug) {
 		super("Burn to CD/DVD");
 
 		this.simulate = debug;
 
-		if (!burnFileInTemp.exists()) {
+		if (!burnDestDirInTemp.exists()) {
 			JOptionPane.showConfirmDialog(MainScreen.getInstance(), "Could not find the burn target folder, please re-try.",
 					"Something strange about burn target media..?? return", JOptionPane.WARNING_MESSAGE);
 			return;
@@ -143,7 +144,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		getContentPane().add(scrollPaneBurnList, BorderLayout.CENTER);
 
 		treeBurnList = new JTree();
-		DefaultTreeModel treeModel = new DefaultTreeModel(buildTree(burnFileInTemp), false);
+		DefaultTreeModel treeModel = new DefaultTreeModel(buildTree(burnDestDirInTemp), false);
 		treeBurnList.setModel(treeModel);
 		for (int i = 0; i < treeBurnList.getRowCount(); i++) {
 		    treeBurnList.expandRow(i);
@@ -221,10 +222,10 @@ public class BurnerWindow extends JFrame implements WindowListener{
 			public void actionPerformed(ActionEvent e) {
 				// BURN
 				if(anonymizer != null && anonymizer.isProceeded()) {
-					anonymizer.mtranscode(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath()+"_deident"));
-					startBurinig(new File(burnFileInTemp.getAbsolutePath()+"_deident"), simulate);
+					anonymizer.mtranscode(burnDestDirInTemp, new File(burnDestDirInTemp.getAbsolutePath()+"_deident"));
+					startBurinig(new File(burnDestDirInTemp.getAbsolutePath()+"_deident"), simulate);
 				}else {
-					startBurinig(burnFileInTemp, simulate);
+					startBurinig(burnDestDirInTemp, simulate);
 				}
 			}
 		});
@@ -337,7 +338,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		speed = (Integer) comboBoxSpeed.getSelectedItem();
 		if (!isCD((String) comboBoxDrive.getSelectedItem())) {
 			// see, BurnCD::setWriteSpeed().
-			System.out.println("WriteSpeed changed to 8X for wrinting non CD-R media.");
+			Log.logger.info("WriteSpeed changed to 8X for wrinting Non CD-R media.");
 			speed = 8;// DVD, DVDRAM,BD, fastest number...
 		}
 		String device = getDeviveScsi((String) comboBoxDrive.getSelectedItem());

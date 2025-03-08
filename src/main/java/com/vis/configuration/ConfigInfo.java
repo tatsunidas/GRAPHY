@@ -96,7 +96,8 @@ public enum ConfigInfo {
 	 */
 	GRAPHY_Props("./conf/graphy.properties"),
 	VERSION("application.properties"),
-	CDRTOOL_Props("./conf/native/native_cdrtools/cdrecord.properties"),
+	CDRTOOL_Props("./conf/cdrecord.properties"),
+	BURN2CDLocation("./temp/BURN2CD"),
 	
 	WEASIS("/weasis/weasis-portable/"),// resource in jar, must handle in stream.
 	RecordFactory("RecordFactory.xml"),

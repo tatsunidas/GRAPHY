@@ -38,11 +38,12 @@
 package com.vis.core.task;
 
 /**
- * see, DicomImporter.class to know HowTo.
+ * see, DicomImporter.class to know HowTo using Thread.
+ * see, DicomExporter to know HowTo using ExecutorService instead of Thread.
  * @author tatsunidas
  *
  */
-public interface Task extends Runnable{
+public interface Task {
 	
 	public TaskContext getContext();
 	public void start();
@@ -72,5 +73,9 @@ public interface Task extends Runnable{
 	public void setStopped(boolean stop);
 
 	public boolean isStopped();
+	
+	public boolean isCompleted();
+	
+	public void monitorTasks();
 
 }

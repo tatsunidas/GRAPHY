@@ -156,7 +156,6 @@ public enum Platform {
 	}
 
 	public static final int getOsBit() {
-//      String os = System.getProperty( "sun.arch.data.mode" ) ; mode ではなく model
 		String os = System.getProperty("sun.arch.data.model");
 		if (os != null && (os = os.trim()).length() > 0) {
 			if ("32".equals(os)) {
@@ -169,7 +168,6 @@ public enum Platform {
 		if (os == null || (os = os.trim()).length() <= 0) {
 			return -1;
 		}
-//      if( os.endsWith( "32" ) ) { // 32 ではなく 86
 		if (os.endsWith("86")) {
 			return 32;
 		} else if (os.endsWith("64")) {
@@ -184,6 +182,10 @@ public enum Platform {
 		} else {
 			return "Little-endian";
 		}
+	}
+	
+	public static int availableProcessors() {
+		return Utils.availableProcessors();
 	}
 
 	public static void setSystemProperties() {

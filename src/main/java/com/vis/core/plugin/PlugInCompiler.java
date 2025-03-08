@@ -42,6 +42,7 @@ import java.io.File;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.tools.JavaCompiler;
 
 import com.vis.configuration.ConfigInfo;
@@ -56,7 +57,8 @@ public class PlugInCompiler {
 			// JFileChooser のインスタンスを作成
 			JFileChooser fileChooser = new JFileChooser();
 			// .java ファイルのみを選択できるようにする
-			fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Java File", "java"));
+			FileNameExtensionFilter filter = new FileNameExtensionFilter("Java File", "java");
+			fileChooser.setFileFilter(filter);
 			fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 			fileChooser.setMultiSelectionEnabled(false);
 			// タイトルを設定

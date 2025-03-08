@@ -49,6 +49,7 @@ public interface TaskContext {
 	//context keys
 	public static final String TASK_TYPE = "TASK_TYPE";
 	public static final String THREAD_ID = "THREAD_ID";
+	public static final String TASK_ID = "TASK_ID";
 	public static final String SIZE = "SIZE";
 	public static final String CURRENT_IND = "CURRENT_INDEX";// 0 to n-1.
 	//add more...
@@ -63,6 +64,7 @@ public interface TaskContext {
 	public int totalSize();
 	public TaskType getType();
 	public long getThreadId();
+	public int getTaskId();
 	
 	/*
 	 * following function are delegate Task impl class.

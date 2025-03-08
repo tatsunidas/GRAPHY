@@ -248,7 +248,6 @@ public class ApplicationFacade{
 			WindowManager.addWindow(mainScreen);
 			//add preferenceWin
 			WindowManager.addWindow(PreferencesWin.getInstance());
-			
 		});
 		
 		String fontSize = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);
@@ -290,9 +289,7 @@ public class ApplicationFacade{
 			splash.dispose();
 		}
 		TaskManager tm = TaskManager.getInstance();
-		if(tm != null) {
-			tm.shutdown();
-		}
+		tm.shutdownAndWait();
 		Log.logger.log(level, exitString);
 		boolean close = true;
 		if(level == Level.INFO) {

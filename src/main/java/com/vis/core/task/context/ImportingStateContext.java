@@ -49,6 +49,7 @@ import com.vis.core.task.TaskType;
 public class ImportingStateContext implements TaskContext{
 	
 	final long threadId;
+	final int taskId;
 	int currentIndex=0;//progress
 	int total;
 	final TaskType type;
@@ -70,6 +71,7 @@ public class ImportingStateContext implements TaskContext{
 		this.type = (TaskType)con.get(TaskContext.TASK_TYPE);
 		total = (Integer)con.get(TaskContext.SIZE);
 		threadId = (Long)con.get(TaskContext.THREAD_ID);
+		taskId = (Integer)con.get(TaskContext.TASK_ID);
 	}
 		
 	public boolean validateContext(HashMap<String, Object> con) {
@@ -118,5 +120,9 @@ public class ImportingStateContext implements TaskContext{
 	@Override
 	public long getThreadId() {
 		return threadId;
+	}
+	
+	public int getTaskId() {
+		return taskId;
 	}
 }

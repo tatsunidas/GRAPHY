@@ -198,7 +198,6 @@ public class Utils {
 	 * @throws Exception
 	 */
 	public static void copyResourceFromJAR(String resourcename, String to) throws Exception {
-		
 		//resourcename must start with "/resources".
 		if(!resourcename.startsWith("/resources")) {
 			if(!resourcename.startsWith("/")) {
@@ -207,18 +206,12 @@ public class Utils {
 				resourcename = "/resources/" + resourcename;
 			}
 		}
-		
 		final String name = resourcename;//to handle in walkFileTree.
-
 		Path jar = getJarPath();//full path. 
-
 		final URI jarFileUri = URI.create("jar:file:" + jar);
-
 		Map<String, String> env = new HashMap<>();//empty map
-		
 		final FileSystem fs = FileSystems.newFileSystem(jarFileUri, env);
 		Path root = fs.getPath(name);
-
 		// recursive
 		Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
 			@Override
@@ -372,5 +365,9 @@ public class Utils {
 			return false;
 		}
 		return Boolean.parseBoolean(ignore.toLowerCase());
+	}
+	
+	public static int availableProcessors() {
+		return Runtime.getRuntime().availableProcessors();
 	}
 }

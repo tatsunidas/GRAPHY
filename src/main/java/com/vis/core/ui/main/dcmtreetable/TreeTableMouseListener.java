@@ -46,7 +46,9 @@ import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.QueryRetrieve;
+import com.vis.core.ui.settings.PreferencesWin;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 
 /**
@@ -137,9 +139,10 @@ public class TreeTableMouseListener implements MouseListener{
 						new String[] {"Retrieve", "Cancel"},
 						"Retrieve"	);
 				if(res == JOptionPane.YES_OPTION) {
-					QueryRetrieve qr = new QueryRetrieve();
+					QueryRetrieve qr = new QueryRetrieve(false/*queryOnly*/);
 					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node, false/* false means will load to db*/);
 					qr.start();
+					qr.monitorTasks();
 					new Thread(() -> {
 						try {
 							qr.getThread().join(); // waiting finish qr task on background.
@@ -147,10 +150,12 @@ public class TreeTableMouseListener implements MouseListener{
 						} catch (InterruptedException ie) {
 							Log.logger.warning(ie.getLocalizedMessage());
 						}
-						viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
-								(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
-						viewer.setVisible(true);
-						viewer.toFront();
+						SwingUtilities.invokeLater(() -> {
+							viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
+									(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
+							viewer.setVisible(true);
+							viewer.toFront();
+						});
 					}).start();
 				}
 			}

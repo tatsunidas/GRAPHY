@@ -242,7 +242,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				if(!svrReady) {
 					continue;
 				}
-				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve().queryToDay(svr));
+				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToDay(svr));
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
@@ -408,7 +408,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		} else {
 			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName()+"]");
 			/* root */
-			DICOMNode queryResults = new QueryRetrieve().querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
+			DICOMNode queryResults = new QueryRetrieve(true/*queryOnly*/).querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
 					modalities);
 			dock.updateTreeTable(queryResults);
 		}
@@ -636,7 +636,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 */
 	public void resetBirdsEyeView(String[] patIDs) {
 		if(patIDs == null) {
-			//referencing by treeTableDockManager.
+			//see, referencing by treeTableDockManager.
 			bev.resetViews(true);
 			return;
 		}
@@ -687,7 +687,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTableModel model = new DICOMTreeTableModel(root);
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 			}else{//addNew
-				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve().queryToDay(svr));
+				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToDay(svr));
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 				/* add or update Dock */
 				try {

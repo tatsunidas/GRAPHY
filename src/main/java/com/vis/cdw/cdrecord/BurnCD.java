@@ -43,17 +43,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 import javax.swing.JOptionPane;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.vis.cdw.common.CDRToolsExec;
 import com.vis.cdw.common.DriveUtil;
 import com.vis.cdw.common.ExecutionProp;
 import com.vis.cdw.common.ExecutionStatusInfo;
 import com.vis.cdw.common.MediaCreationException;
+import com.vis.core.log.Log;
 
 /**
  * cdrtools (32-bit recommended, 64-bit has BUG)
@@ -125,7 +124,7 @@ public class BurnCD {
 //    protected int pauseTime = 10;
 	protected File logFile;
 
-	Logger log = LoggerFactory.getLogger(BurnCD.class);
+	Logger log = Log.logger;
 
 	public BurnCD(String device, int speed, boolean eject, boolean verify, boolean dummy) {
 		// set up
@@ -292,12 +291,12 @@ public class BurnCD {
 		}
 
 		if (!isoImageFile.exists()) {
-			log.warn("iso files not ready.");
+			log.warning("iso files not ready.");
 			throw new MediaCreationException(ExecutionStatusInfo.CHECK_MCD_SRV, "ISO file creation failed");
 		}
 		
 		if (!checkDrive(getDeviceScsi())) {
-			log.warn("Drive not ready.");
+			log.warning("Drive not ready.");
 			throw new MediaCreationException(ExecutionStatusInfo.CHECK_MCD_SRV, "Drive Check failed");
 		}
 
@@ -316,7 +315,7 @@ public class BurnCD {
 				try {
 					logout.close();
 					if (exit != 0) {
-						log.error("Burn cd/dvd maybe failed...");
+						log.warning("Burn cd/dvd maybe failed...");
 						JOptionPane.showConfirmDialog(null,
 								"Media creation was failed, please check media is blank or insert correctly.",
 								"Burn failed", JOptionPane.WARNING_MESSAGE);
@@ -376,7 +375,8 @@ public class BurnCD {
 				try {
 					Thread.sleep(mountTime * 1000L);
 				} catch (InterruptedException e) {
-					log.warn("Mount Time was interrupted:", e);
+					log.warning("Mount Time was interrupted!\n");
+					log.warning(e.getLocalizedMessage());
 				}
 			}
 			if (mount) {
@@ -460,10 +460,10 @@ public class BurnCD {
 			if (exit == 0) {
 				return true;
 			} else {
-				log.warn(warning + " exit(" + exit + ")");
+				log.warning(warning + " exit(" + exit + ")");
 			}
 		} catch (Exception e) {
-			log.warn(warning, e);
+			log.warning(warning);
 			return false;
 		} finally {
 			if (p != null && p.isAlive()) {

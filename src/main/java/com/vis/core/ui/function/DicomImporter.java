@@ -69,7 +69,7 @@ import javax.swing.SwingUtilities;
  * Import dicom files study by study.
  * @author tatsunidas
  */
-public class DicomImporter implements Task {
+public class DicomImporter implements Task, Runnable {
 
 	boolean ignorePrivate = false;
 	private ArrayList<String> candidateList;// Dicom Files exclude dicomdir
@@ -79,11 +79,12 @@ public class DicomImporter implements Task {
 	int total = -1;
 	
 	Thread thisThread;
+	final int taskId;
 	boolean suspend = false;
 	protected boolean stopped;// same as cancel
 	protected boolean sleepScheduled;
 	protected boolean suspended;
-	
+	boolean isCompleted = false;
 	final String studyUID;
 	
 	public final static int SLEEP_TIME = 1000;
@@ -111,7 +112,7 @@ public class DicomImporter implements Task {
 		thisThread = new Thread(this);
 		//add to task manager
 		TaskManager tm = TaskManager.getInstance();
-		tm.addTask(thisThread.getId(), this);
+		taskId = tm.addTask(this);
 	}
 	
 	private void showImportResult() {
@@ -180,6 +181,7 @@ public class DicomImporter implements Task {
 					HashMap<String, Object> update_con = new HashMap<>();
 					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
 					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+					update_con.put(TaskContext.TASK_ID, taskId);
 					update_con.put(TaskContext.SIZE, candidateList.size());
 					update_con.put(TaskContext.CURRENT_IND, count);
 					con = new ImportingStateContext(studyUID, update_con);
@@ -207,7 +209,7 @@ public class DicomImporter implements Task {
 	}
 
 	/**
-	 * Use start().
+	 * run from thisThread.start().
 	 */
 	@Override
 	public void run() {
@@ -220,12 +222,7 @@ public class DicomImporter implements Task {
 		//clear from task manager
 		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		treeTable.getTableHeader().setEnabled(true);
-		TaskManager tm = TaskManager.getInstance();
-		tm.removeTask(con.getThreadId());
-	}
-
-	public Thread getThread() {
-		return thisThread;
+		isCompleted = true;//set above to task remove.
 	}
 
 	private ArrayList<String> getCandidateFilesList() {
@@ -278,6 +275,32 @@ public class DicomImporter implements Task {
 
 	public synchronized boolean isStopped() {
 		return stopped;
+	}
+	
+	/**
+	 * set true in done()
+	 */
+	public boolean isCompleted() {
+		return isCompleted;
+	}
+	
+	public void monitorTasks() {
+		new Thread(() -> {
+			while (!isCompleted() && !isStopped()) {
+				try {
+					Thread.sleep(500); // monitor each 0.5 sec
+					int currentInd = con.currentIndex();
+					int total = con.totalSize();
+					System.out.println("Remaining tasks: " + (total - (currentInd + 1)));
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+			System.out.println("Task completed or cancelled.");
+			TaskManager tm = TaskManager.getInstance();
+			tm.removeCompletedTasks();
+		}).start();
 	}
 
 	@Override
