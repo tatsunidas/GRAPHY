@@ -47,7 +47,6 @@ public interface Task {
 	
 	public TaskContext getContext();
 	public void start();
-//	public void terminate();//use setStopped instead.
 	public void done();
 	
 	/**
@@ -75,6 +74,13 @@ public interface Task {
 	public boolean isStopped();
 	
 	public boolean isCompleted();
+	
+	/**
+	 * If TaskContext is still null, will return null when call getContext().getTaskId().
+	 * To avoid null pointer exception from task context.
+	 * @return task id
+	 */
+	public int getTaskId();//To perform TaskManager.startTask.
 	
 	public void monitorTasks();
 

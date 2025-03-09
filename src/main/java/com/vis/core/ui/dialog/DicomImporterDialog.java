@@ -2,6 +2,7 @@ package com.vis.core.ui.dialog;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.task.TaskManager;
 import com.vis.core.ui.function.DicomImporter;
 import com.vis.dicom.DicomFileCollection;
 import com.vis.dicom.DicomUtilities;
@@ -153,7 +154,8 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 						DicomImporter importer = new DicomImporter(candidateList, willImportStudyUID);
-						importer.start();
+						TaskManager tm = TaskManager.getInstance();
+						tm.startTask(importer.getTaskId());
 					}
 				}else if(res == JOptionPane.NO_OPTION) {
 					HashMap<Integer, Object> info = infoPanel.getInputs();
@@ -170,7 +172,8 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 						DicomImporter importer = new DicomImporter(candidateList, info, willImportStudyUID);
-						importer.start();
+						TaskManager tm = TaskManager.getInstance();
+						tm.startTask(importer.getTaskId());
 					}
 				}
 			}else {
@@ -187,14 +190,16 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 						for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 							ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 							DicomImporter importer = new DicomImporter(candidateList, null, willImportStudyUID);
-							importer.start();
+							TaskManager tm = TaskManager.getInstance();
+							tm.startTask(importer.getTaskId());
 						}
 					}
 				}else {
 					for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 						ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 						DicomImporter importer = new DicomImporter(candidateList, infoPanel.getInputs(), willImportStudyUID);
-						importer.start();
+						TaskManager tm = TaskManager.getInstance();
+						tm.startTask(importer.getTaskId());
 					}
 				}
 			}

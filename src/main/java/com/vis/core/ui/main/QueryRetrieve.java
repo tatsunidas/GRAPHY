@@ -78,7 +78,11 @@ import com.vis.dicom.dimse.FindSCU;
  * QueryRetrieve qr = new QueryRetrieve(false);
  * qr.prepareRetrieve(DICOMCommunicationNode remote, DICOMNode retrieveTargetNode);
  * qr.start();
- * qr.monitorTasks();//remove after end of task.
+ * qr.monitorTasks();//remove task from manager after end of task.
+ * 
+ * TODO
+ * - update multi-threading, see, DicomExporter.class
+ * 
  * 
  * @author tatsunidas
  *
@@ -122,7 +126,7 @@ public class QueryRetrieve implements Task, Runnable {
 	
 	public QueryRetrieve(boolean queryOnly) {
 		thisThread = new Thread(this);
-		sleepScheduled = Utils.isDebug;
+		sleepScheduled = false;//Utils.isDebug;
 		if (!queryOnly) {
 			//add to task manager
 			TaskManager tm = TaskManager.getInstance();
@@ -968,6 +972,10 @@ public class QueryRetrieve implements Task, Runnable {
 	public boolean isCompleted() {
 		return isCompleted;
 	}
+	
+	public int getTaskId() {
+		return taskId;
+	}
 
 	@Override
 	public void monitorTasks() {
@@ -978,6 +986,10 @@ public class QueryRetrieve implements Task, Runnable {
 			while (!isCompleted() && !isStopped()) {
 				try {
 					Thread.sleep(500); // monitor each 0.5 sec
+					if(con == null) {
+						//when starting, still con is null.
+						continue;
+					}
 					int currentInd = con.currentIndex();
 					int total = con.totalSize();
 					System.out.println("Remaining tasks: " + (total - (currentInd + 1)));

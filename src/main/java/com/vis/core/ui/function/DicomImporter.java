@@ -48,13 +48,10 @@ import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.TabDock;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
-import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
-//import com.vis.dicom.Tag;
-//import com.vis.dicom.VR;
 import com.vis.dicom.dimse.DimseUtilities;
 
 import java.io.File;
@@ -67,6 +64,14 @@ import javax.swing.SwingUtilities;
 
 /**
  * Import dicom files study by study.
+ * 
+ * DicomImporter importer = new DicomImporter(candidateList, null, willImportStudyUID);
+ * TaskManager tm = TaskManager.getInstance();
+ * tm.startTask(importer.getTaskId());
+ * 
+ * TODO
+ * - update multi-threading, see, DicomExporter.class
+ * 
  * @author tatsunidas
  */
 public class DicomImporter implements Task, Runnable {
@@ -105,7 +110,7 @@ public class DicomImporter implements Task, Runnable {
 		total = candidateList.size();
 		this.willEditTo = info;
 		stopped = false;
-		sleepScheduled = Utils.isDebug;//useful for debug
+		sleepScheduled = false;//Utils.isDebug;//useful for debug
 		suspended = false;
 		this.con = null;
 		this.studyUID = studyUID;
@@ -289,6 +294,10 @@ public class DicomImporter implements Task, Runnable {
 			while (!isCompleted() && !isStopped()) {
 				try {
 					Thread.sleep(500); // monitor each 0.5 sec
+					if(con == null) {
+						//when starting, still con is null.
+						continue;
+					}
 					int currentInd = con.currentIndex();
 					int total = con.totalSize();
 					System.out.println("Remaining tasks: " + (total - (currentInd + 1)));
@@ -302,7 +311,11 @@ public class DicomImporter implements Task, Runnable {
 			tm.removeCompletedTasks();
 		}).start();
 	}
-
+	
+	public int getTaskId() {
+		return taskId;
+	}
+	
 	@Override
 	public TaskContext getContext() {
 		return con;

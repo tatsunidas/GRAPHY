@@ -210,6 +210,11 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 		return panel;
 	}
 	
+	/**
+	 * 
+	 * @param node
+	 * @return Task : To manage suspend.
+	 */
 	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
 		if(node.getLevel()==DICOMNode.STUDY) {
 			TaskManager tm = TaskManager.getInstance();
@@ -219,11 +224,8 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 				TaskContext con = t.getContext();
 				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;
-					if(isc.getThreadId() == tid) {
-						Thread thr = tm.getThread(tid);
-						if(t != null && thr.isAlive() && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
-							return t;
-						}
+					if(isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
+						return t;
 					}
 				}
 			}
@@ -242,6 +244,7 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 					button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
 					button.setEnabled(false);
 					((CardLayout) panel.getLayout()).show(panel, "Button");
+					panel.repaint();
 				}
 			}
 		}else {//REMOTE
@@ -276,6 +279,8 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			button.setIcon(qrReadyIcon);
 		}
 		((CardLayout) panel.getLayout()).show(panel, "Button");
+		fireEditingStopped();
+		panel.repaint();
 	}
 	
 }

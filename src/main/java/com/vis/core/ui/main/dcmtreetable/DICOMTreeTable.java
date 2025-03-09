@@ -52,6 +52,11 @@ import javax.swing.table.*;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
+import com.vis.core.task.Task;
+import com.vis.core.task.TaskContext;
+import com.vis.core.task.TaskManager;
+import com.vis.core.task.TaskType;
+import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
@@ -357,6 +362,19 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 	public void reload(DICOMNode root) {
 		TreeTableModelAdapter modelAda = (TreeTableModelAdapter)getModel();
 		modelAda.reload(root);
+	}
+	
+	public Task getTaskTypeImportAt(DICOMNode node) {
+		TaskManager tm = TaskManager.getInstance();
+		List<Integer> taskKeys = tm.getAllTaskIds();
+		for (int tid : taskKeys) {
+			Task t = tm.getTask(tid);
+			TaskContext con = t.getContext();
+			if (con instanceof ImportingStateContext && con.getType() == TaskType.TypeImport) {
+				return t;
+			}
+		}
+		return null;
 	}
 	
 	public int getColumnPosition(String colName) {

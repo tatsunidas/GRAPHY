@@ -46,7 +46,9 @@ public enum TaskType {
 
 	TypeImport,
 	TypeExport,
-	TypeProcessing,
+	TypeDelete,
+	TypeLoadImage,
+	TypeImageProcessing,
 	// add task...
 	
 }

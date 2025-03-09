@@ -116,6 +116,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	JToolBar treeTableDock;// dockable treetable
 	BirdsEyeView bev;
 	JSplitPane treeTbaleAndBirdsEyeSplitPane;
+	
+	InformationBar statusBar;
+	
 	public int progressValue = 0;
 
 	public JPanel activeViewPanel;
@@ -456,7 +459,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		 * South Component 
 		 */
 		//triangle bar
-		TriangleBar statusBar = new TriangleBar();
+		statusBar = new InformationBar();
 		getContentPane().add(statusBar, BorderLayout.SOUTH);
 		
 		addWindowListener(this);
@@ -557,6 +560,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		queryInfoLabel.setText(text);
 	}
 
+	/**
+	 * show images on BEV when home tab is selected.
+	 */
 	public void showImagesOnBirdsEye() {
 		TreeTableDockManager ttdm = getTreeTableDockManager();
 		if(!ttdm.getCurrentAnchorTitle().equals(TreeTableDockManager.homeTabName)) {
@@ -701,6 +707,19 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		}
 		tabDockManager.startRefreshQRTableTimer();
+	}
+	
+	public void startProgressBar(int taskSizeTotal) {
+		statusBar.initProgressBar(taskSizeTotal);
+		statusBar.showProgressBar(true);
+	}
+	
+	public void setProgressValue(int v) {
+		statusBar.setProgressValue(v);
+	}
+	
+	public void removeProgressBar() {
+		statusBar.showProgressBar(false);
 	}
 
 	@Override

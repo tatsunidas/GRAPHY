@@ -55,6 +55,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.*;
 
 import javax.swing.JOptionPane;
@@ -404,6 +412,117 @@ public class Praparat extends JPanel {
 		}
 	}
 	
+//	private void constructSlideGlassesFromDicom(ArrayList<String> imgFiles) {
+//		//including only one series.
+//		if(imgFiles == null) {
+//			imgFiles = getImageFileLocations();
+//		}
+//		if (imgFiles == null || imgFiles.size() < 1) {
+//			logger.info("Please set file locations, Praparat::constructSeriesGlassesAsLayer");
+//			return;
+//		}
+//		// init
+//		slides = new HashMap<Integer, SlideGlass>();
+//		
+//		/*
+//		 * as a premise, image files were sorted by inst No before loading.
+//		 */
+//		DICOMBackend backend = DICOMBackend.getCurrent();
+//		for (int i = 0; i < imgFiles.size(); i++) {
+//			DicomReader reader = DicomReader.newDicomReader(backend);
+//			reader.read(imgFiles.get(i), false);/*read only head*/
+//			DicomObject header = reader.getCore();
+//			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
+//			UID tsUID = reader.checkTSUID();
+//			//PDF
+//			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
+//				//read as series level
+//				PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
+//				ImagePlus pdfStack = pdfReader.pdf2ImageStack();
+//				isMultiframe = true;//always treats multi
+//				isPDF = true;
+//				//if thumbnail, load only one frame
+//				if(getViewMode() == ViewMode.Thumbnail) {
+//					ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
+//					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+//					instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+//					instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+//					instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+//					instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+//					instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
+//					DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+//					img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
+//					SlideGlass sg = new SlideGlass(this, img);
+//					slides.put(0, sg);
+//				}else {
+//					for (int j = 0; j < pdfStack.getNSlices(); j++) {
+//						ImageProcessor instIp = pdfStack.getStack().getProcessor(j + 1);
+//						DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+//						instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+//						instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+//						instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+//						instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+//						instHeader.setInt(Tag.Instance​Number, VR.IS, (j + 1));
+//						DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+//						img.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
+//						SlideGlass sg = new SlideGlass(this, img);
+//						slides.put(j, sg);
+//					}
+//				}
+//				pdfReader.close();
+//				break;//if multiframe, load only first file.
+//			}
+//			// images
+//			int size = header.getInt(Tag.Number​Of​Frames, -1);
+//			/*
+//			 * isMultiFrame
+//			 * 1.General image types do not have NumberOfFrames tag.(means -1).
+//			 * 2.When image acquiring in 3d sequence on MRI, number of frame is 1 (of each image).
+//			 */
+//			isMultiframe = size > 1;
+//			//single frame
+//			if(!isMultiframe) {
+//				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), backend);
+//				if(Codec.isCompressed(tsUID.uid())) {
+//					Decompressor.newInstance(dcmimg).decompress();
+//				}
+//				SlideGlass sg = new SlideGlass(this, dcmimg);
+//				slides.put(i, sg);
+//			}else {
+//				/*
+//				 * multiframe to one series.
+//				 */
+//				DicomReader video_reader_ = DicomReader.newDicomReader(backend);
+//				video_reader_.read(imgFiles.get(i), true/*with bulk*/);
+//				DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
+//				int w = header.getInt(Tag.Columns, 0);
+//				int h = header.getInt(Tag.Rows, 0);
+//				int c = header.getInt(Tag.Samples​Per​Pixel, 1);
+//				int bits = header.getInt(Tag.Bits​Allocated, 8);
+//				/*
+//				 * to address jpeg multiframe
+//				 */
+//				if(Codec.isCompressed(reader.checkTSUID())) {
+//					Decompressor.newInstance(videoDcm).decompress();
+//				}
+//				for(int j=0;j<size;j++) {
+//					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+//					instHeader.setInt(Tag.Instance​Number, VR.IS, (j+1));
+//					DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+//					frame.setPixelData(j, w, h, c, bits, videoDcm.getImageProcessor(j).getPixels());
+//					SlideGlass sg = new SlideGlass(this, frame);
+//					slides.put(j, sg);
+//				}
+//				video_reader_ = null;
+//				/*
+//				 * if multiframe, load as only one file.
+//				 */
+//				break;
+//			}
+//			reader = null;
+//		}
+//	}
+	
 	private void constructSlideGlassesFromDicom(ArrayList<String> imgFiles) {
 		//including only one series.
 		if(imgFiles == null) {
@@ -415,53 +534,33 @@ public class Praparat extends JPanel {
 		}
 		// init
 		slides = new HashMap<Integer, SlideGlass>();
+		
 		/*
 		 * as a premise, image files were sorted by inst No before loading.
 		 */
 		DICOMBackend backend = DICOMBackend.getCurrent();
 		for (int i = 0; i < imgFiles.size(); i++) {
 			DicomReader reader = DicomReader.newDicomReader(backend);
-			reader.read(imgFiles.get(i), false);
+			reader.read(imgFiles.get(i), false);/*read only head*/
 			DicomObject header = reader.getCore();
 			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
 			UID tsUID = reader.checkTSUID();
 			//PDF
 			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
 				//read as series level
-				PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
-				ImagePlus pdfStack = pdfReader.pdf2ImageStack();
 				isMultiframe = true;//always treats multi
 				isPDF = true;
 				//if thumbnail, load only one frame
 				if(getViewMode() == ViewMode.Thumbnail) {
-					ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
-					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-					instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-					instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-					instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-					instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-					instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
-					DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-					img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-					SlideGlass sg = new SlideGlass(this, img);
-					slides.put(0, sg);
+					PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
+					ImagePlus pdfStack = pdfReader.pdf2ImageStack();
+					loadSlideGlassFromPDF(pdfStack, 0, header, backend);
+					pdfReader.close();
 				}else {
-					for (int j = 0; j < pdfStack.getNSlices(); j++) {
-						ImageProcessor instIp = pdfStack.getStack().getProcessor(j + 1);
-						DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-						instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-						instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-						instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-						instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-						instHeader.setInt(Tag.Instance​Number, VR.IS, (j + 1));
-						DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-						img.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-						SlideGlass sg = new SlideGlass(this, img);
-						slides.put(j, sg);
-					}
+					loadSlideGlassFromPDF(imgFiles.get(i), header, backend);
 				}
-				pdfReader.close();
-				break;//if multiframe, load only first file.
+				//PDF is one series, break here.
+				break;
 			}
 			// images
 			int size = header.getInt(Tag.Number​Of​Frames, -1);
@@ -473,38 +572,12 @@ public class Praparat extends JPanel {
 			isMultiframe = size > 1;
 			//single frame
 			if(!isMultiframe) {
-				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), backend);
-				if(Codec.isCompressed(tsUID.uid())) {
-					Decompressor.newInstance(dcmimg).decompress();
-				}
-				SlideGlass sg = new SlideGlass(this, dcmimg);
-				slides.put(i, sg);
+				loadSlideGlassFromSimpleDicom(imgFiles.get(i), backend, tsUID);
 			}else {
 				/*
 				 * multiframe to one series.
 				 */
-				DicomReader video_reader_ = DicomReader.newDicomReader(backend);
-				video_reader_.read(imgFiles.get(i), true/*with bulk*/);
-				DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
-				int w = header.getInt(Tag.Columns, 0);
-				int h = header.getInt(Tag.Rows, 0);
-				int c = header.getInt(Tag.Samples​Per​Pixel, 1);
-				int bits = header.getInt(Tag.Bits​Allocated, 8);
-				/*
-				 * to address jpeg multiframe
-				 */
-				if(Codec.isCompressed(reader.checkTSUID())) {
-					Decompressor.newInstance(videoDcm).decompress();
-				}
-				for(int j=0;j<size;j++) {
-					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-					instHeader.setInt(Tag.Instance​Number, VR.IS, (j+1));
-					DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-					frame.setPixelData(j, w, h, c, bits, videoDcm.getImageProcessor(j).getPixels());
-					SlideGlass sg = new SlideGlass(this, frame);
-					slides.put(j, sg);
-				}
-				video_reader_ = null;
+				loadSlideGlassFromMultiFrame(imgFiles.get(i), header, backend);
 				/*
 				 * if multiframe, load as only one file.
 				 */
@@ -513,6 +586,141 @@ public class Praparat extends JPanel {
 			reader = null;
 		}
 	}
+	
+	private void loadSlideGlassFromSimpleDicom(String path2dcm, DICOMBackend backend, UID tsUID) {
+		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+		List<Future<SlideGlass>> futures = new ArrayList<>();
+	    Callable<SlideGlass> task = () -> {
+	    	 DicomImage dcmimg = DicomImage.newDicomImage(path2dcm, backend);
+	 		if(Codec.isCompressed(tsUID.uid())) {
+	 			Decompressor.newInstance(dcmimg).decompress();
+	 		}
+	 		return new SlideGlass(this, dcmimg);
+	    };
+	    futures.add(executor.submit(task));
+	    for (Future<SlideGlass> future : futures) {
+            try {
+				slides.put(slides.size(), future.get());
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+        }
+		executor.shutdown();
+		try {
+			executor.awaitTermination(1, TimeUnit.MINUTES);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void loadSlideGlassFromMultiFrame(String path2dcm, DicomObject header, DICOMBackend backend) {
+
+		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+		List<Future<SlideGlass>> futures = new ArrayList<>();
+
+		DicomReader video_reader_ = DicomReader.newDicomReader(backend);
+		video_reader_.read(path2dcm, true/* with bulk */);
+		DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
+		int w = header.getInt(Tag.Columns, 0);
+		int h = header.getInt(Tag.Rows, 0);
+		int c = header.getInt(Tag.Samples​Per​Pixel, 1);
+		int bits = header.getInt(Tag.Bits​Allocated, 8);
+		int size = header.getInt(Tag.Number​Of​Frames, -1);
+		/*
+		 * to address jpeg multiframe
+		 */
+		if (Codec.isCompressed(video_reader_.checkTSUID())) {
+			Decompressor.newInstance(videoDcm).decompress();
+		}
+		for (int j = 0; j < size; j++) {
+			final int k = j;
+			Callable<SlideGlass> task = () -> {
+				DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+				instHeader.setInt(Tag.Instance​Number, VR.IS, (k + 1));
+				DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+				frame.setPixelData(k, w, h, c, bits, videoDcm.getImageProcessor(k).getPixels());
+				return new SlideGlass(this, frame);
+			};
+			futures.add(executor.submit(task));
+		}
+		AtomicInteger counter = new AtomicInteger(0);
+		for (Future<SlideGlass> future : futures) {
+			try {
+				slides.put(counter.addAndGet(1), future.get());
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+		executor.shutdown();
+		try {
+			executor.awaitTermination(1, TimeUnit.MINUTES);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		video_reader_ = null;
+	}
+	
+	private void loadSlideGlassFromPDF(String path2dcm, DicomObject header, DICOMBackend backend) {
+		PDFReader pdfReader = new PDFReader(new File(path2dcm)/*read dicom*/);
+		ImagePlus pdfStack = pdfReader.pdf2ImageStack();
+		isMultiframe = true;//always treats multi
+		isPDF = true;
+		
+		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+       List<Future<SlideGlass>> futures = new ArrayList<>();
+		
+		//if thumbnail, load only one frame
+		if(getViewMode() == ViewMode.Thumbnail) {
+			ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
+			DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+			instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+			instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+			instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+			instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+			instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
+			DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+			img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
+			SlideGlass sg = new SlideGlass(this, img);
+			slides.put(0, sg);
+		}else {
+			for (int j = 0; j < pdfStack.getNSlices(); j++) {
+				final int k = j;
+				Callable<SlideGlass> task = () -> {
+					return loadSlideGlassFromPDF(pdfStack, k, header, backend);
+				};
+				futures.add(executor.submit(task));
+			}
+			AtomicInteger counter = new AtomicInteger(0);
+			for (Future<SlideGlass> future : futures) {
+	            try {
+					slides.put(counter.addAndGet(1), future.get());
+				} catch (InterruptedException | ExecutionException e) {
+					e.printStackTrace();
+				}
+	        }
+			executor.shutdown();
+			try {
+				executor.awaitTermination(1, TimeUnit.MINUTES);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		pdfReader.close();
+	}
+	
+	private SlideGlass loadSlideGlassFromPDF(ImagePlus pdf, int pos/*0 to n-1*/, DicomObject header, DICOMBackend backend) {
+		ImageProcessor instIp = pdf.getStack().getProcessor(pos + 1);
+		DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+		instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
+		instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
+		instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+		instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+		instHeader.setInt(Tag.Instance​Number, VR.IS, (pos + 1));
+		DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+		img.setPixelData(pos, pdf.getWidth(), pdf.getHeight(), 3, 8, instIp.getPixels());
+		return new SlideGlass(this, img);
+	}
+	
 
 	/**
 	 * This method is used to a dependence single series view or MPR.

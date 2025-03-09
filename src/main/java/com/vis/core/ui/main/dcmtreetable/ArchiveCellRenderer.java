@@ -116,14 +116,8 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 		if(node == null) {
 			((CardLayout) getLayout()).show(this, "Empty");
 			return this;
-		}
-		
-		Task t = getTaskTypeImportByCellLocationAt(node);
-		ImportingStateContext isc = null;
-		if(t != null) {
-			isc = (ImportingStateContext)t.getContext();
-		}
-		
+		}		
+		ImportingStateContext isc = getTaskTypeImportByCellLocationAt(node);
 		if(isc != null) {
 			progressBar.setMinimum(0);
 			progressBar.setMaximum(isc.totalSize());
@@ -135,7 +129,7 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 		return this;
 	}
 	
-	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
+	private ImportingStateContext getTaskTypeImportByCellLocationAt(DICOMNode node ) {
 		if(node.getLevel()==DICOMNode.STUDY) {
 			TaskManager tm = TaskManager.getInstance();
 			List<Integer> taskKeys = tm.getAllTaskIds();
@@ -144,11 +138,8 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 				TaskContext con = t.getContext();
 				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;
-					if(isc.getThreadId() == tid) {
-						Thread thr = tm.getThread(tid);
-						if(t != null && thr != null && thr.isAlive() && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
-							return t;
-						}
+					if(isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
+						return isc;
 					}
 				}
 			}
@@ -167,6 +158,7 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 					button.setIcon(new MissingIcon(Color.red, treeTable.getRowHeight(), treeTable.getRowHeight()));
 					button.setEnabled(false);
 					((CardLayout) getLayout()).show(this, "Button");
+					repaint();
 				}
 			}
 		}else {//REMOTE
@@ -201,5 +193,7 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 			button.setIcon(qrReadyIcon);
 		}
 		((CardLayout) getLayout()).show(this, "Button");
+		revalidate();
+		repaint();
 	}
 }
