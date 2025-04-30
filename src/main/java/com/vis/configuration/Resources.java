@@ -185,21 +185,7 @@ public enum Resources {
 	
 	public ij.process.LUT loadLUT(){
 		if(pathInResource.endsWith("lut")) {
-			if(new File("./"+pathInResource).exists()) {
-				return LutLoader.openLut(new File("./"+pathInResource).getAbsolutePath());
-			}else {
-				if(!new File("./luts").exists()) {
-					new File("./luts").mkdirs();
-				}
-				File tempFile = tempFile();
-				try {
-					Files.copy(tempFile.toPath(), new File("./"+pathInResource).toPath(), StandardCopyOption.REPLACE_EXISTING);
-				} catch (IOException e) {
-					e.printStackTrace();
-					return null;
-				}
-				return LutLoader.openLut(new File("./"+pathInResource).getAbsolutePath());
-			}
+			return LutLoader.openLut(new File("./"+pathInResource).getAbsolutePath());
 		}
 		return null;
 	}
