@@ -3,8 +3,6 @@ package com.vis.configuration;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.ResourceBundle;
 
@@ -133,7 +131,7 @@ public enum Resources {
 	public String path() {
 		return pathInResource;
 	}
-		
+	
 	public File tempFile() {
 		InputStream is = Resources.class.getClassLoader().getResourceAsStream(pathInResource);
 		if (is == null) {
@@ -143,14 +141,14 @@ public enum Resources {
 		File tempFile = null;
 		try {
 			if(new File(ConfigInfo.TemporalDirName.toString()).exists()) {
-				tempFile = File.createTempFile("GRAPHY_temp", null, new File(ConfigInfo.TemporalDirName.toString()));
+				tempFile = File.createTempFile("GRAPHY_temp", null/*.tmp*/, new File(ConfigInfo.TemporalDirName.toString()));
 			}else{
-				tempFile = File.createTempFile("GRAPHY_temp", null);
+				tempFile = File.createTempFile("GRAPHY_temp", null/*.tmp*/);
 			}
 			tempFile.deleteOnExit();
 			// out temp file
 			java.io.FileOutputStream outputStream = new java.io.FileOutputStream(tempFile);
-			byte[] buffer = new byte[1024];
+			byte[] buffer = new byte[4096];
 			int bytesRead;
 			while ((bytesRead = is.read(buffer)) != -1) {
 				outputStream.write(buffer, 0, bytesRead);

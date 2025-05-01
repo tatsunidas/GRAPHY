@@ -267,7 +267,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		HashMap<String, Object> keys = getMainSearchToolBar().getCurrentSearchConditions();
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		@SuppressWarnings("unchecked")
-		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeysUsingPatName((String)keys.get("PatientID"), (String)keys.get("PatientName"), (String)keys.get("From"), (String)keys.get("To"),
+		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeys2((String)keys.get("PatientID"), (String)keys.get("PatientName"), (String)keys.get("From"), (String)keys.get("To"),
 				(ArrayList<String>)keys.get("Modalities"));
 		if(selectedStudies == null) {
 			selectedStudies = new ArrayList<>();
@@ -405,7 +405,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		if (dock.getName().equals(home)) {
 			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + home+"]");
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
-					.selectStudiesWithSearchKeysUsingPatName(patID, patName, from, to, modalities);
+					.selectStudiesWithSearchKeys2(patID, patName, from, to, modalities);
 			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
 			dock.updateTreeTable(newRoot);
 		} else {

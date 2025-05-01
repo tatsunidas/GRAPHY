@@ -170,14 +170,12 @@ public class QueryRetrieve implements Task, Runnable {
 			studyKeys.add("StudyDate=" + from + "-");
 		}
 		
-		List<String> seriesKeys = null;
+		List<String> seriesKeys = new ArrayList<String>();
 		if (modalities != null && modalities.size() > 0) {
-			for (String modality : modalities) {
-				seriesKeys = new ArrayList<String>();
-				seriesKeys.add("Modality=" + modality);
-			}
+			String combinedModalities = String.join("\\", modalities);
+			seriesKeys.add("Modality=" + combinedModalities); // "Modality=CT\MR\XA" to search OR.
 		} else {
-			seriesKeys = null;//explicit code
+			seriesKeys = null;// explicit code
 		}
 		
 		return query(dest, false, patKeys, studyKeys, seriesKeys, null);
@@ -746,7 +744,7 @@ public class QueryRetrieve implements Task, Runnable {
 		this.copyToTemp = copyToTemp;
 		
 		stopped = false;
-		sleepScheduled = true;// useful for debug
+		//sleepScheduled = true;// useful for debug
 		suspended = false;
 		/* must to run first this method */
 		retreiveReady = true;

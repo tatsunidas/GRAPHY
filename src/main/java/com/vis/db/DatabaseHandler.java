@@ -314,7 +314,11 @@ public class DatabaseHandler {
 		if (conn == null) {
 			return;
 		}
-				
+		try {
+			conn.setAutoCommit(false);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		try (Statement statement = conn.createStatement(); conn) {
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PATIENT.tempFile()).get(0));
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_STUDY.tempFile()).get(0));
@@ -326,13 +330,18 @@ public class DatabaseHandler {
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_MODALITY.tempFile()).get(0));
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_PRESET.tempFile()).get(0));
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_LOCALE.tempFile()).get(0));
-			statement
-					.executeUpdate(new SQLReader().createQueries(Resources.SQL_MISCELLANEOUS.tempFile()).get(0));
-			statement.executeUpdate(
-					new SQLReader().createQueries(Resources.SQL_TEXTANNOTATION.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_MISCELLANEOUS.tempFile()).get(0));
+			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_TEXTANNOTATION.tempFile()).get(0));
 			statement.executeUpdate(new SQLReader().createQueries(Resources.SQL_ROI.tempFile()).get(0));
+			//commit and close connection
+			safeClose(conn);
 		} catch (SQLException ex) {
 			logger.severe("DatabaseHandler, can not read SQL correctly..\n" + ex.getMessage());
+			try {
+				conn.rollback();
+			} catch (SQLException rollbackEx) {
+				System.err.println("Failed rolling back: " + rollbackEx.getMessage());
+			}
 		}
 	}
 
@@ -4118,7 +4127,6 @@ public class DatabaseHandler {
 			return conn;
 		} catch (SQLException e) {
 			logger.severe("connection can not established...");
-			// exitApp();
 		}
 		return null;
 	}
@@ -4389,7 +4397,7 @@ public class DatabaseHandler {
 	 * @param modalities
 	 * @return
 	 */
-	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeysUsingPatName(String patID, String patName,
+	public ArrayList<DefaultMutableTreeNode> selectStudiesWithSearchKeys2(String patID, String patName,
 			String from, String to, ArrayList<String> modalities) {
 		/* Construct STUDY Query Statement */
 		ArrayList<String> keys = new ArrayList<>();
@@ -4498,12 +4506,16 @@ public class DatabaseHandler {
 					if (modalities != null && modalities.size() > 0) {
 						for (int i = 0; i < modalities.size(); i++) {
 							if (i == 0) {
-								stmSeries = stmSeries + " AND " + "Modality=?";
+								stmSeries += " AND Modality IN (?";//, ?, ?, ...)
 							} else {
-								stmSeries = stmSeries + " OR " + "Modality=?";
+								stmSeries += ",?";
+							}
+							if(i == modalities.size()-1) {
+								stmSeries += ")";
 							}
 						}
 					}
+					
 					stmSeries = stmSeries + " order by SeriesNumber";
 					PreparedStatement pstmtSeries = conn.prepareStatement(stmSeries);
 					pstmtSeries.setString(1, patIdInRecord);// DO NOT USE patID that already inputed.
