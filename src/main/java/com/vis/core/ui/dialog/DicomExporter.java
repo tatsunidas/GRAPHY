@@ -56,6 +56,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.task.Task;
@@ -91,7 +92,7 @@ public class DicomExporter extends JFrame implements Task {
 	final String approveButtonText = "Export";
 	private boolean flatOutput = false;// default
 	private boolean decompress = false;// default
-	private boolean dicomDir = false;//default
+	private boolean withViewer = true;//default, see default setting of ExportOptionPanel class.
 
 	final int taskId;
 	TaskContext con = null;
@@ -126,40 +127,12 @@ public class DicomExporter extends JFrame implements Task {
 		String[] selected = eop.getSelectedButtonsName();
 		flatOutput = selected[0].equals("flat");//hierarchical or flat
 		decompress = selected[1].equals("decompress");//decompress or asis
+		withViewer = eop.withViewer();
 		//UIDs of each dicom instance.
 		this.dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(targetNodes);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 	}
 	
-	/**
-	 * Without dialog
-	 * @param targetNodes
-	 * @param flatOutput
-	 * @param decompress
-	 */
-	public DicomExporter(ArrayList<DICOMNode> targetNodes, File dest/*output dest folder*/, boolean flatOutput, boolean decompress, boolean dicomDir) {
-		this.executor = Executors.newFixedThreadPool(Utils.availableProcessors());
-		taskId = TaskManager.getInstance().addTask(this);
-		//export force
-		doExport = JFileChooser.APPROVE_OPTION;
-		if (targetNodes == null || targetNodes.size() < 1) {
-			TaskManager.getInstance().removeTask(taskId);
-			Log.logger.info("Please select node from TreeTable.");
-			PopUpMessage.showDialog(MainScreen.getInstance(), "Export files not selected.", "Please select files to export.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			return;
-		}
-		if(dest == null) {
-			TaskManager.getInstance().removeTask(taskId);
-			throw new IllegalArgumentException("Please input output destination folder.");
-		}
-		this.flatOutput = flatOutput;
-		this.decompress = decompress;
-		this.dicomDir = dicomDir;
-		//UIDs of each dicom instance.
-		this.dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(targetNodes);
-		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-	}
-
 	/**
 	 * Export dcm file from DB to any destination.
 	 * @param flatOutput
@@ -437,6 +410,10 @@ public class DicomExporter extends JFrame implements Task {
 		 */
 		int itr = 0;
 		if (!flatOutput) {
+			/*
+			 * export files with hierarchical, 
+			 * If hierarchical DICOMDIR and withViewer
+			 */
 			for (String[] UIDs : candidate) {
 				String patID = UIDs[0];
 				String studyIUID = UIDs[1];
@@ -450,7 +427,7 @@ public class DicomExporter extends JFrame implements Task {
 					Log.logger.warning(
 							"DICOMExport: this instance's instance number is zero. Such case is never occur as usual...");
 				}
-				String destParent = dest.getAbsolutePath() + File.separator + patID + File.separator + studyIUID
+				String destParent = dest.getAbsolutePath() + File.separator + "DICOM" +File.separator + patID + File.separator + studyIUID
 						+ File.separator + seriesIUID;
 				File destDirs = new File(destParent);
 				if (!destDirs.exists()) {
@@ -507,7 +484,7 @@ public class DicomExporter extends JFrame implements Task {
 										"DICOMExport: this instance's instance number is zero. Such case is never occur as usual...");
 							}
 
-							String destParent = dest.getAbsolutePath() + File.separator + patID + File.separator
+							String destParent = dest.getAbsolutePath() + File.separator + "DICOM" +File.separator + patID + File.separator
 									+ studyIUID;
 							File destDirs = new File(destParent);
 							if (!destDirs.exists()) {
@@ -534,14 +511,23 @@ public class DicomExporter extends JFrame implements Task {
 			} // patient loop
 		}
 
-		// finally, create DICOMDIR
-		ArrayList<String> exportRootParentPathSet = new ArrayList<>();
-		if (dicomDir) {
-			exportRootParentPathSet = new ArrayList<>(new HashSet<>(exportRootParentPathSet));
-			for (String path2PatDir : exportRootParentPathSet) {
-				DicomUtilities.attachDICOMDIRTo(path2PatDir);
+		// finally, attach viewer and create DICOMDIR
+		if(withViewer) {
+			try {
+				Utils.copyResourceFromJAR(ConfigInfo.WEASIS.toString(), dest.getAbsolutePath());
+				//add DICOMDIR
+				/*
+				 * DICOMDIR was needed for viewer.
+				 * If flat, viewer just only attach, and not load images automatically. 
+				 */
+				DicomUtilities.attachDICOMDIRTo(dest.getAbsolutePath());
+			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
+		
 		done();
 	}
 

@@ -230,6 +230,13 @@ public class GDicomTools extends ij.util.DicomTools{
 		double z = imp.getCalibration().pixelDepth;
 		double spacingBetweenSlices = getDouble(imp, 1, "0018,0088");
 		double sliceThickness = getDouble(imp, 1, "0018,0050");
+		
+		if(imp.getNSlices() > 1) {
+			double[] ipp0 = getImagePositionPatient(imp, 0);
+			double[] ipp1 = getImagePositionPatient(imp, 1);
+			return Math.abs(ipp0[2]-ipp1[2]);
+		}
+		
 		if (!Double.isNaN(spacingBetweenSlices)) {
 			return spacingBetweenSlices;//prior
 		}
