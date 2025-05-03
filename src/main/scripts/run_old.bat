@@ -7,7 +7,7 @@ REM run script (Windows)
 
 REM Get the script's own directory (ends with a backslash)
 SET "SCRIPT_DIR=%~dp0"
-echo GRAPHY runnning on : %SCRIPT_DIR%
+echo GRAPHY running on : %SCRIPT_DIR%
 
 REM --- Detect Architecture ---
 REM PROCESSOR_ARCHITECTURE can be AMD64, IA64, ARM64, x86
@@ -51,7 +51,11 @@ SET "COMBINED_LIB_PATH=%NATIVE_LIB_PATH%;%NATIVE_CDR_LIB_PATH%"
 REM --- Set JVM Options ---
 REM Note: Use %COMBINED_LIB_PATH% for java.library.path
 SET "JVM_OPTS=-Djava.library.path=%COMBINED_LIB_PATH%"
+REM For Java3D
 SET "JVM_OPTS=%JVM_OPTS% -Dj3d.allowNullGraphicsConfig=true"
+SET "JVM_OPTS=%JVM_OPTS% --add-exports java.base/java.lang=ALL-UNNAMED"
+SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.awt=ALL-UNNAMED"
+SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.java2d=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% -Xms512m"
 SET "JVM_OPTS=%JVM_OPTS% -Xmx9216m"
 
