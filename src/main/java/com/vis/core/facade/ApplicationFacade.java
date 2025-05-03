@@ -64,6 +64,7 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.settings.PreferencesWin;
+import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
@@ -136,20 +137,21 @@ public class ApplicationFacade{
 	}
 	
 	private void initConfigurationFolders() {
+		String appDir = Platform.getAppDirectory().getAbsolutePath()+File.separator;
 		for(ConfigInfo name : new ConfigInfo[] {ConfigInfo.ConfDirName, ConfigInfo.LogDirName, ConfigInfo.PluginDirName, ConfigInfo.TemporalDirName, ConfigInfo.LibDirName}) {
-			if(!new File("./"+name.toString()).exists()) {
+			if(!new File(appDir+name.toString()).exists()) {
 				switch (name) {
 				case LogDirName:
 				case PluginDirName:
 				case TemporalDirName:
 				case LibDirName:
-					new File("./"+name.toString()).mkdirs();
+					new File(appDir+name.toString()).mkdirs();
 					break;
 				case ConfDirName:
-					new File("./"+name.toString()).mkdirs();
+					new File(appDir+name.toString()).mkdirs();
 					try {
-						Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
-						Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
+						Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File(appDir+name.toString()+"/graphy.properties").toURI()));
+						Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File(appDir+name.toString()+"/cdrecord.properties").toURI()));
 					} catch (IOException e) {
 						Log.logger.severe("Cannot copy default graphy properties file.");
 						Log.logger.severe(e.getMessage());
@@ -160,17 +162,17 @@ public class ApplicationFacade{
 				}
 			}else {
 				if(name == ConfigInfo.ConfDirName) {
-					if(!new File("./"+name.toString()+"/graphy.properties").exists()) {
+					if(!new File(appDir+name.toString()+"/graphy.properties").exists()) {
 						try {
-							Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File("./"+name.toString()+"/graphy.properties").toURI()));
+							Files.copy(getClass().getResourceAsStream("/default/conf/graphy.properties"), Path.of(new File(appDir+name.toString()+"/graphy.properties").toURI()));
 						} catch (IOException e) {
 							Log.logger.severe("Cannot copy default graphy properties file.");
 							Log.logger.severe(e.getMessage());
 						}
 					}
-					if(!new File("./"+name.toString()+"/cdrecord.properties").exists()) {
+					if(!new File(appDir+name.toString()+"/cdrecord.properties").exists()) {
 						try {
-							Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File("./"+name.toString()+"/cdrecord.properties").toURI()));
+							Files.copy(getClass().getResourceAsStream("/default/conf/cdrecord.properties"), Path.of(new File(appDir+name.toString()+"/cdrecord.properties").toURI()));
 						} catch (IOException e) {
 							Log.logger.severe("Cannot copy default graphy properties file.");
 							Log.logger.severe(e.getMessage());

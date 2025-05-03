@@ -39,15 +39,15 @@ package com.vis.configuration;
 
 import java.io.File;
 
+import com.vis.core.util.Platform;
+
 /**
  * 
  * @author tatsunidas
  *
  */
 public enum ConfigInfo {
-	/*
-	 * version: see ApplicationFacade.version
-	 */
+
 	//name
 	AppName("GRAPHY"),
 	
@@ -65,20 +65,7 @@ public enum ConfigInfo {
 	TemporalDirName("temp"),
 	PluginDirName("plugins"),
 	LutDirName("luts"),
-	LibDirName("lib"),
-	//DBDirName("graphydb"),
-	
-	//natives
-	OpenCVLinux32("./conf/native/native_opencv/linux-x86"),
-	OpenCVLinux64("./conf/native/native_opencv/linux-x86-64"),
-	OpenCVSolaris32("./conf/native/native_opencv/solaris-x86"),
-	OpenCVSolaris64("./conf/native/native_opencv/solaris-x86-64"),
-	OpenCVMacOS("./conf/native/native_opencv/macosx-x86-64"),
-	OpenCVWindows32("./conf/native/native_opencv/windows-x86"),
-	OpenCVWindows64("./conf/native/native_opencv/windows-x86-64"),
-	CDRToolsLinux("./conf/native/native_cdrtools/linux"),
-	CDRToolsMac("./conf/native/native_cdrtools/mac"),
-	CDRToolsWindows("./conf/native/native_cdrtools/windows"),
+	LibDirName("lib"),//native
 	
 	// log files
 	LogFileName("graphy.log"),

@@ -39,12 +39,16 @@ package com.vis.core.util;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.net.URISyntaxException;
 import java.nio.ByteOrder;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.launcher.Launcher;
 
 /**
  *
@@ -85,67 +89,70 @@ public enum Platform {
 	public static boolean isSolaris() {
 		return getOS() == SOLARIS;
 	}
+	
+	public static Path getClassLocation(Class<?> anchorClass) {
+        try {
+            // クラスのコードソース（JARやクラスディレクトリ）の場所を示すURLを取得
+            java.net.URL location = anchorClass.getProtectionDomain().getCodeSource().getLocation();
+            if (location == null) {
+                // コードソースが不明な場合 (JREのコアクラスなど)
+                System.err.println("エラー: クラス '" + anchorClass.getName() + "' のコードソースの場所を取得できません。");
+                return null;
+            }
+            // URLをURIに変換し、Pathオブジェクトに変換
+            return Paths.get(location.toURI());
+        } catch (URISyntaxException e) {
+            System.err.println("エラー: コードソースのURI構文が無効です: " + e.getMessage());
+        } catch (SecurityException e) {
+            System.err.println("エラー: セキュリティ上の理由でコードソースの場所にアクセスできません: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("エラー: コードソースの場所の取得中に予期せぬエラーが発生しました: " + e.getMessage());
+        }
+        return null;
+    }
+	
+	public static File getAppDirectory() {
+		Class<?> anchorClass = Launcher.class;
+		Path location = getClassLocation(anchorClass);
+        if (location == null) {
+            return null;
+        }
 
-	/**
-	 * graphy hidden folder in home dir.
-	 * 
-	 * @param applicationName
-	 * @return home dir / .applicationame directory.
-	 */
-	public static File getHomeDirectory(final String applicationName) {
-		final String userHome = System.getProperty("user.home", ".");
-		final File appDirectory;
-		switch (Platform.getOS()) {
-		case LINUX:
-		case SOLARIS:
-			appDirectory = new File(userHome, '.' + applicationName + File.separator);
-			break;
-		case WINDOWS:
-			final String applicationData = System.getenv("APPDATA");
-			if (applicationData != null) {
-				appDirectory = new File(applicationData, "." + applicationName + File.separator);
-			} else {
-				appDirectory = new File(userHome, '.' + applicationName + File.separator);
-			}
-			break;
-		case MAC:
-			appDirectory = new File(userHome,
-					"Library" + File.separator + "Application Support" + File.separator + applicationName);
-			break;
-		default:
-			return new File(".");
-		}
-		if (!appDirectory.exists()) {
-			if (!appDirectory.mkdirs()) {
-				throw new RuntimeException(
-						"The working directory could not be created: " + appDirectory.getAbsolutePath());
-			}
-		}
-		return appDirectory;
+        // 取得したパスがファイル（通常はJAR）かディレクトリか判定
+        if (java.nio.file.Files.isRegularFile(location)) {
+            // JARファイルの場合は、その親ディレクトリを返す
+            return location.getParent().toFile();
+        } else if (java.nio.file.Files.isDirectory(location)) {
+            // ディレクトリの場合は、そのディレクトリ自身を返す (IDEからの実行など)
+            return location.toFile();
+        } else {
+             System.err.println("エラー: 予期しないパスタイプです: " + location);
+             return null;
+        }
 	}
 
 	public static String getOpenCVNativeLibLocation() {
 		switch (Platform.getOS()) {
 		case LINUX:
 			if(is32bitOS()) {
-				return "."+File.separator+"native"+File.separator+"linux-x86";
+				return "."+File.separator+"lib"+File.separator+"linux-x86";
 			}else {
-				return "."+File.separator+"native"+File.separator+"linux-x86-64";
+				return "."+File.separator+"lib"+File.separator+"linux-x86-64";
 			}
 		case SOLARIS:
 			if(is32bitOS()) {
-				return "."+File.separator+"native"+File.separator+"solaris-x86";
+				return "."+File.separator+"lib"+File.separator+"solaris-x86";
 			}else {
-				return "."+File.separator+"native"+File.separator+"solaris-x86-64";
+				return "."+File.separator+"lib"+File.separator+"solaris-x86-64";
 			}
 		case WINDOWS:
 			if(is32bitOS()) {
-				return "."+File.separator+"native"+File.separator+"windows-x86";
+				return "."+File.separator+"lib"+File.separator+"windows-x86";
 			}else {
-				return "."+File.separator+"native"+File.separator+"windows-x86-64";
+				return "."+File.separator+"lib"+File.separator+"windows-x86-64";
 			}
 		case MAC:
-			return "."+File.separator+"native"+File.separator+"macosx-x86-64";
+			return "."+File.separator+"lib"+File.separator+"macosx-x86-64";
 		default:
 			return null;
 		}

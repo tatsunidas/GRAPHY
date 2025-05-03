@@ -122,30 +122,6 @@
 					</execution>
 				</executions>
 			</plugin>
-			
-			<!-- add chmod to start app from sh for Unix(linux/mac) -->
-			<plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version> <executions>
-                    <execution>
-                        <id>chmod-script</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <condition property="isUnix">
-                                    <os family="unix"/>
-                                </condition>
-                                <chmod file="${project.build.directory}/run.sh" perm="ugo+x"
-                                       if="isUnix"/>
-                                </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
 			    <groupId>org.apache.maven.plugins</groupId>
 			    <artifactId>maven-dependency-plugin</artifactId>
