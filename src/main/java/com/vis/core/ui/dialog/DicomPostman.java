@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is part of graphy, hosted at https://github.com/graphy.
+ *
+ * The Initial Developer of the Original Code is
+ * Visionary Imaging Services, Inc.
+ * Portions created by the Initial Developer are Copyright (C) 2015
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ * See @authors listed below
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK *****
+ */
 package com.vis.core.ui.dialog;
 
 import java.awt.BorderLayout;
@@ -25,6 +62,7 @@ import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.StoreSCU;
@@ -33,13 +71,11 @@ import com.vis.dicom.dimse.StoreSCU;
 public class DicomPostman extends JDialog implements Runnable{
 
 	/**
-	 * ローカルツリーから送信可能なノードを取得
-	 * 送信対象リストをダンプ
-	 * 送信
-	 * 進捗バー更新
-	 * 
+	 * @author tatsunidas
+	 *  
 	 * TODO
-	 * QRテーブルから別のサーバーへのMOVE？
+	 * implement the Task interface
+	 * DICOM-MOVE: From QR table To Another node
 	 */
 	private static final long serialVersionUID = -631636213313795170L;
 	private ArrayList<String> candidateList;// Dicom Files
@@ -51,7 +87,7 @@ public class DicomPostman extends JDialog implements Runnable{
 	Thread thisThread;
 	protected boolean stopped = false;// same as cancel
 	protected boolean sleepScheduled = false;//debug
-	public final static int SLEEP_TIME = 3000;
+	public int SLEEP_TIME = 1000;
 	protected boolean suspended = false;
 	private JComboBox<String> comboBox;
 	private JProgressBar progressBar;
@@ -62,7 +98,7 @@ public class DicomPostman extends JDialog implements Runnable{
 	
 	public DicomPostman(ArrayList<DICOMNode> selectedNodes) {
 		if(selectedNodes == null || selectedNodes.size() < 1) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "You should select data from home treetable.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Select data to send from home treetable.");
 			return;
 		}
 		db = DatabaseHandler.getInstance();
@@ -79,13 +115,12 @@ public class DicomPostman extends JDialog implements Runnable{
 			servers.add(server);
 		}
 		setCandidateFilesList(selectedNodes);
-		//GUIセットアップ
 		setUpGui();
-		
 		stopped = false;
-		sleepScheduled = true;// useful for debug
+		sleepScheduled = false;
 		suspended = false;
 		setVisible(true);
+		thisThread = new Thread(this);
 	}
 	
 	private void setUpGui() {
@@ -104,7 +139,6 @@ public class DicomPostman extends JDialog implements Runnable{
 		panel.add(panel_1, BorderLayout.SOUTH);
 		
 		btnSend = new JButton("Send");
-//		btnSend.setBackground(SystemColor.info);
 		btnSend.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
@@ -287,10 +321,9 @@ public class DicomPostman extends JDialog implements Runnable{
 			@Override
 			public void run() {
 				// show result
-				/* when run send multi studies, only show last send dialog */
 				new AnimatingSheet(
 						donecount+"/"+getCandidateFilesList().size() + " "
-								+ Resources.i18n("MainScreen.import.filesCopied.text"),
+								+ Utils.i18n().getString("MainScreen.send.completed.text"),
 						JOptionPane.INFORMATION_MESSAGE);
 			}
 		});

@@ -84,7 +84,6 @@ import com.vis.dicom.DICOMBackend;
 public class ApplicationFacade{
 	
 	private static GraphySplashScreen splash;
-	private static Locale locale;
 	public static PluginShelf pluginShelf;
 	public static PluginClassLoader classLoader;//load externals and plugins
 	private static DatabaseHandler db; 
@@ -187,18 +186,7 @@ public class ApplicationFacade{
 	 * if null, set default locale.
 	 */
 	private void loadLocale() {
-		String locale_str = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.Locale.name());
-		if(locale_str != null && !locale_str.isBlank()) {
-			for(Locale l:Locale.getAvailableLocales()) {
-				if (l.getLanguage().equals(new Locale(locale_str).getLanguage())) {
-					ApplicationFacade.locale = l;
-					Locale.setDefault(ApplicationFacade.locale);
-					return;
-				}
-			}
-		}
-		ApplicationFacade.locale = Locale.getDefault();
-		Locale.setDefault(ApplicationFacade.locale);
+		Locale.setDefault(Utils.locale());
 	}
 	
 	@SuppressWarnings("unused")

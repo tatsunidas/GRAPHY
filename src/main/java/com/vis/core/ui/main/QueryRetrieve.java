@@ -158,7 +158,7 @@ public class QueryRetrieve implements Task, Runnable {
 //			patKeys.add("SpecificCharacterSet=\\\\ISO 2022 IR 87");
 //			patKeys.add("PatientName="+QRUtil.convertPatientNameForQuery(patName));
 			/* if you use asterisk, input first word correctly.*/
-			/* SHIBUYA^YASUK -> SHIBUYA* */
+			/* SHIBUYA^YASUKO -> SHIBUYA* */
 			patKeys.add("PatientName=" + patName);
 		}
 		List<String> studyKeys = new ArrayList<String>();

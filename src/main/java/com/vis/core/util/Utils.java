@@ -41,9 +41,11 @@ import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -60,8 +62,10 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ResourceBundle;
 
 import org.apache.commons.io.FileUtils;
 
@@ -369,5 +373,49 @@ public class Utils {
 	
 	public static int availableProcessors() {
 		return Runtime.getRuntime().availableProcessors();
+	}
+	
+	public static ResourceBundle i18n() {
+		ResourceBundle messages = null;
+		try {
+			// Specify the UTF-8 using ResourceBundle.Control
+			// in resource, i18n/basename_**_**.properties (basename is i18n)
+			messages = ResourceBundle.getBundle("i18n.i18n", locale(), new ResourceBundle.Control() {
+				@Override
+				public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader,
+						boolean reload) throws IllegalAccessException, InstantiationException, IOException {
+					String bundleName = toBundleName(baseName, locale);
+					String resourceName = toResourceName(bundleName, "properties");
+					ResourceBundle bundle = null;
+					InputStream stream = null;
+					if (reload) {
+						//do something
+					} else {
+						stream = loader.getResourceAsStream(resourceName);
+					}
+					if (stream != null) {
+						try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+							bundle = new java.util.PropertyResourceBundle(reader);
+						}
+					}
+					return bundle;
+				}
+			});
+		} finally {
+			//do nothing
+		}
+		return messages;
+	}
+	
+	public static Locale locale() {
+		String locale_str = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.Locale.name());
+		if(locale_str != null && locale_str.length()!=0) {
+			for(Locale l:Locale.getAvailableLocales()) {
+				if (l.getLanguage().equals(new Locale(locale_str).getLanguage())) {
+					return l;
+				}
+			}
+		}
+		return Locale.getDefault();
 	}
 }
