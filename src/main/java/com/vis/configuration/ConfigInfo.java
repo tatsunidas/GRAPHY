@@ -39,7 +39,6 @@ package com.vis.configuration;
 
 import java.io.File;
 
-import com.vis.core.util.Platform;
 
 /**
  * 
