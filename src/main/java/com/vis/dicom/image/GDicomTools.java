@@ -232,9 +232,48 @@ public class GDicomTools extends ij.util.DicomTools{
 		double sliceThickness = getDouble(imp, 1, "0018,0050");
 		
 		if(imp.getNSlices() > 1) {
-			double[] ipp0 = getImagePositionPatient(imp, 0);
 			double[] ipp1 = getImagePositionPatient(imp, 1);
-			return Math.abs(ipp0[2]-ipp1[2]);
+			double[] ipp2 = getImagePositionPatient(imp, 2);
+			double[] iop = getImageOrientationPatient(imp,1);
+			
+	        if (iop == null || iop.length != 6) {
+	            throw new IllegalArgumentException("ImageOrientationPatient must be a non-null 6-element array.");
+	        }
+	        if (ipp1 == null || ipp1.length != 3) {
+	            throw new IllegalArgumentException("ImagePositionPatient1 must be a non-null 3-element array.");
+	        }
+	        if (ipp2 == null || ipp2.length != 3) {
+	            throw new IllegalArgumentException("ImagePositionPatient2 must be a non-null 3-element array.");
+	        }
+	        
+	        Vector3d rowVector = new Vector3d(iop[0], iop[1], iop[2]);
+	        Vector3d colVector = new Vector3d(iop[3], iop[4], iop[5]);
+	        
+	        Vector3d normalVector = new Vector3d();
+	        rowVector.cross(colVector, normalVector); // normalVector = rowVector x colVector
+
+	        double norm = normalVector.length();
+
+	        // JOML default error
+	        final double EPSILON = 1e-9;
+	        if (norm < EPSILON) {
+	             throw new ArithmeticException(
+	                 "Normal vector derived from ImageOrientationPatient is close to zero (length < " + EPSILON + "). Cannot calculate distance reliably."
+	             );
+	        }
+
+	        Vector3d pos1 = new Vector3d(ipp1);
+	        Vector3d pos2 = new Vector3d(ipp2);
+
+	        //  (P2 - P1)
+	        Vector3d positionDifferenceVector = new Vector3d();
+	        pos2.sub(pos1, positionDifferenceVector); // positionDifferenceVector = pos2 - pos1
+
+	        double dotProduct = positionDifferenceVector.dot(normalVector);
+
+	        // |(P2 - P1)・N| / |N|
+	        double distance = Math.abs(dotProduct) / norm;
+	        return distance;
 		}
 		
 		if (!Double.isNaN(spacingBetweenSlices)) {
