@@ -193,7 +193,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * shape.
 	 */
 	public RoiObj createNewRoi(int screenX, int screenY, int roiType) {
-		
 		int imageX = sg.offScreenX(screenX);//org img X
 		int imageY = sg.offScreenY(screenY);//org img Y
 		RoiObj roi = null;

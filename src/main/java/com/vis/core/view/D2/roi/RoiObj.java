@@ -781,8 +781,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void draw(Graphics g) {
-		AffineTransform aTx = new AffineTransform();
 		Graphics2D g2d = (Graphics2D)g;
+		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
+		//AffineTransform aTx = new AffineTransform();//DO NOT USE
 		double mag = getMagnification();
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
@@ -1898,39 +1899,8 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		bounds = null;
-		//bounds = new java.awt.geom.Rectangle2D.Double(x, y, width, height);
-
-		/*
-		 * OLD code
-		 */
-//		double mag = getMagnification();
-//		double[] scaleXY = getComponentScaleFactor();
-//		double widthOnOrg = Math.abs(sx - sg.mouseX) / mag / scale;
-//		double heightOnOrg = Math.abs(sy - sg.mouseY) / mag / scale;
-//
-//		width = (int) widthOnOrg;
-//		height = (int) heightOnOrg;
-//
-//		System.out.println("slide last clicked:" + sg.mouseX + " " + sg.mouseY);
-//		System.out.println("rectangle size on original (w,h):" + width + " " + height);
-//
-//		/*
-//		 * update roi location on org image
-//		 */
-//		x = (sx >= sg.mouseX) ? x : sg.onImageX(sg.mouseX) - width;
-//		y = (sy >= sg.mouseY) ? y : sg.onImageY(sg.mouseY) - height;
-////		System.out.println("Growing result info: "+x+" "+y+" "+width+" "+height);
-//
-//		if (type == RoiType.RECTANGLE.id()) {
-//			if ((x + width) > xMax) {
-//				width = xMax - x;
-//			}
-//			if ((y + height) > yMax) {
-//				height = yMax - y;
-//			}
-//		}
-		
+//		bounds = null;
+		bounds = new java.awt.geom.Rectangle2D.Double(x, y, width, height);
 	}
 
 	private void growConstrained(int xNew, int yNew) {

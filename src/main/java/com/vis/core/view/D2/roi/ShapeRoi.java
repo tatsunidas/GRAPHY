@@ -986,9 +986,9 @@ public class ShapeRoi extends RoiObj {
 
 		double mag = getMagnification();
 		double scale[] = getComponentScaleFactor();
-		
-		AffineTransform aTx = new AffineTransform();
 		Graphics2D g2d = (Graphics2D) g;
+//		AffineTransform aTx = new AffineTransform();//DO NOT USE
+		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
 		if (stroke != null && !isActiveOverlayRoi()) {
 			g2d.setStroke((slide != null) || isCursor() ? stroke : getScaledStroke());
 		}
@@ -1001,13 +1001,26 @@ public class ShapeRoi extends RoiObj {
 				roiOX = x;
 				roiOY = y;
 			}
-			aTx.scale(mag * scale[0], mag * scale[1]);
-			aTx.translate(roiOX, roiOY);
-			clone = aTx.createTransformedShape(clone);
-			aTx = new AffineTransform();
+			/*
+			 * The shape does not have position information in the upper left corner. Adjust everything using Transform.
+			 */
+			//move to offset
 			Point offset = slide.getDisplayImageOriginXY();
 			aTx.translate(offset.x, offset.y);
+			//set zoom scale for origin and shape points
+			aTx.scale(mag * scale[0], mag * scale[1]);
+			//then translate with scale to bounds x and y.
+			aTx.translate(roiOX, roiOY);
 			g2d.setTransform(aTx);
+			
+			// following code why linux is OK ? (windows can not show correctly)
+//			aTx.scale(mag * scale[0], mag * scale[1]);
+//			aTx.translate(roiOX, roiOY);
+//			clone = aTx.createTransformedShape(clone);
+//			aTx = new AffineTransform();
+//			Point offset = slide.getDisplayImageOriginXY();
+//			aTx.translate(offset.x, offset.y);
+//			g2d.setTransform(aTx);
 		}
 		if (fill) {
 			g2d.draw(clone);

@@ -283,7 +283,6 @@ public class OvalRoi extends RoiObj {
 			drawHandle(g, x2, y3);
 			drawHandle(g, x1, y2);
 		}
-//		drawPreviousRoi(g);
 	}
 
 	/** Draws an outline of this OvalRoi on the image. */
