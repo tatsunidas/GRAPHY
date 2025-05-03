@@ -58,7 +58,6 @@ import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 import javax.swing.JComboBox;
 
-import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;

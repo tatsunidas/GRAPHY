@@ -99,7 +99,7 @@ public enum ConfigInfo {
 	CDRTOOL_Props("./conf/cdrecord.properties"),
 	BURN2CDLocation("./temp/BURN2CD"),
 	
-	WEASIS("/weasis/weasis-portable/"),// resource in jar, must handle in stream.
+	WEASIS("./weasis/weasis-portable/"),
 	RecordFactory("RecordFactory.xml"),
 	AEProp("ae.properties"),
 	

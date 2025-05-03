@@ -64,6 +64,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
@@ -237,6 +238,72 @@ public class Utils {
 			}
 		});
 	}
+	
+	/**
+     * 指定されたディレクトリの内容を別のディレクトリにコピーします。
+     *
+     * @param sourceDirStr コピー元のディレクトリパス文字列。null であってはならない。
+     * @param destDirStr   コピー先のディレクトリパス文字列。null であってはならない。コピー先に存在しない場合は作成されます。
+     * @throws IOException          コピー中に I/O エラーが発生した場合。
+     * @throws NullPointerException 引数が null の場合。
+     * @throws IllegalArgumentException sourceDirStr がディレクトリでない場合。
+     */
+    public static void copyDirectory(String sourceDirStr, String destDirStr) throws IOException {
+        // Objects.requireNonNull で null チェックと例外スローを行う
+        Path sourceDir = Paths.get(Objects.requireNonNull(sourceDirStr, "Source directory must not be null"));
+        Path destDir = Paths.get(Objects.requireNonNull(destDirStr, "Destination directory must not be null"));
+
+        // コピー元がディレクトリであることを確認
+        if (!Files.isDirectory(sourceDir) || !Files.exists(sourceDir)) {
+            throw new IllegalArgumentException("Source must be a directory: " + sourceDir);
+        }
+
+        Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                // コピー元からの相対パスを計算
+                Path relativePath = sourceDir.relativize(dir);
+                // コピー先ディレクトリパスを計算
+                Path targetDir = destDir.resolve(relativePath);
+                // コピー先にディレクトリを作成 (存在しない場合のみ)
+                // createDirectories は親ディレクトリも含めて作成してくれる
+                Files.createDirectories(targetDir);
+                System.out.println("Created directory: " + targetDir); // ログ出力例
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                // コピー元からの相対パスを計算
+                Path relativePath = sourceDir.relativize(file);
+                // コピー先ファイルパスを計算
+                Path targetFile = destDir.resolve(relativePath);
+                // ファイルをコピー (既存のファイルを上書きする場合は REPLACE_EXISTING を追加)
+                Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                System.out.println("Copied file: " + file + " to " + targetFile); // ログ出力例
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                // ファイルアクセスに失敗した場合のエラー処理
+                System.err.println("Failed to access file: " + file + " - " + exc);
+                // エラーが発生しても処理を続ける場合は CONTINUE、中断する場合は例外をスロー
+                // throw exc; // エラー発生時に処理を中断する場合
+                return FileVisitResult.CONTINUE; // エラーがあっても続行する場合
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                 // ディレクトリ処理後のエラー処理 (通常は null)
+                if (exc != null) {
+                    System.err.println("Error after visiting directory: " + dir + " - " + exc);
+                     // throw exc; // エラー発生時に処理を中断する場合
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
 
 	/**
 	 * delete temp dir and included files

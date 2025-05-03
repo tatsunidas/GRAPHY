@@ -126,10 +126,11 @@ public class ExportOptionPanel extends JPanel {
 		formatGroup.add(rdbtnDecompress);
 		
 		chckbxWithViewer = new JCheckBox("With viewer");
-		chckbxWithViewer.setSelected(true);
+		chckbxWithViewer.setSelected(false);
 		springLayout.putConstraint(SpringLayout.NORTH, chckbxWithViewer, 6, SpringLayout.SOUTH, rdbtnDecompress);
 		springLayout.putConstraint(SpringLayout.WEST, chckbxWithViewer, 0, SpringLayout.WEST, lblNewLabel);
 		add(chckbxWithViewer);
+		chckbxWithViewer.setEnabled(false);//TODO
 //		formatGroup.add(rdbtnJpegFormat);
 	}
 	

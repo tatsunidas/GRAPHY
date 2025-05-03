@@ -203,7 +203,12 @@ public class TreeTableDockManager extends JTabbedPane {
 	}
 
 	private String loadKeepTopTreeTableNickName() {
-		return PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
+		String title = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
+		if(title == null || title.length()==0) {
+			title = homeTabName;
+			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle, title);
+		}
+		return title;
 	}
 
 	private void addOrUpdateDocks(boolean home, String newNickname, TabDock newNodeDock) throws URISyntaxException {

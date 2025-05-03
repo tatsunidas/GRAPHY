@@ -92,7 +92,7 @@ public class DicomExporter extends JFrame implements Task {
 	final String approveButtonText = "Export";
 	private boolean flatOutput = false;// default
 	private boolean decompress = false;// default
-	private boolean withViewer = true;//default, see default setting of ExportOptionPanel class.
+	private boolean withViewer = false;//TODO 
 
 	final int taskId;
 	TaskContext con = null;
@@ -514,11 +514,9 @@ public class DicomExporter extends JFrame implements Task {
 		// finally, attach viewer and create DICOMDIR
 		if(withViewer) {
 			try {
-				Utils.copyResourceFromJAR(ConfigInfo.WEASIS.toString(), dest.getAbsolutePath());
-				//add DICOMDIR
+				Utils.copyDirectory(ConfigInfo.WEASIS.toString(), dest.getAbsolutePath());
 				/*
-				 * DICOMDIR was needed for viewer.
-				 * If flat, viewer just only attach, and not load images automatically. 
+				 * DICOMDIR was needed for viewer to load images when starting-up.
 				 */
 				DicomUtilities.attachDICOMDIRTo(dest.getAbsolutePath());
 			} catch (IOException e) {
