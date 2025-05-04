@@ -2,27 +2,22 @@
 
 # Core Features
 
-- DICOM I/O (Local DIMSE and WADO)
+- DICOM I/O (Local DIMSE)
 - PlugIn interface
 - Minimum Local DB (Derby)
 - 2D viewer
 - 3D viewer
 - MPR
 - ROI analysis
-- Burning CD/DVD (with WEASIS)
+- Burning CD/DVD (with WEASIS) ※windows only
 
 # Future Release
-
-## Core Feature
-- brush-up current features
-
-## Expected External PlugIns
-- Radiomics feature
-- Machine learning feature  
+- Reporting feature (ChatGPT/Gemini built-in ?) 
+- radiomics plugin
+- execution enviroment for machine learning model
 -- model creation&execution for table dataset  
 -- visualization features  
 -- deep learning model prediction (does not include training function)
-- Reporting feature (ChatGPT built-in ?) 
 
 # Environment
 
@@ -30,9 +25,7 @@
 ### Recommending OS
 - Windows10 or higher
 - Linux(Ubuntu 22.04 or higher)  
-
-### Optional OS
-- MacOS
+- (Optional)MacOS
 
 ## Development language
 - Java 11 (AdaptiumOpenJDK11)
@@ -44,7 +37,7 @@ t_kobayashi'@'vis-ionary.com
 - 焦るな。深呼吸して、ゆっくりタイプしろ。
 - 忙しいときはやるな。でも、毎日見ろ。
 - パッケージやモジュールごとの完成度を高めろ。
-- 必ずやり抜け。そして、アハ体験を糧にがんばれ。
+- やり抜け。そして、アハ体験を糧にがんばれ。
 - 完璧なものを目指すな。バージョンを上げていくことで質を上げろ。
 - 無いものはない。できないことはできない。できる範囲でいい。コツコツやれ。今は出来なくても長期的な戦略を考えろ。
 - どんどん公開しろ。
