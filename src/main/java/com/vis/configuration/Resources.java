@@ -185,7 +185,12 @@ public enum Resources {
 	public ij.process.LUT loadLUT(){
 		if(pathInResource.endsWith("lut")) {
 			File appDir = Platform.getAppDirectory();
-			return LutLoader.openLut(new File(appDir.getAbsolutePath()+File.separator+pathInResource).getAbsolutePath());
+			if(new File(appDir.getAbsolutePath()+File.separator+pathInResource).exists()) {
+				return LutLoader.openLut(new File(appDir.getAbsolutePath()+File.separator+pathInResource).getAbsolutePath());
+			}else {
+				//debug
+				return LutLoader.openLut(new File(pathInResource).getAbsolutePath());
+			}
 		}
 		return null;
 	}
