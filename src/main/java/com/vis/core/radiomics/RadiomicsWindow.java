@@ -37,12 +37,27 @@
  */
 package com.vis.core.radiomics;
 
+import java.awt.BorderLayout;
+
+import javax.swing.ButtonGroup;
+import javax.swing.JFrame;
+import javax.swing.JRadioButton;
+
+import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.main.MainScreen;
+
 /**
+ * 
+ * 1. radiomics classifier
+ * - dataset is built-up from roi by roi.
+ * 
+ * 2. radiomics segmentation
+ * - dataset is built-up from pixel by pixel.
  * 
  * @author tatsunidas
  *
  */
-public class RadiomicsWindow {
+public class RadiomicsWindow extends JFrame{
 /*
  * future work
  * 
@@ -50,6 +65,33 @@ public class RadiomicsWindow {
  * 2.settings of each features
  * 3.show parametric images and fusion view and saveAsNewSeries or saveAsTif
  * 4.Pipe to WEKA (already in radiomicsj.)
- * 
+ *  * - work with color features
+ * - work on whole Stack 
+ * - change training image
+ * - do probability output (accessible?) and define threshold
  */
+	
+	int mode;
+	RadiomicsPanel panel;
+	
+	public static void main(String[] args) {
+		new RadiomicsWindow();
+	}
+	
+	public RadiomicsWindow() {
+		buildGUI();
+	}
+	
+	private void buildGUI() {
+		panel = new RadiomicsPanel();
+		add(panel, BorderLayout.CENTER);
+		pack();
+		if(WindowManager.getMainScreen() == null) {
+			setLocationRelativeTo(null);
+		}else {
+			setLocationRelativeTo(WindowManager.getMainScreen());
+		}
+		setVisible(true);
+	}
+	
 }

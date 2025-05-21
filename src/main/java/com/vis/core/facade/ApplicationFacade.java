@@ -138,6 +138,9 @@ public class ApplicationFacade{
 	
 	private void initConfigurationFolders() {
 		String appDir = Platform.getAppDirectory().getAbsolutePath()+File.separator;
+		if(Utils.isDebug) {
+			appDir = "";
+		}
 		for(ConfigInfo name : new ConfigInfo[] {ConfigInfo.ConfDirName, ConfigInfo.LogDirName, ConfigInfo.PluginDirName, ConfigInfo.TemporalDirName, ConfigInfo.LibDirName}) {
 			if(!new File(appDir+name.toString()).exists()) {
 				switch (name) {

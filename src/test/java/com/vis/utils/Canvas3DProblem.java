@@ -46,14 +46,14 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-import org.scijava.java3d.BoundingSphere;
-import org.scijava.java3d.BranchGroup;
-import org.scijava.java3d.Canvas3D;
-import org.scijava.java3d.DirectionalLight;
-import org.scijava.java3d.utils.geometry.ColorCube;
-import org.scijava.java3d.utils.universe.SimpleUniverse;
-import org.scijava.vecmath.Color3f;
-import org.scijava.vecmath.Vector3f;
+import org.jogamp.java3d.BoundingSphere;
+import org.jogamp.java3d.BranchGroup;
+import org.jogamp.java3d.Canvas3D;
+import org.jogamp.java3d.DirectionalLight;
+import org.jogamp.java3d.utils.geometry.ColorCube;
+import org.jogamp.java3d.utils.universe.SimpleUniverse;
+import org.jogamp.vecmath.Color3f;
+import org.jogamp.vecmath.Vector3f;
 
 import com.vis.core.view.D2.ui.glasses.Praparat;
 

@@ -39,17 +39,17 @@ package com.vis.utils;
 
 import javax.swing.*;
 
-import org.scijava.java3d.Appearance;
-import org.scijava.java3d.BoundingSphere;
-import org.scijava.java3d.BranchGroup;
-import org.scijava.java3d.Canvas3D;
-import org.scijava.java3d.ColoringAttributes;
-import org.scijava.java3d.Transform3D;
-import org.scijava.java3d.TransformGroup;
-import org.scijava.java3d.utils.behaviors.vp.OrbitBehavior;
-import org.scijava.java3d.utils.universe.SimpleUniverse;
-import org.scijava.vecmath.Color3f;
-import org.scijava.vecmath.Vector3f;
+import org.jogamp.java3d.Appearance;
+import org.jogamp.java3d.BoundingSphere;
+import org.jogamp.java3d.BranchGroup;
+import org.jogamp.java3d.Canvas3D;
+import org.jogamp.java3d.ColoringAttributes;
+import org.jogamp.java3d.Transform3D;
+import org.jogamp.java3d.TransformGroup;
+import org.jogamp.java3d.utils.behaviors.vp.OrbitBehavior;
+import org.jogamp.java3d.utils.universe.SimpleUniverse;
+import org.jogamp.vecmath.Color3f;
+import org.jogamp.vecmath.Vector3f;
 
 import com.vis.core.util.Platform;
 
@@ -99,7 +99,7 @@ public class SliceViewer3D extends JFrame {
         volumeTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 
         // 直方体のスライス面 (Boxの各辺がスライスされると仮定)
-        org.scijava.java3d.utils.geometry.Box volume = new org.scijava.java3d.utils.geometry.Box(0.5f, 0.5f, 0.5f, createAppearance());
+        org.jogamp.java3d.utils.geometry.Box volume = new org.jogamp.java3d.utils.geometry.Box(0.5f, 0.5f, 0.5f, createAppearance());
         volumeTG.addChild(volume);
 
         objRoot.addChild(volumeTG);

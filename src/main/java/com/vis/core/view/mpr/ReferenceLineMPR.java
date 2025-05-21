@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.joml.Vector3d;
-import org.scijava.vecmath.Point2d;
+import org.jogamp.vecmath.Point2d;
 
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.roi.RoiObj;
