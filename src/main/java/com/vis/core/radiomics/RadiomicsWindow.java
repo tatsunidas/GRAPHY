@@ -39,9 +39,7 @@ package com.vis.core.radiomics;
 
 import java.awt.BorderLayout;
 
-import javax.swing.ButtonGroup;
 import javax.swing.JFrame;
-import javax.swing.JRadioButton;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.MainScreen;
@@ -58,6 +56,10 @@ import com.vis.core.ui.main.MainScreen;
  *
  */
 public class RadiomicsWindow extends JFrame{
+/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8494940884028066246L;
 /*
  * future work
  * 

@@ -42,18 +42,22 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowListener;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
-import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -63,6 +67,7 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import ij.gui.Roi;
+import weka.gui.GUIChooserApp;
 
 public class RadiomicsPanel extends JPanel{
 	
@@ -86,12 +91,28 @@ public class RadiomicsPanel extends JPanel{
 	JButton createMaskBtn;
 	//settings
 	JButton settingsBtn;
+	
 	/**
 	 * weka, to manipulate dataset csv.
 	 */
 	JButton wekaBtn;
 	
 	JButton loadRoiBtn;
+	
+	//command names
+	private final String CLASSIFICATION = "Classification";
+	private final String SEGMENTATION = "Segmentation";
+	private final String SAVE_CONFIG = "Save Configurations";
+	private final String LOAD_CONFIG = "Load Configurations";
+	private final String TRAIN_MODEL = "Train model";
+	private final String SAVE_MODEL = "Save model";
+	private final String LOAD_MODEL = "Load model";
+	private final String PREDICTION = "Prediction";
+	private final String SHOW_PROBABILITIES = "Show probabilities";
+	private final String SHOW_MASKS = "Show masks";
+	private final String SETTINGS = "Settings";
+	private final String WEKA = "WEKA";
+	private final String LOAD_ROIS = "Load Rois to predict";
 	
 	final String[] defaultClasses = new String[] {"class1","class2"};
 	List<ClassPanel> classes = new ArrayList<>();
@@ -108,41 +129,43 @@ public class RadiomicsPanel extends JPanel{
 		 */
 		modeSelect = new ButtonGroup();
 		
-		saveConfigBtn = new JButton("Save Configurations");
-		loadConfigBtn = new JButton("Load Configurations");
+		saveConfigBtn = new JButton(SAVE_CONFIG);
+		loadConfigBtn = new JButton(LOAD_CONFIG);
 		
-		trainModelBtn = new JButton("Train model");
-		loadModelBtn = new JButton("Load Model");
-		saveModelBtn = new JButton("Save Model");
+		trainModelBtn = new JButton(TRAIN_MODEL);
+		loadModelBtn = new JButton(LOAD_MODEL);
+		saveModelBtn = new JButton(SAVE_MODEL);
 		
-		predBtn = new JButton("Prediction");
-		showProbBtn = new JButton("Show Probabilities");
-		createMaskBtn = new JButton("Show Masks");
+		predBtn = new JButton(PREDICTION);
+		showProbBtn = new JButton(SHOW_PROBABILITIES);
+		createMaskBtn = new JButton(SHOW_MASKS);
 		
-		settingsBtn = new JButton("Settings");
+		settingsBtn = new JButton(SETTINGS);
 		
-		wekaBtn = new JButton("WEKA");
+		wekaBtn = new JButton(WEKA);
+		wekaBtn.setActionCommand(WEKA);
+		setAction(wekaBtn);
 		
-		loadRoiBtn = new JButton("Load Roi to predict");
+		loadRoiBtn = new JButton(LOAD_ROIS);
 	}
 
 	private void buildGUI() {
 		setLayout(new BorderLayout());
 		JPanel north = new JPanel();
-		JRadioButton rbClassification = new JRadioButton("Classification");
-		rbClassification.setActionCommand("CLASSIFICATION");
-		JRadioButton rbSegmentation = new JRadioButton("Segmentation");
-		rbSegmentation.setActionCommand("SEGMENTATION");
+		JRadioButton rbClassification = new JRadioButton(CLASSIFICATION);
+		rbClassification.setActionCommand(CLASSIFICATION);
+		JRadioButton rbSegmentation = new JRadioButton(SEGMENTATION);
+		rbSegmentation.setActionCommand(SEGMENTATION);
 		north.add(rbClassification);
 		north.add(rbSegmentation);
 		modeSelect.add(rbClassification);
 		modeSelect.add(rbSegmentation);
 		modeSelect.setSelected(rbClassification.getModel(), true);
 		add(north, BorderLayout.NORTH);
+		//functions
 		JPanel func = buidFunctionPanel();
 		JScrollPane trainds = buildTrainingDataPanel();
 		JPanel predRoi = buildRoi4ClassificationPanel(); 
-		
 		JPanel center = new JPanel(new GridLayout(0, 3, 3, 3));
 		center.add(func);
 		center.add(trainds);
@@ -234,10 +257,41 @@ public class RadiomicsPanel extends JPanel{
 				return button.getActionCommand();
 			}
 		}
-		return null; // 何も選択されていない場合
+		return null;
+	}
+	
+	private void setAction(JComponent con) {
+		if(con instanceof JButton) {
+			JButton btn = (JButton)con;
+			String name = btn.getActionCommand();
+			if(name.equals("")) {
+				
+			}else if(name.equals(WEKA)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						launch_weka();
+					}
+				});
+			}
+		}
+	}
+	
+	public void launch_weka() {
+		GUIChooserApp chooser = new GUIChooserApp();
+		for (WindowListener wl : chooser.getWindowListeners()) {
+			chooser.removeWindowListener(wl);
+		}
+		chooser.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		chooser.setLocationRelativeTo(this);
+		chooser.setVisible(true);
 	}
 	
 	class ClassPanel extends JPanel{
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		final int ind;
 		final String name;
 		JList<Roi> roiList;
@@ -284,23 +338,22 @@ public class RadiomicsPanel extends JPanel{
 	}
 	
 	class RoiListCellRenderer extends DefaultListCellRenderer {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
 		@Override
-		public Component getListCellRendererComponent(JList<?> list, // リスト自体
-				Object value, // 表示する値 (この場合は Roi オブジェクト)
-				int index, // リスト内のインデックス
-				boolean isSelected, // 項目が選択されているか
-				boolean cellHasFocus) { // 項目がフォーカスを持っているか
-
-			// 親クラスのメソッドを呼び出して、基本的なレンダリング（選択状態の色など）を取得
+		public Component getListCellRendererComponent(JList<?> list,
+				Object value, // Roi
+				int index, 
+				boolean isSelected,
+				boolean cellHasFocus) {
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-
-			// value が Roi のインスタンスであるかを確認
 			if (value instanceof Roi) {
 				Roi roi = (Roi) value;
-				// Roi の名前を取得してテキストとして設定
 				setText(roi.getName());
 			} else {
-				// Roi 以外の場合は、デフォルトのtoString()の結果などを使用
 				setText((value == null) ? "" : value.toString());
 			}
 			return this;
