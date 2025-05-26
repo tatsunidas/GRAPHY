@@ -41,6 +41,7 @@ import java.awt.BorderLayout;
 
 import javax.swing.JFrame;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.MainScreen;
 
@@ -66,14 +67,13 @@ public class RadiomicsWindow extends JFrame{
  * 1.calculate features on praparat level and save it as csv
  * 2.settings of each features
  * 3.show parametric images and fusion view and saveAsNewSeries or saveAsTif
- * 4.Pipe to WEKA (already in radiomicsj.)
- *  * - work with color features
+ * 4.Pipe to WEKA.
+ * - work with color features
  * - work on whole Stack 
  * - change training image
- * - do probability output (accessible?) and define threshold
+ * - output probability and define threshold to mask
  */
 	
-	int mode;
 	RadiomicsPanel panel;
 	
 	public static void main(String[] args) {
@@ -82,6 +82,7 @@ public class RadiomicsWindow extends JFrame{
 	
 	public RadiomicsWindow() {
 		buildGUI();
+		
 	}
 	
 	private void buildGUI() {
@@ -93,6 +94,8 @@ public class RadiomicsWindow extends JFrame{
 		}else {
 			setLocationRelativeTo(WindowManager.getMainScreen());
 		}
+		setTitle("Machine Learning");
+		setIconImage(Resources.GraphyIcon.loadIconFromResource().getImage());
 		setVisible(true);
 	}
 	

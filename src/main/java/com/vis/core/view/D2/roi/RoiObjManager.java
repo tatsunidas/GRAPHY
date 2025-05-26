@@ -647,7 +647,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		return -1;
 	}
 	
-	void open(String path) {
+	void openToGraphy(String path) {
 		if(patList.getItemCount()==0) {
 			JOptionPane.showMessageDialog(this,
 					"Open images on 2D Viewer to load ROIs and select a subject from the patient list.");
@@ -689,6 +689,73 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		} else {
 			JOptionPane.showConfirmDialog(this, "Unable to open ROI at "+path);
 		}
+	}
+	
+	public static List<Roi> open(String path) {
+		if(path == null || path.length() == 0) {
+			return null;
+		}
+		List<Roi> rois = new ArrayList<>();
+		if (path.endsWith(".zip")) {
+			List<Roi> rois_ = openZip(path);
+			if(rois != null) {
+				rois.addAll(rois_);
+			}
+		}else {
+			Opener o = new Opener();
+			ij.gui.Roi roi = o.openRoi(path);
+			if(roi != null) {
+				rois.add(roi);
+			}
+		}
+		return rois;
+	}
+	
+	public static List<Roi> openZip(String path) {
+		if(path == null || path.endsWith("zip")) {
+			return null;
+		}
+		ZipInputStream in = null;
+		ByteArrayOutputStream out = null;
+		int nRois = 0;
+		errorMessage = null;
+		List<Roi> rois = new ArrayList<>();
+		try {
+			in = new ZipInputStream(new FileInputStream(path));
+			byte[] buf = new byte[1024];
+			int len;
+			ZipEntry entry = in.getNextEntry();
+			while (entry!=null) {
+				String name = entry.getName();
+				if (name.endsWith(".roi")) {
+					out = new ByteArrayOutputStream();
+					while ((len = in.read(buf)) > 0) {
+						out.write(buf, 0, len);
+					}
+					out.close();
+					byte[] bytes = out.toByteArray();
+					RoiDecoder rd = new RoiDecoder(bytes, name);
+					Roi roi = rd.getRoi();
+					if (roi!=null) {
+						rois.add(roi);
+						nRois++;
+					}
+				}
+				entry = in.getNextEntry();
+			}
+			in.close();
+		} catch (IOException e) {
+			errorMessage = e.toString();
+		} finally {
+			if (in!=null)
+				try {in.close();} catch (IOException e) {}
+			if (out!=null)
+				try {out.close();} catch (IOException e) {}
+		}
+		if (nRois==0 && errorMessage==null) {
+			errorMessage = "This ZIP archive does not contain \".roi\" files: " + path;
+		}
+		return rois;
 	}
 
 	// Modified on 2005/11/15 by Ulrik Stervbo to only read .roi files and to not empty the current list
@@ -1419,7 +1486,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			//location XY is RoiObjManager coordinates basis.
 			pm.show(this, patListW, patListH+bloc.y+btn.getHeight()+3);
 		}else if (command.equals(Functions.Open.name())) {
-			open(null);
+			openToGraphy(null);
 		}else if (command.equals(Functions.Save.name())) {
 			SwingUtilities.invokeLater(()->save());
 		}else if (command.equals(Functions.SplineFit.name())) {

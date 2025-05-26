@@ -42,9 +42,11 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowListener;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -57,6 +59,7 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -65,6 +68,15 @@ import javax.swing.JScrollPane;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
+
+import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
+import com.vis.core.facade.WindowManager;
+import com.vis.core.view.D2.roi.RoiConverter;
+import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.roi.RoiObjManager;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
+import com.vis.core.view.D2.ui.glasses.Praparat;
 
 import ij.gui.Roi;
 import weka.gui.GUIChooserApp;
@@ -77,6 +89,7 @@ public class RadiomicsPanel extends JPanel{
 	private static final long serialVersionUID = 1L;
 	
 	ButtonGroup modeSelect;
+	ClassPanel rois4ClfPanel;
 	
 	//config
 	JButton saveConfigBtn;
@@ -129,9 +142,6 @@ public class RadiomicsPanel extends JPanel{
 		 */
 		modeSelect = new ButtonGroup();
 		
-		saveConfigBtn = new JButton(SAVE_CONFIG);
-		loadConfigBtn = new JButton(LOAD_CONFIG);
-		
 		trainModelBtn = new JButton(TRAIN_MODEL);
 		loadModelBtn = new JButton(LOAD_MODEL);
 		saveModelBtn = new JButton(SAVE_MODEL);
@@ -141,12 +151,15 @@ public class RadiomicsPanel extends JPanel{
 		createMaskBtn = new JButton(SHOW_MASKS);
 		
 		settingsBtn = new JButton(SETTINGS);
+		saveConfigBtn = new JButton(SAVE_CONFIG);
+		loadConfigBtn = new JButton(LOAD_CONFIG);
 		
 		wekaBtn = new JButton(WEKA);
 		wekaBtn.setActionCommand(WEKA);
 		setAction(wekaBtn);
 		
 		loadRoiBtn = new JButton(LOAD_ROIS);
+		setAction(loadRoiBtn);
 	}
 
 	private void buildGUI() {
@@ -180,14 +193,7 @@ public class RadiomicsPanel extends JPanel{
 		westPanel.setLayout(new BoxLayout(westPanel, BoxLayout.Y_AXIS));
 		
 		Border b = BorderFactory.createSoftBevelBorder(BevelBorder.RAISED, Color.ORANGE, Color.GRAY);
-		
-		JPanel configuration = new JPanel();
-		configuration.setLayout(new GridLayout(0, 1, 0, 5));
-		configuration.setBorder(BorderFactory.createTitledBorder(b, "Configuration", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
-		configuration.add(loadConfigBtn);
-		configuration.add(saveConfigBtn);
-		westPanel.add(configuration);
-		
+				
 		JPanel model = new JPanel();
 		model.setLayout(new GridLayout(0, 1, 0, 5));
 		model.setBorder(BorderFactory.createTitledBorder(b, "Model", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
@@ -206,8 +212,11 @@ public class RadiomicsPanel extends JPanel{
 		
 		JPanel settings = new JPanel();
 		settings.setLayout(new GridLayout(0, 1, 0, 5));
-		settings.setBorder(BorderFactory.createTitledBorder(b, "Settings", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
+		settings.setBorder(BorderFactory.createTitledBorder(b, "Settings", TitledBorder.CENTER,
+				TitledBorder.DEFAULT_JUSTIFICATION));
 		settings.add(settingsBtn);
+		settings.add(loadConfigBtn);
+		settings.add(saveConfigBtn);
 		westPanel.add(settings);
 		
 		JPanel wekaP = new JPanel();
@@ -217,7 +226,6 @@ public class RadiomicsPanel extends JPanel{
 		westPanel.add(wekaP);
 		
 		return westPanel;
-		
 	}
 	
 	private JScrollPane buildTrainingDataPanel() {
@@ -239,10 +247,10 @@ public class RadiomicsPanel extends JPanel{
 	}
 	
 	private JPanel buildRoi4ClassificationPanel() {
-		JPanel panel = new ClassPanel(0, "Rois for prediction");
-		panel.setLayout(new BorderLayout());
-		panel.add(loadRoiBtn, BorderLayout.SOUTH);
-		return panel;
+		rois4ClfPanel = new ClassPanel(0, "Rois for classification");
+		rois4ClfPanel.setLayout(new BorderLayout());
+		rois4ClfPanel.add(loadRoiBtn, BorderLayout.SOUTH);
+		return rois4ClfPanel;
 	}
 	
 	private JPanel createNewClass(String name) {
@@ -273,6 +281,33 @@ public class RadiomicsPanel extends JPanel{
 						launch_weka();
 					}
 				});
+			}else if(name.equals(LOAD_ROIS)) {
+				//TODO TEST
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						ArrayList<Roi> rois = new ArrayList<>();
+						JFileChooser chooser = new JFileChooser();
+						chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+						chooser.setMultiSelectionEnabled(true);
+						Window d2s = WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
+						int res = chooser.showOpenDialog(d2s/*null-able*/);
+						if(res == JFileChooser.APPROVE_OPTION) {
+							File[] files = chooser.getSelectedFiles();
+							if(files != null && files.length > 0) {
+								for(File f : files) {
+									List<Roi> rs = RoiObjManager.open(f.getAbsolutePath());
+									if(rs != null) {
+										rois.addAll(rs);
+									}
+								}
+							}
+						}
+						for(Roi r : rois) {
+							rois4ClfPanel.add(new RoiConverter().convert2RoiObj(r));
+						}
+					}
+				});
 			}
 		}
 	}
@@ -288,19 +323,43 @@ public class RadiomicsPanel extends JPanel{
 	}
 	
 	class ClassPanel extends JPanel{
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
 		final int ind;
 		final String name;
-		JList<Roi> roiList;
-		DefaultListModel<Roi> listModel = new DefaultListModel<>();
+		JList<RoiObj> roiList;
+		DefaultListModel<RoiObj> listModel = new DefaultListModel<>();
+		JButton addBtn = new JButton("Add");
 		ClassPanel(int index, String name){
 			ind = index;
 			this.name = name;
 			roiList = new JList<>(listModel);
 			roiList.setCellRenderer(new RoiListCellRenderer());
+			setLayout(new BorderLayout());
+			add(addBtn, BorderLayout.NORTH);
+			addBtn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					Viewer2DScreen screen = (Viewer2DScreen) WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
+					if(screen == null) {
+						System.out.println("2DViewer is NULL !!!");
+						return;
+					}
+					ArrayList<Praparat> praps = screen.getSelectedPraps();
+					if(praps != null && praps.size() > 0) {
+						for(Praparat prap : praps) {
+							ArrayList<RoiObj> rois = prap.getRois();
+							if(rois.size() > 0) {
+								for(RoiObj r : rois) {
+									add(r);
+								}
+							}
+						}
+					}else {
+						System.out.println("Any praparats are not selected, cannot find roi... ");
+					}
+				}
+			});
+			add(roiList, BorderLayout.CENTER);
 			Border b = BorderFactory.createBevelBorder(BevelBorder.RAISED, Color.cyan, Color.DARK_GRAY);
 			setBorder(BorderFactory.createTitledBorder(b, name, TitledBorder.CENTER, TitledBorder.DEFAULT_POSITION));
 			setPreferredSize(new Dimension(200, 200));
@@ -313,18 +372,24 @@ public class RadiomicsPanel extends JPanel{
 			return name;
 		}
 		
-		void add(Roi r) {
+		void add(RoiObj r) {
+			//TODO 
+			//already exists ?? -> skip
+			if(listModel.contains(r)) {
+				System.out.println(r.getName() + " is already listed.");
+				return;
+			}
 			listModel.add(listModel.getSize(), r);
 		}
 		
-		void delete(Roi r) {
+		void delete(RoiObj r) {
 			int pos = listModel.indexOf(r);
 			if(pos >= 0) {
 				listModel.remove(listModel.indexOf(r));
 			}
 		}
 		
-		void updateOrReplace(int row/*0 to n-1*/, Roi r) {
+		void updateOrReplace(int row/*0 to n-1*/, RoiObj r) {
 			if(row < 0 || row > listModel.getSize()) {
 				System.out.println("RadiomicsPanel.ClassPanle:updateOrReplace:: Out Of Range ! "+row);
 				return;
@@ -345,13 +410,13 @@ public class RadiomicsPanel extends JPanel{
 
 		@Override
 		public Component getListCellRendererComponent(JList<?> list,
-				Object value, // Roi
+				Object value, // RoiObj
 				int index, 
 				boolean isSelected,
 				boolean cellHasFocus) {
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-			if (value instanceof Roi) {
-				Roi roi = (Roi) value;
+			if (value instanceof RoiObj) {
+				RoiObj roi = (RoiObj) value;
 				setText(roi.getName());
 			} else {
 				setText((value == null) ? "" : value.toString());

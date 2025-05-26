@@ -1031,6 +1031,19 @@ public class Praparat extends JPanel {
 		return null;
 	}
 	
+	public ArrayList<RoiObj> getRois(){
+		ArrayList<RoiObj> rois = new ArrayList<>();
+		for(int i : slides.keySet()) {
+			SlideGlass sg = slides.get(i);
+			CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			ArrayList<RoiObj> roisOnSlide = cg.getRoiSet();
+			if(roisOnSlide != null && roisOnSlide.size() > 0) {
+				rois.addAll(roisOnSlide);
+			}
+		}
+		return rois;
+	}
+	
 	private String concatenationOfUIDStrings() {
 		Object[] uids = getUIDs();
 		String str = "";

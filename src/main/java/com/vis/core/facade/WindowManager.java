@@ -88,6 +88,15 @@ public class WindowManager {
 		return w;
 	}
 	
+	public static Window getWindow(ConfigInfo name) {
+		Window w = wins.get(name.toString());
+		if(w != null && !w.isDisplayable()/*already disposed.*/) {
+			removeWindow(w);
+			w = null;
+		}
+		return w;
+	}
+	
 	public static Window getCurrentWindow() {
 		if(wins.isEmpty()) {
 			return null;
