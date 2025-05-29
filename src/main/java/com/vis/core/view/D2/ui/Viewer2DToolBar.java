@@ -69,6 +69,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
@@ -802,6 +803,18 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
+		case "radiomics":
+			btn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg) {
+					new Thread(() -> {
+						new RadiomicsWindow();
+			        }).start();
+					currentTool = Windowing;
+					setSelectedToolBackground();
+				}
+			});
+			break;
 		default:
 			currentTool = Windowing;
 			setSelectedToolBackground();
@@ -839,6 +852,7 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("cut", Resources.CutIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
+		map.put("radiomics", Resources.RadiomicsJIcon);
 		return map;
 	}
 	

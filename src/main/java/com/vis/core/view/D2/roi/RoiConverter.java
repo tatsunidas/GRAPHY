@@ -155,7 +155,7 @@ public class RoiConverter {
 		}
 		roiCon.put(ContextKey.RoiType.name(), String.valueOf(type));//keep String
 		
-		//add context prop
+		//add all remain context props
 		for(ContextKey key : ContextKey.values()) {
 			if(key == ContextKey.RoiType) {
 				continue;

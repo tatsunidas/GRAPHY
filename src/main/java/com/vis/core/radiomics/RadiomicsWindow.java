@@ -40,10 +40,13 @@ package com.vis.core.radiomics;
 import java.awt.BorderLayout;
 
 import javax.swing.JFrame;
+import javax.swing.JTabbedPane;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.MainScreen;
+
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 
 /**
  * 
@@ -74,7 +77,9 @@ public class RadiomicsWindow extends JFrame{
  * - output probability and define threshold to mask
  */
 	
+	static RadiomicsJ radiomics = new RadiomicsJ();
 	RadiomicsPanel panel;
+	RadiomicsSettings settings;
 	
 	public static void main(String[] args) {
 		new RadiomicsWindow();
@@ -86,17 +91,23 @@ public class RadiomicsWindow extends JFrame{
 	}
 	
 	private void buildGUI() {
+		JTabbedPane tabPane = new JTabbedPane();
 		panel = new RadiomicsPanel();
-		add(panel, BorderLayout.CENTER);
-		pack();
+		tabPane.addTab("Operation",panel);
+		settings = new RadiomicsSettings();
+		tabPane.addTab("Settings", settings);
+		add(tabPane, BorderLayout.CENTER);
+		//pack();
 		if(WindowManager.getMainScreen() == null) {
 			setLocationRelativeTo(null);
 		}else {
 			setLocationRelativeTo(WindowManager.getMainScreen());
 		}
 		setTitle("Machine Learning");
-		setIconImage(Resources.GraphyIcon.loadIconFromResource().getImage());
+		setIconImage(Resources.RadiomicsJIcon.loadIconFromResource().getImage());
+		setSize(900, 600);
 		setVisible(true);
+		settings.adjustDividerLocation();
 	}
 	
 }

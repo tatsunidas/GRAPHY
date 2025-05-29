@@ -70,6 +70,7 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -111,6 +112,8 @@ public class RadiomicsPanel extends JPanel{
 	JButton wekaBtn;
 	
 	JButton loadRoiBtn;
+	
+	RoiObjManager rm = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
 	
 	//command names
 	private final String CLASSIFICATION = "Classification";
@@ -373,11 +376,22 @@ public class RadiomicsPanel extends JPanel{
 		}
 		
 		void add(RoiObj r) {
-			//TODO 
-			//already exists ?? -> skip
-			if(listModel.contains(r)) {
-				System.out.println(r.getName() + " is already listed.");
+			String roiId = r.getUIDs().get(ContextKey.RoiID);
+			if(roiId == null) {
+				System.out.println("Cannot load. This roi is not created by GRAPHY...:"+r.getName());
 				return;
+			}
+			if(listModel.contains(r)) {
+				System.out.println(roiId + " is already listed.");
+				return;
+			}
+			for(int i=0; i<listModel.size(); i++) {
+				RoiObj r2 = listModel.get(i);
+				String roiId2 = r2.getUIDs().get(ContextKey.RoiID);
+				if(roiId.equals(roiId2)) {
+					//already in. skip.
+					return;
+				}
 			}
 			listModel.add(listModel.getSize(), r);
 		}
@@ -417,7 +431,7 @@ public class RadiomicsPanel extends JPanel{
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 			if (value instanceof RoiObj) {
 				RoiObj roi = (RoiObj) value;
-				setText(roi.getName());
+				setText(roi.getUIDs().get(ContextKey.RoiID));
 			} else {
 				setText((value == null) ? "" : value.toString());
 			}
