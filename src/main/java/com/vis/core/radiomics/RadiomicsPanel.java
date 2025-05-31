@@ -350,7 +350,7 @@ public class RadiomicsPanel extends JPanel{
 					ArrayList<Praparat> praps = screen.getSelectedPraps();
 					if(praps != null && praps.size() > 0) {
 						for(Praparat prap : praps) {
-							ArrayList<RoiObj> rois = prap.getRois();
+							ArrayList<RoiObj> rois = prap.getSelectedRois();
 							if(rois.size() > 0) {
 								for(RoiObj r : rois) {
 									add(r);
