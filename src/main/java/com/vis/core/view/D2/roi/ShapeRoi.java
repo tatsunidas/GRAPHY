@@ -976,11 +976,12 @@ public class ShapeRoi extends RoiObj {
 
     /** Non-destructively draws the shape of this object on the associated ImagePlus. */
 	public void draw(Graphics g) {
-		Color color = null;
+		Color color = strokeColor;
 		if (isActiveOverlayRoi()) {
-			color = Color.cyan;// change to active color
-		} else {
-			color = strokeColor != null ? strokeColor : ROIColor;
+			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g.setColor(color);
 

@@ -120,7 +120,7 @@ public class SlideGlassKeyListener implements KeyListener{
 		// paging
 		if(e.isConsumed()) return;
 		if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
-			if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
+			if (cg.activateRoiAt(sg.mouseX, sg.mouseY) == null) {
 				if (!pp.isShowGridViewOn()) {
 					if (prapManager != null) {/* Sync series */
 						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
@@ -152,7 +152,7 @@ public class SlideGlassKeyListener implements KeyListener{
 				}
 			}
 		} else if (pressedKeys.contains(KeyEvent.VK_RIGHT) || pressedKeys.contains(KeyEvent.VK_DOWN)) {
-			if (cg.activateAndGetCurrentRoiAt(sg.mouseX, sg.mouseY) == null) {
+			if (cg.activateRoiAt(sg.mouseX, sg.mouseY) == null) {
 				if (!pp.isShowGridViewOn()) {
 					if (prapManager != null) {
 						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();

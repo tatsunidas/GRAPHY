@@ -105,8 +105,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 	/*
 	 * slide XY, prap basis.
 	 */
-	protected RoiObj activateAndGetCurrentRoiAt(int screenX, int screenY) {
-
+	protected RoiObj activateRoiAt(int screenX, int screenY) {
+		int ix = sg.offScreenX(screenX);
+		int iy = sg.offScreenY(screenY);
+		
+		//do not do this, polygon families can not construct smoothly.
+//		if(currentRoi != null && currentRoi.contains(ix, iy)) {
 		if (currentRoi != null) {
 			// polygonroi
 			int type = currentRoi.getType();
@@ -116,9 +120,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 				return currentRoi;
 			}
 		}
-
-		int ix = sg.offScreenX(screenX);
-		int iy = sg.offScreenY(screenY);
 		ArrayList<RoiObj> rois = getRoiSet();
 		int handle = -1;
 		boolean found = false;
@@ -147,6 +148,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 			} else if (found && currentRoi.contains(ix, iy)) {
 				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
 			} else {
+				/*
+				 * when no roi at (x,y), current roi set to null.
+				 */
 				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 				currentRoi = null;
 			}
@@ -196,7 +200,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int imageX = sg.offScreenX(screenX);//org img X
 		int imageY = sg.offScreenY(screenY);//org img Y
 		RoiObj roi = null;
-		roiType = pp.getCurrentViewerToolType();
 		RoiType t = RoiType.find(roiType);
 		switch (t) {
 		case RECTANGLE://0
@@ -286,7 +289,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (roiset == null || roiset.size() < 1) {
 			return;
 		}
-		RoiObj roi2remove = activateAndGetCurrentRoiAt(sx, sy);
+		RoiObj roi2remove = activateRoiAt(sx, sy);
 		if (roi2remove != null) {
 			HashMap<ContextKey, String> uids = roi2remove.getUIDs();
 			String patID = uids.get(ContextKey.PatientID);
@@ -548,8 +551,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(currentRoi != null && (currentRoi instanceof PolygonRoi) && roiType==RoiType.POLYGON.id() && (currentRoi.getState() == RoiObj.CONSTRUCTING)) {
 			return;
 		}
-		//get currentRoi
-		currentRoi = activateAndGetCurrentRoiAt(sx, sy);
+		//get Roi
+		currentRoi = activateRoiAt(sx, sy);
 		
 		if (currentRoi != null){
 			if(sg.isHereRoiPopup(e)) {
@@ -703,7 +706,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	
 	public void mouseMoved(MouseEvent e) {
 		//update currentRoi
-		activateAndGetCurrentRoiAt(e.getX(), e.getY());
+//		System.out.println(currentRoi == null ? "roi is null":currentRoi.getRoiType());
+		activateRoiAt(e.getX(), e.getY());
 //		Log.logger.fine("CanvasComponent: "+getComponentAt(e.getX(),e.getY()).getName());
 		int type = currentRoi != null ? currentRoi.getType() : -1;
 		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()||type==RoiType.MULTIPOINT.id()) 
@@ -1078,7 +1082,7 @@ public class CanvasGlass extends javax.swing.JPanel {
      * @return
      */
     public boolean setSelectStateOfCurrentRoi(MouseEvent e) {
-    	currentRoi = activateAndGetCurrentRoiAt(e.getX(), e.getY());
+    	currentRoi = activateRoiAt(e.getX(), e.getY());
     	if(currentRoi !=null) {
     		if(!currentRoi.isSelected()) {
     			currentRoi.setSelectedState(true);

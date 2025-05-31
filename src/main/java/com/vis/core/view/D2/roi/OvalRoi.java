@@ -234,8 +234,8 @@ public class OvalRoi extends RoiObj {
 	}
 
 	public void draw(Graphics g) {
-		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
-		Graphics2D g2d = (Graphics2D) g;
+		Graphics2D g2d = (Graphics2D)g;
+		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
 		double mag = getMagnification();
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
@@ -248,6 +248,9 @@ public class OvalRoi extends RoiObj {
 		if(fill) color = fillColor;
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g.setColor(color);
 		int w = (int)(width);
@@ -257,8 +260,8 @@ public class OvalRoi extends RoiObj {
 		if (subPixelResolution() && bounds!=null) {
 			w = (int)(bounds.width);
 			h = (int)(bounds.height);
-			x1 = screenXD(bounds.x);
-			y1 = screenYD(bounds.y);
+			x1 = (int)(bounds.x);
+			y1 = (int)(bounds.y);
 		}
 		int w2 = (int)(0.14645*width);
 		int h2 = (int)(0.14645*height);

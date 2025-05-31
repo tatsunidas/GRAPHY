@@ -58,7 +58,7 @@ public class BorderMaker {
 	static Color selectionColor = Color.MAGENTA;
 	
 	//praparat border color
-	static Color prapColor = new Color(0, 50, 240, 100);
+	public static Color prapColor = new Color(0, 50, 240, 100);
 	
 	static final Color clearColor = new Color(0,0,0,255);
 	static final int BORDER_SIZE = 4;

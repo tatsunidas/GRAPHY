@@ -800,6 +800,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g2d.setColor(color);
 		int w = (int) width;

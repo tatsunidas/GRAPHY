@@ -207,6 +207,9 @@ public class PolygonRoi extends RoiObj {
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
 		if (isActiveOverlayRoi) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g.setColor(color);
 		setRenderingHint(g2d);

@@ -1044,6 +1044,23 @@ public class Praparat extends JPanel {
 		return rois;
 	}
 	
+	public ArrayList<RoiObj> getSelectedRois(){
+		ArrayList<RoiObj> rois = new ArrayList<>();
+		for(int i : slides.keySet()) {
+			SlideGlass sg = slides.get(i);
+			CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			ArrayList<RoiObj> roisOnSlide = cg.getRoiSet();
+			if(roisOnSlide != null && roisOnSlide.size() > 0) {
+				for(RoiObj r : roisOnSlide) {
+					if(r.isSelected()) {
+						rois.add(r);
+					}
+				}
+			}
+		}
+		return rois;
+	}
+	
 	private String concatenationOfUIDStrings() {
 		Object[] uids = getUIDs();
 		String str = "";
@@ -1605,6 +1622,10 @@ public class Praparat extends JPanel {
 		this.filmGridColumns = num;
 	}
 	
+	/**
+	 * show border to prap
+	 * @param focusGained
+	 */
 	public void setFocusGained(boolean focusGained) {
 		this.focusGained = focusGained;
 		if(getViewMode()!=ViewMode.SingleGrid && getViewMode()!=ViewMode.FilmGrid) {

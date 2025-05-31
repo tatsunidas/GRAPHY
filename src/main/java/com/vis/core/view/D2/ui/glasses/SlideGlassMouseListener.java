@@ -49,8 +49,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
+
+import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -414,17 +417,15 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	public void mousePressed(MouseEvent e) {
 		
 		viewerToolType = pp.getViewer2DToolType();
+		if (pp.getViewMode() == ViewMode.Thumbnail) {
+			viewerToolType = Viewer2DToolBar.Windowing;
+		}
 		
 		slide.lastDraggedX = e.getX();
 		slide.lastDraggedY = e.getY();
 		
-		if (SwingUtilities.isLeftMouseButton(e)) {
+		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
-			viewerToolType = pp.getViewer2DToolType();
-			if (pp.getViewMode() == ViewMode.Thumbnail) {
-				viewerToolType = Viewer2DToolBar.Windowing;
-			}
-			
 			// MPR
 			if(pp.mode == ViewMode.MPR) {
 				//remove localizer line
@@ -510,7 +511,13 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
+		//first, show to top 2d viewer window
+		JFrame v2d = (JFrame)WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
+		v2d.toFront();//important to enable focus only mouse move.
 		viewerToolType = pp.getViewer2DToolType();
+		/*
+		 * show borders
+		 */
 		slide.setFocusGained(true);
 		pp.setFocusGained(true);
 	}

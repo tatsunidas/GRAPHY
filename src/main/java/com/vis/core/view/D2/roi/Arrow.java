@@ -81,8 +81,11 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 			return;
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		if (fill) color = fillColor;
-		if(isActiveOverlayRoi()) {
+		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g2.setColor(color);
 		setRenderingHint(g2);

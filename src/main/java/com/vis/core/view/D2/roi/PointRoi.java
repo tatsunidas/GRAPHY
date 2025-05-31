@@ -204,16 +204,15 @@ public class PointRoi extends PolygonRoi {
 			g2d.setTransform(aTx);
 		}
 
-//		AffineTransform saveXform = null;
-//		if (flattenScale > 1.0) {
-//			saveXform = g2d.getTransform();
-//			g2d.translate(x, y);
-//			g2d.scale(flattenScale, flattenScale);
-//			x = y = 0;
-//		}
 		Color color = strokeColor != null ? strokeColor : ROIColor;
-		if (!overlay && isActiveOverlayRoi()) {
+//		if (!overlay && isActiveOverlayRoi()) {
+//			color = Color.cyan;
+//		}
+		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		if (nCounters > 1 && counters != null && n <= counters.length)
 			color = getColor(counters[n - 1]);

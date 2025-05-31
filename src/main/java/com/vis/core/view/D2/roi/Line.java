@@ -352,8 +352,8 @@ public class Line extends RoiObj {
 
 	/** Draws this line on the image. */
 	public void draw(Graphics g) {
-		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
 		Graphics2D g2d = (Graphics2D) g;
+		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
 		double mag = getMagnification();
 		double scaleXY[] = getComponentScaleFactor();
 		if (slide != null) {
@@ -366,6 +366,9 @@ public class Line extends RoiObj {
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
 		if (isActiveOverlayRoi) {
 			color = Color.cyan;
+		}else if(isSelected) {
+			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
+			color = Color.MAGENTA;
 		}
 		g.setColor(color);
 		x1d=getXBase()+x1R; y1d=getYBase()+y1R; x2d=getXBase()+x2R; y2d=getYBase()+y2R;
