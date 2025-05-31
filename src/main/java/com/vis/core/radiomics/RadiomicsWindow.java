@@ -97,7 +97,7 @@ public class RadiomicsWindow extends JFrame{
 		settings = new RadiomicsSettings();
 		tabPane.addTab("Settings", settings);
 		add(tabPane, BorderLayout.CENTER);
-		//pack();
+		pack();
 		if(WindowManager.getMainScreen() == null) {
 			setLocationRelativeTo(null);
 		}else {
