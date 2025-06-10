@@ -45,6 +45,7 @@ import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -150,10 +151,13 @@ public class RadiomicsSettings extends JPanel{
 	JSplitPane sp2;
 	JLabel targetCount;
 	JLabel exclusionCount;
+	
+	HashMap<String, Object> settings;
 		
 	public RadiomicsSettings() {
 		featureNames = featureNames();
 		numOfTotalFeatures = featureNames.size();
+		settings = new HashMap<>();
 		buildGUI();
 	}
 	
@@ -702,6 +706,10 @@ public class RadiomicsSettings extends JPanel{
 	private void addBorder(JComponent p, Color c, String name) {
 		Border b = BorderFactory.createBevelBorder(BevelBorder.RAISED, c, Color.DARK_GRAY);
 		p.setBorder(BorderFactory.createTitledBorder(b, name, TitledBorder.LEFT, TitledBorder.DEFAULT_POSITION));
+	}
+	
+	public HashMap<String, Object> getSettings(){
+		return settings;
 	}
 	
 	public void moveToCalc(List<String> names) {

@@ -881,7 +881,12 @@ public class Praparat extends JPanel {
 		int iter = 0;
 		for (int arrayOrder : slides.keySet()) {
 			SlideGlass sg = slides.get(arrayOrder);
-			ImagePlus imp = sg.convertToImagePlus();
+			/**
+			 * 20250610
+			 * should do test
+			 */
+//			ImagePlus imp = sg.convertToImagePlus();//memory leak
+			ImagePlus imp = sg.getOriginalImage();
 			/*
 			 * calibration is gone here, so finally add it.
 			 */

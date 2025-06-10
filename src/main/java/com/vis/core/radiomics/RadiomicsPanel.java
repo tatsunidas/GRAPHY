@@ -133,6 +133,8 @@ public class RadiomicsPanel extends JPanel{
 	final String[] defaultClasses = new String[] {"class1","class2"};
 	List<ClassPanel> classes = new ArrayList<>();
 	
+	RadiomicsPipeline pipeline;
+	
 	public RadiomicsPanel() {
 		initBtns();
 		buildGUI();
@@ -277,6 +279,13 @@ public class RadiomicsPanel extends JPanel{
 			String name = btn.getActionCommand();
 			if(name.equals("")) {
 				
+			}else if(name.equals(TRAIN_MODEL)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						//pipeline.train("logistic", null, null);
+					}
+				});	
 			}else if(name.equals(WEKA)) {
 				btn.addActionListener(new ActionListener() {
 					@Override

@@ -40,10 +40,22 @@ package com.vis.core.radiomics;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import com.vis.configuration.ContextKey;
+import com.vis.core.view.D2.roi.RoiConverter;
+import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.glasses.Praparat;
+
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.gui.Roi;
 import ij.measure.ResultsTable;
+import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
+import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import weka.classifiers.Classifier;
 import weka.classifiers.functions.Logistic;
 import weka.classifiers.functions.SMOreg;
@@ -59,7 +71,7 @@ import weka.core.Instances;
  * train
  * test
  */
-public class SamplePipeline {
+public class RadiomicsPipeline {
 	
 	public static final int classification = 0;
 	public static final int regression = 1;
@@ -73,11 +85,71 @@ public class SamplePipeline {
 	Attribute targetAttr;
 	String targetColName;
 	
-	public SamplePipeline(int taskType) {
+	public RadiomicsPipeline(int taskType) {
 		this.taskType=taskType;
 	}
 	
-	void prepareDataset(ResultsTable rt, String targetColName, List<String> drop, String modelName, String model_options) {
+	public ResultsTable calcFeaturesWithCurrentRois(RadiomicsSettings setting, List<RoiObj> rois, Praparat prap) {
+		Integer label = (Integer)setting.getSettings().get(SettingVarNames.MASK_LABEL);
+		RadiomicsJ rad = new RadiomicsJ();
+		ImagePlus imp = prap.getImagePlus();
+		boolean d3_basis = true;
+		ResultsTable rt = null;
+		//grab rois for groups
+		HashMap<String, List<RoiObj>> groups = new HashMap<>();
+		for (RoiObj r : rois) {
+			String gname = r.getProperty(ContextKey.RoiGroup);
+			if (gname == null)
+				gname = "null";
+			if (groups.get(gname) == null) {
+				groups.put(gname, new ArrayList<RoiObj>());
+			}
+			groups.get(gname).add(r);
+		}
+		if(d3_basis) {
+			for(String key : groups.keySet()) {
+				List<RoiObj> roi_group = groups.get(key);
+				ImagePlus mask = createMask(imp, roi_group, label);
+				if(rt == null) {
+					try {
+						rt = rad.execute(imp, mask, label);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}else {
+					try {
+						ResultsTable rt2 = rad.execute(imp, mask, label);
+						rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt2);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}else { // 2d basis
+			//if 2d basis, calculate slice by slice
+			for(String key : groups.keySet()) {
+				List<RoiObj> roi_group = groups.get(key);
+				ImagePlus mask = createMask(imp, roi_group, label);
+				if(rt == null) {
+					try {
+						rt = rad.extractAllSlice(imp, mask, label);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}else {
+					try {
+						ResultsTable rt2 = rad.extractAllSlice(imp, mask, label);
+						rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt2);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+		return rt;
+	}
+	
+	private void prepareDataset(ResultsTable rt, String targetColName, List<String> drop, String modelName, String model_options) {
 		String[] headerStrings = rt.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
 		if(drop != null) {
@@ -281,6 +353,32 @@ public class SamplePipeline {
 		}catch(NumberFormatException e) {
 			return false;
 		}
+	}
+	
+	ImagePlus createMask(ImagePlus img, List<RoiObj> rois, Integer label) {
+		int lbl = label == null ? 255:label;
+		int w = img.getWidth();
+		int h = img.getHeight();
+		int s = img.getNSlices();
+		ImageStack stack = new ImageStack(w, h);
+		for(int z=0; z<s; z++) {
+			ImageProcessor ip = new ByteProcessor(w, h);
+			stack.addSlice(ip);
+		}
+		for(RoiObj ro:rois) {
+			int pos = ro.getPosition();
+			if(pos == 0) {
+				System.out.println("This roi can not asign any slices...sklip.:"+ro.getName());
+				continue;
+			}
+			Roi r = new RoiConverter().convert2Roi(ro);
+			ImageProcessor ip = stack.getProcessor(pos);
+			ip.setValue(lbl);
+			//ip.setRoi(r);
+			ip.fill(r);
+		}
+		ImagePlus mask = new ImagePlus("mask", stack);
+		return mask;
 	}
 	
 	public class WekaLogisticRegressionExample {
