@@ -25,12 +25,14 @@
 	<properties>
 		<exec.mainClass>com.vis.core.launcher.Launcher</exec.mainClass>
 		<java.version>11</java.version>
+		<maven.compiler.source>11</maven.compiler.source>
+       <maven.compiler.target>11</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<imagej-version>1.54f</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
 		<derby-version>10.14.2.0</derby-version>
-		<pdfbox-version>2.0.12</pdfbox-version>
-		<apache-commons-io-version>2.13.0</apache-commons-io-version>
+		<pdfbox-version>2.0.24</pdfbox-version>
+		<apache-commons-io-version>2.14.0</apache-commons-io-version>
 		<radiance-substance-version>4.5.0</radiance-substance-version>
 		<joml-version>1.10.5</joml-version>
 		<asm-version>9.5</asm-version>
