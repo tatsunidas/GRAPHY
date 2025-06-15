@@ -126,8 +126,15 @@ public class RadiomicsSettings extends JPanel{
 	 */
 	final String[] norms = new String[] {"manhattan", "euclidean", "infinity"};
 	
+	/**
+	 * Operational information
+	 */
 	final String OPERATIONAL = "Operational";
 	final String DIAGNOSTICS = "Diagnostics";
+	
+	/**
+	 * Feature family name
+	 */
 	final String MORPHOLOGICAL = "Molphological";
 	final String LOCALINTENSITY = "LocalIntensity";
 	final String INTENSITYSTATS = "IntensityStats";
@@ -322,7 +329,6 @@ public class RadiomicsSettings extends JPanel{
 		/**
 		 * TODO
 		 * 現状、各特徴量の名前が一意になっていないので、
-		 * RadiomicsJ側でname()に特徴ファミリー名を接頭辞に追加する。
 		 */
 //		HashSet<String> defaultExclusions = radiomics.getExcludedFeatures();
 		HashSet<String> defaultExclusions = new HashSet<>();

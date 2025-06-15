@@ -90,7 +90,7 @@ public class RadiomicsPipeline {
 	}
 	
 	public ResultsTable calcFeaturesWithCurrentRois(RadiomicsSettings setting, List<RoiObj> rois, Praparat prap) {
-		Integer label = (Integer)setting.getSettings().get(SettingVarNames.MASK_LABEL);
+		Integer label = (Integer)setting.getSettings().get(SettingsContext.MASK_LABEL);
 		RadiomicsJ rad = new RadiomicsJ();
 		ImagePlus imp = prap.getImagePlus();
 		boolean d3_basis = true;
