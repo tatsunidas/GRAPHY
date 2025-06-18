@@ -68,21 +68,70 @@ public class SettingsContext {
 	public static final String MASK_LABEL = "MASK_LABEL_INT";
 	public static final String RemoveOutliers = "RemoveOutliers_BOOL";
 	public static final String RemoveOutliersSigma = "Sigma_INT";
+	public static final String RangFiltering = "RangeFiltering_BOOL";
+	public static final String RangFilteringMin = "ResamplingMin_DOUBLE";
+	public static final String RangFilteringMax = "ResamplingMax_DOUBLE";
 	public static final String Resampling = "Resampling_BOOL";
 	public static final String ResamplingX = "ResamplingX_DOUBLE";
 	public static final String ResamplingY = "ResamplingY_DOUBLE";
 	public static final String ResamplingZ = "ResamplingZ_DOUBLE";
-	public static final String RangFiltering = "RangeFiltering_BOOL";
-	public static final String RangFilteringMin = "ResamplingMin_DOUBLE";
-	public static final String RangFilteringMax = "ResamplingMax_DOUBLE";
 	
 	/**
-	 * Use for all texture
+	 * Feature names
 	 */
-	public static final String UseBinCount = "BINCOUNT_BOOL";
-	public static final String UseBinWidth = "BINWIDTH_BOOL";
-	public static final String BinCount = "BINCOUNT_INT";
-	public static final String BinWidth = "BINWIDTH_DOUBLE";
+	public static final String MORPHOLOGICAL = "Molphological";
+	public static final String LOCALINTENSITY = "LocalIntensity";
+	public static final String INTENSITYSTATS = "IntensityStats";
+	public static final String INTENSITYHISTOGRAM = "IntensityHistogram";
+	public static final String INTENSITYVOLUMEHISTOGRAM = "VolumeHistogram";
+	public static final String GLCM = "GLCM";
+	public static final String GLRLM = "GLRLM";
+	public static final String GLSZM = "GLSZM";
+	public static final String GLDZM = "GLDZM";
+	public static final String NGTDM = "NGTDM";
+	public static final String NGLDM = "NGLDM";
+	public static final String FRACTAL = "Fractal";
+	public static final String SHAPE2D = "Shape2D";
+	
+	public static final String UseBinCountGLCM = "BINCOUNT_GLCM_BOOL";
+	public static final String BinCountGLCM = "BINCOUNT_GLCM_INT";
+	public static final String BinWidthGLCM = "BINWIDTH_GLCM_DOUBLE";
+	public static final String DeltaGLCM = "DELTA_GLCM_DOUBLE";
+	public static final String NormGLCM = "NORM_GLCM_STRING";
+	
+	public static final String UseBinCountGLRLM = "BINCOUNT_GLRLM_BOOL";
+	public static final String BinCountGLRLM = "BINCOUNT_GLRLM_INT";
+	public static final String BinWidthGLRLM = "BINWIDTH_GLRLM_DOUBLE";
+	public static final String NormGLRLM = "NORM_GLRLM_STRING";
+	
+	public static final String UseBinCountGLSZM = "BINCOUNT_GLSZM_BOOL";
+	public static final String BinCountGLSZM = "BINCOUNT_GLSZM_INT";
+	public static final String BinWidthGLSZM = "BINWIDTH_GLSZM_DOUBLE";
+	public static final String NormGLSZM = "NORM_GLSZM_STRING";
+	
+	public static final String UseBinCountGLDZM = "BINCOUNT_GLDZM_BOOL";
+	public static final String BinCountGLDZM = "BINCOUNT_GLDZM_INT";
+	public static final String BinWidthGLDZM = "BINWIDTH_GLDZM_DOUBLE";
+	public static final String NormGLDZM = "NORM_GLDZM_STRING";
+	
+	public static final String UseBinCountNGTDM = "BINCOUNT_NGTDM_BOOL";
+	public static final String BinCountNGTDM = "BINCOUNT_NGTDM_INT";
+	public static final String BinWidthNGTDM = "BINWIDTH_NGTDM_DOUBLE";
+	public static final String DeltaNGTDM = "DELTA_NGTDM_DOUBLE";
+	public static final String NormNGTDM = "NORM_NGTDM_STRING";
+	
+	public static final String UseBinCountNGLDM = "BINCOUNT_NGLDM_BOOL";
+	public static final String BinCountNGLDM = "BINCOUNT_NGLDM_INT";
+	public static final String BinWidthNGLDM = "BINWIDTH_NGLDM_DOUBLE";
+	public static final String AlphaNGLDM = "ALPHA_NGLDM_DOUBLE";
+	public static final String DeltaNGLDM = "DELTA_NGLDM_DOUBLE";
+	public static final String NormNGLDM = "NORM_NGLDM_STRING";
+	
+	public static final String UseBinCountIVH = "BINCOUNT_IVH_BOOL";
+	public static final String BinCountIVH = "BINCOUNT_IVH_INT";
+	public static final String BinWidthIVH = "BINWIDTH_IVH_DOUBLE";
+	
+	public static final String BoxSizesFRACTAL = "BOXSIZES_FRACTAL";
 	
 	/**
      * 指定されたオブジェクトからString型のインスタンスフィールドの値をリストとして取得します。

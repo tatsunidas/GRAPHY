@@ -44,18 +44,24 @@ import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
+import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.ButtonModel;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -68,6 +74,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.NumberFormatter;
 
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
@@ -84,37 +93,48 @@ import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 
+@SuppressWarnings("serial")
 public class RadiomicsSettings extends JPanel{
 	
 	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	/**
-	 * Common settings
+	 * default settings
 	 */
 	//2d/3d switch, when turn on, images will calculate slice by slice
-	boolean d3_mode = true;
+	boolean d3_basis = true;
 	//label
-	int label = 255;
-	//discretization, count or width
-	boolean useBinCount = true;
-	double binWidth;
-	int binCount;
+	final int label = 255;
 	//remove outlier
-	boolean removeOutliers = true;
-	int sigma = 3;
-	//resampling
-	boolean resample = false;
-	double vx;
-	double vy;
-	double vz;
+	final boolean removeOutliers = true;
+	final int sigma = 3;
 	//range filtering
-	boolean rangeFilter = false;
-	double rangeMin;
-	double rangeMax;
+	final boolean rangeFilter = false;
+	//resampling
+	final boolean resample = false;
+	//discretization, count or width
+	final int defaultBinCount = 16;
+	final int defaultDelta = 1;
+	final int defaultAlpha = 1;
+	final boolean useBinCount = true;
+	final String boxSizes = "2,3,4,6,8,12,16,32,64";
 	
-	String boxSizes = "2,3,4,6,8,12,16,32,64";
+	/**
+	 * calculation target, select all.
+	 */
+	JCheckBox operationalChk;
+	JCheckBox diagnosticsChk;
+	JCheckBox morphologicalChk;
+	JCheckBox localIntensChk;
+	JCheckBox intensityStatsChk;
+	JCheckBox histogramChk;
+	JCheckBox volumeHistChk;
+	JCheckBox glcmChk;
+	JCheckBox glrlmChk;
+	JCheckBox glszmChk;
+	JCheckBox gldzmChk;
+	JCheckBox ngtdmChk;
+	JCheckBox ngldmChk;
+	JCheckBox fractalChk;
+	JCheckBox shape2dChk;
 	
 	List<String> featureNames;
 	final int numOfTotalFeatures;
@@ -135,48 +155,69 @@ public class RadiomicsSettings extends JPanel{
 	/**
 	 * Feature family name
 	 */
-	final String MORPHOLOGICAL = "Molphological";
-	final String LOCALINTENSITY = "LocalIntensity";
-	final String INTENSITYSTATS = "IntensityStats";
-	final String INTENSITYHISTOGRAM = "IntensityHistogram";
-	final String VOLUMEHISTOGRAM = "VolumeHistogram";
-	final String GLCM = "GLCM";
-	final String GLRLM = "GLRLM";
-	final String GLSZM = "GLSZM";
-	final String GLDZM = "GLDZM";
-	final String NGTDM = "NGTDM";
-	final String NGLDM = "NGLDM";
-	final String FRACTAL = "Fractal";
+	final String MORPHOLOGICAL = SettingsContext.MORPHOLOGICAL;
+	final String LOCALINTENSITY = SettingsContext.LOCALINTENSITY;
+	final String INTENSITYSTATS = SettingsContext.INTENSITYSTATS;
+	final String INTENSITYHISTOGRAM = SettingsContext.INTENSITYHISTOGRAM;
+	final String INTENSITYVOLUMEHISTOGRAM = SettingsContext.INTENSITYVOLUMEHISTOGRAM;
+	
+	final String morpShort = "Morpho";
+	final String liShort = "LocalInt";
+	final String statShort = "Stats";
+	final String histShort = "Hist";
+	final String ivhShort = "IVH";
+	
+	final String GLCM = SettingsContext.GLCM;
+	final String GLRLM = SettingsContext.GLRLM;
+	final String GLSZM = SettingsContext.GLSZM;
+	final String GLDZM = SettingsContext.GLDZM;
+	final String NGTDM = SettingsContext.NGTDM;
+	final String NGLDM = SettingsContext.NGLDM;
+	final String FRACTAL = SettingsContext.FRACTAL;
+	final String SHAPE2D = SettingsContext.SHAPE2D;
 	
 	//calculation target and exclusion features
 	DefaultListModel<String> targetListModel = new DefaultListModel<>();
 	DefaultListModel<String> exclusionListModel = new DefaultListModel<>();
 	JList<String> target;
 	JList<String> exclusion;
+	HashSet<String> defaultExclusions;
+	JButton addDefaultExclusionBtn;
 	
 	JSplitPane sp1;
 	JSplitPane sp2;
 	JLabel targetCount;
 	JLabel exclusionCount;
 	
-	HashMap<String, Object> settings;
+	ButtonGroup binGroup_glcm;
+	ButtonGroup binGroup_glrlm;
+	ButtonGroup binGroup_glszm;
+	ButtonGroup binGroup_gldzm;
+	ButtonGroup binGroup_ngtdm;
+	ButtonGroup binGroup_ngldm;
+	ButtonGroup binGroup_ivh;
 		
 	public RadiomicsSettings() {
-		featureNames = featureNames();
+		featureNames = featureNames(null);//load all features
 		numOfTotalFeatures = featureNames.size();
-		settings = new HashMap<>();
 		buildGUI();
 	}
 	
 	private void buildGUI() {
 		setLayout(new BorderLayout());
-		JComponent common = buildCommonPanel();
+		JComponent common = buildMaskSettingsPanel();
 		JComponent features = buildFeaturesPanel();
 		sp1 = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		sp1.add(common,JSplitPane.LEFT);
 		sp1.add(features,JSplitPane.RIGHT);
 		sp1.setPreferredSize(new Dimension(800,400));
-		JComponent parameters = buildParametersTab();
+		JTabbedPane parameters = new JTabbedPane();
+		JScrollPane textureParam = buildTextureParam();
+		JScrollPane intensParam = buildIntensityFamilyParam();
+		JScrollPane fracParam = buildFractalParam();
+		parameters.addTab("Texture family prams", textureParam);
+		parameters.addTab("Intensity family param", intensParam);
+		parameters.addTab("Fractal family param", fracParam);
 		sp2 = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 		sp2.add(sp1,JSplitPane.TOP);
 		sp2.add(parameters,JSplitPane.BOTTOM);
@@ -184,67 +225,94 @@ public class RadiomicsSettings extends JPanel{
 		add(sp2, BorderLayout.CENTER);
 	}
 	
-	private JComponent buildCommonPanel() {
-		JPanel common = new JPanel(new GridLayout(11, 1));
-		addBorder(common, Color.white, "Preprocessing");
+	private JComponent buildMaskSettingsPanel() {
+		
+		JPanel base = new JPanel();
+		base.setLayout(new BorderLayout());
+		
+		FlowLayout fl = new FlowLayout();
+		fl.setAlignment(FlowLayout.LEFT);
+		
+		JPanel dimPanel = new JPanel();
+		addBorder(dimPanel, Color.white, "Computational Dimension");
 		//3d/2d
 		JRadioButton d2Btn = new JRadioButton("2D basis");
+		d2Btn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(d2Btn.isSelected()) {
+					d3_basis = false;
+					switch2D3D(d3_basis/*is3D*/);
+				}
+			}
+		});
 		JRadioButton d3Btn = new JRadioButton("3D basis");
-		JPanel dimPanel = new JPanel();
-		FlowLayout fl = (FlowLayout) dimPanel.getLayout();
-		fl.setAlignment(FlowLayout.LEFT);
+		d3Btn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(d3Btn.isSelected()) {
+					d3_basis = true;
+					switch2D3D(d3_basis/*is3D*/);
+				}
+			}
+		});
 		dimPanel.add(d2Btn);
 		dimPanel.add(d3Btn);
-		common.add(dimPanel);
+		base.add(dimPanel, BorderLayout.NORTH);
 		ButtonGroup dimGroup = new ButtonGroup();
 		dimGroup.add(d2Btn);
 		dimGroup.add(d3Btn);
-		dimGroup.setSelected(d3Btn.getModel(), true);
+		dimGroup.setSelected(d3Btn.getModel(), d3_basis);
+		
+		JPanel maskSettings = new JPanel(new GridLayout(10, 1));
+		addBorder(maskSettings, Color.white, "Mask Settings");
 		//label
 		JLabel lbl = new JLabel("Label value:");
-		JTextField lbltxt = new JTextField(10);
+		JTextField lbltxt = formattedTextField(false, 5);
+		lbltxt.setToolTipText("1 ~ 255");
+		lbltxt.setHorizontalAlignment(JTextField.RIGHT);
 		JPanel lblP = new JPanel();
 		lblP.setLayout(fl);
 		lblP.add(lbl);
 		lblP.add(lbltxt);
-		common.add(lblP);
+		maskSettings.add(lblP);
 		//removeOutliers outliers
 		JCheckBox roChk = new JCheckBox("Remove Outliers");
 		roChk.setSelected(removeOutliers);
-		common.add(roChk);
+		maskSettings.add(roChk);
 		JLabel rolbl = new JLabel("Sigma:");
-		JTextField rotxt = new JTextField(10);
+		JTextField rotxt = formattedTextField(false, 5);
 		rotxt.setText(sigma+"");
 		JPanel roP = new JPanel();
 		roP.add(rolbl);
 		roP.add(rotxt);
-		common.add(roP);
+		maskSettings.add(roP);
 		//range filtering
 		JCheckBox rfChk = new JCheckBox("Range Filtering");
 		rfChk.setSelected(rangeFilter);
-		common.add(rfChk);
+		maskSettings.add(rfChk);
 		JLabel rfMinlbl = new JLabel("min:");
 		JLabel rfMaxlbl = new JLabel("max:");
-		JTextField rfMintxt = new JTextField(10);
-		JTextField rfMaxtxt = new JTextField(10);
+		JTextField rfMintxt = formattedTextField(true, 10);
+		JTextField rfMaxtxt = formattedTextField(true, 10);
 		JPanel rfMinP = new JPanel();
 		JPanel rfMaxP = new JPanel();
 		rfMinP.add(rfMinlbl);
 		rfMinP.add(rfMintxt);
 		rfMaxP.add(rfMaxlbl);
 		rfMaxP.add(rfMaxtxt);
-		common.add(rfMinP);
-		common.add(rfMaxP);
+		maskSettings.add(rfMinP);
+		maskSettings.add(rfMaxP);
 		//resampling
 		JCheckBox reChk = new JCheckBox("Resampling");
 		rfChk.setSelected(resample);
-		common.add(reChk);
+		maskSettings.add(reChk);
 		JLabel reXlbl = new JLabel("vx:");
 		JLabel reYlbl = new JLabel("vy:");
 		JLabel reZlbl = new JLabel("vz:");
-		JTextField reXtxt = new JTextField(10);
-		JTextField reYtxt = new JTextField(10);
-		JTextField reZtxt = new JTextField(10);
+		JTextField reXtxt = formattedTextField(true, 10);
+		JTextField reYtxt = formattedTextField(true, 10);
+		JTextField reZtxt = formattedTextField(true, 10);
 		JPanel reXP = new JPanel();
 		JPanel reYP = new JPanel();
 		JPanel reZP = new JPanel();
@@ -254,60 +322,79 @@ public class RadiomicsSettings extends JPanel{
 		reYP.add(reYtxt);
 		reZP.add(reZlbl);
 		reZP.add(reZtxt);
-		common.add(reXP);
-		common.add(reYP);
-		common.add(reZP);	
-		JScrollPane sPane = new JScrollPane(common);
+		maskSettings.add(reXP);
+		maskSettings.add(reYP);
+		maskSettings.add(reZP);
+		
+		base.add(maskSettings, BorderLayout.CENTER);
+		
+		JScrollPane sPane = new JScrollPane(base);
 		return sPane;
 	}
 	
 	private JComponent buildFeaturesPanel() {
 		JPanel infoGroupChkP = new JPanel(new GridLayout(1,4));
-		JCheckBox operational = new JCheckBox(OPERATIONAL);
-		operational.setSelected(true);
-		JCheckBox diagnostics = new JCheckBox(DIAGNOSTICS);
-		diagnostics.setSelected(true);
-		infoGroupChkP.add(operational);
-		infoGroupChkP.add(diagnostics);
-		addBorder(infoGroupChkP, Color.MAGENTA, "Info");
+		operationalChk = new JCheckBox(OPERATIONAL);
+		operationalChk.setSelected(true);
+		diagnosticsChk = new JCheckBox(DIAGNOSTICS);
+		diagnosticsChk.setSelected(true);
+		infoGroupChkP.add(operationalChk);
+		infoGroupChkP.add(diagnosticsChk);
+		addBorder(infoGroupChkP, Color.gray, "Info");
 		
-		JPanel featuresGroupChkP = new JPanel(new GridLayout(3,4));
-		JCheckBox morphological = new JCheckBox(MORPHOLOGICAL);
-		morphological.setSelected(true);
-		JCheckBox localIntens = new JCheckBox(LOCALINTENSITY);
-		localIntens.setSelected(true);
-		JCheckBox intensityStats = new JCheckBox(INTENSITYSTATS);
-		intensityStats.setSelected(true);
-		JCheckBox histogram = new JCheckBox(INTENSITYHISTOGRAM);
-		histogram.setSelected(true);
-		JCheckBox volumeHist = new JCheckBox(VOLUMEHISTOGRAM);
-		volumeHist.setSelected(true);
-		JCheckBox glcm = new JCheckBox(GLCM);
-		glcm.setSelected(true);
-		JCheckBox glrlm = new JCheckBox(GLRLM);
-		glrlm.setSelected(true);
-		JCheckBox glszm = new JCheckBox(GLSZM);
-		glszm.setSelected(true);
-		JCheckBox gldzm = new JCheckBox(GLDZM);
-		gldzm.setSelected(true);
-		JCheckBox ngtdm = new JCheckBox(NGTDM);
-		ngtdm.setSelected(true);
-		JCheckBox ngldm = new JCheckBox(NGLDM);
-		ngldm.setSelected(true);
-		JCheckBox fractal = new JCheckBox(FRACTAL);
-		fractal.setSelected(true);
-		featuresGroupChkP.add(morphological);
-		featuresGroupChkP.add(localIntens);
-		featuresGroupChkP.add(intensityStats);
-		featuresGroupChkP.add(histogram);
-		featuresGroupChkP.add(volumeHist);
-		featuresGroupChkP.add(glcm);
-		featuresGroupChkP.add(glrlm);
-		featuresGroupChkP.add(glszm);
-		featuresGroupChkP.add(gldzm);
-		featuresGroupChkP.add(ngtdm);
-		featuresGroupChkP.add(ngldm);
-		featuresGroupChkP.add(fractal);
+		JPanel featuresGroupChkP = new JPanel(new GridLayout(4,4));
+		morphologicalChk = new JCheckBox(MORPHOLOGICAL);
+		
+		localIntensChk = new JCheckBox(LOCALINTENSITY);
+		localIntensChk.setSelected(true);
+		intensityStatsChk = new JCheckBox(INTENSITYSTATS);
+		intensityStatsChk.setSelected(true);
+		histogramChk = new JCheckBox(INTENSITYHISTOGRAM);
+		histogramChk.setSelected(true);
+		volumeHistChk = new JCheckBox(INTENSITYVOLUMEHISTOGRAM);
+		volumeHistChk.setSelected(true);
+		glcmChk = new JCheckBox(GLCM);
+		glcmChk.setSelected(true);
+		glrlmChk = new JCheckBox(GLRLM);
+		glrlmChk.setSelected(true);
+		glszmChk = new JCheckBox(GLSZM);
+		glszmChk.setSelected(true);
+		gldzmChk = new JCheckBox(GLDZM);
+		gldzmChk.setSelected(true);
+		ngtdmChk = new JCheckBox(NGTDM);
+		ngtdmChk.setSelected(true);
+		ngldmChk = new JCheckBox(NGLDM);
+		ngldmChk.setSelected(true);
+		fractalChk = new JCheckBox(FRACTAL);
+		fractalChk.setSelected(true);
+		shape2dChk = new JCheckBox(SHAPE2D);
+		//add action
+		addFeatureGroupCheckBoxAction(morphologicalChk);
+		addFeatureGroupCheckBoxAction(localIntensChk);
+		addFeatureGroupCheckBoxAction(intensityStatsChk);
+		addFeatureGroupCheckBoxAction(histogramChk);
+		addFeatureGroupCheckBoxAction(volumeHistChk);
+		addFeatureGroupCheckBoxAction(glcmChk);
+		addFeatureGroupCheckBoxAction(glrlmChk);
+		addFeatureGroupCheckBoxAction(glszmChk);
+		addFeatureGroupCheckBoxAction(gldzmChk);
+		addFeatureGroupCheckBoxAction(ngtdmChk);
+		addFeatureGroupCheckBoxAction(ngldmChk);
+		addFeatureGroupCheckBoxAction(fractalChk);
+		addFeatureGroupCheckBoxAction(shape2dChk);
+		featuresGroupChkP.add(morphologicalChk);
+		featuresGroupChkP.add(localIntensChk);
+		featuresGroupChkP.add(intensityStatsChk);
+		featuresGroupChkP.add(histogramChk);
+		featuresGroupChkP.add(volumeHistChk);
+		featuresGroupChkP.add(glcmChk);
+		featuresGroupChkP.add(glrlmChk);
+		featuresGroupChkP.add(glszmChk);
+		featuresGroupChkP.add(gldzmChk);
+		featuresGroupChkP.add(ngtdmChk);
+		featuresGroupChkP.add(ngldmChk);
+		featuresGroupChkP.add(fractalChk);
+		featuresGroupChkP.add(shape2dChk);
 		addBorder(featuresGroupChkP, Color.gray, "Features group");
 		
 		JPanel chksP = new JPanel(new BorderLayout());
@@ -325,13 +412,11 @@ public class RadiomicsSettings extends JPanel{
 		//init first.
 		targetCount = new JLabel("-/-");
 		exclusionCount = new JLabel("-/-");
-		RadiomicsJ radiomics = RadiomicsWindow.radiomics;
 		/**
-		 * TODO
-		 * 現状、各特徴量の名前が一意になっていないので、
+		 * 現状、各特徴量の名前が一意になっていないので.
 		 */
 //		HashSet<String> defaultExclusions = radiomics.getExcludedFeatures();
-		HashSet<String> defaultExclusions = new HashSet<>();
+		defaultExclusions = new HashSet<>();
 		/*
 		 * MorphologicalFeatureType.VolumeDensity_OrientedMinimumBoundingBox.name(),
 		 * MorphologicalFeatureType.AreaDensity_OrientedMinimumBoundingBox.name(),
@@ -340,12 +425,12 @@ public class RadiomicsSettings extends JPanel{
 		 * IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve.name(),
 		 * NGLDMFeatureType.DependenceCountPercentage.name(),
 		 */
-		defaultExclusions.add("Morpho_"+MorphologicalFeatureType.VolumeDensity_OrientedMinimumBoundingBox.name());
-		defaultExclusions.add("Morpho_"+MorphologicalFeatureType.AreaDensity_OrientedMinimumBoundingBox.name());
-		defaultExclusions.add("Morpho_"+MorphologicalFeatureType.VolumeDensity_MinimumVolumeEnclosingEllipsoid.name());
-		defaultExclusions.add("Morpho_"+MorphologicalFeatureType.AreaDensity_MinimumVolumeEnclosingEllipsoid.name());
-		defaultExclusions.add("IVH_"+IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve.name());
-		defaultExclusions.add("NGLDM_"+NGLDMFeatureType.DependenceCountPercentage.name());
+		defaultExclusions.add(morpShort+"_"+MorphologicalFeatureType.VolumeDensity_OrientedMinimumBoundingBox.name());
+		defaultExclusions.add(morpShort+"_"+MorphologicalFeatureType.AreaDensity_OrientedMinimumBoundingBox.name());
+		defaultExclusions.add(morpShort+"_"+MorphologicalFeatureType.VolumeDensity_MinimumVolumeEnclosingEllipsoid.name());
+		defaultExclusions.add(morpShort+"_"+MorphologicalFeatureType.AreaDensity_MinimumVolumeEnclosingEllipsoid.name());
+		defaultExclusions.add(ivhShort+"_"+IntensityVolumeHistogramFeatureType.AreaUnderTheIVHCurve.name());
+		defaultExclusions.add(NGLDM+"_"+NGLDMFeatureType.DependenceCountPercentage.name());
 		
 		addList(featureNames, targetListModel);
 		deleteFromList(new ArrayList<>(defaultExclusions), targetListModel);
@@ -359,7 +444,21 @@ public class RadiomicsSettings extends JPanel{
 		left.add(leftSP, BorderLayout.CENTER);
 		right.add(rightSP, BorderLayout.CENTER);
 		left.add(targetCount, BorderLayout.NORTH);
-		right.add(exclusionCount, BorderLayout.NORTH);
+		
+		JPanel resetDefaultExclusionsP = new JPanel();
+		resetDefaultExclusionsP.setLayout(new FlowLayout(FlowLayout.LEFT));
+		resetDefaultExclusionsP.add(exclusionCount);
+		addDefaultExclusionBtn = new JButton("Add default exclusions");
+		addDefaultExclusionBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(exclusionListModel != null) {
+					deleteFromList(new ArrayList<>(defaultExclusions), targetListModel);
+				}
+			}
+		});
+		resetDefaultExclusionsP.add(addDefaultExclusionBtn);
+		right.add(resetDefaultExclusionsP, BorderLayout.NORTH);
 		
 		JPanel featureListCenter = new JPanel();
 		featureListCenter.setLayout(new GridLayout(1,2));
@@ -374,9 +473,12 @@ public class RadiomicsSettings extends JPanel{
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = target.getSelectedIndices();
+				
 				if(selected != null && selected.length > 0) {
-					for(int i : selected) {
-						String n = targetListModel.get(i);
+					Arrays.sort(selected);
+					for (int i = selected.length - 1; i >= 0; i--) {
+						int indexToDelete = selected[i];
+						String n = targetListModel.get(indexToDelete);
 						deleteFromList(n, targetListModel);
 					}
 				}
@@ -388,8 +490,10 @@ public class RadiomicsSettings extends JPanel{
 			public void actionPerformed(ActionEvent e) {
 				int[] selected = exclusion.getSelectedIndices();
 				if(selected != null && selected.length > 0) {
-					for(int i : selected) {
-						String n = exclusionListModel.get(i);
+					Arrays.sort(selected);
+					for (int i = selected.length - 1; i >= 0; i--) {
+						int indexToDelete = selected[i];
+						String n = exclusionListModel.get(indexToDelete);
 						deleteFromList(n, exclusionListModel);
 					}
 				}
@@ -401,321 +505,435 @@ public class RadiomicsSettings extends JPanel{
 		
 		featuresPanel.add(featureListP, BorderLayout.CENTER);
 		JScrollPane sp = new JScrollPane(featuresPanel);
+		
+		/*
+		 * when starting-up, initialize with the selection state reversed, and then use
+		 * doClick() in switch2D3D() to reverse the selection state so that it works correctly.
+		 */
+		morphologicalChk.setSelected(!d3_basis);
+		shape2dChk.setSelected(d3_basis);
+		switch2D3D(d3_basis);
+		
 		return sp;
 	}
 	
-	private JComponent buildParametersTab() {
-		JTabbedPane tp = new JTabbedPane();
-		//texture param
+	/**
+	 * 
+	 * @param chk
+	 */
+	private void addFeatureGroupCheckBoxAction(JCheckBox chk) {
+		String name = chk.getText();
+		if(name == null || name.equals("")) {
+			return;
+		}
+		if(targetListModel == null || exclusionListModel == null) {
+			return;
+		}
+		switch(name) {
+			case MORPHOLOGICAL:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(MORPHOLOGICAL), targetListModel);
+						}else {
+							addList(featureNames(MORPHOLOGICAL), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case LOCALINTENSITY:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(LOCALINTENSITY), targetListModel);
+						}else {
+							addList(featureNames(LOCALINTENSITY), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case INTENSITYSTATS:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(INTENSITYSTATS), targetListModel);
+						}else {
+							addList(featureNames(INTENSITYSTATS), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case INTENSITYHISTOGRAM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(INTENSITYHISTOGRAM), targetListModel);
+						}else {
+							addList(featureNames(INTENSITYHISTOGRAM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case INTENSITYVOLUMEHISTOGRAM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(INTENSITYVOLUMEHISTOGRAM), targetListModel);
+						}else {
+							addList(featureNames(INTENSITYVOLUMEHISTOGRAM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case GLCM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(GLCM), targetListModel);
+						}else {
+							addList(featureNames(GLCM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case GLRLM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(GLRLM), targetListModel);
+						}else {
+							addList(featureNames(GLRLM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case GLSZM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(GLSZM), targetListModel);
+						}else {
+							addList(featureNames(GLSZM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case GLDZM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(GLDZM), targetListModel);
+						}else {
+							addList(featureNames(GLDZM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case NGTDM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(NGTDM), targetListModel);
+						}else {
+							addList(featureNames(NGTDM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case NGLDM:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(NGLDM), targetListModel);
+						}else {
+							addList(featureNames(NGLDM), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case FRACTAL:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(FRACTAL), targetListModel);
+						}else {
+							addList(featureNames(FRACTAL), exclusionListModel);
+						}
+					}
+				});
+				break;
+			case SHAPE2D:
+				chk.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(chk.isSelected()) {
+							addList(featureNames(SHAPE2D), targetListModel);
+						}else {
+							addList(featureNames(SHAPE2D), exclusionListModel);
+						}
+					}
+				});
+				break;
+			default:
+				//do nothing
+		}
+	}
+	
+	/**
+	 * texture param tab
+	 */
+	private JScrollPane buildTextureParam() {
+		/**
+		 * texture param tab
+		 */
 		JPanel textureParamsP = new JPanel();
-		textureParamsP.setLayout(new GridLayout(7, 1));
+		//GLCM, RLM, SZM, DZM, NGTDM, NGLDM
+		textureParamsP.setLayout(new GridLayout(6/*family group*/, 1));
 		JScrollPane texturesS = new JScrollPane(textureParamsP);
 		texturesS.setPreferredSize(new Dimension(400, 300));
-		tp.addTab("Texture family prams", texturesS);
-		//common discretization
-		JPanel commonP = new JPanel();
-		commonP.setLayout(new GridLayout(5, 1));
-		JCheckBox useCommonBin = new JCheckBox("Use for all texture");
-		commonP.add(useCommonBin);
-		JRadioButton binCountBtn = new JRadioButton("Bin Count");
-		JRadioButton binWidthBtn = new JRadioButton("Bin Width");
-		JPanel binPanel = new JPanel();
-		FlowLayout fl = (FlowLayout) binPanel.getLayout();
+		
+		FlowLayout fl = new FlowLayout();
 		fl.setAlignment(FlowLayout.LEFT);
-		binPanel.add(binCountBtn);
-		binPanel.add(binWidthBtn);
-		commonP.add(binPanel);
-		ButtonGroup binGroup = new ButtonGroup();
-		binGroup.add(binCountBtn);
-		binGroup.add(binWidthBtn);
-		binGroup.setSelected(binCountBtn.getModel(), useBinCount);
-		JLabel bclbl = new JLabel("Bin Count:");
-		JTextField bclbltxt = new JTextField(10);
-		JPanel bclblP = new JPanel();
-		bclblP.add(bclbl);
-		bclblP.add(bclbltxt);
-		commonP.add(bclblP);
-		JLabel bwlbl = new JLabel("Bin Width:");
-		JTextField bwlbltxt = new JTextField(10);
-		JPanel bwlblP = new JPanel();
-		bwlblP.add(bwlbl);
-		bwlblP.add(bwlbltxt);
-		commonP.add(bwlblP);
-		//ノルム
-		JPanel normP = new JPanel();
-		normP.setLayout(fl);
-		JLabel wtlbl = new JLabel("Normalize method");
-		JComboBox<String> norm = new JComboBox<>(norms);
-		normP.add(wtlbl);
-		normP.add(norm);
-		commonP.add(normP);
-		addBorder(commonP, Color.gray, "Common texture settings");
-		textureParamsP.add(commonP);
-		//GLCM
+		//bin count, bin width, alpha, beta, norm
+		GridLayout itemGridLayout = new GridLayout(5/*max row size*/, 1); 
+		
+		/**
+		 * GLCM
+		 */
 		JPanel glcm = new JPanel();
-		glcm.setLayout(new GridLayout(5, 1));
-		JCheckBox useGLCMBin = new JCheckBox("Use this bin for GLCM");
-		glcm.add(useGLCMBin);
-		JRadioButton glcmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton glcmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel glcmBinPanel = new JPanel();
-		glcmBinPanel.setLayout(fl);
-		glcmBinPanel.add(glcmBinCountBtn);
-		glcmBinPanel.add(glcmBinWidthBtn);
-		glcm.add(glcmBinPanel);
-		ButtonGroup binGroup_glcm = new ButtonGroup();
-		binGroup_glcm.add(glcmBinCountBtn);
-		binGroup_glcm.add(glcmBinWidthBtn);
-		binGroup_glcm.setSelected(glcmBinCountBtn.getModel(), useBinCount);
-		JLabel glcm_bclbl = new JLabel("Bin Count");
-		JTextField glcm_bclbltxt = new JTextField(10);
-		JPanel glcm_bclblP = new JPanel();
-		glcm_bclblP.add(glcm_bclbl);
-		glcm_bclblP.add(glcm_bclbltxt);
-		glcm.add(glcm_bclblP);
-		JLabel glcm_bwlbl = new JLabel("Bin Width");
-		JTextField glcm_bwlbltxt = new JTextField(10);
-		JPanel glcm_bwlblP = new JPanel();
-		glcm_bwlblP.add(glcm_bwlbl);
-		glcm_bwlblP.add(glcm_bwlbltxt);
-		glcm.add(glcm_bwlblP);
-		JPanel glcm_delta = new JPanel();
-		glcm_delta.setLayout(fl);
-		glcm_delta.add(new JLabel("delta:"));
-		JTextField glcm_deltatxt = new JTextField(10);
-		glcm_delta.add(glcm_deltatxt);
-		glcm.add(glcm_delta);
+		glcm.setLayout(itemGridLayout);
+		BinCountSettings bcs_glcm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_glcm = new BinWidthSettings(Double.NaN);
+		binGroup_glcm = setButtonGroup(bcs_glcm, bws_glcm, useBinCount, GLCM);
+		JPanel delta_glcm = new AlphaDeltaSettings("delta", defaultDelta);
+		JPanel norm_glcm = new NormComboPanel(norms[0]);
+		glcm.add(bcs_glcm);
+		glcm.add(bws_glcm);
+		glcm.add(delta_glcm);
+		glcm.add(norm_glcm);
+		insertBlankPanel(glcm, 1);
 		addBorder(glcm, Color.gray, "GLCM");
 		textureParamsP.add(glcm);
-		//glrlm
+		/**
+		 * GLRLM
+		 */
 		JPanel glrlm = new JPanel();
-		glrlm.setLayout(new GridLayout(4, 1));
-		JCheckBox useGLRLMBin = new JCheckBox("Use this bin for GLRLM");
-		glrlm.add(useGLRLMBin);
-		JRadioButton glrlmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton glrlmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel glrlmBinPanel = new JPanel();
-		glrlmBinPanel.setLayout(fl);
-		glrlmBinPanel.add(glrlmBinCountBtn);
-		glrlmBinPanel.add(glrlmBinWidthBtn);
-		glrlm.add(glrlmBinPanel);
-		ButtonGroup binGroup_glrlm = new ButtonGroup();
-		binGroup_glrlm.add(glrlmBinCountBtn);
-		binGroup_glrlm.add(glrlmBinWidthBtn);
-		binGroup_glrlm.setSelected(glrlmBinCountBtn.getModel(), useBinCount);
-		JLabel glrlm_bclbl = new JLabel("Bin Count");
-		JTextField glrlm_bclbltxt = new JTextField(10);
-		JPanel glrlm_bclblP = new JPanel();
-		glrlm_bclblP.add(glrlm_bclbl);
-		glrlm_bclblP.add(glrlm_bclbltxt);
-		glrlm.add(glrlm_bclblP);
-		JLabel glrlm_bwlbl = new JLabel("Bin Width");
-		JTextField glrlm_bwlbltxt = new JTextField(10);
-		JPanel glrlm_bwlblP = new JPanel();
-		glrlm_bwlblP.add(glrlm_bwlbl);
-		glrlm_bwlblP.add(glrlm_bwlbltxt);
-		glrlm.add(glrlm_bwlblP);
+		glrlm.setLayout(itemGridLayout);
+		BinCountSettings bcs_glrlm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_glrlm = new BinWidthSettings(Double.NaN);
+		binGroup_glrlm = setButtonGroup(bcs_glrlm, bws_glrlm, useBinCount, GLRLM);
+		JPanel norm_glrlm = new NormComboPanel(norms[0]);
+		glrlm.add(bcs_glrlm);
+		glrlm.add(bws_glrlm);
+		glrlm.add(norm_glrlm);
+		insertBlankPanel(glrlm, 2);
 		addBorder(glrlm, Color.gray, "GLRLM");
 		textureParamsP.add(glrlm);
-		//GLSZM
+		/**
+		 * GLSZM
+		 */
 		JPanel glszm = new JPanel();
-		glszm.setLayout(new GridLayout(4, 1));
-		JCheckBox useGLSZMBin = new JCheckBox("Use this bin for GLSZM");
-		glszm.add(useGLSZMBin);
-		JRadioButton glszmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton glszmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel glszmBinPanel = new JPanel();
-		glszmBinPanel.setLayout(fl);
-		glszmBinPanel.add(glszmBinCountBtn);
-		glszmBinPanel.add(glszmBinWidthBtn);
-		glszm.add(glszmBinPanel);
-		ButtonGroup binGroup_glszm = new ButtonGroup();
-		binGroup_glszm.add(glszmBinCountBtn);
-		binGroup_glszm.add(glszmBinWidthBtn);
-		binGroup_glszm.setSelected(glszmBinCountBtn.getModel(), useBinCount);
-		JLabel glszm_bclbl = new JLabel("Bin Count");
-		JTextField glszm_bclbltxt = new JTextField(10);
-		JPanel glszm_bclblP = new JPanel();
-		glszm_bclblP.add(glszm_bclbl);
-		glszm_bclblP.add(glszm_bclbltxt);
-		glszm.add(glszm_bclblP);
-		JLabel glszm_bwlbl = new JLabel("Bin Width");
-		JTextField glszm_bwlbltxt = new JTextField(10);
-		JPanel glszm_bwlblP = new JPanel();
-		glszm_bwlblP.add(glszm_bwlbl);
-		glszm_bwlblP.add(glszm_bwlbltxt);
-		glszm.add(glszm_bwlblP);
+		glszm.setLayout(itemGridLayout);
+		BinCountSettings bcs_glszm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_glszm = new BinWidthSettings(Double.NaN);
+		binGroup_glszm = setButtonGroup(bcs_glszm, bws_glszm, useBinCount, GLSZM);
+		JPanel norm_glszm = new NormComboPanel(norms[0]);
+		glszm.add(bcs_glszm);
+		glszm.add(bws_glszm);
+		glszm.add(norm_glszm);
+		insertBlankPanel(glszm, 2);
 		addBorder(glszm, Color.gray, "GLSZM");
 		textureParamsP.add(glszm);
-		//GLDZM
+		/**
+		 * GLDZM
+		 */
 		JPanel gldzm = new JPanel();
-		gldzm.setLayout(new GridLayout(4, 1));
-		JCheckBox useGLDZMBin = new JCheckBox("Use this bin for GLDZM");
-		gldzm.add(useGLDZMBin);
-		JRadioButton gldzmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton gldzmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel gldzmBinPanel = new JPanel();
-		gldzmBinPanel.setLayout(fl);
-		gldzmBinPanel.add(gldzmBinCountBtn);
-		gldzmBinPanel.add(gldzmBinWidthBtn);
-		gldzm.add(gldzmBinPanel);
-		ButtonGroup binGroup_gldzm = new ButtonGroup();
-		binGroup_gldzm.add(gldzmBinCountBtn);
-		binGroup_gldzm.add(gldzmBinWidthBtn);
-		binGroup_gldzm.setSelected(gldzmBinCountBtn.getModel(), useBinCount);
-		JLabel gldzm_bclbl = new JLabel("Bin Count");
-		JTextField gldzm_bclbltxt = new JTextField(10);
-		JPanel gldzm_bclblP = new JPanel();
-		gldzm_bclblP.add(gldzm_bclbl);
-		gldzm_bclblP.add(gldzm_bclbltxt);
-		gldzm.add(gldzm_bclblP);
-		JLabel gldzm_bwlbl = new JLabel("Bin Width");
-		JTextField gldzm_bwlbltxt = new JTextField(10);
-		JPanel gldzm_bwlblP = new JPanel();
-		gldzm_bwlblP.add(gldzm_bwlbl);
-		gldzm_bwlblP.add(gldzm_bwlbltxt);
-		gldzm.add(gldzm_bwlblP);
+		gldzm.setLayout(itemGridLayout);
+		BinCountSettings bcs_gldzm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_gldzm = new BinWidthSettings(Double.NaN);
+		binGroup_gldzm = setButtonGroup(bcs_gldzm, bws_gldzm, useBinCount, GLDZM);
+		JPanel norm_gldzm = new NormComboPanel(norms[0]);
+		gldzm.add(bcs_gldzm);
+		gldzm.add(bws_gldzm);
+		gldzm.add(norm_gldzm);
+		insertBlankPanel(gldzm, 2);
 		addBorder(gldzm, Color.gray, "GLDZM");
 		textureParamsP.add(gldzm);
-		//NGTDM
+		/**
+		 * NGTDM
+		 */
 		JPanel ngtdm = new JPanel();
-		ngtdm.setLayout(new GridLayout(4, 1));
-		JCheckBox useNGTDMBin = new JCheckBox("Use this bin for NGTDM");
-		ngtdm.add(useNGTDMBin);
-		JRadioButton ngtdmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton ngtdmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel ngtdmBinPanel = new JPanel();
-		ngtdmBinPanel.setLayout(fl);
-		ngtdmBinPanel.add(ngtdmBinCountBtn);
-		ngtdmBinPanel.add(ngtdmBinWidthBtn);
-		ngtdm.add(ngtdmBinPanel);
-		ButtonGroup binGroup_ngtdm = new ButtonGroup();
-		binGroup_ngtdm.add(ngtdmBinCountBtn);
-		binGroup_ngtdm.add(ngtdmBinWidthBtn);
-		binGroup_ngtdm.setSelected(ngtdmBinCountBtn.getModel(), useBinCount);
-		JLabel ngtdm_bclbl = new JLabel("Bin Count");
-		JTextField ngtdm_bclbltxt = new JTextField(10);
-		JPanel ngtdm_bclblP = new JPanel();
-		ngtdm_bclblP.add(ngtdm_bclbl);
-		ngtdm_bclblP.add(ngtdm_bclbltxt);
-		ngtdm.add(ngtdm_bclblP);
-		JLabel ngtdm_bwlbl = new JLabel("Bin Width");
-		JTextField ngtdm_bwlbltxt = new JTextField(10);
-		JPanel ngtdm_bwlblP = new JPanel();
-		ngtdm_bwlblP.add(ngtdm_bwlbl);
-		ngtdm_bwlblP.add(ngtdm_bwlbltxt);
-		ngtdm.add(ngtdm_bwlblP);
-		JPanel ngtdm_delta = new JPanel();
-		ngtdm_delta.setLayout(fl);
-		ngtdm_delta.add(new JLabel("delta:"));
-		JTextField ngtdm_deltatxt = new JTextField(10);
-		ngtdm_delta.add(ngtdm_deltatxt);
-		ngtdm.add(ngtdm_delta);
+		ngtdm.setLayout(itemGridLayout);
+		BinCountSettings bcs_ngtdm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_ngtdm = new BinWidthSettings(Double.NaN);
+		binGroup_ngtdm = setButtonGroup(bcs_ngtdm, bws_ngtdm, useBinCount, NGTDM);
+		JPanel delta_ngtdm = new AlphaDeltaSettings("delta", defaultDelta);
+		JPanel norm_ngtdm = new NormComboPanel(norms[0]);
+		ngtdm.add(bcs_ngtdm);
+		ngtdm.add(bws_ngtdm);
+		ngtdm.add(delta_ngtdm);
+		ngtdm.add(norm_ngtdm);
+		insertBlankPanel(ngtdm, 1);
 		addBorder(ngtdm, Color.gray, "NGTDM");
 		textureParamsP.add(ngtdm);
-		//NGLDM
+		/**
+		 * NGLDM
+		 */
 		JPanel ngldm = new JPanel();
-		ngldm.setLayout(new GridLayout(6, 1));
-		JCheckBox useNGLDMBin = new JCheckBox("Use this bin for NGLDM");
-		ngldm.add(useNGLDMBin);
-		JRadioButton ngldmBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton ngldmBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel ngldmBinPanel = new JPanel();
-		ngldmBinPanel.setLayout(fl);
-		ngldmBinPanel.add(ngldmBinCountBtn);
-		ngldmBinPanel.add(ngldmBinWidthBtn);
-		ngldm.add(ngtdmBinPanel);
-		ButtonGroup binGroup_ngldm = new ButtonGroup();
-		binGroup_ngldm.add(ngldmBinCountBtn);
-		binGroup_ngldm.add(ngldmBinWidthBtn);
-		binGroup_ngldm.setSelected(ngldmBinCountBtn.getModel(), useBinCount);
-		JLabel ngldm_bclbl = new JLabel("Bin Count");
-		JTextField ngldm_bclbltxt = new JTextField(10);
-		JPanel ngldm_bclblP = new JPanel();
-		ngldm_bclblP.add(ngldm_bclbl);
-		ngldm_bclblP.add(ngldm_bclbltxt);
-		ngldm.add(ngldm_bclblP);
-		JLabel ngldm_bwlbl = new JLabel("Bin Width");
-		JTextField ngldm_bwlbltxt = new JTextField(10);
-		JPanel ngldm_bwlblP = new JPanel();
-		ngldm_bwlblP.add(ngldm_bwlbl);
-		ngldm_bwlblP.add(ngldm_bwlbltxt);
-		ngldm.add(ngldm_bwlblP);
-		JPanel ngldm_alpha = new JPanel();
-		ngldm_alpha.setLayout(fl);
-		ngldm_alpha.add(new JLabel("alpha:"));
-		JTextField ngldm_alphatxt = new JTextField(10);
-		ngldm_alpha.add(ngldm_alphatxt);
-		ngldm.add(ngldm_alpha);
-		JPanel ngldm_delta = new JPanel();
-		ngldm_delta.setLayout(fl);
-		ngldm_delta.add(new JLabel("delta:"));
-		JTextField ngldm_deltatxt = new JTextField(10);
-		ngldm_delta.add(ngldm_deltatxt);
-		ngldm.add(ngldm_delta);
+		ngldm.setLayout(itemGridLayout);
+		BinCountSettings bcs_ngldm = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_ngldm = new BinWidthSettings(Double.NaN);
+		binGroup_ngldm = setButtonGroup(bcs_ngldm, bws_ngldm, useBinCount, NGLDM);
+		JPanel alpha_ngldm = new AlphaDeltaSettings("alpha", defaultAlpha);
+		JPanel delta_ngldm = new AlphaDeltaSettings("delta", defaultDelta);
+		JPanel norm_ngldm = new NormComboPanel(norms[0]);
+		ngldm.add(bcs_ngldm);
+		ngldm.add(bws_ngldm);
+		ngldm.add(alpha_ngldm);
+		ngldm.add(delta_ngldm);
+		ngldm.add(norm_ngldm);
 		addBorder(ngldm, Color.gray, "NGLDM");
 		textureParamsP.add(ngldm);
 		
-		//Intensity family param
+		return texturesS;
+	}
+	
+	private JScrollPane buildIntensityFamilyParam() {
+		/**
+		 * Intensity family param TAB
+		 */
 		JPanel intensP = new JPanel(new GridLayout(1/*increment if you want to add panel*/, 1));
 		JScrollPane spIntens = new JScrollPane(intensP);
-		tp.addTab("Intensity family param", spIntens);
-		JPanel ivh = new JPanel(new GridLayout(4, 1));
-		JCheckBox useIVHBin = new JCheckBox("Use this bin for IVH");
-		ivh.add(useIVHBin);
-		JRadioButton ivhBinCountBtn = new JRadioButton("Bin Count");
-		JRadioButton ivhBinWidthBtn = new JRadioButton("Bin Width");
-		JPanel ivhBinPanel = new JPanel();
-		ivhBinPanel.setLayout(fl);
-		ivhBinPanel.add(ivhBinCountBtn);
-		ivhBinPanel.add(ivhBinWidthBtn);
-		ivh.add(ivhBinPanel);
-		ButtonGroup binGroup_ivh = new ButtonGroup();
-		binGroup_ivh.add(ivhBinCountBtn);
-		binGroup_ivh.add(ivhBinWidthBtn);
-		binGroup_ivh.setSelected(ivhBinCountBtn.getModel(), useBinCount);
-		JLabel ivh_bclbl = new JLabel("Bin Count");
-		JTextField ivh_bclbltxt = new JTextField(10);
-		JPanel ivh_bclblP = new JPanel();
-		ivh_bclblP.add(ivh_bclbl);
-		ivh_bclblP.add(ivh_bclbltxt);
-		ivh.add(ivh_bclblP);
-		JLabel ivh_bwlbl = new JLabel("Bin Width");
-		JTextField ivh_bwlbltxt = new JTextField(10);
-		JPanel ivh_bwlblP = new JPanel();
-		ivh_bwlblP.add(ivh_bwlbl);
-		ivh_bwlblP.add(ivh_bwlbltxt);
-		ivh.add(ivh_bwlblP);
+		JPanel ivh = new JPanel(new GridLayout(5,1));
+		BinCountSettings bcs_ivh = new BinCountSettings(defaultBinCount);
+		BinWidthSettings bws_ivh = new BinWidthSettings(Double.NaN);
+		binGroup_ivh = setButtonGroup(bcs_ivh, bws_ivh, useBinCount, ivhShort);
+		ivh.add(bcs_ivh);
+		ivh.add(bws_ivh);
+		insertBlankPanel(ivh, 3);
 		addBorder(ivh, Color.gray, "IVH");
 		intensP.add(ivh);
-		
-		//Fractal param
-		JPanel fracP = new JPanel(new GridLayout(1/*increment num of items*/, 1));
+		return spIntens;
+	}
+	
+	private JScrollPane buildFractalParam() {
+		// Fractal param
+		JPanel fracP = new JPanel(new GridLayout(1/* increment num of items */, 1));
 		JScrollPane spFrac = new JScrollPane(fracP);
-		tp.addTab("Fractal family param", spFrac);
-		JPanel frac = new JPanel(new GridLayout(3, 1));
-		JCheckBox useThisSizes = new JCheckBox("Use this size of boxes");
+		JPanel frac = new JPanel(new GridLayout(5, 1));
 		JPanel boxP = new JPanel();
-		JLabel boxlbl = new JLabel("box sizes:");
+		boxP.setLayout(new FlowLayout(FlowLayout.LEFT));
+		JLabel boxlbl = new JLabel("Box sizes:");
 		JTextField sizetxt = new JTextField(25);
 		sizetxt.setText(boxSizes);
-		sizetxt.setToolTipText("Default values :2,3,4,6,8,12,16,32,64");
+		sizetxt.setToolTipText("Default values: 2,3,4,6,8,12,16,32,64");
+		sizetxt.getDocument().addDocumentListener(new DocumentListener() {
+			// 元の背景色を保持しておく
+			private final Color defaultColor = sizetxt.getBackground();
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				validate();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				validate();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				// Plain text components do not fire these events
+			}
+
+			private void validate() {
+				// Swingのイベントは別スレッドで処理されるため、
+				// UIの更新はSwingUtilities.invokeLaterで囲むのが安全
+				SwingUtilities.invokeLater(() -> {
+					String text = sizetxt.getText();
+
+					// 2. 正規表現で現在のテキストを検証
+					if (isValidBoxSizes(text)) {
+						// 3. 有効な場合は背景色を元に戻す
+						sizetxt.setBackground(defaultColor);
+					} else {
+						// 4. 無効な場合は背景色をエラー色に変更
+						sizetxt.setBackground(ERROR_COLOR);
+					}
+				});
+			}
+		});
 		boxP.add(boxlbl);
 		boxP.add(sizetxt);
-		frac.add(useThisSizes);
 		frac.add(boxP);
-		addBorder(frac,Color.gray, "Box counting");
+		addBorder(frac, Color.gray, "Box counting");
 		fracP.add(frac);
-		return tp;
+		return spFrac;
 	}
+	
+	public String getSelectedCommandFromButtonGroup(ButtonGroup bg) {
+		ButtonModel selectedModel = bg.getSelection();
+		if (selectedModel != null) {
+			return selectedModel.getActionCommand();
+		}
+		return null;
+	}
+	
+	// 有効なパターンの正規表現をコンパイルしておく（パフォーマンス向上）
+    private static final Pattern VALID_PATTERN = Pattern.compile("^(\\d+(,\\d+)*)?$");
+    // エラー時の背景色
+    private static final Color ERROR_COLOR = new Color(255, 200, 200);
+
+	private static boolean isValidBoxSizes(String text) {
+        // Pattern.matcher(text).matches() は、文字列全体がパターンに一致するかをチェックする
+        return VALID_PATTERN.matcher(text).matches();
+    }
 	
 	private void addBorder(JComponent p, Color c, String name) {
 		Border b = BorderFactory.createBevelBorder(BevelBorder.RAISED, c, Color.DARK_GRAY);
 		p.setBorder(BorderFactory.createTitledBorder(b, name, TitledBorder.LEFT, TitledBorder.DEFAULT_POSITION));
 	}
 	
-	public HashMap<String, Object> getSettings(){
-		return settings;
+	public void loadSettings(Properties prop) {
+		try {
+			List<String> params = SettingsContext.getStringFieldValues();
+			for(String key : params) {
+				String val = prop.getProperty(key);
+				switch (key) {
+					case SettingsContext.D3Basis:
+						if(val == null) {
+							//do nothing
+						}else {
+							d3_basis = Boolean.valueOf(val);
+							switch2D3D(d3_basis);
+						}
+						break;
+					default:
+						break;
+				}
+			}
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		};
+	}
+	
+	public Properties getSettings(){
+		Properties prop = new Properties();
+		
+		return prop;
 	}
 	
 	public void moveToCalc(List<String> names) {
@@ -784,54 +1002,157 @@ public class RadiomicsSettings extends JPanel{
 		}
 	}
 	
+	private void insertBlankPanel(JPanel gridPanel, int iteration) {
+		for(int i=0; i<iteration; i++) {
+			gridPanel.add(new JPanel());
+		}
+	}
+	
+	
+	private ButtonGroup setButtonGroup(BinCountSettings bcs, BinWidthSettings bws, boolean useBinCount, String family) {
+		bcs.getRadioButton().setActionCommand("BinCount"+family);
+		bws.getRadioButton().setActionCommand("BinWidth"+family);
+		ButtonGroup bg = new ButtonGroup();
+		bg.add(bcs.getRadioButton());
+		bg.add(bws.getRadioButton());
+		if(useBinCount) {
+			bg.setSelected((ButtonModel) bcs.getRadioButton().getModel(), useBinCount);
+		}
+		return bg;
+	}
+	
+	private void switch2D3D(boolean is3D) {
+		morphologicalChk.doClick();
+		shape2dChk.doClick();
+		if(is3D==true) {
+			if(shape2dChk.isSelected()) {
+				shape2dChk.doClick();//off
+			}
+			shape2dChk.setEnabled(false);
+			morphologicalChk.setEnabled(true);
+			if(!morphologicalChk.isSelected()) {
+				morphologicalChk.doClick();
+			}
+		}else {
+			shape2dChk.setEnabled(true);
+			if(!shape2dChk.isSelected()) {
+				shape2dChk.doClick();//on
+			}
+			if(morphologicalChk.isSelected()) {
+				morphologicalChk.doClick();//off
+			}
+			morphologicalChk.setEnabled(false);
+		}
+		addDefaultExclusionBtn.doClick();
+		revalidate();
+		repaint();
+	}
+	
 	/**
 	 * Operational/Diagnostics are excluded.
 	 * @return feature names
 	 */
-	public List<String> featureNames(){
-//		HashSet<String> names = new HashSet<>();//cannot keep adding order.
+	public List<String> featureNames(String familyName/*null-able*/){
+//		HashSet<String> names = new HashSet<>();//cannot keep order.
 		List<String> names = new ArrayList<>();
-		for(MorphologicalFeatureType f : MorphologicalFeatureType.values()) {
-			names.add("Morpho_"+f.name());
-		}
-		for(LocalIntensityFeatureType f : LocalIntensityFeatureType.values()) {
-			names.add("LocalInt_"+f.name());
-		}
-		for(IntensityBasedStatisticalFeatureType f : IntensityBasedStatisticalFeatureType.values()) {
-			names.add("Stat_"+f.name());
-		}
-		for(IntensityHistogramFeatureType f : IntensityHistogramFeatureType.values()) {
-			names.add("Hist_"+f.name());
-		}
-		for(IntensityVolumeHistogramFeatureType f : IntensityVolumeHistogramFeatureType.values()) {
-			names.add("IVH_"+f.name());
-		}
-		for(GLCMFeatureType f : GLCMFeatureType.values()) {
-			names.add("GLCM_"+f.name());
-		}
-		for(GLRLMFeatureType f : GLRLMFeatureType.values()) {
-			names.add("GLRLM_"+f.name());
-		}
-		for(GLSZMFeatureType f : GLSZMFeatureType.values()) {
-			names.add("GLSZM_"+f.name());
-		}
-		for(GLDZMFeatureType f : GLDZMFeatureType.values()) {
-			names.add("GLDZM_"+f.name());
-		}
-		for(NGTDMFeatureType f : NGTDMFeatureType.values()) {
-			names.add("NGTDM_"+f.name());
-		}
-		for(NGLDMFeatureType f : NGLDMFeatureType.values()) {
-			names.add("NGLDM_"+f.name());
-		}
-		for(FractalFeatureType f : FractalFeatureType.values()) {
-			names.add("Fractal_"+f.name());
-		}
-		/*
-		 * calculate only force2D set true.
-		 */
-		for(Shape2DFeatureType f : Shape2DFeatureType.values()) {
-			names.add("Shape2D_"+f.name());
+		if(familyName == null) {
+			for(MorphologicalFeatureType f : MorphologicalFeatureType.values()) {
+				names.add(morpShort+"_"+f.name());
+			}
+			for(LocalIntensityFeatureType f : LocalIntensityFeatureType.values()) {
+				names.add(liShort+"_"+f.name());
+			}
+			for(IntensityBasedStatisticalFeatureType f : IntensityBasedStatisticalFeatureType.values()) {
+				names.add(statShort+"_"+f.name());
+			}
+			for(IntensityHistogramFeatureType f : IntensityHistogramFeatureType.values()) {
+				names.add(histShort+"_"+f.name());
+			}
+			for(IntensityVolumeHistogramFeatureType f : IntensityVolumeHistogramFeatureType.values()) {
+				names.add(ivhShort+"_"+f.name());
+			}
+			for(GLCMFeatureType f : GLCMFeatureType.values()) {
+				names.add(GLCM+"_"+f.name());
+			}
+			for(GLRLMFeatureType f : GLRLMFeatureType.values()) {
+				names.add(GLRLM+"_"+f.name());
+			}
+			for(GLSZMFeatureType f : GLSZMFeatureType.values()) {
+				names.add(GLSZM+"_"+f.name());
+			}
+			for(GLDZMFeatureType f : GLDZMFeatureType.values()) {
+				names.add(GLDZM+"_"+f.name());
+			}
+			for(NGTDMFeatureType f : NGTDMFeatureType.values()) {
+				names.add(NGTDM+"_"+f.name());
+			}
+			for(NGLDMFeatureType f : NGLDMFeatureType.values()) {
+				names.add(NGLDM+"_"+f.name());
+			}
+			for(FractalFeatureType f : FractalFeatureType.values()) {
+				names.add(FRACTAL+"_"+f.name());
+			}
+			/*
+			 * calculate only force2D set true.
+			 */
+			for(Shape2DFeatureType f : Shape2DFeatureType.values()) {
+				names.add(SHAPE2D+"_"+f.name());
+			}
+		}else if(familyName.equals(MORPHOLOGICAL)) {
+			for(MorphologicalFeatureType f : MorphologicalFeatureType.values()) {
+				names.add(morpShort+"_"+f.name());
+			}
+		}else if(familyName.equals(LOCALINTENSITY)) {
+			for(LocalIntensityFeatureType f : LocalIntensityFeatureType.values()) {
+				names.add(liShort+"_"+f.name());
+			}
+		}else if(familyName.equals(INTENSITYSTATS)) {
+			for(IntensityBasedStatisticalFeatureType f : IntensityBasedStatisticalFeatureType.values()) {
+				names.add(statShort+"_"+f.name());
+			}
+		}else if(familyName.equals(INTENSITYHISTOGRAM)) {
+			for(IntensityHistogramFeatureType f : IntensityHistogramFeatureType.values()) {
+				names.add(histShort+"_"+f.name());
+			}
+		}else if(familyName.equals(INTENSITYVOLUMEHISTOGRAM)) {
+			for(IntensityVolumeHistogramFeatureType f : IntensityVolumeHistogramFeatureType.values()) {
+				names.add(ivhShort+"_"+f.name());
+			}
+		}else if(familyName.equals(GLCM)) {
+			for(GLCMFeatureType f : GLCMFeatureType.values()) {
+				names.add(GLCM+"_"+f.name());
+			}
+		}else if(familyName.equals(GLRLM)) {
+			for(GLRLMFeatureType f : GLRLMFeatureType.values()) {
+				names.add(GLRLM+"_"+f.name());
+			}
+		}else if(familyName.equals(GLSZM)) {
+			for(GLSZMFeatureType f : GLSZMFeatureType.values()) {
+				names.add(GLSZM+"_"+f.name());
+			}
+		}else if(familyName.equals(GLDZM)) {
+			for(GLDZMFeatureType f : GLDZMFeatureType.values()) {
+				names.add(GLDZM+"_"+f.name());
+			}
+		}else if(familyName.equals(NGTDM)) {
+			for(NGTDMFeatureType f : NGTDMFeatureType.values()) {
+				names.add(NGTDM+"_"+f.name());
+			}
+		}else if(familyName.equals(NGLDM)) {
+			for(NGLDMFeatureType f : NGLDMFeatureType.values()) {
+				names.add(NGLDM+"_"+f.name());
+			}
+		}else if(familyName.equals(FRACTAL)) {
+			for(FractalFeatureType f : FractalFeatureType.values()) {
+				names.add(FRACTAL+"_"+f.name());
+			}
+		}else if(familyName.equals(SHAPE2D)) {
+			/*
+			 * calculate only force2D set true.
+			 */
+			for(Shape2DFeatureType f : Shape2DFeatureType.values()) {
+				names.add(SHAPE2D+"_"+f.name());
+			}
 		}
 		return names;
 	}
@@ -851,5 +1172,150 @@ public class RadiomicsSettings extends JPanel{
 			}
 		});
 	}
-
+	
+	private JFormattedTextField formattedTextField(boolean isDouble, int columnSize) {
+		NumberFormat format = null;
+		NumberFormatter formatter = null;
+		if (!isDouble) {
+			format = NumberFormat.getIntegerInstance();
+			format.setGroupingUsed(false); // 桁区切りカンマを無効にする場合
+			formatter = new NumberFormatter(format);
+			formatter.setValueClass(Integer.class); // 値のクラスをIntegerに設定
+		} else {
+			format = NumberFormat.getNumberInstance();
+			format.setGroupingUsed(false); // 桁区切りカンマを無効にする場合
+			formatter = new NumberFormatter(format);
+			formatter.setValueClass(Double.class); // 値のクラスをIntegerに設定
+		}
+		formatter.setAllowsInvalid(false); // 無効な入力を許可しない
+		formatter.setCommitsOnValidEdit(true); // 有効な編集が行われたら即座に値をコミット
+		// 3. JFormattedTextFieldを作成し、フォーマッタをセット
+		JFormattedTextField textField = new JFormattedTextField(formatter);
+		textField.setColumns(columnSize); // フィールドの幅を設定
+		textField.setHorizontalAlignment(JTextField.RIGHT);
+		return textField;
+	}
+	
+	
+	class BinCountSettings extends JPanel{
+		JRadioButton btn;
+		JFormattedTextField textField;
+		public BinCountSettings(int bin) {
+			FlowLayout fl = new FlowLayout();
+			fl.setAlignment(FlowLayout.LEFT);
+			setLayout(fl);
+			btn = new JRadioButton("Bin Count");
+			add(btn);
+			textField = formattedTextField(false, 10);
+	       textField.setValue(bin);    // 初期値を設定
+	       add(textField);
+		}
+		
+		JRadioButton getRadioButton() {
+			return btn;
+		}
+		
+		void setValue(int bin) {
+			textField.setValue(bin);
+		}
+		
+		int getValue() {
+			Object v =  textField.getValue();
+			try {
+				Integer v_ = (int)v;
+				return v_;
+			}catch(NumberFormatException e) {
+				return -1;
+			}
+		}
+	}
+	
+	class BinWidthSettings extends JPanel{
+		JRadioButton btn;
+		JFormattedTextField textField;
+		public BinWidthSettings(double width) {
+			FlowLayout fl = new FlowLayout();
+			fl.setAlignment(FlowLayout.LEFT);
+			setLayout(fl);
+			btn = new JRadioButton("Bin Width");
+			add(btn);
+	       textField = formattedTextField(true, 10);
+	       setValue(width);
+	       add(textField);
+		}
+		
+		JRadioButton getRadioButton() {
+			return btn;
+		}
+		
+		void setValue(double width) {
+			if(!Double.isNaN(width)) {
+				textField.setValue(width);
+			}
+		}
+		
+		double getValue() {
+			Object v =  textField.getValue();
+			try {
+				Double v_ = (double)v;
+				return v_;
+			}catch(NumberFormatException e) {
+				return -1;
+			}
+		}
+	}
+	
+	class AlphaDeltaSettings extends JPanel{
+		final boolean isDouble; 
+		JFormattedTextField textField;
+		public AlphaDeltaSettings(String name, Object param) {
+			FlowLayout fl = new FlowLayout();
+			fl.setAlignment(FlowLayout.LEFT);
+			setLayout(fl);
+			add(new JLabel(name+":"));
+			isDouble = param instanceof Double;
+			textField = formattedTextField(isDouble, 10);
+	       textField.setValue(param);    // 初期値を設定
+	       add(textField);
+		}
+		
+		void setValue(Object param) {
+			if(isDouble) {
+				textField.setValue((Double)param);
+			}else {
+				textField.setValue((Integer)param);
+			}
+		}
+		
+		double getValue() {
+			Object v =  textField.getValue();
+			try {
+				Double v_ = (double)v;
+				return v_;
+			}catch(NumberFormatException e) {
+				return -1;
+			}
+		}
+	}
+	
+	class NormComboPanel extends JPanel {
+		JComboBox<String> combo;
+		public NormComboPanel(String norm) {
+			FlowLayout fl = new FlowLayout(FlowLayout.LEFT);
+			setLayout(fl);
+			JLabel lbl = new JLabel("Normalize method");
+			combo = new JComboBox<>(norms);
+			add(lbl);
+			add(combo);
+			setSelectedItem(norm);
+		}
+		
+		String getSelectedItem() {
+			return (String)combo.getSelectedItem();
+		}
+		
+		void setSelectedItem(String item) {
+			combo.setSelectedItem(item);
+		}
+	}
 }
