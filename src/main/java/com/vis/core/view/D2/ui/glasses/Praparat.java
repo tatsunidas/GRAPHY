@@ -1260,6 +1260,15 @@ public class Praparat extends JPanel {
 		SlideGlass sg = getCurrentSlide();
 		sg.loadRoiFromDB();
 	}
+	
+	public void addRoi(int slidePos, RoiObj r) {
+		if(slidePos < 0 || slidePos >= slides.size()) {
+			System.out.println("Praparat: this slide position invalid...cannot addRoi().");
+			return;
+		}
+		SlideGlass sg = slides.get(slidePos);
+		sg.addRoi(r);
+	}
 
 	public void prepareSlideGlasses(Praparat p) {
 		if(p == null) {

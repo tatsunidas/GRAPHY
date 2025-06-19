@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -60,47 +61,138 @@ import weka.classifiers.Classifier;
 import weka.classifiers.functions.Logistic;
 import weka.classifiers.functions.SMOreg;
 import weka.classifiers.pmml.consumer.Regression;
+import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
+import weka.core.OptionHandler;
+import weka.core.Utils;
 
 /*
  * init model
  * calculate feature
  * train
- * test
+ * prediction
  */
 public class RadiomicsPipeline {
 	
-	public static final int classification = 0;
-	public static final int regression = 1;
+	//RadiomicsPanel radP;
+	final Classifier defaltClf = new RandomForest();
+	Classifier clf = new RandomForest();
 	
-	Classifier clf;
-//	Regression reg;//todo
-	final int taskType;
+	//model
 	String modelName;
+	String[] model_options;
+	
+	//settings
+	RadiomicsSettings setting;
+	HashMap<String/*className*/, List<RoiObj>> roiset;
+	Praparat prap;
+	/**
+	 * train dataset
+	 */
 	Instances trainingDataset;
 	ArrayList<Attribute> explanatoryAttr;
 	Attribute targetAttr;
 	String targetColName;
 	
-	public RadiomicsPipeline(int taskType) {
-		this.taskType=taskType;
+	public RadiomicsPipeline() {
 	}
 	
-	public ResultsTable calcFeaturesWithCurrentRois(RadiomicsSettings setting, List<RoiObj> rois, Praparat prap) {
-		Integer label = (Integer)setting.getSettings().get(SettingsContext.MASK_LABEL);
+	public RadiomicsPipeline modelIs(Classifier model) {
+		this.clf = model;
+		System.out.println("Current classifier:"+model.getClass().getName());
+		if (model instanceof OptionHandler) {
+			OptionHandler optionHandler = (OptionHandler) model;
+			try {
+				String[] optionsArray = optionHandler.getOptions(); // OptionHandlerのメソッドを呼び出す
+				String optionsString = weka.core.Utils.joinOptions(optionsArray);
+				System.out.println("model options:" + optionsString);
+			} catch (Exception ex) {
+				System.err.println("Classifierのオプション取得中にエラー: " + ex.getMessage());
+				ex.printStackTrace();
+			}
+		} else {
+			System.out.println("このClassifierはOptionHandlerを実装していません。オプションは取得できません。");
+		}
+		return this;
+	}
+	
+	public RadiomicsPipeline modelIs(Classifier model, String[] options) {
+		this.clf = model;
+		this.model_options = options;
+		return this;
+	}
+	
+	public RadiomicsPipeline trainWith(RadiomicsSettings setting, HashMap<String/*className*/, List<RoiObj>> roiset, Praparat prap) {
+		this.setting = setting;
+		this.roiset = roiset;
+		this.prap = prap;
+		return this;
+	}
+	
+	public void train() {
+		//binary or multi class
+		ResultsTable rt = null;
+		for(String className:roiset.keySet()) {
+			List<RoiObj> rois = roiset.get(className);
+		}
+		if (modelName.equals("logistic")) {
+			clf = new Logistic();
+			if(model_options != null) {
+				Logistic m = (Logistic)clf;
+				try {
+					m.setOptions(model_options);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+			System.out.println("\n--- Training Model ---");
+			try {
+				clf.buildClassifier(trainingDataset);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			System.out.println("Model training completed.");
+		}
+//		else if() {
+//			
+//		}
+	}
+	
+	public Classifier getClassifier() {
+		return clf;
+	}
+	
+	public Instances getTrainDataset() {
+		return trainingDataset;
+	}
+	
+	public boolean isPraparatReady() {
+		return prap != null;
+	}
+	
+	public Praparat getPraparat() {
+		return prap;
+	}
+	
+	public ResultsTable calcFeatures(RadiomicsSettings setting, List<RoiObj> rois, Praparat prap, String className) {
+		Properties prop = setting.currentSettings();
+		Integer label = Integer.valueOf((String)prop.get(SettingsContext.MASK_LABEL));
 		RadiomicsJ rad = new RadiomicsJ();
 		ImagePlus imp = prap.getImagePlus();
-		boolean d3_basis = true;
+		boolean d3_basis = Boolean.valueOf((String)prop.getProperty(SettingsContext.D3Basis));
 		ResultsTable rt = null;
 		//grab rois for groups
 		HashMap<String, List<RoiObj>> groups = new HashMap<>();
+		int nullCount = 0;
 		for (RoiObj r : rois) {
 			String gname = r.getProperty(ContextKey.RoiGroup);
-			if (gname == null)
-				gname = "null";
+			if (gname == null) {
+				gname = "null"+nullCount;
+				nullCount++;//null is individual
+			}
 			if (groups.get(gname) == null) {
 				groups.put(gname, new ArrayList<RoiObj>());
 			}
@@ -149,22 +241,16 @@ public class RadiomicsPipeline {
 		return rt;
 	}
 	
-	private void prepareDataset(ResultsTable rt, String targetColName, List<String> drop, String modelName, String model_options) {
+	private void prepareTrainDataset(ResultsTable rt, String targetColName, List<String> drop) {
 		String[] headerStrings = rt.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
 		if(drop != null) {
 			header.removeAll(drop);
 		}
-		explanatoryAttr = null;
-		targetAttr = null;
-		if(taskType == classification) {
-			explanatoryAttr = toAttributes(header);
-			targetAttr = targetClassAttribute4Clf(rt, targetColName);
-			//TODO target null exception ?
-			this.targetColName = targetColName;
-		}else if(taskType == regression) {
-			
-		}
+		explanatoryAttr = toAttributes(header);
+		targetAttr = targetClassAttribute4Clf(rt, targetColName);
+		//TODO target null exception ?
+		this.targetColName = targetColName;
 		
 		ArrayList<Attribute> attributes = new ArrayList<>(explanatoryAttr);
 		attributes.add(targetAttr);
@@ -208,52 +294,19 @@ public class RadiomicsPipeline {
 			}
 			trainingDataset.add(record);
 		}
-		train(modelName, model_options, trainingDataset);
 	}
 	
-	void train(String modelName, String options, Instances dataset) {
-		if(taskType == classification) {
-			if (modelName.equals("logistic")) {
-				this.modelName = modelName;
-				clf = new Logistic();
-				if(options != null) {
-					Logistic m = (Logistic)clf;
-					try {
-						m.setOptions(weka.core.Utils.splitOptions(options));
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-				System.out.println("\n--- Training Model ---");
-				try {
-					clf.buildClassifier(dataset);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-				System.out.println("Model training completed.");
-			}
-//			else if() {
-//				
-//			}
-		}else if(taskType == regression) {
-//			if(modelName.equals("svr")) {
-//				this.modelName = modelName;
-//				model = new SMOreg();
-//			}else if(modelName.equals("randomforest")) {
-//				// add more...
-//			}
-		}
-	}
 	
-	List<Object[]> predict(ResultsTable rt/*without target*/) {
-		String[] headerStrings = rt.getHeadings();
+	
+	public List<Object[]> predict(ResultsTable pred_dataset/*without target*/) {
+		String[] headerStrings = pred_dataset.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
 		ArrayList<Attribute> attributes = new ArrayList<>(explanatoryAttr);
 		attributes.add(targetAttr);
 		Instances dataset = new Instances("Predictions", attributes, 0/*volume of row*/);
 		// クラス属性のインデックスを設定 (通常は最後の属性)
 		dataset.setClassIndex(attributes.size() - 1);
-		int row = rt.size();
+		int row = pred_dataset.size();
 		int col = attributes.size();
 		for(int r =0; r<row; r++) {
 			Instance record = new DenseInstance(col);
@@ -264,7 +317,7 @@ public class RadiomicsPipeline {
 					continue;
 				}
 				Attribute a = attributes.get(c);
-				Double v = rt.getColumn(h)[r];
+				Double v = pred_dataset.getColumn(h)[r];
 				record.setValue(a, v);
 			}
 			record.setClassMissing(); // クラスラベルが不明なことを示す
@@ -273,30 +326,25 @@ public class RadiomicsPipeline {
 		List<Object[]> preds = new ArrayList<>();
 		for (Instance testInst : dataset) {
 			System.out.println("\nPredicting for instance: " + testInst);
-			if (taskType == classification) {
-				// クラスラベルの予測
-				double predictedClassIndex;
-				try {
-					predictedClassIndex = clf.classifyInstance(testInst);
-					String predictedClassName = trainingDataset.classAttribute().value((int) predictedClassIndex);
-					System.out.println(
-							"Predicted class: " + predictedClassName + " (Index: " + predictedClassIndex + ")");
+			// クラスラベルの予測
+			double predictedClassIndex;
+			try {
+				predictedClassIndex = clf.classifyInstance(testInst);
+				String predictedClassName = trainingDataset.classAttribute().value((int) predictedClassIndex);
+				System.out.println(
+						"Predicted class: " + predictedClassName + " (Index: " + predictedClassIndex + ")");
 
-					// 各クラスに属する確率分布の予測
-					double[] distribution = clf.distributionForInstance(testInst);
-					System.out.println("Probability distribution:");
-					for (int i = 0; i < distribution.length; i++) {
-						System.out.println("  " + trainingDataset.classAttribute().value(i) + ": "
-								+ String.format("%.4f", distribution[i]));
-					}
-					preds.add(new Object[]{predictedClassName, predictedClassIndex, distribution});
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				// 各クラスに属する確率分布の予測
+				double[] proba = clf.distributionForInstance(testInst);
+				System.out.println("Probability distribution:");
+				for (int i = 0; i < proba.length; i++) {
+					System.out.println("  " + trainingDataset.classAttribute().value(i) + ": "
+							+ String.format("%.4f", proba[i]));
 				}
-
-			} else if (taskType == regression) {
-
+				preds.add(new Object[]{predictedClassName, predictedClassIndex, proba});
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 		return preds;

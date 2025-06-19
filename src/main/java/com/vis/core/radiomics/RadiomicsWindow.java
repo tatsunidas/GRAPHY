@@ -83,23 +83,24 @@ public class RadiomicsWindow extends JFrame{
 	
 	static RadiomicsJ radiomics = new RadiomicsJ();
 	RadiomicsPanel panel;
-	RadiomicsSettings settings;
+	RadiomicsSettings textureParams;
+	RadiomicsPipeline pipeline;
 	
 	public static void main(String[] args) {
 		new RadiomicsWindow();
 	}
 	
 	public RadiomicsWindow() {
+		pipeline = new RadiomicsPipeline();
 		buildGUI();
-		
 	}
 	
 	private void buildGUI() {
 		JTabbedPane tabPane = new JTabbedPane();
-		panel = new RadiomicsPanel();
+		panel = new RadiomicsPanel(this);
 		tabPane.addTab("Operation",panel);
-		settings = new RadiomicsSettings();
-		tabPane.addTab("Settings", settings);
+		textureParams = new RadiomicsSettings();
+		tabPane.addTab("TextureParams", textureParams);
 		add(tabPane, BorderLayout.CENTER);
 		pack();
 		if(WindowManager.getMainScreen() == null) {
@@ -111,29 +112,18 @@ public class RadiomicsWindow extends JFrame{
 		setIconImage(Resources.RadiomicsJIcon.loadIconFromResource().getImage());
 		setSize(900, 600);
 		setVisible(true);
-		settings.adjustDividerLocation();
+		textureParams.adjustDividerLocation();
 	}
 	
-	public void loadSettings(Properties prop) {
-		try {
-			List<String> settingsItem = SettingsContext.getStringFieldValues();
-			for(String p : settingsItem){
-				switch(p) {
-					case SettingsContext.D3Basis:
-						break;
-					case SettingsContext.RangFiltering:
-						break;
-					//add more
-					default:
-						//do nothing
-				}
-			}
-			Log.logger.log(Level.INFO, "All radiomics properties are loaded.");
-//			System.out.println("All radiomics properties are loaded.");
-		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public RadiomicsPipeline getPipeline() {
+		return pipeline;
 	}
 	
+	public Properties getRadiomicsSettings() {
+		return textureParams.currentSettings();
+	}
+	
+	public void loadRadiomicsSettings(Properties prop) {
+		textureParams.loadSettings(prop);
+	}
 }

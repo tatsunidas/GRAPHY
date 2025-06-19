@@ -68,13 +68,17 @@ public class SettingsContext {
 	public static final String MASK_LABEL = "MASK_LABEL_INT";
 	public static final String RemoveOutliers = "RemoveOutliers_BOOL";
 	public static final String RemoveOutliersSigma = "Sigma_INT";
-	public static final String RangFiltering = "RangeFiltering_BOOL";
-	public static final String RangFilteringMin = "ResamplingMin_DOUBLE";
-	public static final String RangFilteringMax = "ResamplingMax_DOUBLE";
+	public static final String RangeFiltering = "RangeFiltering_BOOL";
+	public static final String RangeFilteringMin = "ResamplingMin_DOUBLE";
+	public static final String RangeFilteringMax = "ResamplingMax_DOUBLE";
 	public static final String Resampling = "Resampling_BOOL";
 	public static final String ResamplingX = "ResamplingX_DOUBLE";
 	public static final String ResamplingY = "ResamplingY_DOUBLE";
 	public static final String ResamplingZ = "ResamplingZ_DOUBLE";
+	
+	//operationals
+	public static final String OPERATIONAL = "Operational";
+	public static final String DIAGNOSTICS = "Diagnostics";
 	
 	/**
 	 * Feature names

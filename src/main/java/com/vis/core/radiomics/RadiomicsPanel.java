@@ -41,38 +41,48 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 
-import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
-import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiObjManager;
@@ -80,7 +90,16 @@ import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
 import ij.gui.Roi;
+import ij.io.RoiDecoder;
+import ij.plugin.frame.RoiManager;
+import weka.classifiers.Classifier;
+import weka.core.Instances;
+import weka.core.SerializationHelper;
+import weka.core.converters.ArffSaver;
+import weka.core.converters.ConverterUtils.DataSource;
 import weka.gui.GUIChooserApp;
+import weka.gui.GenericObjectEditor;
+import weka.gui.PropertyPanel;
 
 public class RadiomicsPanel extends JPanel{
 	
@@ -89,73 +108,68 @@ public class RadiomicsPanel extends JPanel{
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	ButtonGroup modeSelect;
-	ClassPanel rois4ClfPanel;
-	
-	//config
-	JButton saveConfigBtn;
-	JButton loadConfigBtn;
 	//model
 	JButton trainModelBtn;
-	JButton loadModelBtn;
-	JButton saveModelBtn;
+	JCheckBox autoImputation;
+	JCheckBox balance;
+	JCheckBox autoFeatureSelect;
 	//inference
 	JButton predBtn;
 	JButton showProbBtn;
 	JButton createMaskBtn;
-	//settings
-	JButton settingsBtn;
+	//model config
+	JButton saveConfigBtn;
+	JButton loadConfigBtn;
+	
+	JPanel classListPanel;
+	JButton addClassBtn;
+	JButton deleteClassBtn;
+	
+	GenericObjectEditor m_ClassifierEditor;
 	
 	/**
 	 * weka, to manipulate dataset csv.
 	 */
 	JButton wekaBtn;
 	
-	JButton loadRoiBtn;
 	
 	RoiObjManager rm = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
 	
 	//command names
-	private final String CLASSIFICATION = "Classification";
-	private final String SEGMENTATION = "Segmentation";
 	private final String SAVE_CONFIG = "Save Configurations";
 	private final String LOAD_CONFIG = "Load Configurations";
 	private final String TRAIN_MODEL = "Train model";
-	private final String SAVE_MODEL = "Save model";
-	private final String LOAD_MODEL = "Load model";
+	private final String IMPUTE = "Impute";
+	private final String BALANCE = "Balance";
+	private final String FEATURE_SELECT = "FeatureSelect";
 	private final String PREDICTION = "Prediction";
 	private final String SHOW_PROBABILITIES = "Show probabilities";
 	private final String SHOW_MASKS = "Show masks";
-	private final String SETTINGS = "Settings";
 	private final String WEKA = "WEKA";
-	private final String LOAD_ROIS = "Load Rois to predict";
+	private final String ADD_CLASS = "Add New Class";
+	private final String DELETE_CLASS = "Delete Class";
 	
 	final String[] defaultClasses = new String[] {"class1","class2"};
 	List<ClassPanel> classes = new ArrayList<>();
 	
+	final RadiomicsWindow radWin;
 	RadiomicsPipeline pipeline;
 	
-	public RadiomicsPanel() {
+	public RadiomicsPanel(RadiomicsWindow radW) {
+		this.radWin = radW;
+		setPipeline(radW.getPipeline());
 		initBtns();
 		buildGUI();
 	}
 	
 	private void initBtns() {
 		
-		/**
-		 * select mode of task, classification or segmentation 
-		 */
-		modeSelect = new ButtonGroup();
-		
 		trainModelBtn = new JButton(TRAIN_MODEL);
-		loadModelBtn = new JButton(LOAD_MODEL);
-		saveModelBtn = new JButton(SAVE_MODEL);
 		
 		predBtn = new JButton(PREDICTION);
 		showProbBtn = new JButton(SHOW_PROBABILITIES);
 		createMaskBtn = new JButton(SHOW_MASKS);
 		
-		settingsBtn = new JButton(SETTINGS);
 		saveConfigBtn = new JButton(SAVE_CONFIG);
 		loadConfigBtn = new JButton(LOAD_CONFIG);
 		
@@ -163,31 +177,16 @@ public class RadiomicsPanel extends JPanel{
 		wekaBtn.setActionCommand(WEKA);
 		setAction(wekaBtn);
 		
-		loadRoiBtn = new JButton(LOAD_ROIS);
-		setAction(loadRoiBtn);
 	}
 
 	private void buildGUI() {
 		setLayout(new BorderLayout());
-		JPanel north = new JPanel();
-		JRadioButton rbClassification = new JRadioButton(CLASSIFICATION);
-		rbClassification.setActionCommand(CLASSIFICATION);
-		JRadioButton rbSegmentation = new JRadioButton(SEGMENTATION);
-		rbSegmentation.setActionCommand(SEGMENTATION);
-		north.add(rbClassification);
-		north.add(rbSegmentation);
-		modeSelect.add(rbClassification);
-		modeSelect.add(rbSegmentation);
-		modeSelect.setSelected(rbClassification.getModel(), true);
-		add(north, BorderLayout.NORTH);
 		//functions
 		JPanel func = buidFunctionPanel();
-		JScrollPane trainds = buildTrainingDataPanel();
-		JPanel predRoi = buildRoi4ClassificationPanel(); 
-		JPanel center = new JPanel(new GridLayout(0, 3, 3, 3));
+		JPanel trainds = buildTrainingDataPanel();
+		JPanel center = new JPanel(new GridLayout(0, 2, 3, 3));
 		center.add(func);
 		center.add(trainds);
-		center.add(predRoi);
 		
 		add(center, BorderLayout.CENTER);
 		setPreferredSize(new Dimension(730, 500));
@@ -198,13 +197,39 @@ public class RadiomicsPanel extends JPanel{
 		westPanel.setLayout(new BoxLayout(westPanel, BoxLayout.Y_AXIS));
 		
 		Border b = BorderFactory.createSoftBevelBorder(BevelBorder.RAISED, Color.ORANGE, Color.GRAY);
-				
+		
 		JPanel model = new JPanel();
-		model.setLayout(new GridLayout(0, 1, 0, 5));
-		model.setBorder(BorderFactory.createTitledBorder(b, "Model", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
+		model.setLayout(new GridLayout(3, 1));
 		model.add(trainModelBtn);
-		model.add(loadModelBtn);
-		model.add(saveModelBtn);
+		JPanel modelNameP = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		modelNameP.add(new JLabel("Model:"));
+		// Add Weka panel for selecting the classifier and its options
+		m_ClassifierEditor = new GenericObjectEditor();
+		m_ClassifierEditor.setClassType(Classifier.class);
+		m_ClassifierEditor.setValue(pipeline.getClassifier());
+		m_ClassifierEditor.addPropertyChangeListener(new PropertyChangeListener() {
+			@Override
+			public void propertyChange(PropertyChangeEvent evt) {
+				updateClassifier();
+			}
+		});
+		PropertyPanel m_CEPanel = new PropertyPanel(m_ClassifierEditor);
+		modelNameP.add(m_CEPanel);
+		model.add(modelNameP);
+		
+		autoImputation = new JCheckBox(IMPUTE);
+		balance = new JCheckBox(BALANCE);
+		autoFeatureSelect = new JCheckBox(FEATURE_SELECT);
+		autoImputation.setSelected(true);
+		balance.setSelected(true);
+		autoFeatureSelect.setSelected(true);
+		JPanel modelSettingP = new JPanel(new GridLayout(1, 3));
+		modelSettingP.add(autoImputation);
+		modelSettingP.add(balance);
+		modelSettingP.add(autoFeatureSelect);
+		model.add(modelSettingP);
+		
+		model.setBorder(BorderFactory.createTitledBorder(b, "Model", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
 		westPanel.add(model);
 		
 		JPanel inference = new JPanel();
@@ -219,7 +244,6 @@ public class RadiomicsPanel extends JPanel{
 		settings.setLayout(new GridLayout(0, 1, 0, 5));
 		settings.setBorder(BorderFactory.createTitledBorder(b, "Settings", TitledBorder.CENTER,
 				TitledBorder.DEFAULT_JUSTIFICATION));
-		settings.add(settingsBtn);
 		settings.add(loadConfigBtn);
 		settings.add(saveConfigBtn);
 		westPanel.add(settings);
@@ -233,44 +257,314 @@ public class RadiomicsPanel extends JPanel{
 		return westPanel;
 	}
 	
-	private JScrollPane buildTrainingDataPanel() {
-		JPanel eastPanel = new JPanel();
-		eastPanel.setLayout(new BoxLayout(eastPanel, BoxLayout.Y_AXIS));
-		JScrollPane eastScroll = new JScrollPane(eastPanel);
+	private JPanel buildTrainingDataPanel() {
+		JPanel classListPanelBase = new JPanel(new BorderLayout());
+		classListPanel = new JPanel();
+		classListPanel.setLayout(new BoxLayout(classListPanel, BoxLayout.Y_AXIS));
+		JScrollPane classScroll = new JScrollPane(classListPanel);
 		Border b = BorderFactory.createBevelBorder(BevelBorder.RAISED, Color.cyan, Color.DARK_GRAY);
-		eastScroll.setBorder(BorderFactory.createTitledBorder(b, "Training dataset", TitledBorder.CENTER, TitledBorder.DEFAULT_POSITION));
+		classScroll.setBorder(BorderFactory.createTitledBorder(b, "Training dataset", TitledBorder.CENTER, TitledBorder.DEFAULT_POSITION));
 		
 		for(String name: defaultClasses) {
 			ClassPanel cp = (ClassPanel) createNewClass(name);
-			eastPanel.add(createNewClass(name));
+			classListPanel.add(cp);
 			classes.add(cp);
 		}
+		classListPanel.setPreferredSize(new Dimension(210, 500));
+		classListPanelBase.add(classScroll, BorderLayout.CENTER);
 		
-		eastPanel.setPreferredSize(new Dimension(210, 500));
+		//buttons
+		addClassBtn = new JButton(ADD_CLASS);
+		addClassBtn.setActionCommand(ADD_CLASS);
+		setAction(addClassBtn);
+		deleteClassBtn = new JButton(DELETE_CLASS);
+		deleteClassBtn.setActionCommand(DELETE_CLASS);
+		setAction(deleteClassBtn);
+		JPanel btnPanel = new JPanel(new GridLayout(1, 2));
+		btnPanel.add(addClassBtn);
+		btnPanel.add(deleteClassBtn);
+		classListPanelBase.add(btnPanel, BorderLayout.SOUTH);
 		
-		return eastScroll;
+		return classListPanelBase;
 	}
 	
-	private JPanel buildRoi4ClassificationPanel() {
-		rois4ClfPanel = new ClassPanel(0, "Rois for classification");
-		rois4ClfPanel.setLayout(new BorderLayout());
-		rois4ClfPanel.add(loadRoiBtn, BorderLayout.SOUTH);
-		return rois4ClfPanel;
-	}
-	
-	private JPanel createNewClass(String name) {
+	private ClassPanel createNewClass(String name) {
 		int new_index = classes.size();
 		return new ClassPanel(new_index, name);
 	}
 	
-	public String whatMode() {
-		for (Enumeration<AbstractButton> buttons = modeSelect.getElements(); buttons.hasMoreElements();) {
-			AbstractButton button = buttons.nextElement();
-			if (button.isSelected()) {
-				return button.getActionCommand();
+	public void addNewClass(String name) {
+		if(isDuplicateName(name)) {
+			JOptionPane.showConfirmDialog(null, "This class already exists !");
+			return;
+		}
+		ClassPanel cp = (ClassPanel) createNewClass(name);
+		classListPanel.add(cp);
+		classListPanel.revalidate();
+		classListPanel.repaint();
+		classes.add(cp);
+	}
+	
+	private ClassPanel getClassPanel(String name) {
+		for(ClassPanel cp : classes) {
+			if(cp.name().equals(name)) {
+				return cp;
 			}
 		}
 		return null;
+	}
+	
+	public void deleteClass(String name) {
+		ClassPanel cp = getClassPanel(name);
+		classListPanel.remove(cp);
+		classListPanel.revalidate();
+		classListPanel.repaint();
+		classes.remove(cp);
+	}
+	
+	private String[] getClassNames() {
+		String[] names = new String[classes.size()];
+		int i = 0;
+		for(ClassPanel cp : classes) {
+			names[i] = cp.name();
+			i++;
+		}
+		return names;
+	}
+	
+	public HashMap<String/*className*/, List<RoiObj>> getRois(){
+		HashMap<String, List<RoiObj>> rois = new HashMap<>();
+		for(ClassPanel cp:classes) {
+			rois.put(cp.name(), cp.getRois());
+		}
+		return rois;
+	}
+	
+	public void setPipeline(RadiomicsPipeline pipe) {
+		this.pipeline = pipe;
+	}
+	
+	public void updateClassifier() {
+		Object clf = m_ClassifierEditor.getValue();
+		pipeline = pipeline.modelIs((Classifier)clf);
+	}
+	
+	private Properties addModelConfiguration(Properties prop) {
+		prop.setProperty("MODEL_"+BALANCE, String.valueOf(balance.isSelected()));
+		prop.setProperty("MODEL_"+FEATURE_SELECT, String.valueOf(autoFeatureSelect.isSelected()));
+		prop.setProperty("MODEL_"+IMPUTE, String.valueOf(autoImputation.isSelected()));
+		return prop;
+	}
+	
+	public void saveConfigration() {
+		JFileChooser chooser = new JFileChooser();
+		chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		chooser.setMultiSelectionEnabled(false);
+		chooser.setDialogTitle("Select folder");
+		int userSelection = chooser.showOpenDialog(this);
+        // ユーザーが「開く」ボタンを押したかどうかをチェック
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File selectedDirectory = chooser.getSelectedFile();
+            saveRois(getRois(), selectedDirectory);
+            Properties prop = radWin.getRadiomicsSettings();
+            prop = addModelConfiguration(prop);
+            saveProp(prop, selectedDirectory.getAbsolutePath()+File.separator+"configuration");
+            saveModel(selectedDirectory.getAbsolutePath()+File.separator+"model");
+            saveDatasetARFF(selectedDirectory.getAbsolutePath()+File.separator+"traindataset");
+        } else {
+            System.out.println("フォルダ選択がキャンセルされました。");
+        }
+	}
+	
+	public void saveRois(HashMap<String, List<RoiObj>> roiset, File dir) {
+		File saveTo = new File(dir.getAbsolutePath()+File.separator+"ROI");
+		for(String className : roiset.keySet()) {
+			saveTo = new File(saveTo.getAbsolutePath()+File.separator+className);
+			saveTo.mkdirs();
+			List<RoiObj> rois = roiset.get(className);
+			for(RoiObj ro : rois) {
+				RoiObjManager.saveRoi(ro, saveTo.getAbsolutePath()+File.separator+ro.getName()+".roi");
+			}
+		}
+	}
+	
+	public void saveProp(Properties config, String dest) {
+		FileOutputStream fos = null; // FileOutputStream を後でクローズするために外で宣言
+		try {
+			if(!dest.endsWith(".properties")) {
+				dest += ".properties";
+			}
+			// 3. FileOutputStream を作成 (ファイルが存在しない場合は新規作成、存在する場合は上書き)
+			fos = new FileOutputStream(dest);
+			// 4. Properties オブジェクトをファイルに保存
+			// store(OutputStream out, String comments) メソッドを使用
+			config.store(fos, "radiomics segmentation configuration file");
+			System.out.println("Propertiesファイルが正常に保存されました: " + dest);
+		} catch (IOException e) {
+			System.err.println("Propertiesファイルの保存中にエラーが発生しました: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			if (fos != null) {
+				try {
+					fos.close();
+				} catch (IOException e) {
+					System.err.println("FileOutputStreamのクローズ中にエラーが発生しました: " + e.getMessage());
+				}
+			}
+		}
+	}
+	
+	public void saveModel(String dest) {
+		Classifier classifierToSave = pipeline.getClassifier();
+		if(!dest.endsWith(".model")) {
+			dest += ".model";
+		}
+		try {
+            // 4. SerializationHelper を使ってモデルをファイルに保存
+            // write(String fileName, Object model) メソッドを使用
+            SerializationHelper.write(dest, classifierToSave);
+            System.out.println("WEKAモデルが正常に保存されました: " + dest);
+        } catch (IOException e) {
+            System.err.println("モデルの保存/読み込み中にIOエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            System.err.println("その他のエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+	}
+	
+	public void saveDatasetARFF(String dest) {
+		Instances trainds = pipeline.getTrainDataset();
+		if(trainds == null) {
+			System.out.println("This pipeline does not perform training. no write dataset.");
+			return;
+		}
+		try {
+			if (!dest.endsWith(".arff")) {
+				dest += ".arff";
+			}
+			ArffSaver saver = new ArffSaver();
+			saver.setInstances(trainds);
+			String outputArffPath = dest; // 保存するARFFファイルの名前
+			File outputFile = new File(outputArffPath);
+			saver.setFile(outputFile);
+			// （オプション）圧縮して保存したい場合
+			// saver.setCompressOutput(true); // .arff.gz 形式で保存されます
+			saver.writeBatch(); // または saver.writeIncremental() を使用することも可能
+			System.out.println("InstancesがARFFファイルに正常に保存されました: " + outputFile.getAbsolutePath());
+		} catch (IOException e) {
+			System.err.println("ARFFファイルの保存中にI/Oエラーが発生しました: " + e.getMessage());
+			e.printStackTrace();
+		} catch (Exception e) {
+			System.err.println("その他のエラーが発生しました: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+	
+	public void loadConfiguration() {
+		JFileChooser chooser = new JFileChooser();
+		chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		chooser.setMultiSelectionEnabled(false);
+		chooser.setDialogTitle("Select folder");
+		int userSelection = chooser.showOpenDialog(this);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File selectedDirectory = chooser.getSelectedFile();
+            File[] files = selectedDirectory.listFiles();
+            for(File f:files) {
+            	if(f.getName().equals("ROI")) {
+            		loadRois(f);
+            	}else if(f.getName().endsWith(".properties")) {
+            		loadConfiguration(f);
+            	}else if(f.getName().endsWith(".model")) {
+            		loadModel(f);
+            	}
+            }
+        } else {
+            System.out.println("フォルダ選択がキャンセルされました。");
+        }
+	}
+	
+	public void loadRois(File roiDir) {
+		if(!pipeline.isPraparatReady()) {
+			System.out.println("Praparat is not ready, can not load rois.");
+			return;
+		}
+		Praparat prap = pipeline.getPraparat();
+		HashMap<String, Object> info = prap.getInfoSet();
+		String patID = (String)info.get("PatientID");
+		String studyUID = (String)info.get("StudyInstanceUID");
+		String seriesUID = (String)info.get("SeriesInstanceUID");
+		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
+		//init classPanels
+		initClassPanels();
+		//load rois
+		/*
+		 * import to graphy if not exists.(update UIDs)
+		 */
+		File classes[] = roiDir.listFiles();
+		for(File c : classes) {
+			String className = c.getName();
+			addNewClass(className);
+			File rois[] = c.listFiles();
+			for(File r : rois) {
+				if(r.getName().endsWith(".roi")) {
+					try {
+						Roi r_ = new RoiDecoder(r.getAbsolutePath()).getRoi();
+						RoiObj ro = new RoiConverter().convert2RoiObj(r_);
+						ro.setProperty(ContextKey.PatientID, patID);
+						ro.setProperty(ContextKey.StudyInstanceUID, studyUID);
+						ro.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
+						ro.setProperty(ContextKey.SOPInstanceUID, sopUIDs[ro.getPosition()-1]);
+						prap.addRoi(ro.getPosition()-1, ro);
+						getClassPanel(className).add(ro);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+	}
+	
+	public void loadConfiguration(File f) {
+		Properties prop = PropertiesUtil.loadProperties(f.getAbsolutePath());
+		radWin.loadRadiomicsSettings(prop);
+		loadModelSettings(prop);
+	}
+	
+	public void loadModelSettings(Properties prop) {
+		String v = (String)prop.get("MODEL_"+BALANCE);
+		if(v !=null) {
+			balance.setSelected(Boolean.valueOf(v));
+		}
+		v = (String)prop.get("MODEL_"+FEATURE_SELECT);
+		if(v !=null) {
+			autoFeatureSelect.setSelected(Boolean.valueOf(v));
+		}
+		v = (String)prop.get("MODEL_"+IMPUTE);
+		if(v !=null) {
+			autoImputation.setSelected(Boolean.valueOf(v));
+		}
+	}
+	
+	public void loadModel(File f) {
+		try {
+			Classifier clf = (Classifier) SerializationHelper.read(f.getAbsolutePath());
+			m_ClassifierEditor.setValue(clf);
+			pipeline.modelIs(clf);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void initClassPanels() {
+		classes = new ArrayList<>();
+		for(Component com : classListPanel.getComponents()) {
+			if(com instanceof ClassPanel) {
+				classListPanel.remove(com);
+			}
+		}
+		classListPanel.revalidate();
+		classListPanel.repaint();
 	}
 	
 	private void setAction(JComponent con) {
@@ -293,31 +587,56 @@ public class RadiomicsPanel extends JPanel{
 						launch_weka();
 					}
 				});
-			}else if(name.equals(LOAD_ROIS)) {
-				//TODO TEST
+			}else if(name.equals(ADD_CLASS)) {
 				btn.addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						ArrayList<Roi> rois = new ArrayList<>();
-						JFileChooser chooser = new JFileChooser();
-						chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-						chooser.setMultiSelectionEnabled(true);
-						Window d2s = WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
-						int res = chooser.showOpenDialog(d2s/*null-able*/);
-						if(res == JFileChooser.APPROVE_OPTION) {
-							File[] files = chooser.getSelectedFiles();
-							if(files != null && files.length > 0) {
-								for(File f : files) {
-									List<Roi> rs = RoiObjManager.open(f.getAbsolutePath());
-									if(rs != null) {
-										rois.addAll(rs);
-									}
-								}
+						String className = JOptionPane.showInputDialog("Please input new class name:", null);
+						if (className != null) {
+							if (!className.trim().isEmpty()) {
+								System.out.println("入力されたクラス名: " + className);
+								addNewClass(className);
+							} else {
+								// 空白のみ、または何も入力せずにOKを押した場合
+								System.out.println("クラス名が入力されませんでした。");
 							}
+						} else {
+							System.out.println("入力がキャンセルされました。");
 						}
-						for(Roi r : rois) {
-							rois4ClfPanel.add(new RoiConverter().convert2RoiObj(r));
-						}
+					}
+				});
+			}else if(name.equals(DELETE_CLASS)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+				        String[] options = getClassNames();
+				        JComboBox<String> comboBox = new JComboBox<>(options);
+				        JPanel panel = new JPanel();
+				        panel.add(new JLabel("Select a class:"));
+				        panel.add(comboBox);
+				        // JOptionPane.showOptionDialog() を使用してカスタムダイアログを表示
+				        int result = JOptionPane.showOptionDialog(
+				            null,                       // 親フレーム (nullで画面中央)
+				            panel,                      // 表示するカスタムコンポーネント（JPanel）
+				            "Select Class to Delete",            // ダイアログのタイトル
+				            JOptionPane.OK_CANCEL_OPTION, // OKとCancelボタンを表示
+				            JOptionPane.QUESTION_MESSAGE, // メッセージの種類 (アイコン表示)
+				            null,                       // アイコン (nullでデフォルト)
+				            null,                       // オプションボタンの配列 (nullでデフォルトのOK/Cancel)
+				            null                        // デフォルトで選択されるオプション (nullで最初のボタン)
+				        );
+
+				        // ユーザーの選択に応じた処理
+				        if (result == JOptionPane.OK_OPTION) {
+				            // OKボタンが押された場合、選択されたアイテムを取得
+				            String selectedOption = (String) comboBox.getSelectedItem();
+				            System.out.println("選択されたクラス: " + selectedOption);
+				            deleteClass(selectedOption);
+				        } else {
+				            // Cancelボタンが押されたか、ダイアログが閉じられた場合
+				            System.out.println("選択がキャンセルされました。");
+				            JOptionPane.showMessageDialog(null, "選択がキャンセルされました。", "キャンセル", JOptionPane.INFORMATION_MESSAGE);
+				        }
 					}
 				});
 			}
@@ -332,6 +651,15 @@ public class RadiomicsPanel extends JPanel{
 		chooser.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		chooser.setLocationRelativeTo(this);
 		chooser.setVisible(true);
+	}
+	
+	boolean isDuplicateName(String newClassName) {
+		for(ClassPanel cp : classes) {
+			if(cp.name().equals(newClassName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	class ClassPanel extends JPanel{
@@ -422,6 +750,15 @@ public class RadiomicsPanel extends JPanel{
 				return;
 			}
 			listModel.set(row, r);
+		}
+		
+		List<RoiObj> getRois(){
+			List<RoiObj> rois = new ArrayList<>();
+			int size = listModel.getSize();
+			for(int i=0; i<size; i++) {
+				rois.add(listModel.get(i));
+			}
+			return rois;
 		}
 	}
 	

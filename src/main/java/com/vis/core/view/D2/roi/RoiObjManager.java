@@ -203,7 +203,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		});
 		
 		WindowManager.addWindow(this);
-		
 	}
 	
 	private void setUp() {
@@ -969,6 +968,24 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if (!name2.endsWith(".roi")) name2 = name2+".roi";
 		path = dir+name2;
 		RoiEncoder re = new RoiEncoder(path);
+		try {
+			re.write(roi);
+		} catch (IOException e) {
+			Log.logger.warning(e.getMessage());
+			return;
+		}
+	}
+	
+	public static void saveRoi(RoiObj roiObj, String dest) {
+		if (roiObj == null) {
+			return;
+		}
+		Roi roi = new RoiConverter().convert2Roi(roiObj);
+		if(roi == null) {
+			return;
+		}
+		if (!dest.endsWith(".roi")) dest = dest+".roi";
+		RoiEncoder re = new RoiEncoder(dest);
 		try {
 			re.write(roi);
 		} catch (IOException e) {

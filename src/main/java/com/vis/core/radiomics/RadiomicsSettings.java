@@ -47,7 +47,6 @@ import java.awt.event.ActionListener;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -91,7 +90,6 @@ import io.github.tatsunidas.radiomics.features.MorphologicalFeatureType;
 import io.github.tatsunidas.radiomics.features.NGLDMFeatureType;
 import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
-import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 
 @SuppressWarnings("serial")
 public class RadiomicsSettings extends JPanel{
@@ -102,7 +100,7 @@ public class RadiomicsSettings extends JPanel{
 	//2d/3d switch, when turn on, images will calculate slice by slice
 	boolean d3_basis = true;
 	//label
-	final int label = 255;
+	final int defaultLabel = 255;
 	//remove outlier
 	final boolean removeOutliers = true;
 	final int sigma = 3;
@@ -116,6 +114,26 @@ public class RadiomicsSettings extends JPanel{
 	final int defaultAlpha = 1;
 	final boolean useBinCount = true;
 	final String boxSizes = "2,3,4,6,8,12,16,32,64";
+	/**
+	 * Manhattan: same as "no_weight", M_ij/np.sum(M_ij)
+	 * Euclidean: M_ij/np.sqrt(np.sum(M_ij**2))
+	 * Infinity: M_ij/np.max(M_ij)
+	 */
+	final String[] norms = new String[] {"manhattan", "euclidean", "infinity"};
+	
+	/**
+	 * components
+	 */
+	JFormattedTextField lbltxt;//mask label
+	JCheckBox roChk;//remove outliers
+	JFormattedTextField roSigma;
+	JCheckBox rfChk;
+	JFormattedTextField rfMin;
+	JFormattedTextField rfMax;
+	JCheckBox resampleChk;
+	JFormattedTextField resampleX;
+	JFormattedTextField resampleY;
+	JFormattedTextField resampleZ;
 	
 	/**
 	 * calculation target, select all.
@@ -140,17 +158,10 @@ public class RadiomicsSettings extends JPanel{
 	final int numOfTotalFeatures;
 	
 	/**
-	 * Manhattan: same as "no_weight", M_ij/np.sum(M_ij)
-	 * Euclidean: M_ij/np.sqrt(np.sum(M_ij**2))
-	 * Infinity: M_ij/np.max(M_ij)
-	 */
-	final String[] norms = new String[] {"manhattan", "euclidean", "infinity"};
-	
-	/**
 	 * Operational information
 	 */
-	final String OPERATIONAL = "Operational";
-	final String DIAGNOSTICS = "Diagnostics";
+	final String OPERATIONAL = SettingsContext.OPERATIONAL;
+	final String DIAGNOSTICS = SettingsContext.DIAGNOSTICS;
 	
 	/**
 	 * Feature family name
@@ -189,14 +200,49 @@ public class RadiomicsSettings extends JPanel{
 	JLabel targetCount;
 	JLabel exclusionCount;
 	
+	/**
+	 * Feature param components
+	 */
 	ButtonGroup binGroup_glcm;
+	BinCountSettings bcs_glcm;
+	BinWidthSettings bws_glcm;
+	AlphaDeltaSettings delta_glcm;
+	NormComboPanel norm_glcm;
+	
 	ButtonGroup binGroup_glrlm;
+	BinCountSettings bcs_glrlm;
+	BinWidthSettings bws_glrlm;
+	NormComboPanel norm_glrlm;
+	
 	ButtonGroup binGroup_glszm;
+	BinCountSettings bcs_glszm;
+	BinWidthSettings bws_glszm;
+	NormComboPanel norm_glszm;
+	
 	ButtonGroup binGroup_gldzm;
+	BinCountSettings bcs_gldzm;
+	BinWidthSettings bws_gldzm;
+	NormComboPanel norm_gldzm;
+	
 	ButtonGroup binGroup_ngtdm;
+	BinCountSettings bcs_ngtdm;
+	BinWidthSettings bws_ngtdm;
+	AlphaDeltaSettings delta_ngtdm;
+	NormComboPanel norm_ngtdm;
+	
 	ButtonGroup binGroup_ngldm;
+	BinCountSettings bcs_ngldm;
+	BinWidthSettings bws_ngldm;
+	AlphaDeltaSettings alpha_ngldm;
+	AlphaDeltaSettings delta_ngldm;
+	NormComboPanel norm_ngldm;
+	
 	ButtonGroup binGroup_ivh;
-		
+	BinCountSettings bcs_ivh;
+	BinWidthSettings bws_ivh;
+	
+	JTextField boxsize_fractal;
+	
 	public RadiomicsSettings() {
 		featureNames = featureNames(null);//load all features
 		numOfTotalFeatures = featureNames.size();
@@ -268,7 +314,8 @@ public class RadiomicsSettings extends JPanel{
 		addBorder(maskSettings, Color.white, "Mask Settings");
 		//label
 		JLabel lbl = new JLabel("Label value:");
-		JTextField lbltxt = formattedTextField(false, 5);
+		lbltxt = formattedTextField(false, 5);
+		lbltxt.setValue(defaultLabel);
 		lbltxt.setToolTipText("1 ~ 255");
 		lbltxt.setHorizontalAlignment(JTextField.RIGHT);
 		JPanel lblP = new JPanel();
@@ -277,51 +324,100 @@ public class RadiomicsSettings extends JPanel{
 		lblP.add(lbltxt);
 		maskSettings.add(lblP);
 		//removeOutliers outliers
-		JCheckBox roChk = new JCheckBox("Remove Outliers");
+		roChk = new JCheckBox("Remove Outliers");
 		roChk.setSelected(removeOutliers);
+		roChk.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(roSigma != null) {
+					if(roChk.isSelected()) {
+						roSigma.setEnabled(true);
+					}else {
+						roSigma.setEnabled(false);
+					}
+				}
+			}
+		});
 		maskSettings.add(roChk);
 		JLabel rolbl = new JLabel("Sigma:");
-		JTextField rotxt = formattedTextField(false, 5);
-		rotxt.setText(sigma+"");
+		roSigma = formattedTextField(false, 5);
+		roSigma.setValue(sigma);
+		roSigma.setEnabled(removeOutliers);
 		JPanel roP = new JPanel();
 		roP.add(rolbl);
-		roP.add(rotxt);
+		roP.add(roSigma);
 		maskSettings.add(roP);
+		
 		//range filtering
-		JCheckBox rfChk = new JCheckBox("Range Filtering");
+		rfChk = new JCheckBox("Range Filtering");
 		rfChk.setSelected(rangeFilter);
+		rfChk.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(rfMin != null && rfMax != null) {
+					if(rfChk.isSelected()) {
+						rfMin.setEnabled(true);
+						rfMax.setEnabled(true);
+					}else {
+						rfMin.setEnabled(false);
+						rfMax.setEnabled(false);
+					}
+				}
+			}
+		});
 		maskSettings.add(rfChk);
 		JLabel rfMinlbl = new JLabel("min:");
 		JLabel rfMaxlbl = new JLabel("max:");
-		JTextField rfMintxt = formattedTextField(true, 10);
-		JTextField rfMaxtxt = formattedTextField(true, 10);
+		rfMin = formattedTextField(true, 10);
+		rfMax = formattedTextField(true, 10);
+		rfMin.setEnabled(rangeFilter);
+		rfMax.setEnabled(rangeFilter);
 		JPanel rfMinP = new JPanel();
 		JPanel rfMaxP = new JPanel();
 		rfMinP.add(rfMinlbl);
-		rfMinP.add(rfMintxt);
+		rfMinP.add(rfMin);
 		rfMaxP.add(rfMaxlbl);
-		rfMaxP.add(rfMaxtxt);
+		rfMaxP.add(rfMax);
 		maskSettings.add(rfMinP);
 		maskSettings.add(rfMaxP);
 		//resampling
-		JCheckBox reChk = new JCheckBox("Resampling");
-		rfChk.setSelected(resample);
-		maskSettings.add(reChk);
+		resampleChk = new JCheckBox("Resampling");
+		resampleChk.setSelected(resample);
+		resampleChk.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(resampleX != null && resampleY != null && resampleZ != null) {
+					if(resampleChk.isSelected()) {
+						resampleX.setEnabled(true);
+						resampleY.setEnabled(true);
+						resampleZ.setEnabled(true);
+					}else {
+						resampleX.setEnabled(false);
+						resampleY.setEnabled(false);
+						resampleZ.setEnabled(false);
+					}
+				}
+			}
+		});
+		maskSettings.add(resampleChk);
 		JLabel reXlbl = new JLabel("vx:");
 		JLabel reYlbl = new JLabel("vy:");
 		JLabel reZlbl = new JLabel("vz:");
-		JTextField reXtxt = formattedTextField(true, 10);
-		JTextField reYtxt = formattedTextField(true, 10);
-		JTextField reZtxt = formattedTextField(true, 10);
+		resampleX = formattedTextField(true, 10);
+		resampleY = formattedTextField(true, 10);
+		resampleZ = formattedTextField(true, 10);
+		resampleX.setEnabled(resample);
+		resampleY.setEnabled(resample);
+		resampleZ.setEnabled(resample);
 		JPanel reXP = new JPanel();
 		JPanel reYP = new JPanel();
 		JPanel reZP = new JPanel();
 		reXP.add(reXlbl);
-		reXP.add(reXtxt);
+		reXP.add(resampleX);
 		reYP.add(reYlbl);
-		reYP.add(reYtxt);
+		reYP.add(resampleY);
 		reZP.add(reZlbl);
-		reZP.add(reZtxt);
+		reZP.add(resampleZ);
 		maskSettings.add(reXP);
 		maskSettings.add(reYP);
 		maskSettings.add(reZP);
@@ -714,11 +810,11 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel glcm = new JPanel();
 		glcm.setLayout(itemGridLayout);
-		BinCountSettings bcs_glcm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_glcm = new BinWidthSettings(Double.NaN);
+		bcs_glcm = new BinCountSettings(defaultBinCount);
+		bws_glcm = new BinWidthSettings(Double.NaN);
 		binGroup_glcm = setButtonGroup(bcs_glcm, bws_glcm, useBinCount, GLCM);
-		JPanel delta_glcm = new AlphaDeltaSettings("delta", defaultDelta);
-		JPanel norm_glcm = new NormComboPanel(norms[0]);
+		delta_glcm = new AlphaDeltaSettings("delta", defaultDelta);
+		norm_glcm = new NormComboPanel(norms[0]);
 		glcm.add(bcs_glcm);
 		glcm.add(bws_glcm);
 		glcm.add(delta_glcm);
@@ -731,10 +827,10 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel glrlm = new JPanel();
 		glrlm.setLayout(itemGridLayout);
-		BinCountSettings bcs_glrlm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_glrlm = new BinWidthSettings(Double.NaN);
+		bcs_glrlm = new BinCountSettings(defaultBinCount);
+		bws_glrlm = new BinWidthSettings(Double.NaN);
 		binGroup_glrlm = setButtonGroup(bcs_glrlm, bws_glrlm, useBinCount, GLRLM);
-		JPanel norm_glrlm = new NormComboPanel(norms[0]);
+		norm_glrlm = new NormComboPanel(norms[0]);
 		glrlm.add(bcs_glrlm);
 		glrlm.add(bws_glrlm);
 		glrlm.add(norm_glrlm);
@@ -746,10 +842,10 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel glszm = new JPanel();
 		glszm.setLayout(itemGridLayout);
-		BinCountSettings bcs_glszm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_glszm = new BinWidthSettings(Double.NaN);
+		bcs_glszm = new BinCountSettings(defaultBinCount);
+		bws_glszm = new BinWidthSettings(Double.NaN);
 		binGroup_glszm = setButtonGroup(bcs_glszm, bws_glszm, useBinCount, GLSZM);
-		JPanel norm_glszm = new NormComboPanel(norms[0]);
+		norm_glszm = new NormComboPanel(norms[0]);
 		glszm.add(bcs_glszm);
 		glszm.add(bws_glszm);
 		glszm.add(norm_glszm);
@@ -761,10 +857,10 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel gldzm = new JPanel();
 		gldzm.setLayout(itemGridLayout);
-		BinCountSettings bcs_gldzm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_gldzm = new BinWidthSettings(Double.NaN);
+		bcs_gldzm = new BinCountSettings(defaultBinCount);
+		bws_gldzm = new BinWidthSettings(Double.NaN);
 		binGroup_gldzm = setButtonGroup(bcs_gldzm, bws_gldzm, useBinCount, GLDZM);
-		JPanel norm_gldzm = new NormComboPanel(norms[0]);
+		norm_gldzm = new NormComboPanel(norms[0]);
 		gldzm.add(bcs_gldzm);
 		gldzm.add(bws_gldzm);
 		gldzm.add(norm_gldzm);
@@ -776,11 +872,11 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel ngtdm = new JPanel();
 		ngtdm.setLayout(itemGridLayout);
-		BinCountSettings bcs_ngtdm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_ngtdm = new BinWidthSettings(Double.NaN);
+		bcs_ngtdm = new BinCountSettings(defaultBinCount);
+		bws_ngtdm = new BinWidthSettings(Double.NaN);
 		binGroup_ngtdm = setButtonGroup(bcs_ngtdm, bws_ngtdm, useBinCount, NGTDM);
-		JPanel delta_ngtdm = new AlphaDeltaSettings("delta", defaultDelta);
-		JPanel norm_ngtdm = new NormComboPanel(norms[0]);
+		delta_ngtdm = new AlphaDeltaSettings("delta", defaultDelta);
+		norm_ngtdm = new NormComboPanel(norms[0]);
 		ngtdm.add(bcs_ngtdm);
 		ngtdm.add(bws_ngtdm);
 		ngtdm.add(delta_ngtdm);
@@ -793,12 +889,12 @@ public class RadiomicsSettings extends JPanel{
 		 */
 		JPanel ngldm = new JPanel();
 		ngldm.setLayout(itemGridLayout);
-		BinCountSettings bcs_ngldm = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_ngldm = new BinWidthSettings(Double.NaN);
+		bcs_ngldm = new BinCountSettings(defaultBinCount);
+		bws_ngldm = new BinWidthSettings(Double.NaN);
 		binGroup_ngldm = setButtonGroup(bcs_ngldm, bws_ngldm, useBinCount, NGLDM);
-		JPanel alpha_ngldm = new AlphaDeltaSettings("alpha", defaultAlpha);
-		JPanel delta_ngldm = new AlphaDeltaSettings("delta", defaultDelta);
-		JPanel norm_ngldm = new NormComboPanel(norms[0]);
+		alpha_ngldm = new AlphaDeltaSettings("alpha", defaultAlpha);
+		delta_ngldm = new AlphaDeltaSettings("delta", defaultDelta);
+		norm_ngldm = new NormComboPanel(norms[0]);
 		ngldm.add(bcs_ngldm);
 		ngldm.add(bws_ngldm);
 		ngldm.add(alpha_ngldm);
@@ -817,8 +913,8 @@ public class RadiomicsSettings extends JPanel{
 		JPanel intensP = new JPanel(new GridLayout(1/*increment if you want to add panel*/, 1));
 		JScrollPane spIntens = new JScrollPane(intensP);
 		JPanel ivh = new JPanel(new GridLayout(5,1));
-		BinCountSettings bcs_ivh = new BinCountSettings(defaultBinCount);
-		BinWidthSettings bws_ivh = new BinWidthSettings(Double.NaN);
+		bcs_ivh = new BinCountSettings(defaultBinCount);
+		bws_ivh = new BinWidthSettings(Double.NaN);
 		binGroup_ivh = setButtonGroup(bcs_ivh, bws_ivh, useBinCount, ivhShort);
 		ivh.add(bcs_ivh);
 		ivh.add(bws_ivh);
@@ -836,12 +932,12 @@ public class RadiomicsSettings extends JPanel{
 		JPanel boxP = new JPanel();
 		boxP.setLayout(new FlowLayout(FlowLayout.LEFT));
 		JLabel boxlbl = new JLabel("Box sizes:");
-		JTextField sizetxt = new JTextField(25);
-		sizetxt.setText(boxSizes);
-		sizetxt.setToolTipText("Default values: 2,3,4,6,8,12,16,32,64");
-		sizetxt.getDocument().addDocumentListener(new DocumentListener() {
+		boxsize_fractal = new JTextField(25);
+		boxsize_fractal.setText(boxSizes);
+		boxsize_fractal.setToolTipText("Default values: 2,3,4,6,8,12,16,32,64");
+		boxsize_fractal.getDocument().addDocumentListener(new DocumentListener() {
 			// 元の背景色を保持しておく
-			private final Color defaultColor = sizetxt.getBackground();
+			private final Color defaultColor = boxsize_fractal.getBackground();
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
@@ -862,21 +958,21 @@ public class RadiomicsSettings extends JPanel{
 				// Swingのイベントは別スレッドで処理されるため、
 				// UIの更新はSwingUtilities.invokeLaterで囲むのが安全
 				SwingUtilities.invokeLater(() -> {
-					String text = sizetxt.getText();
+					String text = boxsize_fractal.getText();
 
 					// 2. 正規表現で現在のテキストを検証
 					if (isValidBoxSizes(text)) {
 						// 3. 有効な場合は背景色を元に戻す
-						sizetxt.setBackground(defaultColor);
+						boxsize_fractal.setBackground(defaultColor);
 					} else {
 						// 4. 無効な場合は背景色をエラー色に変更
-						sizetxt.setBackground(ERROR_COLOR);
+						boxsize_fractal.setBackground(ERROR_COLOR);
 					}
 				});
 			}
 		});
 		boxP.add(boxlbl);
-		boxP.add(sizetxt);
+		boxP.add(boxsize_fractal);
 		frac.add(boxP);
 		addBorder(frac, Color.gray, "Box counting");
 		fracP.add(frac);
@@ -907,32 +1003,592 @@ public class RadiomicsSettings extends JPanel{
 	}
 	
 	public void loadSettings(Properties prop) {
+		//init features list
+		addList(featureNames, targetListModel);
 		try {
 			List<String> params = SettingsContext.getStringFieldValues();
 			for(String key : params) {
 				String val = prop.getProperty(key);
+				if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+					//keep default
+					continue;
+				}
 				switch (key) {
-					case SettingsContext.D3Basis:
-						if(val == null) {
-							//do nothing
-						}else {
-							d3_basis = Boolean.valueOf(val);
-							switch2D3D(d3_basis);
-						}
-						break;
-					default:
-						break;
+				/**
+				 * mask settings
+				 */
+				case SettingsContext.D3Basis:
+					boolean is3D = Boolean.valueOf(val);
+					if (this.d3_basis == true && is3D == true) {
+						// do nothing, already 3D.
+					} else if (this.d3_basis == false && is3D == true) {
+						this.d3_basis = true;
+						switch2D3D(d3_basis);
+					} else if (this.d3_basis == true && is3D == false) {
+						this.d3_basis = false;
+						switch2D3D(d3_basis);
+					} else {
+						// false && false
+						// do nothing
+					}
+					break;
+				case SettingsContext.MASK_LABEL:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						lbltxt.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.RemoveOutliers:
+					//set true if string is "true", else return false of all.
+					boolean ro = Boolean.valueOf(val);
+					roChk.setSelected(ro);
+					break;
+				case SettingsContext.RemoveOutliersSigma:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						roSigma.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.RangeFiltering:
+					//set true if string is "true", else return false of all.
+					boolean rf = Boolean.valueOf(val);
+					rfChk.setSelected(rf);
+					break;
+				case SettingsContext.RangeFilteringMin:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						rfMin.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.RangeFilteringMax:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						rfMax.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.Resampling:
+					//set true if string is "true", else return false of all.
+					boolean re = Boolean.valueOf(val);
+					resampleChk.setSelected(re);
+					break;
+				case SettingsContext.ResamplingX:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						resampleX.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.ResamplingY:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						resampleY.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				case SettingsContext.ResamplingZ:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						resampleZ.setValue(v);
+					} catch (NumberFormatException e) {
+						// skip
+					}
+					break;
+				/**
+				 * Feature group settings
+				 */
+				case SettingsContext.OPERATIONAL:
+					operationalChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.DIAGNOSTICS:
+					diagnosticsChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.MORPHOLOGICAL:
+					if(d3_basis==false) {
+						//skip
+					}else {
+						morphologicalChk.setSelected(Boolean.valueOf(val));
+					}
+					break;
+				case SettingsContext.LOCALINTENSITY:
+					localIntensChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.INTENSITYSTATS:
+					intensityStatsChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.INTENSITYHISTOGRAM:
+					histogramChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
+					volumeHistChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.GLCM:
+					glcmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.GLRLM:
+					glrlmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.GLSZM:
+					glszmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.GLDZM:
+					gldzmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.NGTDM:
+					ngtdmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.NGLDM:
+					ngldmChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.FRACTAL:
+					fractalChk.setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.SHAPE2D:
+					if(d3_basis==false) {
+						shape2dChk.setSelected(Boolean.valueOf(val));
+					}else {
+						//skip
+					}
+					break;
+				/**
+				 * Features param
+				 */
+				case SettingsContext.UseBinCountGLCM:
+					bcs_glcm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountGLCM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_glcm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthGLCM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_glcm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.DeltaGLCM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						delta_glcm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormGLCM:
+					norm_glcm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountGLRLM:
+					bcs_glrlm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountGLRLM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_glrlm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthGLRLM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_glrlm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormGLRLM:
+					norm_glrlm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountGLSZM:
+					bcs_glszm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountGLSZM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_glszm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthGLSZM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_glszm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormGLSZM:
+					norm_glszm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountGLDZM:
+					bcs_gldzm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountGLDZM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_gldzm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthGLDZM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_gldzm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormGLDZM:
+					norm_gldzm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountNGTDM:
+					bcs_ngtdm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountNGTDM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_ngtdm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthNGTDM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_ngtdm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.DeltaNGTDM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						delta_ngtdm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormNGTDM:
+					norm_ngtdm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountNGLDM:
+					bcs_ngldm.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountNGLDM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_ngldm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthNGLDM:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_ngldm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.AlphaNGLDM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						alpha_ngldm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.DeltaNGLDM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						delta_ngldm.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.NormNGLDM:
+					norm_ngldm.setSelectedItem(val);
+					break;
+				case SettingsContext.UseBinCountIVH:
+					bcs_ivh.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountIVH:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_ivh.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthIVH:
+					try {
+						double v = Double.valueOf(val);// check whether integer or not
+						bws_ivh.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BoxSizesFRACTAL:
+					boxsize_fractal.setText(val);
+					break;
+				default:
+					/*
+					 * EXCLUSION key is specify Exfeature name.
+					 */
+					if(key.startsWith("EXCLUSION")) {
+						String fname = key.replace("EXCLUSION_", "");
+						addList(fname, exclusionListModel);
+					}
+					break;
 				}
 			}
 		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		};
 	}
 	
-	public Properties getSettings(){
+	public Properties currentSettings() {
 		Properties prop = new Properties();
-		
+		try {
+			Integer i = null;
+			Double d = null;
+			List<String> params = SettingsContext.getStringFieldValues();
+			for(String key : params) {
+				switch (key) {
+				/**
+				 * mask settings
+				 */
+				case SettingsContext.D3Basis:
+					prop.setProperty(key, String.valueOf(d3_basis));
+					break;
+				case SettingsContext.MASK_LABEL:
+					i = (Integer) lbltxt.getValue();
+					if(i != null) {
+						prop.setProperty(key, String.valueOf(i));
+					}
+					break;
+				case SettingsContext.RemoveOutliers:
+					prop.setProperty(key, String.valueOf(roChk.isSelected()));
+					break;
+				case SettingsContext.RemoveOutliersSigma:
+					i = (Integer) roSigma.getValue();
+					if(i != null) {
+						prop.setProperty(key, String.valueOf(i));
+					}
+					break;
+				case SettingsContext.RangeFiltering:
+					prop.setProperty(key, String.valueOf(rfChk.isSelected()));
+					break;
+				case SettingsContext.RangeFilteringMin:
+					d = (Double) rfMin.getValue();
+					if(d != null) {
+						prop.setProperty(key, String.valueOf(d));
+					}
+					break;
+				case SettingsContext.RangeFilteringMax:
+					d = (Double) rfMax.getValue();
+					if(d != null) {
+						prop.setProperty(key, String.valueOf(d));
+					}
+					break;
+				case SettingsContext.Resampling:
+					prop.setProperty(key, String.valueOf(resampleChk.isSelected()));
+					break;
+				case SettingsContext.ResamplingX:
+					d = (Double) resampleX.getValue();
+					if(d != null) {
+						prop.setProperty(key, String.valueOf(d));
+					}
+					break;
+				case SettingsContext.ResamplingY:
+					Double v = (Double) resampleY.getValue();
+					if(v != null) {
+						prop.setProperty(key, String.valueOf(v));
+					}
+					break;
+				case SettingsContext.ResamplingZ:
+					d = (Double) resampleZ.getValue();
+					if(d != null) {
+						prop.setProperty(key, String.valueOf(d));
+					}
+					break;
+				/**
+				 * Feature group settings
+				 */
+				case SettingsContext.OPERATIONAL:
+					prop.setProperty(key, String.valueOf(operationalChk.isSelected()));
+					break;
+				case SettingsContext.DIAGNOSTICS:
+					prop.setProperty(key, String.valueOf(diagnosticsChk.isSelected()));
+					break;
+				case SettingsContext.MORPHOLOGICAL:
+					prop.setProperty(key, String.valueOf(morphologicalChk.isSelected()));
+					break;
+				case SettingsContext.LOCALINTENSITY:
+					prop.setProperty(key, String.valueOf(localIntensChk.isSelected()));
+					break;
+				case SettingsContext.INTENSITYSTATS:
+					prop.setProperty(key, String.valueOf(intensityStatsChk.isSelected()));
+					break;
+				case SettingsContext.INTENSITYHISTOGRAM:
+					prop.setProperty(key, String.valueOf(histogramChk.isSelected()));
+					break;
+				case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
+					prop.setProperty(key, String.valueOf(volumeHistChk.isSelected()));
+					break;
+				case SettingsContext.GLCM:
+					prop.setProperty(key, String.valueOf(glcmChk.isSelected()));
+					break;
+				case SettingsContext.GLRLM:
+					prop.setProperty(key, String.valueOf(glrlmChk.isSelected()));
+					break;
+				case SettingsContext.GLSZM:
+					prop.setProperty(key, String.valueOf(glszmChk.isSelected()));
+					break;
+				case SettingsContext.GLDZM:
+					prop.setProperty(key, String.valueOf(gldzmChk.isSelected()));
+					break;
+				case SettingsContext.NGTDM:
+					prop.setProperty(key, String.valueOf(ngtdmChk.isSelected()));
+					break;
+				case SettingsContext.NGLDM:
+					prop.setProperty(key, String.valueOf(ngldmChk.isSelected()));
+					break;
+				case SettingsContext.FRACTAL:
+					prop.setProperty(key, String.valueOf(fractalChk.isSelected()));
+					break;
+				case SettingsContext.SHAPE2D:
+					prop.setProperty(key, String.valueOf(shape2dChk.isSelected()));
+					break;
+				/**
+				 * Features param
+				 */
+				case SettingsContext.UseBinCountGLCM:
+					prop.setProperty(key, String.valueOf(bcs_glcm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountGLCM:
+					prop.setProperty(key, String.valueOf(bcs_glcm.getValue()));
+					break;
+				case SettingsContext.BinWidthGLCM:
+					prop.setProperty(key, String.valueOf(bws_glcm.getValue()));
+					break;
+				case SettingsContext.DeltaGLCM:
+					prop.setProperty(key, String.valueOf(delta_glcm.getValue()));
+					break;
+				case SettingsContext.NormGLCM:
+					prop.setProperty(key, norm_glcm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountGLRLM:
+					prop.setProperty(key, String.valueOf(bcs_glrlm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountGLRLM:
+					prop.setProperty(key, String.valueOf(bcs_glrlm.getValue()));
+					break;
+				case SettingsContext.BinWidthGLRLM:
+					prop.setProperty(key, String.valueOf(bws_glrlm.getValue()));
+					break;
+				case SettingsContext.NormGLRLM:
+					prop.setProperty(key, norm_glrlm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountGLSZM:
+					prop.setProperty(key, String.valueOf(bcs_glszm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountGLSZM:
+					prop.setProperty(key, String.valueOf(bcs_glszm.getValue()));
+					break;
+				case SettingsContext.BinWidthGLSZM:
+					prop.setProperty(key, String.valueOf(bws_glszm.getValue()));
+					break;
+				case SettingsContext.NormGLSZM:
+					prop.setProperty(key, norm_glszm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountGLDZM:
+					prop.setProperty(key, String.valueOf(bcs_gldzm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountGLDZM:
+					prop.setProperty(key, String.valueOf(bcs_gldzm.getValue()));
+					break;
+				case SettingsContext.BinWidthGLDZM:
+					prop.setProperty(key, String.valueOf(bws_gldzm.getValue()));
+					break;
+				case SettingsContext.NormGLDZM:
+					prop.setProperty(key, norm_gldzm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountNGTDM:
+					prop.setProperty(key, String.valueOf(bcs_ngtdm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountNGTDM:
+					prop.setProperty(key, String.valueOf(bcs_ngtdm.getValue()));
+					break;
+				case SettingsContext.BinWidthNGTDM:
+					prop.setProperty(key, String.valueOf(bws_ngtdm.getValue()));
+					break;
+				case SettingsContext.DeltaNGTDM:
+					prop.setProperty(key, String.valueOf(delta_ngtdm.getValue()));
+					break;
+				case SettingsContext.NormNGTDM:
+					prop.setProperty(key, norm_ngtdm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountNGLDM:
+					prop.setProperty(key, String.valueOf(bcs_ngldm.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountNGLDM:
+					prop.setProperty(key, String.valueOf(bcs_ngldm.getValue()));
+					break;
+				case SettingsContext.BinWidthNGLDM:
+					prop.setProperty(key, String.valueOf(bws_ngldm.getValue()));
+					break;
+				case SettingsContext.AlphaNGLDM:
+					prop.setProperty(key, String.valueOf(alpha_ngldm.getValue()));
+					break;
+				case SettingsContext.DeltaNGLDM:
+					prop.setProperty(key, String.valueOf(delta_ngldm.getValue()));
+					break;
+				case SettingsContext.NormNGLDM:
+					prop.setProperty(key, norm_ngldm.getSelectedItem());
+					break;
+				case SettingsContext.UseBinCountIVH:
+					prop.setProperty(key, String.valueOf(bcs_ivh.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountIVH:
+					prop.setProperty(key, String.valueOf(bcs_ivh.getValue()));
+					break;
+				case SettingsContext.BinWidthIVH:
+					prop.setProperty(key, String.valueOf(bws_ivh.getValue()));
+					break;
+				case SettingsContext.BoxSizesFRACTAL:
+					prop.setProperty(key, String.valueOf(boxsize_fractal.getText()));
+					break;
+				default:
+					break;
+				}
+			}//loop end
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		};
+		//finally, add exclusions
+		int size = exclusionListModel.getSize();
+		for(int k=0; k<size; k++) {
+			String ex_fname = exclusionListModel.get(k);
+			prop.setProperty("EXCLUSION_"+ex_fname, ex_fname/*dummy*/);
+		}
 		return prop;
 	}
 	
@@ -1161,8 +1817,6 @@ public class RadiomicsSettings extends JPanel{
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				// JSplitPane がサイズを持ってから divider location を設定
-				// この時点では sp と sp2 のサイズが0より大きいことが期待される
 				if (sp1.getWidth() > 0 && sp1.getHeight() > 0) {
 					sp1.setDividerLocation(0.4);
 				}
