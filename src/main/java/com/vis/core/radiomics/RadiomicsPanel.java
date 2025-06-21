@@ -88,6 +88,7 @@ import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiObjManager;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.db.DatabaseHandler;
 
 import ij.gui.Roi;
 import ij.io.RoiDecoder;
@@ -165,13 +166,25 @@ public class RadiomicsPanel extends JPanel{
 	private void initBtns() {
 		
 		trainModelBtn = new JButton(TRAIN_MODEL);
+		trainModelBtn.setActionCommand(TRAIN_MODEL);
+		setAction(trainModelBtn);
 		
 		predBtn = new JButton(PREDICTION);
+		predBtn.setActionCommand(PREDICTION);
 		showProbBtn = new JButton(SHOW_PROBABILITIES);
+		showProbBtn.setActionCommand(SHOW_PROBABILITIES);
 		createMaskBtn = new JButton(SHOW_MASKS);
+		createMaskBtn.setActionCommand(SHOW_MASKS);
+		setAction(predBtn);
+		setAction(showProbBtn);
+		setAction(createMaskBtn);
 		
 		saveConfigBtn = new JButton(SAVE_CONFIG);
+		saveConfigBtn.setActionCommand(SAVE_CONFIG);
 		loadConfigBtn = new JButton(LOAD_CONFIG);
+		loadConfigBtn.setActionCommand(LOAD_CONFIG);
+		setAction(saveConfigBtn);
+		setAction(loadConfigBtn);
 		
 		wekaBtn = new JButton(WEKA);
 		wekaBtn.setActionCommand(WEKA);
@@ -467,62 +480,106 @@ public class RadiomicsPanel extends JPanel{
 		chooser.setMultiSelectionEnabled(false);
 		chooser.setDialogTitle("Select folder");
 		int userSelection = chooser.showOpenDialog(this);
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File selectedDirectory = chooser.getSelectedFile();
-            File[] files = selectedDirectory.listFiles();
-            for(File f:files) {
-            	if(f.getName().equals("ROI")) {
-            		loadRois(f);
-            	}else if(f.getName().endsWith(".properties")) {
-            		loadConfiguration(f);
-            	}else if(f.getName().endsWith(".model")) {
-            		loadModel(f);
-            	}
-            }
-        } else {
-            System.out.println("フォルダ選択がキャンセルされました。");
-        }
+		if (userSelection == JFileChooser.APPROVE_OPTION) {
+			File selectedDirectory = chooser.getSelectedFile();
+			File[] files = selectedDirectory.listFiles();
+			for (File f : files) {
+				if (f.getName().equals("ROI")) {
+					loadRois(f);
+				} else if (f.getName().endsWith(".properties")) {
+					loadConfiguration(f);
+				} else if (f.getName().endsWith(".model")) {
+					loadModel(f);
+				}
+			}
+		} else {
+			System.out.println("フォルダ選択がキャンセルされました。");
+		}
 	}
 	
 	public void loadRois(File roiDir) {
-		if(!pipeline.isPraparatReady()) {
+		if (!pipeline.isPraparatReady()) {
 			System.out.println("Praparat is not ready, can not load rois.");
 			return;
 		}
+		DatabaseHandler db = DatabaseHandler.getInstance();
 		Praparat prap = pipeline.getPraparat();
 		HashMap<String, Object> info = prap.getInfoSet();
-		String patID = (String)info.get("PatientID");
-		String studyUID = (String)info.get("StudyInstanceUID");
-		String seriesUID = (String)info.get("SeriesInstanceUID");
-		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
-		//init classPanels
+		String patID = (String) info.get("PatientID");
+		String studyUID = (String) info.get("StudyInstanceUID");
+		String seriesUID = (String) info.get("SeriesInstanceUID");
+		String[] sopUIDs = (String[]) info.get("SOPInstanceUIDs");
+		// init classPanels
 		initClassPanels();
-		//load rois
+		// load rois
 		/*
 		 * import to graphy if not exists.(update UIDs)
 		 */
 		File classes[] = roiDir.listFiles();
-		for(File c : classes) {
+		int choice = Integer.MAX_VALUE;
+		for (File c : classes) {
+			if (choice != Integer.MAX_VALUE && choice != JOptionPane.YES_OPTION) {
+				break;
+			}
 			String className = c.getName();
 			addNewClass(className);
 			File rois[] = c.listFiles();
-			for(File r : rois) {
-				if(r.getName().endsWith(".roi")) {
+			for (File r : rois) {
+				if (r.getName().endsWith(".roi")) {
 					try {
 						Roi r_ = new RoiDecoder(r.getAbsolutePath()).getRoi();
 						RoiObj ro = new RoiConverter().convert2RoiObj(r_);
-						ro.setProperty(ContextKey.PatientID, patID);
-						ro.setProperty(ContextKey.StudyInstanceUID, studyUID);
-						ro.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
-						ro.setProperty(ContextKey.SOPInstanceUID, sopUIDs[ro.getPosition()-1]);
-						prap.addRoi(ro.getPosition()-1, ro);
-						getClassPanel(className).add(ro);
+						if (isRoiBelongingTo(ro, prap)) {
+							getClassPanel(className).add(ro);
+						} else {
+							// update roi info
+							if (choice == Integer.MAX_VALUE) {
+								choice = JOptionPane.showConfirmDialog(this, // 親コンポーネント (nullで画面中央)
+										"This roi is not belonging to this series, would you like to load rois to this series ?", // 表示するメッセージ
+										"Rois are not belonging", // ダイアログのタイトル
+										JOptionPane.YES_NO_OPTION // ボタンの種類 (はい/いいえ)
+								// JOptionPane.QUESTION_MESSAGE // アイコンの種類 (任意)
+								);
+							}
+							if (choice == JOptionPane.YES_OPTION && db != null) {
+								ro.setProperty(ContextKey.PatientID, patID);
+								ro.setProperty(ContextKey.StudyInstanceUID, studyUID);
+								ro.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
+								ro.setProperty(ContextKey.SOPInstanceUID, sopUIDs[ro.getPosition() - 1]);
+								// insert db
+								prap.addRoi(ro.getPosition() - 1, ro);
+								getClassPanel(className).add(ro);
+							} else {
+								System.out.println("Cancel the load of Rois.");
+								break;
+							}
+						}
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 				}
 			}
 		}
+	}
+	
+	private boolean isRoiBelongingTo(RoiObj r, Praparat prap) {
+		HashMap<String, Object> info = prap.getInfoSet();
+		String patID = (String)info.get("PatientID");
+		String studyUID = (String)info.get("StudyInstanceUID");
+		String seriesUID = (String)info.get("SeriesInstanceUID");
+		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
+		String pid_ = r.getProperty(ContextKey.PatientID);
+		String stUID = r.getProperty(ContextKey.StudyInstanceUID);
+		String seUID = r.getProperty(ContextKey.SeriesInstanceUID);
+		String sopUID = r.getProperty(ContextKey.SOPInstanceUID);
+		if(patID.equals(pid_)&&studyUID.equals(stUID)&&seriesUID.equals(seUID)) {
+			for(String sop : sopUIDs) {
+				if(sop.equals(sopUID)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 	
 	public void loadConfiguration(File f) {

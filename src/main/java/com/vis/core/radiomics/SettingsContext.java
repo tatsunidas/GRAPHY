@@ -97,6 +97,16 @@ public class SettingsContext {
 	public static final String FRACTAL = "Fractal";
 	public static final String SHAPE2D = "Shape2D";
 	
+	//TODO
+	public static final String UseBinCountHISTOGRAM = "BINCOUNT_HIST_BOOL";
+	public static final String BinCountHISTOGRAM = "BINCOUNT_HIST_INT";
+	public static final String BinWidthHISTOGRAM = "BINWIDTH_HIST_DOUBLE";
+	
+	public static final String UseOriginalIVH = "USEORIGINAL_IVH_BOOL";
+	public static final String UseBinCountIVH = "BINCOUNT_IVH_BOOL";
+	public static final String BinCountIVH = "BINCOUNT_IVH_INT";
+	public static final String BinWidthIVH = "BINWIDTH_IVH_DOUBLE";
+	
 	public static final String UseBinCountGLCM = "BINCOUNT_GLCM_BOOL";
 	public static final String BinCountGLCM = "BINCOUNT_GLCM_INT";
 	public static final String BinWidthGLCM = "BINWIDTH_GLCM_DOUBLE";
@@ -130,10 +140,6 @@ public class SettingsContext {
 	public static final String AlphaNGLDM = "ALPHA_NGLDM_DOUBLE";
 	public static final String DeltaNGLDM = "DELTA_NGLDM_DOUBLE";
 	public static final String NormNGLDM = "NORM_NGLDM_STRING";
-	
-	public static final String UseBinCountIVH = "BINCOUNT_IVH_BOOL";
-	public static final String BinCountIVH = "BINCOUNT_IVH_INT";
-	public static final String BinWidthIVH = "BINWIDTH_IVH_DOUBLE";
 	
 	public static final String BoxSizesFRACTAL = "BOXSIZES_FRACTAL";
 	

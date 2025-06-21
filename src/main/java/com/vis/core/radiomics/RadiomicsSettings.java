@@ -238,6 +238,7 @@ public class RadiomicsSettings extends JPanel{
 	NormComboPanel norm_ngldm;
 	
 	ButtonGroup binGroup_ivh;
+	JRadioButton useOrg_ivh;
 	BinCountSettings bcs_ivh;
 	BinWidthSettings bws_ivh;
 	
@@ -915,7 +916,10 @@ public class RadiomicsSettings extends JPanel{
 		JPanel ivh = new JPanel(new GridLayout(5,1));
 		bcs_ivh = new BinCountSettings(defaultBinCount);
 		bws_ivh = new BinWidthSettings(Double.NaN);
+		useOrg_ivh = new JRadioButton("Use As-Is");
+		useOrg_ivh.setActionCommand(SettingsContext.UseOriginalIVH);
 		binGroup_ivh = setButtonGroup(bcs_ivh, bws_ivh, useBinCount, ivhShort);
+		binGroup_ivh.add(useOrg_ivh);
 		ivh.add(bcs_ivh);
 		ivh.add(bws_ivh);
 		insertBlankPanel(ivh, 3);
@@ -1301,7 +1305,7 @@ public class RadiomicsSettings extends JPanel{
 					break;
 				case SettingsContext.BinWidthNGLDM:
 					try {
-						double v = Double.valueOf(val);// check whether integer or not
+						double v = Double.valueOf(val);
 						bws_ngldm.setValue(v);
 					}catch(NumberFormatException e) {
 						//skip
@@ -1326,6 +1330,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.NormNGLDM:
 					norm_ngldm.setSelectedItem(val);
 					break;
+				case SettingsContext.UseOriginalIVH:
+					useOrg_ivh.setSelected(Boolean.valueOf(val));
+					break;
 				case SettingsContext.UseBinCountIVH:
 					bcs_ivh.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1339,7 +1346,7 @@ public class RadiomicsSettings extends JPanel{
 					break;
 				case SettingsContext.BinWidthIVH:
 					try {
-						double v = Double.valueOf(val);// check whether integer or not
+						double v = Double.valueOf(val);
 						bws_ivh.setValue(v);
 					}catch(NumberFormatException e) {
 						//skip
@@ -1563,6 +1570,9 @@ public class RadiomicsSettings extends JPanel{
 					break;
 				case SettingsContext.NormNGLDM:
 					prop.setProperty(key, norm_ngldm.getSelectedItem());
+					break;
+				case SettingsContext.UseOriginalIVH:
+					prop.setProperty(key, String.valueOf(useOrg_ivh.isSelected()));
 					break;
 				case SettingsContext.UseBinCountIVH:
 					prop.setProperty(key, String.valueOf(bcs_ivh.getRadioButton().isSelected()));
