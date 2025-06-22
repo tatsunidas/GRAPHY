@@ -45,6 +45,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
+
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -101,6 +104,7 @@ import weka.core.Instances;
 import weka.core.OptionHandler;
 import weka.core.Utils;
 import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.Remove;
 import weka.filters.unsupervised.attribute.RemoveUseless;
 
 /*
@@ -753,10 +757,13 @@ public class RadiomicsPipeline {
 			System.out.println("フィルタリング後の属性数: " + dataAfterRemoveUseless.numAttributes());
 			System.out.println(dataAfterRemoveUseless.toSummaryString());
 
-			/*
-			 * I have realize remove multi-corr(th>0.9) here, but weka is not implemented.
-			 * Now, skip it .
-			 */
+			Instances dataAfterRemoveMultiCorr = null;
+			try {
+				dataAfterRemoveMultiCorr = dropHighlyCorrelatedFeatures(dataAfterRemoveUseless, 0.9);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
 			// --- ステップ3: LASSOによる特徴選択 ---
 			System.out.println("\n--- ステップ2: LASSOによる特徴選択 (L1正則化を持つロジスティック回帰を評価器として使用) ---");
@@ -791,8 +798,8 @@ public class RadiomicsPipeline {
 			attributeSelection.setSearch(search);
 			Instances finalSelectedData = null;
 			try {
-				attributeSelection.SelectAttributes(dataAfterRemoveUseless);
-				finalSelectedData = attributeSelection.reduceDimensionality(dataAfterRemoveUseless);
+				attributeSelection.SelectAttributes(dataAfterRemoveMultiCorr);
+				finalSelectedData = attributeSelection.reduceDimensionality(dataAfterRemoveMultiCorr);
 				trainingDataset = finalSelectedData;
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
@@ -802,6 +809,102 @@ public class RadiomicsPipeline {
 			System.out.println("最終的に選択された属性:\n" + finalSelectedData.toSummaryString());
 		}
 	}
+	
+	/**
+     * WEKA Instances内で相関の高い数値属性のペアを見つけ、一方をドロップします。
+     * ただし、ターゲット変数（クラス属性）は相関計算およびドロップの対象外とします。
+     *
+     * @param data        処理対象のWEKA Instancesオブジェクト。
+     * @param threshold   相関のしきい値。この値以上の相関がある場合、一方の属性をドロップします。
+     * @return            相関の高い属性がドロップされた新しいInstancesオブジェクト。
+     * @throws Exception  フィルタリング処理中にエラーが発生した場合。
+     */
+    public static Instances dropHighlyCorrelatedFeatures(Instances data, double threshold) throws Exception {
+        // クラス属性のインデックスを取得
+        int classIndex = data.classIndex();
+
+        // 相関計算の対象となる数値属性のみを抽出
+        List<Attribute> numericAttributesForCorrelation = new ArrayList<>();
+        List<Integer> originalNumericAttributeIndexes = new ArrayList<>(); // 元のInstancesでのインデックスを保持
+        
+        for (int i = 0; i < data.numAttributes(); i++) {
+            Attribute att = data.attribute(i);
+            // 数値属性であり、かつクラス属性ではない場合のみ対象とする
+            if (att.isNumeric() && i != classIndex) {
+                numericAttributesForCorrelation.add(att);
+                originalNumericAttributeIndexes.add(i);
+            }
+        }
+
+        if (numericAttributesForCorrelation.isEmpty()) {
+            System.out.println("警告: 相関計算対象の数値属性が見つかりませんでした。元のInstancesを返します。");
+            return data;
+        }
+
+        int numNumericAttributes = numericAttributesForCorrelation.size();
+        double[][] correlationMatrix = new double[numNumericAttributes][numNumericAttributes];
+        PearsonsCorrelation pearsonCorrelation = new PearsonsCorrelation();
+
+        // 相関行列の計算
+        for (int i = 0; i < numNumericAttributes; i++) {
+            for (int j = i; j < numNumericAttributes; j++) {
+                if (i == j) {
+                    correlationMatrix[i][j] = 1.0;
+                } else {
+                    Attribute att1 = numericAttributesForCorrelation.get(i);
+                    Attribute att2 = numericAttributesForCorrelation.get(j);
+
+                    double[] x = data.attributeToDoubleArray(att1.index());
+                    double[] y = data.attributeToDoubleArray(att2.index());
+
+                    double correlation = pearsonCorrelation.correlation(x, y);
+                    correlationMatrix[i][j] = Math.abs(correlation);
+                    correlationMatrix[j][i] = Math.abs(correlation);
+                }
+            }
+        }
+
+        // ドロップする属性の元のインデックスを特定
+        List<Integer> attributeIndexesToDrop = new ArrayList<>();
+        List<String> attributeNamesToDrop = new ArrayList<>();
+
+        for (int i = 0; i < numNumericAttributes; i++) {
+            for (int j = i + 1; j < numNumericAttributes; j++) {
+                if (correlationMatrix[i][j] > threshold) {
+                    // 相関が高い場合、後の方の属性（j番目）をドロップ候補に追加
+                    // ここでのjは `numericAttributesForCorrelation` リスト内でのインデックス
+                    int originalIndexToDrop = originalNumericAttributeIndexes.get(j);
+                    
+                    // クラス属性は絶対にドロップしないことを保証
+                    if (originalIndexToDrop != classIndex && !attributeIndexesToDrop.contains(originalIndexToDrop)) {
+                        attributeIndexesToDrop.add(originalIndexToDrop);
+                        attributeNamesToDrop.add(data.attribute(originalIndexToDrop).name());
+                    }
+                }
+            }
+        }
+        
+        // ドロップする属性のインデックスを昇順にソート（WEKAのRemoveフィルタの要件のため）
+        Collections.sort(attributeIndexesToDrop);
+
+        // WEKAのRemoveフィルタを使用して属性をドロップ
+        Remove removeFilter = new Remove();
+        String attributeIndices = attributeIndexesToDrop.stream()
+                                    .map(String::valueOf)
+                                    .collect(Collectors.joining(","));
+        
+        if (attributeIndices.isEmpty()) {
+            System.out.println("ドロップする属性はありませんでした。元のInstancesを返します。");
+            return data;
+        }
+
+        removeFilter.setAttributeIndices(attributeIndices);
+        removeFilter.setInputFormat(data);
+        Instances newData = Filter.useFilter(data, removeFilter);
+
+        System.out.println("MultiCorrとしてドロップされた属性: " + attributeNamesToDrop);
+        return newData;
+    }
 
 //	private void prepareTrainDataset(ResultsTable rt, String targetColName, List<String> drop) {
 //		String[] headerStrings = rt.getHeadings();
