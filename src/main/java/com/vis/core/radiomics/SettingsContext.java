@@ -111,35 +111,35 @@ public class SettingsContext {
 	public static final String BinCountGLCM = "BINCOUNT_GLCM_INT";
 	public static final String BinWidthGLCM = "BINWIDTH_GLCM_DOUBLE";
 	public static final String DeltaGLCM = "DELTA_GLCM_DOUBLE";
-	public static final String NormGLCM = "NORM_GLCM_STRING";
+	//public static final String NormGLCM = "NORM_GLCM_STRING";
 	
 	public static final String UseBinCountGLRLM = "BINCOUNT_GLRLM_BOOL";
 	public static final String BinCountGLRLM = "BINCOUNT_GLRLM_INT";
 	public static final String BinWidthGLRLM = "BINWIDTH_GLRLM_DOUBLE";
-	public static final String NormGLRLM = "NORM_GLRLM_STRING";
+//	public static final String NormGLRLM = "NORM_GLRLM_STRING";
 	
 	public static final String UseBinCountGLSZM = "BINCOUNT_GLSZM_BOOL";
 	public static final String BinCountGLSZM = "BINCOUNT_GLSZM_INT";
 	public static final String BinWidthGLSZM = "BINWIDTH_GLSZM_DOUBLE";
-	public static final String NormGLSZM = "NORM_GLSZM_STRING";
+//	public static final String NormGLSZM = "NORM_GLSZM_STRING";
 	
 	public static final String UseBinCountGLDZM = "BINCOUNT_GLDZM_BOOL";
 	public static final String BinCountGLDZM = "BINCOUNT_GLDZM_INT";
 	public static final String BinWidthGLDZM = "BINWIDTH_GLDZM_DOUBLE";
-	public static final String NormGLDZM = "NORM_GLDZM_STRING";
+//	public static final String NormGLDZM = "NORM_GLDZM_STRING";
 	
 	public static final String UseBinCountNGTDM = "BINCOUNT_NGTDM_BOOL";
 	public static final String BinCountNGTDM = "BINCOUNT_NGTDM_INT";
 	public static final String BinWidthNGTDM = "BINWIDTH_NGTDM_DOUBLE";
 	public static final String DeltaNGTDM = "DELTA_NGTDM_DOUBLE";
-	public static final String NormNGTDM = "NORM_NGTDM_STRING";
+//	public static final String NormNGTDM = "NORM_NGTDM_STRING";
 	
 	public static final String UseBinCountNGLDM = "BINCOUNT_NGLDM_BOOL";
 	public static final String BinCountNGLDM = "BINCOUNT_NGLDM_INT";
 	public static final String BinWidthNGLDM = "BINWIDTH_NGLDM_DOUBLE";
 	public static final String AlphaNGLDM = "ALPHA_NGLDM_DOUBLE";
 	public static final String DeltaNGLDM = "DELTA_NGLDM_DOUBLE";
-	public static final String NormNGLDM = "NORM_NGLDM_STRING";
+//	public static final String NormNGLDM = "NORM_NGLDM_STRING";
 	
 	public static final String BoxSizesFRACTAL = "BOXSIZES_FRACTAL";
 	

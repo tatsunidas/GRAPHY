@@ -59,6 +59,16 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
+import io.github.tatsunidas.radiomics.features.FractalFeatureType;
+import io.github.tatsunidas.radiomics.features.FractalFeatures;
+import io.github.tatsunidas.radiomics.features.GLCMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLCMFeatures;
+import io.github.tatsunidas.radiomics.features.GLDZMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLDZMFeatures;
+import io.github.tatsunidas.radiomics.features.GLRLMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLRLMFeatures;
+import io.github.tatsunidas.radiomics.features.GLSZMFeatureType;
+import io.github.tatsunidas.radiomics.features.GLSZMFeatures;
 import io.github.tatsunidas.radiomics.features.IntensityBasedStatisticalFeatureType;
 import io.github.tatsunidas.radiomics.features.IntensityBasedStatisticalFeatures;
 import io.github.tatsunidas.radiomics.features.IntensityHistogramFeatureType;
@@ -69,7 +79,16 @@ import io.github.tatsunidas.radiomics.features.LocalIntensityFeatureType;
 import io.github.tatsunidas.radiomics.features.LocalIntensityFeatures;
 import io.github.tatsunidas.radiomics.features.MorphologicalFeatureType;
 import io.github.tatsunidas.radiomics.features.MorphologicalFeatures;
+import io.github.tatsunidas.radiomics.features.NGLDMFeatureType;
+import io.github.tatsunidas.radiomics.features.NGLDMFeatures;
+import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
+import io.github.tatsunidas.radiomics.features.NGTDMFeatures;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
+import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
+import weka.attributeSelection.AttributeSelection;
+import weka.attributeSelection.BestFirst;
+import weka.attributeSelection.WrapperSubsetEval;
 import weka.classifiers.Classifier;
 import weka.classifiers.functions.Logistic;
 import weka.classifiers.functions.SMOreg;
@@ -81,6 +100,8 @@ import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.OptionHandler;
 import weka.core.Utils;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.RemoveUseless;
 
 /*
  * init model
@@ -147,22 +168,15 @@ public class RadiomicsPipeline {
 		ResultsTable rt = null;
 		for (String className : roiset.keySet()) {
 			List<RoiObj> rois = roiset.get(className);
-			ResultsTable rt1 = calcFeatures(setting, rois, prap);
-			// add target label
-			for (int i = 0; i < rt.size(); i++) {
-				rt.addValue(targetColName, className);
+			ResultsTable rt_ = calcAllFeatures(setting, rois, prap);
+			// add target label to calculation results
+			for (int i = 0; i < rt_.size(); i++) {
+				rt_.addValue(targetColName, className);
 			}
-			rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt/* null-able */, rt1);
+			rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt/* null-able */, rt_);
 		}
-		prepareTrainDataset(rt, targetColName, null);
 		
-		//TODO
-		/**
-		 * drop corr
-		 * drop zero variance
-		 * then feature selection
-		 * finally, train.
-		 */
+		prepareTrainDataset(rt, targetColName, true);
 		
 		System.out.println("Classifierを訓練中...");
 		try {
@@ -197,23 +211,199 @@ public class RadiomicsPipeline {
 	
 	/**
 	 * 
-	 * @param featureNames
-	 * @param imp: preprocessed
+	 * @param prop from settings
+	 * @param features to calculate
+	 * @param imp
 	 * @param mask
-	 * @param label
+	 * @param mask label
 	 * @return
 	 */
 	private ResultsTable calcFeatures(Properties settingsProp/*radiomicsSetting*/, List<String> featureNames, ImagePlus imp, ImagePlus mask, int label){
 		ResultsTable rt = new ResultsTable();
 		rt.addRow();
+		boolean is3D = ((String)settingsProp.get(SettingsContext.D3Basis)).equals("true");
+		if(is3D == false) {
+			RadiomicsJ.force2D = true;
+		}else {
+			RadiomicsJ.force2D = false;
+		}
+		Boolean useBinCountHist = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountHISTOGRAM));
+		Integer binCountHist = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountHISTOGRAM));
+		Double binWidthHist = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthHISTOGRAM));
+		
+		Boolean useOriginalIVH = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseOriginalIVH));
+		Boolean useBinCountIVH = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountIVH));
+		Integer binCountIVH = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountIVH));
+		Double binWidthIVH = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthIVH));
+		
+		Boolean useBinCountGLCM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountGLCM));
+		Integer binCountGLCM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountGLCM));
+		Double binWidthGLCM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthGLCM));
+		Integer deltaGLCM = Integer.valueOf((String)settingsProp.get(SettingsContext.DeltaGLCM));
+		
+		Boolean useBinCountGLRLM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountGLRLM));
+		Integer binCountGLRLM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountGLRLM));
+		Double binWidthGLRLM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthGLRLM));
+		
+		Boolean useBinCountGLSZM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountGLSZM));
+		Integer binCountGLSZM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountGLSZM));
+		Double binWidthGLSZM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthGLSZM));
+		
+		Boolean useBinCountGLDZM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountGLDZM));
+		Integer binCountGLDZM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountGLDZM));
+		Double binWidthGLDZM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthGLDZM));
+		
+		Boolean useBinCountNGTDM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountNGTDM));
+		Integer binCountNGTDM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountNGTDM));
+		Double binWidthNGTDM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthNGTDM));
+		Integer deltaNGTDM = Integer.valueOf((String)settingsProp.get(SettingsContext.DeltaNGTDM));
+		
+		Boolean useBinCountNGLDM = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountNGLDM));
+		Integer binCountNGLDM = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountNGLDM));
+		Double binWidthNGLDM = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthNGLDM));
+		Integer alphaNGLDM = Integer.valueOf((String)settingsProp.get(SettingsContext.AlphaNGLDM));
+		Integer deltaNGLDM = Integer.valueOf((String)settingsProp.get(SettingsContext.DeltaNGLDM));
+		
+		String boxSizes = (String)settingsProp.get(SettingsContext.BoxSizesFRACTAL);
+		
+		//init feature calculations
+		Shape2DFeatures shape2d = null;
+		MorphologicalFeatures mf = null;
+		LocalIntensityFeatures lif = null;
+		IntensityBasedStatisticalFeatures isf = null;
+		IntensityHistogramFeatures ihf = null;
+		IntensityVolumeHistogramFeatures ivhf = null;
+		GLCMFeatures glcm = null;
+		GLRLMFeatures glrlm = null;
+		GLSZMFeatures glszm = null;
+		GLDZMFeatures gldzm = null;
+		NGTDMFeatures ngtdm = null;
+		NGLDMFeatures ngldm = null;
+		FractalFeatures ff = null;
+		
 		for(String fname : featureNames) {
-			String fam = fname.split("_")[0];
+			String fam = fname.split("_")[0];//full family name
+			switch(fam) {
+			case SettingsContext.SHAPE2D:
+				if(shape2d!=null) break;
+				shape2d = new Shape2DFeatures(imp, mask,1,label);
+				break;
+			case SettingsContext.MORPHOLOGICAL:
+				if(mf!=null) break;
+				mf = new MorphologicalFeatures(imp, mask, label);
+				break;
+			case SettingsContext.LOCALINTENSITY:
+				if(lif!=null) break;
+				lif = new LocalIntensityFeatures(imp, mask, label);
+				break;
+			case SettingsContext.INTENSITYSTATS:
+				if(isf!=null) break;
+				isf = new IntensityBasedStatisticalFeatures(imp, mask, label);
+				break;
+			case SettingsContext.INTENSITYHISTOGRAM:
+				if(ihf!=null) break;
+				try {
+					ihf = new IntensityHistogramFeatures(imp, mask, label, useBinCountHist, binCountHist,binWidthHist);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
+				if(ivhf!=null) break;
+				int mode = 0;
+				if(useOriginalIVH==false && useBinCountIVH==false) {
+					mode=2;
+				}else if(useBinCountIVH==true) {
+					mode =1;
+				}
+				RadiomicsJ.IVH_binCount = binCountIVH;
+				RadiomicsJ.IVH_binWidth = binWidthIVH;
+				try {
+					ivhf = new IntensityVolumeHistogramFeatures(imp, mask, label, mode);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.GLCM:
+				if(glcm!=null) break;
+				try {
+					glcm = new GLCMFeatures(imp, mask, label, deltaGLCM, useBinCountGLCM, binCountGLCM, binWidthGLCM, null);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.GLRLM:
+				if(glrlm!=null) break;
+				try {
+					glrlm = new GLRLMFeatures(imp, mask, label, useBinCountGLRLM, binCountGLRLM, binWidthGLRLM, null);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.GLSZM:
+				if(glszm!=null) break;
+				try {
+					glszm = new GLSZMFeatures(imp, mask, label, useBinCountGLSZM, binCountGLSZM, binWidthGLSZM);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.GLDZM:
+				if(gldzm!=null) break;
+				try {
+					gldzm = new GLDZMFeatures(imp, mask, label, useBinCountGLDZM, binCountGLDZM, binWidthGLDZM);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.NGTDM:
+				if(ngtdm!=null) break;
+				try {
+					ngtdm = new NGTDMFeatures(imp, mask, label, deltaNGTDM, useBinCountNGTDM, binCountNGTDM, binWidthNGTDM);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.NGLDM:
+				if(ngldm!=null) break;
+				try {
+					ngldm = new NGLDMFeatures(imp, mask, label,alphaNGLDM, deltaNGLDM, useBinCountNGLDM, binCountNGLDM, binWidthNGLDM);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				break;
+			case SettingsContext.FRACTAL:
+				if(ff!=null) break;
+				ff = new FractalFeatures(imp, mask, label, is3D ? null:1, convertCommaSeparatedStringToIntArray(boxSizes));
+				break;
+			default:
+				//do nothing
+			}
+		}
+		
+		//execute all feature calculations
+		for(String fname : featureNames) {
+			String fam = fname.split("_")[0];//full family name
 			String name = fname.split("_")[1];
 			switch(fam) {
+			case SettingsContext.SHAPE2D:
+				for(Shape2DFeatureType t:Shape2DFeatureType.values()) {
+					if(name.equals(t.name())) {
+						rt.addValue(fname, shape2d.calculate(t.id()));
+					}
+				}
+				break;
 			case SettingsContext.MORPHOLOGICAL:
 				for(MorphologicalFeatureType t:MorphologicalFeatureType.values()) {
 					if(name.equals(t.name())) {
-						MorphologicalFeatures mf = new MorphologicalFeatures(imp, mask, label);
 						rt.addValue(fname, mf.calculate(t.id()));
 					}
 				}
@@ -221,29 +411,22 @@ public class RadiomicsPipeline {
 			case SettingsContext.LOCALINTENSITY:
 				for(LocalIntensityFeatureType t:LocalIntensityFeatureType.values()) {
 					if(name.equals(t.name())) {
-						LocalIntensityFeatures f = new LocalIntensityFeatures(imp, mask, label);
-						rt.addValue(fname, f.calculate(t.id()));
+						rt.addValue(fname, lif.calculate(t.id()));
 					}
 				}
 				break;
 			case SettingsContext.INTENSITYSTATS:
 				for(IntensityBasedStatisticalFeatureType t:IntensityBasedStatisticalFeatureType.values()) {
 					if(name.equals(t.name())) {
-						IntensityBasedStatisticalFeatures f = new IntensityBasedStatisticalFeatures(imp, mask, label);
-						rt.addValue(fname, f.calculate(t.id()));
+						rt.addValue(fname, isf.calculate(t.id()));
 					}
 				}
 				break;
 			case SettingsContext.INTENSITYHISTOGRAM:
-				Boolean useBinCountHist = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountHISTOGRAM));
-				Integer binCountHist = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountHISTOGRAM));
-				Double binWidthHist = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthHISTOGRAM));
 				for(IntensityHistogramFeatureType t:IntensityHistogramFeatureType.values()) {
 					if(name.equals(t.name())) {
-						IntensityHistogramFeatures f;
 						try {
-							f = new IntensityHistogramFeatures(imp, mask, label, useBinCountHist, binCountHist,binWidthHist);
-							rt.addValue(fname, f.calculate(t.id()));
+							rt.addValue(fname, ihf.calculate(t.id()));
 						} catch ( Exception e) {
 							e.printStackTrace();
 						}
@@ -251,43 +434,107 @@ public class RadiomicsPipeline {
 				}
 				break;
 			case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
-				int mode = 0;
-				Boolean useOriginalIVH = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseOriginalIVH));
-				Boolean useBinCountIVH = Boolean.valueOf((String)settingsProp.get(SettingsContext.UseBinCountIVH));
-				Integer binCountIVH = Integer.valueOf((String)settingsProp.get(SettingsContext.BinCountIVH));
-				Double binWidthIVH = Double.valueOf((String)settingsProp.get(SettingsContext.BinWidthIVH));
-				if(useOriginalIVH==false && useBinCountIVH==false) {
-					mode=2;
-					RadiomicsJ.IVH_binWidth = binWidthIVH;
-				}else if(useBinCountIVH==true) {
-					mode =1;
-					RadiomicsJ.IVH_binCount = binCountIVH;
-				}
 				for(IntensityVolumeHistogramFeatureType t:IntensityVolumeHistogramFeatureType.values()) {
 					if(name.equals(t.name())) {
-						IntensityVolumeHistogramFeatures f;
 						try {
-							f = new IntensityVolumeHistogramFeatures(imp, mask, label, mode);
-							rt.addValue(fname, f.calculate(t.id()));
+							rt.addValue(fname, ivhf.calculate(t.id()));
 						} catch ( Exception e) {
 							e.printStackTrace();
 						}
 					}
 				}
 				break;
+			case SettingsContext.GLCM:
+				for(GLCMFeatureType t:GLCMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, glcm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.GLRLM:
+				for(GLRLMFeatureType t:GLRLMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, glrlm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.GLSZM:
+				for(GLSZMFeatureType t:GLSZMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, glszm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.GLDZM:
+				for(GLDZMFeatureType t:GLDZMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, gldzm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.NGTDM:
+				for(NGTDMFeatureType t:NGTDMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, ngtdm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.NGLDM:
+				for(NGLDMFeatureType t:NGLDMFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, ngldm.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				break;
+			case SettingsContext.FRACTAL:
+				for(FractalFeatureType t:FractalFeatureType.values()) {
+					if(name.equals(t.name())) {
+						try {
+							rt.addValue(fname, ff.calculate(t.id()));
+						} catch ( Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
 			default:
 				//do nothing
 			}
 		}
 		return rt;
 	}
-	
-	public ResultsTable calcFeatures(RadiomicsSettings setting, List<RoiObj> rois, Praparat prap) {
-		Properties prop = setting.currentSettings();
-		Integer label = Integer.valueOf((String)prop.get(SettingsContext.MASK_LABEL));
-		RadiomicsJ rad = new RadiomicsJ();
+
+	public ResultsTable calcAllFeatures(RadiomicsSettings setting, List<RoiObj> rois/*belonging a class*/, Praparat prap) {
+		Properties settingsProp = setting.currentSettings();
+		Integer label = Integer.valueOf((String)settingsProp.get(SettingsContext.MASK_LABEL));
 		ImagePlus imp = prap.getImagePlus();
-		boolean d3_basis = Boolean.valueOf((String)prop.getProperty(SettingsContext.D3Basis));
+		boolean d3_basis = Boolean.valueOf((String)settingsProp.getProperty(SettingsContext.D3Basis));
+		
+		List<String> featureNames = RadiomicsSettings.featureNames(null);
+		
 		ResultsTable rt = null;
 		//grab rois for groups
 		HashMap<String, List<RoiObj>> groups = new HashMap<>();
@@ -303,47 +550,65 @@ public class RadiomicsPipeline {
 			}
 			groups.get(gname).add(r);
 		}
-		if(d3_basis) {
-			for(String key : groups.keySet()) {
+		if (d3_basis) {
+			for (String key : groups.keySet()) {
 				List<RoiObj> roi_group = groups.get(key);
 				ImagePlus mask = createMaskWithRois(imp, roi_group, label);
-				if(rt == null) {
-					try {
-						rt = rad.execute(imp, mask, label);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}else {
-					try {
-						ResultsTable rt2 = rad.execute(imp, mask, label);
-						rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt2);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				try {
+					ResultsTable rt_ = calcFeatures(settingsProp, featureNames, imp, mask, label);
+					rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
-		}else { // 2d basis
-			//if 2d basis, calculate slice by slice
-			for(String key : groups.keySet()) {
+		} else { // 2d basis
+			// if 2d basis, calculate slice by slice
+			for (String key : groups.keySet()) {
 				List<RoiObj> roi_group = groups.get(key);
-				ImagePlus mask = createMaskWithRois(imp, roi_group, label);
-				if(rt == null) {
-					try {
-						rt = rad.extractAllSlice(imp, mask, label);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}else {
-					try {
-						ResultsTable rt2 = rad.extractAllSlice(imp, mask, label);
-						rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt2);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				for(RoiObj r : roi_group) {
+					int pos = r.getPosition();
+					ImagePlus slice = new ImagePlus("",imp.getStack().getProcessor(pos));
+					ByteProcessor maskIp = new ByteProcessor(slice.getWidth(), slice.getHeight());
+					maskIp.setValue(label);
+					maskIp.fill(new RoiConverter().convert2Roi(r));
+					ImagePlus mask = new ImagePlus("mask", maskIp);
+					ResultsTable rt_ = calcFeatures(settingsProp, featureNames, slice, mask, label);
+					rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
 				}
 			}
 		}
 		return rt;
+	}
+
+	public int[] convertCommaSeparatedStringToIntArray(String commaSeparatedString) {
+		// null または空の文字列の場合、空の配列を返す
+		if (commaSeparatedString == null || commaSeparatedString.trim().isEmpty()) {
+			return null;
+		}
+		// カンマで文字列を分割
+		// trim() を使用して前後の空白を除去
+		String[] stringNumbers = commaSeparatedString.split(",");
+		// 変換された整数を一時的に格納するためのリスト
+		List<Integer> intList = new ArrayList<>();
+		for (String s : stringNumbers) {
+			// 各文字列をトリムし、空でないことを確認してから整数に変換
+			String trimmedS = s.trim();
+			if (!trimmedS.isEmpty()) {
+				try {
+					intList.add(Integer.parseInt(trimmedS));
+				} catch (NumberFormatException e) {
+					// 数字に変換できない文字列が含まれていた場合
+					System.err.println("エラー: '" + trimmedS + "' は有効な数字ではありません。");
+					throw e; // 例外を再スローするか、エラー処理を記述
+				}
+			}
+		}
+		// List<Integer> を int[] に変換
+		int[] intArray = new int[intList.size()];
+		for (int i = 0; i < intList.size(); i++) {
+			intArray[i] = intList.get(i);
+		}
+		return intArray;
 	}
 	
 	/**
@@ -417,51 +682,48 @@ public class RadiomicsPipeline {
 		return data;
 	}
 	
-	private void prepareTrainDataset(ResultsTable rt, String targetColName, List<String> drop) {
+	private void prepareTrainDataset(ResultsTable rt, String targetColName, boolean selectFeatures) {
 		String[] headerStrings = rt.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
-		if(drop != null) {
-			header.removeAll(drop);
-		}
 		explanatoryAttr = toAttributes(header);
 		targetAttr = targetClassAttribute4Clf(rt, targetColName);
 		ArrayList<Attribute> attributes = new ArrayList<>(explanatoryAttr);
 		attributes.add(targetAttr);
-		trainingDataset = new Instances("TrainingDataset", attributes, 0/*volume of row*/);
-		
+		trainingDataset = new Instances("TrainingDataset", attributes, 0/* volume of row */);
+
 		// クラス属性のインデックスを設定 (通常は最後の属性)
 		trainingDataset.setClassIndex(attributes.size() - 1);
-       
-       // 訓練データのインスタンスを作成してデータセットに追加
+
+		// 訓練データのインスタンスを作成してデータセットに追加
 		int col = header.size();
 		int row = rt.size();
 		boolean numericalTarget = isNumericalTarget(rt.getColumnAsStrings(targetColName));
-		for(int r =0; r<row; r++) {
+		for (int r = 0; r < row; r++) {
 			Instance record = new DenseInstance(col); // 属性の数
-			for(int c =0; c<col; c++) {
+			for (int c = 0; c < col; c++) {
 				String h = header.get(c);
-				if(h.startsWith(SettingsContext.DIAGNOSTICS) || h.startsWith(SettingsContext.OPERATIONAL)) {
+				if (h.startsWith(SettingsContext.DIAGNOSTICS) || h.startsWith(SettingsContext.OPERATIONAL)) {
 					continue;
 				}
 				Attribute attr = attributes.get(c);
-				if(h.equals(targetColName)) {
+				if (h.equals(targetColName)) {
 					String v = rt.getColumnAsStrings(h)[r];
 					/*
 					 * drop if target is null
 					 */
-					if(v == null || v.length() == 0) {
+					if (v == null || v.length() == 0) {
 						continue;
 					}
-					//string or double ?
-					if(numericalTarget) {
+					// string or double ?
+					if (numericalTarget) {
 						Double dv = rt.getColumn(h)[r];
 						record.setValue(attr, dv);
-					}else {//string
+					} else {// string
 						record.setValue(attr, v);
 					}
 					continue;
 				}
-				//others always numerical.
+				// others always numerical.
 				Double v = rt.getColumn(h)[r];
 //				if(v == null) {
 //					v = weka.core.Utils.missingValue();//Double.NaN
@@ -471,9 +733,133 @@ public class RadiomicsPipeline {
 			trainingDataset.add(record);
 		}
 		System.out.println("データセットが正常にロードされました。");
-        System.out.println("インスタンス数: " + trainingDataset.numInstances());
-        System.out.println("属性数: " + trainingDataset.numAttributes());
+		System.out.println("インスタンス数: " + trainingDataset.numInstances());
+		System.out.println("属性数: " + trainingDataset.numAttributes());
+
+		if (selectFeatures) {
+			System.out.println("Start feature selection...");
+			// --- ステップ1: 分散が0の属性を除去 ---
+			System.out.println("\n--- ステップ1: 分散が0の属性を除去 ---");
+			RemoveUseless removeUselessFilter = new RemoveUseless();
+			Instances dataAfterRemoveUseless = null;
+			try {
+				removeUselessFilter.setInputFormat(trainingDataset);
+				dataAfterRemoveUseless = Filter.useFilter(trainingDataset, removeUselessFilter);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			System.out.println("フィルタリング後の属性数: " + dataAfterRemoveUseless.numAttributes());
+			System.out.println(dataAfterRemoveUseless.toSummaryString());
+
+			/*
+			 * I have realize remove multi-corr(th>0.9) here, but weka is not implemented.
+			 * Now, skip it .
+			 */
+
+			// --- ステップ3: LASSOによる特徴選択 ---
+			System.out.println("\n--- ステップ2: LASSOによる特徴選択 (L1正則化を持つロジスティック回帰を評価器として使用) ---");
+			// LASSOの係数が0になるような特徴選択を行うには、L1正則化をサポートする分類器を使用します。
+			// ここではLogistic (Lasso) を使用します。
+			// LogisticのデフォルトではL1正則化が有効になっています。
+			// (Ridge (L2) と Lasso (L1) は、useRidge=false, useLasso=true で制御されます)
+
+			// 評価器 (Evaluator) の設定: WrapperSubsetEval を使用し、内部でLogisticモデルを評価
+			WrapperSubsetEval wrapperEval = new WrapperSubsetEval();
+			Logistic logisticClassifier = new Logistic();
+			// LogisticのL1正則化の強さ (lambda) を調整することも可能ですが、
+			// デフォルト設定で試すのが一般的です。
+			// logisticClassifier.setRidge(0.01); // L2正則化の強さ
+			// (Lassoの場合は0にするか、useRidge=false)
+			wrapperEval.setClassifier(logisticClassifier);
+
+			// 探索アルゴリズム (Search) の設定: BestFirst を使用
+			// 最適な特徴量サブセットを効率的に探索
+			BestFirst search = new BestFirst();
+			// search.setDirection(new SelectedTag(BestFirst.SEARCH_FORWARD,
+			// BestFirst.TAGS_SEARCH_DIRECTION)); // 順方向探索
+			// search.setDirection(new SelectedTag(BestFirst.SEARCH_BACKWARD,
+			// BestFirst.TAGS_SEARCH_DIRECTION)); // 逆方向探索
+			// search.setDirection(new SelectedTag(BestFirst.SEARCH_BIDIRECTIONAL,
+			// BestFirst.TAGS_SEARCH_DIRECTION)); // 両方向探索
+			// デフォルトは両方向探索
+
+			// AttributeSelection フィルターの適用
+			AttributeSelection attributeSelection = new AttributeSelection();
+			attributeSelection.setEvaluator(wrapperEval);
+			attributeSelection.setSearch(search);
+			Instances finalSelectedData = null;
+			try {
+				attributeSelection.SelectAttributes(dataAfterRemoveUseless);
+				finalSelectedData = attributeSelection.reduceDimensionality(dataAfterRemoveUseless);
+				trainingDataset = finalSelectedData;
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			System.out.println("最終的に選択された属性数: " + finalSelectedData.numAttributes());
+			System.out.println("最終的に選択された属性:\n" + finalSelectedData.toSummaryString());
+		}
 	}
+
+//	private void prepareTrainDataset(ResultsTable rt, String targetColName, List<String> drop) {
+//		String[] headerStrings = rt.getHeadings();
+//		List<String> header = Arrays.asList(headerStrings);
+//		if (drop != null) {
+//			header.removeAll(drop);
+//		}
+//		explanatoryAttr = toAttributes(header);
+//		targetAttr = targetClassAttribute4Clf(rt, targetColName);
+//		ArrayList<Attribute> attributes = new ArrayList<>(explanatoryAttr);
+//		attributes.add(targetAttr);
+//		trainingDataset = new Instances("TrainingDataset", attributes, 0/* volume of row */);
+//
+//		// クラス属性のインデックスを設定 (通常は最後の属性)
+//		trainingDataset.setClassIndex(attributes.size() - 1);
+//
+//		// 訓練データのインスタンスを作成してデータセットに追加
+//		int col = header.size();
+//		int row = rt.size();
+//		boolean numericalTarget = isNumericalTarget(rt.getColumnAsStrings(targetColName));
+//		for (int r = 0; r < row; r++) {
+//			Instance record = new DenseInstance(col); // 属性の数
+//			for (int c = 0; c < col; c++) {
+//				String h = header.get(c);
+//				if (h.startsWith(SettingsContext.DIAGNOSTICS) || h.startsWith(SettingsContext.OPERATIONAL)) {
+//					continue;
+//				}
+//				Attribute attr = attributes.get(c);
+//				if (h.equals(targetColName)) {
+//					String v = rt.getColumnAsStrings(h)[r];
+//					/*
+//					 * drop if target is null
+//					 */
+//					if (v == null || v.length() == 0) {
+//						continue;
+//					}
+//					// string or double ?
+//					if (numericalTarget) {
+//						Double dv = rt.getColumn(h)[r];
+//						record.setValue(attr, dv);
+//					} else {// string
+//						record.setValue(attr, v);
+//					}
+//					continue;
+//				}
+//				// others always numerical.
+//				Double v = rt.getColumn(h)[r];
+////				if(v == null) {
+////					v = weka.core.Utils.missingValue();//Double.NaN
+////				}
+//				record.setValue(attr, v);
+//			}
+//			trainingDataset.add(record);
+//		}
+//		System.out.println("データセットが正常にロードされました。");
+//		System.out.println("インスタンス数: " + trainingDataset.numInstances());
+//		System.out.println("属性数: " + trainingDataset.numAttributes());
+//	}
 	
 	/**
 	 * 

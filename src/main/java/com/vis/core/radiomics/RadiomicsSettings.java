@@ -166,26 +166,26 @@ public class RadiomicsSettings extends JPanel{
 	/**
 	 * Feature family name
 	 */
-	final String MORPHOLOGICAL = SettingsContext.MORPHOLOGICAL;
-	final String LOCALINTENSITY = SettingsContext.LOCALINTENSITY;
-	final String INTENSITYSTATS = SettingsContext.INTENSITYSTATS;
-	final String INTENSITYHISTOGRAM = SettingsContext.INTENSITYHISTOGRAM;
-	final String INTENSITYVOLUMEHISTOGRAM = SettingsContext.INTENSITYVOLUMEHISTOGRAM;
+	static final String MORPHOLOGICAL = SettingsContext.MORPHOLOGICAL;
+	static final String LOCALINTENSITY = SettingsContext.LOCALINTENSITY;
+	static final String INTENSITYSTATS = SettingsContext.INTENSITYSTATS;
+	static final String INTENSITYHISTOGRAM = SettingsContext.INTENSITYHISTOGRAM;
+	static final String INTENSITYVOLUMEHISTOGRAM = SettingsContext.INTENSITYVOLUMEHISTOGRAM;
 	
-	final String morpShort = "Morpho";
-	final String liShort = "LocalInt";
-	final String statShort = "Stats";
-	final String histShort = "Hist";
-	final String ivhShort = "IVH";
+	static final String morpShort = "Morpho";
+	static final String liShort = "LocalInt";
+	static final String statShort = "Stats";
+	static final String histShort = "Hist";
+	static final String ivhShort = "IVH";
 	
-	final String GLCM = SettingsContext.GLCM;
-	final String GLRLM = SettingsContext.GLRLM;
-	final String GLSZM = SettingsContext.GLSZM;
-	final String GLDZM = SettingsContext.GLDZM;
-	final String NGTDM = SettingsContext.NGTDM;
-	final String NGLDM = SettingsContext.NGLDM;
-	final String FRACTAL = SettingsContext.FRACTAL;
-	final String SHAPE2D = SettingsContext.SHAPE2D;
+	static final String GLCM = SettingsContext.GLCM;
+	static final String GLRLM = SettingsContext.GLRLM;
+	static final String GLSZM = SettingsContext.GLSZM;
+	static final String GLDZM = SettingsContext.GLDZM;
+	static final String NGTDM = SettingsContext.NGTDM;
+	static final String NGLDM = SettingsContext.NGLDM;
+	static final String FRACTAL = SettingsContext.FRACTAL;
+	static final String SHAPE2D = SettingsContext.SHAPE2D;
 	
 	//calculation target and exclusion features
 	DefaultListModel<String> targetListModel = new DefaultListModel<>();
@@ -207,35 +207,39 @@ public class RadiomicsSettings extends JPanel{
 	BinCountSettings bcs_glcm;
 	BinWidthSettings bws_glcm;
 	AlphaDeltaSettings delta_glcm;
-	NormComboPanel norm_glcm;
+//	NormComboPanel norm_glcm;
 	
 	ButtonGroup binGroup_glrlm;
 	BinCountSettings bcs_glrlm;
 	BinWidthSettings bws_glrlm;
-	NormComboPanel norm_glrlm;
+//	NormComboPanel norm_glrlm;
 	
 	ButtonGroup binGroup_glszm;
 	BinCountSettings bcs_glszm;
 	BinWidthSettings bws_glszm;
-	NormComboPanel norm_glszm;
+//	NormComboPanel norm_glszm;
 	
 	ButtonGroup binGroup_gldzm;
 	BinCountSettings bcs_gldzm;
 	BinWidthSettings bws_gldzm;
-	NormComboPanel norm_gldzm;
+//	NormComboPanel norm_gldzm;
 	
 	ButtonGroup binGroup_ngtdm;
 	BinCountSettings bcs_ngtdm;
 	BinWidthSettings bws_ngtdm;
 	AlphaDeltaSettings delta_ngtdm;
-	NormComboPanel norm_ngtdm;
+//	NormComboPanel norm_ngtdm;
 	
 	ButtonGroup binGroup_ngldm;
 	BinCountSettings bcs_ngldm;
 	BinWidthSettings bws_ngldm;
 	AlphaDeltaSettings alpha_ngldm;
 	AlphaDeltaSettings delta_ngldm;
-	NormComboPanel norm_ngldm;
+//	NormComboPanel norm_ngldm;
+	
+	ButtonGroup binGroup_hist;
+	BinCountSettings bcs_hist;
+	BinWidthSettings bws_hist;
 	
 	ButtonGroup binGroup_ivh;
 	JRadioButton useOrg_ivh;
@@ -803,8 +807,8 @@ public class RadiomicsSettings extends JPanel{
 		
 		FlowLayout fl = new FlowLayout();
 		fl.setAlignment(FlowLayout.LEFT);
-		//bin count, bin width, alpha, beta, norm
-		GridLayout itemGridLayout = new GridLayout(5/*max row size*/, 1); 
+		//bin count, bin width, alpha, beta
+		GridLayout itemGridLayout = new GridLayout(4/*max row size*/, 1); 
 		
 		/**
 		 * GLCM
@@ -815,11 +819,11 @@ public class RadiomicsSettings extends JPanel{
 		bws_glcm = new BinWidthSettings(Double.NaN);
 		binGroup_glcm = setButtonGroup(bcs_glcm, bws_glcm, useBinCount, GLCM);
 		delta_glcm = new AlphaDeltaSettings("delta", defaultDelta);
-		norm_glcm = new NormComboPanel(norms[0]);
+//		norm_glcm = new NormComboPanel(norms[0]);
 		glcm.add(bcs_glcm);
 		glcm.add(bws_glcm);
 		glcm.add(delta_glcm);
-		glcm.add(norm_glcm);
+//		glcm.add(norm_glcm);
 		insertBlankPanel(glcm, 1);
 		addBorder(glcm, Color.gray, "GLCM");
 		textureParamsP.add(glcm);
@@ -831,10 +835,10 @@ public class RadiomicsSettings extends JPanel{
 		bcs_glrlm = new BinCountSettings(defaultBinCount);
 		bws_glrlm = new BinWidthSettings(Double.NaN);
 		binGroup_glrlm = setButtonGroup(bcs_glrlm, bws_glrlm, useBinCount, GLRLM);
-		norm_glrlm = new NormComboPanel(norms[0]);
+//		norm_glrlm = new NormComboPanel(norms[0]);
 		glrlm.add(bcs_glrlm);
 		glrlm.add(bws_glrlm);
-		glrlm.add(norm_glrlm);
+//		glrlm.add(norm_glrlm);
 		insertBlankPanel(glrlm, 2);
 		addBorder(glrlm, Color.gray, "GLRLM");
 		textureParamsP.add(glrlm);
@@ -846,10 +850,10 @@ public class RadiomicsSettings extends JPanel{
 		bcs_glszm = new BinCountSettings(defaultBinCount);
 		bws_glszm = new BinWidthSettings(Double.NaN);
 		binGroup_glszm = setButtonGroup(bcs_glszm, bws_glszm, useBinCount, GLSZM);
-		norm_glszm = new NormComboPanel(norms[0]);
+//		norm_glszm = new NormComboPanel(norms[0]);
 		glszm.add(bcs_glszm);
 		glszm.add(bws_glszm);
-		glszm.add(norm_glszm);
+//		glszm.add(norm_glszm);
 		insertBlankPanel(glszm, 2);
 		addBorder(glszm, Color.gray, "GLSZM");
 		textureParamsP.add(glszm);
@@ -861,10 +865,10 @@ public class RadiomicsSettings extends JPanel{
 		bcs_gldzm = new BinCountSettings(defaultBinCount);
 		bws_gldzm = new BinWidthSettings(Double.NaN);
 		binGroup_gldzm = setButtonGroup(bcs_gldzm, bws_gldzm, useBinCount, GLDZM);
-		norm_gldzm = new NormComboPanel(norms[0]);
+//		norm_gldzm = new NormComboPanel(norms[0]);
 		gldzm.add(bcs_gldzm);
 		gldzm.add(bws_gldzm);
-		gldzm.add(norm_gldzm);
+//		gldzm.add(norm_gldzm);
 		insertBlankPanel(gldzm, 2);
 		addBorder(gldzm, Color.gray, "GLDZM");
 		textureParamsP.add(gldzm);
@@ -877,11 +881,11 @@ public class RadiomicsSettings extends JPanel{
 		bws_ngtdm = new BinWidthSettings(Double.NaN);
 		binGroup_ngtdm = setButtonGroup(bcs_ngtdm, bws_ngtdm, useBinCount, NGTDM);
 		delta_ngtdm = new AlphaDeltaSettings("delta", defaultDelta);
-		norm_ngtdm = new NormComboPanel(norms[0]);
+//		norm_ngtdm = new NormComboPanel(norms[0]);
 		ngtdm.add(bcs_ngtdm);
 		ngtdm.add(bws_ngtdm);
 		ngtdm.add(delta_ngtdm);
-		ngtdm.add(norm_ngtdm);
+//		ngtdm.add(norm_ngtdm);
 		insertBlankPanel(ngtdm, 1);
 		addBorder(ngtdm, Color.gray, "NGTDM");
 		textureParamsP.add(ngtdm);
@@ -895,12 +899,12 @@ public class RadiomicsSettings extends JPanel{
 		binGroup_ngldm = setButtonGroup(bcs_ngldm, bws_ngldm, useBinCount, NGLDM);
 		alpha_ngldm = new AlphaDeltaSettings("alpha", defaultAlpha);
 		delta_ngldm = new AlphaDeltaSettings("delta", defaultDelta);
-		norm_ngldm = new NormComboPanel(norms[0]);
+//		norm_ngldm = new NormComboPanel(norms[0]);
 		ngldm.add(bcs_ngldm);
 		ngldm.add(bws_ngldm);
 		ngldm.add(alpha_ngldm);
 		ngldm.add(delta_ngldm);
-		ngldm.add(norm_ngldm);
+//		ngldm.add(norm_ngldm);
 		addBorder(ngldm, Color.gray, "NGLDM");
 		textureParamsP.add(ngldm);
 		
@@ -911,18 +915,39 @@ public class RadiomicsSettings extends JPanel{
 		/**
 		 * Intensity family param TAB
 		 */
-		JPanel intensP = new JPanel(new GridLayout(1/*increment if you want to add panel*/, 1));
+		JPanel intensP = new JPanel(new GridLayout(2/*increment if you want to add panel*/, 1));
 		JScrollPane spIntens = new JScrollPane(intensP);
-		JPanel ivh = new JPanel(new GridLayout(5,1));
+		
+		/**
+		 * IntensityHistogram
+		 */
+		JPanel hist = new JPanel(new GridLayout(3,1));
+		bcs_hist = new BinCountSettings(defaultBinCount);
+		bws_hist = new BinWidthSettings(Double.NaN);
+		binGroup_hist = setButtonGroup(bcs_hist, bws_hist, useBinCount, histShort);
+		hist.add(bcs_hist);
+		hist.add(bws_hist);
+		insertBlankPanel(hist, 1);
+		addBorder(hist, Color.gray, "IntensityHistogram");
+		intensP.add(hist);
+		/**
+		 * IntensityVolumeHistgram
+		 */
+		JPanel ivh = new JPanel(new GridLayout(3,1));
 		bcs_ivh = new BinCountSettings(defaultBinCount);
 		bws_ivh = new BinWidthSettings(Double.NaN);
 		useOrg_ivh = new JRadioButton("Use As-Is");
 		useOrg_ivh.setActionCommand(SettingsContext.UseOriginalIVH);
 		binGroup_ivh = setButtonGroup(bcs_ivh, bws_ivh, useBinCount, ivhShort);
 		binGroup_ivh.add(useOrg_ivh);
+		
+		JPanel useOrgP = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		useOrgP.add(useOrg_ivh);
+		
 		ivh.add(bcs_ivh);
 		ivh.add(bws_ivh);
-		insertBlankPanel(ivh, 3);
+		ivh.add(useOrgP);//adjust left spacing
+//		insertBlankPanel(ivh, 1);
 		addBorder(ivh, Color.gray, "IVH");
 		intensP.add(ivh);
 		return spIntens;
@@ -1193,9 +1218,9 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormGLCM:
-					norm_glcm.setSelectedItem(val);
-					break;
+//				case SettingsContext.NormGLCM:
+//					norm_glcm.setSelectedItem(val);
+//					break;
 				case SettingsContext.UseBinCountGLRLM:
 					bcs_glrlm.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1215,9 +1240,9 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormGLRLM:
-					norm_glrlm.setSelectedItem(val);
-					break;
+//				case SettingsContext.NormGLRLM:
+//					norm_glrlm.setSelectedItem(val);
+//					break;
 				case SettingsContext.UseBinCountGLSZM:
 					bcs_glszm.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1237,9 +1262,9 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormGLSZM:
-					norm_glszm.setSelectedItem(val);
-					break;
+//				case SettingsContext.NormGLSZM:
+//					norm_glszm.setSelectedItem(val);
+//					break;
 				case SettingsContext.UseBinCountGLDZM:
 					bcs_gldzm.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1259,9 +1284,9 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormGLDZM:
-					norm_gldzm.setSelectedItem(val);
-					break;
+//				case SettingsContext.NormGLDZM:
+//					norm_gldzm.setSelectedItem(val);
+//					break;
 				case SettingsContext.UseBinCountNGTDM:
 					bcs_ngtdm.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1289,9 +1314,9 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormNGTDM:
-					norm_ngtdm.setSelectedItem(val);
-					break;
+//				case SettingsContext.NormNGTDM:
+//					norm_ngtdm.setSelectedItem(val);
+//					break;
 				case SettingsContext.UseBinCountNGLDM:
 					bcs_ngldm.getRadioButton().setSelected(Boolean.valueOf(val));
 					break;
@@ -1327,8 +1352,27 @@ public class RadiomicsSettings extends JPanel{
 						//skip
 					}
 					break;
-				case SettingsContext.NormNGLDM:
-					norm_ngldm.setSelectedItem(val);
+//				case SettingsContext.NormNGLDM:
+//					norm_ngldm.setSelectedItem(val);
+//					break;
+				case SettingsContext.UseBinCountHISTOGRAM:
+					bcs_hist.getRadioButton().setSelected(Boolean.valueOf(val));
+					break;
+				case SettingsContext.BinCountHISTOGRAM:
+					try {
+						int v = Integer.valueOf(val);// check whether integer or not
+						bcs_hist.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
+					break;
+				case SettingsContext.BinWidthHISTOGRAM:
+					try {
+						double v = Double.valueOf(val);
+						bws_hist.setValue(v);
+					}catch(NumberFormatException e) {
+						//skip
+					}
 					break;
 				case SettingsContext.UseOriginalIVH:
 					useOrg_ivh.setSelected(Boolean.valueOf(val));
@@ -1361,6 +1405,8 @@ public class RadiomicsSettings extends JPanel{
 					 */
 					if(key.startsWith("EXCLUSION")) {
 						String fname = key.replace("EXCLUSION_", "");
+						String fullFam = fullFamilyNameToShort(fname.split("_")[0]);
+						fname = fullFam + "_" + fname.split("")[1];
 						addList(fname, exclusionListModel);
 					}
 					break;
@@ -1499,9 +1545,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.DeltaGLCM:
 					prop.setProperty(key, String.valueOf(delta_glcm.getValue()));
 					break;
-				case SettingsContext.NormGLCM:
-					prop.setProperty(key, norm_glcm.getSelectedItem());
-					break;
+//				case SettingsContext.NormGLCM:
+//					prop.setProperty(key, norm_glcm.getSelectedItem());
+//					break;
 				case SettingsContext.UseBinCountGLRLM:
 					prop.setProperty(key, String.valueOf(bcs_glrlm.getRadioButton().isSelected()));
 					break;
@@ -1511,9 +1557,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.BinWidthGLRLM:
 					prop.setProperty(key, String.valueOf(bws_glrlm.getValue()));
 					break;
-				case SettingsContext.NormGLRLM:
-					prop.setProperty(key, norm_glrlm.getSelectedItem());
-					break;
+//				case SettingsContext.NormGLRLM:
+//					prop.setProperty(key, norm_glrlm.getSelectedItem());
+//					break;
 				case SettingsContext.UseBinCountGLSZM:
 					prop.setProperty(key, String.valueOf(bcs_glszm.getRadioButton().isSelected()));
 					break;
@@ -1523,9 +1569,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.BinWidthGLSZM:
 					prop.setProperty(key, String.valueOf(bws_glszm.getValue()));
 					break;
-				case SettingsContext.NormGLSZM:
-					prop.setProperty(key, norm_glszm.getSelectedItem());
-					break;
+//				case SettingsContext.NormGLSZM:
+//					prop.setProperty(key, norm_glszm.getSelectedItem());
+//					break;
 				case SettingsContext.UseBinCountGLDZM:
 					prop.setProperty(key, String.valueOf(bcs_gldzm.getRadioButton().isSelected()));
 					break;
@@ -1535,9 +1581,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.BinWidthGLDZM:
 					prop.setProperty(key, String.valueOf(bws_gldzm.getValue()));
 					break;
-				case SettingsContext.NormGLDZM:
-					prop.setProperty(key, norm_gldzm.getSelectedItem());
-					break;
+//				case SettingsContext.NormGLDZM:
+//					prop.setProperty(key, norm_gldzm.getSelectedItem());
+//					break;
 				case SettingsContext.UseBinCountNGTDM:
 					prop.setProperty(key, String.valueOf(bcs_ngtdm.getRadioButton().isSelected()));
 					break;
@@ -1550,9 +1596,9 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.DeltaNGTDM:
 					prop.setProperty(key, String.valueOf(delta_ngtdm.getValue()));
 					break;
-				case SettingsContext.NormNGTDM:
-					prop.setProperty(key, norm_ngtdm.getSelectedItem());
-					break;
+//				case SettingsContext.NormNGTDM:
+//					prop.setProperty(key, norm_ngtdm.getSelectedItem());
+//					break;
 				case SettingsContext.UseBinCountNGLDM:
 					prop.setProperty(key, String.valueOf(bcs_ngldm.getRadioButton().isSelected()));
 					break;
@@ -1568,8 +1614,17 @@ public class RadiomicsSettings extends JPanel{
 				case SettingsContext.DeltaNGLDM:
 					prop.setProperty(key, String.valueOf(delta_ngldm.getValue()));
 					break;
-				case SettingsContext.NormNGLDM:
-					prop.setProperty(key, norm_ngldm.getSelectedItem());
+//				case SettingsContext.NormNGLDM:
+//					prop.setProperty(key, norm_ngldm.getSelectedItem());
+//					break;
+				case SettingsContext.UseBinCountHISTOGRAM:
+					prop.setProperty(key, String.valueOf(bcs_hist.getRadioButton().isSelected()));
+					break;
+				case SettingsContext.BinCountHISTOGRAM:
+					prop.setProperty(key, String.valueOf(bcs_hist.getValue()));
+					break;
+				case SettingsContext.BinWidthHISTOGRAM:
+					prop.setProperty(key, String.valueOf(bws_hist.getValue()));
 					break;
 				case SettingsContext.UseOriginalIVH:
 					prop.setProperty(key, String.valueOf(useOrg_ivh.isSelected()));
@@ -1597,9 +1652,45 @@ public class RadiomicsSettings extends JPanel{
 		int size = exclusionListModel.getSize();
 		for(int k=0; k<size; k++) {
 			String ex_fname = exclusionListModel.get(k);
+			String fullFam = shortFamilyNameToFull(ex_fname.split("_")[0]);
+			ex_fname = fullFam + "_" + ex_fname.split("_")[1];
 			prop.setProperty("EXCLUSION_"+ex_fname, ex_fname/*dummy*/);
 		}
 		return prop;
+	}
+	
+	private String shortFamilyNameToFull(String shortFamilyName) {
+		switch (shortFamilyName) {
+		case morpShort:
+			return MORPHOLOGICAL;
+		case liShort:
+			return LOCALINTENSITY;
+		case histShort:
+			return INTENSITYHISTOGRAM;
+		case statShort:
+			return INTENSITYSTATS;
+		case ivhShort:
+			return INTENSITYVOLUMEHISTOGRAM;
+		default:
+			return shortFamilyName;
+		}
+	}
+	
+	private String fullFamilyNameToShort(String fullFamilyName) {
+		switch (fullFamilyName) {
+		case MORPHOLOGICAL:
+			return morpShort;
+		case LOCALINTENSITY:
+			return liShort;
+		case INTENSITYHISTOGRAM:
+			return histShort;
+		case INTENSITYSTATS:
+			return statShort;
+		case INTENSITYVOLUMEHISTOGRAM:
+			return ivhShort;
+		default:
+			return fullFamilyName;
+		}
 	}
 	
 	public void moveToCalc(List<String> names) {
@@ -1718,7 +1809,7 @@ public class RadiomicsSettings extends JPanel{
 	 * Operational/Diagnostics are excluded.
 	 * @return feature names
 	 */
-	public List<String> featureNames(String familyName/*null-able*/){
+	public static List<String> featureNames(String familyName/*null-able*/){
 //		HashSet<String> names = new HashSet<>();//cannot keep order.
 		List<String> names = new ArrayList<>();
 		if(familyName == null) {
