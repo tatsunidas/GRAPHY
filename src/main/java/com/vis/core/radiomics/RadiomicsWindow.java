@@ -119,8 +119,12 @@ public class RadiomicsWindow extends JFrame{
 		return pipeline;
 	}
 	
-	public Properties getRadiomicsSettings() {
+	public Properties getRadiomicsSettingsAsProp() {
 		return textureParams.currentSettings();
+	}
+	
+	public RadiomicsSettings getRadiomicsSettings() {
+		return textureParams;
 	}
 	
 	public void loadRadiomicsSettings(Properties prop) {

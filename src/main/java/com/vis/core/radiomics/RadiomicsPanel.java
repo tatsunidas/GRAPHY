@@ -43,7 +43,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowListener;
@@ -53,7 +52,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -72,9 +70,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
@@ -90,14 +86,15 @@ import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
+import ij.IJ;
+import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.io.RoiDecoder;
-import ij.plugin.frame.RoiManager;
+import ij.io.SaveDialog;
 import weka.classifiers.Classifier;
 import weka.core.Instances;
 import weka.core.SerializationHelper;
 import weka.core.converters.ArffSaver;
-import weka.core.converters.ConverterUtils.DataSource;
 import weka.gui.GUIChooserApp;
 import weka.gui.GenericObjectEditor;
 import weka.gui.PropertyPanel;
@@ -116,8 +113,8 @@ public class RadiomicsPanel extends JPanel{
 	JCheckBox autoFeatureSelect;
 	//inference
 	JButton predBtn;
-	JButton showProbBtn;
-	JButton createMaskBtn;
+	JButton showResultsBtn;
+	JButton saveResultsBtn;
 	//model config
 	JButton saveConfigBtn;
 	JButton loadConfigBtn;
@@ -144,8 +141,8 @@ public class RadiomicsPanel extends JPanel{
 	private final String BALANCE = "Balance";
 	private final String FEATURE_SELECT = "FeatureSelect";
 	private final String PREDICTION = "Prediction";
-	private final String SHOW_PROBABILITIES = "Show probabilities";
-	private final String SHOW_MASKS = "Show masks";
+	private final String SHOW_RESULTS = "Show Results";
+	private final String SAVE_RESULTS = "Save Results";
 	private final String WEKA = "WEKA";
 	private final String ADD_CLASS = "Add New Class";
 	private final String DELETE_CLASS = "Delete Class";
@@ -155,6 +152,8 @@ public class RadiomicsPanel extends JPanel{
 	
 	final RadiomicsWindow radWin;
 	RadiomicsPipeline pipeline;
+	
+	ImagePlus pred;
 	
 	public RadiomicsPanel(RadiomicsWindow radW) {
 		this.radWin = radW;
@@ -171,13 +170,13 @@ public class RadiomicsPanel extends JPanel{
 		
 		predBtn = new JButton(PREDICTION);
 		predBtn.setActionCommand(PREDICTION);
-		showProbBtn = new JButton(SHOW_PROBABILITIES);
-		showProbBtn.setActionCommand(SHOW_PROBABILITIES);
-		createMaskBtn = new JButton(SHOW_MASKS);
-		createMaskBtn.setActionCommand(SHOW_MASKS);
+		showResultsBtn = new JButton(SHOW_RESULTS);
+		showResultsBtn.setActionCommand(SHOW_RESULTS);
+		saveResultsBtn = new JButton(SAVE_RESULTS);
+		saveResultsBtn.setActionCommand(SAVE_RESULTS);
 		setAction(predBtn);
-		setAction(showProbBtn);
-		setAction(createMaskBtn);
+		setAction(showResultsBtn);
+		setAction(saveResultsBtn);
 		
 		saveConfigBtn = new JButton(SAVE_CONFIG);
 		saveConfigBtn.setActionCommand(SAVE_CONFIG);
@@ -249,8 +248,8 @@ public class RadiomicsPanel extends JPanel{
 		inference.setLayout(new GridLayout(0, 1, 0, 5));
 		inference.setBorder(BorderFactory.createTitledBorder(b, "Inference", TitledBorder.CENTER, TitledBorder.DEFAULT_JUSTIFICATION));
 		inference.add(predBtn);
-		inference.add(showProbBtn);
-		inference.add(createMaskBtn);
+		inference.add(showResultsBtn);
+		inference.add(saveResultsBtn);
 		westPanel.add(inference);
 		
 		JPanel settings = new JPanel();
@@ -379,7 +378,7 @@ public class RadiomicsPanel extends JPanel{
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             File selectedDirectory = chooser.getSelectedFile();
             saveRois(getRois(), selectedDirectory);
-            Properties prop = radWin.getRadiomicsSettings();
+            Properties prop = radWin.getRadiomicsSettingsAsProp();
             prop = addModelConfiguration(prop);
             saveProp(prop, selectedDirectory.getAbsolutePath()+File.separator+"configuration");
             saveModel(selectedDirectory.getAbsolutePath()+File.separator+"model");
@@ -634,9 +633,69 @@ public class RadiomicsPanel extends JPanel{
 				btn.addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						//pipeline.train("logistic", null, null);
+						Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+						if(d2 == null) {
+							return;
+						}
+						updateClassifier();//set model
+						RadiomicsSettings rs = radWin.getRadiomicsSettings();
+						HashMap<String, List<RoiObj>> ds = getRois();
+						Praparat pp = d2.getSelectedPraps().get(0);
+						pipeline = pipeline.trainWith(rs, ds, pp);
+						pipeline.train();
 					}
 				});	
+			}else if(name.equals(PREDICTION)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						Viewer2DScreen d2 = Viewer2DScreen.getInstance();
+						if(d2 == null) {
+							return;
+						}
+						Praparat pp = d2.getSelectedPraps().get(0);
+						/*
+						 * slice 0 : label image
+						 * slice 1 : proba image
+						 */
+						pred = pipeline.predict(pp.getCurrentSlidePos());
+						System.out.println("PREDICTION was done !");
+					}
+				});
+			}else if(name.equals(SHOW_RESULTS)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(pred != null) {
+							pred.show();
+						}
+					}
+				});
+			}else if(name.equals(SAVE_RESULTS)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						if(pred != null) {
+							SaveDialog sd = new SaveDialog("Save prediction results", "pred_seg", ".tif");
+							if (sd.getFileName() == null) {
+					            //("キャンセルされました。");
+					            return; // 処理を中断
+					        }
+							// 3. ディレクトリとファイル名を取得
+					        String directory = sd.getDirectory();
+					        String fileName = sd.getFileName();
+					        String savePath = directory + fileName;
+
+					        // 結果をログに表示
+					        System.out.println("選択された保存パス: " + savePath);
+					        
+					        // 4. 取得したパスを使って画像を保存
+					        // このsaveAsメソッドが実際の保存処理を行います
+					        IJ.saveAs(pred, "tiff", savePath);
+					        System.out.println("完了:"+savePath + " に画像を保存しました。");
+						}
+					}
+				});
 			}else if(name.equals(WEKA)) {
 				btn.addActionListener(new ActionListener() {
 					@Override
@@ -726,13 +785,17 @@ public class RadiomicsPanel extends JPanel{
 		JList<RoiObj> roiList;
 		DefaultListModel<RoiObj> listModel = new DefaultListModel<>();
 		JButton addBtn = new JButton("Add");
+		JButton deleteBtn = new JButton("Delete");
 		ClassPanel(int index, String name){
 			ind = index;
 			this.name = name;
 			roiList = new JList<>(listModel);
 			roiList.setCellRenderer(new RoiListCellRenderer());
 			setLayout(new BorderLayout());
-			add(addBtn, BorderLayout.NORTH);
+			JPanel btnP = new JPanel(new GridLayout(1, 2));
+			btnP.add(addBtn);
+			btnP.add(deleteBtn);
+			add(btnP, BorderLayout.NORTH);
 			addBtn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
@@ -753,6 +816,20 @@ public class RadiomicsPanel extends JPanel{
 						}
 					}else {
 						System.out.println("Any praparats are not selected, cannot find roi... ");
+					}
+				}
+			});
+			deleteBtn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					List<RoiObj> selected = roiList.getSelectedValuesList();
+					if(selected == null || selected.size()==0) {
+						return;
+					}
+					for(RoiObj r : selected) {
+						if(r != null) {
+							delete(r);
+						}
 					}
 				}
 			});

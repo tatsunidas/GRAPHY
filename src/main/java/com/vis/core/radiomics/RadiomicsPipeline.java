@@ -54,6 +54,7 @@ import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Roi;
@@ -128,6 +129,7 @@ public class RadiomicsPipeline {
 	 * train dataset
 	 */
 	Instances trainingDataset;
+	
 	ArrayList<Attribute> explanatoryAttr;
 	Attribute targetAttr;
 	final String targetColName = "LABEL";
@@ -177,10 +179,17 @@ public class RadiomicsPipeline {
 			for (int i = 0; i < rt_.size(); i++) {
 				rt_.addValue(targetColName, className);
 			}
-			rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt/* null-able */, rt_);
+			rt = combineTables(rt/* null-able */, rt_);
 		}
 		
-		prepareTrainDataset(rt, targetColName, true);
+		try {
+			/**
+			 * if num of instace less than 5, will not perform feature selection.
+			 */
+			prepareTrainDataset(rt, targetColName, false/*todo, featureSelection*/);
+		}catch(Exception e) {
+			System.out.println(e.getMessage());
+		}
 		
 		System.out.println("Classifierを訓練中...");
 		try {
@@ -222,7 +231,9 @@ public class RadiomicsPipeline {
 	 * @param mask label
 	 * @return
 	 */
-	private ResultsTable calcFeatures(Properties settingsProp/*radiomicsSetting*/, List<String> featureNames, ImagePlus imp, ImagePlus mask, int label){
+	private ResultsTable calcFeatures(
+			Properties settingsProp/*radiomicsSetting*/, 
+			List<String> featureNames, ImagePlus imp, ImagePlus mask, int label){
 		ResultsTable rt = new ResultsTable();
 		rt.addRow();
 		boolean is3D = ((String)settingsProp.get(SettingsContext.D3Basis)).equals("true");
@@ -531,57 +542,60 @@ public class RadiomicsPipeline {
 		return rt;
 	}
 
-	public ResultsTable calcAllFeatures(RadiomicsSettings setting, List<RoiObj> rois/*belonging a class*/, Praparat prap) {
+	public ResultsTable calcAllFeatures(
+			RadiomicsSettings setting, 
+			List<RoiObj> rois/*belonging a class*/, 
+			Praparat prap) {
 		Properties settingsProp = setting.currentSettings();
 		Integer label = Integer.valueOf((String)settingsProp.get(SettingsContext.MASK_LABEL));
-		ImagePlus imp = prap.getImagePlus();
 		boolean d3_basis = Boolean.valueOf((String)settingsProp.getProperty(SettingsContext.D3Basis));
-		
-		List<String> featureNames = RadiomicsSettings.featureNames(null);
-		
+		List<String> featureNames = setting.getTargetFeatureNames();
 		ResultsTable rt = null;
-		//grab rois for groups
-		HashMap<String, List<RoiObj>> groups = new HashMap<>();
-		int nullCount = 0;
-		for (RoiObj r : rois) {
-			String gname = r.getProperty(ContextKey.RoiGroup);
-			if (gname == null) {
-				gname = "null"+nullCount;
-				nullCount++;//null is individual
-			}
-			if (groups.get(gname) == null) {
-				groups.put(gname, new ArrayList<RoiObj>());
-			}
-			groups.get(gname).add(r);
-		}
 		if (d3_basis) {
-			for (String key : groups.keySet()) {
-				List<RoiObj> roi_group = groups.get(key);
-				ImagePlus mask = createMaskWithRois(imp, roi_group, label);
-				try {
-					ResultsTable rt_ = calcFeatures(settingsProp, featureNames, imp, mask, label);
-					rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+			ImagePlus mask = createMaskWithRoisFor3D(prap, rois, label);
+			ImagePlus imp = prap.getImagePlus();
+			try {
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, imp, mask, label);
+				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		} else { // 2d basis
 			// if 2d basis, calculate slice by slice
-			for (String key : groups.keySet()) {
-				List<RoiObj> roi_group = groups.get(key);
-				for(RoiObj r : roi_group) {
-					int pos = r.getPosition();
-					ImagePlus slice = new ImagePlus("",imp.getStack().getProcessor(pos));
-					ByteProcessor maskIp = new ByteProcessor(slice.getWidth(), slice.getHeight());
-					maskIp.setValue(label);
-					maskIp.fill(new RoiConverter().convert2Roi(r));
-					ImagePlus mask = new ImagePlus("mask", maskIp);
-					ResultsTable rt_ = calcFeatures(settingsProp, featureNames, slice, mask, label);
-					rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
-				}
+			ImagePlus imp = prap.getImagePlus();
+			for (RoiObj r : rois) {
+				ImagePlus slice = new ImagePlus("", imp.getStack().getProcessor(prap.getCurrentSlidePos()+1));
+				ByteProcessor maskIp = new ByteProcessor(slice.getWidth(), slice.getHeight());
+				maskIp.setValue(label);
+				maskIp.fill(new RoiConverter().convert2Roi(r));
+				ImagePlus mask = new ImagePlus("mask", maskIp);
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, slice, mask, label);
+				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
 			}
 		}
 		return rt;
+	}
+	
+	public ResultsTable combineTables(ResultsTable to, ResultsTable from) {
+		if(to == null || to.getCounter() == 0) {
+			return from;
+		}else {
+			if(from != null) {
+				to.incrementCounter();
+				String[] headings = from.getHeadings();
+				int row  = 0;
+				for(String h : headings) {
+					if(h.contains("ID") || h.contains("OperationalInfo_") || h.contains("LABEL")) {
+						String v = from.getStringValue(h, row);
+						to.addValue(h, v);
+					}else {
+						double v = from.getValue(h, row);
+						to.addValue(h, v);
+					}
+				}
+			}
+		}
+		return to;
 	}
 
 	public int[] convertCommaSeparatedStringToIntArray(String commaSeparatedString) {
@@ -623,7 +637,9 @@ public class RadiomicsPipeline {
      * @return WEKAのInstancesオブジェクト
      * @throws Exception エラーが発生した場合
      */
-	public Instances convertResultsTableToWekaInstances(ResultsTable rt, String classAttributeName) throws Exception {
+	public Instances convertResultsTableToWekaInstances(
+			ResultsTable rt, String classAttributeName) throws Exception {
+		
 		if (rt == null || rt.getCounter() == 0) {
 			throw new IllegalArgumentException("ResultsTable is null or empty.");
 		}
@@ -689,16 +705,16 @@ public class RadiomicsPipeline {
 	private void prepareTrainDataset(ResultsTable rt, String targetColName, boolean selectFeatures) {
 		String[] headerStrings = rt.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
-		explanatoryAttr = toAttributes(header);
+		explanatoryAttr = toExplanatoryAttributes(header);//ラベル列は含めない。
 		targetAttr = targetClassAttribute4Clf(rt, targetColName);
 		ArrayList<Attribute> attributes = new ArrayList<>(explanatoryAttr);
-		attributes.add(targetAttr);
+		attributes.add(targetAttr);//ここで最後に接続
 		trainingDataset = new Instances("TrainingDataset", attributes, 0/* volume of row */);
 
 		// クラス属性のインデックスを設定 (通常は最後の属性)
 		trainingDataset.setClassIndex(attributes.size() - 1);
 
-		// 訓練データのインスタンスを作成してデータセットに追加
+		// 値をデータセットに追加
 		int col = header.size();
 		int row = rt.size();
 		boolean numericalTarget = isNumericalTarget(rt.getColumnAsStrings(targetColName));
@@ -706,9 +722,6 @@ public class RadiomicsPipeline {
 			Instance record = new DenseInstance(col); // 属性の数
 			for (int c = 0; c < col; c++) {
 				String h = header.get(c);
-				if (h.startsWith(SettingsContext.DIAGNOSTICS) || h.startsWith(SettingsContext.OPERATIONAL)) {
-					continue;
-				}
 				Attribute attr = attributes.get(c);
 				if (h.equals(targetColName)) {
 					String v = rt.getColumnAsStrings(h)[r];
@@ -968,7 +981,7 @@ public class RadiomicsPipeline {
 	 * 
 	 * @return segment img, proba img
 	 */
-	public ImagePlus predict(int slidePos/*1 to n*/) {
+	public ImagePlus predict(int slidePos/*0 to n-1*/) {
 		/**
 		 * TODO
 		 * stride 2d/3d rect roi over all voxel
@@ -988,30 +1001,61 @@ public class RadiomicsPipeline {
 			}
 		}
 		ImagePlus imp = prap.getImagePlus();
+		imp = new ImagePlus("", imp.getStack().getProcessor(slidePos+1));
 		int w = imp.getWidth();
 		int h = imp.getHeight();
 		Properties prop = setting.currentSettings();
 		
-		boolean is3D = ((String)prop.get(SettingsContext.D3Basis)).equals("true");
+//		boolean is3D = ((String)prop.get(SettingsContext.D3Basis)).equals("true");
+		boolean is3D = false;//TODO
+		
 		int label = Integer.valueOf((String)prop.get(SettingsContext.MASK_LABEL));
 		
 		FloatProcessor labelImg = new FloatProcessor(w,h);
 		FloatProcessor probaImg = new FloatProcessor(w,h);
 		
-		for(int j=0; j<h; j++) {
-			for(int i=0; i<w; i++) {
+		// 予測用インスタンスの受け皿となる、ヘッダー情報のみの空のデータセットを作成
+		Instances predictionHeader = new Instances(trainingDataset, 0);
+		// クラス属性のインデックスをセット（ヘッダーコピー時に引き継がれるが念のため）
+		predictionHeader.setClassIndex(predictionHeader.numAttributes() - 1);
+		
+		for (int j = 0; j < h; j++) {
+			for (int i = 0; i < w; i++) {
 				try {
-					ImagePlus patch_img = cropAndPadImage3D(imp, i, j, slidePos-1, patchSize, patchSize, is3D ? patchSize:1);
+					ImagePlus patch_img = cropAndPadImage3D(imp, i, j, slidePos, patchSize, patchSize,
+							is3D ? patchSize : 1);
 					ResultsTable rt = calcFeatures(prop, featureNames, patch_img, null, label);
-					Instances ds2pred = convertResultsTableToWekaInstances(rt, null/*targetColName*/);
-					Instance inst = ds2pred.firstInstance();
-					//double predictedClassIndex = clf.classifyInstance(inst);
-					//String predictedClassName = trainingDataset.classAttribute().value((int) predictedClassIndex);
+
+					// 1. 訓練データと同じ構造を持つ、データ1行分のインスタンスを生成
+					Instance inst = new DenseInstance(predictionHeader.numAttributes());
+
+					// 2. このインスタンスがどのデータセットに属するかを関連付ける (重要)
+					inst.setDataset(predictionHeader);
+
+					// 3. ResultsTableから値を取得し、インスタンスにセットしていく
+					// featureNamesの順序と、rtの列の順序が一致している必要があります
+					for (int k = 0; k < featureNames.size(); k++) {
+						String featureName = featureNames.get(k);
+						// rtから値を取得（rt.getValueの第一引数は列名、第二引数は行番号）
+						double value = rt.getValue(featureName, 0);
+						// instに値をセット（第二引数は属性のインデックス）
+						inst.setValue(k, value);
+					}
+
+					// 4. クラス属性の値を「不明(?)」としてセットする
+					// これにより、分類器はこの値を予測しようとします
+					inst.setClassMissing();
+
+//					Instances ds2pred = convertResultsTableToWekaInstances(rt, null/*targetColName*/);
+//					Instance inst = ds2pred.firstInstance();
+					// double predictedClassIndex = clf.classifyInstance(inst);
+					// String predictedClassName = trainingDataset.classAttribute().value((int)
+					// predictedClassIndex);
 					// 各クラスに属する確率分布の予測
 					double[] proba = clf.distributionForInstance(inst);
 					int predClassLabel = getIndexOfMaxValue(proba);
-					labelImg.setf(i, j, (float)predClassLabel);
-					probaImg.setf(i, j, (float)proba[predClassLabel]);
+					labelImg.setf(i, j, (float) predClassLabel);
+					probaImg.setf(i, j, (float) proba[predClassLabel]);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -1022,6 +1066,7 @@ public class RadiomicsPipeline {
 		pstack.addSlice(labelImg);
 		pstack.addSlice(probaImg);
 		ImagePlus preds = new ImagePlus("result", pstack);
+		
 		return preds;
 	}
 	
@@ -1157,12 +1202,19 @@ public class RadiomicsPipeline {
 		return maskImage;
 	}
 	
-	ArrayList<Attribute> toAttributes(List<String> headers){
+	/**
+	 * WEKAデータセット用のヘッダーのようなもの。属性定義。
+	 * @param headers
+	 * @return
+	 */
+	ArrayList<Attribute> toExplanatoryAttributes(List<String> headers){
 		ArrayList<Attribute> fs = new ArrayList<>();
 		for(String h : headers) {
 			if(h.startsWith("Operational_")) {
 				continue;
 			}else if(h.startsWith("Diagnostics_")) {
+				continue;
+			}else if(h.startsWith("ID") || h.startsWith("LABEL")) {
 				continue;
 			}
 			Attribute attr = new Attribute(h);
@@ -1210,24 +1262,29 @@ public class RadiomicsPipeline {
 		}
 	}
 	
-	ImagePlus createMaskWithRois(ImagePlus img, List<RoiObj> rois, Integer label) {
+	ImagePlus createMaskWithRoisFor3D(Praparat pp, List<RoiObj> rois, Integer label) {
 		int lbl = label == null ? 255:label;
-		int w = img.getWidth();
-		int h = img.getHeight();
-		int s = img.getNSlices();
+		int w = pp.getImageWidth();
+		int h = pp.getImageHeight();
+		int s = pp.getNumberOfImages();
 		ImageStack stack = new ImageStack(w, h);
 		for(int z=0; z<s; z++) {
 			ImageProcessor ip = new ByteProcessor(w, h);
 			stack.addSlice(ip);
 		}
 		for(RoiObj ro:rois) {
-			int pos = ro.getPosition();
-			if(pos == 0) {
+			String sopUID = ro.getProperty(ContextKey.SOPInstanceUID);
+			if(sopUID == null) {
+				System.err.println("Cannot create mask from this RoiObj...");
+				continue;
+			}
+			int pos = pp.getSlidePosition(sopUID);//0 to n-1
+			if(pos == -1) {
 				System.out.println("This roi can not asign any slices...sklip.:"+ro.getName());
 				continue;
 			}
 			Roi r = new RoiConverter().convert2Roi(ro);
-			ImageProcessor ip = stack.getProcessor(pos);
+			ImageProcessor ip = stack.getProcessor(pos+1);
 			ip.setValue(lbl);
 			//ip.setRoi(r);
 			ip.fill(r);

@@ -100,7 +100,7 @@ public class RadiomicsSettings extends JPanel{
 	//2d/3d switch, when turn on, images will calculate slice by slice
 	boolean d3_basis = true;
 	//label
-	final int defaultLabel = 255;
+	final int defaultLabel = 1;
 	//remove outlier
 	final boolean removeOutliers = true;
 	final int sigma = 3;
@@ -1006,6 +1006,18 @@ public class RadiomicsSettings extends JPanel{
 		addBorder(frac, Color.gray, "Box counting");
 		fracP.add(frac);
 		return spFrac;
+	}
+	
+	public List<String> getTargetFeatureNames(){
+		int s = targetListModel.getSize();
+		List<String> names = new ArrayList<>();
+		for(int i=0;i<s;i++) {
+			String n_short = targetListModel.get(i);
+			String nn[] = n_short.split("_");
+			nn[0] = shortFamilyNameToFull(nn[0]);
+			names.add(nn[0]+"_"+nn[1]);
+		}
+		return names;
 	}
 	
 	public String getSelectedCommandFromButtonGroup(ButtonGroup bg) {
@@ -2014,7 +2026,7 @@ public class RadiomicsSettings extends JPanel{
 			try {
 				Double v_ = (double)v;
 				return v_;
-			}catch(NumberFormatException e) {
+			}catch(NullPointerException | NumberFormatException e) {
 				return -1;
 			}
 		}
@@ -2042,12 +2054,12 @@ public class RadiomicsSettings extends JPanel{
 			}
 		}
 		
-		double getValue() {
+		int getValue() {
 			Object v =  textField.getValue();
 			try {
-				Double v_ = (double)v;
+				Integer v_ = (int)v;
 				return v_;
-			}catch(NumberFormatException e) {
+			}catch(NullPointerException | NumberFormatException e) {
 				return -1;
 			}
 		}

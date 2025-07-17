@@ -937,6 +937,14 @@ public class Praparat extends JPanel {
 		infoset.put(KEY_SopUIDs, sopUIDs);//string[]
 		return infoset;
 	}
+	
+	public int getImageWidth() {
+		return slides.get(0).getOriginalImage().getWidth();
+	}
+	
+	public int getImageHeight() {
+		return slides.get(0).getOriginalImage().getHeight();
+	}
 
 	public int getNumberOfImages() {
 		if (isMultiframe) {

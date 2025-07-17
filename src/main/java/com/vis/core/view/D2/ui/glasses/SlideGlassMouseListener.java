@@ -513,7 +513,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	public void mouseEntered(MouseEvent e) {
 		//first, show to top 2d viewer window
 		JFrame v2d = (JFrame)WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
-		v2d.toFront();//important to enable focus only mouse move.
+		if(v2d != null) {
+			v2d.toFront();//important to enable focus only mouse move.
+		}
 		viewerToolType = pp.getViewer2DToolType();
 		/*
 		 * show borders
