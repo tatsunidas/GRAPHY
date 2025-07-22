@@ -37,6 +37,8 @@
  */
 package com.vis.core.radiomics;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,9 +54,9 @@ import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import com.vis.configuration.ContextKey;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Roi;
@@ -89,24 +91,26 @@ import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
 import io.github.tatsunidas.radiomics.features.NGTDMFeatures;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatures;
+import io.github.tatsunidas.radiomics.main.ImagePreprocessing;
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 import weka.attributeSelection.AttributeSelection;
 import weka.attributeSelection.BestFirst;
 import weka.attributeSelection.WrapperSubsetEval;
 import weka.classifiers.Classifier;
 import weka.classifiers.functions.Logistic;
-import weka.classifiers.functions.SMOreg;
-import weka.classifiers.pmml.consumer.Regression;
 import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.OptionHandler;
-import weka.core.Utils;
+import weka.core.SerializationHelper;
+import weka.core.converters.ArffSaver;
+import weka.core.converters.ConverterUtils.DataSource;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.Remove;
 import weka.filters.unsupervised.attribute.RemoveUseless;
+import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
 /*
  * init model
@@ -134,6 +138,7 @@ public class RadiomicsPipeline {
 	Attribute targetAttr;
 	final String targetColName = "LABEL";
 	
+	
 	public RadiomicsPipeline modelIs(Classifier model) {
 		this.clf = model;
 		System.out.println("Current classifier:"+model.getClass().getName());
@@ -159,14 +164,18 @@ public class RadiomicsPipeline {
 		return this;
 	}
 	
-	public RadiomicsPipeline trainWith(RadiomicsSettings setting, HashMap<String/*className*/, List<RoiObj>> roiset, Praparat prap) {
+	public RadiomicsPipeline trainWith(
+			RadiomicsSettings setting, 
+			HashMap<String/*className*/, 
+			List<RoiObj>> roiset, 
+			Praparat prap) {
 		this.setting = setting;
 		this.roiset = roiset;
 		this.prap = prap;
 		return this;
 	}
 	
-	public void train() {
+	public void train(boolean impute, boolean balance, boolean featureSelect) {
 		if (clf == null || setting == null || roiset == null || prap == null) {
 			System.out.println("Do first modelIs() and trainWith().");
 			return;
@@ -183,10 +192,7 @@ public class RadiomicsPipeline {
 		}
 		
 		try {
-			/**
-			 * if num of instace less than 5, will not perform feature selection.
-			 */
-			prepareTrainDataset(rt, targetColName, false/*todo, featureSelection*/);
+			prepareTrainDataset(rt, targetColName, impute, balance, featureSelect);
 		}catch(Exception e) {
 			System.out.println(e.getMessage());
 		}
@@ -214,12 +220,78 @@ public class RadiomicsPipeline {
 		return trainingDataset;
 	}
 	
+	public Praparat getPraparat() {
+		return prap;
+	}
+	
+	public void loadDatasetARFF(File f) {
+		Instances data = null;
+		try {
+			DataSource source = new DataSource(f.getAbsolutePath());
+			data = source.getDataSet();
+			// クラス属性が設定されていない場合、最後の属性をクラス属性に設定
+			if (data.classIndex() == -1) {
+				data.setClassIndex(data.numAttributes() - 1);
+			}
+			this.trainingDataset = data;
+			System.out.println("ARFF Dataset was loaded successfully.");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public boolean isPraparatReady() {
 		return prap != null;
 	}
 	
-	public Praparat getPraparat() {
-		return prap;
+	public boolean isPredictionReady() {
+		return trainingDataset != null;
+	}
+	
+	public void saveModel(String dest) {
+		Classifier classifierToSave = getClassifier();
+		if(!dest.endsWith(".model")) {
+			dest += ".model";
+		}
+		try {
+            SerializationHelper.write(dest, classifierToSave);
+            System.out.println("WEKAモデルが正常に保存されました: " + dest);
+        } catch (IOException e) {
+            System.err.println("モデルの保存/読み込み中にIOエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            System.err.println("その他のエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+	}
+	
+	
+	public void saveDatasetARFF(String dest) {
+		Instances trainds = getTrainDataset();
+		if(trainds == null) {
+			System.out.println("This pipeline does not perform training. no write dataset.");
+			return;
+		}
+		try {
+			if (!dest.endsWith(".arff")) {
+				dest += ".arff";
+			}
+			ArffSaver saver = new ArffSaver();
+			saver.setInstances(trainds);
+			String outputArffPath = dest; // 保存するARFFファイルの名前
+			File outputFile = new File(outputArffPath);
+			saver.setFile(outputFile);
+			// （オプション）圧縮して保存したい場合
+			// saver.setCompressOutput(true); // .arff.gz 形式で保存されます
+			saver.writeBatch(); // または saver.writeIncremental() を使用することも可能
+			System.out.println("InstancesがARFFファイルに正常に保存されました: " + outputFile.getAbsolutePath());
+		} catch (IOException e) {
+			System.err.println("ARFFファイルの保存中にI/Oエラーが発生しました: " + e.getMessage());
+			e.printStackTrace();
+		} catch (Exception e) {
+			System.err.println("その他のエラーが発生しました: " + e.getMessage());
+			e.printStackTrace();
+		}
 	}
 	
 	/**
@@ -412,7 +484,12 @@ public class RadiomicsPipeline {
 			case SettingsContext.SHAPE2D:
 				for(Shape2DFeatureType t:Shape2DFeatureType.values()) {
 					if(name.equals(t.name())) {
-						rt.addValue(fname, shape2d.calculate(t.id()));
+						Double v = shape2d.calculate(t.id());
+						v = v == null ? Double.NaN:v;
+//						if(name.startsWith("PixelSur")) {
+//							System.out.println(v);
+//						}
+						rt.addValue(fname, v);
 					}
 				}
 				break;
@@ -554,8 +631,9 @@ public class RadiomicsPipeline {
 		if (d3_basis) {
 			ImagePlus mask = createMaskWithRoisFor3D(prap, rois, label);
 			ImagePlus imp = prap.getImagePlus();
+			ImagePlus pair[] = preprocessing(imp, mask, label, d3_basis);
 			try {
-				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, imp, mask, label);
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -564,16 +642,85 @@ public class RadiomicsPipeline {
 			// if 2d basis, calculate slice by slice
 			ImagePlus imp = prap.getImagePlus();
 			for (RoiObj r : rois) {
-				ImagePlus slice = new ImagePlus("", imp.getStack().getProcessor(prap.getCurrentSlidePos()+1));
+				String sopUID = r.getProperty(ContextKey.SOPInstanceUID);
+				if(sopUID == null) {
+					System.err.println("Cannot create mask from this RoiObj...");
+					continue;
+				}
+				int pos = prap.getSlidePosition(sopUID);//0 to n-1
+				if(pos == -1) {
+					System.out.println("This roi can not asign any slices...sklip.:"+r.getName());
+					continue;
+				}
+				ImagePlus slice = new ImagePlus("", imp.getStack().getProcessor(pos+1));
 				ByteProcessor maskIp = new ByteProcessor(slice.getWidth(), slice.getHeight());
 				maskIp.setValue(label);
 				maskIp.fill(new RoiConverter().convert2Roi(r));
 				ImagePlus mask = new ImagePlus("mask", maskIp);
-				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, slice, mask, label);
+				mask.setCalibration(imp.getCalibration());
+				mask.getCalibration().disableDensityCalibration();
+				
+				ImagePlus pair[] = preprocessing(slice, mask, label, d3_basis);
+				
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
 			}
 		}
 		return rt;
+	}
+	
+	private ImagePlus[] preprocessing(ImagePlus imp, ImagePlus mask, int targetLabel, boolean d3_basis) {
+		if(setting==null) {
+			System.out.println("RadiomicsSettings is null. return imageplus AS-IS");
+			return new ImagePlus[] {imp,mask};
+		}
+//		RadiomicsJ rj = new RadiomicsJ();
+		//label to be 1.
+		ImagePlus mask_ = io.github.tatsunidas.radiomics.main.Utils.initMaskAsFloatAndConvertLabelOne(mask, targetLabel);
+		ImagePlus[] imagePair = new ImagePlus[] {imp, mask_};
+		if (imagePair[0] == null || imagePair[1] == null) {
+			System.out.println("RadiomicsJ:preprocess()::Creating Mask was failed. return.");
+			return new ImagePlus[] { imp, mask };
+		}
+		//resample
+		if(setting.isResample()) {
+			Double[] xyz = setting.resampligVoxelXYZ();
+			// TODO
+			if(d3_basis == false) {
+				//ignore z
+				imagePair[0] = io.github.tatsunidas.radiomics.main.Utils.resample2D(imagePair[0], false, xyz[0].doubleValue(), xyz[1].doubleValue(), RadiomicsJ.interpolation2D);
+				imagePair[1] = io.github.tatsunidas.radiomics.main.Utils.resample2D(imagePair[1], true, xyz[0].doubleValue(), xyz[1].doubleValue(), RadiomicsJ.interpolation2D);
+			}else {
+				// trilinear interpolation
+				imagePair[0] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[0], false, xyz[0].doubleValue(), xyz[1].doubleValue(), xyz[2].doubleValue());
+				imagePair[1] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[1], true, xyz[0], xyz[1], xyz[2]);
+			}
+		}
+		//range filtering and remove outliers
+		//use label 1.
+		if(setting.isRangeFiltering()) {
+			Double[] minMax = setting.rangeFilteringMinAndMax();
+			Double rangeMin = minMax[0];
+			Double rangeMax = minMax[1];
+			if(rangeMax != null && rangeMin != null) {
+				imagePair[1] = ImagePreprocessing.rangeFiltering(imagePair[0], imagePair[1], RadiomicsJ.label_, rangeMax, rangeMin);
+			}
+		}
+		
+		if(setting.isRemoveOutliers()) {
+			// get new mask removed outliers
+			imagePair[1] = ImagePreprocessing.outlierFiltering(imagePair[0], imagePair[1], RadiomicsJ.label_);
+		}
+		/*
+		 * normalize
+		 */
+//		if(normalize) {
+//			if(debug) {
+//				System.out.println("perform normalization ...");
+//			}
+//			resampledImp = ImagePreprocessing.normalize(resampledImp, resegmentedMask, RadiomicsJ.label_);
+//		}
+		return imagePair;
 	}
 	
 	public ResultsTable combineTables(ResultsTable to, ResultsTable from) {
@@ -702,7 +849,10 @@ public class RadiomicsPipeline {
 		return data;
 	}
 	
-	private void prepareTrainDataset(ResultsTable rt, String targetColName, boolean selectFeatures) {
+	private void prepareTrainDataset(
+			ResultsTable rt, 
+			String targetColName, 
+			boolean impute, boolean balance, boolean featureSelect) {
 		String[] headerStrings = rt.getHeadings();
 		List<String> header = Arrays.asList(headerStrings);
 		explanatoryAttr = toExplanatoryAttributes(header);//ラベル列は含めない。
@@ -752,8 +902,71 @@ public class RadiomicsPipeline {
 		System.out.println("データセットが正常にロードされました。");
 		System.out.println("インスタンス数: " + trainingDataset.numInstances());
 		System.out.println("属性数: " + trainingDataset.numAttributes());
+		
+		if (impute) {
+			// 3. ReplaceMissingValuesフィルターのインスタンスを作成
+			ReplaceMissingValues replacer = new ReplaceMissingValues();
+			try {
+				// フィルターにデータセットのフォーマットを教える (必須)
+				replacer.setInputFormat(trainingDataset);
+				// 新しいデータセットを取得
+				trainingDataset = Filter.useFilter(trainingDataset, replacer);
+				System.out.println("\n--- 平均値で補完しました ---");
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.out.println("Simple measn imputation was Failed...");
+			}
+		}
+		
+		if (balance) {
+			int numClasses = trainingDataset.numClasses();
+			int[] classCounts = new int[numClasses];
+			for (int i = 0; i < trainingDataset.numInstances(); i++) {
+				int cls = (int) trainingDataset.instance(i).classValue();
+				classCounts[cls]++;
+			}
 
-		if (selectFeatures) {
+			// 最大クラス数（多数クラスのインスタンス数）を見つける
+			int maxCount = 0;
+			for (int c : classCounts) {
+				if (c > maxCount)
+					maxCount = c;
+			}
+
+			Instances currentData = new Instances(trainingDataset);
+			// 各クラスに対して個別にSMOTEを適用
+			for (int clsIndex = 0; clsIndex < numClasses; clsIndex++) {
+				int currentCount = classCounts[clsIndex];
+				if (currentCount < maxCount) {
+					double percentage = 100.0 * (maxCount - currentCount) / (double) currentCount;
+					SMOTE smote = new SMOTE();
+					try {
+						smote.setInputFormat(currentData);
+						smote.setClassValue(String.valueOf(clsIndex)); // 文字列でクラス指定
+						smote.setPercentage(percentage);
+						currentData = Filter.useFilter(currentData, smote);
+					} catch (Exception e) {
+						e.printStackTrace();
+						System.out.println("Connt oversampling with SMOTE !!! Training was failed !!!");
+						return;
+					}
+				}
+			}
+			trainingDataset = currentData;
+			// クラス数確認（任意）
+			int[] finalCounts = new int[numClasses];
+			for (int i = 0; i < currentData.numInstances(); i++) {
+				int cls = (int) currentData.instance(i).classValue();
+				finalCounts[cls]++;
+			}
+
+			System.out.println("Balanced class distribution:");
+			for (int i = 0; i < numClasses; i++) {
+				System.out.printf("Class %d: %d instances%n", i, finalCounts[i]);
+			}
+		}
+
+		if (featureSelect && trainingDataset.size()>=5) {
 			System.out.println("Start feature selection...");
 			// --- ステップ1: 分散が0の属性を除去 ---
 			System.out.println("\n--- ステップ1: 分散が0の属性を除去 ---");
@@ -820,6 +1033,10 @@ public class RadiomicsPipeline {
 			}
 			System.out.println("最終的に選択された属性数: " + finalSelectedData.numAttributes());
 			System.out.println("最終的に選択された属性:\n" + finalSelectedData.toSummaryString());
+		}else {
+			if(featureSelect) {
+				System.out.println("Feature Select was canceled because number of instances less than 5...");
+			}
 		}
 	}
 	
@@ -987,6 +1204,12 @@ public class RadiomicsPipeline {
 		 * stride 2d/3d rect roi over all voxel
 		 * estimate processing time
 		 */
+		
+		if(!isPredictionReady()) {
+			System.out.println("Prediction not ready...");
+			return null;
+		}
+		
 		int patchSize = 15;//keep odd value.
 		
 		// 説明変数の名前を格納するリスト
@@ -1000,6 +1223,16 @@ public class RadiomicsPipeline {
 				featureNames.add(attribute.name());
 			}
 		}
+		
+		if(prap == null) {
+			Viewer2DScreen d2s = Viewer2DScreen.getInstance();
+			prap = d2s.getSelectedPraps().get(0);
+			if(prap == null) {
+				System.out.println("Cannot load any Series. Prediction was interupted.");
+				return null;
+			}
+		}
+		
 		ImagePlus imp = prap.getImagePlus();
 		imp = new ImagePlus("", imp.getStack().getProcessor(slidePos+1));
 		int w = imp.getWidth();

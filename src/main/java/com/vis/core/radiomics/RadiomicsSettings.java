@@ -98,7 +98,12 @@ public class RadiomicsSettings extends JPanel{
 	 * default settings
 	 */
 	//2d/3d switch, when turn on, images will calculate slice by slice
-	boolean d3_basis = true;
+	/**
+	 * memo 20250719
+	 * the 3d-basis prediction is needed too long processing time.
+	 * currently, 2d-basis is set to default.
+	 */
+	boolean d3_basis = false;
 	//label
 	final int defaultLabel = 1;
 	//remove outlier
@@ -298,6 +303,7 @@ public class RadiomicsSettings extends JPanel{
 			}
 		});
 		JRadioButton d3Btn = new JRadioButton("3D basis");
+		d3Btn.setEnabled(false);//202507, calculation time is too long...
 		d3Btn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -313,7 +319,8 @@ public class RadiomicsSettings extends JPanel{
 		ButtonGroup dimGroup = new ButtonGroup();
 		dimGroup.add(d2Btn);
 		dimGroup.add(d3Btn);
-		dimGroup.setSelected(d3Btn.getModel(), d3_basis);
+//		dimGroup.setSelected(d3Btn.getModel(), d3_basis);
+		dimGroup.setSelected(d2Btn.getModel(), true);
 		
 		JPanel maskSettings = new JPanel(new GridLayout(10, 1));
 		addBorder(maskSettings, Color.white, "Mask Settings");
@@ -1008,6 +1015,54 @@ public class RadiomicsSettings extends JPanel{
 		return spFrac;
 	}
 	
+	public boolean isRemoveOutliers() {
+		return roChk.isSelected();
+	}
+	
+	public boolean isRangeFiltering() {
+		return rfChk.isSelected();
+	}
+	
+	public boolean isResample() {
+		return resampleChk.isSelected();
+	}
+	
+	public Integer sigmaOfRemoveOutliers() {
+		String sv = roSigma.getText();
+		try {
+			Integer v = Integer.valueOf(sv);
+			return v;
+		}catch(NumberFormatException e) {
+			return null;
+		}
+	}
+	
+	public Double[] rangeFilteringMinAndMax() {
+		String smin = rfMin.getText();
+		String smax = rfMax.getText();
+		try {
+			Double min = Double.valueOf(smin);
+			Double max = Double.valueOf(smax);
+			return new Double[] {min,max};
+		}catch(NumberFormatException e) {
+			return null;
+		}
+	}
+	
+	public Double[] resampligVoxelXYZ() {
+		String sx = resampleX.getText();
+		String sy = resampleY.getText();
+		String sz = resampleZ.getText();
+		try {
+			Double x = Double.valueOf(sx);
+			Double y = Double.valueOf(sy);
+			Double z = Double.valueOf(sz);
+			return new Double[] {x,y,z};
+		}catch(NumberFormatException e) {
+			return null;
+		}
+	}
+	
 	public List<String> getTargetFeatureNames(){
 		int s = targetListModel.getSize();
 		List<String> names = new ArrayList<>();
@@ -1044,8 +1099,6 @@ public class RadiomicsSettings extends JPanel{
 	}
 	
 	public void loadSettings(Properties prop) {
-		//init features list
-		addList(featureNames, targetListModel);
 		try {
 			List<String> params = SettingsContext.getStringFieldValues();
 			for(String key : params) {
@@ -1064,10 +1117,10 @@ public class RadiomicsSettings extends JPanel{
 						// do nothing, already 3D.
 					} else if (this.d3_basis == false && is3D == true) {
 						this.d3_basis = true;
-						switch2D3D(d3_basis);
+						switch2D3D(true);
 					} else if (this.d3_basis == true && is3D == false) {
 						this.d3_basis = false;
-						switch2D3D(d3_basis);
+						switch2D3D(false);
 					} else {
 						// false && false
 						// do nothing
@@ -1146,6 +1199,9 @@ public class RadiomicsSettings extends JPanel{
 					break;
 				/**
 				 * Feature group settings
+				 * This is family level.
+				 * If family name exists, add all to target.
+				 * Finally, end of in this method, will exclude features by "EXCLUSION_" prefix. 
 				 */
 				case SettingsContext.OPERATIONAL:
 					operationalChk.setSelected(Boolean.valueOf(val));
@@ -1155,49 +1211,105 @@ public class RadiomicsSettings extends JPanel{
 					break;
 				case SettingsContext.MORPHOLOGICAL:
 					if(d3_basis==false) {
-						//skip
+						if(morphologicalChk.isSelected()==true) {
+							morphologicalChk.doClick();//be off
+						}
 					}else {
-						morphologicalChk.setSelected(Boolean.valueOf(val));
+						if(Boolean.valueOf(val) == true && morphologicalChk.isSelected()==false) {
+							morphologicalChk.doClick();//be on
+						}else if(Boolean.valueOf(val) == false && morphologicalChk.isSelected()==true) {
+							morphologicalChk.doClick();//be off
+						}
 					}
 					break;
 				case SettingsContext.LOCALINTENSITY:
-					localIntensChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && localIntensChk.isSelected()==false) {
+						localIntensChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && localIntensChk.isSelected()==true) {
+						localIntensChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.INTENSITYSTATS:
-					intensityStatsChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && intensityStatsChk.isSelected()==false) {
+						intensityStatsChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && intensityStatsChk.isSelected()==true) {
+						intensityStatsChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.INTENSITYHISTOGRAM:
-					histogramChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && histogramChk.isSelected()==false) {
+						histogramChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && histogramChk.isSelected()==true) {
+						histogramChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
-					volumeHistChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && volumeHistChk.isSelected()==false) {
+						volumeHistChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && volumeHistChk.isSelected()==true) {
+						volumeHistChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.GLCM:
-					glcmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && glcmChk.isSelected()==false) {
+						glcmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && glcmChk.isSelected()==true) {
+						glcmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.GLRLM:
-					glrlmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && glrlmChk.isSelected()==false) {
+						glrlmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && glrlmChk.isSelected()==true) {
+						glrlmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.GLSZM:
-					glszmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && glszmChk.isSelected()==false) {
+						glszmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && glszmChk.isSelected()==true) {
+						glszmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.GLDZM:
-					gldzmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && gldzmChk.isSelected()==false) {
+						gldzmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && gldzmChk.isSelected()==true) {
+						gldzmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.NGTDM:
-					ngtdmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && ngtdmChk.isSelected()==false) {
+						ngtdmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && ngtdmChk.isSelected()==true) {
+						ngtdmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.NGLDM:
-					ngldmChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && ngldmChk.isSelected()==false) {
+						ngldmChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && ngldmChk.isSelected()==true) {
+						ngldmChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.FRACTAL:
-					fractalChk.setSelected(Boolean.valueOf(val));
+					if(Boolean.valueOf(val) == true && fractalChk.isSelected()==false) {
+						fractalChk.doClick();//be on
+					}else if(Boolean.valueOf(val) == false && fractalChk.isSelected()==true) {
+						fractalChk.doClick();//be off
+					}
 					break;
 				case SettingsContext.SHAPE2D:
 					if(d3_basis==false) {
-						shape2dChk.setSelected(Boolean.valueOf(val));
+						if(Boolean.valueOf(val) == true && shape2dChk.isSelected()==false) {
+							shape2dChk.doClick();//be on
+						}else if(Boolean.valueOf(val) == false && shape2dChk.isSelected()==true) {
+							shape2dChk.doClick();//be off
+						}
 					}else {
-						//skip
+						if(shape2dChk.isSelected()==true) {
+							shape2dChk.doClick();//be off
+						}
 					}
 					break;
 				/**
@@ -1412,16 +1524,21 @@ public class RadiomicsSettings extends JPanel{
 					boxsize_fractal.setText(val);
 					break;
 				default:
-					/*
-					 * EXCLUSION key is specify Exfeature name.
-					 */
-					if(key.startsWith("EXCLUSION")) {
-						String fname = key.replace("EXCLUSION_", "");
-						String fullFam = fullFamilyNameToShort(fname.split("_")[0]);
-						fname = fullFam + "_" + fname.split("")[1];
-						addList(fname, exclusionListModel);
-					}
 					break;
+				}
+			}
+			/*
+			 * Finally, exclude EXCLUSION_FEATURE
+			 */
+			for(String key : params) {
+				/*
+				 * EXCLUSION key is specify Exfeature name.
+				 */
+				if(key.startsWith("EXCLUSION")) {
+					String fname = key.replace("EXCLUSION_", "");
+					String fullFam = fullFamilyNameToShort(fname.split("_")[0]);
+					fname = fullFam + "_" + fname.split("")[1];
+					addList(fname, exclusionListModel);
 				}
 			}
 		} catch (IllegalAccessException e) {
@@ -1725,7 +1842,11 @@ public class RadiomicsSettings extends JPanel{
 	
 	public void addList(String name, DefaultListModel<String> listModel) {
 		if (listModel.contains(name)) {
-			System.out.println(name + " is already listed.");
+			if(listModel == targetListModel) {
+				System.out.println(name + " is already listed in targetList");
+			}else {
+				System.out.println(name + " is already listed in exclusionList");
+			}
 			return;
 		}
 		listModel.add(listModel.getSize(), name);
@@ -1799,12 +1920,12 @@ public class RadiomicsSettings extends JPanel{
 			}
 			shape2dChk.setEnabled(false);
 			morphologicalChk.setEnabled(true);
-			if(!morphologicalChk.isSelected()) {
+			if(morphologicalChk.isSelected() == false) {
 				morphologicalChk.doClick();
 			}
 		}else {
 			shape2dChk.setEnabled(true);
-			if(!shape2dChk.isSelected()) {
+			if(shape2dChk.isSelected() == false) {
 				shape2dChk.doClick();//on
 			}
 			if(morphologicalChk.isSelected()) {

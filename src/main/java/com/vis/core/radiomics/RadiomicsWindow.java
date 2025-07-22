@@ -38,17 +38,13 @@
 package com.vis.core.radiomics;
 
 import java.awt.BorderLayout;
-import java.util.List;
 import java.util.Properties;
-import java.util.logging.Level;
 
 import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
-import com.vis.core.log.Log;
-import com.vis.core.ui.main.MainScreen;
 
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 

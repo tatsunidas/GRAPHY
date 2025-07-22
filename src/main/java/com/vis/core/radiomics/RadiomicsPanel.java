@@ -92,9 +92,7 @@ import ij.gui.Roi;
 import ij.io.RoiDecoder;
 import ij.io.SaveDialog;
 import weka.classifiers.Classifier;
-import weka.core.Instances;
 import weka.core.SerializationHelper;
-import weka.core.converters.ArffSaver;
 import weka.gui.GUIChooserApp;
 import weka.gui.GenericObjectEditor;
 import weka.gui.PropertyPanel;
@@ -222,7 +220,7 @@ public class RadiomicsPanel extends JPanel{
 		m_ClassifierEditor.addPropertyChangeListener(new PropertyChangeListener() {
 			@Override
 			public void propertyChange(PropertyChangeEvent evt) {
-				updateClassifier();
+				initClassifier();
 			}
 		});
 		PropertyPanel m_CEPanel = new PropertyPanel(m_ClassifierEditor);
@@ -230,8 +228,11 @@ public class RadiomicsPanel extends JPanel{
 		model.add(modelNameP);
 		
 		autoImputation = new JCheckBox(IMPUTE);
+		autoImputation.setToolTipText("Impute by mean");
 		balance = new JCheckBox(BALANCE);
+		balance.setToolTipText("Do balancing (to be even number of instances in classes)");
 		autoFeatureSelect = new JCheckBox(FEATURE_SELECT);
+		autoFeatureSelect.setToolTipText("Drop useless&multicorr, then, will select by using LASSO");
 		autoImputation.setSelected(true);
 		balance.setSelected(true);
 		autoFeatureSelect.setSelected(true);
@@ -356,11 +357,16 @@ public class RadiomicsPanel extends JPanel{
 		this.pipeline = pipe;
 	}
 	
-	public void updateClassifier() {
+	public void initClassifier() {
 		Object clf = m_ClassifierEditor.getValue();
 		pipeline = pipeline.modelIs((Classifier)clf);
 	}
 	
+	/**
+	 * Operation specific information.
+	 * @param prop
+	 * @return
+	 */
 	private Properties addModelConfiguration(Properties prop) {
 		prop.setProperty("MODEL_"+BALANCE, String.valueOf(balance.isSelected()));
 		prop.setProperty("MODEL_"+FEATURE_SELECT, String.valueOf(autoFeatureSelect.isSelected()));
@@ -374,28 +380,38 @@ public class RadiomicsPanel extends JPanel{
 		chooser.setMultiSelectionEnabled(false);
 		chooser.setDialogTitle("Select folder");
 		int userSelection = chooser.showOpenDialog(this);
-        // ユーザーが「開く」ボタンを押したかどうかをチェック
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File selectedDirectory = chooser.getSelectedFile();
-            saveRois(getRois(), selectedDirectory);
-            Properties prop = radWin.getRadiomicsSettingsAsProp();
-            prop = addModelConfiguration(prop);
-            saveProp(prop, selectedDirectory.getAbsolutePath()+File.separator+"configuration");
-            saveModel(selectedDirectory.getAbsolutePath()+File.separator+"model");
-            saveDatasetARFF(selectedDirectory.getAbsolutePath()+File.separator+"traindataset");
-        } else {
-            System.out.println("フォルダ選択がキャンセルされました。");
-        }
+		// ユーザーが「開く」ボタンを押したかどうかをチェック
+		if (userSelection == JFileChooser.APPROVE_OPTION) {
+			File selectedDirectory = chooser.getSelectedFile();
+			saveRois(getRois(), selectedDirectory);
+			// feature calculation settings
+			Properties prop = radWin.getRadiomicsSettingsAsProp();
+			// pipeline settings
+			prop = addModelConfiguration(prop);
+			saveProp(prop, selectedDirectory.getAbsolutePath() + File.separator + "configuration");
+			pipeline.saveModel(selectedDirectory.getAbsolutePath() + File.separator + "model");
+			/**
+			 * train_dataset is used to build a instance for prediction.
+			 */
+			pipeline.saveDatasetARFF(selectedDirectory.getAbsolutePath() + File.separator + "traindataset");
+		} else {
+			System.out.println("フォルダ選択がキャンセルされました。");
+		}
 	}
 	
 	public void saveRois(HashMap<String, List<RoiObj>> roiset, File dir) {
 		File saveTo = new File(dir.getAbsolutePath()+File.separator+"ROI");
 		for(String className : roiset.keySet()) {
-			saveTo = new File(saveTo.getAbsolutePath()+File.separator+className);
-			saveTo.mkdirs();
+			File saveTo_ = new File(saveTo.getAbsolutePath()+File.separator+className);
+			saveTo_.mkdirs();
 			List<RoiObj> rois = roiset.get(className);
+			int itr = 1;
 			for(RoiObj ro : rois) {
-				RoiObjManager.saveRoi(ro, saveTo.getAbsolutePath()+File.separator+ro.getName()+".roi");
+				if(ro !=null) {
+					String rName = className+"_"+itr;
+					RoiObjManager.saveRoi(ro, saveTo_.getAbsolutePath()+File.separator+rName+".roi");
+				}
+				itr++;
 			}
 		}
 	}
@@ -426,52 +442,6 @@ public class RadiomicsPanel extends JPanel{
 		}
 	}
 	
-	public void saveModel(String dest) {
-		Classifier classifierToSave = pipeline.getClassifier();
-		if(!dest.endsWith(".model")) {
-			dest += ".model";
-		}
-		try {
-            // 4. SerializationHelper を使ってモデルをファイルに保存
-            // write(String fileName, Object model) メソッドを使用
-            SerializationHelper.write(dest, classifierToSave);
-            System.out.println("WEKAモデルが正常に保存されました: " + dest);
-        } catch (IOException e) {
-            System.err.println("モデルの保存/読み込み中にIOエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            System.err.println("その他のエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
-        }
-	}
-	
-	public void saveDatasetARFF(String dest) {
-		Instances trainds = pipeline.getTrainDataset();
-		if(trainds == null) {
-			System.out.println("This pipeline does not perform training. no write dataset.");
-			return;
-		}
-		try {
-			if (!dest.endsWith(".arff")) {
-				dest += ".arff";
-			}
-			ArffSaver saver = new ArffSaver();
-			saver.setInstances(trainds);
-			String outputArffPath = dest; // 保存するARFFファイルの名前
-			File outputFile = new File(outputArffPath);
-			saver.setFile(outputFile);
-			// （オプション）圧縮して保存したい場合
-			// saver.setCompressOutput(true); // .arff.gz 形式で保存されます
-			saver.writeBatch(); // または saver.writeIncremental() を使用することも可能
-			System.out.println("InstancesがARFFファイルに正常に保存されました: " + outputFile.getAbsolutePath());
-		} catch (IOException e) {
-			System.err.println("ARFFファイルの保存中にI/Oエラーが発生しました: " + e.getMessage());
-			e.printStackTrace();
-		} catch (Exception e) {
-			System.err.println("その他のエラーが発生しました: " + e.getMessage());
-			e.printStackTrace();
-		}
-	}
 	
 	public void loadConfiguration() {
 		JFileChooser chooser = new JFileChooser();
@@ -484,11 +454,18 @@ public class RadiomicsPanel extends JPanel{
 			File[] files = selectedDirectory.listFiles();
 			for (File f : files) {
 				if (f.getName().equals("ROI")) {
-					loadRois(f);
+					/**
+					 * 再起動後には、Praparatの紐付けができなくなる。
+					 * 現バージョンではtrainWith()が必要になる。
+					 * ROIのロードは一旦取りやめる。
+					 */
+//					loadRois(f);
 				} else if (f.getName().endsWith(".properties")) {
-					loadConfiguration(f);
+					loadConfigurationSettingProps(f);
 				} else if (f.getName().endsWith(".model")) {
 					loadModel(f);
+				}else if (f.getName().endsWith(".arff")) {
+					loadDatasetARFF(f);
 				}
 			}
 		} else {
@@ -496,62 +473,55 @@ public class RadiomicsPanel extends JPanel{
 		}
 	}
 	
+	/**
+	 * 関連のあるシリーズが解析対象だった場合にのみ、
+	 * クラスパネルへROIをロードする。
+	 * 
+	 * @param roiDir
+	 */
 	public void loadRois(File roiDir) {
-		if (!pipeline.isPraparatReady()) {
-			System.out.println("Praparat is not ready, can not load rois.");
+		System.out.println("Start LOAD ROI...");
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (!pipeline.isPraparatReady() || db == null) {
+			System.out.println("Praparat or Database is not ready, can not load rois.");
 			return;
 		}
-		DatabaseHandler db = DatabaseHandler.getInstance();
+		
 		Praparat prap = pipeline.getPraparat();
-		HashMap<String, Object> info = prap.getInfoSet();
-		String patID = (String) info.get("PatientID");
-		String studyUID = (String) info.get("StudyInstanceUID");
-		String seriesUID = (String) info.get("SeriesInstanceUID");
-		String[] sopUIDs = (String[]) info.get("SOPInstanceUIDs");
-		// init classPanels
-		initClassPanels();
-		// load rois
+		
+		// init classPanels ? 
+		//initClassPanels();
 		/*
-		 * import to graphy if not exists.(update UIDs)
+		 * load rois
+		 * DOES NOT import to graphy even if not exists.
 		 */
 		File classes[] = roiDir.listFiles();
+		if(classes == null || classes.length == 0) {
+			return;
+		}
 		int choice = Integer.MAX_VALUE;
 		for (File c : classes) {
 			if (choice != Integer.MAX_VALUE && choice != JOptionPane.YES_OPTION) {
 				break;
 			}
 			String className = c.getName();
+			//add classpanel if not exists.
 			addNewClass(className);
 			File rois[] = c.listFiles();
 			for (File r : rois) {
 				if (r.getName().endsWith(".roi")) {
 					try {
 						Roi r_ = new RoiDecoder(r.getAbsolutePath()).getRoi();
+						if(r_ == null) {
+							System.out.println("Null ROI... skip. :"+r.getAbsolutePath());
+							continue;
+						}
 						RoiObj ro = new RoiConverter().convert2RoiObj(r_);
 						if (isRoiBelongingTo(ro, prap)) {
+							//already done add new class
 							getClassPanel(className).add(ro);
 						} else {
-							// update roi info
-							if (choice == Integer.MAX_VALUE) {
-								choice = JOptionPane.showConfirmDialog(this, // 親コンポーネント (nullで画面中央)
-										"This roi is not belonging to this series, would you like to load rois to this series ?", // 表示するメッセージ
-										"Rois are not belonging", // ダイアログのタイトル
-										JOptionPane.YES_NO_OPTION // ボタンの種類 (はい/いいえ)
-								// JOptionPane.QUESTION_MESSAGE // アイコンの種類 (任意)
-								);
-							}
-							if (choice == JOptionPane.YES_OPTION && db != null) {
-								ro.setProperty(ContextKey.PatientID, patID);
-								ro.setProperty(ContextKey.StudyInstanceUID, studyUID);
-								ro.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
-								ro.setProperty(ContextKey.SOPInstanceUID, sopUIDs[ro.getPosition() - 1]);
-								// insert db
-								prap.addRoi(ro.getPosition() - 1, ro);
-								getClassPanel(className).add(ro);
-							} else {
-								System.out.println("Cancel the load of Rois.");
-								break;
-							}
+							System.out.println("This roi does not match to current series.");
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -581,7 +551,7 @@ public class RadiomicsPanel extends JPanel{
 		return false;
 	}
 	
-	public void loadConfiguration(File f) {
+	public void loadConfigurationSettingProps(File f) {
 		Properties prop = PropertiesUtil.loadProperties(f.getAbsolutePath());
 		radWin.loadRadiomicsSettings(prop);
 		loadModelSettings(prop);
@@ -605,11 +575,16 @@ public class RadiomicsPanel extends JPanel{
 	public void loadModel(File f) {
 		try {
 			Classifier clf = (Classifier) SerializationHelper.read(f.getAbsolutePath());
-			m_ClassifierEditor.setValue(clf);
+			m_ClassifierEditor.setValue(clf);//be careful, this is a reason for locating loadModel() in this class.
 			pipeline.modelIs(clf);
+			System.out.println("Model is loaded successfully.");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+	
+	public void loadDatasetARFF(File f) {
+		pipeline.loadDatasetARFF(f);
 	}
 	
 	public void initClassPanels() {
@@ -637,24 +612,32 @@ public class RadiomicsPanel extends JPanel{
 						if(d2 == null) {
 							return;
 						}
-						updateClassifier();//set model
+						initClassifier();//set model
 						RadiomicsSettings rs = radWin.getRadiomicsSettings();
 						HashMap<String, List<RoiObj>> ds = getRois();
 						Praparat pp = d2.getSelectedPraps().get(0);
 						pipeline = pipeline.trainWith(rs, ds, pp);
-						pipeline.train();
+						pipeline.train(autoImputation.isSelected(), balance.isSelected(), autoFeatureSelect.isSelected());
 					}
 				});	
 			}else if(name.equals(PREDICTION)) {
 				btn.addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
+						/**
+						 * DO NOT update/init model here.
+						 * If model was loaded by loadSettings(),
+						 * Model will be changed. 
+						 */
 						Viewer2DScreen d2 = Viewer2DScreen.getInstance();
 						if(d2 == null) {
 							return;
 						}
+						RadiomicsSettings rs = radWin.getRadiomicsSettings();
+						HashMap<String, List<RoiObj>> ds = getRois();
 						Praparat pp = d2.getSelectedPraps().get(0);
-						/*
+						pipeline = pipeline.trainWith(rs, ds, pp);
+						/* pred imageplus
 						 * slice 0 : label image
 						 * slice 1 : proba image
 						 */
@@ -667,7 +650,13 @@ public class RadiomicsPanel extends JPanel{
 					@Override
 					public void actionPerformed(ActionEvent e) {
 						if(pred != null) {
-							pred.show();
+							new Thread(new Runnable() {
+								@Override
+								public void run() {
+									// TODO Auto-generated method stub
+									pred.show();
+								}
+							}).start();
 						}
 					}
 				});
@@ -694,6 +683,20 @@ public class RadiomicsPanel extends JPanel{
 					        IJ.saveAs(pred, "tiff", savePath);
 					        System.out.println("完了:"+savePath + " に画像を保存しました。");
 						}
+					}
+				});
+			}else if(name.equals(LOAD_CONFIG)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						loadConfiguration();
+					}
+				});
+			}else if(name.equals(SAVE_CONFIG)) {
+				btn.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						saveConfigration();
 					}
 				});
 			}else if(name.equals(WEKA)) {

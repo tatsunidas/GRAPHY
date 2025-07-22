@@ -83,7 +83,7 @@ public class SettingsContext {
 	/**
 	 * Feature names
 	 */
-	public static final String MORPHOLOGICAL = "Molphological";
+	public static final String MORPHOLOGICAL = "Morphological";
 	public static final String LOCALINTENSITY = "LocalIntensity";
 	public static final String INTENSITYSTATS = "IntensityStats";
 	public static final String INTENSITYHISTOGRAM = "IntensityHistogram";

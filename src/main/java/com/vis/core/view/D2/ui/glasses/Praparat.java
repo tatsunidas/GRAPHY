@@ -994,6 +994,11 @@ public class Praparat extends JPanel {
 //		//add ...
 //	}
 
+	/**
+	 * 
+	 * @param sopUID
+	 * @return slide pos : 0 to n-1.
+	 */
 	public int getSlidePosition(String sopUID) {
 		HashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
