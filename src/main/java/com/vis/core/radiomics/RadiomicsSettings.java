@@ -97,12 +97,8 @@ public class RadiomicsSettings extends JPanel{
 	/**
 	 * default settings
 	 */
-	//2d/3d switch, when turn on, images will calculate slice by slice
-	/**
-	 * memo 20250719
-	 * the 3d-basis prediction is needed too long processing time.
-	 * currently, 2d-basis is set to default.
-	 */
+	// 2d/3d switch, when turn on, images will calculate slice by slice
+	// currently, 2d-basis is set to default.
 	boolean d3_basis = false;
 	//label
 	final int defaultLabel = 1;
@@ -1027,10 +1023,10 @@ public class RadiomicsSettings extends JPanel{
 		return resampleChk.isSelected();
 	}
 	
-	public Integer sigmaOfRemoveOutliers() {
+	public Double sigmaOfRemoveOutliers() {
 		String sv = roSigma.getText();
 		try {
-			Integer v = Integer.valueOf(sv);
+			Double v = Double.valueOf(sv);
 			return v;
 		}catch(NumberFormatException e) {
 			return null;

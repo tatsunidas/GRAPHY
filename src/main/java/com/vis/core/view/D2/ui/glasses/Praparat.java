@@ -166,7 +166,7 @@ public class Praparat extends JPanel {
 	int prevW;
 	int prevH;
 	
-	private HashMap<Integer, SlideGlass> slides;
+	private HashMap<Integer/*0 to N-1*/, SlideGlass> slides;
 	
 	final ViewMode mode;
 	

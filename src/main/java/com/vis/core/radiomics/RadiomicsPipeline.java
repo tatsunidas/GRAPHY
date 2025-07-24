@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 import com.vis.configuration.ContextKey;
+import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
@@ -186,10 +187,13 @@ public class RadiomicsPipeline {
 			ResultsTable rt_ = calcAllFeatures(setting, rois, prap);
 			// add target label to calculation results
 			for (int i = 0; i < rt_.size(); i++) {
-				rt_.addValue(targetColName, className);
+				rt_.setValue(targetColName, i, className);
+				//rt_.save(className+"_trainDataset.csv");//debug
 			}
 			rt = combineTables(rt/* null-able */, rt_);
 		}
+		
+		//rt.save("trainingDataset.csv");//debug
 		
 		try {
 			prepareTrainDataset(rt, targetColName, impute, balance, featureSelect);
@@ -634,7 +638,7 @@ public class RadiomicsPipeline {
 			ImagePlus pair[] = preprocessing(imp, mask, label, d3_basis);
 			try {
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
-				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
+				rt = combineTables(rt, rt_);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -663,7 +667,7 @@ public class RadiomicsPipeline {
 				ImagePlus pair[] = preprocessing(slice, mask, label, d3_basis);
 				
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
-				rt = io.github.tatsunidas.radiomics.main.Utils.combineTables(rt, rt_);
+				rt = combineTables(rt, rt_);
 			}
 		}
 		return rt;
@@ -684,6 +688,11 @@ public class RadiomicsPipeline {
 		}
 		//resample
 		if(setting.isResample()) {
+			if(Utils.isDebug) {
+				System.out.println("==========================");
+				System.out.println("Before resample:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("==========================");
+			}
 			Double[] xyz = setting.resampligVoxelXYZ();
 			// TODO
 			if(d3_basis == false) {
@@ -695,6 +704,11 @@ public class RadiomicsPipeline {
 				imagePair[0] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[0], false, xyz[0].doubleValue(), xyz[1].doubleValue(), xyz[2].doubleValue());
 				imagePair[1] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[1], true, xyz[0], xyz[1], xyz[2]);
 			}
+			if(Utils.isDebug) {
+				System.out.println("==========================");
+				System.out.println("After resample:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("==========================");
+			}
 		}
 		//range filtering and remove outliers
 		//use label 1.
@@ -703,13 +717,30 @@ public class RadiomicsPipeline {
 			Double rangeMin = minMax[0];
 			Double rangeMax = minMax[1];
 			if(rangeMax != null && rangeMin != null) {
+				//resegment only mask.
 				imagePair[1] = ImagePreprocessing.rangeFiltering(imagePair[0], imagePair[1], RadiomicsJ.label_, rangeMax, rangeMin);
+			}
+			if(Utils.isDebug) {
+				System.out.println("==========================");
+				System.out.println("Range Filtering Resegmentation was done.");
+				System.out.println("==========================");
 			}
 		}
 		
 		if(setting.isRemoveOutliers()) {
 			// get new mask removed outliers
+			Double sigma = setting.sigmaOfRemoveOutliers();
+			if(sigma == null || sigma.isNaN() || sigma <= 0 ) {
+				System.out.println("Sigma is null or NaN or less than zero. Use default sigma=3.");
+			}else {
+				RadiomicsJ.zScore = sigma;
+			}
 			imagePair[1] = ImagePreprocessing.outlierFiltering(imagePair[0], imagePair[1], RadiomicsJ.label_);
+			if(Utils.isDebug) {
+				System.out.println("==========================");
+				System.out.println("Remove Outliers was done.");
+				System.out.println("==========================");
+			}
 		}
 		/*
 		 * normalize
@@ -728,16 +759,18 @@ public class RadiomicsPipeline {
 			return from;
 		}else {
 			if(from != null) {
-				to.incrementCounter();
 				String[] headings = from.getHeadings();
-				int row  = 0;
-				for(String h : headings) {
-					if(h.contains("ID") || h.contains("OperationalInfo_") || h.contains("LABEL")) {
-						String v = from.getStringValue(h, row);
-						to.addValue(h, v);
-					}else {
-						double v = from.getValue(h, row);
-						to.addValue(h, v);
+				for(int i=0; i< from.size(); i++) {
+					to.incrementCounter();
+					int row  = 0;
+					for(String h : headings) {
+						if(h.equals("ID") || h.startsWith("OperationalInfo_") || h.equals("LABEL")) {
+							String v = from.getStringValue(h, row);
+							to.addValue(h, v);
+						}else {
+							double v = from.getValue(h, row);
+							to.addValue(h, v);
+						}
 					}
 				}
 			}
@@ -960,14 +993,14 @@ public class RadiomicsPipeline {
 				finalCounts[cls]++;
 			}
 
-			System.out.println("Balanced class distribution:");
+			System.out.println("--- Balanced class distribution ---");
 			for (int i = 0; i < numClasses; i++) {
-				System.out.printf("Class %d: %d instances%n", i, finalCounts[i]);
+				System.out.printf("  Class %d: %d instances%n", i, finalCounts[i]);
 			}
 		}
 
 		if (featureSelect && trainingDataset.size()>=5) {
-			System.out.println("Start feature selection...");
+			System.out.println("--- Start feature selection ---");
 			// --- ステップ1: 分散が0の属性を除去 ---
 			System.out.println("\n--- ステップ1: 分散が0の属性を除去 ---");
 			RemoveUseless removeUselessFilter = new RemoveUseless();
@@ -1234,7 +1267,7 @@ public class RadiomicsPipeline {
 		}
 		
 		ImagePlus imp = prap.getImagePlus();
-		imp = new ImagePlus("", imp.getStack().getProcessor(slidePos+1));
+		//imp = new ImagePlus("", imp.getStack().getProcessor(slidePos+1));//DO NOT DO THIS
 		int w = imp.getWidth();
 		int h = imp.getHeight();
 		Properties prop = setting.currentSettings();
