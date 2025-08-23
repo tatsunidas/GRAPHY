@@ -127,7 +127,11 @@ public class SlideGlass extends JLayeredPane {
 	// rotate
 	public int currentRotateAngle = 0;
 	public int lastRotateAngle = 0;
-	// zoom
+	
+	/**
+	 * Size of fit to component is 1.0(100%).
+	 * No original size.
+	 */
 	private double magnification = 1.0d;// zoom ratio 1 to N
 
 	// mouse settings
@@ -1289,7 +1293,8 @@ public class SlideGlass extends JLayeredPane {
 
 	/**
 	 * 
-	 * @param magnification : zoom scale(0.2<, <7.0)
+	 * @param mag
+	 * @param zoomUp
 	 */
 	void zoom(double mag, boolean zoomUp) {
 		// set magnification min max

@@ -217,7 +217,7 @@ public class ApplicationFacade{
 		db = new DatabaseHandlerBuilder().build();
 		if(db.startingUp() == false) {
 			try {
-				exitApp(Level.SEVERE, "Can not start graphy db.");
+				readyToClose(Level.SEVERE, "Can not start graphy db.");
 			} catch (Throwable e) {
 				e.printStackTrace();
 			}
@@ -277,7 +277,7 @@ public class ApplicationFacade{
 		}
 	}
 	
-	public static boolean exitApp(Level level, String exitString) throws Throwable {
+	public static boolean readyToClose(Level level, String exitString) throws Throwable {
 		if (splash != null) {
 			splash.dispose();
 		}

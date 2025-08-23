@@ -106,7 +106,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 			Log.logger.severe(e.getMessage());
 			try {
 				ApplicationFacade
-						.exitApp(Level.SEVERE,"ERROR: ClassNotFoundException:" + e.getMessage() + ": GRAPHY stop and close...");
+						.readyToClose(Level.SEVERE,"ERROR: ClassNotFoundException:" + e.getMessage() + ": GRAPHY stop and close...");
 			} catch (Throwable e1) {
 				e1.printStackTrace();
 			}

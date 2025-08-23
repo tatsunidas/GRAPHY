@@ -84,63 +84,6 @@ public class Launcher {
 		new ApplicationFacade(parseArgs(args));
 	}
 	
-	/**
-	 * When testing on Jar, cannot restart. 
-	 */
-	public static void restart() {
-		// JVM
-		String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";		
-		File currentJar = null;
-		try {
-			URI uri = Launcher.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-			currentJar = new File(URLDecoder.decode(uri.getPath(), StandardCharsets.UTF_8.name()));
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-		}
-
-		// build command
-		List<String> command = new ArrayList<>();
-		command.add(java);
-		String xms = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xms);
-		String xmx = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.Xmx);
-		command.add("-Xms=" + ((xms != null && !xms.isBlank()) ? "1g" : xms));
-		command.add("-Xmx=" + ((xmx != null && !xmx.isBlank()) ? "10g" : xmx));
-		command.add("-Djava.library.path=" + Platform.getOpenCVNativeLibLocation());
-		command.add(currentJar.getAbsolutePath());
-		command.add("restart");
-		
-		// add original commands
-		ArrayList<String> orgCmd = new ArrayList<>();
-		boolean no_splash = Boolean.valueOf(PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH));
-		if(no_splash) {
-			orgCmd.add(StartingUpConfigurations.no_splash.name());
-		}
-		
-		command.addAll(orgCmd);
-		
-		Log.logger.info("GRAPHY will restart...");
-		Log.logger.info(command.toString());
-		
-		ProcessBuilder builder = new ProcessBuilder(command);
-
-		try {
-			builder.start();
-			//close current process
-			System.exit(0);
-		} catch (IOException e) {
-			e.printStackTrace();
-			Log.logger.severe("Sorry, something happened when restarting, this process will close automatically. After that, you can restart GRAPHY by manualy...");
-			PopUpMessage.showDialog(null, "You need restart manualy...", "Sorry, something happened when restarting, this process will close automatically. After that, you can restart GRAPHY by manualy.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			try {
-				Thread.sleep(1000 * 10);
-				System.exit(0);
-			} catch (InterruptedException e1) {
-				System.exit(0);
-			}
-		}
-	}
 	
 	private HashMap<StartingUpConfigurations, String[]> parseArgs(String[] args){
 		if(args == null || args.length == 0) {

@@ -42,9 +42,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -62,17 +64,26 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+
+import javax.swing.JOptionPane;
 
 import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
+import com.vis.configuration.StartingUpConfigurations;
+import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.launcher.Launcher;
 import com.vis.core.log.Log;
+import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.db.DatabaseHandler;
 
 /**
  * 
@@ -484,5 +495,63 @@ public class Utils {
 			}
 		}
 		return Locale.getDefault();
+	}
+	
+	/**
+	 * restart by using script file.
+	 */
+	public static void restart() {
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null) {
+			throw new NullPointerException("Database is NULL, GRAPHY cannot reboot..., please restart manualy.");
+		}
+
+		try {
+			ApplicationFacade.readyToClose(Level.INFO, "Rebooting...");
+		} catch (Throwable e) {
+			e.printStackTrace();
+		}
+
+		try {
+			// 1. 実行中のコード（jarファイルまたはクラスファイル）の場所を取得
+			CodeSource codeSource = Launcher.class.getProtectionDomain().getCodeSource();
+			File jarFile = new File(codeSource.getLocation().toURI().getPath());
+			// 2. jarファイルが置かれているディレクトリを取得
+			String jarDir = jarFile.getParent();
+			// 3. スクリプトへの絶対パスを構築
+			String scriptName = System.getProperty("os.name").toLowerCase().contains("win") 
+					? "run.bat"
+					: "run.sh";
+			File scriptFile = new File(jarDir, scriptName);
+			String scriptAbsolutePath = scriptFile.getAbsolutePath();
+
+			// 4. 絶対パスでコマンドを実行
+			List<String> command = new ArrayList<>();
+			if (System.getProperty("os.name").toLowerCase().contains("win")) {
+				// Windowsの場合は cmd /c を経由して実行するのが一般的
+				command.add("cmd.exe");
+				command.add("/c");
+				command.add(scriptAbsolutePath);
+			} else {
+				command.add("sh");
+				command.add(scriptAbsolutePath);
+			}
+			/*
+			 * 起動ファイル側で指定するため不要。
+			 */
+			// jarファイル自身の絶対パスを引数としてスクリプトに渡す
+//			command.add(jarFile.getAbsolutePath());
+
+			System.out.println("Executing command: " + command);
+			new ProcessBuilder(command).start();
+			/////////////////
+			System.exit(0);
+			/////////////////
+		} catch (URISyntaxException | IOException e) {
+			e.printStackTrace();
+			System.out.println("Reboot was failed, please restart manualy...");
+			JOptionPane.showConfirmDialog(null, "Reboot was failed, please restart manualy...");
+		}
 	}
 }

@@ -229,7 +229,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 			try {
-				ApplicationFacade.exitApp(Level.SEVERE, "Filed to construct MainTreeTable...");
+				ApplicationFacade.readyToClose(Level.SEVERE, "Filed to construct MainTreeTable...");
 			} catch (Throwable e1) {
 				e1.printStackTrace();
 			}
@@ -739,7 +739,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		 * 4. system.exit(0)
 		 */
 		try {
-			boolean close = ApplicationFacade.exitApp(Level.INFO, "Shutting down graphy...");
+			boolean close = ApplicationFacade.readyToClose(Level.INFO, "Shutting down graphy...");
 			if(!close) {
 				return;
 			}

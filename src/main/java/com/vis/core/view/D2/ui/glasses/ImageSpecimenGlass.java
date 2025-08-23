@@ -55,7 +55,7 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
 /**
- * 
+ * A single frame image screen
  * @author tatsunidas
  *
  */
@@ -63,18 +63,23 @@ import ij.process.ImageProcessor;
 public class ImageSpecimenGlass extends JPanel{
 	
 	/**
-	 * single frame image screen
+	 * src img
 	 */
-	private final DicomImage dcmImg;//src
+	private final DicomImage dcmImg;
+	
 	/**
-	 * This orgImg is calibrated by SlideGlass.initImageInfo().
-	 * see also, GDicomTools.calibrate() function.
+	 * The orgImg is calibrated by SlideGlass.initImageInfo().
+	 * See also, GDicomTools.calibrate() function.
 	 */
 	private final ImagePlus orgImg;//without calibration
+	
 	private final String sopUID;
 	private final SlideGlass sg;
 	public ImagePlus displayImg;
-	// display image origin
+	
+	/**
+	 * diaplay image origin
+	 */
 	public int originX;
 	public int originY;
 	
@@ -97,8 +102,8 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	/**
-	 * create image to display, it was fitted prap size without zoom/pan/rotation/windowing.
-	 * @return
+	 * Fit to praparat size, without zoom/pan/rotation/windowing.
+	 * @return imageplus which fitted to praparat. 
 	 */
 	ImagePlus createInitialDisplayImage() {
 		/*
@@ -112,9 +117,9 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		imp.setProcessor(ip);
 		imp.setTitle("replica");
-		// resize to comp size
 		/*
-		 * The calcImageSize2FitComponent method makes scaleX and scaleY have the same value.
+		 * resize to comp size
+		 * See also calcImageSize2FitComponent method.
 		 */
 		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor()[0]/*here, scale by x*/);
 		/*
@@ -126,8 +131,8 @@ public class ImageSpecimenGlass extends JPanel{
 		}else if(imp.getBitDepth() == 16) {
 			imp.getProcessor().setBackgroundValue(32768);
 		}else if(imp.getBitDepth() == 32) {
-			imp.getProcessor().setBackgroundValue(0.5);
-		}else {
+			imp.getProcessor().setBackgroundValue(0.5/*TODO is it correct ?*/);
+		}else {//color RGB
 			imp.getProcessor().setBackgroundValue(0);
 			imp.getProcessor().setBackgroundColor(Color.BLACK);
 		}
@@ -203,7 +208,7 @@ public class ImageSpecimenGlass extends JPanel{
 	 * @return
 	 */
 	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
-		Insets insets = sg.getInsets();
+		Insets insets = sg.getInsets();//the border's insets
        int x = (getWidth() - insets.left - insets.right - newImgW) / 2 + insets.left;
        int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 + insets.top;
 		return new Point(x, y);
@@ -218,7 +223,7 @@ public class ImageSpecimenGlass extends JPanel{
 		/*
 		 * The size of the border is calculated using Insets.
 		 */
-		Insets insets = sg.getInsets();
+		Insets insets = sg.getInsets();//the border's insets
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
 		
@@ -310,7 +315,7 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	/**
-	 * For handle ROI.
+	 * To handle ROI.
 	 * If origin is an original coordinate system basis,
 	 * this method will convert it to display coordinates.
 	 */
@@ -321,14 +326,14 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	@Override
 	protected void paintComponent(Graphics g) {
-	    Graphics2D g2d = (Graphics2D) g;
-	    if(transparent) {
-	    	g2d.setComposite(AlphaComposite.getInstance(
-		            AlphaComposite.SRC_OVER, alpha));
-		    g2d.drawImage(displayImg.getImage(), originX, originY, this);
-	    }else {
-	    	g2d.drawImage(displayImg.getImage(), originX, originY, this);
-	    }
-	    g2d.dispose();
+		super.paintComponent(g);
+		Graphics2D g2d = (Graphics2D) g;
+		if (transparent) {
+			g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+			g2d.drawImage(displayImg.getImage(), originX, originY, this);
+		} else {
+			g2d.drawImage(displayImg.getImage(), originX, originY, this);
+		}
+		g2d.dispose();
 	}
 }

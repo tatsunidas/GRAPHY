@@ -350,7 +350,7 @@ public class GeneralPrefs extends JPanel{
 					if(res ==JOptionPane.OK_OPTION) {
 						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, defaultLoc);
 						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation, "true");
-						Launcher.restart();
+						Utils.restart();
 					}else {
 						return;
 					}
@@ -387,10 +387,10 @@ public class GeneralPrefs extends JPanel{
 					if(selectPath.equals(dbDir)) {
 						return;
 					}else {
-						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart (You have to re-open) ?");
+						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
 						if(res_sub==JOptionPane.OK_OPTION) {
 							PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, selectPath);
-							Launcher.restart();
+							Utils.restart();
 						}else {
 							return;
 						}
