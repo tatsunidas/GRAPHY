@@ -41,6 +41,7 @@ import java.awt.Cursor;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -82,6 +83,7 @@ public class SlideGlassKeyListener implements KeyListener{
 		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 
 		int k = e.getKeyCode();
+		System.out.println(k);
 
 		// add first.
 		pressedKeys.add(k);
@@ -117,8 +119,10 @@ public class SlideGlassKeyListener implements KeyListener{
 			}
 		}
 
-		// paging
+		
 		if(e.isConsumed()) return;
+		
+		// paging
 		if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
 			if (cg.activateRoiAt(sg.mouseX, sg.mouseY) == null) {
 				if (!pp.isShowGridViewOn()) {
@@ -179,16 +183,18 @@ public class SlideGlassKeyListener implements KeyListener{
 
 	@Override
 	public void keyReleased(KeyEvent e) {
-		int numOfKeys = pressedKeys.size();
-		if (numOfKeys != 0) {
-			int releasedKey = e.getKeyCode();
-			Integer[] keys = pressedKeys.toArray(new Integer[numOfKeys]);
-			for (Integer k : keys) {
-				if (k == releasedKey) {
-					pressedKeys.remove(k);
-					break;
-				}
-			}
-		}
+		/*
+		 * why ? when input right arrow key(39), then press left key(37),
+		 * multi key code still remain.
+		 * Here, remove all pressedkeys.
+		 */
+//		int numOfKeys = pressedKeys.size();
+//		System.out.println("pressed ! "+e.getKeyCode());
+//		System.out.println(Arrays.toString(pressedKeys.toArray()));
+//		System.out.println("Num of key: "+numOfKeys);
+//		pressedKeys.remove(e.getKeyCode());
+//		System.out.println("num of key after removed "+pressedKeys.size());
+		//force remove
+		pressedKeys.clear();
 	}
 }

@@ -71,6 +71,7 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.dialog.WandToolDialog;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
@@ -106,6 +107,7 @@ public class Viewer2DToolBar extends JToolBar{
 	public final static int TextRoi = 102;//RoiType.TEXT.id();
 	public final static int ShapeRoi = ij.gui.Roi.COMPOSITE;//RoiType.COMPOSITE.id();
 	public final static int Brush = 103;//RoiType.BRUSH.id();
+	public final static int Wand = 104;
 	
 	public final static int Windowing = 1000;
 	public final static int Analysis = 1001;//RoiObjManager
@@ -125,7 +127,9 @@ public class Viewer2DToolBar extends JToolBar{
 			ArrowRoi,
 			TextRoi,
 			ShapeRoi,
-			Brush // add to roi tool
+			Brush,
+			Wand,
+			// add to roi tool
 	};
 	
 	//process features
@@ -154,6 +158,7 @@ public class Viewer2DToolBar extends JToolBar{
 	JCheckBox arrowChk;
 	JCheckBox textChk;
 	JCheckBox brushChk;
+	JCheckBox wandChk;
 	
 	int defaultImgIconSize = 48;
 	private int currentTool = Windowing;//default
@@ -337,6 +342,15 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(brushChk);
 				roiGroup.add(brushChk);
 				p.add(brushChk);
+			}else if(key.equals("wand")) {
+				wandChk = new JCheckBox(key, new ImageIcon(img));
+				wandChk.setName(key);
+				wandChk.setFocusPainted(true);
+				wandChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				wandChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(wandChk);
+				roiGroup.add(wandChk);
+				p.add(wandChk);
 			}else if(key.equals("window")) {
 				windowChk = new JCheckBox(key, new ImageIcon(img));
 				windowChk.setName(key);
@@ -693,6 +707,23 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
+		case "wand":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					currentTool = Wand;
+					wandChk.setBackground(Color.CYAN);
+					setSelectedToolBackground();
+					Viewer2DScreen v2s = Viewer2DScreen.getInstance();
+					try {
+						new WandToolDialog(v2s, "Wand tool", null);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			});
+			break;
 		case "settings":
 			btn.addActionListener(new ActionListener() {
 				@Override
@@ -836,6 +867,7 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("text", Resources.TextRoiIcon);
 		map.put("angle", Resources.AngleRoiIcon);
 		map.put("brush", Resources.RoiBrushIcon);
+		map.put("wand", Resources.RoiWandIcon);
 		return map;
 	}
 	

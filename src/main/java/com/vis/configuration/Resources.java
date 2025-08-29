@@ -90,6 +90,8 @@ public enum Resources {
 	TextRoiIcon("icon/roi_text_64.png"),
 	AngleRoiIcon("icon/roi_angle.png"),
 	RoiBrushIcon("icon/roi_brush_48dp.png"),
+	RoiWandIcon("icon/wand.jpeg"),
+	
 	//viewer3d
 	MenuBarViewer3DIcon("icon/ic_3d_rotation_black_48dp.png"),
 	//mpr window
