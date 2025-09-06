@@ -2908,6 +2908,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 	}
 	
+	
 	public void setProperty(ContextKey key, String value) {
 		setProperty(key.name(), value);
 	}

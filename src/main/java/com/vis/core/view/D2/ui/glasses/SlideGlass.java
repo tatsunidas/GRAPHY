@@ -1186,7 +1186,7 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen = new ImageSpecimenGlass(this);
 		roiOverlay = new CanvasGlass(this);
 		textOverlay = new TextOverlayGlass(this);
-		coverGlass = new EventGlass();
+		coverGlass = new EventGlass(this);
 		final int top_in_its_layers = 0;
 		add(imageSpecimen, IMAGE_LAYER, top_in_its_layers);
 		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);

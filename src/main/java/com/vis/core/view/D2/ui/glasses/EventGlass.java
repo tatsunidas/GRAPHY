@@ -37,14 +37,30 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
+import java.awt.Component;
+import java.awt.Container;
+
 import javax.swing.JPanel;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class EventGlass extends JPanel{
 	
 	private static final long serialVersionUID = 7710077045453881915L;
 	
-	public EventGlass() {
+	private final SlideGlass sg;
+	
+	public EventGlass(SlideGlass sg) {
+		this.sg = sg;
 		setOpaque(false);
 		setFocusable(true);
+	}
+	
+	@Override
+	public Container getParent() {
+		return sg;
 	}
 }

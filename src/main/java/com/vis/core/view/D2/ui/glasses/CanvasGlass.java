@@ -444,7 +444,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private void drawRoi(Graphics g) {
 		for (int i = 0; i < roiset.size(); i++) {
 			RoiObj roiObj = roiset.get(i);
-			roiObj.draw(g);
+			if(roiObj !=null) roiObj.draw(g);
 		}
 		
 		if(brush != null) {
@@ -772,6 +772,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		switch (toolID) {
 		case Viewer2DToolBar.Brush:
 			handleRoiBrushMouseDown(e);
+			e.consume();
+			break;
+		case Viewer2DToolBar.Wand:
 			e.consume();
 			break;
 		default:

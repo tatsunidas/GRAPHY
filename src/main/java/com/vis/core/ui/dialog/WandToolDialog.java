@@ -37,6 +37,7 @@
  */
 package com.vis.core.ui.dialog;
 
+import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.FlowLayout;
@@ -45,10 +46,13 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.logging.Level;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -61,12 +65,22 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
+import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.Viewer2DToolBar;
+import com.vis.core.view.D2.ui.glasses.EventGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
+import ij.IJ;
+import ij.ImagePlus;
+import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.gui.Wand;
+import ij.measure.Calibration;
+import ij.plugin.WandToolOptions;
 import ij.process.ImageProcessor;
 
 /**
@@ -80,11 +94,21 @@ public class WandToolDialog extends JDialog {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
+	
+	// シングルトンインスタンスを保持するstaticフィールド
+    private static WandToolDialog instance;
+	
 	// --- 設定値を保持するフィールド ---
-    private double tolerance;
-    private String mode;
-    private boolean smooth;
+    private double tolerance = 0.;
+    private int mode = Wand.LEGACY_MODE;
+    private boolean smooth = false;
     private boolean wasOkPressed = false;
+    // UIコンポーネントの相互更新時のイベントループを防ぐためのフラグ ---
+    private boolean isAdjusting = false;
+    
+    private final String MODE_LEGACY = "Legacy";
+    private final String MODE_4connected = "4-connected";
+    private final String MODE_8connected = "8-connected";
 
     // --- GUIコンポーネント ---
     private JSlider toleranceSlider;
@@ -112,17 +136,36 @@ public class WandToolDialog extends JDialog {
      * @param maxTolerance Toleranceの最大値
      * @throws Exception 
      */
-	public WandToolDialog(Frame owner, String title, Praparat prap) throws Exception {
-		super(owner, title, true/* modal */);
-		this.prap = prap;
+	private WandToolDialog(Frame owner, String title) throws Exception {
+		super(owner, title, false/* modal, if true, block other windows/components */);
 		// --- GUIの初期化 ---
 		initUI();
 		addListeners();
 		initGlobalMouseListener();
 		pack(); // コンポーネントのサイズに合わせてウィンドウサイズを調整
 		setLocationRelativeTo(owner); // 親フレームの中央に表示
-		setVisible(true);
 	}
+	
+	/**
+     * ダイアログのシングルトンインスタンスを取得するメソッド
+     * 既にインスタンスが存在し、表示されている場合はそれを返し、そうでなければ新規作成する
+     * @param owner 親フレーム
+     * @param title ダイアログのタイトル
+     * @return WandToolDialogのインスタンス
+     */
+    public static synchronized WandToolDialog getInstance(Frame owner, String title) {
+        if (instance == null) {
+            try {
+                instance = new WandToolDialog(owner, title);
+            } catch (Exception e) {
+                Log.message(Level.SEVERE, "WandToolDialogの作成に失敗しました。");
+                return null;
+            }
+        }
+        instance.setVisible(true);
+        instance.toFront();
+        return instance;
+    }
 
     /**
      * GUIコンポーネントを初期化し、パネルに配置する
@@ -165,7 +208,7 @@ public class WandToolDialog extends JDialog {
 		gbc.fill = GridBagConstraints.NONE;
 		mainPanel.add(new JLabel("Mode:"), gbc);
 
-		String[] modes = { "8-connected", "4-connected", "Legacy" };
+		String[] modes = { MODE_LEGACY, MODE_4connected, MODE_8connected };
 		modeComboBox = new JComboBox<>(modes);
 		gbc.gridx = 1;
 		gbc.gridwidth = 2; // 2列分を占有
@@ -177,6 +220,8 @@ public class WandToolDialog extends JDialog {
 		gbc.gridy = 2;
 		gbc.gridwidth = 2;
 		smoothCheckBox = new JCheckBox("Smooth if thresholded");
+		smoothCheckBox.setSelected(false);
+		smoothCheckBox.setEnabled(false);//TODO 20250830
 		mainPanel.add(smoothCheckBox, gbc);
 
 		// --- ボタンパネル ---
@@ -195,32 +240,60 @@ public class WandToolDialog extends JDialog {
 	 * イベントリスナーを設定する
 	 */
 	private void addListeners() {
+		// isAdjustingフラグを使用してイベントの連鎖を防止
 		// スライダーが動かされた時の処理
 		toleranceSlider.addChangeListener(e -> {
-			// スライダーの値からTolerance値を計算
-			double newTolerance = sliderToTolerance(toleranceSlider.getValue());
-			// テキストフィールドに反映
-			toleranceField.setValue(newTolerance);
+			if (isAdjusting)
+				return; // 他のコンポーネントからの更新中は処理しない
+			isAdjusting = true;
+			try {
+				// スライダーの値からTolerance値を計算
+				double newTolerance = sliderToTolerance(toleranceSlider.getValue());
+				// テキストフィールドに反映
+				toleranceField.setValue(newTolerance);
+			} finally {
+				isAdjusting = false; // フラグをリセット
+			}
 		});
 
 		// テキストフィールドでEnterが押された、またはフォーカスが外れた時の処理
 		toleranceField.addPropertyChangeListener("value", evt -> {
-			// テキストフィールドの値を取得
-			double newTolerance = ((Number) toleranceField.getValue()).doubleValue();
-			// 値を範囲内に補正
-			if (newTolerance < minTolerance)
-				newTolerance = minTolerance;
-			if (newTolerance > maxTolerance)
-				newTolerance = maxTolerance;
-			// スライダーに反映
-			toleranceSlider.setValue(toleranceToSlider(newTolerance));
+			if (isAdjusting)
+				return; // 他のコンポーネントからの更新中は処理しない
+			isAdjusting = true;
+			try {
+				// テキストフィールドの値を取得
+				double newTolerance = ((Number) toleranceField.getValue()).doubleValue();
+
+				// 値を範囲内に補正
+				boolean corrected = false;
+				if (newTolerance < minTolerance) {
+					newTolerance = minTolerance;
+					corrected = true;
+				}
+				if (newTolerance > maxTolerance) {
+					newTolerance = maxTolerance;
+					corrected = true;
+				}
+
+				// スライダーに反映
+				toleranceSlider.setValue(toleranceToSlider(newTolerance));
+
+				// 値が範囲外だった場合、補正した値をテキストフィールド自身にも再設定
+				if (corrected) {
+					toleranceField.setValue(newTolerance);
+				}
+
+			} finally {
+				isAdjusting = false; // フラグをリセット
+			}
 		});
 
 		// OKボタンが押された時の処理
 		okButton.addActionListener(e -> {
 			// 現在のGUIの状態から設定値を取得
-			this.tolerance = ((Number) toleranceField.getValue()).doubleValue();
-			this.mode = (String) modeComboBox.getSelectedItem();
+			this.tolerance = getTolerance();
+			this.mode = getMode();
 			this.smooth = smoothCheckBox.isSelected();
 			this.wasOkPressed = true;
 			// ダイアログを閉じる
@@ -240,8 +313,9 @@ public class WandToolDialog extends JDialog {
 	 * double型のTolerance値をJSlider用の整数値に変換する
 	 */
 	private int toleranceToSlider(double toleranceValue) {
-		return (int) Math.round(((toleranceValue - minTolerance) / (maxTolerance - minTolerance)) * SLIDER_MAX);
-	}
+        if (maxTolerance - minTolerance == 0) return 0;
+        return (int) Math.round(((toleranceValue - minTolerance) / (maxTolerance - minTolerance)) * SLIDER_MAX);
+    }
 
 	/**
 	 * JSliderの整数値をdouble型のTolerance値に変換する
@@ -250,84 +324,202 @@ public class WandToolDialog extends JDialog {
 		return minTolerance + ((double) sliderValue / SLIDER_MAX) * (maxTolerance - minTolerance);
 	}
 	
-    private void initGlobalMouseListener() {
-        this.globalMouseListener = event -> {
-            if (!(event instanceof MouseEvent)) {
-                return;
-            }
-            MouseEvent mouseEvent = (MouseEvent) event;
-            
-            if (mouseEvent.getID() == MouseEvent.MOUSE_MOVED) {
-            	Component source = mouseEvent.getComponent();
-            	if (!SwingUtilities.isDescendingFrom(source, WandToolDialog.this)) {
-            		System.out.println(source.getClass().getName());
-            		focusTo(source);
-            	}
-            	return;
-            }
+	private void initGlobalMouseListener() {
+		this.globalMouseListener = event -> {
+			if (!(event instanceof MouseEvent)) {
+				return;
+			}
+			MouseEvent mouseEvent = (MouseEvent) event;
+			Component source = mouseEvent.getComponent();
 
-            if (mouseEvent.getID() == MouseEvent.MOUSE_CLICKED && SwingUtilities.isLeftMouseButton(mouseEvent)) {
-                Component source = mouseEvent.getComponent();
-                if (!SwingUtilities.isDescendingFrom(source, WandToolDialog.this)) {
-                    Point screenPoint = mouseEvent.getLocationOnScreen();
-                    System.out.println("ダイアログ外のウィンドウがクリックされました！");
-                    System.out.println("コンポーネント内の座標: " + mouseEvent.getPoint());
-//                    doWand(screenPoint);
-                }
-            }
-        };
-    }
+			// イベントソースがこのダイアログ自身またはその部品なら何もしない
+			if (SwingUtilities.isDescendingFrom(source, WandToolDialog.this)) {
+				return;
+			}
+
+			if (mouseEvent.getID() == MouseEvent.MOUSE_MOVED) {
+				//System.out.println(source.getClass().getName());
+				focusTo(source);
+				return;
+			}
+
+			if (mouseEvent.getID() == MouseEvent.MOUSE_CLICKED && SwingUtilities.isLeftMouseButton(mouseEvent)) {
+//				Point screenPoint = mouseEvent.getLocationOnScreen();//monitor display coodinates.
+				Point displayCoordPointOnSlideGlass = mouseEvent.getPoint();
+//				System.out.println(source.getClass().getName());//EventGlass in SlideGlass.
+              doWand(displayCoordPointOnSlideGlass);
+			}
+		};
+	}
 	
-	private void doWand() {
-		ArrayList<RoiObj> rois = prap.getCurrentSlide().getRois();
-		if(rois == null || rois.size()==0) {
+	private void doWand(java.awt.Point mousePoint/*onDisplayImage*/) {
+		if (this.prap == null) {
 			return;
 		}
-		for(RoiObj ro : rois) {
-			//use first selected roi
-			if(ro.isArea() && ro.isSelected()) {
-				SlideGlass sg = ro.getSlideGlass();
-				sg.addRoi(ro);//update if already exists.
-				
-				break;
+		int toolType = prap.getCurrentViewerToolType();//from viewer2d
+		if(toolType != Viewer2DToolBar.Wand) {
+			return;
+		}
+		
+		// create new
+		SlideGlass sg = prap.getCurrentSlide();
+		RoiObj r = wand(sg, mousePoint);
+		if(r != null) {
+			// init uids and roiid
+			r.setSlideGlass(sg);
+			sg.addRoi(r);// update if already exists.
+		}
+	}
+	
+	private RoiObj wand(SlideGlass sg, Point p) {
+		// 処理対象の画像を取得
+		ImagePlus imp = sg.getOriginalImage();
+		if (imp == null) {
+			Log.message(Level.SEVERE, "Cannot load imageplus from current slideglass... return null.");
+			return null;
+		}
+		// 画像のプロセッサーを取得
+		ImageProcessor ip = imp.getProcessor();
+		// Wand選択を実行したい座標を指定
+		int x = sg.offScreenX(p.x);
+		int y = sg.offScreenY(p.y);
+		
+		ArrayList<RoiObj> rois = this.prap.getCurrentSlide().getRois();
+		if (rois != null && rois.size() > 0) {
+			// search point contained roi
+			for (RoiObj ro : rois) {
+				// use first found roi
+				if (ro.isArea() && ro.contains(x, y)/* && ro.isSelected() */) {
+					// まず、ROIをワンドでつくる
+					Wand wand = new Wand(ip);
+					// 指定した座標から輪郭を自動検出
+					wand.autoOutline(x, y, getTolerance()/*許容差*/, getMode());
+					int n = wand.npoints;
+					if(n < 1) {
+						System.out.println("Roi was not created by Wand. return null.");
+						return null;
+					}
+					int[] xp = wand.xpoints;
+					int[] yp = wand.ypoints;
+					Roi roi = new PolygonRoi(xp, yp, n, PolygonRoi.TRACED_ROI);
+					RoiObj r = new RoiConverter().convert2RoiObj(roi);
+					// Contextを合わせる
+					// color, line width
+					r.copyAttributes(ro);
+					// UIDs and RoiID
+					HashMap<ContextKey, String> uids = ro.getUIDs();
+					for (ContextKey k : uids.keySet()) {
+						r.setProperty(k, uids.get(k));
+					}
+					return r;
+				}
 			}
 		}
+
+		// Wandオブジェクトを生成
+		Wand wand = new Wand(ip);
+
+		// 指定した座標から輪郭を自動検出
+		wand.autoOutline(x, y, getTolerance()/*許容差*/, getMode());
+
+		int n = wand.npoints;
+		if(n < 1) {
+			System.out.println("Roi was not created by Wand. return null.");
+			return null;
+		}
+		int[] xp = wand.xpoints;
+		int[] yp = wand.ypoints;
+		Roi roi = new PolygonRoi(xp, yp, n, PolygonRoi.TRACED_ROI);
+		return new RoiConverter().convert2RoiObj(roi);
 	}
 	
-	public void focusTo(Component prap) {
+	public void focusTo(Component eventGlass) {
 		
-		if((prap instanceof Praparat) == false) {
+		if(eventGlass == null) {
+			this.prap = null;//reset
 			return;
 		}
 		
-		if(this.prap == (Praparat)prap) {
+		if(!(eventGlass instanceof com.vis.core.view.D2.ui.glasses.EventGlass)) {
+			this.prap = null;//reset
 			return;
 		}
 		
-		this.prap = (Praparat)prap;
+		EventGlass eg = (EventGlass)eventGlass;
+		Praparat currentPrap = ((SlideGlass)(eg.getParent())).getPraparat();
+		
+		if(currentPrap == null) {
+			this.prap = null;//reset
+			return;
+		}
+		
+		if(this.prap == currentPrap) {
+			return;
+		}
+		
+		this.prap = currentPrap;
 		
 		SlideGlass sg = this.prap.getCurrentSlide();
-		ImageProcessor ip = sg.getOriginalImage().getProcessor();
+		ImagePlus imp = sg.getOriginalImage();
+		ij.process.ImageStatistics stats = imp.getStatistics(ij.measure.Measurements.MIN_MAX);
+		this.minTolerance = stats.min;
+		this.maxTolerance = stats.max;
 		
-		this.minTolerance = ip.minValue();
-		this.maxTolerance = ip.maxValue();
-		this.tolerance = minTolerance;
-		
-		// スライダーに反映
-		toleranceSlider.setValue(toleranceToSlider(this.tolerance));
+		System.out.println("focus success");
 	}
+	
+	@Override
+    public void dispose() {
+        super.dispose();
+        // インスタンスが再作成されるように、static変数をnullに設定
+        instance = null;
+    }
+	
+	@Override
+    public void setVisible(boolean b) {
+        // MOUSE_EVENT_MASK: クリック、プレス、リリースなど
+        // MOUSE_MOTION_EVENT_MASK: 移動、ドラッグなど
+        long eventMask = AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK;
+
+        if (b) {
+            // ダイアログが表示されるときにリスナーを登録
+            Toolkit.getDefaultToolkit().addAWTEventListener(globalMouseListener, eventMask);
+        } else {
+            // ダイアログが非表示になるときにリスナーを解除
+            Toolkit.getDefaultToolkit().removeAWTEventListener(globalMouseListener);
+        }
+        super.setVisible(b);
+    }
 
 	// --- 外部から値を取得するためのメソッド ---
 	public boolean wasOkPressed() {
 		return wasOkPressed;
 	}
 
-	public double getTolerance() {
+	private double getTolerance() {
+		Object v = toleranceField.getValue();
+		if (v == null) {
+			System.out.println("WandToolDialog: Cannot read tolerance type1, return 0.5.");
+			return 0.5d;
+		}
+		try {
+			tolerance = ((Number) toleranceField.getValue()).doubleValue();
+		}catch (NumberFormatException e) {
+			System.out.println("WandToolDialog: Cannot read tolerance type2, return 0.5.");
+			return 0.5d;
+		}
 		return tolerance;
 	}
 
-	public String getMode() {
-		return mode;
+	private int getMode() {
+		String selected_mode = (String)modeComboBox.getSelectedItem();
+		if(selected_mode.equals(MODE_4connected)) {
+			return Wand.FOUR_CONNECTED;
+		}else if(selected_mode.equals(MODE_8connected)) {
+			return Wand.EIGHT_CONNECTED;
+		}else {
+			return Wand.LEGACY_MODE;
+		}
 	}
 
 	public boolean isSmooth() {

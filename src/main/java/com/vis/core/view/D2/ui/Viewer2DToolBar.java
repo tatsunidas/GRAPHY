@@ -716,7 +716,7 @@ public class Viewer2DToolBar extends JToolBar{
 					setSelectedToolBackground();
 					Viewer2DScreen v2s = Viewer2DScreen.getInstance();
 					try {
-						new WandToolDialog(v2s, "Wand tool", null);
+						WandToolDialog.getInstance(v2s, "Wand Tool Options");
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
