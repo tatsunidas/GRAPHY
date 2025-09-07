@@ -46,8 +46,6 @@ import org.dcm4che3.data.Attributes;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomWriter;
-import com.vis.dicom.Tag;
-import com.vis.dicom.VR;
 
 public class DicomWriterChe implements DicomWriter{
 
@@ -58,7 +56,7 @@ public class DicomWriterChe implements DicomWriter{
 
 	@Override
 	public synchronized void write(DicomObject dataset, String tsUID, String dest, boolean withDcmExtension) {
-		dataset.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc.");
+		//dataset.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc.");
 		Attributes attr = (Attributes)dataset;
 		Attributes fmi = attr.createFileMetaInformation(tsUID);
 		DicomOutputStream dos = null;
@@ -83,7 +81,7 @@ public class DicomWriterChe implements DicomWriter{
 
 	@Override
 	public synchronized void writeDicomImage(DicomObject core, DicomObject fmi, String dest, boolean withDcmExtension) {
-		core.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc.");
+		//core.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc.");
 		Attributes attr = (Attributes)core;
 		Attributes fmi_ = (Attributes)fmi;
 		DicomOutputStream dos = null;
