@@ -74,13 +74,11 @@ import com.vis.core.view.D2.ui.glasses.EventGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
+import ij.gui.ShapeRoi;
 import ij.gui.Wand;
-import ij.measure.Calibration;
-import ij.plugin.WandToolOptions;
 import ij.process.ImageProcessor;
 
 /**
@@ -100,7 +98,9 @@ public class WandToolDialog extends JDialog {
 	
 	// --- 設定値を保持するフィールド ---
     private double tolerance = 0.;
-    private int mode = Wand.LEGACY_MODE;
+    
+    @SuppressWarnings("unused")
+	private int mode = Wand.LEGACY_MODE;
     private boolean smooth = false;
     private boolean wasOkPressed = false;
     // UIコンポーネントの相互更新時のイベントループを防ぐためのフラグ ---
@@ -126,6 +126,8 @@ public class WandToolDialog extends JDialog {
     private Praparat prap;
     
     private AWTEventListener globalMouseListener;
+    
+    private Point currentClickedPoint;
 
     /**
      * ダイアログのコンストラクタ
@@ -251,6 +253,13 @@ public class WandToolDialog extends JDialog {
 				double newTolerance = sliderToTolerance(toleranceSlider.getValue());
 				// テキストフィールドに反映
 				toleranceField.setValue(newTolerance);
+				this.tolerance = newTolerance;
+				// スライダーの操作が完了した（ドラッグが終わった）場合のみWandを実行
+				if (!toleranceSlider.getValueIsAdjusting()) {
+					if (currentClickedPoint != null) {
+						doWand(currentClickedPoint);
+					}
+				}
 			} finally {
 				isAdjusting = false; // フラグをリセット
 			}
@@ -282,6 +291,11 @@ public class WandToolDialog extends JDialog {
 				// 値が範囲外だった場合、補正した値をテキストフィールド自身にも再設定
 				if (corrected) {
 					toleranceField.setValue(newTolerance);
+				}
+				
+				// 処理の最後にWandを実行
+				if (currentClickedPoint != null) {
+					doWand(currentClickedPoint);
 				}
 
 			} finally {
@@ -346,102 +360,101 @@ public class WandToolDialog extends JDialog {
 			if (mouseEvent.getID() == MouseEvent.MOUSE_CLICKED && SwingUtilities.isLeftMouseButton(mouseEvent)) {
 //				Point screenPoint = mouseEvent.getLocationOnScreen();//monitor display coodinates.
 				Point displayCoordPointOnSlideGlass = mouseEvent.getPoint();
-//				System.out.println(source.getClass().getName());//EventGlass in SlideGlass.
+				System.out.println(source.getClass().getName());//EventGlass in SlideGlass.
               doWand(displayCoordPointOnSlideGlass);
 			}
 		};
 	}
 	
-	private void doWand(java.awt.Point mousePoint/*onDisplayImage*/) {
-		if (this.prap == null) {
+	private void doWand(java.awt.Point mousePoint/* onDisplayImage */) {
+		if (this.prap == null)
 			return;
-		}
-		int toolType = prap.getCurrentViewerToolType();//from viewer2d
-		if(toolType != Viewer2DToolBar.Wand) {
+		int toolType = prap.getCurrentViewerToolType();
+		if (toolType != Viewer2DToolBar.Wand)
 			return;
-		}
-		
-		// create new
+
+		// クリックされた座標を保存（リアルタイム更新用）
+		this.currentClickedPoint = mousePoint;
+
 		SlideGlass sg = prap.getCurrentSlide();
-		RoiObj r = wand(sg, mousePoint);
-		if(r != null) {
-			// init uids and roiid
-			r.setSlideGlass(sg);
-			sg.addRoi(r);// update if already exists.
-		}
-	}
-	
-	private RoiObj wand(SlideGlass sg, Point p) {
-		// 処理対象の画像を取得
-		ImagePlus imp = sg.getOriginalImage();
-		if (imp == null) {
-			Log.message(Level.SEVERE, "Cannot load imageplus from current slideglass... return null.");
-			return null;
-		}
-		// 画像のプロセッサーを取得
-		ImageProcessor ip = imp.getProcessor();
-		// Wand選択を実行したい座標を指定
-		int x = sg.offScreenX(p.x);
-		int y = sg.offScreenY(p.y);
-		
-		ArrayList<RoiObj> rois = this.prap.getCurrentSlide().getRois();
-		if (rois != null && rois.size() > 0) {
-			// search point contained roi
+
+		// 表示座標を画像座標に変換
+		int x = sg.offScreenX(mousePoint.x);
+		int y = sg.offScreenY(mousePoint.y);
+
+		// クリックした点が既存のROI内にあるか探す
+		RoiObj clickedRoi = null;
+		ArrayList<RoiObj> rois = sg.getRois();
+		if (rois != null && !rois.isEmpty()) {
 			for (RoiObj ro : rois) {
-				// use first found roi
-				if (ro.isArea() && ro.contains(x, y)/* && ro.isSelected() */) {
-					// まず、ROIをワンドでつくる
-					Wand wand = new Wand(ip);
-					// 指定した座標から輪郭を自動検出
-					wand.autoOutline(x, y, getTolerance()/*許容差*/, getMode());
-					int n = wand.npoints;
-					if(n < 1) {
-						System.out.println("Roi was not created by Wand. return null.");
-						return null;
-					}
-					int[] xp = wand.xpoints;
-					int[] yp = wand.ypoints;
-					Roi roi = new PolygonRoi(xp, yp, n, PolygonRoi.TRACED_ROI);
-					RoiObj r = new RoiConverter().convert2RoiObj(roi);
-					// Contextを合わせる
-					// color, line width
-					r.copyAttributes(ro);
-					// UIDs and RoiID
-					HashMap<ContextKey, String> uids = ro.getUIDs();
-					for (ContextKey k : uids.keySet()) {
-						r.setProperty(k, uids.get(k));
-					}
-					return r;
+				if (ro.isArea() && ro.contains(x, y)) {
+					clickedRoi = ro;
+					break;
 				}
 			}
 		}
 
-		// Wandオブジェクトを生成
-		Wand wand = new Wand(ip);
-
-		// 指定した座標から輪郭を自動検出
-		wand.autoOutline(x, y, getTolerance()/*許容差*/, getMode());
-
-		int n = wand.npoints;
-		if(n < 1) {
-			System.out.println("Roi was not created by Wand. return null.");
-			return null;
+		// Wandで新しい形状のROIを作成
+		RoiObj newRoi = createWandRoi(sg, x, y);
+		if (newRoi == null) {
+			// ROIが作成されなかった場合は何もしない
+			this.currentClickedPoint = null;
+			return;
 		}
-		int[] xp = wand.xpoints;
-		int[] yp = wand.ypoints;
-		Roi roi = new PolygonRoi(xp, yp, n, PolygonRoi.TRACED_ROI);
-		return new RoiConverter().convert2RoiObj(roi);
+
+		if (clickedRoi != null) {
+			// --- 既存ROIの更新の場合 ---
+			// 古いROIから属性（IDや色など）をコピーする
+			newRoi.copyAttributes(clickedRoi);
+			HashMap<ContextKey, String> uids = clickedRoi.getUIDs();
+			for (ContextKey k : uids.keySet()) {
+				newRoi.setProperty(k, uids.get(k));
+			}
+		}
+
+		// --- 新規作成または更新 ---
+		// 作成したROIをスライドに追加（IDが同じなら更新、なければ新規追加される）
+		newRoi.setSlideGlass(sg);
+		sg.addRoi(newRoi);
+	}
+
+	/**
+	 * 指定された画像座標と現在の設定でWandアルゴリズムを実行し、RoiObjを作成する。
+	 * @param sg SlideGlass
+	 * @param x offscreenX座標
+	 * @param y offscreenY座標
+	 * @return 作成された RoiObj、作成失敗時は null
+	 */
+	private RoiObj createWandRoi(SlideGlass sg, int x, int y) {
+	    ImagePlus imp = sg.getOriginalImage();
+	    if (imp == null) {
+	        Log.message(Level.SEVERE, "Cannot load imageplus from current slideglass... return null.");
+	        return null;
+	    }
+	    ImageProcessor ip = imp.getProcessor();
+
+	    // Wandオブジェクトを生成し、輪郭を自動検出
+	    Wand wand = new Wand(ip);
+	    wand.autoOutline(x, y, getTolerance(), getMode());
+
+	    if (wand.npoints < 1) {
+	        System.out.println("Roi was not created by Wand. return null.");
+	        return null;
+	    }
+
+	    // 結果をRoiObjに変換して返す
+	    Roi roi = new PolygonRoi(wand.xpoints, wand.ypoints, wand.npoints, PolygonRoi.TRACED_ROI);
+	    roi = new ShapeRoi(roi);
+	    return new RoiConverter().convert2RoiObj(roi);
 	}
 	
 	public void focusTo(Component eventGlass) {
 		
 		if(eventGlass == null) {
-			this.prap = null;//reset
 			return;
 		}
 		
 		if(!(eventGlass instanceof com.vis.core.view.D2.ui.glasses.EventGlass)) {
-			this.prap = null;//reset
 			return;
 		}
 		
@@ -465,7 +478,17 @@ public class WandToolDialog extends JDialog {
 		this.minTolerance = stats.min;
 		this.maxTolerance = stats.max;
 		
-		System.out.println("focus success");
+		// Toleranceをリセットし、UIにも反映させる
+//	    this.tolerance = this.minTolerance;
+	    isAdjusting = true;
+	    try {
+	        toleranceField.setValue(this.tolerance);
+	        toleranceSlider.setValue(toleranceToSlider(this.tolerance));
+	    } finally {
+	        isAdjusting = false;
+	    }
+		
+		//System.out.println("focus success");
 	}
 	
 	@Override

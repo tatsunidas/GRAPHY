@@ -34,7 +34,7 @@ import com.vis.core.util.Utils;
 @SuppressWarnings("serial")
 public class Log extends JFrame{
 	
-	private static Log logWin = new Log();
+	private static Log logWin;
 	public final String save_log_file_name = ConfigInfo.LogFileName.toString();
 	JTextArea logTextArea = null;
 	JScrollPane pane = null;
@@ -88,8 +88,11 @@ public class Log extends JFrame{
 		logger.setUseParentHandlers(false);
 	}
 	
-	public static Log getInstance() {
-		return Log.logWin;
+	public static synchronized Log getInstance() {
+	    if (logWin == null) {
+	        logWin = new Log();
+	    }
+	    return logWin;
 	}
 	
 	private void initContents() {
@@ -127,7 +130,7 @@ public class Log extends JFrame{
 		if (logTextArea != null) {
 			Document text = logTextArea.getDocument();
 			if (text.getLength() == 0) {
-				JOptionPane.showConfirmDialog(this, "There is empty text...");
+				JOptionPane.showMessageDialog(this, "There is no text to save (empty text)...");
 				return;
 			}
 			String log = null;
@@ -152,8 +155,6 @@ public class Log extends JFrame{
 					logger.warning("Can not find destination file location, can not save text file.");
 				}
 			}
-			chooser = null;
-			text = null;
 		}
 	}
 	
@@ -180,19 +181,25 @@ public class Log extends JFrame{
 		void setTextArea(JTextArea textArea) {
 			this.textArea = textArea;
 		}
-
+		
 		@Override
 		public void publish(LogRecord record) {
-			if (!isLoggable(record)) {
-				return;
-			}
-			super.publish(record);
-			String message = getFormatter().format(record);
-			System.out.println(message(record.getLevel(), message));
-			SwingUtilities.invokeLater(() -> {
-				textArea.append(message);
-				textArea.setCaretPosition(textArea.getDocument().getLength());
-			});
+		    if (!isLoggable(record)) {
+		        return;
+		    }
+		    // (1) ファイルには元のフォーマットで書き込む
+		    super.publish(record);
+		    
+		    String originalMessage = getFormatter().format(record);
+		    
+		    // (2) コンソールには色付きメッセージを出力する
+		    System.out.println(message(record.getLevel(), originalMessage));
+		    
+		    // (3) JTextAreaには元のメッセージを追記する
+		    SwingUtilities.invokeLater(() -> {
+		        textArea.append(originalMessage);
+		        textArea.setCaretPosition(textArea.getDocument().getLength());
+		    });
 		}
 
 		@Override
