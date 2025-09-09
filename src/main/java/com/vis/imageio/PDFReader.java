@@ -369,8 +369,6 @@ public class PDFReader implements Closeable, KeyListener{
 			doc.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-			attr = null;
-			doc = null;
 			return null;
 		}
 		return attr;

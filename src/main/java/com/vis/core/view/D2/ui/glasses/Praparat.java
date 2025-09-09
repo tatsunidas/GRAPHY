@@ -303,14 +303,19 @@ public class Praparat extends JPanel {
 		}
 		if(!pvcp.processSeries()) {
 			SlideGlass target = slides.get(currentSlice);
-			target.setSize(w, h);
+			if(target != null) {
+				target.setSize(w, h);
+			}
 		}else {
 			SlideGlass target = slides.get(currentSlice);
-			target.setSize(w,h);
+			if(target != null) {
+				target.setSize(w,h);
+			}
 			//set origin all slides
 			for (Integer key : slides.keySet()) {
 				SlideGlass sl = slides.get(key);
-				if(sl == target) continue;
+				if(target != null && sl == target) continue;
+				if(sl == null) continue;
 				sl.setSize(w,h);
 				if (target != null && !target.panningFlag && !sl.panningFlag) {
 					sl.imageSpecimen.originX = target.imageSpecimen.originX;
@@ -546,18 +551,8 @@ public class Praparat extends JPanel {
 			UID tsUID = reader.checkTSUID();
 			//PDF
 			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
-				//read as series level
-				isMultiframe = true;//always treats multi
-				isPDF = true;
 				//if thumbnail, load only one frame
-				if(getViewMode() == ViewMode.Thumbnail) {
-					PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
-					ImagePlus pdfStack = pdfReader.pdf2ImageStack();
-					loadSlideGlassFromPDF(pdfStack, 0, header, backend);
-					pdfReader.close();
-				}else {
-					loadSlideGlassFromPDF(imgFiles.get(i), header, backend);
-				}
+				loadSlideGlassFromPDF(imgFiles.get(i), header, backend);
 				//PDF is one series, break here.
 				break;
 			}
@@ -665,43 +660,12 @@ public class Praparat extends JPanel {
 		isMultiframe = true;//always treats multi
 		isPDF = true;
 		
-		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
-       List<Future<SlideGlass>> futures = new ArrayList<>();
-		
 		//if thumbnail, load only one frame
 		if(getViewMode() == ViewMode.Thumbnail) {
-			ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
-			DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-			instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-			instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-			instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-			instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-			instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
-			DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-			img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-			SlideGlass sg = new SlideGlass(this, img);
-			slides.put(0, sg);
+			slides.put(0, loadSlideGlassFromPDF(pdfStack, 0, header, backend));
 		}else {
 			for (int j = 0; j < pdfStack.getNSlices(); j++) {
-				final int k = j;
-				Callable<SlideGlass> task = () -> {
-					return loadSlideGlassFromPDF(pdfStack, k, header, backend);
-				};
-				futures.add(executor.submit(task));
-			}
-			AtomicInteger counter = new AtomicInteger(0);
-			for (Future<SlideGlass> future : futures) {
-	            try {
-					slides.put(counter.addAndGet(1), future.get());
-				} catch (InterruptedException | ExecutionException e) {
-					e.printStackTrace();
-				}
-	        }
-			executor.shutdown();
-			try {
-				executor.awaitTermination(1, TimeUnit.MINUTES);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+				slides.put(j, loadSlideGlassFromPDF(pdfStack, j, header, backend));
 			}
 		}
 		pdfReader.close();
@@ -1562,6 +1526,7 @@ public class Praparat extends JPanel {
 
 	public void setAndShowPixelValue(int imageX, int imageY) {
 		SlideGlass currentSlide = getCurrentSlide();
+		if(currentSlide == null) return;
 		double[] scaleXY = currentSlide.getScaleFactor();
 		double mag = currentSlide.getMagnification();
 		double rotate = currentSlide.getRotateAngle();
@@ -1685,6 +1650,7 @@ public class Praparat extends JPanel {
 			currentSlice = sliceIndex;
 		}
 		SlideGlass currentGlass = this.slides.get(currentSlice);
+		if(currentGlass == null) return;
 		final int top = 0;
 		viewPanel.removeAll();
 		viewPanel.add(currentGlass, top);

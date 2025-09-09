@@ -135,16 +135,15 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		String studyUID = inputs.get(Tag.Study​Instance​UID);
 		
 		/*
-		 * The DicomImporter already contains information in the file it reads. However,
-		 * since general format files do not contain such information, the PID is
-		 * allowed to be treated as a NoPID.
+		 * General format files do not contain patient level information.
+		 * The PID is allowed to be treated as the "NoPID".
 		 */
 		if(pid == null || pid.trim().length()==0) {
 			int res = PopUpMessage.showDialog(
 					this, 
 					"PatientID is blank", 
 					"You have to input PatientID.\nIf you'd like to continue no PatientID, PatientID will set to NoPID.", 
-					JOptionPane.INFORMATION_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION);
+					JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_CANCEL_OPTION);
 			if(res != JOptionPane.OK_OPTION) {
 				Thread.interrupted();
 				return;
@@ -175,6 +174,12 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		if(!importNewStudy) {
 			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(pid, studyUID);
 			int numOfSeries = db.getNumOfSeriesInStudy(studyUID);
+			
+			if(numOfSeries == 0) {
+				PopUpMessage.showDialog(this, "NoneDicomFileImport Error", "This study does not have any series, empty study.", JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+			
 			String studyID = studyInfo.get("StudyID");
 			String studyDate = studyInfo.get("StudyDate");
 			String studyTime = studyInfo.get("StudyTime");
@@ -185,6 +190,11 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			String seriesUID = UIDUtils.createUID();
 			
 			Date contentDateTime = now.getTime();
+			
+			/*
+			 * images will pack to a series.
+			 */
+			numOfSeries = images.size() == 0 ? numOfSeries:numOfSeries+1;
 			
 			createDcmImages(
 					images,//as one series
@@ -201,11 +211,15 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 					contentDateTime,//contentDate,
 					contentDateTime,
 					seriesDesc,
-					numOfSeries+1,
+					numOfSeries,
 					seriesUID
 					);
-			//createVideos
-			numOfSeries = images.size() == 0 ? numOfSeries+1:numOfSeries+2;/*images deal with one series*/
+			
+			/*
+			 * start from numOfSeries and counting-up in for-loop.
+			 */
+			numOfSeries = videos.size() == 0 ? numOfSeries:numOfSeries+1;
+			
 			createDcmVideos(
 					videos, 
 					tempDir.toFile(), 
@@ -222,8 +236,9 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 					contentDateTime, 
 					seriesDesc, 
 					numOfSeries);
+			
 			//createPDFs
-			numOfSeries = videos.size() == 0 ? numOfSeries+1:numOfSeries+videos.size();
+			numOfSeries = videos.size() == 0 ? numOfSeries+1:numOfSeries+videos.size()-1/*adjust already counted-up*/;
 			createDcmPDF(
 					pdfs, 
 					tempDir.toFile(), 
@@ -271,7 +286,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 					);
 			
 			//import videos
-			//createVideos
+			// start from numOfSeries in for-loop.
 			numOfSeries = images.size() == 0 ? numOfSeries:numOfSeries+1;/*images deal with one series*/
 			createDcmVideos(
 					videos, 
@@ -289,8 +304,9 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 					nowDate,//contentTime,
 					seriesDesc, 
 					numOfSeries);
+			
 			//createPDFs
-			numOfSeries = videos.size() == 0 ? numOfSeries:numOfSeries+videos.size();
+			numOfSeries = videos.size() == 0 ? numOfSeries:numOfSeries+videos.size()-1/*adjust already counted-up*/;
 			createDcmPDF(
 					pdfs, 
 					tempDir.toFile(),
@@ -367,6 +383,10 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 			int seriesNumber,
 			String seriesUID
 			) {
+		
+		if(images ==null || images.size()==0) {
+			return;
+		}
 		DICOMBackend backend = DICOMBackend.getCurrent();
 		for(int i=0;i<images.size();i++) {
 			File f = images.get(i);
