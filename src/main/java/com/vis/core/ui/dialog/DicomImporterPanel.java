@@ -242,7 +242,7 @@ public class DicomImporterPanel extends JPanel{
 		if (textField_pid != null && db != null) {
 			String pid = textField_pid.getText();
 			if (pid != null && pid.strip().length()!=0) {
-				HashMap<String, String> info = db.getPatientInfoByPatID(pid);
+				HashMap<String, String> info = db.getPatientInfo(pid);
 				if (info != null) {
 					textField_pname.setText(info.get("PatientName"));
 					textField_dob.setText(info.get("PatientBirthDate"));

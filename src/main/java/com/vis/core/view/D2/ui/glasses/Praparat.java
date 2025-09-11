@@ -1697,7 +1697,7 @@ public class Praparat extends JPanel {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		String frameOfRefUID = null;
 		if(db != null) {
-			frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
+			frameOfRefUID = db.getValueFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
 		}else {
 			frameOfRefUID = DicomUtilities.getFrameOfReferenceUID(pathToImages.get(0));
 		}
@@ -1711,7 +1711,7 @@ public class Praparat extends JPanel {
 		this.sopUIDs = sopUIDs;
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db != null && (refUID == null || refUID.length()==0)) {
-			this.frameOfReferenceUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
+			this.frameOfReferenceUID = db.getValueFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID, sopUIDs[0]);
 		}else {
 			this.frameOfReferenceUID = refUID;
 		}

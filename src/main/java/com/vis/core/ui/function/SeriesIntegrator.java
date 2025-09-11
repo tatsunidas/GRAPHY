@@ -203,7 +203,7 @@ public class SeriesIntegrator{
 				continue;
 			}else {
 				if(node.getLevel()==DICOMNode.SERIES) {
-					ArrayList<String> paths= db.getInstancesLoc(studyUID, seriesUID);
+					ArrayList<String> paths= db.getFileLocationsSeriesLevel(studyUID, seriesUID);
 					for(String p:paths) {
 						if(!willIntegrate.contains(p)) {
 							willIntegrate.add(p);

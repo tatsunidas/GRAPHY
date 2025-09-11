@@ -35,52 +35,56 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.dicom;
+package com.vis.db;
+
+import java.math.BigDecimal;
+
+import com.vis.dicom.Modality;
 
 /**
- * Defined Terms for the Modality (0008,0060) tag
+ * 
  * @author tatsunidas
  *
  */
-public enum Modality {
-	CR,// "Computed Radiography"
-	CT,//	"Computed Tomography"
-	MR,//	"Magnetic Resonance"
-	US,//	"Ultrasound"
-	OT,//	"Other"
-	BI,//	"Biomagnetic imaging"
-	CD,//	"Color flow Doppler"
-	DD,//	"Duplex Doppler"
-	DG,//	"Diaphanography"
-	ES,//	"Endoscopy"
-	LS,//	"Laser surface scan"
-	PT,//	"Positron emission tomography"
-	RG,//	"Radiographic imaging (conventional film/screen)
-	ST,//	"Single-photon emission computed tomography (SPECT)
-	TG,//	"Thermography
-	XA,//	"X-Ray Angiography
-	RF,//	"Radio Fluoroscopy
-	RTIMAGE,//	"Radiotherapy Image
-	RTDOSE,//	"Radiotherapy Dose
-	RTSTRUCT,//	"Radiotherapy Structure Set
-	RTPLAN,//	"Radiotherapy Plan
-	RTRECORD,//	"RT Treatment Record
-	HC,//	"Hard Copy
-	DX,//	"Digital Radiography
-	NM,//	"Nuclear Medicine
-	MG,//	"Mammography
-	IO,//	"Intra-oral Radiography
-	PX,//	"Panoramic X-Ray
-	GM,//	"General Microscopy
-	SM,//	"Slide Microscopy
-	XC,//	"External-camera Photography
-	PR,//	"Presentation State
-	AU,//	"Audio ECG
-	EPS,//	"Cardiac Electrophysiology
-	HD,//	"Hemodynamic Waveform
-	SR,//	"Structured Report
-	IVUS,//	"Intravascular Ultrasound
-	OP,//	"Ophthalmic Photography
-	SMR,//	"Stereometric Relationship
-	;
+class PresetModel {
+	
+	/*
+	 *  presetModel.getPresetName() + "'," + presetModel.getWindowWidth() + ","
+							+ presetModel.getWindowLevel() + "," + modalityInfo.getInt("pk") + ")");
+	 */
+	
+	private final String presetName;
+	private final double ww;
+	private final double wl;
+	private final String lut;
+	private final Modality m;
+	
+	public PresetModel(String presetName, double ww, double wl, String lut, Modality m) {
+		this.presetName = presetName;
+		this.ww = ww;
+		this.wl = wl;
+		this.lut = lut;
+		this.m = m;
+	}
+	
+	public String getPresetName() {
+		return presetName;
+	}
+	
+	public BigDecimal getWW() {
+		return BigDecimal.valueOf(ww);
+	}
+	
+	public BigDecimal getWL() {
+		return BigDecimal.valueOf(wl);
+	}
+	
+	public String getLUT() {
+		return lut;
+	}
+	
+	public Modality getModality() {
+		return m;
+	}
+	
 }

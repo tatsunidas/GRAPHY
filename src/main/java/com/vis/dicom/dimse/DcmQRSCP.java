@@ -1115,7 +1115,7 @@ public class DcmQRSCP implements DicomServer{
 		/* Item:4 ReferencedInstanceSequence no found list in db, If all list success, size become to zero */
 		Sequence failedSeq = eventInfo.newSequence(Tag.FailedSOPSequence, size);
 		/* create search applicant list with no duplicate */
-		LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();//(size * 4 / 3);
+		LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
 		for (int i = 0; i < sopIUIDs.length; i++) {
 			Attributes item = requestSeq.get(i);
 			map.put(sopIUIDs[i] = item.getString(Tag.ReferencedSOPInstanceUID),
@@ -1129,7 +1129,7 @@ public class DcmQRSCP implements DicomServer{
 			if (path2Inst != null) {
 				/* get ReferencedSOPInstanceUID as key */
 				String cuid = map.remove(iuid);// keyで除外するとともに除外したReferencedSOPClassUIDを取得
-				/* if ReferencedSOPClassUID is OK, add to successed sequence */
+				/* if ReferencedSOPClassUID is OK, add to success */
 				if (cuid.equals(DicomUtilities.getSOPClassUID(path2Inst))) {
 					successSeq.add(refSOP(iuid, cuid, Status.Success));
 				}else {

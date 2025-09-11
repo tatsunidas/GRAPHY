@@ -295,7 +295,7 @@ public class GeneralPrefs extends JPanel{
 	private void init() {
 		//set local db location to field
 		String useDefaultDBLoc = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation);
-		String currentLoc = DatabaseHandler.getInstance().getLocalDBLocation();
+		String currentLoc = DatabaseHandler.getInstance().getDatabaseFolderPath(false);
 		//if default location true
 		if(defaultLoc.equals(currentLoc) || useDefaultDBLoc.equals("true")) {
 			chckbxSetDefault.setSelected(true);
@@ -383,7 +383,7 @@ public class GeneralPrefs extends JPanel{
 						chckbxSetDefault.setSelected(true);//activate itemlistener
 						return;
 					}
-					String dbDir = DatabaseHandler.getInstance().getLocalDBLocation();
+					String dbDir = DatabaseHandler.getInstance().getDatabaseFolderPath(false/*withDBNameFolder*/);
 					if(selectPath.equals(dbDir)) {
 						return;
 					}else {

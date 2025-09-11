@@ -30,7 +30,7 @@ public class DICOMNodeBuilder {
 			HashMap<String,Object> studyInfo = (HashMap<String, Object>) studyMaterialNode.getUserObject();
 			HashMap<String,String> studyInfoString = convertObjectToStringInMap(studyInfo);
 			String patID = (String) studyInfo.get("PatientID");
-			HashMap<String,String> patInfo = db.getPatientInfoByPatID(patID);
+			HashMap<String,String> patInfo = db.getPatientInfo(patID);
 			DICOMNode studyNode = buildStudyNode(patInfo, studyInfoString);
 			for(int i=0;i<studyMaterialNode.getChildCount();i++) {//series loop
 				DefaultMutableTreeNode seriesMaterialNode = (DefaultMutableTreeNode) studyMaterialNode.getChildAt(i);
@@ -71,8 +71,8 @@ public class DICOMNodeBuilder {
 			return null;
 		}
 		//study node 構築に必要な情報
-		HashMap<String,String> patInfo = db.getPatientInfoByPatID(patID);
-		HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(patID,studyUID);
+		HashMap<String,String> patInfo = db.getPatientInfo(patID);
+		HashMap<String, String> studyInfo = db.getStudyInfo(patID,studyUID);
 		studyNode = buildStudyNode(patInfo,studyInfo);
 		//search series
 		//if study not null, must exists series with.

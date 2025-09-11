@@ -302,7 +302,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 							}
 						}
 						if (sopUIDs.size() > 0) {
-							String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID,
+							String frameOfRefUID = db.getValueFromImage("FrameOfReferenceUID", patID, studyUID,
 									seriesUID, sopUIDs.get(0));
 							if (frameOfRefUID == null) {
 								frameOfRefUID = "";
@@ -345,7 +345,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 					}
 				}
 				if (sopUIDs.size() > 0) {
-					String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID,
+					String frameOfRefUID = db.getValueFromImage("FrameOfReferenceUID", patID, studyUID,
 							seriesUID, sopUIDs.get(0));
 					if (frameOfRefUID == null) {
 						frameOfRefUID = "";
@@ -392,7 +392,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 				}
 			}
 			if (sopUIDs.size() > 0) {
-				String frameOfRefUID = db.getParticularInfoFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID,
+				String frameOfRefUID = db.getValueFromImage("FrameOfReferenceUID", patID, studyUID, seriesUID,
 						sopUIDs.get(0));
 				if (frameOfRefUID == null) {
 					frameOfRefUID = "";
@@ -412,7 +412,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 	 * Build praparat using particular images with specified sopUIDs
 	 */
 	public void loadImagesOnStage(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
-		HashMap<String, String> patInfo = db.getPatientInfoByPatID(patID);
+		HashMap<String, String> patInfo = db.getPatientInfo(patID);
 		if (!sdm.existsInDock(patID)) {
 			StageView stage = new StageView(patInfo);
 			stage.addPraparatOnEye(patID, studyUID, seriesUID, sopUIDs, refUID);

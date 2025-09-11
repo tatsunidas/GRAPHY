@@ -148,7 +148,7 @@ public class QueryRetrieve implements Task, Runnable {
 
 	public DICOMNode querySimpleSearchKeys(String serverNickname, String patID, String patName, String from, String to,
 			ArrayList<String> modalities) {
-		HashMap<String, Object> nodeMaterials = DatabaseHandler.getInstance().getServerNamed(serverNickname);
+		HashMap<String, Object> nodeMaterials = DatabaseHandler.getInstance().getServerInfo(serverNickname);
 		DicomCommunicationNode dest = new DicomCommunicationNode(nodeMaterials);
 		List<String> patKeys = new ArrayList<String>();
 		if (patID != null) {

@@ -172,7 +172,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		}
 		
 		if(!importNewStudy) {
-			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(pid, studyUID);
+			HashMap<String, String> studyInfo = db.getStudyInfo(pid, studyUID);
 			int numOfSeries = db.getNumOfSeriesInStudy(studyUID);
 			
 			if(numOfSeries == 0) {

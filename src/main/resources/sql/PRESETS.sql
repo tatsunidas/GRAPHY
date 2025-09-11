@@ -3,6 +3,6 @@ create table presets(
 	presetname varchar(255),
 	windowwidth numeric,
 	windowlevel numeric,
-	modality_fk integer,
-	foreign key(modality_fk) references modality(pk)
+	lut varchar(255),
+	modality varchar(255)
 	)

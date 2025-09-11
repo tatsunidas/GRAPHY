@@ -189,9 +189,9 @@ public class DicomPostman extends JDialog implements Runnable{
 		ArrayList<String> sorter = new ArrayList<String>();
 		for(String[] info : exportSet) {
 			//patID-name-studydate-modality
-			String pname = db.getParticularInfoFromPatient("PatientName", info[0]);
-			String studydate = db.getParticularInfoFromStudy("StudyDate", info[0], info[1]);
-			String modality = db.getParticularInfoFromSeries("Modality", info[0], info[1], info[2]);
+			String pname = db.getValueFromPatient("PatientName", info[0]);
+			String studydate = db.getValueFromStudy("StudyDate", info[0], info[1]);
+			String modality = db.getValueFromSeries("Modality", info[0], info[1], info[2]);
 			String line = info[0]+"-"+pname+"-"+studydate+"-"+modality;
 			sorter.add(line);
 		}
@@ -329,7 +329,7 @@ public class DicomPostman extends JDialog implements Runnable{
 	}
 	
 	void send(String path2img) {
-		HashMap<String,Object> serverMaterial = db.getServerNamed(destSeverName);
+		HashMap<String,Object> serverMaterial = db.getServerInfo(destSeverName);
 		DicomCommunicationNode remote = new DicomCommunicationNode(serverMaterial);
 		String remoteAET = remote.getAETitle();
 		String remoteHost = remote.getHostName();

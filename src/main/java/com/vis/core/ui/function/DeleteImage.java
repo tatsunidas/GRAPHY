@@ -87,11 +87,7 @@ public class DeleteImage {
 			String studyUID = infoSet[1];
 			String seriesUID = infoSet[2];
 			String sopUID = infoSet[3];
-			try {
-				DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
+			DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 		}
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 		WindowManager.getMainScreen().clearPatientInfo();
@@ -109,12 +105,8 @@ public class DeleteImage {
 			String studyUID = reader.getCore().getString(Tag.Study​Instance​UID);
 			String seriesUID = reader.getCore().getString(Tag.Series​Instance​UID);
 			String sopUID = reader.getCore().getString(Tag.SOP​Instance​UID);
-			reader = null;
-			try {
-				DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
-			} catch (SQLException e) {
-				Log.logger.severe(e.getLocalizedMessage());
-			}
+			reader = null;//free
+			DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 		}
 		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
 		WindowManager.getMainScreen().clearPatientInfo();

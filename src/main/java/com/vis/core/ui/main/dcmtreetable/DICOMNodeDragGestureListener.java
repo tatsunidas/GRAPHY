@@ -107,12 +107,12 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							System.out.println("patID is null");
 						}
 						//destはdescription使う
-						String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
+						String studyDesc = db.getValueFromStudy("StudyDescription", patID, studyIUID);
 						if(studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
 							studyDesc = "no-studydesc";
 							System.out.println("studyDesc is null");
 						}
-						String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID, seriesIUID);
+						String seriesDesc = db.getValueFromSeries("SeriesDescription", patID, studyIUID, seriesIUID);
 						if(seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
 							seriesDesc = "no-seriesDesc";
 							System.out.println("seriesDesc is null");
@@ -136,7 +136,7 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							exportFiles.add(new File(baseDest+File.separator+patID));//patient
 						}
 						//copy to temp
-						String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID,studyIUID, seriesIUID, sopIUID);
+						String dcmPath = db.getValueFromImage("FileStoreUrl", patID,studyIUID, seriesIUID, sopIUID);
 						File from = new File(dcmPath);
 						File to = new File(dest);
 						if(!from.exists()) {

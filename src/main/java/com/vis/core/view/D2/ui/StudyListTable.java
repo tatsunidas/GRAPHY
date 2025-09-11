@@ -139,7 +139,7 @@ public class StudyListTable extends JTable {
 		Object[][] studyInfoSets = new Object[studies.size()][];
 		for (int i = 0; i < studies.size(); i++) {
 			String studyUID = studies.get(i);
-			HashMap<String, String> studyInfo = db.getStudyInfoByUIDs(patID, studyUID);
+			HashMap<String, String> studyInfo = db.getStudyInfo(patID, studyUID);
 			List<String> modalities = db.getModalitiesInStudyRealatedAllSeries(patID, studyUID);
 			String m = "";
 			for (String mo : modalities) {

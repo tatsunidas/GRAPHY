@@ -434,7 +434,7 @@ public class DicomExporter extends JFrame implements Task {
 					destDirs.mkdirs();
 				}
 				String dest = destParent + File.separator + instNo + ".dcm";
-				String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
+				String dcmPath = db.getValueFromImage("FileStoreUrl", patID, studyIUID, seriesIUID, sopIUID);
 				File from = new File(dcmPath);
 				File to = new File(dest);
 				Future<?> future = executor.submit(() -> moveFile(from, to));
@@ -491,7 +491,7 @@ public class DicomExporter extends JFrame implements Task {
 								destDirs.mkdirs();
 							}
 							String dest = destParent + File.separator + instanceCount + ".dcm";
-							String dcmPath = db.getParticularInfoFromImage("FileStoreUrl", patID, studyIUID, seriesIUID,
+							String dcmPath = db.getValueFromImage("FileStoreUrl", patID, studyIUID, seriesIUID,
 									sopIUID);
 							File from = new File(dcmPath);
 							File to = new File(dest);

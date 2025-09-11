@@ -327,7 +327,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 		if (textField_pid != null && db != null) {
 			String pid = textField_pid.getText();
 			if (pid != null && pid.strip().length()!=0) {
-				HashMap<String, String> info = db.getPatientInfoByPatID(pid);
+				HashMap<String, String> info = db.getPatientInfo(pid);
 				if (info != null) {
 					textField_pname.setText(info.get("PatientName"));
 					textField_dob.setText(info.get("PatientBirthDate"));
@@ -409,7 +409,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 			series_desc = textField_series.getText();
 			study_uid = UIDUtils.createUID();
 		}else {
-			study_desc = DatabaseHandler.getInstance().getParticularInfoFromStudy("StudyDescription", pid, study_uid);
+			study_desc = DatabaseHandler.getInstance().getValueFromStudy("StudyDescription", pid, study_uid);
 			series_desc = textField_series.getText();
 		}
 		
@@ -436,14 +436,14 @@ public class ImportNonDicomImagePanel extends JPanel{
 		ArrayList<String> uids = db.getStudyUidList(pid);
 		comboBoxStudies.removeAllItems();
 		for(String uid : uids) {
-			String date = db.getParticularInfoFromStudy("StudyDate", pid, uid);
+			String date = db.getValueFromStudy("StudyDate", pid, uid);
 			List<String> modality = db.getModalitiesInStudyRealatedAllSeries(pid, uid);
 			String m = "";
 			for(String i : modality) {
 				m += i+",";
 			}
 			m = m.substring(0,m.length()-1);// remove last ","
-			String studyDesc = db.getParticularInfoFromStudy("StudyDescription", pid, uid);
+			String studyDesc = db.getValueFromStudy("StudyDescription", pid, uid);
 			String item = date+"_"+m+"_"+studyDesc;
 			comboBoxStudies.addItem(new StudyContext(item, uid));
 		}

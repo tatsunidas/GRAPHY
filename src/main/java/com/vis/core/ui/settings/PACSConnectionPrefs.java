@@ -220,7 +220,7 @@ public class PACSConnectionPrefs extends JPanel {
 						prevName = nameInDB.get(0);
 						/* update */
 						if (!prevName.isEmpty()) {
-							HashMap<String, Object> prevNodeMaterials = db.getServerNamed(prevName);
+							HashMap<String, Object> prevNodeMaterials = db.getServerInfo(prevName);
 							DicomCommunicationNode prevToUpdate = new DicomCommunicationNode(prevNodeMaterials);
 							prevToUpdate.setNickname(newNickname);
 							db.updateServer(prevToUpdate.getNodeMaterials(), prevName);
@@ -234,7 +234,7 @@ public class PACSConnectionPrefs extends JPanel {
 					if (aet == null ) {
 						aet = "";
 					}
-					HashMap<String, Object> nodeMaterials = db.getServerNamed(serverName);
+					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
 					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
 					node.setAETitle(aet);
 					db.updateServer(node.getNodeMaterials(), serverName);
@@ -244,7 +244,7 @@ public class PACSConnectionPrefs extends JPanel {
 					if (host_new.equals("") || host_new == null) {
 						host_new = "localhost";// default value
 					}
-					HashMap<String, Object> nodeMaterials = db.getServerNamed(serverName);
+					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
 					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
 					node.setHostName(host_new);
 					db.updateServer(node.getNodeMaterials(), serverName);
@@ -254,7 +254,7 @@ public class PACSConnectionPrefs extends JPanel {
 					if (port_new == null) {
 						port_new = 11112;// default value
 					}
-					HashMap<String, Object> nodeMaterials = db.getServerNamed(serverName);
+					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
 					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
 					node.setPort(port_new);
 					db.updateServer(node.getNodeMaterials(), serverName);
@@ -264,7 +264,7 @@ public class PACSConnectionPrefs extends JPanel {
 					if (cip_new.equals("") || cip_new == null) {
 						cip_new = "";// default value
 					}
-					HashMap<String, Object> nodeMaterials = db.getServerNamed(serverName);
+					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
 					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
 					node.setCipherFromStringSequence(cip_new);
 					db.updateServer(node.getNodeMaterials(), serverName);

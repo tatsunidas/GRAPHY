@@ -171,7 +171,7 @@ public class PatientInfoEditor {
 			}
 			previousSEX = selected.get(0).getData(DICOMNode.Sex).trim();
 		}else {
-			HashMap<String, String> pmap = db.getPatientInfoByPatID(selected.get(0).getData(DICOMNode.PatientID));
+			HashMap<String, String> pmap = db.getPatientInfo(selected.get(0).getData(DICOMNode.PatientID));
 			previousPID = pmap.get("PatientID");
 			previousPNAME = pmap.get("PatientName");
 			previousBOD = pmap.get("PatientBirthDate");
@@ -253,12 +253,11 @@ public class PatientInfoEditor {
 		pmap.put("PatientName", pname);
 		pmap.put("PatientBirthDate", bod);
 		pmap.put("PatientSex", sex);
-//		rewrite dicom data
 		
 		//case_1: to new patient
 		if(!previousPID.equals(pid)) {
 			//search existing patient from DB.
-			HashMap<String, String> info = db.getPatientInfoByPatID(pid);
+			HashMap<String, String> info = db.getPatientInfo(pid);
 			//if true, integrate it to.
 			if(info != null) {
 				Log.logger.info(pid+" is already exists, will integrate to.");
