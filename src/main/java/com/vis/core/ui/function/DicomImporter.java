@@ -228,6 +228,8 @@ public class DicomImporter implements Task, Runnable {
 		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		treeTable.getTableHeader().setEnabled(true);
 		isCompleted = true;//set above to task remove.
+		TaskManager tm = TaskManager.getInstance();
+		tm.removeCompletedTasks();
 	}
 
 	private ArrayList<String> getCandidateFilesList() {

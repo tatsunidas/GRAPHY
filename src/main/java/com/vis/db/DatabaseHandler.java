@@ -364,6 +364,9 @@ public class DatabaseHandler {
 		// the save as link function is not used now...
 //		boolean saveAsLink = isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID);
 		boolean saveAsLink = false;
+		
+		// file path from table
+		String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
 
 		boolean done = false;
 		String statement = "DELETE FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
@@ -378,7 +381,6 @@ public class DatabaseHandler {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		// automatic close both conn and pstmt by try-with-resource.
 
 		// if instance does not deleted, return here.
 		if (done == false)
@@ -401,8 +403,6 @@ public class DatabaseHandler {
 				}
 			}
 		} else {// delete file
-			// file path
-			String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
 			File instance = new File(storeURI);
 			File seriesDir = instance.getParentFile();
 			if (DeleteFolder.deleteFile(instance)) {// delete file first
@@ -768,7 +768,7 @@ public class DatabaseHandler {
 					try (PreparedStatement ps2 = conn.prepareStatement(statement2);) {
 						ps2.setString(1, studyUid);
 						ps2.setString(2, seriesInfo.getString("SeriesInstanceUID"));
-						try (ResultSet imageLocations = ps.executeQuery();) {
+						try (ResultSet imageLocations = ps2.executeQuery();) {
 							while (imageLocations.next()) {
 								instanceUIDs.add(imageLocations.getString("SOPInstanceUID"));
 							}
