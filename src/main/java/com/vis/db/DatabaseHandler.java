@@ -87,9 +87,8 @@ public class DatabaseHandler {
 	 */
 	public static void main(String[] args) {
 
-		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
+//		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
 		DatabaseHandler db = new DatabaseHandlerBuilder().build();
-		db.setDatabaseFolderPath(testDir);
 		db.startingUp();
 		try {
 			Thread.sleep(2000);
@@ -134,6 +133,7 @@ public class DatabaseHandler {
 	public final String defaultAET = "GRAPHY";
 	public final String defaultHost = "localhost";
 	public final String defaultPort = "4891";// for dimse,
+//	private String defaultDBDir = DBUtils.defaultDBLocation();//see, Utils.getGraphyDBLocationFromProp()
 	private boolean useDicomDir = false;
 
 	/* ae.properties for dicomdir mode */
@@ -207,7 +207,7 @@ public class DatabaseHandler {
 				}
 			}
 		} catch (SQLException e) {
-			logger.severe("connection not established...");
+			logger.severe("database connection is not established...");
 			return false;
 		}
 	}
@@ -784,16 +784,7 @@ public class DatabaseHandler {
 		}
 		return instanceUIDs;
 	}
-
-	private String getArchiveDirectory() {
-		try {
-			return getLocalDBLocation() + File.separator + "archive";
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
-
+	
 	public ArrayList<HashMap<String, Object>> getCommunicationServerList() {
 		ArrayList<HashMap<String, Object>> serverMaterialsList = new ArrayList<HashMap<String, Object>>();
 		String sql = "SELECT * FROM SERVERS";
@@ -1400,8 +1391,7 @@ public class DatabaseHandler {
 	}
 
 	/**
-	 * The DB location can be changed as desired. However, you cannot change the
-	 * other configuration folders (conf, temp, etc).
+	 * The DB location (derby and dcmqrscp) can be changed as desired.
 	 * 
 	 * @return
 	 */
@@ -2145,11 +2135,12 @@ public class DatabaseHandler {
 			pstmt.setString(1, defaultAET);
 			pstmt.setString(2, defaultHost);
 			pstmt.setString(3, defaultPort);
-			pstmt.setString(4, getArchiveDirectory());
+			pstmt.setString(4, getLocalDBLocation());
 			pstmt.executeUpdate();
 			conn.commit();
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+			logger.log(Level.SEVERE, e.getMessage());
 		}
 	}
 
@@ -2754,12 +2745,16 @@ public class DatabaseHandler {
 	 * @throws Exception
 	 */
 	public void loadLocalDBLocation() throws Exception {
-		String loc = Utils.getGraphyDBLocation().getAbsolutePath();
-		if (loc == null) {
-			throw new Exception("Can not load graphy.properties...");
-		} else {
-			setDatabaseFolderPath(loc);
+		String loc = null;
+		if(derby != null) {
+			loc = getListenerDetails()[3];
+		}else {
+			loc = Utils.getGraphyDBLocationFromProp().getAbsolutePath();
 		}
+		if (loc == null) {
+			throw new Exception("DB:loadLocalDBLocation():: Can not load graphy db location...");
+		}
+		this.dbdir = new File(loc).getAbsolutePath();
 	}
 
 	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid,
@@ -3340,14 +3335,6 @@ public class DatabaseHandler {
 		return studiesList;
 	}
 
-	/**
-	 * 
-	 * @param p : parent folder path of db (without databasename).
-	 */
-	private void setDatabaseFolderPath(String p) {
-		this.dbdir = p;
-	}
-
 	public void setSaveAsLinkState(boolean bool) {
 		this.saveAsLink = bool;
 	}
@@ -3395,6 +3382,7 @@ public class DatabaseHandler {
 	}
 
 	public boolean startingUp() {
+		
 		try {
 			loadLocalDBLocation();
 			Log.logger.info("Current DB location: " + dbdir);
@@ -3414,19 +3402,19 @@ public class DatabaseHandler {
 		}
 
 		boolean dbExists = checkDBExists();
-		try {
-			if (dbExists==false) {
+		if (dbExists == false) {
+			try {
 				createTables();
 				insertDefaultListenerDetails();
 				insertDefaultPresets();
 				insertDefaultLocales();
 				insertDefaultTextAnnotationList();
+			} catch (SQLException e) {
+				logger.severe("Can not start DB because can not read SQL files ...");
+				return false;
 			}
-		} catch (SQLException e) {
-			logger.severe("Can not start DB because can not read SQL files ...");
-			return false;
 		}
-
+		
 		// check configuration file
 		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
 		if (!recFac.exists()) {
@@ -3449,19 +3437,27 @@ public class DatabaseHandler {
 		String currentHost = details[1];
 		String currentPort = details[2];
 		String currentStorageDirPath = details[3];
+		/**
+		 * properties file's database path is primary.
+		 */
+		String dir_validation = new File(currentStorageDirPath).getAbsolutePath();
+		if(!dbdir.equals(dir_validation)) {
+			updateListener(currentAet, currentHost, currentPort, dbdir);
+		}
+		
 		try {
 			dcmqrscp = new DcmQRSCP();
 			if (!useDicomDir) {
 				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
 //						"--all-storage",
-						"--graphy-storage-dir", currentStorageDirPath,
+						"--graphy-storage-dir", dbdir,
 						/* FindSCU response value settings */
 						// https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
 						"--record-config", recFac.getAbsolutePath() };
 				dcmqrscp.start(args);
 			} else {
 				/* dicomdir mode : debug purpose */
-				String dicomDirPath = details[3];
+				String dicomDirPath = dbdir+File.separator+"DICOMDIR";
 				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
 //						"--all-storage",
 						"--dicomdir", dicomDirPath, "--ae-config", aeProp };
@@ -3642,28 +3638,40 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void updateListener(String aetitle, String port) {
-		try (Connection conn = openConnection();){
-			try(ResultSet rs = conn.createStatement().executeQuery("select pk from listener");){
-				if(rs.next()) {
-					conn.createStatement().executeUpdate(
-							"update listener set aetitle='" + aetitle + "',port='" + port + "', where pk=" + rs.getInt("pk"));
-					conn.commit();
-				}
-			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}
-	}
+//	public void updateListener(String aetitle, String port) {
+//		try (Connection conn = openConnection();){
+//			try(ResultSet rs = conn.createStatement().executeQuery("select pk from listener");){
+//				if(rs.next()) {
+//					conn.createStatement().executeUpdate(
+//							"update listener set aetitle='" + aetitle + "',port='" + port + "', where pk=" + rs.getInt("pk"));
+//					conn.commit();
+//				}
+//			}
+//		} catch (SQLException ex) {
+//			logger.severe(ex.getMessage());
+//		}
+//	}
 
+	/**
+	 * Listener is the GRAPHY DCMQRSCP.
+	 * @param aetitle
+	 * @param host
+	 * @param port
+	 * @param storagelocation
+	 */
 	public void updateListener(String aetitle, String host, String port, String storagelocation) {
-		try (Connection conn = openConnection();){
-			try(ResultSet rs = conn.createStatement().executeQuery("select * from listener");){
-				if(rs.next()) {
-					conn.createStatement().executeUpdate("update listener set aetitle='" + aetitle + "',host='" + host
-							+ "',port='" + port + "',storagelocation='" + storagelocation + " where pk=" + rs.getInt("pk"));
-					conn.commit();
+		try (Connection conn = openConnection();) {
+			//always only one in table record.
+			String sql = "select pk from listener";
+			try (PreparedStatement ps = conn.prepareStatement(sql)) {
+				try (ResultSet rs = ps.executeQuery();) {
+					if (rs.next()) {
+						conn.createStatement().executeUpdate("update listener set aetitle='" + aetitle + "',port='"
+								+ port + "',storagelocation='" + storagelocation + "', where pk=" + rs.getInt("pk"));
+						conn.commit();
+					}
 				}
+				conn.commit();
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());

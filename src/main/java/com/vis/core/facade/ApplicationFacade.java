@@ -294,6 +294,7 @@ public class ApplicationFacade{
 				}
 				Utils.eraseTemporalDir();
 				WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+				WindowManager.getMainScreen().dispose();
 //				System.exit(0);
 			}else if(res == JOptionPane.CANCEL_OPTION || res == JOptionPane.NO_OPTION) {
 				//to be continue

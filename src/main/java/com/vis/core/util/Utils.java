@@ -42,11 +42,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -78,11 +76,9 @@ import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
-import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.launcher.Launcher;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.db.DatabaseHandler;
 
 /**
@@ -95,37 +91,32 @@ public class Utils {
 	public static boolean isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()
 			.toString().indexOf("-agentlib:jdwp") > 0;
 
-	/*
-	 * https://stackoverflow.com/questions/4871051/how-to-get-the-current-working-
-	 * directory-in-java
-	 */
-	public static File getGraphyDir() {
-		// final File appDirectory = new File(".");//if win10, return currentDir/./, DO
-		// NOT USE
-		final File appDir = new File(Paths.get("").toAbsolutePath().toString());
-		return appDir;
+	
+	public static File getCurrentWorkingDirectory() {
+		//return new File(Paths.get("").toAbsolutePath().toString());
+		return Platform.getAppDirectory();
 	}
 	
 	/**
-	 * The DB location can be changed as desired.
+	 * The DB location.
+	 * 
+	 * Alternate, DatabaseHandler's getListenerDetail also can return dir.
+	 * But, when starting-up, derby acquiring dbdir to start own.
+	 * Database Dir is handled both graphy_prop and derbydb(listener table).
+	 * 
 	 * However, you cannot change the other configuration folders (conf, temp, etc), so do not confuse them.
      * @return current graphy db location (this is different from current app directory)
      */
-	public static File getGraphyDBLocation() {
+	public static File getGraphyDBLocationFromProp() {
 		try {
 			Properties prop = PropertiesUtil.loadProperties(ConfigInfo.GRAPHY_Props.toString());
 			if (prop == null) {
 				throw new Exception("Can not load graphy.properties...");
 			} else {
-				String loc = prop.getProperty(GraphyProp.LocalDBLocation.name());
-				if (loc == null || loc.isBlank()) {
-					loc = ConfigInfo.DefaultDBLocation.toString();
-					PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.LocalDBLocation.name(),loc);
-				}
-				return new File(loc);
+				return new File(ConfigInfo.DefaultDBLocation.toString());
 			}
 		} catch (Exception e) {
-			Log.logger.severe("can not find graphy.properties::DatabaseHandler::loadDBLocationFromProp");
+			Log.logger.severe("can not find graphy.properties::DatabaseHandler::loadDBLocation");
 		}
 		return null;
 	}

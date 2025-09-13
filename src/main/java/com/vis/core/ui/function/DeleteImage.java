@@ -37,7 +37,6 @@
  */
 package com.vis.core.ui.function;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 
 import javax.swing.JOptionPane;

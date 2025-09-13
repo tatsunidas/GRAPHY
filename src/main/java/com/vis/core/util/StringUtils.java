@@ -418,6 +418,62 @@ public class StringUtils {
         }
         return true;
     }
+    
+    /**
+     * 
+     * @param aet
+     * @return 不要な文字が含まれている場合、true
+     */
+	public static boolean isInvalidAET(String aet) {
+		// 正規表現パターンを定義: [^a-zA-Z0-9] は「英字でも数字でもない文字」を表す
+		// 最後に許容したい記号を付け足す。ここではアンダースコア
+		if (aet == null || aet.length() == 0) {
+			return true;
+		}
+		Pattern pattern = Pattern.compile("[^a-zA-Z0-9_]");
+		return pattern.matcher(aet).find();
+	}
+    
+	/**
+	 * 
+	 * @param ip_address
+	 * @return 不正な場合、true
+	 */
+	public static boolean isInvalidHostIP(String ip_address) {
+		if (ip_address == null)
+			return true;
+		if ("localhost".equals(ip_address)) {
+			return false;
+		}
+		Pattern pattern = Pattern.compile("[^0-9.]");
+		if(pattern.matcher(ip_address).find()) {
+			return true;
+		}
+//		String[] v = ip_address.split(".");// why 0 ?
+//		boolean invalid2 = ip_address.split(".").length != 4;
+
+		
+		
+		return false;
+	}
+    
+	public static boolean isInvalidPort(String port) {
+		if (port == null || port.length()==0)
+			return true;
+		Pattern pattern = Pattern.compile("[^0-9]");
+		if (pattern.matcher(port).find()/* 不要文字含む */) {
+			return true;
+		}
+		try{
+			int p = Integer.valueOf(port);
+			if(p < 0 || p > 65535) {
+				return true;
+			}
+		}catch(NumberFormatException e) {
+			return true;
+		}
+		return false;
+	}
 
     public static <T> boolean contains(T[] a, T o) {
         for (T t : a)

@@ -3,9 +3,12 @@ package com.vis.core.ui.settings;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.net.SocketException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.EventObject;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
@@ -13,13 +16,18 @@ import java.awt.GridBagLayout;
 import java.awt.Image;
 
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 
 import java.awt.GridBagConstraints;
 import javax.swing.JButton;
+import javax.swing.JFormattedTextField;
 
 import java.awt.Insets;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.FlowLayout;
+
 import javax.swing.Box;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
@@ -33,11 +41,16 @@ import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import javax.swing.text.NumberFormatter;
 import javax.swing.JScrollPane;
 
+import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.AddDicomCommunicationNodeWin;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.core.util.Platform;
+import com.vis.core.util.StringUtils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.EchoImpl;
@@ -53,12 +66,17 @@ public class PACSConnectionPrefs extends JPanel {
 	private PACSConnectionPrefs thisPanel = this;
 
 	public PACSConnectionPrefs() {
+		
+		setLayout(new BorderLayout());
+		
+		JPanel nodes = new JPanel();
+		
 		GridBagLayout gridBagLayout = new GridBagLayout();
 		gridBagLayout.columnWidths = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
 		gridBagLayout.rowHeights = new int[] { 0, 0, 0, 306, 0 };
 		gridBagLayout.columnWeights = new double[] { 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE };
 		gridBagLayout.rowWeights = new double[] { 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE };
-		setLayout(gridBagLayout);
+		nodes.setLayout(gridBagLayout);
 
 		Component verticalStrut = Box.createVerticalStrut(20);
 		GridBagConstraints gbc_verticalStrut = new GridBagConstraints();
@@ -66,14 +84,14 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_verticalStrut.insets = new Insets(0, 0, 5, 5);
 		gbc_verticalStrut.gridx = 1;
 		gbc_verticalStrut.gridy = 0;
-		add(verticalStrut, gbc_verticalStrut);
+		nodes.add(verticalStrut, gbc_verticalStrut);
 
 		Component horizontalStrut = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
 		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
 		gbc_horizontalStrut.gridx = 0;
 		gbc_horizontalStrut.gridy = 1;
-		add(horizontalStrut, gbc_horizontalStrut);
+		nodes.add(horizontalStrut, gbc_horizontalStrut);
 
 		JLabel lblNewLabel = new JLabel("DICOM Communication Nodes");
 		GridBagConstraints gbc_lblNewLabel = new GridBagConstraints();
@@ -81,7 +99,7 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_lblNewLabel.insets = new Insets(0, 0, 5, 5);
 		gbc_lblNewLabel.gridx = 1;
 		gbc_lblNewLabel.gridy = 1;
-		add(lblNewLabel, gbc_lblNewLabel);
+		nodes.add(lblNewLabel, gbc_lblNewLabel);
 
 		JButton addButton = new JButton("Add");
 		addButton.addActionListener(new ActionListener() {
@@ -94,7 +112,7 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_btnNewButton.insets = new Insets(0, 0, 5, 5);
 		gbc_btnNewButton.gridx = 2;
 		gbc_btnNewButton.gridy = 1;
-		add(addButton, gbc_btnNewButton);
+		nodes.add(addButton, gbc_btnNewButton);
 
 		JButton deleteButton = new JButton("Delete");
 		deleteButton.addActionListener(new ActionListener() {
@@ -122,7 +140,7 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_btnNewButton_1.insets = new Insets(0, 0, 5, 5);
 		gbc_btnNewButton_1.gridx = 3;
 		gbc_btnNewButton_1.gridy = 1;
-		add(deleteButton, gbc_btnNewButton_1);
+		nodes.add(deleteButton, gbc_btnNewButton_1);
 
 		JScrollPane scrollPane = new JScrollPane();
 		GridBagConstraints gbc_scrollPane = new GridBagConstraints();
@@ -132,14 +150,14 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_scrollPane.fill = GridBagConstraints.BOTH;
 		gbc_scrollPane.gridx = 1;
 		gbc_scrollPane.gridy = 2;
-		add(scrollPane, gbc_scrollPane);
+		nodes.add(scrollPane, gbc_scrollPane);
 
 		Component horizontalStrut_1 = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut_1 = new GridBagConstraints();
 		gbc_horizontalStrut_1.insets = new Insets(0, 0, 0, 5);
 		gbc_horizontalStrut_1.gridx = 0;
 		gbc_horizontalStrut_1.gridy = 3;
-		add(horizontalStrut_1, gbc_horizontalStrut_1);
+		nodes.add(horizontalStrut_1, gbc_horizontalStrut_1);
 
 		table = new JTable();
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
@@ -152,8 +170,10 @@ public class PACSConnectionPrefs extends JPanel {
 		GridBagConstraints gbc_horizontalStrut_2 = new GridBagConstraints();
 		gbc_horizontalStrut_2.gridx = 6;
 		gbc_horizontalStrut_2.gridy = 3;
-		add(horizontalStrut_2, gbc_horizontalStrut_2);
+		nodes.add(horizontalStrut_2, gbc_horizontalStrut_2);
 
+		add(buildDCMQRSCPSettingPanel(),BorderLayout.NORTH);
+		add(nodes, BorderLayout.CENTER);
 	}
 
 	public void constructTableModel(JTable table) {
@@ -284,6 +304,119 @@ public class PACSConnectionPrefs extends JPanel {
 
 	public JTable getTable() {
 		return table;
+	}
+	
+	private JPanel buildDCMQRSCPSettingPanel() {
+		JPanel base = new JPanel();
+		base.setLayout(new BorderLayout());
+		
+		JPanel currentInfo = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		String aet = "AET:";
+		String host = "HOST:";
+		String port = "PORT:";
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db != null) {
+			String[] listenerInfo = db.getListenerDetails();
+			aet += listenerInfo[0];//.getString("aetitle");
+			host += listenerInfo[1];//.getString("host");
+			port += listenerInfo[2];//.getString("port");
+//			detail[3] = listenerInfo.getString("storagelocation");
+		}
+		currentInfo.add(new JLabel("Current Listener:"+aet+","+host+","+port, JLabel.LEFT));
+		base.add(currentInfo, BorderLayout.NORTH);
+		
+		// input area
+		JLabel l1 = new JLabel("AE Title");
+		JLabel l2 = new JLabel("Host(IP address)");
+		JLabel l3 = new JLabel("Port");
+		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		//AE
+		p.add(l1);
+		JFormattedTextField t1 = new JFormattedTextField();
+		t1.setColumns(10);
+		p.add(t1);
+		
+		//Host
+		p.add(l2);
+		// 作成したIpAddressFormatterをJFormattedTextFieldに設定
+//       JFormattedTextField ipAddressField = new JFormattedTextField(new IpAddressFormatter());
+       JFormattedTextField ipAddressField = new JFormattedTextField();
+       ipAddressField.setColumns(15); // フィールドの幅を適切に設定
+       //ipAddressField.setValue("192.168.1.1"); // 初期値を設定
+		p.add(ipAddressField);
+		
+		//Port
+		p.add(l3);
+		// 1. 整数用のNumberFormatインスタンスを取得
+       NumberFormat format = NumberFormat.getIntegerInstance();
+        // 2. 桁区切りカンマ(,)を無効にする
+       format.setGroupingUsed(false);
+       // 3. NumberFormatを元にNumberFormatterを作成
+		NumberFormatter formatter = new NumberFormatter(format);
+		formatter.setValueClass(Integer.class); // 値のクラスをIntegerに設定
+		formatter.setMinimum(0); // 最小値を1に設定 (これにより正の整数のみとなる)
+		formatter.setMaximum(65535); // 最大値を設定.maximum TCP/IP port number.
+		formatter.setAllowsInvalid(false); // 無効な値の入力を一時的にでも許可しない
+		formatter.setCommitsOnValidEdit(true); // 有効な編集が行われるたびに値をコミットする
+		JFormattedTextField t3 = new JFormattedTextField(formatter);
+		t3.setColumns(5);
+		p.add(t3);
+		
+		JButton update = new JButton("Update Listener");
+		String sampleIp = null;
+		try {
+			sampleIp = Platform.getLocalIpAddresses().get(0);
+		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		String msg = "AET: Application Entity Name, such as GRAPHY\n";
+		msg += "Host: IP address at this machine, such as "+ sampleIp +"\n";
+		msg += "Port: 5 digit number in range 0~65535. 1024~49151 is recommended.";
+		update.setToolTipText(msg);
+		update.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				
+				int res = JOptionPane.showConfirmDialog(null, "This will shutting down graphy automatically.\nPlease restart after that.\nWill you continue ?", "Continue ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);			
+				if(res != JOptionPane.OK_OPTION) {
+					return;
+				}
+				//validate input
+				String aet = t1.getText();
+				String host = ipAddressField.getText();
+				String port = t3.getText();
+				
+				if(StringUtils.isInvalidAET(aet)) {
+					JOptionPane.showMessageDialog(null, "AET is invalid value. Please input correctlly.");
+					return;
+				}
+				
+				if(StringUtils.isInvalidHostIP(host)) {
+					JOptionPane.showMessageDialog(null, "IP_Address is invalid value. Please input correctlly.");
+					return;
+				}
+				
+				if(StringUtils.isInvalidPort(port)) {
+					JOptionPane.showMessageDialog(null, "Port number is invalid value. Please input correctlly.");
+					return;
+				}
+				
+				DatabaseHandler db = DatabaseHandler.getInstance();
+				try {
+					db.updateListener(aet, host, port, db.getLocalDBLocation());
+				} catch (Exception e1) {
+					Log.logger.log(Level.SEVERE, e1.getMessage());
+				}
+				// same process with main window closing.
+				WindowManager.getMainScreen().dispose();
+			}
+		});
+		p.add(update);
+		
+		base.add(p, BorderLayout.CENTER);
+		
+		return base;
 	}
 
 	class EchoButtonRenderer extends JButton implements TableCellRenderer {

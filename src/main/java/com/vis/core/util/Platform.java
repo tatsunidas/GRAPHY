@@ -39,11 +39,18 @@ package com.vis.core.util;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.List;
 
 import javax.imageio.ImageIO;
 
@@ -262,5 +269,36 @@ public enum Platform {
 			e.printStackTrace();
 			return;
 		}
+	}
+	
+	/**
+     * マシンの有効なローカルIPアドレス（IPv4）をすべて取得します。
+     * @return IPアドレスのリスト
+     * @throws SocketException ネットワークエラーが発生した場合
+     */
+	public static List<String> getLocalIpAddresses() throws SocketException {
+		List<String> ipList = new ArrayList<>();
+		// すべてのネットワークインターフェースを取得
+		Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+
+		while (networkInterfaces.hasMoreElements()) {
+			NetworkInterface ni = networkInterfaces.nextElement();
+
+			// インターフェースが稼働中で、ループバックでなく、仮想でもないと判断されるものを対象とする
+			if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
+				continue;
+			}
+
+			// インターフェースに割り当てられたIPアドレスをすべて取得
+			Enumeration<InetAddress> inetAddresses = ni.getInetAddresses();
+			while (inetAddresses.hasMoreElements()) {
+				InetAddress address = inetAddresses.nextElement();
+				// IPv4アドレスであり、ループバックアドレスでないものをリストに追加
+				if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+					ipList.add(address.getHostAddress());
+				}
+			}
+		}
+		return ipList;
 	}
 }

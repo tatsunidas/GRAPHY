@@ -49,6 +49,10 @@ import com.vis.dicom.UIDUtils;
 
 public class DBUtils {
 	
+	public static final String defaultDBLocation() {
+		return ConfigInfo.DefaultDBLocation.toString();
+	}
+	
 	public static boolean isAlreadyRegisteredServer(DatabaseHandler db, String identicalNickname) {
 		if(identicalNickname == null) {
 			return false;

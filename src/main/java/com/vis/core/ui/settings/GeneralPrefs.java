@@ -60,7 +60,6 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
-import com.vis.core.launcher.Launcher;
 import com.vis.core.log.Log;
 import com.vis.core.ui.FontSettings;
 import com.vis.core.ui.LookAndFeels;
@@ -103,7 +102,7 @@ public class GeneralPrefs extends JPanel{
 	/*
 	 * default db location is "user_home/.GRAPHY"
 	 */
-	final String defaultLoc; //needs abs path
+	final String defaultLoc; //abs path
 	
 	Integer currentFontSize;
 	String currentLAF;
