@@ -4,3 +4,7 @@
 /log/
 /plugins/
 /mask_test.tif
+/class1_trainDataset.csv
+/class2_trainDataset.csv
+/removeoutliers.tif
+/trainingDataset.csv
