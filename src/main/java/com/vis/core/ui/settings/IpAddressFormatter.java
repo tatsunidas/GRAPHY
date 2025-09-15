@@ -39,8 +39,6 @@ package com.vis.core.ui.settings;
 
 import javax.swing.JFormattedTextField.AbstractFormatter;
 import java.text.ParseException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * IPv4アドレス形式を検証するカスタムフォーマッター。
