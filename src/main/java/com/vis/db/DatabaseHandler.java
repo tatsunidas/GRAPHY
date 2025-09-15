@@ -89,7 +89,12 @@ public class DatabaseHandler {
 
 //		String testDir = "/home/tatsunidas/デスクトップ/graphy/";
 		DatabaseHandler db = new DatabaseHandlerBuilder().build();
-		db.startingUp();
+		try {
+			db.startingUp();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		try {
 			Thread.sleep(2000);
 		} catch (InterruptedException e) {
@@ -3381,7 +3386,7 @@ public class DatabaseHandler {
 		}
 	}
 
-	public boolean startingUp() {
+	public boolean startingUp() throws SQLException {
 		
 		try {
 			loadLocalDBLocation();
@@ -3608,12 +3613,13 @@ public class DatabaseHandler {
 
 	public void updateImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
-		try (Connection conn = openConnection();){
-			String statement = "UPDATE IMAGE ";
-			statement = statement + "SET FileStoreUrl=?, isLink=? ";
-			statement = statement
-					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-			PreparedStatement pstmt = conn.prepareStatement(statement);
+		
+		String statement = "UPDATE IMAGE ";
+		statement = statement + "SET FileStoreUrl=?, isLink=? ";
+		statement = statement
+				+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+		try (	Connection conn = openConnection();
+				PreparedStatement pstmt = conn.prepareStatement(statement);){
 			pstmt.setString(1, filePath);
 			pstmt.setBoolean(2, saveAsLink);
 			pstmt.setString(3, dataset.getString(Tag.Patient​ID));
@@ -3621,7 +3627,6 @@ public class DatabaseHandler {
 			pstmt.setString(5, dataset.getString(Tag.Series​Instance​UID));
 			pstmt.setString(6, dataset.getString(Tag.SOP​Instance​UID));
 			pstmt.executeUpdate();
-			pstmt.close();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe("DatabaseHandler - Unable to save instance information\n" + ex.getMessage());
@@ -3659,22 +3664,35 @@ public class DatabaseHandler {
 	 * @param port
 	 * @param storagelocation
 	 */
-	public void updateListener(String aetitle, String host, String port, String storagelocation) {
-		try (Connection conn = openConnection();) {
-			//always only one in table record.
-			String sql = "select pk from listener";
-			try (PreparedStatement ps = conn.prepareStatement(sql)) {
-				try (ResultSet rs = ps.executeQuery();) {
-					if (rs.next()) {
-						conn.createStatement().executeUpdate("update listener set aetitle='" + aetitle + "',port='"
-								+ port + "',storagelocation='" + storagelocation + "', where pk=" + rs.getInt("pk"));
-						conn.commit();
-					}
-				}
-				conn.commit();
+	public void updateListener(String aetitle, String host, String port, String storagelocation) throws SQLException {
+	    
+	    // 1. UPDATE文を修正 (whereの前にカンマは不要)
+	    // 「常に1行」という前提なので、WHERE句なしでテーブル全体(つまりその1行)を更新。
+	    // もし特定の行を更新したい場合は、"WHERE pk = 1" のようにWHERE句を追加してください。
+	    String sql = "UPDATE listener SET aetitle = ?, host = ?, port = ?, storagelocation = ?";
+
+	    // 2. try-with-resources でリソースを管理 (ネストを解消)
+		try (	Connection conn = openConnection(); 
+				PreparedStatement pstmt = conn.prepareStatement(sql)) {
+			// 3. パラメータを正しい順序でセット
+			pstmt.setString(1, aetitle);
+			pstmt.setString(2, host);
+			pstmt.setString(3, port);
+			pstmt.setString(4, storagelocation);
+			// 4. UPDATEを実行
+			int affectedRows = pstmt.executeUpdate();
+			if (affectedRows == 0) {
+				// 更新対象のレコードが存在しなかった場合（想定外の状況）
+				// 警告を出すか、エラーとして処理を中断させます。
+				throw new SQLException("listenerテーブルの更新対象レコードが見つかりませんでした。");
 			}
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
+			// 5. トランザクションを一度だけコミット
+			conn.commit();
+			logger.fine("listenerテーブルを正常に更新しました。");
+		} catch (SQLException e) {
+			// 6. エラーをログに記録し、例外を再スローして呼び出し元に通知
+			logger.log(Level.SEVERE, "listenerテーブルの更新中にエラーが発生しました。", e);
+			throw e;
 		}
 	}
 

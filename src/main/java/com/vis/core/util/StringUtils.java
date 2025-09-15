@@ -440,7 +440,7 @@ public class StringUtils {
 	 * @return 不正な場合、true
 	 */
 	public static boolean isInvalidHostIP(String ip_address) {
-		if (ip_address == null)
+		if (ip_address == null || ip_address.length() ==0 )
 			return true;
 		if ("localhost".equals(ip_address)) {
 			return false;
@@ -452,8 +452,6 @@ public class StringUtils {
 //		String[] v = ip_address.split(".");// why 0 ?
 //		boolean invalid2 = ip_address.split(".").length != 4;
 
-		
-		
 		return false;
 	}
     

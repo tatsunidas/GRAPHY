@@ -68,6 +68,16 @@ public class WindowManager {
 		}
 	}
 	
+	public static void closeWindowsWithoutMainScreen() {
+		for(Entry<String, Window> l : wins.entrySet()) {
+			if(l.getKey().equals(ConfigInfo.MainScreen.toString())) {
+				continue;
+			}
+			Window w = l.getValue();
+			w.dispose();
+		}
+	}
+	
 	public static boolean removeWindow(java.awt.Window frame) {
 		if(wins.isEmpty()) {
 			return true;

@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Properties;
@@ -133,7 +134,11 @@ public class ApplicationFacade{
 			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH, "true");
 		}
 		// # 5
-		initDB();
+		try {
+			initDB();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void initConfigurationFolders() {
@@ -213,14 +218,19 @@ public class ApplicationFacade{
 		pluginShelf.loadPlugins();
 	}
 	
-	private void initDB() {
+	private void initDB() throws SQLException {
 		db = new DatabaseHandlerBuilder().build();
-		if(db.startingUp() == false) {
-			try {
-				readyToClose(Level.SEVERE, "Can not start graphy db.");
-			} catch (Throwable e) {
-				e.printStackTrace();
+		try {
+			if(db.startingUp() == false) {
+				try {
+					readyToClose(Level.SEVERE, "Can not start graphy db. Shutting down.");
+				} catch (Throwable e) {
+					e.printStackTrace();
+					Log.logger.fine(e.getMessage());
+				}
 			}
+		}catch(SQLException e) {
+			
 		}
 		db.deleteMissingLinkedFiles();
 	}
@@ -285,6 +295,10 @@ public class ApplicationFacade{
 		tm.shutdownAndWait();
 		Log.logger.log(level, exitString);
 		boolean close = true;
+		
+		WindowManager.closeWindowsWithoutMainScreen();
+		Log.logger.log(Level.INFO, "All optional windows were closed.");
+		
 		if(level == Level.INFO) {
 			int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Close the window ? (application will close)");
 			if(res == JOptionPane.OK_OPTION || res == JOptionPane.YES_OPTION) {
@@ -295,7 +309,7 @@ public class ApplicationFacade{
 				Utils.eraseTemporalDir();
 				WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 				WindowManager.getMainScreen().dispose();
-//				System.exit(0);
+				System.exit(0);
 			}else if(res == JOptionPane.CANCEL_OPTION || res == JOptionPane.NO_OPTION) {
 				//to be continue
 				close = false;
@@ -306,8 +320,14 @@ public class ApplicationFacade{
 				db.shutdownDB();
 			}
 			Utils.eraseTemporalDir();
-			WindowManager.getMainScreen().setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-			System.exit(Level.SEVERE.intValue());
+			MainScreen ms = WindowManager.getMainScreen();
+			if(ms != null) {
+				ms.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+				ms.dispose();
+				System.exit(0);//see, PACSConnectionPref's update Listener details.
+			}else {
+				System.exit(Level.SEVERE.intValue());
+			}
 		}
 		return close;
 	}

@@ -28,6 +28,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
@@ -48,6 +49,7 @@ import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.AddDicomCommunicationNodeWin;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.Platform;
 import com.vis.core.util.StringUtils;
@@ -309,6 +311,7 @@ public class PACSConnectionPrefs extends JPanel {
 	private JPanel buildDCMQRSCPSettingPanel() {
 		JPanel base = new JPanel();
 		base.setLayout(new BorderLayout());
+		base.setBorder(BorderFactory.createEtchedBorder());
 		
 		JPanel currentInfo = new JPanel(new FlowLayout(FlowLayout.LEFT));
 		String aet = "AET:";
@@ -378,7 +381,8 @@ public class PACSConnectionPrefs extends JPanel {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				
-				int res = JOptionPane.showConfirmDialog(null, "This will shutting down graphy automatically.\nPlease restart after that.\nWill you continue ?", "Continue ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);			
+				MainScreen ms = WindowManager.getMainScreen();
+				int res = JOptionPane.showConfirmDialog(ms, "This will shutting down graphy automatically.\nPlease restart after that.\nWill you continue ?", "Continue ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);			
 				if(res != JOptionPane.OK_OPTION) {
 					return;
 				}
@@ -409,7 +413,13 @@ public class PACSConnectionPrefs extends JPanel {
 					Log.logger.log(Level.SEVERE, e1.getMessage());
 				}
 				// same process with main window closing.
-				WindowManager.getMainScreen().dispose();
+				if(ms != null) {
+					try {
+						ApplicationFacade.readyToClose(Level.SEVERE/*Force closing*/, "Database Lister details was updated. GRAPHY need to restart.");
+					} catch (Throwable e1) {
+						e1.printStackTrace();
+					}
+				}
 			}
 		});
 		p.add(update);

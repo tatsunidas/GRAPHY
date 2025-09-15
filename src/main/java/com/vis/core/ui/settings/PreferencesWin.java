@@ -44,22 +44,22 @@ import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 
+import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 
 @SuppressWarnings("serial")
 public class PreferencesWin extends JFrame{
 	
-	private final static String name = "Preferences";
 	private static JTabbedPane tabPane;
 	private JScrollPane scrPane;
 	ImageIcon settingsIcon;
-	private static PreferencesWin prefWin = new PreferencesWin();
+	private static PreferencesWin prefWin;
 
 	private PreferencesWin() {
 		setContents();
-		setTitle(name);
-		setName(name);//for window manager
+		setTitle(ConfigInfo.PreferencesWinow.toString());
+		setName(ConfigInfo.PreferencesWinow.toString());//for window manager
 		settingsIcon = Resources.MenuBarSettingsIcon.loadIconFromResource();
 		setIconImage(settingsIcon.getImage());
 		setMaximumSize(new Dimension(150, 100));
@@ -70,6 +70,11 @@ public class PreferencesWin extends JFrame{
 	}
 	
 	public static PreferencesWin getInstance() {
+		if(prefWin == null) {
+			prefWin = new PreferencesWin();
+			WindowManager.addWindow(prefWin);
+			return prefWin;
+		}
 		return prefWin;
 	}
 
