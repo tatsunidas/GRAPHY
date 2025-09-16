@@ -30,7 +30,12 @@ import com.vis.dicom.TagDict;
 public class DimseUtilities {
 	
 	public static boolean echo(DicomCommunicationNode dest) {
-		boolean res = new EchoImpl(null).echo(ConfigInfo.AppName.toString(), "localhost", null,
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db == null) {
+			return false;
+		}
+		String[] listenerInfo = db.getListenerDetails();
+		boolean res = new EchoImpl(null).echo(listenerInfo[0], listenerInfo[1], listenerInfo[2],
 				dest.getAETitle(), dest.getHostName(), String.valueOf(dest.getPort()));// connection established
 		return res;
 	}

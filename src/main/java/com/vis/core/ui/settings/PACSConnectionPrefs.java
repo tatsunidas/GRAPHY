@@ -183,6 +183,9 @@ public class PACSConnectionPrefs extends JPanel {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		ArrayList<DicomCommunicationNode> tableData = db.loadServerList();
 		Object[][] tblObj = new Object[tableData.size()][];
+		
+		String[] listenerInfo = db.getListenerDetails();//GRAPHY listener
+		
 		for (int i = 0; i < tableData.size(); i++) {
 			DicomCommunicationNode nodeInfo = tableData.get(i);
 			Object[] row = new Object[] { 
@@ -192,9 +195,9 @@ public class PACSConnectionPrefs extends JPanel {
 					String.valueOf(nodeInfo.getPort()), // port
 					nodeInfo.cipherListToString(), // ciphers
 					new EchoImpl(null).echo(
-							db.defaultAET,
-							db.defaultHost, 
-							null, 
+							listenerInfo[0],
+							listenerInfo[1],
+							listenerInfo[2], 
 							nodeInfo.getAETitle(), 
 							nodeInfo.getHostName(), 
 							String.valueOf(nodeInfo.getPort())

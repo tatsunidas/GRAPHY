@@ -30,7 +30,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<imagej-version>1.54f</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
-		<derby-version>10.14.2.0</derby-version>
+		<derby-version>10.13.1.1</derby-version>
 		<pdfbox-version>2.0.24</pdfbox-version>
 		<apache-commons-io-version>2.14.0</apache-commons-io-version>
 		<radiance-substance-version>4.5.0</radiance-substance-version>
