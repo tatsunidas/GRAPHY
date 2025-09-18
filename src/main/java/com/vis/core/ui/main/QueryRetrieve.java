@@ -390,19 +390,19 @@ public class QueryRetrieve implements Task, Runnable {
 		queryStudy = setPairedPatIDToQuery(queryStudy, patID);
 		queryStudy = setPairedKeyToQuery(queryStudy, studyKeys);
 		queryStudy.addAll(response);
-		FindSCU cfind = null;
 		try {
-			cfind = new FindSCU();
+			FindSCU cfind = new FindSCU();
+			String[] query = queryStudy.toArray(new String[queryStudy.size()]);
+			ArrayList<Attributes> studies = cfind.simpleQuery(query);
+			if (studies == null || studies.size() < 1) {
+				return null;
+			}else {
+				return studies;
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}
-		String[] query = queryStudy.toArray(new String[queryStudy.size()]);
-		ArrayList<Attributes> studies = cfind.simpleQuery(query);
-		if (studies == null || studies.size() < 1) {
-			return null;
-		}
-		return studies;
 	}
 
 	/**
@@ -892,6 +892,7 @@ public class QueryRetrieve implements Task, Runnable {
 				}
 			}
 		});
+		TaskManager.getInstance().removeCompletedTasks();
 		isCompleted = true;
 	}
 

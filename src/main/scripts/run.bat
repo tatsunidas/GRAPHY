@@ -87,11 +87,14 @@ IF DEFINED COMBINED_LIB_PATH (
 )
 REM For Java3D
 SET "JVM_OPTS=%JVM_OPTS% -Dj3d.allowNullGraphicsConfig=true"
+SET "JVM_OPTS=%JVM_OPTS% -Xms512m"
+SET "JVM_OPTS=%JVM_OPTS% -Xmx9216m"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.base/java.lang=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.awt=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.java2d=ALL-UNNAMED"
-SET "JVM_OPTS=%JVM_OPTS% -Xms512m"
-SET "JVM_OPTS=%JVM_OPTS% -Xmx9216m"
+REM For dcm4che imageio
+SET "JVM_OPTS=%JVM_OPTS% --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
+SET "JVM_OPTS=%JVM_OPTS% --add-opens java.base/java.io=ALL-UNNAMED"
 
 REM --- Execute Java Application ---
 echo Using Java command: "%JAVA_COMMAND%"

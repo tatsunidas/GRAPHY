@@ -109,13 +109,14 @@ public enum Resources {
 	SQL_IMAGE("sql/IMAGE.sql"),
 	SQL_PRESET("sql/PRESETS.sql"),
 	SQL_ROI("sql/ROI.sql"),
-	SQL_AE("sql/AE.sql"),//previous name is SERVERS.sql
+	SQL_SERVERS("sql/SERVERS.sql"),//previous name is SERVERS.sql
 	SQL_TEXTANNOTATION("sql/TEXTANNOTATION.sql"),
 	SQL_THEME("sql/THEME.sql"),
 	
 	DicomDict("dicom_dict/dicom_dict.properties"),
 	//default db settings, see also ConfigInfo.
 	RecordFactory("dcmqrscp/RecordFactory.xml"),
+	AE_Properties("dcmqrscp/ae.properties"),
 	
 	//LUT
 	LUT_FIRE("luts/Fire-1.lut"),

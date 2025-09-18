@@ -3,7 +3,9 @@ package com.vis.core.ui.settings;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 import java.net.SocketException;
+import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.EventObject;
@@ -51,6 +53,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.AddDicomCommunicationNodeWin;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.core.util.DBUtils;
 import com.vis.core.util.Platform;
 import com.vis.core.util.StringUtils;
 import com.vis.db.DatabaseHandler;
@@ -124,7 +127,9 @@ public class PACSConnectionPrefs extends JPanel {
 					return;
 				}
 				String identical = (String) model.getValueAt(row, model.findColumn("Nickname"));
+				String aet = (String) model.getValueAt(row, model.findColumn("AE title"));
 				DatabaseHandler.getInstance().deleteServer(identical);
+				DBUtils.deleteAEProperties(aet);
 				model.removeRow(row);
 				constructTableModel(getTable());
 				/* 表示していたドックが削除された場合、タブから削除 */
@@ -134,6 +139,14 @@ public class PACSConnectionPrefs extends JPanel {
 						dttm.removeDockAt(nickname);
 						break;
 					}
+				}
+				//restart DicomServer
+				try {
+					DatabaseHandler db = DatabaseHandler.getInstance();
+					db.initDicomServer();
+				} catch (IOException | SQLException e) {
+					Log.logger.severe("Can not start DcmQRSCP...");
+					JOptionPane.showMessageDialog(null, "Something happen when adding DICOM node, GRAPHY-DB can not restart correctly, please restart GRAPHY...");
 				}
 				WindowManager.getMainScreen().updateQRTreeTables();
 			}

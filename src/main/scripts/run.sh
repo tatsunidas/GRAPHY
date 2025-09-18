@@ -114,6 +114,10 @@ JVM_OPTS="-Djava.library.path=${NATIVE_LIB_PATH}:${NATIVE_CDR_LIB_PATH}"
 JVM_OPTS="$JVM_OPTS -Dj3d.allowNullGraphicsConfig=true"
 JVM_OPTS="$JVM_OPTS -Xms512m"
 JVM_OPTS="$JVM_OPTS -Xmx9216m"
+JVM_OPTS="$JVM_OPTS --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
+# For dcm4che imageio
+JVM_OPTS="$JVM_OPTS --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
+JVM_OPTS="$JVM_OPTS --add-opens java.base/java.io=ALL-UNNAMED"
 
 # jdk
 DEFAULT_JAVA_CMD="java"

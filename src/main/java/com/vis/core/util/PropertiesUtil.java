@@ -143,6 +143,20 @@ public class PropertiesUtil {
 		saveProperties(prop, proppath);
 	}
 	
+	public static void deletePropertyAt(String proppath, String key) {
+		proppath = new File(proppath).getAbsolutePath();
+		Properties prop = loadProperties(proppath);
+		prop.remove(key);
+		saveProperties(prop, proppath);
+	}
+	
+	public static void deletePropertyAt(ConfigInfo propFile, GraphyProp key) {
+		String proppath = new File(propFile.toString()).getAbsolutePath();
+		Properties prop = loadProperties(proppath);
+		prop.remove(key.name());
+		saveProperties(prop, proppath);
+	}
+	
 	public static String getPropValueFrom(String path, String key) {
 		path = new File(path).getAbsolutePath();
 		Properties prop = loadProperties(path);
