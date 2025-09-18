@@ -10,13 +10,19 @@ import java.awt.Insets;
 import javax.swing.JTextField;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.settings.*;
+import com.vis.core.util.DBUtils;
+import com.vis.core.util.StringUtils;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.dimse.FindSCU;
 
 import javax.swing.JButton;
 import java.awt.Component;
 import javax.swing.Box;
 import java.awt.event.ActionListener;
+import java.io.IOException;
+import java.sql.SQLException;
 import java.awt.event.ActionEvent;
 
 public class AddDicomCommunicationNodeWin extends JFrame {
@@ -82,7 +88,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		getContentPane().add(lblAeTitle, gbc_lblAeTitle);
 		
 		aeText = new JTextField();
-		aeText.setText("e.g, MyDICOMServer");
+		aeText.setToolTipText("e.g, MyDICOMServer");
 		GridBagConstraints gbc_txtEgMydicomserver = new GridBagConstraints();
 		gbc_txtEgMydicomserver.insets = new Insets(0, 0, 5, 0);
 		gbc_txtEgMydicomserver.fill = GridBagConstraints.HORIZONTAL;
@@ -92,7 +98,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		aeText.setColumns(10);
 		
 		JLabel lblHostipAddress = new JLabel("Host(IP address)");
-		lblHostipAddress.setToolTipText("Input address as xxx.xxx.xxx.xxx format.\nIf you use only own pc which running dicom server or other nodes, set just \"localhost\" instead above format. ");
+		lblHostipAddress.setToolTipText("Input address as xxx.xxx.xxx.xxx format. e.g, 192.168.1.1");
 		GridBagConstraints gbc_lblHostipAddress = new GridBagConstraints();
 		gbc_lblHostipAddress.insets = new Insets(0, 0, 5, 5);
 		gbc_lblHostipAddress.anchor = GridBagConstraints.WEST;
@@ -101,7 +107,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		getContentPane().add(lblHostipAddress, gbc_lblHostipAddress);
 		
 		hostText = new JTextField();
-		hostText.setText("e.g, 192.168.1.1");
+		hostText.setToolTipText("Input address as xxx.xxx.xxx.xxx format. e.g, 192.168.1.1");
 		GridBagConstraints gbc_txtEg_1 = new GridBagConstraints();
 		gbc_txtEg_1.insets = new Insets(0, 0, 5, 0);
 		gbc_txtEg_1.fill = GridBagConstraints.HORIZONTAL;
@@ -120,7 +126,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		getContentPane().add(lblPort, gbc_lblPort);
 		
 		portText = new JTextField();
-		portText.setText("e.g, 11112");
+		portText.setToolTipText("Set TCP/IP Port number, like 11112.");
 		GridBagConstraints gbc_txtEg = new GridBagConstraints();
 		gbc_txtEg.insets = new Insets(0, 0, 5, 0);
 		gbc_txtEg.fill = GridBagConstraints.HORIZONTAL;
@@ -129,7 +135,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		getContentPane().add(portText, gbc_txtEg);
 		portText.setColumns(10);
 		
-		JButton btnNewButton = new JButton("Validate then Apply");
+		JButton btnNewButton = new JButton("Validate and Apply");
 		btnNewButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				String identical = nicknameField.getText().trim();
@@ -175,21 +181,55 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		String aet = aeText.getText().trim();
 		String Host = hostText.getText().trim();
 		String Port = portText.getText().trim();
-		int portNum = -1;
-		try {
-			portNum = Integer.parseInt(Port);
-			if(portNum < 1) {
-				JOptionPane.showMessageDialog(null,"Can not set this Port.\nSet the number(e.g, 11112) again.");
-				return;
-			}
-		}catch (NumberFormatException e) {
-			JOptionPane.showMessageDialog(null,"Can not set to String to Port.\nSet the number(e.g, 11113).");
+		
+		if(StringUtils.isInvalidAET(aet)) {
+			System.out.println("AET is invalid.:"+aet);
 			return;
 		}
+		if(StringUtils.isInvalidHostIP(Host)) {
+			System.out.println("HOST IP ADDRESS is invalid.:"+Host);
+			return;
+		}
+		if(StringUtils.isInvalidPort(Port)) {
+			System.out.println("Port is invalid.:"+Port);
+			return;
+		}
+		
+		if(checkCFINDCapability(aet, Host, Port)==false) {
+			String msg = "GRAPHY cannnot add this remote node.\n";
+			msg += "reason why ? maybe...\n";
+			msg += "- remote node is offline or sleeping or stopped ?\n";
+			msg += "- remote node does not support C-Find ?\n";
+			msg += "- remote node does not recognized graphy ae title ?";
+			Log.logger.info(msg);
+			return;
+		}
+		
 		String CipherSeq = cipherText.getText().trim();
 //		DicomCommunicationNode node = new DicomCommunicationNode(nickname,aet, Host, portNum, CipherSeq);
-		db.insertServer(nickname,aet, Host, portNum, CipherSeq);
+		db.insertServer(nickname,aet, Host, Integer.valueOf(Port), CipherSeq, null,null,-1,null,null);
+		
+		DBUtils.updateAEProperties(aet, Host, Port, CipherSeq);
+		
+		//restart DicomServer
+		try {
+			db.initDicomServer();
+		} catch (IOException | SQLException e) {
+			Log.logger.severe("Can not start DcmQRSCP...");
+			JOptionPane.showMessageDialog(null, "Something happen when adding DICOM node, GRAPHY-DB can not restart correctly, please restart GRAPHY...");
+		}
+		
 		pacsPrefPanel.constructTableModel(pacsPrefPanel.getTable());
 		WindowManager.getMainScreen().updateQRTreeTables();
+	}
+	
+	boolean checkCFINDCapability(String aet, String host, String port) {
+		try {
+			FindSCU findSCU = new FindSCU();
+			return findSCU.isRemoteCFINDCapable(aet, host, port);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return false;
 	}
 }

@@ -75,6 +75,7 @@ import org.dcm4che3.net.ApplicationEntity;
 import org.dcm4che3.net.Association;
 import org.dcm4che3.net.Connection;
 import org.dcm4che3.net.Device;
+import org.dcm4che3.net.DimseRSP;
 import org.dcm4che3.net.DimseRSPHandler;
 import org.dcm4che3.net.IncompatibleConnectionException;
 import org.dcm4che3.net.QueryOption;
@@ -84,6 +85,8 @@ import org.dcm4che3.net.pdu.ExtendedNegotiation;
 import org.dcm4che3.net.pdu.PresentationContext;
 import org.dcm4che3.tool.common.CLIUtils;
 import org.dcm4che3.util.SafeClose;
+
+import com.vis.core.log.Log;
 
 /**
  * @author Gunter Zeilinger <gunterze@gmail.com>
@@ -336,6 +339,94 @@ public class FindSCU {
 			System.exit(2);
 		}
 	}
+	
+	/**
+	 * tatsu
+	 * @param args
+	 * @return
+	 * @throws ParseException
+	 * @throws IOException
+	 */
+	public void setUp(String[] args) throws ParseException, IOException {
+		CommandLine cl = parseComandLine(args);
+		CLIUtils.configureConnect(remote, rq, cl);
+		CLIUtils.configureBind(conn, ae, cl);
+		CLIUtils.configure(conn, cl);
+		remote.setTlsProtocols(conn.getTlsProtocols());
+		remote.setTlsCipherSuites(conn.getTlsCipherSuites());
+		configureServiceClass(this, cl);
+		configureKeys(this, cl);
+		configureOutput(this, cl);
+		configureCancel(this, cl);
+		setPriority(CLIUtils.priorityOf(cl));
+		ExecutorService executorService = Executors.newSingleThreadExecutor();
+		ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+		device.setExecutor(executorService);
+		device.setScheduledExecutor(scheduledExecutorService);
+	}
+	
+	public boolean isRemoteCFINDCapable(String aet, String host, String port) {
+		ArrayList<String> connectTo = new ArrayList<>();
+		connectTo.add("-c");
+		connectTo.add(aet + "@" + host + ":" + port);// AET@host:port
+		// set opt
+		ArrayList<String> option = new ArrayList<>();
+		option.add("--accept-timeout");
+		option.add("60000");// 1 minutes
+		option.add("-L");
+		option.add("STUDY");// findscu default
+		option.add("-M");
+		option.add("StudyRoot");// findscu default
+		// set response
+		ArrayList<String> response = new ArrayList<>();
+		response.add("-r");
+		response.add("PatientID");
+		response.add("-r");
+		response.add("StudyInstanceUID");
+		// composite query statement
+		ArrayList<String> queryStudy = new ArrayList<>();
+		queryStudy.addAll(connectTo);
+		queryStudy.addAll(option);
+		queryStudy.add("-m");
+		queryStudy.add("PatientID=" + "0000000001"/* dummy pid */);
+		queryStudy.addAll(response);
+		String[] query = queryStudy.toArray(new String[queryStudy.size()]);
+		try {
+			setUp(query);
+			open(); // ここで関連付け交渉が行われる
+			query(); // 内部で as.cfind() を実行
+			// ここに到達すればC-FINDは成功（またはPending応答があった）
+			return true;
+		} catch (org.dcm4che3.net.NoPresentationContextException e) {
+			// この例外が発生した場合、相手がC-FINDのSOPクラスを拒否したことを意味します。
+			System.err.println("エラー: 接続先アプリケーションはC-FINDサービスをサポートしていません。");
+			// C-FIND非対応時の処理をここに記述
+			return false;
+		} catch (IOException | InterruptedException e) {
+			// タイムアウトやネットワーク切断など、その他の接続エラー
+			System.err.println("接続エラー: " + e.getMessage());
+			return false;
+		} catch (ParseException e) {
+			e.printStackTrace();
+			return false;
+		} catch (IncompatibleConnectionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return false;
+		} catch (GeneralSecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return false;
+		} finally {
+			if (getAssociation() != null) {
+				try {
+					close();
+				} catch (IOException | InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 
 	// tatsu
 	public ArrayList<Attributes> simpleQuery(String[] args) {
@@ -360,7 +451,7 @@ public class FindSCU {
 				this.open();
 				List<String> argList = cl.getArgList();
 				if (argList.isEmpty()) {
-					result = queryAndGetResult();
+					result = queryAndGetResult(keys);
 				} else {
 					for (String arg : argList) {
 						query(new File(arg));
@@ -374,12 +465,10 @@ public class FindSCU {
 		} catch (ParseException e) {
 			System.err.println("findscu: " + e.getMessage());
 			System.err.println(rb.getString("try"));
-//            System.exit(2);
 			return null;
 		} catch (Exception e) {
 			System.err.println("findscu: " + e.getMessage());
 			e.printStackTrace();
-//            System.exit(2);
 			return null;
 		}
 		return result;
@@ -516,34 +605,25 @@ public class FindSCU {
 		attrs.addAll(keys);
 	}
 
-	/*
-	 * tatsu
-	 */
-	public ArrayList<Attributes> queryAndGetResult() throws IOException, InterruptedException {
-		return queryAndGetResult(keys);
+	private ArrayList<Attributes> queryAndGetResult_(Attributes keys) throws IOException, InterruptedException{
+		ArrayList<Attributes> result = new ArrayList<>();
+		DimseRSP rsp = as.cfind(model.cuid, priority, keys, null, cancelAfter);
+        while (rsp.next()) {
+            Attributes cmd = rsp.getCommand();
+            int PENDING = 0xFF00;
+            if ((cmd.getInt(Tag.Status,0) & PENDING) == PENDING) {
+                Attributes data = rsp.getDataset();
+                result.add(data);
+            }
+        }
+		return result;
 	}
-
-//	private ArrayList<Attributes> queryAndGetResult(Attributes keys) throws IOException, InterruptedException{
-//		ArrayList<Attributes> result = new ArrayList<>();
-//		DimseRSP rsp = as.cfind(model.cuid, priority, keys, null, cancelAfter);
-//        while (rsp.next()) {
-//            Attributes cmd = rsp.getCommand();
-//            int PENDING = 0xFF00;
-//            if ((cmd.getInt(Tag.Status,0) & PENDING) == PENDING) {
-//                Attributes data = rsp.getDataset();
-//                result.add(data);
-//            }
-//        }
-//		return result;
-//	}
 
 	private ArrayList<Attributes> queryAndGetResult(Attributes keys) throws IOException, InterruptedException {
 		ArrayList<Attributes> result = new ArrayList<>();
 		DimseRSPHandler rspHandler = new DimseRSPHandler(as.nextMessageID()) {
-
 			int cancelAfter = FindSCU.this.cancelAfter;
 			int numMatches;
-
 			@Override
 			public void onDimseRSP(Association as, Attributes cmd, Attributes data) {
 				super.onDimseRSP(as, cmd, data);
@@ -598,7 +678,11 @@ public class FindSCU {
 	}
 
 	public void query(DimseRSPHandler rspHandler) throws IOException, InterruptedException {
-		query(keys, rspHandler);
+		try {
+			query(keys, rspHandler);
+		}catch(org.dcm4che3.net.NoPresentationContextException e) {
+			Log.logger.fine("NoPresentationContextException, this remote does not have FIND-SCP."+"\n"+e.getMessage());
+		}
 	}
 
 	private void query(Attributes keys, DimseRSPHandler rspHandler) throws IOException, InterruptedException {

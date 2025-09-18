@@ -68,7 +68,7 @@ public class EchoImpl{
 		// localAE(self), <aet>@<host>:<port>
 		ArrayList<String> argList = new ArrayList<String>();
 		argList.add("-b");
-		String localAET = appName+"_Echo";
+		String localAET = appName;
 		String localHost = appHost;
 		if(localPort == null || localPort.equals("")) {
 			localPort = "22221";

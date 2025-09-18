@@ -39,6 +39,8 @@ package com.vis.configuration;
 
 import java.io.File;
 
+import com.vis.core.log.Log;
+
 
 /**
  * 
@@ -69,7 +71,7 @@ public enum ConfigInfo {
 	
 	// log files
 	LogFileName("graphy.log"),
-	LogFilePath("./" + LogDirName.toString() + "/" + LogFileName.toString()),
+	LogFilePath(LogDirName.toString() + "/" + LogFileName.toString()),
 	LogFileLimit("1048576"/*1024 * 1024 bytes*/),
 	LogFileCount("3"),
 	
@@ -81,20 +83,18 @@ public enum ConfigInfo {
 	 * relative paths, and those obtained by streaming from a JAR resource should be
 	 * paths in the resource.
 	 */
-	GRAPHY_Props("./conf/graphy.properties"),
+	GRAPHY_Props("conf/graphy.properties"),
 	VERSION("application.properties"),
-	CDRTOOL_Props("./conf/cdrecord.properties"),
-	BURN2CDLocation("./temp/BURN2CD"),
+	CDRTOOL_Props("conf/cdrecord.properties"),
+	BURN2CDLocation("temp/BURN2CD"),
 	
-	WEASIS("./weasis/weasis-portable/"),
-	RecordFactory("RecordFactory.xml"),
-	AEProp("ae.properties"),
+	WEASIS("weasis/weasis-portable/"),
 	
-	SERVER_AE_Props("./conf/ae.properties"),
-	SERVER_QRSOPCLASSES_Props("./conf/query-sop-classes.properties"),
-	SERVER_RecordFactory_Props("./conf/RecordFactory.xml"),
-	SERVER_RetrieveSOPCLASSES_Props("./conf/retrieve-sop-classes.properties"),
-	GRAPHY_StorageSOPCLASSES_Props("./conf/storage-sop-classes.properties"),
+	SERVER_AE_Props("conf/ae.properties"),
+	SERVER_QRSOPCLASSES_Props("conf/query-sop-classes.properties"),
+	SERVER_RecordFactory_Props("conf/RecordFactory.xml"),
+	SERVER_RetrieveSOPCLASSES_Props("conf/retrieve-sop-classes.properties"),
+	GRAPHY_StorageSOPCLASSES_Props("conf/storage-sop-classes.properties"),
 	;
 	
 	private final String v;
@@ -110,11 +110,9 @@ public enum ConfigInfo {
 		
 	public static String getPath(ConfigInfo name) {
 		if(name == LogFileName || name == LogFilePath) {
+			Log.logger.warning("ConfigInfo return null when Log file ...");
 			return null;
-		}else if(name == RecordFactory || name == AEProp) {
-			return "./conf/" + name.toString();
 		}
 		return "./" + name.toString();
 	}
-	
 }

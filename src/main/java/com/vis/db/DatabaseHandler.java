@@ -50,6 +50,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
+import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -317,7 +318,7 @@ public class DatabaseHandler {
 	private void createTables() throws SQLException {
 		// 1. 実行したいSQLリソースをリストにまとめる
 		List<Resources> sqlResources = Arrays.asList(Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
-				Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_AE, Resources.SQL_THEME, Resources.SQL_PRESET,
+				Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME, Resources.SQL_PRESET,
 				Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS,
 				Resources.SQL_TEXTANNOTATION, Resources.SQL_ROI);
 
@@ -554,9 +555,11 @@ public class DatabaseHandler {
 	}
 
 	public void deleteServer(String nickname) {
+//		int pk_ = getPrimaryKeyIndexInTable("SERVERS", "logicalname", nickname);
+		int pk = getCommunicationServerPk(nickname);
 		String statement = "DELETE FROM SERVERS WHERE pk=?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
-			pstmt.setInt(1, getCommunicationServerPk(nickname));
+			pstmt.setInt(1, pk);
 			pstmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -845,10 +848,12 @@ public class DatabaseHandler {
 	public int getCommunicationServerPk(String nickname) {
 		String sql = "SELECT * FROM SERVERS WHERE logicalname=?";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, nickname);
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
+					int pk = rs.getInt("pk");
 					conn.commit();
-					return rs.getInt("pk");
+					return pk;
 				}
 			}
 			conn.commit();
@@ -1673,10 +1678,11 @@ public class DatabaseHandler {
 	}
 	
 	public int getPrimaryKeyIndexInTable(String tableName, String whereField, String whereValue) {
-		String sql = "select pk" + " from " + tableName + " where " + whereField + "="+whereValue;
+		String sql = "select pk" + " from " + tableName + " where " + whereField + "=?";
 		int pk = -1;
-		try (Connection conn = openConnection();Statement ps = conn.createStatement()){
-			try(ResultSet rs = ps.executeQuery(sql);){
+		try (Connection conn = openConnection();PreparedStatement ps = conn.prepareStatement(sql)){
+			ps.setString(1, whereValue);
+			try(ResultSet rs = ps.executeQuery()){
 				if(rs.next()) {
 					pk = rs.getInt("pk");
 					conn.commit();
@@ -2543,7 +2549,32 @@ public class DatabaseHandler {
 		}
 	}
 
-	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers) {
+	/**
+	 * 
+	 * pk	管理番号（データベース用）	1, 2, 3...
+	 * logicalname	人間が見るためのあだ名	A病院のCT装置
+	 * aetitle	DICOM通信で使うユニークID	CT_SCANNER_01
+	 * hostname	ネットワーク上の住所（IPアドレス）	192.168.1.10
+	 * port	住所の部屋番号（窓口番号）	104
+	 * ciphers	暗号化の種類	TLS_... (指定があれば暗号化)
+	 * retrievetype	画像の取得方法	C-MOVE, WADO
+	 * wadocontext	Web取得用のURLパス	/wado
+	 * wadoport	Web取得用のポート番号	8080
+	 * wadoprotocol	Web取得用のプロトコル	http
+	 * retrievets	取得する画像のデータ圧縮形式	1.2.840.10008.1.2.1
+	 * 
+	 * @param nickname
+	 * @param aet
+	 * @param hostname
+	 * @param port
+	 * @param ciphers
+	 * @param retrievetype
+	 * @param wadocontext
+	 * @param wadoport
+	 * @param wadoprotocol
+	 * @param retrievets
+	 */
+	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers, String retrievetype, String wadocontext, int wadoport, String wadoprotocol, String retrievets) {
 		String statement = "INSERT INTO SERVERS (pk,logicalname,aetitle,hostname,port,ciphers,retrievetype,wadocontext,wadoport,wadoprotocol,retrievets) VALUES (default,?,?,?,?,?,?,?,?,?,?)";
 		try (Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);){
 			insertStmt.setString(1, nickname);
@@ -2551,11 +2582,11 @@ public class DatabaseHandler {
 			insertStmt.setString(3, hostname);
 			insertStmt.setInt(4, port);
 			insertStmt.setString(5, ciphers);
-			insertStmt.setString(6, null);// RetrieveType()
-			insertStmt.setString(7, null);// getWadoURL():wadocontext
-			insertStmt.setInt(8, -1);// getWadoPort():-1 is default no port number
-			insertStmt.setString(9, null);// getWadoProtocol()
-			insertStmt.setString(10, null);// getRetrieveTransferSyntax()
+			insertStmt.setString(6, retrievetype);// RetrieveType()
+			insertStmt.setString(7, wadocontext);// WadoURL():wadocontext
+			insertStmt.setInt(8, wadoport);// WadoPort
+			insertStmt.setString(9, wadoprotocol);// WadoProtocol()
+			insertStmt.setString(10, retrievets);// RetrieveTransferSyntax()
 			insertStmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3420,22 +3451,48 @@ public class DatabaseHandler {
 			}
 		}
 		
+		try {
+			initDicomServer();
+		} catch (IOException | SQLException e) {
+			Log.logger.severe("Can not start DcmQRSCP...");
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	public void initDicomServer() throws IOException, SQLException {
+		
+		if(dcmqrscp != null) {
+			dcmqrscp.stop();
+			dcmqrscp = null;
+		}
+		
 		// check configuration file
-		File recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
+		File recFac = new File(ConfigInfo.getPath(ConfigInfo.SERVER_RecordFactory_Props));
 		if (!recFac.exists()) {
-			try {
-				File defRecFac = Resources.RecordFactory.tempFile();
-				new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
-				Path src = Paths.get(defRecFac.toURI());
-				Path out = Paths.get(recFac.toURI());
-				Files.copy(src, out);
-				recFac = new File(ConfigInfo.getPath(ConfigInfo.RecordFactory));
-			} catch (IOException e1) {
-				e1.printStackTrace();
-				return false;
+			File defRecFac = Resources.RecordFactory.tempFile();
+			new File(ConfigInfo.getPath(ConfigInfo.ConfDirName)).mkdirs();
+			Path src = Paths.get(defRecFac.toURI());
+			Path out = Paths.get(recFac.toURI());
+			Files.copy(src, out);
+			recFac = new File(ConfigInfo.getPath(ConfigInfo.SERVER_RecordFactory_Props));
+			if (!recFac.exists()) {
+				throw new IOException("SERVER_RecordFactory_Prop file not found...");
 			}
 		}
 
+		File ae_prop = new File(ConfigInfo.getPath(ConfigInfo.SERVER_AE_Props));
+		if (!ae_prop.exists()) {
+			File defAE = Resources.AE_Properties.tempFile();
+			Path src = Paths.get(defAE.toURI());
+			Path out = Paths.get(ae_prop.toURI());
+			Files.copy(src, out);
+			ae_prop = new File(ConfigInfo.getPath(ConfigInfo.SERVER_AE_Props));
+			if (!ae_prop.exists()) {
+				throw new IOException("SERVER_AE_Prop file not found...");
+			}
+		}
 		// start qrscp
 		String details[] = getListenerDetails();
 		String currentAet = details[0];
@@ -3446,34 +3503,26 @@ public class DatabaseHandler {
 		 * properties file's database path is primary.
 		 */
 		String dir_validation = new File(currentStorageDirPath).getAbsolutePath();
-		if(!dbdir.equals(dir_validation)) {
+		if (!dbdir.equals(dir_validation)) {
 			updateListener(currentAet, currentHost, currentPort, dbdir);
 		}
-		
-		try {
-			dcmqrscp = new DcmQRSCP();
-			if (!useDicomDir) {
-				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
-//						"--all-storage",
-						"--graphy-storage-dir", dbdir,
-						/* FindSCU response value settings */
-						// https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
-						"--record-config", recFac.getAbsolutePath() };
-				dcmqrscp.start(args);
-			} else {
-				/* dicomdir mode : debug purpose */
-				String dicomDirPath = dbdir+File.separator+"DICOMDIR";
-				String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
-//						"--all-storage",
-						"--dicomdir", dicomDirPath, "--ae-config", aeProp };
-				dcmqrscp.start(args);
-			}
-		} catch (IOException e) {
-			Log.logger.severe("Can not start DcmQRSCP...");
-			e.printStackTrace();
-			return false;
+		dcmqrscp = new DcmQRSCP();
+		if (!useDicomDir) {
+			String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
+//							"--all-storage",
+					"--graphy-storage-dir", dbdir,
+					/* FindSCU response value settings */
+					// https://groups.google.com/forum/#!searchin/dcm4che/findscu%7Csort:date/dcm4che/fTqRuXhIGjU/dazOWsUvEQAJ
+					"--record-config", recFac.getAbsolutePath(), "--ae-config", ae_prop.getAbsolutePath() };
+			dcmqrscp.start(args);
+		} else {
+			/* dicomdir mode : debug purpose */
+			String dicomDirPath = dbdir + File.separator + "DICOMDIR";
+			String args[] = { "-b", currentAet + "@" + currentHost + ":" + currentPort,
+//							"--all-storage",
+					"--dicomdir", dicomDirPath, "--ae-config", aeProp };
+			dcmqrscp.start(args);
 		}
-		return true;
 	}
 
 	/**

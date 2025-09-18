@@ -41,6 +41,7 @@ package com.vis.core.util;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Calendar;
+import java.util.Properties;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
@@ -63,6 +64,17 @@ public class DBUtils {
 		}else {
 			return true;
 		}
+	}
+	
+	/**
+	 * 
+	 */
+	public static void updateAEProperties(String aet, String host, String port, String CipherSeq /*Cipher1:Cipher2:... format*/) {
+		PropertiesUtil.setPropertyAt("./"+ConfigInfo.SERVER_AE_Props.toString(), aet, host+":"+port+":"+CipherSeq);
+	}
+	
+	public static void deleteAEProperties(String aet) {
+		PropertiesUtil.deletePropertyAt("./"+ConfigInfo.SERVER_AE_Props.toString(), aet);
 	}
 	
 	/**
