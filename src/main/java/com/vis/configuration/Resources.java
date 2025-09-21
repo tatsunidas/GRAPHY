@@ -117,6 +117,7 @@ public enum Resources {
 	//default db settings, see also ConfigInfo.
 	RecordFactory("dcmqrscp/RecordFactory.xml"),
 	AE_Properties("dcmqrscp/ae.properties"),
+	STORE_TCS_Properties("dcmqrscp/store-tcs.properties"),
 	
 	//LUT
 	LUT_FIRE("luts/Fire-1.lut"),

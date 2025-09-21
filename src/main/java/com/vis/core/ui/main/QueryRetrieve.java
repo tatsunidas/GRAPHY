@@ -50,7 +50,6 @@ import javax.swing.SwingUtilities;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
-import org.dcm4che3.tool.getscu.GetSCU;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
@@ -774,10 +773,10 @@ public class QueryRetrieve implements Task, Runnable {
 	 * @param seriesIUID
 	 * @param sopIUID
 	 * @return retrieve destination
-	 * @throws IOException
+	 * @throws Exception 
 	 */
 	public File getInstanceToTemp(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
-			String sopIUID) throws IOException {
+			String sopIUID) throws Exception {
 		String aet = remote.getAETitle();
 		String host = remote.getHostName();
 		int port = remote.getPort();
@@ -794,7 +793,33 @@ public class QueryRetrieve implements Task, Runnable {
 		String args[] = { "-c", aet + "@" + host + ":" + port, "-L", "IMAGE", "-m", "PatientID=" + patID, "-m",
 				"StudyInstanceUID=" + studyIUID, "-m", "SeriesInstanceUID=" + seriesIUID, "-m",
 				"SOPInstanceUID=" + sopIUID, "--directory", tempRetriveDir.getAbsolutePath()};
-		GetSCU.main(args);
+		
+		/**
+		 * If you want specify a modality, use store-ts option.
+		 * When no store-ts ops, GetSCU will load store-tsc.properties in resource.
+		 * 
+		 * E.g.,
+		 * // --store-tc オプションを追加
+		 * // 転送構文を明示的に指定する
+		 * // 1.2.840.10008.5.1.4.1.1.2 は CT Image Storage のSOP Class UID
+		 * // 1.2.840.10008.1.2.1 は Explicit VR Little Endian
+		 * // 1.2.840.10008.1.2   は Implicit VR Little Endian
+		 * String ctStorageUID = UID.CTImageStorage;
+		 * String evrleUID = UID.ExplicitVRLittleEndian;
+		 * String ivrleUID = UID.ImplicitVRLittleEndian;
+		 * String storeTcArg = String.format("%s:%s,%s", ctStorageUID, evrleUID, ivrleUID);
+		 * String args[] = { 
+		 *     "-c", aet + "@" + host + ":" + port, 
+              "-L", "IMAGE", 
+              "-m", "PatientID=" + patID, 
+              "-m", "StudyInstanceUID=" + studyIUID, 
+              "-m", "SeriesInstanceUID=" + seriesIUID, 
+              "-m", "SOPInstanceUID=" + sopIUID,
+              "--store-tc", storeTcArg, // ★★★ この行を追加 ★★★
+              "--directory", tempRetriveDir.getAbsolutePath()};
+		 */
+		
+		com.vis.dicom.dimse.GetSCU.main(args);
 		return tempRetriveDir;
 	}
 	
@@ -838,7 +863,7 @@ public class QueryRetrieve implements Task, Runnable {
 			File retrieveDir = null;
 			try {
 				retrieveDir = getInstanceToTemp(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
-			} catch (IOException e) {
+			} catch (Exception e) {
 				Log.logger.severe(e.getLocalizedMessage());
 				break;
 			}
@@ -878,6 +903,7 @@ public class QueryRetrieve implements Task, Runnable {
 	public void done() {
 		setStopped(true);
 		retreiveReady = false;
+		isCompleted = true;
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -893,7 +919,6 @@ public class QueryRetrieve implements Task, Runnable {
 			}
 		});
 		TaskManager.getInstance().removeCompletedTasks();
-		isCompleted = true;
 	}
 
 	public Thread getThread() {
@@ -999,7 +1024,7 @@ public class QueryRetrieve implements Task, Runnable {
 			}
 			System.out.println("Task completed or cancelled.");
 			TaskManager tm = TaskManager.getInstance();
-			tm.removeCompletedTasks();
+			tm.removeTask(taskId);
 		}).start();
 	}
 }
