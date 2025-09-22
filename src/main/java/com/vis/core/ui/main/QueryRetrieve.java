@@ -749,20 +749,17 @@ public class QueryRetrieve implements Task, Runnable {
 		retreiveReady = true;
 	}
 	
-	// need synchronizes
+	
 	/**
 	 * used to only QR task!
 	 */
-	public synchronized void store(String read_file, File tempStoredDirWillDelete) {
+	public void store(String read_file) {
 		String listenerDetail[] = DatabaseHandler.getInstance().getListenerDetails();
 		String aet = listenerDetail[0];
 		String host = listenerDetail[1];
 		int port = Integer.valueOf(listenerDetail[2]);
 		String args[] = { "-c", aet + "@" + host + ":" + port, read_file };
 		com.vis.dicom.dimse.StoreSCU.storeInstance2Graphy(args, true);
-		if(tempStoredDirWillDelete != null) {
-			DeleteFolder.deleteDirectory(tempStoredDirWillDelete);
-		}
 	}
 
 	/**
@@ -823,6 +820,88 @@ public class QueryRetrieve implements Task, Runnable {
 		return tempRetriveDir;
 	}
 	
+	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
+			String sopIUID) throws Exception {
+		//C-GET
+		// copy to temp dir and store it.
+		File tempRetrieveDir = null;
+		try {
+			tempRetrieveDir = getInstanceToTemp(remote, patID, studyIUID, seriesIUID, sopIUID);
+		} catch (Exception e) {
+			Log.logger.severe(e.getLocalizedMessage());
+			throw e;
+		}
+		File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID);
+		
+		if(!copyToTemp) {
+			// retrieve and delete temp file
+			File[] files = tempRetrieveDir.listFiles();
+			for( File f : files ) {
+				String instancePath = f.getAbsolutePath();
+				store(instancePath);
+			}
+		}
+		DeleteFolder.deleteDirectory(tempRetriveParentDir);
+	}
+	
+	
+	private void c_move(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
+			String sopIUID) throws Exception {
+		// 1. リクエスト先 (画像を保持しているPACS)
+		String remoteAET = remote.getAETitle();
+		String remoteHost = remote.getHostName();
+		int remotePort = remote.getPort();
+
+        // 2. 転送先 (画像を受け取る自アプリケーション)
+        String destinationAET = DatabaseHandler.getInstance().getListenerDetails()[0];
+
+        // 3. リクエスト元 (このコマンドを実行するアプリケーション自身)
+        String movingAET = destinationAET; // 通常は転送先と同じ
+
+        // ---- コマンドライン引数の組み立て ----
+        String[] args;
+        if (sopIUID != null && !sopIUID.isEmpty()) {
+            // Imageレベルでの取得
+            args = new String[] {
+                "-c", remoteAET + "@" + remoteHost + ":" + remotePort, // 接続先PACS
+                "--dest", destinationAET,                        // 画像の転送先AET
+                "-b", movingAET,                                 // リクエスト元AET
+                "-L", "IMAGE",                                  // 取得レベル
+                "-m", "StudyInstanceUID=" + studyIUID,           // マッチングキー
+                "-m", "SeriesInstanceUID=" + seriesIUID,         // マッチングキー
+                "-m", "SOPInstanceUID=" + sopIUID          // マッチングキー
+            };
+        }else if (seriesIUID != null && !seriesIUID.isEmpty()) {
+            // Seriesレベルでの取得
+            args = new String[] {
+                "-c", remoteAET + "@" + remoteHost + ":" + remotePort, // 接続先PACS
+                "--dest", destinationAET,                        // 画像の転送先AET
+                "-b", movingAET,                                 // リクエスト元AET
+                "-L", "SERIES",                                  // 取得レベル
+                "-m", "StudyInstanceUID=" + studyIUID,           // マッチングキー
+                "-m", "SeriesInstanceUID=" + seriesIUID          // マッチングキー
+            };
+        } else {
+            // Studyレベルでの取得
+            args = new String[] {
+                "-c", remoteAET + "@" + remoteHost + ":" + remotePort, // 接続先PACS
+                "--dest", destinationAET,                        // 画像の転送先AET
+                "-b", movingAET,                                 // リクエスト元AET
+                "-L", "STUDY",                                   // 取得レベル
+                "-m", "StudyInstanceUID=" + studyIUID            // マッチングキー
+            };
+        }
+
+        // ---- MoveSCUの実行 ----
+        try {
+            com.vis.dicom.dimse.MoveSCU.main(args);
+        } catch (Exception e) {
+            System.err.println("MoveSCUの実行中にエラーが発生しました。");
+            e.printStackTrace();
+            throw e;
+        }
+	}
+	
 	private void performRetrieve() {
 		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
 			setStopped(true);
@@ -859,20 +938,25 @@ public class QueryRetrieve implements Task, Runnable {
 			}
 			/* retrieve */
 			String infoset[] = candidateInfoSet.get(count);
-			// copy to temp dir
-			File retrieveDir = null;
-			try {
-				retrieveDir = getInstanceToTemp(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
-			} catch (Exception e) {
-				Log.logger.severe(e.getLocalizedMessage());
-				break;
-			}
-			File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+infoset[0]);
 			
-			if(!copyToTemp) {
-				// retrieve and delete temp file
-				String instancePath = retrieveDir.listFiles()[0].getAbsolutePath();
-				store(instancePath, tempRetriveParentDir/*delete after stored*/);
+			String retrieve_mode = "";// TODO
+			
+			if(retrieve_mode.equals("C-GET")) {
+				try {
+					c_get(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					System.out.println("An error occurred during C-GET. Processing has been interrupted. If multiple QR codes are being processed, the next operation will proceed.");
+				}
+			}else {//C-MOVE
+				try {
+					c_move(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					System.out.println("An error occurred during C-MOVE. Processing has been interrupted. If multiple QR codes are being processed, the next operation will proceed.");
+				}
 			}
 			
 			if(count  == 0) {
