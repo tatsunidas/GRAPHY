@@ -80,6 +80,7 @@ public class RadiomicsWindow extends JFrame{
 	static RadiomicsJ radiomics = new RadiomicsJ();
 	RadiomicsPanel panel;
 	RadiomicsSettings textureParams;
+	RadiomicsBatchModePanel batchPanel;
 	RadiomicsPipeline pipeline;
 	
 	public static void main(String[] args) {
@@ -97,6 +98,8 @@ public class RadiomicsWindow extends JFrame{
 		tabPane.addTab("Operation",panel);
 		textureParams = new RadiomicsSettings();
 		tabPane.addTab("TextureParams", textureParams);
+		batchPanel = new RadiomicsBatchModePanel(textureParams);
+		tabPane.addTab("Batch Execution", batchPanel);
 		add(tabPane, BorderLayout.CENTER);
 		pack();
 		if(WindowManager.getMainScreen() == null) {

@@ -311,7 +311,7 @@ public class RadiomicsPipeline {
 			Properties settingsProp/*radiomicsSetting*/, 
 			List<String> featureNames, ImagePlus imp, ImagePlus mask, int label){
 		ResultsTable rt = new ResultsTable();
-		rt.addRow();
+		rt.addRow();//or incrementCounter(); these are same.
 		boolean is3D = ((String)settingsProp.get(SettingsContext.D3Basis)).equals("true");
 		if(is3D == false) {
 			RadiomicsJ.force2D = true;
@@ -473,7 +473,7 @@ public class RadiomicsPipeline {
 				break;
 			case SettingsContext.FRACTAL:
 				if(ff!=null) break;
-				ff = new FractalFeatures(imp, mask, label, is3D ? null:1, convertCommaSeparatedStringToIntArray(boxSizes));
+				ff = new FractalFeatures(imp, mask, label, convertCommaSeparatedStringToIntArray(boxSizes));
 				break;
 			default:
 				//do nothing
@@ -673,6 +673,39 @@ public class RadiomicsPipeline {
 		return rt;
 	}
 	
+	public ResultsTable calcAllFeatures(
+			Properties settingsProp,  // from by setting.currentSettings();
+			List<String> featureNames, // from by setting.getTargetFeatureNames();
+			ImagePlus images, 
+			ImagePlus masks) {
+		Integer label = Integer.valueOf((String)settingsProp.get(SettingsContext.MASK_LABEL));
+		boolean d3_basis = Boolean.valueOf((String)settingsProp.getProperty(SettingsContext.D3Basis));
+		if (d3_basis) {
+			ImagePlus pair[] = preprocessing(images, masks, label, d3_basis);
+			try {
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
+				return rt_;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} else { // 2d basis
+			// if 2d basis, calculate slice by slice
+			ResultsTable rt = null;
+			for (int p =1; p<images.getNSlices(); p++) {
+				ImagePlus slice = new ImagePlus("", images.getStack().getProcessor(p));
+				ImagePlus mask = new ImagePlus("", masks.getStack().getProcessor(p).convertToByte(false));
+				slice.setCalibration(images.getCalibration());
+				mask.setCalibration(slice.getCalibration());
+				mask.getCalibration().disableDensityCalibration();
+				ImagePlus pair[] = preprocessing(slice, mask, label, d3_basis);
+				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
+				rt = combineTables(rt, rt_);
+			}
+			return rt;
+		}
+		return null;
+	}
+	
 	private ImagePlus[] preprocessing(ImagePlus imp, ImagePlus mask, int targetLabel, boolean d3_basis) {
 		if(setting==null) {
 			System.out.println("RadiomicsSettings is null. return imageplus AS-IS");
@@ -743,7 +776,7 @@ public class RadiomicsPipeline {
 			}
 		}
 		/*
-		 * normalize
+		 * normalize: under development in RadiomicsJ, DO NOT USE
 		 */
 //		if(normalize) {
 //			if(debug) {
@@ -1558,6 +1591,7 @@ public class RadiomicsPipeline {
 		ImagePlus mask = new ImagePlus("mask", stack);
 		return mask;
 	}
+	
 	
 	public class WekaLogisticRegressionExample {
 
