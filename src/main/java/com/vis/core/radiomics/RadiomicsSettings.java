@@ -103,7 +103,7 @@ public class RadiomicsSettings extends JPanel{
 	//label
 	final int defaultLabel = 1;
 	//remove outlier
-	final boolean removeOutliers = true;
+	final boolean removeOutliers = false;
 	final int sigma = 3;
 	//range filtering
 	final boolean rangeFilter = false;
@@ -299,7 +299,7 @@ public class RadiomicsSettings extends JPanel{
 			}
 		});
 		JRadioButton d3Btn = new JRadioButton("3D basis");
-		d3Btn.setEnabled(false);//202507, calculation time is too long...
+//		d3Btn.setEnabled(false);//calculation time too long...
 		d3Btn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -1045,7 +1045,7 @@ public class RadiomicsSettings extends JPanel{
 		}
 	}
 	
-	public Double[] resampligVoxelXYZ() {
+	public Double[] resamplingVoxelXYZ() {
 		String sx = resampleX.getText();
 		String sy = resampleY.getText();
 		String sz = resampleZ.getText();

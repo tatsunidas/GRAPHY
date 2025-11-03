@@ -61,10 +61,12 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Roi;
+import ij.measure.Measurements;
 import ij.measure.ResultsTable;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import ij.process.ShortProcessor;
 import io.github.tatsunidas.radiomics.features.FractalFeatureType;
 import io.github.tatsunidas.radiomics.features.FractalFeatures;
@@ -139,6 +141,11 @@ public class RadiomicsPipeline {
 	Attribute targetAttr;
 	final String targetColName = "LABEL";
 	
+	public RadiomicsPipeline() {}
+	
+	public RadiomicsPipeline(RadiomicsSettings setting) {
+		this.setting = setting;
+	}
 	
 	public RadiomicsPipeline modelIs(Classifier model) {
 		this.clf = model;
@@ -635,7 +642,7 @@ public class RadiomicsPipeline {
 		if (d3_basis) {
 			ImagePlus mask = createMaskWithRoisFor3D(prap, rois, label);
 			ImagePlus imp = prap.getImagePlus();
-			ImagePlus pair[] = preprocessing(imp, mask, label, d3_basis);
+			ImagePlus pair[] = preprocessing(imp, mask, settingsProp);
 			try {
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				rt = combineTables(rt, rt_);
@@ -664,7 +671,7 @@ public class RadiomicsPipeline {
 				mask.setCalibration(imp.getCalibration());
 				mask.getCalibration().disableDensityCalibration();
 				
-				ImagePlus pair[] = preprocessing(slice, mask, label, d3_basis);
+				ImagePlus pair[] = preprocessing(slice, mask, settingsProp);
 				
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				rt = combineTables(rt, rt_);
@@ -678,10 +685,11 @@ public class RadiomicsPipeline {
 			List<String> featureNames, // from by setting.getTargetFeatureNames();
 			ImagePlus images, 
 			ImagePlus masks) {
-		Integer label = Integer.valueOf((String)settingsProp.get(SettingsContext.MASK_LABEL));
+		
 		boolean d3_basis = Boolean.valueOf((String)settingsProp.getProperty(SettingsContext.D3Basis));
+		
 		if (d3_basis) {
-			ImagePlus pair[] = preprocessing(images, masks, label, d3_basis);
+			ImagePlus pair[] = preprocessing(images, masks, settingsProp);
 			try {
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				return rt_;
@@ -691,13 +699,18 @@ public class RadiomicsPipeline {
 		} else { // 2d basis
 			// if 2d basis, calculate slice by slice
 			ResultsTable rt = null;
-			for (int p =1; p<images.getNSlices(); p++) {
-				ImagePlus slice = new ImagePlus("", images.getStack().getProcessor(p));
-				ImagePlus mask = new ImagePlus("", masks.getStack().getProcessor(p).convertToByte(false));
+			for (int p =1; p<=images.getNSlices(); p++) {
+				ImagePlus slice = new ImagePlus(images.getStack().getSliceLabel(p), images.getStack().getProcessor(p));
+				ImagePlus mask = new ImagePlus(masks.getStack().getSliceLabel(p), masks.getStack().getProcessor(p));
+				ImageStatistics stats = ImageStatistics.getStatistics(mask.getProcessor(), Measurements.MIN_MAX, null/*calibration*/);
+				if ((int) stats.max == 0) {
+					// this is blank mask, skip.
+					continue;
+				}
 				slice.setCalibration(images.getCalibration());
 				mask.setCalibration(slice.getCalibration());
 				mask.getCalibration().disableDensityCalibration();
-				ImagePlus pair[] = preprocessing(slice, mask, label, d3_basis);
+				ImagePlus pair[] = preprocessing(slice, mask, settingsProp);
 				ResultsTable rt_ = calcFeatures(settingsProp, featureNames, pair[0], pair[1], RadiomicsJ.label_);
 				rt = combineTables(rt, rt_);
 			}
@@ -706,28 +719,101 @@ public class RadiomicsPipeline {
 		return null;
 	}
 	
-	private ImagePlus[] preprocessing(ImagePlus imp, ImagePlus mask, int targetLabel, boolean d3_basis) {
-		if(setting==null) {
-			System.out.println("RadiomicsSettings is null. return imageplus AS-IS");
-			return new ImagePlus[] {imp,mask};
+	private ImagePlus[] preprocessing(ImagePlus imp, ImagePlus mask, Properties settingsProp) {
+		
+		if(settingsProp==null) {
+			settingsProp = setting.currentSettings();
 		}
-//		RadiomicsJ rj = new RadiomicsJ();
-		//label to be 1.
-		ImagePlus mask_ = io.github.tatsunidas.radiomics.main.Utils.initMaskAsFloatAndConvertLabelOne(mask, targetLabel);
+		
+		String val = settingsProp.getProperty(SettingsContext.MASK_LABEL);
+		if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+			//keep default
+			throw new IllegalArgumentException("RadiomicsPipeline:preprocessing() require MASK_LABEL...");
+		}
+		int targetLabel = -1;
+		try {
+			targetLabel = Integer.valueOf(val);
+		}catch(NumberFormatException e) {
+			throw e;
+		}
+		
+		boolean d3_basis = ((String)settingsProp.get(SettingsContext.D3Basis)).equals("true");
+		boolean doResample = ((String)settingsProp.get(SettingsContext.Resampling)).equals("true");
+		boolean doRangeFiltering = ((String)settingsProp.get(SettingsContext.RangeFiltering)).equals("true");
+		boolean doRemoveOutliers = ((String)settingsProp.get(SettingsContext.RemoveOutliers)).equals("true");
+		boolean doNormalize = false;// todo
+		
+		//fail safe
+		mask.setCalibration(imp.getCalibration());
+		
+		/**
+		 * MASK_LABEL to be ONE.
+		 */
+		ImagePlus mask_ = io.github.tatsunidas.radiomics.main.Utils.initMaskAsFloatAndConvertLabelOne(mask, targetLabel/*Be careful, this is targetLabel.*/);
+		
+		/**
+		 * Following masks have always Label=1. This is same as Radiomics.Label_ value.
+		 */
+		
 		ImagePlus[] imagePair = new ImagePlus[] {imp, mask_};
 		if (imagePair[0] == null || imagePair[1] == null) {
 			System.out.println("RadiomicsJ:preprocess()::Creating Mask was failed. return.");
 			return new ImagePlus[] { imp, mask };
 		}
 		//resample
-		if(setting.isResample()) {
+		if(doResample) {
 			if(Utils.isDebug) {
 				System.out.println("==========================");
-				System.out.println("Before resample:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("Before resample IMAGE:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("Before resample MASK:(W)"+imagePair[1].getWidth()+"(H)"+imagePair[1].getHeight()+"(D)"+imagePair[1].getNSlices());
 				System.out.println("==========================");
 			}
-			Double[] xyz = setting.resampligVoxelXYZ();
-			// TODO
+			
+			Double[] xyz = new Double[] {Double.NaN, Double.NaN, Double.NaN};
+			
+			val = settingsProp.getProperty(SettingsContext.ResamplingX);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-Resampling- require resampling XYZ sizes...");
+			}
+			try {
+				xyz[0] = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			val = settingsProp.getProperty(SettingsContext.ResamplingY);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-Resampling- require resampling XYZ sizes...");
+			}
+			try {
+				xyz[1] = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			val = settingsProp.getProperty(SettingsContext.ResamplingZ);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-Resampling- require resampling XYZ sizes...");
+			}
+			try {
+				xyz[2] = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			if(d3_basis) {
+				for(Double v : xyz) {
+					if(v <= 0) throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-Resampling3D- require larger than 0 voxel sizes.");
+				}
+			}else {
+				if(xyz[0] <= 0 || xyz[1] <= 0) {
+					throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-Resampling2D- require larger than 0 pixel sizes.");
+				}
+			}
+			
 			if(d3_basis == false) {
 				//ignore z
 				imagePair[0] = io.github.tatsunidas.radiomics.main.Utils.resample2D(imagePair[0], false, xyz[0].doubleValue(), xyz[1].doubleValue(), RadiomicsJ.interpolation2D);
@@ -735,20 +821,45 @@ public class RadiomicsPipeline {
 			}else {
 				// trilinear interpolation
 				imagePair[0] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[0], false, xyz[0].doubleValue(), xyz[1].doubleValue(), xyz[2].doubleValue());
-				imagePair[1] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[1], true, xyz[0], xyz[1], xyz[2]);
+				imagePair[1] = io.github.tatsunidas.radiomics.main.Utils.resample3D(imagePair[1], true, xyz[0].doubleValue(), xyz[1].doubleValue(), xyz[2].doubleValue());
 			}
 			if(Utils.isDebug) {
 				System.out.println("==========================");
-				System.out.println("After resample:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("After resample IMAGE:(W)"+imagePair[0].getWidth()+"(H)"+imagePair[0].getHeight()+"(D)"+imagePair[0].getNSlices());
+				System.out.println("After resample MASK:(W)"+imagePair[1].getWidth()+"(H)"+imagePair[1].getHeight()+"(D)"+imagePair[1].getNSlices());
 				System.out.println("==========================");
 			}
 		}
 		//range filtering and remove outliers
 		//use label 1.
-		if(setting.isRangeFiltering()) {
-			Double[] minMax = setting.rangeFilteringMinAndMax();
-			Double rangeMin = minMax[0];
-			Double rangeMax = minMax[1];
+		if(doRangeFiltering) {
+			
+			Double[] min_max = new Double[] {Double.NaN, Double.NaN};
+			
+			val = settingsProp.getProperty(SettingsContext.RangeFilteringMin);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-RangeFiltering- require range min and max...");
+			}
+			try {
+				min_max[0] = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			val = settingsProp.getProperty(SettingsContext.RangeFilteringMax);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-RangeFiltering- require range min and max...");
+			}
+			try {
+				min_max[1] = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			Double rangeMin = min_max[0];
+			Double rangeMax = min_max[1];
 			if(rangeMax != null && rangeMin != null) {
 				//resegment only mask.
 				imagePair[1] = ImagePreprocessing.rangeFiltering(imagePair[0], imagePair[1], RadiomicsJ.label_, rangeMax, rangeMin);
@@ -760,9 +871,21 @@ public class RadiomicsPipeline {
 			}
 		}
 		
-		if(setting.isRemoveOutliers()) {
+		if(doRemoveOutliers) {
 			// get new mask removed outliers
-			Double sigma = setting.sigmaOfRemoveOutliers();
+			
+			val = settingsProp.getProperty(SettingsContext.RemoveOutliersSigma);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing()-RemoveOutliers- require sigma...");
+			}
+			Double sigma = Double.NaN;
+			try {
+				sigma = Double.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
 			if(sigma == null || sigma.isNaN() || sigma <= 0 ) {
 				System.out.println("Sigma is null or NaN or less than zero. Use default sigma=3.");
 			}else {
@@ -778,12 +901,12 @@ public class RadiomicsPipeline {
 		/*
 		 * normalize: under development in RadiomicsJ, DO NOT USE
 		 */
-//		if(normalize) {
+		if(doNormalize) {
 //			if(debug) {
 //				System.out.println("perform normalization ...");
 //			}
 //			resampledImp = ImagePreprocessing.normalize(resampledImp, resegmentedMask, RadiomicsJ.label_);
-//		}
+		}
 		return imagePair;
 	}
 	

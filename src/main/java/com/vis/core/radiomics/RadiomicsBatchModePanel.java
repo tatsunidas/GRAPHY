@@ -62,11 +62,13 @@ import java.util.stream.Collectors;
 
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
@@ -82,6 +84,28 @@ import ij.plugin.FolderOpener;
  *
  */
 public class RadiomicsBatchModePanel extends JPanel {
+	
+	//debug
+	public static void main(String[] args) {
+		JFrame f = new JFrame();
+		f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		f.setSize(500, 500);
+		RadiomicsSettings radSetting = new RadiomicsSettings();
+		RadiomicsBatchModePanel rbmp = new RadiomicsBatchModePanel(radSetting);
+		
+		rbmp.setImageFolderPath("/home/tatsunidas/デスクトップ/batch_test_radj/T1_LEFT_PLAQUE/IMAGES");
+		rbmp.setMaskFolderPath("/home/tatsunidas/デスクトップ/batch_test_radj/T1_LEFT_PLAQUE/MASKS");
+		rbmp.setSaveFolderPath("/home/tatsunidas/デスクトップ/batch_result_radj");
+		
+		JTabbedPane tabPane = new JTabbedPane();
+		tabPane.addTab("Settings", radSetting);
+		tabPane.addTab("Batch", rbmp);
+		
+		f.add(tabPane);
+		f.pack();
+		f.setVisible(true);
+		radSetting.adjustDividerLocation();
+	}
 
 	/**
 	 * 
@@ -377,6 +401,18 @@ public class RadiomicsBatchModePanel extends JPanel {
 		} else {
 			return null;
 		}
+	}
+	
+	public void setImageFolderPath(String p) {
+		text1.setText(p);
+	}
+	
+	public void setMaskFolderPath(String p) {
+		text2.setText(p);
+	}
+	
+	public void setSaveFolderPath(String p) {
+		text3.setText(p);
 	}
 	
 	private void run_batch() {
@@ -828,12 +864,56 @@ public class RadiomicsBatchModePanel extends JPanel {
 				throw new Exception("処理対象のペア Case が見つかりません。");
 			}
 			
-			RadiomicsPipeline radpipe = new RadiomicsPipeline();
+			RadiomicsPipeline radpipe = new RadiomicsPipeline(radSettings);
 			Properties settingProp = radSettings.currentSettings();
 			List<String> featureNames = radSettings.getTargetFeatureNames();
 
 			int totalCases = pairedCaseNames.size();
-
+			
+			///////////TO SAVE FILE NAME///////////
+			//////////////////////////////////////////////////////////////////////////////////
+			String option = "_";
+			String val = settingProp.getProperty(SettingsContext.MASK_LABEL);
+			if(val == null || val.equals("") || val.toLowerCase().equals("null") ) {
+				//keep default
+				throw new IllegalArgumentException("RadiomicsPipeline:preprocessing() require MASK_LABEL...");
+			}
+			int targetLabel = -1;
+			try {
+				targetLabel = Integer.valueOf(val);
+			}catch(NumberFormatException e) {
+				throw e;
+			}
+			
+			boolean d3_basis = ((String)settingProp.get(SettingsContext.D3Basis)).equals("true");
+			boolean doResample = ((String)settingProp.get(SettingsContext.Resampling)).equals("true");
+			String x = settingProp.getProperty(SettingsContext.ResamplingX);
+			String y = settingProp.getProperty(SettingsContext.ResamplingY);
+			String z = settingProp.getProperty(SettingsContext.ResamplingZ);
+			
+			boolean doRangeFiltering = ((String)settingProp.get(SettingsContext.RangeFiltering)).equals("true");
+			String rfMin = settingProp.getProperty(SettingsContext.RangeFilteringMin);
+			String rfMax = settingProp.getProperty(SettingsContext.RangeFilteringMax);
+			
+			boolean doRemoveOutliers = ((String)settingProp.get(SettingsContext.RemoveOutliers)).equals("true");
+			String roSigma = settingProp.getProperty(SettingsContext.RemoveOutliersSigma);
+			
+			boolean doNormalize = false;// todo
+			
+			option += "LBL"+targetLabel+"_";
+			option += d3_basis ? "3D_":"2D_";
+			option += doResample ? "ResampledX"+x+"Y"+y+"Z"+z+"_":"";
+			option += doRangeFiltering ? "RangeFilterMin"+rfMin+"Max"+rfMax+"_":"";
+			option += doRemoveOutliers ? "RemoveOutlierSigma"+roSigma+"_":"";
+			option += doNormalize ? "Normalized":"";
+			//add more options...
+			
+			//finally, remove last '_'
+			if(option.endsWith("_")) {
+				option = option.substring(0, option.length()-1);
+			}
+			//////////////////////////////////////////////////////////////////////////////////
+			
 			// --- メインループ (症例ごとの処理) ---
 			for (int i = 0; i < totalCases; i++) {
 				String caseName = pairedCaseNames.get(i);
@@ -858,7 +938,7 @@ public class RadiomicsBatchModePanel extends JPanel {
 				if (maskSlices < imageSlices) {
 					publish("This case Padding required.");
 					int[] indices = new int[maskSlices];
-					for(int p = 1; p<maskSlices; p++) {
+					for(int p = 1; p<=maskSlices; p++) {
 						String sliceLabel = impMask.getStack().getSliceLabel(p);
 						Optional<Integer> result = extractTrailingInteger(sliceLabel);
 						if (result.isPresent()) {
@@ -869,16 +949,19 @@ public class RadiomicsBatchModePanel extends JPanel {
 					publish("--- [OK] " + caseName + " Padding completed ---");
 				}
 				ResultsTable rt = radpipe.calcAllFeatures(settingProp, featureNames, impImage, impMask);
+				if(rt == null) {
+					throw new Exception("Feature extraction was failed !!");
+				}
 				rt.saveColumnHeaders(true);
-				rt.save(saveToDir+File.separator+parentName+"_"+caseName+".csv");
-				publish("--- " + caseName + " 処理完了 ---");
+				rt.save(saveToDir+File.separator+parentName+"_"+caseName+"_"+option+".csv");
+				publish("--- " + caseName + " finished ---");
 				impImage.close();
 				impMask.close();
 				// ★ JProgressBar の値を更新 (0-100)
 				int progress = (int) Math.round(((i + 1.0) / totalCases) * 100);
 				setProgress(progress);
 			}
-			publish("\n--- 全ての処理が完了しました。 ---");
+			publish("\n--- Finish all cases with no error ---");
 			return null; // doInBackground の戻り値 (Void)
 		}
 
@@ -903,15 +986,23 @@ public class RadiomicsBatchModePanel extends JPanel {
 		protected void done() {
 			// 1. ボタンを再度有効化
 			runButton.setEnabled(true);
-
 			try {
 				// 2. get() を呼んで、doInBackground で例外が発生したか確認
 				get();
-
 				// 3. 成功した場合
 				progressBar.setValue(100); // 100% に
-				JOptionPane.showMessageDialog(comp, "バッチ処理が正常に完了しました。", "処理完了", JOptionPane.INFORMATION_MESSAGE);
-
+				JOptionPane.showMessageDialog(comp, "バッチ処理が正常に完了しました。", "Batch process was done.", JOptionPane.INFORMATION_MESSAGE);
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							Thread.sleep(1000);
+							progressBar.setVisible(false);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+				}).start();
 			} catch (Exception e) {
 				// 4. 失敗した場合 (doInBackground でスローされた例外)
 				progressBar.setVisible(false); // エラー時はプログレスバーを隠す
