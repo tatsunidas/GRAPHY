@@ -42,6 +42,11 @@ import ij.ImagePlus;
 import ij.plugin.FolderOpener;
 import io.github.tatsunidas.radiomics.main.Utils;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class TestResample3D {
 
 	public static void main(String[] args) {
@@ -57,6 +62,10 @@ public class TestResample3D {
 		
 		ImagePlus pad_mask2 = io.github.tatsunidas.radiomics.main.Utils.initMaskAsFloatAndConvertLabelOne(pad_mask, 255/*original mask label*/);
 		
+		/**
+		 * resample3Dでは、キャリブレーション済みのピクセル値を返すため、
+		 * 輝度のキャリブレーションは不要となる。ボクセルサイズのキャリブレーションのみで良い。
+		 */
 		ImagePlus reImage = Utils.resample3D(image, false, 1, 1, 1);
 		ImagePlus reMask = Utils.resample3D(pad_mask2, true, 1, 1, 1);
 		
