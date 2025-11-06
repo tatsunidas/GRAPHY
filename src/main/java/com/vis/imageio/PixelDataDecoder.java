@@ -262,26 +262,28 @@ public class PixelDataDecoder {
 	
 	private float[] toFloatArray(byte[] pixels) {
 		ByteBuffer buffer = ByteBuffer.wrap(pixels);
-		//Changing byte order occurs pixels bit overflow.
-//		if(bigEndian) {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//		}else {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//		}
+		if(bigEndian) {
+			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
+		}
 		FloatBuffer fb = buffer.asFloatBuffer();//.get(floatArray);
-		return fb.array();
+		float[] floatArray = new float[fb.remaining()];
+		fb.get(floatArray);
+		return floatArray;
 	}
 	
 	private double[] toDoubleArray(byte[] pixels) {
 		ByteBuffer buffer = ByteBuffer.wrap(pixels);
-		//Changing byte order occurs pixels bit overflow.
-//		if(bigEndian) {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//		}else {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//		}
+		if(bigEndian) {
+			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
+		}
 		DoubleBuffer db = buffer.asDoubleBuffer();
-		return db.array();
+		double[] doubleArray = new double[db.remaining()];
+		db.get(doubleArray);
+		return doubleArray;
 	}
 	
 	public byte[] pixel2Byte(ImagePlus imp) {
@@ -353,11 +355,11 @@ public class PixelDataDecoder {
 				short[] pixelsShort = toShortArray((byte[])pixelArray);
 				ShortProcessor sp = new ShortProcessor(w, h, pixelsShort, null);
 				return new ImagePlus("",sp);
-			}else if(pixelArray.length == w*h*3) {
+			}else if(pixelArray.length == w*h*4) {
 				float[] pixelsFloat = toFloatArray((byte[])pixelArray);
 				FloatProcessor fp = new FloatProcessor(w, h, pixelsFloat, null);
 				return new ImagePlus("",fp);
-			}else if(pixelArray.length == w*h*4) {
+			}else if(pixelArray.length == w*h*8) {
 				double[] pixelsDouble = toDoubleArray((byte[])pixelArray);
 				float[] pixelsFloat = doubleArray2floatArray(pixelsDouble);
 				FloatProcessor fp = new FloatProcessor(w, h, pixelsFloat, null);
