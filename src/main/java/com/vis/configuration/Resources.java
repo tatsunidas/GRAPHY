@@ -120,6 +120,7 @@ public enum Resources {
 	STORE_TCS_Properties("dcmqrscp/store-tcs.properties"),
 	
 	//LUT
+	LUT_GRAY("luts/gray.lut"),
 	LUT_FIRE("luts/Fire-1.lut"),
 	; 
 	

@@ -258,7 +258,7 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 		}else if(name.equals("series")) {
 			if(Utils.isDebug) System.out.println("process series changed "+processSeries());
 			if(processSeries()) {
-				pp.resetWindow();
+				pp.resetWindow();//todo, should do current slide contrast set to all.
 			}
 		}
 	}
