@@ -142,8 +142,13 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public int lastDraggedX = 0;//on slide
 	public int lastDraggedY = 0;//on slide
+	
 	public int mouseX = 0;// current mouse loc on slideglass
 	public int mouseY = 0;// current mouse loc on slideglass
+	
+	public int lastPressedX = 0;
+	public int lastPressedY = 0;
+	
 	LUT currentLUT;// null-able, if null set grayscale
 
 	/**
@@ -173,36 +178,39 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.addRoi(roi);
 	}
 
-	void adjustContrastFromMouseAction(int locX, int locY) {
-		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
-				- getCurrentDisplayImagePlus().getDisplayRangeMin();
-		int xDiff = locX - mouseX;
-		int yDiff = locY - mouseY;
-		int totalWidth = pp.getImageScreenSizeX();
-		int totalHeight = pp.getImageScreenSizeY();
-		double xRatio = ((double) xDiff) / ((double) totalWidth);
-		double yRatio = ((double) yDiff) / ((double) totalHeight);
-		// scale to our image range
-		double xScaledValue = minMaxDifference * xRatio;
-		double yScaledValue = minMaxDifference * yRatio;
-		// to avoid rangeMin > rangeMax
-		if (Math.abs(xScaledValue) > minMaxDifference) {
-			if (xScaledValue < 0) {
-				xScaledValue = -1 * minMaxDifference;
-			} else {
-				xScaledValue = minMaxDifference;
-			}
-		}
-		if (Math.abs(yScaledValue) > minMaxDifference) {
-			if (yScaledValue < 0) {
-				yScaledValue = -1 * minMaxDifference;
-			} else {
-				yScaledValue = minMaxDifference;
-			}
-		}
+	void adjustContrastFromMouseAction(int dragX, int dragY) {
+		int xDiff = dragX - lastDraggedX;
+		int yDiff = dragY - lastDraggedY;
+//		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
+//				- getCurrentDisplayImagePlus().getDisplayRangeMin();
+//		int totalWidth = pp.getImageScreenSizeX();
+//		int totalHeight = pp.getImageScreenSizeY();
+//		double xRatio = ((double) xDiff) / ((double) totalWidth);
+//		double yRatio = ((double) yDiff) / ((double) totalHeight);
+//		// scale to our image range
+//		double xScaledValue = minMaxDifference * xRatio;
+//		double yScaledValue = minMaxDifference * yRatio;
+//		// to avoid rangeMin > rangeMax
+//		if (Math.abs(xScaledValue) > minMaxDifference) {
+//			if (xScaledValue < 0) {
+//				xScaledValue = -1 * minMaxDifference;
+//			} else {
+//				xScaledValue = minMaxDifference;
+//			}
+//		}
+//		if (Math.abs(yScaledValue) > minMaxDifference) {
+//			if (yScaledValue < 0) {
+//				yScaledValue = -1 * minMaxDifference;
+//			} else {
+//				yScaledValue = minMaxDifference;
+//			}
+//		}
 		// invert x
 //				 xScaledValue = xScaledValue * -1;
-		adjustWindowLevel(xScaledValue, yScaledValue);
+//		adjustWindowLevel(xScaledValue, yScaledValue);
+		adjustWindowLevel(xDiff, yDiff);
+		lastDraggedX = dragX;
+		lastDraggedY = dragY;
 	}
 
 	void adjustWindow2Current() {
@@ -210,15 +218,11 @@ public class SlideGlass extends JLayeredPane {
 			return;
 		}
 		setWindowingState(true);
-		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
-		// current settings
-		double currentWindow = currentMax - currentMin;
-		double currentLevel = currentMin + (.5 * currentWindow);
-		changeWindowing((int) currentLevel, (int) currentWindow);
+		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
 	void adjustWindowLevel(double xDifference, double yDifference) {
-		this.windowing = true;
+		setWindowingState(true);
 		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
 		// current settings
 		double currentWindow = lastMax - lastMin;
@@ -239,20 +243,37 @@ public class SlideGlass extends JLayeredPane {
 		if (isRGB()) {
 			getOriginalImage().getProcessor().reset();
 		}
+		lastMin = currentMin; 
+		lastMax = currentMax;
 		new ContrastEnhancer().stretchHistogram(getOriginalImage().getProcessor(), 0.5);
 		this.currentMin = getOriginalImage().getProcessor().getMin();// DO NOT USE getMinThreshold()
 		this.currentMax = getOriginalImage().getProcessor().getMax();// DO NOT USE getMaxThreshold()
-		imgProcess.windowing(imageSpecimen.getDisplayImage(), this.currentMin, this.currentMax);
+		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
 	public void changeWindowing(int WL, int WW) {
 		double newMin = WL - (.5 * WW);
 		double newMax = WL + (.5 * WW);
-		if (newMin > newMax) {
-			logger.log(Level.SEVERE, "SlideGlass::changeWindow() problem occured: min " + newMin + " max " + newMax);
+		if (newMin >= newMax) {
+			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than or equals max; min " + newMin + " max " + newMax);
+			return;
 		}
-//		lastMin = currentMin;//DO NOT SET HERE, see mouse enter 
-//		lastMax = currentMax;//DO NOT SET HERE, see mouse enter 
+		lastMin = currentMin; 
+		lastMax = currentMax;
+		currentMin = newMin;
+		currentMax = newMax;
+		if (Utils.isDebug)
+			logger.info("change ww/wl : newMin " + newMin + " newMax " + newMax);
+		changeWindowingByMinMax(this.currentMin, this.currentMax);
+	}
+	
+	public void changeWindowingByMinMax(double newMin, double newMax) {
+		if (newMin > newMax) {
+			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than max; min " + newMin + " max " + newMax);
+			return;
+		}
+		lastMin = currentMin;
+		lastMax = currentMax; 
 		currentMin = newMin;
 		currentMax = newMax;
 		if (Utils.isDebug)
@@ -1311,14 +1332,13 @@ public class SlideGlass extends JLayeredPane {
 		}
 		// update origin
 		if (zoomUp) {
-			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag - .1)) + mouseX);
-			imageSpecimen.originY = (int) ((imageSpecimen.originY - mouseY) * (mag / (mag - .1)) + mouseY);
+			imageSpecimen.originX = (int) ((imageSpecimen.originX - lastPressedX) * (mag / (mag - .1)) + lastPressedX);
+			imageSpecimen.originY = (int) ((imageSpecimen.originY - lastPressedY) * (mag / (mag - .1)) + lastPressedY);
 		} else {
-			imageSpecimen.originX = (int) ((imageSpecimen.originX - mouseX) * (mag / (mag + .1)) + mouseX);
-			imageSpecimen.originY = (int) ((imageSpecimen.originY - mouseY) * (mag / (mag + .1)) + mouseY);
+			imageSpecimen.originX = (int) ((imageSpecimen.originX - lastPressedX) * (mag / (mag + .1)) + lastPressedX);
+			imageSpecimen.originY = (int) ((imageSpecimen.originY - lastPressedY) * (mag / (mag + .1)) + lastPressedY);
 		}
 		imageSpecimen.updateDisplayImageWithCurrentCondition();
-		repaint();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
 }

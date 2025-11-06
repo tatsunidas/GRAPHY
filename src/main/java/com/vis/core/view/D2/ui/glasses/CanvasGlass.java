@@ -767,8 +767,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int toolID = pp.getViewer2DToolType();
 		int sx = e.getX();
 		int sy = e.getY();
-		sg.mouseX = sx; 
-		sg.mouseY = sy;
+		sg.lastPressedX = sx; 
+		sg.lastPressedY = sy;
 		switch (toolID) {
 		case Viewer2DToolBar.Brush:
 			handleRoiBrushMouseDown(e);

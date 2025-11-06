@@ -290,15 +290,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		if (viewerToolType == Viewer2DToolBar.Windowing) {
 			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
 				// WW/WL left button
-				if (!pp.isProcessSeries()) {
-					slide.adjustContrastFromMouseAction(x, y);
-				} else {
-					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-					for (Integer key : slides.keySet()) {
-						SlideGlass sg = slides.get(key);
-						sg.adjustContrastFromMouseAction(x, y);
-					}
-				}
+				pp.adjustContrastFromMouseAction(x, y);
 			}
 		}
 
@@ -315,8 +307,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				return;
 			}
 			slide.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-			double moveX = slide.mouseX - x;
-			double moveY = slide.mouseY - y;
+			double moveX = slide.lastDraggedX - x;
+			double moveY = slide.lastDraggedY - y;
 			if (!pp.isProcessSeries()) {
 				slide.panning(moveX, moveY);
 			} else {
@@ -329,8 +321,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					}
 				}
 			}
-			slide.mouseX = x;
-			slide.mouseY = y;
+			slide.lastDraggedX = x;
+			slide.lastDraggedY = y;
 			slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		}
 	}
@@ -421,8 +413,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			viewerToolType = Viewer2DToolBar.Windowing;
 		}
 		
+		slide.mouseX = e.getX();
+		slide.mouseY = e.getY();
 		slide.lastDraggedX = e.getX();
 		slide.lastDraggedY = e.getY();
+		slide.lastPressedX = e.getX();
+		slide.lastPressedY = e.getY();
 		
 		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
@@ -457,18 +453,19 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			
 			if (viewerToolType == Viewer2DToolBar.NONE || viewerToolType == Viewer2DToolBar.Windowing) {
 				if (!pp.isProcessSeries()) {
-					slide.mouseX = e.getX();
-					slide.mouseY = e.getY();
 					slide.lastMin = slide.getCurrentDisplayImagePlus().getDisplayRangeMin();
 					slide.lastMax = slide.getCurrentDisplayImagePlus().getDisplayRangeMax();
 				} else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
-						sg.mouseX = e.getX();
-						sg.mouseY = e.getY();
+						sg.lastPressedX = e.getX();
+						sg.lastPressedY = e.getY();
+						sg.lastDraggedX = e.getX();
+						sg.lastDraggedY = e.getY();
 						sg.lastMin = sg.getCurrentDisplayImagePlus().getDisplayRangeMin();
 						sg.lastMax = sg.getCurrentDisplayImagePlus().getDisplayRangeMax();
+						System.out.println();
 					}
 				}
 			} // ww/wl end
