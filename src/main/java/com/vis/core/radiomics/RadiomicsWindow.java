@@ -83,6 +83,8 @@ public class RadiomicsWindow extends JFrame{
 	RadiomicsBatchModePanel batchPanel;
 	RadiomicsPipeline pipeline;
 	
+	RadiomicsVisualizationPanel visPanel;
+	
 	public static void main(String[] args) {
 		new RadiomicsWindow();
 	}
@@ -100,6 +102,8 @@ public class RadiomicsWindow extends JFrame{
 		tabPane.addTab("TextureParams", textureParams);
 		batchPanel = new RadiomicsBatchModePanel(textureParams);
 		tabPane.addTab("Batch Execution", batchPanel);
+		visPanel = new RadiomicsVisualizationPanel(textureParams);
+		tabPane.addTab("Visualization Map", visPanel);
 		add(tabPane, BorderLayout.CENTER);
 		pack();
 		if(WindowManager.getMainScreen() == null) {
@@ -107,7 +111,7 @@ public class RadiomicsWindow extends JFrame{
 		}else {
 			setLocationRelativeTo(WindowManager.getMainScreen());
 		}
-		setTitle("Machine Learning");
+		setTitle("Machine Learning & Radimics Feature Calculator");
 		setIconImage(Resources.RadiomicsJIcon.loadIconFromResource().getImage());
 		setSize(900, 600);
 		setVisible(true);

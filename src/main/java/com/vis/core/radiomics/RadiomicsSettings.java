@@ -89,6 +89,7 @@ import io.github.tatsunidas.radiomics.features.LocalIntensityFeatureType;
 import io.github.tatsunidas.radiomics.features.MorphologicalFeatureType;
 import io.github.tatsunidas.radiomics.features.NGLDMFeatureType;
 import io.github.tatsunidas.radiomics.features.NGTDMFeatureType;
+import io.github.tatsunidas.radiomics.features.RadiomicsFeature;
 import io.github.tatsunidas.radiomics.features.Shape2DFeatureType;
 
 @SuppressWarnings("serial")
@@ -1932,6 +1933,125 @@ public class RadiomicsSettings extends JPanel{
 		addDefaultExclusionBtn.doClick();
 		revalidate();
 		repaint();
+	}
+	
+	@SuppressWarnings("unchecked")
+	public Class<RadiomicsFeature> loadClass(String fam_name){
+		try {
+		    // 1. 文字列で完全修飾名を指定
+		    String className = "io.github.tatsunidas.radiomics.features."+fam_name;
+		    
+		    // 2. Class.forName() でクラスをロード
+		    Class<?> clazz = Class.forName(className);
+		    System.out.println("取得したクラス: " + clazz.getName());
+		    return (Class<RadiomicsFeature>) clazz;
+		} catch (ClassNotFoundException e) {
+		    // 指定された名前のクラスが見つからなかった場合の例外
+		    System.err.println("エラー: クラスが見つかりません: " + e.getMessage());
+		    e.printStackTrace();
+		}
+		return null;
+	}
+	
+	
+	public Enum<?> loadFeatureType(String[] fam_and_feature){
+		String fam = fam_and_feature[0];
+		String name = fam_and_feature[1];
+		switch(fam) {
+		case SettingsContext.SHAPE2D:
+			for(Shape2DFeatureType t:Shape2DFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.MORPHOLOGICAL:
+			for(MorphologicalFeatureType t:MorphologicalFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.LOCALINTENSITY:
+			for(LocalIntensityFeatureType t:LocalIntensityFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.INTENSITYSTATS:
+			for(IntensityBasedStatisticalFeatureType t:IntensityBasedStatisticalFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.INTENSITYHISTOGRAM:
+			for(IntensityHistogramFeatureType t:IntensityHistogramFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.INTENSITYVOLUMEHISTOGRAM:
+			for(IntensityVolumeHistogramFeatureType t:IntensityVolumeHistogramFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.GLCM:
+			for(GLCMFeatureType t:GLCMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.GLRLM:
+			for(GLRLMFeatureType t:GLRLMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.GLSZM:
+			for(GLSZMFeatureType t:GLSZMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.GLDZM:
+			for(GLDZMFeatureType t:GLDZMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.NGTDM:
+			for(NGTDMFeatureType t:NGTDMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.NGLDM:
+			for(NGLDMFeatureType t:NGLDMFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+			break;
+		case SettingsContext.FRACTAL:
+			for(FractalFeatureType t:FractalFeatureType.values()) {
+				if(name.equals(t.name())) {
+					return t;
+				}
+			}
+		default:
+			//do nothing
+		}
+		return null;
 	}
 	
 	/**
