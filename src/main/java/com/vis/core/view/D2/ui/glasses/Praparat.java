@@ -138,6 +138,7 @@ public class Praparat extends JPanel {
 	
 	private CineSlider slider;
 	private Color studyColor = Color.CYAN;
+	private LUT lut;//null-able
 	
 	public static final int ThumbnailSize = BirdsEyeView.thumbnailSize;
 	private int currentSlice = 0;
@@ -322,6 +323,44 @@ public class Praparat extends JPanel {
 					sl.imageSpecimen.originY = target.imageSpecimen.originY;
 					sl.repaint();
 				}
+			}
+		}
+	}
+	
+	public void adjustContrastFromMouseAction(int dragX, int dragY) {
+		if (!isProcessSeries()) {
+			SlideGlass slide = getCurrentSlide();
+			slide.adjustContrastFromMouseAction(dragX, dragY);
+		} else {
+			HashMap<Integer, SlideGlass> slides = getAllSlides();
+			for (Integer key : slides.keySet()) {
+				SlideGlass sg = slides.get(key);
+				sg.adjustContrastFromMouseAction(dragX, dragY);
+			}
+		}
+	}
+	
+	public void adjustContrastAuto() {
+		resetWindow();
+	}
+	
+	/**
+	 * TODO
+	 * Cannot reflect to images ?
+	 * 
+	 * @param min
+	 * @param max
+	 * @param fromMouseAction
+	 */
+	public void adjustContrastByMinMax(double min, double max) {
+		if (!isProcessSeries()) {
+			SlideGlass slide = getCurrentSlide();
+			slide.changeWindowingByMinMax(min, max);
+		} else {
+			HashMap<Integer, SlideGlass> slides = getAllSlides();
+			for (Integer key : slides.keySet()) {
+				SlideGlass slide = slides.get(key);
+				slide.changeWindowingByMinMax(min, max);
 			}
 		}
 	}
@@ -908,6 +947,10 @@ public class Praparat extends JPanel {
 	
 	public int getImageHeight() {
 		return slides.get(0).getOriginalImage().getHeight();
+	}
+	
+	public LUT getLUT() {
+		return this.lut;
 	}
 
 	public int getNumberOfImages() {
@@ -1719,6 +1762,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public void setLUT(LUT lut) {
+		this.lut = lut;
 		if(!isProcessSeries()) {
 			SlideGlass sg = getCurrentSlide();
 			sg.setLUT(lut);
