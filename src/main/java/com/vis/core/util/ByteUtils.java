@@ -288,7 +288,7 @@ public class ByteUtils {
     }
     
 	public static byte[] floatToBytes(float[] pixels) {
-		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 3);
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
 		byteBuffer.asFloatBuffer().put(pixels);
 		return byteBuffer.array();
 	}
@@ -308,7 +308,7 @@ public class ByteUtils {
     }
     
 	public static byte[] doubleToBytes(double[] pixels) {
-		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
+		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 8);
 		byteBuffer.asDoubleBuffer().put(pixels);
 		return byteBuffer.array();
 	}
