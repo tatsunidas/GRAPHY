@@ -40,7 +40,7 @@ public class ImageProcessing {
 			imp.getProcessor().reset();
 		}
 		imp.setDisplayRange(currentMin, currentMax);
-		imp.updateImage();
+		imp.updateAndDraw();
 	}
 	
 	public ImagePlus zoom(ImagePlus imp, double mag) {
@@ -53,7 +53,6 @@ public class ImageProcessing {
 	public void rotate(ImagePlus imp, double angle) {
 		imp.getProcessor().rotate(angle);
 		imp.updateAndDraw();
-//		imp.updateImage();
 	}
 	
 	public ImagePlus rotateRight(ImagePlus imp, double currentAngle) {
