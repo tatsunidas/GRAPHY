@@ -92,6 +92,8 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 
 	private StatusBar status;
 	private StageDockManager sdm;// tab pane
+	
+	Dimension minSize = new Dimension(64, 64);
 
 	private Viewer2DScreen() {
 		super(getScreenGraphicsConfiguration());

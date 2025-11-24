@@ -82,12 +82,12 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	private JSplitPane cakeAndEye;
 	private PatientInfoCake cake;
 	private Eyepiece eye;
-	//praparat context
-//	private ArrayList<PraparatShelf.PraparatContext> praps;
 	final HashMap<String, String> patInfoSet;
 	
 	int dividerLoc = -1;
 	boolean touchingDivider = false;
+	
+	Dimension minSize = new Dimension(64, 64);
 
 	public StageView(HashMap<String, String> patInfoSet) {
 		setLayout(new BorderLayout());
@@ -251,6 +251,7 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		add(cakeAndEye, BorderLayout.CENTER);
 		initDataInfoCake();
 		initEyepiece();
+		cakeAndEye.setDividerLocation(250);
 	}
 	
 	/**

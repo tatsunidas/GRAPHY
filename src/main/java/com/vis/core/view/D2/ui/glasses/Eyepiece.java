@@ -40,6 +40,7 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
@@ -93,6 +94,7 @@ public class Eyepiece extends JPanel{
 				colorInd+=10;
 			}
 		}
+		setMinimumSize(new Dimension(64,64));
 	}
 	
 	/**

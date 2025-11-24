@@ -38,7 +38,6 @@
 package com.vis.core.radiomics;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
@@ -74,9 +73,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
-import org.apache.poi.util.SystemOutLogger;
-
-import com.vis.configuration.Resources;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
@@ -87,7 +83,6 @@ import ij.gui.ImageRoi;
 import ij.io.FileSaver;
 import ij.io.Opener;
 import ij.plugin.FolderOpener;
-import ij.plugin.filter.ImageMath;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
@@ -143,7 +138,6 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	// LEFT configuration
 	private JButton loadImageButton, loadMaskButton;
 	private JButton loadImageFromDbButton, loadMaskFromDbButton;
-	private JButton updateFusionBtn;
 	private JComboBox<String> featureComboBox;
 	private JSpinner filterSizeSpinner;
 	private JButton executeSliceButton, executeAllButton;

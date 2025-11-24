@@ -89,6 +89,8 @@ public class BirdsEyeView extends JPanel{
 	
 	public static final int thumbnailSize = 64 + 24;//88
 	
+	Dimension minSize = new Dimension(64, 64);
+	
 	Logger logger = Log.logger;
 	
 	public BirdsEyeView() {
@@ -107,13 +109,20 @@ public class BirdsEyeView extends JPanel{
 		birdsEyeSplit = new JSplitPane();
 		birdsEyeSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		
+		// splitpaneのために最小サイズを保証
+		pInfo.setMinimumSize(minSize);
+		birdsEyeSplit.setMinimumSize(minSize);
+		
 		patInfoAndBirdsEyeSplit.setLeftComponent(pInfo);
 		patInfoAndBirdsEyeSplit.setRightComponent(birdsEyeSplit);
+		patInfoAndBirdsEyeSplit.setDividerLocation(250);
+		patInfoAndBirdsEyeSplit.setResizeWeight(0.0);
 		
 		seriesListView = new ThumbnailListView();
 		
 		filmAndSingleGridSplit = new JSplitPane();
 		filmAndSingleGridSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
+		filmAndSingleGridSplit.setMinimumSize(minSize);
 		
 		birdsEyeSplit.setLeftComponent(seriesListView);
 		birdsEyeSplit.setRightComponent(filmAndSingleGridSplit);
@@ -132,6 +141,9 @@ public class BirdsEyeView extends JPanel{
 		
 		filmGridPane.add(waitingPanel1);
 		singleGridPane.add(waitingPanel2);
+		
+		filmGridPane.setMinimumSize(minSize);
+		singleGridPane.setMinimumSize(minSize);
 		
 		filmAndSingleGridSplit.setLeftComponent(filmGridPane);
 		filmAndSingleGridSplit.setRightComponent(singleGridPane);

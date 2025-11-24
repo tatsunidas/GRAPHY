@@ -1053,8 +1053,8 @@ public class SlideGlass extends JLayeredPane {
 	 * @param compH
 	 */
 	private void setGlassSize(JComponent comp, int compW, int compH) {
-		comp.setSize(compW, compH);
-		comp.setPreferredSize(new Dimension(compW, compH));
+//		comp.setSize(compW, compH);
+//		comp.setPreferredSize(new Dimension(compW, compH));
 		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
 	}
 

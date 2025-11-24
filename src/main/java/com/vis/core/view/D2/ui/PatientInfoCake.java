@@ -44,6 +44,7 @@ import javax.swing.JSplitPane;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +68,7 @@ public class PatientInfoCake extends JPanel{
 		this.patInfoSet = patInfoSet;
 		setLayout(new BorderLayout());
 		initComponent();
+		setMinimumSize(new Dimension(64,64));
 	}
 	
 	private void initComponent() {

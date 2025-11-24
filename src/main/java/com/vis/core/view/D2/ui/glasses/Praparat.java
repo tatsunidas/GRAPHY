@@ -618,6 +618,11 @@ public class Praparat extends JPanel {
 			}
 			reader = null;
 		}
+		if(lut != null) {
+			for(Integer pos : slides.keySet()) {
+				slides.get(pos).setLUT(lut);
+			}
+		}
 	}
 	
 	private void loadSlideGlassFromSimpleDicom(String path2dcm, DICOMBackend backend, UID tsUID) {
@@ -745,6 +750,11 @@ public class Praparat extends JPanel {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
 			slides.put(i, sg);
 		}
+		if(lut != null) {
+			for(Integer pos : slides.keySet()) {
+				slides.get(pos).setLUT(lut);
+			}
+		}
 	}
 
 	private void constructSlideGlassesFromPraparat(Praparat p) {
@@ -769,6 +779,11 @@ public class Praparat extends JPanel {
 		}
 		if(Utils.isDebug) {
 			Log.logger.fine(slides.size()+" images loaded.");
+		}
+		if(lut != null) {
+			for(Integer pos : slides.keySet()) {
+				slides.get(pos).setLUT(lut);
+			}
 		}
 	}
 	
