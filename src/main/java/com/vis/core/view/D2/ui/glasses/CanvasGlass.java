@@ -77,7 +77,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private SlideGlass sg;
 	private ArrayList<RoiObj> roiset;
 	private final String sopUID;
-	public boolean paintSizeCaliper = true;
+	public boolean paintCaliper = true;
 	private RoiObj currentRoi = null;
 	private RoiBrush brushTool = null;
 	private RoiObj brush = null;//roi brush, see also draw()
@@ -985,7 +985,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		Graphics2D g2d = (Graphics2D) g;
 	    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-		if (paintSizeCaliper) {
+		if (paintCaliper) {
 			showCaliper(g);
 		}
 		
@@ -1147,96 +1147,92 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void setPaintCaliper(boolean show) {
-		this.paintSizeCaliper = show;
+		this.paintCaliper = show;
 	}
 
+	/**
+	 * 100mm scaler
+	 * @param gs
+	 */
 	private void showCaliper(Graphics gs) {
-		setSize(sg.getWidth(), sg.getHeight());
-		// 100 mm scale bar
-		gs.drawRect(0, 0, getWidth() - 1, getHeight() - 1);
 		if (sg != null) {
-			if (paintSizeCaliper) {
-				if (sg.getDisplayPixelSpacingY() > 0.) {
-					// pixels in 100 mm
-					/*
-					 * calc FOV
-					 */
-					double fovY = sg.getOriginalPixelSpacingY() * sg.getOriginalImageSize().height;
-					double imgY = sg.getCurrentDisplayImagePlus().getHeight();
-					double currentViewingPixelSizeY = (double) fovY / imgY;
-					double fovX = (int) (sg.getOriginalPixelSpacingX() * sg.getOriginalImageSize().width);
-					double imgX = sg.getCurrentDisplayImagePlus().getWidth();
-					double currentViewingPixelSizeX = (double) fovX / imgX;
+			/*
+			 * calc FOV
+			 */
+			Dimension dim = sg.getOriginalImageSize();
+			double orgImgHeight = dim.height;
+			double compHeight = getHeight();
+			double viewScale = compHeight/orgImgHeight;
+			
+			double left_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingY() * viewScale;
+			double bottom_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingX() * viewScale;
+			
+			// show location
+			// upper
+			int y1 = (int)(getHeight() - left_bar_size_in_pixel) / 2;
+			// lower
+			int y2 = y1 + (int)left_bar_size_in_pixel;
+			// location x
+			int x = 20;
+			if (sg.getPixelSpacingUnit().equals("mm")) {
+				gs.setColor(Color.YELLOW);
+			} else {
+				// pixel unit
+				gs.setColor(Color.LIGHT_GRAY);
+			}
+			//main
+			gs.drawLine(x, y1, x, y2);
+			//upper, lower
+			gs.drawLine(x, y1, x + 12, y1);
+			gs.drawLine(x, y2, x + 12, y2);
+			
+			gs.drawString(sg.getPixelSpacingUnit(), x , y1 - 5); 
+			
+			double viewScaleHeightUnitTick = (double) (left_bar_size_in_pixel / 100d);
+			for (int i = 1; i <= 99; i++) {
+				int currentY = (int) (y1 + (viewScaleHeightUnitTick * i));
+				int tickLength = 3; // 1単位の目盛りの初期長さ
 
-					int viewScaleHeight = (int) (100 / currentViewingPixelSizeY);
-					//show location
-					//upper
-					int y1 = (getHeight() - viewScaleHeight) / 2;
-					//lower
-					int y2 = y1 + viewScaleHeight;
-					//location x for height
-					int hx = 20;
-					if(sg.getPixelSpacingUnit().equals("mm")) {
-						gs.setColor(Color.YELLOW);
-					}else {
-						//pixel unit
-						gs.setColor(Color.LIGHT_GRAY);
-					}
-					gs.drawLine(hx, y1, hx, y2);
-					gs.drawLine(hx, y1, hx + 12, y1);
-					gs.drawLine(hx, y2, hx + 12, y2);
-					double viewScaleHeightMinorTick = (double)(viewScaleHeight / 10d);
-					/*
-					 * TODO draw unit [mm] string on top.
-					 */
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 1)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 1)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 2)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 2)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 3)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 3)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 4)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 4)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 5)), hx + 12,
-							(int) (y1 + (viewScaleHeightMinorTick * 5)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 6)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 6)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 7)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 7)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 8)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 8)));
-					gs.drawLine(hx, (int) (y1 + (viewScaleHeightMinorTick * 9)), hx + 6,
-							(int) (y1 + (viewScaleHeightMinorTick * 9)));
-					/*
-					 * scale width (show under of slide)
-					 */
-					int viewScaleWidth = (int) (100 / currentViewingPixelSizeX);
-					int wx1 = (getWidth() - viewScaleWidth) / 2;
-					int wy = getHeight() - 20;
-					int wx2 = wx1 + viewScaleWidth;
-					gs.drawLine(wx1, wy, wx2, wy);
-					gs.drawLine(wx1, wy, wx1, wy - 12);
-					gs.drawLine(wx2, wy, wx2, wy - 12);
-					double viewScaleWidthMinorTick = (double)(viewScaleWidth / 10d);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 1)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 1)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 2)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 2)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 3)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 3)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 4)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 4)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 5)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 5)),
-							wy - 12);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 6)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 6)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 7)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 7)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 8)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 8)),
-							wy - 6);
-					gs.drawLine((int) (wx1 + (viewScaleWidthMinorTick * 9)), wy, (int) (wx1 + (viewScaleWidthMinorTick * 9)),
-							wy - 6);
+				if (i == 50) {
+					tickLength = 12; // 50単位マーク (一番長い)
+				} else if (i % 10 == 0) {
+					tickLength = 9; // 10単位ごと (中くらい長い)
+				} else if (i % 5 == 0) {
+					tickLength = 6; // 5単位ごと (標準)
 				}
+				
+				// 目盛り線を描画
+				gs.drawLine(x, currentY, x + tickLength, currentY); 
+			}
+			
+			/*
+			 * Bottom scaler (show under of slide)
+			 */
+			int x1 = (int) (getWidth() - bottom_bar_size_in_pixel) / 2;
+			int x2 = (int) (x1 + bottom_bar_size_in_pixel);
+			int y = getHeight() - 20;
+			gs.drawLine(x1, y, x2, y);
+			gs.drawLine(x1, y, x1, y - 12);
+			gs.drawLine(x2, y, x2, y - 12);
+			double viewScaleWidthUnitTick = (double) (bottom_bar_size_in_pixel / 100d);
+
+			// ----------------------------------------------------
+			// 横のスケーラの目盛り（100段階、1単位ごと）を描画
+			// ----------------------------------------------------
+			for (int i = 1; i <= 99; i++) {
+				int currentX = (int) (x1 + (viewScaleWidthUnitTick * i));
+				int tickLength = 3; // 1単位の目盛りの初期長さ
+
+				if (i == 50) {
+					tickLength = 12; // 50単位マーク (一番長い)
+				} else if (i % 10 == 0) {
+					tickLength = 9; // 10単位ごと (中くらい長い)
+				} else if (i % 5 == 0) {
+					tickLength = 6; // 5単位ごと (標準)
+				}
+
+				// 目盛り線を描画
+				gs.drawLine(currentX, y, currentX, y - tickLength);
 			}
 		}
 	}
