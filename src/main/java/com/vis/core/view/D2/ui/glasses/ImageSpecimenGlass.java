@@ -134,9 +134,7 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	ImagePlus applyCurrentState(ImagePlus dup) {
-		if (sg.isFlipped()) {
-			dup.getProcessor().flipHorizontal();
-		}
+
 		if (sg.isZoomed()) {
 			double mag = sg.getMagnification();
 			dup = sg.imgProcess.zoom(dup, mag);
