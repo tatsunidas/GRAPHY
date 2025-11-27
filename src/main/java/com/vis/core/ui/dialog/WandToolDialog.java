@@ -49,6 +49,7 @@ import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
+import java.awt.geom.NoninvertibleTransformException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -379,8 +380,16 @@ public class WandToolDialog extends JDialog {
 		SlideGlass sg = prap.getCurrentSlide();
 
 		// 表示座標を画像座標に変換
-		int x = sg.offScreenX(mousePoint.x);
-		int y = sg.offScreenY(mousePoint.y);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(mousePoint.x, mousePoint.y);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		int x = p.x;
+		int y = p.y;
 
 		// クリックした点が既存のROI内にあるか探す
 		RoiObj clickedRoi = null;

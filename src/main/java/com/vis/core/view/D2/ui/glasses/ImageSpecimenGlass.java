@@ -72,13 +72,13 @@ public class ImageSpecimenGlass extends JPanel{
 	 * See also, GDicomTools.calibrate() function.
 	 */
 	private final ImagePlus orgImg;//without calibration
+	ImagePlus displayImg;
 	
 	private final String sopUID;
 	private final SlideGlass sg;
-	public ImagePlus displayImg;
 	
 	/**
-	 * diaplay image origin
+	 * diaplay image origin in original space (off-screen coordinates).
 	 */
 	public int originX;
 	public int originY;
@@ -98,49 +98,42 @@ public class ImageSpecimenGlass extends JPanel{
 		orgCols = orgImg.getWidth();
 		orgRows = orgImg.getHeight();
 		setOpaque(false);
-		displayImg = createInitialDisplayImage();//init display image
+		resetImageOrigin();
 	}
 	
 	/**
-	 * Fit to praparat size, without zoom/pan/rotation/windowing.
-	 * @return imageplus which fitted to praparat. 
+	 * @return imageplus , copy of orgImg. 
 	 */
 	ImagePlus createInitialDisplayImage() {
 		/*
 		 * getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
 		 */
-		ImagePlus imp = getOriginalImage().createImagePlus();
+		ImagePlus dup = getOriginalImage().createImagePlus();
 		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
 		ip.setInterpolationMethod(sg.INTERPOLATION_METHOD);
 		if(sg.isRGB && ip instanceof ColorProcessor) {
 			ip.snapshot();//keep original pixels
 		}
-		imp.setProcessor(ip);
-		imp.setTitle("replica");
-		/*
-		 * resize to comp size
-		 * See also calcImageSize2FitComponent method.
-		 */
-		imp = sg.imgProcess.zoom(imp, sg.getScaleFactor()[0]/*here, scale by x*/);
+		dup.setProcessor(ip);
+		dup.setTitle("replica");
 		/*
 		 * to fill black background after rotation.
 		 * https://forum.image.sc/t/set-background-color-for-rotation-of-a-16-bit-image-shortprocessor-miss-bgcolor-attribute/20585/10
 		 */
-		if(imp.getBitDepth() == 8) {
-			imp.getProcessor().setBackgroundValue(0);
-		}else if(imp.getBitDepth() == 16) {
-			imp.getProcessor().setBackgroundValue(32768);
-		}else if(imp.getBitDepth() == 32) {
-			imp.getProcessor().setBackgroundValue(0.5/*TODO is it correct ?*/);
+		if(dup.getBitDepth() == 8) {
+			dup.getProcessor().setBackgroundValue(0);
+		}else if(dup.getBitDepth() == 16) {
+			dup.getProcessor().setBackgroundValue(32768);
+		}else if(dup.getBitDepth() == 32) {
+			dup.getProcessor().setBackgroundValue(0.5/*TODO is it correct ?*/);
 		}else {//color RGB
-			imp.getProcessor().setBackgroundValue(0);
-			imp.getProcessor().setBackgroundColor(Color.BLACK);
+			dup.getProcessor().setBackgroundValue(0);
+			dup.getProcessor().setBackgroundColor(Color.BLACK);
 		}
-		return imp;
+		return dup;
 	}
 	
-	ImagePlus getCurrentStateImageFreshCopy() {
-		ImagePlus dup = createInitialDisplayImage();
+	ImagePlus applyCurrentState(ImagePlus dup) {
 		if (sg.isFlipped()) {
 			dup.getProcessor().flipHorizontal();
 		}
@@ -150,11 +143,22 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		if (sg.isRotated()) {
 			sg.imgProcess.rotate(dup, sg.getRotateAngle());
+			updateOriginWithCurrentCondition();
 		}
 		dup.setLut(sg.currentLUT);
+		dup.updateAndDraw();
 		if (sg.isInverted()) {
 			sg.imgProcess.invert(dup);
 		}
+		
+		if(sg.flipVerticalFlag) {
+			sg.imgProcess.flipHF(dup);
+		}
+		
+		if(sg.flipHorizontalFlag) {
+			sg.imgProcess.flipLR(dup);
+		}
+		
 		/*
 		 * skip panning, to delegate slideglass::updateImage
 		 */
@@ -166,36 +170,6 @@ public class ImageSpecimenGlass extends JPanel{
 		return dup;
 	}
 	
-	void resetDisplayImage() {
-		this.displayImg = createInitialDisplayImage();
-		resetImageOrigin(displayImg.getWidth(), displayImg.getHeight());
-		repaint();
-	}
-	
-	void updateDisplayImageWithCurrentCondition() {
-		this.displayImg = getCurrentStateImageFreshCopy();
-		if (!sg.panningFlag) {
-			resetImageOrigin(displayImg.getWidth(), displayImg.getHeight());
-		}
-	}
-	
-	/**
-	 * Set no pannning origin.
-	 * 
-	 * @param newImgW
-	 * @param newImgH
-	 * @param prapViewWidth
-	 * @param prapViewHeight
-	 */
-	private void resetImageOrigin(int newImgW, int newImgH) {
-		Point defaultOrigin = calcDefaultImageOrigin(newImgW, newImgH);
-		this.originX = defaultOrigin.x;
-		this.originY = defaultOrigin.y;
-		// set false force.
-		if (sg.panningFlag) {
-			sg.panningFlag = false;
-		}
-	}
 	
 	/**
 	 * calc origin xy on image specimen ( which has same size of view panel).
@@ -223,6 +197,9 @@ public class ImageSpecimenGlass extends JPanel{
 		/*
 		 * The size of the border is calculated using Insets.
 		 */
+		if(sg == null) {
+			return null;
+		}
 		Insets insets = sg.getInsets();//the border's insets
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
@@ -262,20 +239,20 @@ public class ImageSpecimenGlass extends JPanel{
 		return this.orgImg;
 	}
 	
+	public ImagePlus getDisplayImage() {
+		return this.displayImg;
+	}
+	
+	public void setDisplayImage(ImagePlus disp) {
+		this.displayImg = disp;
+	}
+	
 	int getDisplayOriginX() {
 		return originX;
 	}
 	
 	int getDisplayOriginY() {
 		return originY;
-	}
-	
-	public ImagePlus getDisplayImage() {
-		return this.displayImg;
-	}
-	
-	public void setDisplayImage(ImagePlus dispImp) {
-		this.displayImg = dispImp;
 	}
 	
 	public String sopInstanceUID() {
@@ -306,6 +283,26 @@ public class ImageSpecimenGlass extends JPanel{
 		this.alpha = alpha;
 	}
 	
+	public void resetImageOrigin() {
+		Dimension dispDim = calcImageSize2FitComponent();
+		if(dispDim != null) {
+			Point init_coord = calcDefaultImageOrigin(dispDim.width, dispDim.height);
+			originX = init_coord.x;
+			originY = init_coord.y;
+		}
+	}
+	
+	public void updateOriginWithCurrentCondition() {
+		if(sg == null) {
+			return;
+		}
+		if(displayImg == null) {
+			return;
+		}
+		Point newOrigin = sg.slideglassCoordinateFromOffScreen(0/*offscreenX*/, 0/*offscreenY*/);
+		updateOrigin(newOrigin.x, newOrigin.y);
+	}
+	
 	/**
 	 * update origin with display coordinates system.
 	 */
@@ -314,25 +311,28 @@ public class ImageSpecimenGlass extends JPanel{
 		this.originY = originY;
 	}
 	
-	/**
-	 * To handle ROI.
-	 * If origin is an original coordinate system basis,
-	 * this method will convert it to display coordinates.
-	 */
-	public void updateOrigin(int originalScaleOriginX, int originalScaleOriginY, double scale) {
-		this.originX = (int)((double)originalScaleOriginX * scale);
-		this.originY = (int)((double)originalScaleOriginY * scale);
-	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g;
+		
+		Dimension dispDim = calcImageSize2FitComponent();
+		ImagePlus dup = createInitialDisplayImage();
+		dup = dup.resize(dispDim.width, dispDim.height, "none" /*here, keep NONE ! See, applyCurrentState()*/);
+		this.displayImg = applyCurrentState(dup);
+		
+		Point init_coord = calcDefaultImageOrigin(dispDim.width, dispDim.height);
+		if(!sg.panningFlag) {
+			originX = init_coord.x;
+			originY = init_coord.y;
+		}
+		
 		if (transparent) {
 			g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-			g2d.drawImage(displayImg.getImage(), originX, originY, this);
+			g2d.drawImage(this.displayImg.getImage(), originX, originY, this);
 		} else {
-			g2d.drawImage(displayImg.getImage(), originX, originY, this);
+			g2d.drawImage(this.displayImg.getImage(), originX, originY, this);
 		}
 		g2d.dispose();
 	}

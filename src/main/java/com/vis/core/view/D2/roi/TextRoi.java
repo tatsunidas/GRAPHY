@@ -258,8 +258,11 @@ public class TextRoi extends RoiObj {
 		int descent = metrics.getDescent();
 		g.setFont(font);
 		Graphics2D g2d = (Graphics2D) g;
-		int sx = nonScalable ? xi : screenX((int) getXBase());
-		int sy = nonScalable ? yi : screenY((int) getYBase());
+		
+		Point sp = slide.slideglassCoordinateFromOffScreen(getXBase(), getYBase());
+		
+		int sx = nonScalable ? xi : sp.x;
+		int sy = nonScalable ? yi : sp.y;
 		int sw = nonScalable ? widthi : (int) (mag * scaleXY[0] * widthd);
 		int sh = nonScalable ? heighti : (int) (mag * scaleXY[1] * heightd);
 		AffineTransform at = null;

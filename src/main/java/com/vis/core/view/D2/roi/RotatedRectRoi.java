@@ -2,9 +2,13 @@ package com.vis.core.view.D2.roi;
 
 import java.awt.*;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
+import java.awt.geom.NoninvertibleTransformException;
+import java.util.logging.Level;
+
 import ij.*;
 import ij.gui.RoiListener;
 import ij.plugin.frame.Recorder;
@@ -62,14 +66,22 @@ public class RotatedRectRoi extends PolygonRoi {
         return ypf[index]+(ypf[indexPlus1]-ypf[index])/2+y;
     }
 
-    protected void grow(int sx, int sy, SlideGlass sg) {
-        double x1 = xstart;
-        double y1 = ystart;
-        double x2 = sg.offScreenX(sx);
-        double y2 = sg.offScreenY(sy);
-        makeRectangle(x1, y1, x2, y2);
-        imp.draw();
-    }
+	protected void grow(int sx, int sy, SlideGlass sg) {
+		double x1 = xstart;
+		double y1 = ystart;
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+
+		int x2 = p.x;
+		int y2 = p.y;
+		makeRectangle(x1, y1, x2, y2);
+		imp.draw();
+	}
         
     void makeRectangle(double x1, double y1, double x2, double y2) {
         //double length = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
@@ -158,36 +170,44 @@ public class RotatedRectRoi extends PolygonRoi {
         }
     }
     
-    protected void moveHandle(int sx, int sy, SlideGlass sg) {
-        double ox = sg.offScreenX(sx); 
-        double oy = sg.offScreenY(sy);
-        double x1 = hx(3);
-        double y1 = hy(3);
-        double x2 = hx(1);
-        double y2 = hy(1);
-        switch(activeHandle) {
-            case 0: 
-                double dx = hx(2) - ox;
-                double dy = hy(2) - oy;
-                rectWidth = Math.sqrt(dx*dx+dy*dy);
-                break;
-            case 1: 
-                x2 = ox;
-                y2 = oy;
-                break;
-            case 2: 
-                dx = hx(0) - ox;
-                dy = hy(0) - oy;
-                rectWidth = Math.sqrt(dx*dx+dy*dy);
-                break;
-            case 3: 
-                x1 = ox;
-                y1 = oy;
-                break;
-        }
-        makeRectangle(x1, y1, x2, y2);
-        sg.repaint();
-    }
+	protected void moveHandle(int sx, int sy, SlideGlass sg) {
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+
+		int ox = p.x;
+		int oy = p.y;
+		double x1 = hx(3);
+		double y1 = hy(3);
+		double x2 = hx(1);
+		double y2 = hy(1);
+		switch (activeHandle) {
+		case 0:
+			double dx = hx(2) - ox;
+			double dy = hy(2) - oy;
+			rectWidth = Math.sqrt(dx * dx + dy * dy);
+			break;
+		case 1:
+			x2 = ox;
+			y2 = oy;
+			break;
+		case 2:
+			dx = hx(0) - ox;
+			dy = hy(0) - oy;
+			rectWidth = Math.sqrt(dx * dx + dy * dy);
+			break;
+		case 3:
+			x1 = ox;
+			y1 = oy;
+			break;
+		}
+		makeRectangle(x1, y1, x2, y2);
+		sg.repaint();
+	}
     
     public int isHandle(int sx, int sy) {
         int size = getHandleSize()+5;

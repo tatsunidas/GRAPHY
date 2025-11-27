@@ -2,9 +2,13 @@ package com.vis.core.view.D2.roi;
 
 import java.awt.*;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
+import java.awt.geom.NoninvertibleTransformException;
+import java.util.logging.Level;
+
 import ij.*;
 import ij.gui.RoiListener;
 import ij.plugin.frame.Recorder;
@@ -39,13 +43,25 @@ public class EllipseRoi extends PolygonRoi {
         }
     }
 
-    protected void grow(int sx, int sy, SlideGlass sg) {
-        double x1 = xstart;
-        double y1 = ystart;
-        double x2 = sg.offScreenX(sx);
-        double y2 = sg.offScreenY(sy);
-        makeEllipse(x1, y1, x2, y2);
-    }
+	protected void grow(int sx, int sy, SlideGlass sg) {
+		double x1 = xstart;
+		double y1 = ystart;
+
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+
+		int ox = p.x;
+		int oy = p.y;
+
+		double x2 = ox;
+		double y2 = oy;
+		makeEllipse(x1, y1, x2, y2);
+	}
         
     void makeEllipse(double x1, double y1, double x2, double y2) {
         double centerX = (x1 + x2)/2.0;
@@ -142,36 +158,46 @@ public class EllipseRoi extends PolygonRoi {
         modifyRoi();
     }
     
-    protected void moveHandle(int sx, int sy) {
-        double ox = slide.offScreenX(sx); 
-        double oy = slide.offScreenY(sy);
-        double x1 = xpf[handle[2]]+x;
-        double y1 = ypf[handle[2]]+y;
-        double x2 = xpf[handle[0]]+x;
-        double y2 = ypf[handle[0]]+y;
-        switch(activeHandle) {
-            case 0: 
-                x2 = ox;
-                y2 = oy;
-                break;
-            case 1: 
-                double dx = (xpf[handle[3]]+x) - ox;
-                double dy = (ypf[handle[3]]+y) - oy;
-                updateRatio(Math.sqrt(dx*dx+dy*dy), x1, y1, x2, y2);
-                break;
-            case 2: 
-                x1 = ox;
-                y1 = oy;
-                break;
-            case 3: 
-                dx = (xpf[handle[1]]+x) - ox;
-                dy = (ypf[handle[1]]+y) - oy;
-                updateRatio(Math.sqrt(dx*dx+dy*dy), x1, y1, x2, y2);
-                break;
-        }
-        makeEllipse(x1, y1, x2, y2);
-        imp.draw();
-    }
+	protected void moveHandle(int sx, int sy) {
+
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+
+		double ox = p.x;
+		double oy = p.y;
+
+		double x1 = xpf[handle[2]] + x;
+		double y1 = ypf[handle[2]] + y;
+		double x2 = xpf[handle[0]] + x;
+		double y2 = ypf[handle[0]] + y;
+		switch (activeHandle) {
+		case 0:
+			x2 = ox;
+			y2 = oy;
+			break;
+		case 1:
+			double dx = (xpf[handle[3]] + x) - ox;
+			double dy = (ypf[handle[3]] + y) - oy;
+			updateRatio(Math.sqrt(dx * dx + dy * dy), x1, y1, x2, y2);
+			break;
+		case 2:
+			x1 = ox;
+			y1 = oy;
+			break;
+		case 3:
+			dx = (xpf[handle[1]] + x) - ox;
+			dy = (ypf[handle[1]] + y) - oy;
+			updateRatio(Math.sqrt(dx * dx + dy * dy), x1, y1, x2, y2);
+			break;
+		}
+		makeEllipse(x1, y1, x2, y2);
+		imp.draw();
+	}
     
     void updateRatio(double minor, double x1, double y1, double x2, double y2) {
         double dx = x2 - x1;

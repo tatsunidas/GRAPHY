@@ -1103,6 +1103,12 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		return imp;
 	}
 	
+	/**
+	 * TODO 20251125
+	 * When after filled Image, how to save new series ?
+	 * Display Image is just DISPLAY. 
+	 * If repainted, filled images will vanish... current code...
+	 */
 	void fill() {
 		if(selectedRois.size() < 1) {
 			JOptionPane.showConfirmDialog(this, "Select roi first...");

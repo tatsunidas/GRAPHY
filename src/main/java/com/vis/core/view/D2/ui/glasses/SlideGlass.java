@@ -44,6 +44,9 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -109,7 +112,6 @@ public class SlideGlass extends JLayeredPane {
 	public boolean panningFlag = false;
 	public boolean rotatedFlag = false, flipHorizontalFlag = false, flipVerticalFlag = false, zoomFlag = false;
 	private boolean invertFlag = false;
-	private boolean flipFlag = false;
 	boolean windowing = false;// WW/WL changed
 	private boolean showAnnotation = true;
 	private boolean showText = true;
@@ -335,21 +337,28 @@ public class SlideGlass extends JLayeredPane {
 		repaintCanvasGlass();
 	}
 
+	/**
+	 * Flip by X axis
+	 */
 	public void flipHF() {
-		rotate(180);// to avoid flipFlag mismatch, run first.
-		flipLR();
-		repaint();
+		if (flipVerticalFlag) {
+			setVerticalFlipState(false);
+		} else {
+			setVerticalFlipState(true);
+		}
+		repaint();//update image specimen
 	}
 
+	/**
+	 * Flip by Y axis
+	 */
 	public void flipLR() {
-		if (isFlipped()) {
-			setFlipState(false);
+		if (flipHorizontalFlag) {
+			setHorizontalFlipState(false);
 		} else {
-			setFlipState(true);
+			setHorizontalFlipState(true);
 		}
-		imageSpecimen.getDisplayImage().getProcessor().flipHorizontal();
-		imageSpecimen.getDisplayImage().updateAndDraw();// IMPORTANT
-		repaint();
+		repaint();//update image specimen
 	}
 
 	public RoiObj getActiveRoi() {
@@ -373,6 +382,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Dimension getDisplayImageDimension() {
+		if(this.imageSpecimen.getDisplayImage() == null) {
+			return null;
+		}
 		int[] dim = this.imageSpecimen.getDisplayImage().getDimensions();
 		return new Dimension(dim[0], dim[1]);
 	}
@@ -385,15 +397,15 @@ public class SlideGlass extends JLayeredPane {
 		return origin;
 	}
 
-	public double getDisplayPixelSpacingX() {
+	public double getPixelSpacingX() {
 		return getOriginalCalibration().pixelWidth;
 	}
 
-	public double getDisplayPixelSpacingY() {
+	public double getPixelSpacingY() {
 		return getOriginalCalibration().pixelHeight;
 	}
 
-	public double getDisplayPixelSpacingZ() {
+	public double getPixelSpacingZ() {
 		return getOriginalCalibration().pixelDepth;
 	}
 
@@ -460,27 +472,6 @@ public class SlideGlass extends JLayeredPane {
 		return getOriginalCalibration().getUnit();
 	}
 	
-	public Object[] getPixelValueFromDisplay(int displayImageX, int displayImageY) {
-		if (!isRGB()) {
-			int pix_raw = getCurrentDisplayImagePlus().getProcessor().get(displayImageX, displayImageY);
-			double pix_cal = getCurrentDisplayImagePlus().getProcessor().getPixelValue(displayImageX, displayImageY);
-			double v_raw = 0;
-			double v_cal = 0;
-			if (dcmImg.getBitsAllocated() == 32) {
-				v_raw = Float.intBitsToFloat(pix_raw);
-				v_cal = pix_cal;
-			} else {
-				v_raw = pix_raw;
-				v_cal = pix_cal;
-			}
-			return new Double[] { v_raw, v_cal };
-		} else {
-			ColorProcessor cp = (ColorProcessor) getCurrentDisplayImagePlus().getProcessor();
-			int[] rgb = cp.getPixel(displayImageX, displayImageY, null);
-			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
-		}
-	}
-
 	public Object[] getPixelValueFromOriginal(int orgImageX, int orgImageY) {
 		if(orgImageX < 0 || orgImageX > imageSpecimen.orgCols-1) {
 			return null;
@@ -500,41 +491,6 @@ public class SlideGlass extends JLayeredPane {
 			int[] rgb = cp.getPixel(orgImageX, orgImageY, null);
 			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
 		}
-	}
-
-	protected Object[] getPixelValueOnSlide(int slideX, int slideY) {
-		if (pp == null) {
-			return null;
-		}
-		// 画像の原点座標を取得する
-		Point currentDisplayOrigin = getDisplayImageOriginXY();
-		// 画像のディメンションを取得する
-		Dimension currentDisplayDimension = getDisplayImageDimension();
-		// ディメンション内のとき、ピクセル値を出力する
-		if (panningFlag) {
-			int scaledOriginX = (int) (currentDisplayOrigin.x * getScaleFactor()[0]);
-			int scaledOriginY = (int) (currentDisplayOrigin.y * getScaleFactor()[1]);
-			if (scaledOriginX <= slideX && slideX < (scaledOriginX + currentDisplayDimension.width)) {
-				if (scaledOriginY <= slideY && slideY < (scaledOriginY + currentDisplayDimension.height)) {
-					int imageX = slideX - scaledOriginX;
-					int imageY = slideY - scaledOriginY;
-					return getPixelValueFromDisplay((imageX), (imageY));
-				}
-			}
-		} else {
-			/*
-			 * pannされていない場合は、PrapView中心に、コンポーネントサイズにリサイズされた画像を表示する
-			 */
-			if (currentDisplayOrigin.x <= slideX && slideX < (currentDisplayOrigin.x + currentDisplayDimension.width)) {
-				if (currentDisplayOrigin.y <= slideY
-						&& slideY < (currentDisplayOrigin.y + currentDisplayDimension.height)) {
-					int imageX = slideX - currentDisplayOrigin.x;
-					int imageY = slideY - currentDisplayOrigin.y;
-					return getPixelValueFromDisplay((imageX), (imageY));
-				}
-			}
-		}
-		return null;
 	}
 
 	public Praparat getPraparat() {
@@ -726,9 +682,11 @@ public class SlideGlass extends JLayeredPane {
 		if(imageSpecimen == null) {
 			return;
 		}
-		int imageX = offScreenX(imageSpecimen.originX);
-		int imageY = offScreenX(imageSpecimen.originY);
-		pp.setAndShowPixelValue(imageX, imageY);
+		if(imageSpecimen.getDisplayImage() == null) {
+			return;
+		}
+		
+		pp.setAndShowPixelValue(0, 0);
 	}
 
 	public void invert() {
@@ -737,14 +695,13 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			setInvertState(true);
 		}
-		imgProcess.invert(imageSpecimen.getDisplayImage());
 		TextOverlayGlass tg = (TextOverlayGlass) getGlassAt(TEXT_LAYER);
 		tg.setInvertState(this.invertFlag);
 		repaint();
 	}
 
 	public boolean isFlipped() {
-		return flipFlag;
+		return flipHorizontalFlag || flipVerticalFlag;
 	}
 
 	/**
@@ -815,103 +772,105 @@ public class SlideGlass extends JLayeredPane {
 	public void loadRoiFromDB() {
 		roiOverlay.loadRoiFromDB();
 	}
-
+	
 	/**
-	 * Converts an offscreen x-coordinate(slideglass coordinates) to an display
-	 * image screen x-coordinate.
 	 * 
-	 * Even if DisplayImage is Zoomed, Magnification can be ignored because 
-	 * the zoom scale of the slide coordinate system and the image coordinate system is unchanged.
+	 * @param glassX SlideGlassX (screenX)
+	 * @param glassY SlideGlassY (screenY)
+	 * @return
+	 * @throws NoninvertibleTransformException
 	 */
-	public int onDisplayImageX(int glassX) {
-		return (int) onDisplayImageXD(glassX);
-	}
+	public Point offScreenCoordinate(double glassX, double glassY) throws NoninvertibleTransformException {
 
+		/* 1. 順変換に必要なパラメータの取得 */
+		// スケールとズームの合成倍率
+		double scaleToFit = getScaleFactor()[0];
+		double zoomFactor = getMagnification();
+		double s = scaleToFit * zoomFactor;
+		double sx = flipVerticalFlag ? -s : s;//Head-Foot X axis flip
+       double sy = flipHorizontalFlag ? -s : s;//LR Y axis flip
+		// 回転角度（度数法をラジアンに変換）
+		double rotateAngleInDegrees = getRotateAngle();
+		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
+
+		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
+		double offCenterX = offScreen.width / 2.0;
+		double offCenterY = offScreen.height / 2.0;
+
+		// パンニングオフセット（パネル座標）
+		Point dispOrigin = getDisplayImageOriginXY();
+
+		/* 順変換行列 (OffScreen -> Panel) */
+		java.awt.geom.AffineTransform forwardAt = new AffineTransform();
+		forwardAt.translate(dispOrigin.x, dispOrigin.y);
+		forwardAt.scale(sx, sy);
+		forwardAt.translate(offCenterX, offCenterY);
+		forwardAt.rotate(thetaInRadians);
+		// 回転の中心をもとに戻す(パネル座標系)
+		forwardAt.translate(-offCenterX, -offCenterY);
+		
+		/* 3. 逆変換の実行 (Panel -> OffScreen) */
+		try {
+			// 逆行列を取得
+			AffineTransform inverseAt = forwardAt.createInverse();
+			// JPanel上の座標 (入力値)
+			Point2D.Double panelPoint = new Point2D.Double(glassX, glassY);
+			// OffScreen座標 (出力先)
+			Point2D.Double offScreenPoint = new Point2D.Double();
+			// 逆行列を適用して座標を変換
+			inverseAt.transform(panelPoint, offScreenPoint);
+			// 結果をPoint型で返す
+			return new Point((int) Math.round(offScreenPoint.getX()), (int) Math.round(offScreenPoint.getY()));
+		} catch (java.awt.geom.NoninvertibleTransformException e) {
+			// 変換行列が非可逆の場合の処理（通常は発生しないはず）
+			e.printStackTrace();
+			throw e;
+		}
+	}
+	
 	/**
-	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
+	 * Calculate display image origin in current condition.
+	 * @return
 	 */
-	public double onDisplayImageXD(double glassX) {
-//		if (!panningFlag) {
-//			return ((glassX - imageSpecimen.getDisplayOriginX()));
-//		} else {
-//			Dimension d = imageSpecimen.calcImageSize2FitComponent();// no zoom and pann.
-//			Point defDispOrigin = imageSpecimen.calcDefaultImageOrigin(d.width, d.height);
-//			int panOffsetX = imageSpecimen.getDisplayOriginX() - defDispOrigin.x;
-//			return (glassX - (imageSpecimen.getDisplayOriginX() + panOffsetX));
-//		}
-		return ((glassX - imageSpecimen.getDisplayOriginX()));
-	}
+	public Point slideglassCoordinateFromOffScreen(double offScreenX, double offScreenY) {
+		
+		double scaleToFit = getScaleFactor()[0];
+		double zoomFactor = getMagnification();
+		double s = scaleToFit * zoomFactor;
+		double sx = flipVerticalFlag ? -s : s;// Head-Foot X axis flip
+		double sy = flipHorizontalFlag ? -s : s;// LR Y axis flip
+		
+		// 回転角度（度数法をラジアンに変換）
+		double rotateAngleInDegrees = getRotateAngle();
+		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
 
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int onDisplayImageY(int glassY) {
-		return (int) onDisplayImageYD(glassY);
-	}
+		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
+		double offCenterX = offScreen.width / 2.0;
+		double offCenterY = offScreen.height / 2.0;
 
-	/**
-	 * Converts a floating-point offscreen x-coordinate to a screen x-coordinate.
-	 */
-	public double onDisplayImageYD(double glassY) {
-		return (glassY - imageSpecimen.getDisplayOriginY());
-	}
+		// パンニングオフセット（パネル座標）
+		Point dispOrigin = getDisplayImageOriginXY();
 
-	/** Converts a slideglass(screen) x-coordinate to an original image(offscreen) x-coordinate. */
-	public int offScreenX(int glassX) {
-		return (int)offScreenXD(glassX);
-	}
-	
-	public int offScreenX2(int glassX) {
-		return (int)Math.round(offScreenXD(glassX));
-	}
-	
-	/**
-	 * Converts a slideglass(screen) x-coordinate to an original image(offscreen)
-	 * x-coordinate.
-	 * 
-	 * Since the origin position of the original image is always (0,0), only the
-	 * magnification scale (Magnification) and component size scale (ScaleFactor) are
-	 * considered here.
-	 * 
-	 */
-	public double offScreenXD(int glassX) {
-		double dispImageX = onDisplayImageX(glassX);
-		double backScaleX = dispImageX / getScaleFactor()[0] / getMagnification() ;
-		return backScaleX;
-	}
-
-	/** Converts a slideglass(screen) y-coordinate to an original image(offscreen) y-coordinate. */
-	public int offScreenY(int glassY) {
-		return (int)offScreenYD(glassY);
-	}
-	
-	public int offScreenY2(int glassY) {
-		return (int)Math.round(offScreenYD(glassY));
-	}
-
-	/** Converts a slideglass(screen) y-coordinate to an original image(offscreen) y-coordinate. */
-	public double offScreenYD(int glassY) {
-		double dispImageY = onDisplayImageY(glassY);
-		double backScaleY = dispImageY / getScaleFactor()[1] / getMagnification();
-		return backScaleY;
-	}
-	
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public int screenX(int orgImageX) {
-		return (int)screenXD(orgImageX);
-	}
-
-	/** Converts an offscreen x-coordinate to a screen x-coordinate. */
-	public double screenXD(double orgImageX) {
-		return ((orgImageX * getMagnification() * getScaleFactor()[0]) + imageSpecimen.getDisplayOriginX());
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public int screenY(int orgImageY) {
-		return (int)screenYD(orgImageY);
-	}
-
-	/** Converts an offscreen y-coordinate to a screen y-coordinate. */
-	public double screenYD(double orgImageY) {
-		return ((orgImageY * getMagnification() * getScaleFactor()[1]) + imageSpecimen.getDisplayOriginY());
+		/* 順変換行列 (OffScreen -> Panel) */
+		java.awt.geom.AffineTransform forwardAt = new AffineTransform();
+		forwardAt.translate(dispOrigin.x, dispOrigin.y);
+		forwardAt.scale(sx, sy);
+		forwardAt.translate(offCenterX, offCenterY);
+		forwardAt.rotate(thetaInRadians);
+		forwardAt.translate(-offCenterX, -offCenterY);
+		
+		// OffScreen origin
+		Point2D.Double offOrigin = new Point2D.Double(offScreenX, offScreenY);
+		// Display Image Coordinates
+		Point2D.Double newOrigin = new Point2D.Double();
+		forwardAt.transform(offOrigin, newOrigin);
+		
+		imageSpecimen.originX = (int) Math.round(newOrigin.getX());
+		imageSpecimen.originY = (int) Math.round(newOrigin.getY());
+		
+		Log.logger.fine("New display image origin after ROTATE:"+imageSpecimen.originX+" and "+imageSpecimen.originY);
+		
+		return new Point((int) Math.round(newOrigin.getX()), (int) Math.round(newOrigin.getY()));
 	}
 	
 	@Override
@@ -966,10 +925,11 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public void reset() {
-		imageSpecimen.resetDisplayImage();
+		imageSpecimen.resetImageOrigin();
 		setMagnification(1.0d);
 		setRotateAngle(0);
-		setFlipState(false);
+		setHorizontalFlipState(false);
+		setVerticalFlipState(false);
 		invertFlag = false;
 		zoomFlag = false;
 		windowing = false;
@@ -992,13 +952,8 @@ public class SlideGlass extends JLayeredPane {
 
 	void rotate(int changeAngle) {
 		double willRotateAngle = getRotateAngle() + changeAngle;
-		if (willRotateAngle >= 360) {
-			willRotateAngle = willRotateAngle - 360;
-		} else if (willRotateAngle <= -360) {
-			willRotateAngle = willRotateAngle + 360;
-		}
 		setRotateAngle((int) willRotateAngle);
-		imageSpecimen.updateDisplayImageWithCurrentCondition();
+		
 		repaint();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
@@ -1022,13 +977,17 @@ public class SlideGlass extends JLayeredPane {
 		}
 		repaint();
 	}
-
-	public void setDisplayImage(ImagePlus dispImg) {
-		imageSpecimen.setDisplayImage(dispImg);
+	
+	public void setDisplayImage(ImagePlus disp) {
+		imageSpecimen.setDisplayImage(disp);
 	}
 
-	public void setFlipState(boolean flip) {
-		flipFlag = flip;
+	public void setHorizontalFlipState(boolean flip) {
+		flipHorizontalFlag = flip;
+	}
+	
+	public void setVerticalFlipState(boolean flip) {
+		flipVerticalFlag = flip;
 	}
 
 	public void setFocusGained(boolean mouseEntered) {
@@ -1053,8 +1012,8 @@ public class SlideGlass extends JLayeredPane {
 	 * @param compH
 	 */
 	private void setGlassSize(JComponent comp, int compW, int compH) {
-//		comp.setSize(compW, compH);
-//		comp.setPreferredSize(new Dimension(compW, compH));
+		comp.setSize(compW, compH);
+		comp.setPreferredSize(new Dimension(compW, compH));
 		comp.setBounds(0, 0, compW, compH);// MUST, set pane size and position.this is not image position
 	}
 
@@ -1069,8 +1028,6 @@ public class SlideGlass extends JLayeredPane {
 			// do nothing
 		}
 		this.currentLUT = lut;
-		imageSpecimen.getDisplayImage().setLut(currentLUT);
-		imageSpecimen.getDisplayImage().updateImage();
 		repaint();
 	}
 
@@ -1178,7 +1135,6 @@ public class SlideGlass extends JLayeredPane {
 		/*
 		 * keep default bounds of SlideGlass-self.
 		 */
-//		setGlassSize(this, compW, compH);//to avoid setBounds(0,0, w, h,).
 		super.setSize(compW, compH);// for updateScale()
 		super.setPreferredSize(new Dimension(compW, compH));
 		setGlassSize(imageSpecimen, compW, compH);
@@ -1187,7 +1143,6 @@ public class SlideGlass extends JLayeredPane {
 		setGlassSize(coverGlass, compW, compH);
 		updateScale();
 		initPrapInfoLabel();
-		imageSpecimen.updateDisplayImageWithCurrentCondition();
 		repaint();
 	}
 
@@ -1267,12 +1222,7 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null || pp.getViewMode() == ViewMode.Thumbnail) {
 			return;
 		}
-		// Output original pixel values when mouse in dimension
-		int imageX = offScreenX(slideX);
-		int imageY = offScreenY(slideY);
-//		Log.logger.fine("slideX:"+slideX+", slideY:"+slideY);
-//		Log.logger.fine("orgX:"+imageX+", orgY:"+imageY);
-		pp.setAndShowPixelValue(imageX, imageY);
+		pp.setAndShowPixelValue(slideX, slideY);
 	}
 
 	public void updateRoi(RoiObj roi) {
@@ -1295,7 +1245,7 @@ public class SlideGlass extends JLayeredPane {
 		}
 		/*
 		 * if component not visible, this will return 0. To avoid this situation, should
-		 * do setSize(w,h) before do it.
+		 * do setSize(w,h) before do this.
 		 */
 		if (getWidth() < 1 || getHeight() < 1) {
 			return;
@@ -1338,7 +1288,7 @@ public class SlideGlass extends JLayeredPane {
 			imageSpecimen.originX = (int) ((imageSpecimen.originX - lastPressedX) * (mag / (mag + .1)) + lastPressedX);
 			imageSpecimen.originY = (int) ((imageSpecimen.originY - lastPressedY) * (mag / (mag + .1)) + lastPressedY);
 		}
-		imageSpecimen.updateDisplayImageWithCurrentCondition();
+		imageSpecimen.repaint();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
 }

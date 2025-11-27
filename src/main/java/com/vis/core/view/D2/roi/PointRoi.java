@@ -8,7 +8,9 @@ import ij.plugin.filter.Analyzer;
 import ij.util.Java2;
 import java.awt.*;
 import java.util.*;
+import java.util.logging.Level;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.geom.*;
@@ -662,24 +664,33 @@ public class PointRoi extends PolygonRoi {
     /** Returns a point index if it has been at least one second since
         the last point was added and the specified screen coordinates are    
         inside or near a point, otherwise returns -1. */
-    public int isHandle(int sx, int sy) {
-        if ((System.currentTimeMillis()-lastPointTime)<1000L)
-            return -1;
-        int ox = offScreenX(sx);
-        int oy = offScreenY(sy);
-        int size = HANDLE_SIZE+this.size;
-        int halfSize = size/2;
-        int handle = -1;
-        int x2, y2;
-        for (int i=0; i<nPoints; i++) {
-            x2 = xp2[i]-halfSize; y2=yp2[i]-halfSize;
-            if (ox>=x2 && ox<=x2+size && oy>=y2 && oy<=y2+size) {
-                handle = i;
-                break;
-            }
-        }
-        return handle;
-    }
+	public int isHandle(int sx, int sy) {
+		if ((System.currentTimeMillis() - lastPointTime) < 1000L)
+			return -1;
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+
+		int ox = p.x;
+		int oy = p.y;
+		int size = HANDLE_SIZE + this.size;
+		int halfSize = size / 2;
+		int handle = -1;
+		int x2, y2;
+		for (int i = 0; i < nPoints; i++) {
+			x2 = xp2[i] - halfSize;
+			y2 = yp2[i] - halfSize;
+			if (ox >= x2 && ox <= x2 + size && oy >= y2 && oy <= y2 + size) {
+				handle = i;
+				break;
+			}
+		}
+		return handle;
+	}
     
     /** Returns the points as an array of Points. 
      * Wilhelm Burger: modified to use FloatPolygon for correct point positions.

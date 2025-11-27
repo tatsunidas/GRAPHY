@@ -44,9 +44,11 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.Point;
 import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.io.File;
 import java.util.ArrayList;
@@ -628,21 +630,21 @@ public class Praparat extends JPanel {
 	private void loadSlideGlassFromSimpleDicom(String path2dcm, DICOMBackend backend, UID tsUID) {
 		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
 		List<Future<SlideGlass>> futures = new ArrayList<>();
-	    Callable<SlideGlass> task = () -> {
-	    	 DicomImage dcmimg = DicomImage.newDicomImage(path2dcm, backend);
-	 		if(Codec.isCompressed(tsUID.uid())) {
-	 			Decompressor.newInstance(dcmimg).decompress();
-	 		}
-	 		return new SlideGlass(this, dcmimg);
-	    };
-	    futures.add(executor.submit(task));
-	    for (Future<SlideGlass> future : futures) {
-            try {
+		Callable<SlideGlass> task = () -> {
+			DicomImage dcmimg = DicomImage.newDicomImage(path2dcm, backend);
+			if (Codec.isCompressed(tsUID.uid())) {
+				Decompressor.newInstance(dcmimg).decompress();
+			}
+			return new SlideGlass(this, dcmimg);
+		};
+		futures.add(executor.submit(task));
+		for (Future<SlideGlass> future : futures) {
+			try {
 				slides.put(slides.size(), future.get());
 			} catch (InterruptedException | ExecutionException e) {
 				e.printStackTrace();
 			}
-        }
+		}
 		executor.shutdown();
 		try {
 			executor.awaitTermination(1, TimeUnit.MINUTES);
@@ -1582,30 +1584,47 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public void setAndShowPixelValue(int imageX, int imageY) {
+	/**
+	 * 
+	 * @param slideX SlideGlass mouse X
+	 * @param slideY SlideGlass mouse Y
+	 */
+	public void setAndShowPixelValue(int slideX, int slideY) {
 		SlideGlass currentSlide = getCurrentSlide();
 		if(currentSlide == null) return;
 		double[] scaleXY = currentSlide.getScaleFactor();
 		double mag = currentSlide.getMagnification();
 		double rotate = currentSlide.getRotateAngle();
-		Object[] val = getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
+		Point pointOnOrg;
+		try {
+			pointOnOrg = currentSlide.offScreenCoordinate(slideX, slideY);
+		} catch (NoninvertibleTransformException e) {
+			e.printStackTrace();
+			return;
+		}
+		
+		if(getCurrentSlide().flipHorizontalFlag) {
+			
+		}
+		
+		Object[] val = getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 		if(val == null) {
-			updateInfoLabel(imageX, imageY, null+"("+null+")",scaleXY, mag,rotate);
+			updateInfoLabel(pointOnOrg, null+"("+null+")",scaleXY, mag,rotate);
 			return;
 		}
 		if(!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
+			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
-			updateInfoLabel(imageX, imageY, calibrated_v+"("+raw_v+")",scaleXY, mag,rotate);
+			updateInfoLabel(pointOnOrg, calibrated_v+"("+raw_v+")",scaleXY, mag,rotate);
 		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromOriginal(imageX, imageY);
+			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
 //			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
 //			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
-			updateInfoLabel(imageX, imageY, "(r,g,b)"+r+","+g+","+b, scaleXY, mag, rotate);
+			updateInfoLabel(pointOnOrg, "(r,g,b)"+r+","+g+","+b, scaleXY, mag, rotate);
 		}
 	}
 
@@ -1887,6 +1906,10 @@ public class Praparat extends JPanel {
 		prevSlice = -1;
 		currentSlice = 0;
 		setImagePosition(currentSlice);
+	}
+	
+	private void updateInfoLabel(Point p, String value, double[] scaleXY, double mag, double rotate) {
+		updateInfoLabel(p.x, p.y, value, scaleXY, mag, rotate);
 	}
 	
 	private void updateInfoLabel(int x, int y, String value, double[] scaleXY, double mag, double rotate) {

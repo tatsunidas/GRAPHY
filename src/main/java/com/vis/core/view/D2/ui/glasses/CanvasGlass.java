@@ -43,11 +43,13 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
+import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.logging.Level;
 
 import javax.swing.JTextArea;
 
@@ -101,13 +103,21 @@ public class CanvasGlass extends javax.swing.JPanel {
 		this.sg = sg;
 		this.roiset = new ArrayList<RoiObj>();
 	}
-
-	/*
-	 * slide XY, prap basis.
-	 */
+	
+	
 	protected RoiObj activateRoiAt(int screenX, int screenY) {
-		int ix = sg.offScreenX(screenX);
-		int iy = sg.offScreenY(screenY);
+		
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException e) {
+			e.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+			return null;
+		}
+		
+		int ix = p.x;
+		int iy = p.y;
 		
 		//do not do this, polygon families can not construct smoothly.
 //		if(currentRoi != null && currentRoi.contains(ix, iy)) {
@@ -197,8 +207,19 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * shape.
 	 */
 	public RoiObj createNewRoi(int screenX, int screenY, int roiType) {
-		int imageX = sg.offScreenX(screenX);//org img X
-		int imageY = sg.offScreenY(screenY);//org img Y
+		
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException e) {
+			e.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+			return null;
+		}
+		
+		int imageX = p.x;
+		int imageY = p.y;
+		
 		RoiObj roi = null;
 		RoiType t = RoiType.find(roiType);
 		switch (t) {
@@ -381,11 +402,19 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void createCross(MouseEvent e) {
-		//No AffineTransform
-		Point p = e.getPoint();
 		GeneralPath path = new GeneralPath();
-		int ix = sg.offScreenX(p.x);
-		int iy = sg.offScreenY(p.y);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(e.getX(), e.getY());
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+			return;
+		}
+		
+		int ix = p.x;
+		int iy = p.y;
+		
 		path.moveTo(0f, iy);
 		path.lineTo(sg.getOriginalImage().getWidth(), iy);
 		path.moveTo(ix, 0f);
@@ -481,8 +510,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 */
 	public RoiObj getRoiLoacationAt(int screenX, int screenY) {
 
-		int ix = sg.offScreenX(screenX);
-		int iy = sg.offScreenY(screenY);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException e) {
+			e.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+			return null;
+		}
+		
+		int ix = p.x;
+		int iy = p.y;
 		/*
 		 * if rois are overlapping, return roi that find first.
 		 */
@@ -1266,8 +1304,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 	    		}
 	    	}
 	    	if(!exist) {
-				int sx = (int) (sg.screenXD(roi.getBounds().x));
-				int sy = (int) (sg.screenYD(roi.getBounds().y) + roi.getBounds().height);
+	    		Point p = sg.slideglassCoordinateFromOffScreen(roi.getBounds().x, roi.getBounds().y);
+	    		int sx = p.x;
+	    		int sy = p.y + (int)(roi.getBounds().height * sg.getScaleFactor()[0]);//adjust location
+	    		
 				RoiPopUpDialog rpd = new RoiPopUpDialog(sg, roi);
 				rpd.setLocation(sx, sy);
 				add(rpd);

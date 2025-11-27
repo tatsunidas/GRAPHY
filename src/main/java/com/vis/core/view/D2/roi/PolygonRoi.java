@@ -13,6 +13,7 @@ import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.geom.*;
+import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
 
@@ -132,8 +133,8 @@ public class PolygonRoi extends RoiObj {
 	/**
 	 * Starts the process of creating a new user-generated polygon or polyline ROI.
 	 */
-	public PolygonRoi(int onImageX, int onImageY, int type, SlideGlass sg) {
-		super(onImageX, onImageY, 0, 0, 0, sg);
+	public PolygonRoi(int offscreenX, int offscreenY, int type, SlideGlass sg) {
+		super(offscreenX, offscreenY, 0, 0, 0, sg);
 		RoiType t = RoiType.find(type);
 		setType(t);
 		if (magnificationForSubPixel())
@@ -141,12 +142,15 @@ public class PolygonRoi extends RoiObj {
 		/*
 		 * keep deal original image origin and size
 		 */
-		previousX = onImageX;
-		previousY = onImageY;
-		previousSX = screenX(onImageX);
-		previousSY = screenX(onImageY);
-		x = onImageX;
-		y = onImageY;
+		previousX = offscreenX;
+		previousY = offscreenY;
+		
+		Point sp = sg.slideglassCoordinateFromOffScreen(offscreenX, offscreenY);
+		
+		previousSX = sp.x;
+		previousSY = sp.y;
+		x = offscreenX;
+		y = offscreenY;
 		startXD = x;
 		startYD = y;
 		if (subPixelResolution()) {
@@ -337,14 +341,8 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	protected void updatePolygon() {
-		int basex = 0;
+		int basex = 0;//offscreen
 		int basey = 0;
-		if(slide != null) {
-//			basex = slide.imageSpecimen.originX; 
-//			basey = slide.imageSpecimen.originY;
-			basex = offScreenX(0);
-			basey = offScreenY(0);
-		}
 		
 		//update roi popup
 //		setBasicStatistics2Popup();//TODO
@@ -424,7 +422,7 @@ public class PolygonRoi extends RoiObj {
 				/*
 				 * original or display ?? please test tatsu
 				 */
-				double pw = sg.getDisplayPixelSpacingX(), ph = sg.getDisplayPixelSpacingY();
+				double pw = sg.getPixelSpacingX(), ph = sg.getPixelSpacingY();
 				if (IJ.altKeyDown()) {
 					pw = 1.0;
 					ph = 1.0;
@@ -502,10 +500,21 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	void drawRubberBand(int sx, int sy) {
-		double oxd = offScreenXD(sx);
-		double oyd = offScreenYD(sy);
-		int ox = (int)oxd;
-		int oy = (int)oyd;
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
+		
+		double oxd = ox;
+		double oyd = oy;
+		
 		int x1, y1, x2, y2;
 		if (xpf != null) {
 			x1 = (int) xpf[nPoints - 2] + x;
@@ -641,8 +650,16 @@ public class PolygonRoi extends RoiObj {
 		if (clipboard != null)
 			return;
 
-		int ox = sg.offScreenX(sx);
-		int oy = sg.offScreenY(sy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		if (xpf != null) {
 			xpf[activeHandle] = (float) (ox - getXBase());
 			ypf[activeHandle] = (float) (oy - getYBase());
@@ -876,8 +893,16 @@ public class PolygonRoi extends RoiObj {
 	public void mouseDownInHandle(int handle, int sx, int sy) {
 		if (state == CONSTRUCTING)
 			return;
-		int ox = offScreenX(sx);
-		int oy = offScreenY(sy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		double oxd = ox;
 		double oyd = oy;
 		
@@ -1222,9 +1247,23 @@ public class PolygonRoi extends RoiObj {
 		int size = boxSize+2;
 		@SuppressWarnings("unused")
 		int size2 = boxSize/2 +1;
-		Rectangle biggerStartBox = new Rectangle(screenXD(startXD)-5, screenYD(startYD)-5, 10, 10);
+		
+		Point sp = super.slide.slideglassCoordinateFromOffScreen(startXD, startYD);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
+		
+		Rectangle biggerStartBox = new Rectangle(sp.x-5, sp.y-5, 10, 10);
 		boolean bigContain = (nPoints>2 && (biggerStartBox.contains(sx, sy)));
-		boolean clickFirstPoint = (offScreenXD(sx)==startXD && offScreenYD(sy)==startYD);
+		boolean clickFirstPoint = (ox== (int)startXD && oy== (int)startYD);
 		boolean samePointAndDoubleClicked = (samePoint && doubleClick);
 		if (bigContain|| clickFirstPoint || samePointAndDoubleClicked) {
 			boolean okayToFinish = true;
@@ -1356,8 +1395,16 @@ public class PolygonRoi extends RoiObj {
 		int size = getHandleSize() + 5;
 		int halfSize = size / 2;
 		int handle = -1;
-		int ox = offScreenX(sx);
-		int oy = offScreenY(sy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		int sx2, sy2;
 		for (int i = 0; i < nPoints; i++) {
 			sx2 = xp2[i] - halfSize;

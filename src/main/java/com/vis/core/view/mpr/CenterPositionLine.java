@@ -40,6 +40,7 @@ package com.vis.core.view.mpr;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.geom.GeneralPath;
 
@@ -114,10 +115,14 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		int size = HANDLE_SIZE+5;
 		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
 		int halfSize = size/2;
-		int sx1 = screenXD(getXBase()+x1R) - halfSize;
-		int sy1 = screenYD(getYBase()+y1R) - halfSize;
-		int sx2 = screenXD(getXBase()+x2R) - halfSize;
-		int sy2 = screenYD(getYBase()+y2R) - halfSize;
+		
+		Point sp1 = slide.slideglassCoordinateFromOffScreen(getXBase()+x1R, getYBase()+y1R);
+		Point sp2 = slide.slideglassCoordinateFromOffScreen(getXBase()+x2R, getYBase()+y2R);
+		
+		int sx1 = sp1.x - halfSize;
+		int sy1 = sp1.y - halfSize;
+		int sx2 = sp2.x - halfSize;
+		int sy2 = sp2.y - halfSize;
 		int sx3 = sx1 + (sx2-sx1)/2-1;
 		int sy3 = sy1 + (sy2-sy1)/2-1;
 		

@@ -39,15 +39,18 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Point;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.awt.geom.NoninvertibleTransformException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
@@ -64,6 +67,8 @@ import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.mpr.CenterPositionLine;
 import com.vis.core.view.mpr.MPRViewerWindow;
 import com.vis.core.view.mpr.ReferenceLineMPR;
+
+import ij.ImagePlus;
 
 /**
  * 
@@ -223,6 +228,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	@Override
 	public void mouseDragged(MouseEvent e) {
 
+		//screen x,y
 		int x = e.getX();
 		int y = e.getY();
 		
@@ -241,16 +247,33 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if (mprwin != null) {
 					if (mprwin.getCurrentViewType() == MPRViewerWindow.CROSS_MODE) {
 						if (eye.crossViewMode && pp.isShowCrossLineMode()) {
-							int ox = slide.offScreenX(x);
-							int oy = slide.offScreenY(y);
+							Point p = null;
+							try {
+								p = slide.offScreenCoordinate(x, y);
+							} catch (NoninvertibleTransformException nte) {
+								nte.printStackTrace();
+								Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...1");
+							}
+							
+							int ox = p.x;
+							int oy = p.y;
+							
 							mprwin.updateCrossSectionViews(pp, ox, oy);
 //							if (pp.isShowCrossLineMode()) {
 //								cg.createCross(e);
 //							}
 							return;
 						} else if (eye.crossViewMode && !pp.isShowCrossLineMode()) {
-							int ox = slide.offScreenX(x);
-							int oy = slide.offScreenY(y);
+							Point p = null;
+							try {
+								p = slide.offScreenCoordinate(x, y);
+							} catch (NoninvertibleTransformException nte) {
+								nte.printStackTrace();
+								Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...2");
+							}
+							
+							int ox = p.x;
+							int oy = p.y;
 							mprwin.updateCrossSectionViews(pp, ox, oy);
 							return;
 						} else if (!eye.crossViewMode && pp.isShowCrossLineMode()) {
@@ -453,8 +476,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			
 			if (viewerToolType == Viewer2DToolBar.NONE || viewerToolType == Viewer2DToolBar.Windowing) {
 				if (!pp.isProcessSeries()) {
-					slide.lastMin = slide.getCurrentDisplayImagePlus().getDisplayRangeMin();
-					slide.lastMax = slide.getCurrentDisplayImagePlus().getDisplayRangeMax();
+					ImagePlus disp = slide.getCurrentDisplayImagePlus();
+					if(disp != null) {//20251126
+						slide.lastMin = disp.getDisplayRangeMin();
+						slide.lastMax = disp.getDisplayRangeMax();
+					}
 				} else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
@@ -463,9 +489,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 						sg.lastPressedY = e.getY();
 						sg.lastDraggedX = e.getX();
 						sg.lastDraggedY = e.getY();
-						sg.lastMin = sg.getCurrentDisplayImagePlus().getDisplayRangeMin();
-						sg.lastMax = sg.getCurrentDisplayImagePlus().getDisplayRangeMax();
-						System.out.println();
+						ImagePlus disp = sg.getCurrentDisplayImagePlus();
+						if(disp != null) {//20251126
+							sg.lastMin = disp.getDisplayRangeMin();
+							sg.lastMax = disp.getDisplayRangeMax();
+						}
 					}
 				}
 			} // ww/wl end

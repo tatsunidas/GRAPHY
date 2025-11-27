@@ -7,9 +7,11 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
+import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 import org.joml.Vector3d;
 import org.jogamp.vecmath.Point2d;
@@ -200,10 +202,21 @@ public class ReferenceLineMPR {
 			return;
 		}
 		SlideGlass sg = pp.getCurrentSlide();
-		int offX = sg.offScreenX(dragSX);
-		int offY = sg.offScreenY(dragSY);
-		int lastOffX = sg.offScreenX(sg.lastDraggedX);
-		int lastOffY = sg.offScreenY(sg.lastDraggedY);
+		
+		Point p = null;
+		Point pl = null;
+		try {
+			p = sg.offScreenCoordinate(dragSX, dragSY);
+			pl = sg.offScreenCoordinate(sg.lastDraggedX, sg.lastDraggedY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int offX = p.x;
+		int offY = p.y;
+		int lastOffX = pl.x;
+		int lastOffY = pl.y;
 		int shiftX = offX-lastOffX, shiftY = offY-lastOffY; 
 		if(state == MOVING) {
 			if(pp.getName().equals("XY")) {
@@ -316,8 +329,13 @@ public class ReferenceLineMPR {
 	
 	public CenterPositionLine centerPositionLineHereAt(Praparat pp, int screenX, int screenY) {
 		SlideGlass sg = pp.getCurrentSlide();
-		int ix = sg.offScreenX(screenX);
-		int iy = sg.offScreenY(screenY);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
 		int handle = -1;
 		boolean found = false;
 		CenterPositionLine cenLine = centerPositionLineFrom(pp);
@@ -326,7 +344,7 @@ public class ReferenceLineMPR {
 		if (handle == 2) {
 			cenLine.setActiveOverlayRoi(true);
 			found = true;
-		} else if (cenLine.contains(ix, iy)) {
+		} else if (cenLine.contains(p.x, p.y)) {
 			cenLine.setActiveOverlayRoi(true);
 			found = true;
 		}
@@ -648,8 +666,15 @@ public class ReferenceLineMPR {
 			return false;
 		}
 		SlideGlass sg = pp.getCurrentSlide();
-		double ox = sg.offScreenXD((int)screenX);
-		double oy = sg.offScreenYD((int)screenY);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		double ox = p.x;
+		double oy = p.y;
 		int oz = pp.getCurrentSlidePos();//0 base
 		ImagePlus ref = imagePlus(pp.getName());
 		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
@@ -664,8 +689,15 @@ public class ReferenceLineMPR {
 			return false;
 		}
 		SlideGlass sg = pp.getCurrentSlide();
-		double ox = sg.offScreenXD((int)screenX);
-		double oy = sg.offScreenYD((int)screenY);
+		Point p = null;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		double ox = p.x;
+		double oy = p.y;
 		int oz = pp.getCurrentSlidePos();//0 base
 		ImagePlus ref = imagePlus(pp.getName());
 		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);

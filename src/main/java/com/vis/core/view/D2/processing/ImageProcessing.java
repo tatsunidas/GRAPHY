@@ -32,6 +32,9 @@ public class ImageProcessing {
 	}
 	
 	public void windowing(ImagePlus imp, double currentMin, double currentMax) {
+		if(imp == null) {
+			return;
+		}
 		if(imp.getType() == ImagePlus.COLOR_RGB) {
 			//fail safe
 			if(imp.getProcessor().getSnapshotPixels() == null) {
@@ -44,9 +47,16 @@ public class ImageProcessing {
 	}
 	
 	public ImagePlus zoom(ImagePlus imp, double mag) {
-		imp.getProcessor().setInterpolate(true);
-		//imp.getProcessor().setBackgroundValue(0.0);
-		ImagePlus imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "nearest");//too slow? 
+		int interpType = imp.getProcessor().getInterpolationMethod();
+		ImagePlus imp2 = null;
+		if(interpType == ImageProcessor.BILINEAR) {
+			imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "bilinear");
+		}else if(interpType == ImageProcessor.BICUBIC) {
+			imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "bicubic");
+		}else {
+			//Use NONE(nearest)
+			imp2 = imp.resize((int)(imp.getWidth()*mag), (int)(imp.getHeight()*mag), "nearest");
+		}
 		return imp2;
 	}
 	
@@ -85,18 +95,98 @@ public class ImageProcessing {
 		rotate(imp,angle);
 	}
 	
-	public void flipHF(ImagePlus imp,double currentAngle) {
+	public void flipHF(ImagePlus imp) {
+//		imp.getProcessor().flipHorizontal();
+//		imp.updateImage();
+		// DO NOT USE
 		imp.getProcessor().flipVertical();
-		//explicit
-//		double angle = currentAngle+180;
-//		rotate(imp, angle);
-		imp.updateImage();
+		imp.updateAndDraw();// IMPORTANT
+		imp.getProcessor().flipHorizontal();
+		imp.updateAndDraw();// IMPORTANT
+		//以下のコードでもOK
+//		ImageProcessor ip = imp.getProcessor();
+//		int width = ip.getWidth();
+//		int height = ip.getHeight();
+//		// 画像の高さの半分までループする (中央行はスワップ不要)
+//		for (int y = 0; y < height / 2; y++) {
+//			int topRowIndex = y;
+//			int bottomRowIndex = height - 1 - y;
+//
+//			int[] row_top = new int[width];
+//			ip.getRow(0, topRowIndex, row_top, width);
+//			int[] row_bottom = new int[width];
+//			ip.getRow(0, bottomRowIndex, row_bottom, width);
+//
+//			ip.putRow(0, topRowIndex, row_bottom, width);
+//			ip.putRow(0, bottomRowIndex, row_top, width);
+//		}
+//		
+//		// 【奇数行の修正】: 画像の高さが奇数の場合、中央の行を左右反転させる
+//        if (height % 2 != 0) {
+//            int middleRowIndex = height / 2;
+//            int[] row_middle = new int[width];
+//            
+//            // 中央の行を取得
+//            ip.getRow(0, middleRowIndex, row_middle, width);
+//
+//            // 左右反転を打ち消すために、配列を左右反転させる
+////            reverseArray(row_middle); 
+//            
+//            // 修正された行を書き戻す
+//            ip.putRow(0, middleRowIndex, row_middle, width);
+//        }
+//        ip.flipHorizontal();
+//		imp.updateAndDraw();
 	}
 
 	public void flipLR(ImagePlus imp) {
-		imp.getProcessor().flipHorizontal();
-		imp.updateImage();
+//		imp.getProcessor().flipHorizontal();
+//		imp.updateAndDraw();
+		imp.lock(); // 画像をロック
+        try {
+            ImageProcessor ip = imp.getProcessor();
+            int width = ip.getWidth();
+            int height = ip.getHeight();
+
+            // テンポラリにピクセルを保持するための配列/変数
+            // RGB画像の場合、ピクセル値はint配列または単一のintとして扱われる
+            int tempPixel;
+
+            // すべての行 (y) についてループ
+            for (int y = 0; y < height; y++) {
+                // 行の半分 (width / 2) までループ
+                for (int x = 0; x < width / 2; x++) {
+
+                    int leftX = x;
+                    int rightX = width - 1 - x;
+
+                    // 1. 左側のピクセル値を取得
+                    // getPixel(x, y)は、画像タイプに応じたObject (e.g., int[], int, byte)を返す
+                    tempPixel = ip.getPixel(leftX, y);
+
+                    // 2. 右側のピクセル値を左側に設定
+                    // getPixel(rightX, y)の結果を左側にputPixel
+                    ip.putPixel(leftX, y, ip.getPixel(rightX, y));
+
+                    // 3. テンポラリに保存した左側のピクセル値を右側に設定
+                    ip.putPixel(rightX, y, tempPixel);
+                }
+            }
+        } finally {
+            imp.unlock(); // 処理が終わったら必ずロック解除
+        }
+        
+        imp.updateAndDraw();
 	}
+	
+	@SuppressWarnings("unused")
+	private void reverseArray(int[] array) {
+        for (int i = 0; i < array.length / 2; i++) {
+            int temp = array[i];
+            array[i] = array[array.length - 1 - i];
+            array[array.length - 1 - i] = temp;
+        }
+    }
 	
 	
 	public ImagePlus cropRect(ImagePlus imp/*already setSlice(n)*/, RoiObj rectRoi, boolean processSeries) {

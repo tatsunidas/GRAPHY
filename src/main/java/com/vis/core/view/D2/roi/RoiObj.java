@@ -47,7 +47,7 @@ import ij.plugin.LutLoader;
 import ij.plugin.filter.ThresholdToSelection;
 import java.awt.*;
 import java.util.*;
-
+import java.util.logging.Level;
 import java.text.SimpleDateFormat;
 import java.awt.image.*;
 import java.awt.event.*;
@@ -1860,8 +1860,20 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	protected void grow(int sx, int sy) {
-		int xNew = offScreenX(sx);
-		int yNew = offScreenY(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
+		
+		int xNew = ox;
+		int yNew = oy;
 		if (type==RoiType.RECTANGLE.id()) {
 			if (xNew < 0) xNew = 0;
 			if (yNew < 0) yNew = 0;
@@ -1946,11 +1958,22 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		previousSX = sx;
 		previousSY = sy;
 		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
+		
 		if(state != CONSTRUCTING) {
-			startX = offScreenX(sx);
-			startY = offScreenY(sy);
-			startXD = offScreenXD(sx);
-			startYD = offScreenYD(sy);
+			startX = ox;
+			startY = oy;
+			startXD = ox;
+			startYD = oy;
 		}
 	}
 
@@ -2051,14 +2074,17 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		int margin = IJ.getScreenSize().width > 1280 ? 7 : 5;
 		int size = getHandleSize()+margin;
 		int halfSize = size/2;
-		double x = getXBase();
+		double x = getXBase();//offscreen
 		double y = getYBase();
 		double width = getFloatWidth();
 		double height = getFloatHeight();
-		int sx1 = screenXD(x) - halfSize;
-		int sy1 = screenYD(y) - halfSize;
-		int sx3 = screenXD(x+width) - halfSize;
-		int sy3 = screenYD(y+height) - halfSize;
+		
+		Point p = slide.slideglassCoordinateFromOffScreen(x, y);
+		
+		int sx1 = p.x - halfSize;
+		int sy1 = p.y - halfSize;
+		int sx3 = (int)(p.x+width) - halfSize;
+		int sy3 = (int)(p.y+height) - halfSize;
 		int sx2 = sx1 + (sx3 - sx1)/2;
 		int sy2 = sy1 + (sy3 - sy1)/2;
 		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
@@ -2241,8 +2267,18 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			sx = previousSX + dx;
 			sy = previousSY + dy;
 		}
-		int xNew = offScreenX(sx);
-		int yNew = offScreenY(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int xNew = p.x;
+		int yNew = p.y;
+		
 		int dx = xNew - startX;
 		int dy = yNew - startY;
 		if (dx==0 && dy==0)
@@ -2273,8 +2309,18 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	protected void moveHandle(int sx, int sy) {
 		double asp;
-		int ox = offScreenX(sx);
-		int oy = offScreenY(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
+		
 		if (ox < 0)
 			ox = 0;
 		if (oy < 0)
@@ -2609,62 +2655,63 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return con;
 	}
 	
-	/** Converts slideglass x coordinates to integer offscreen image pixel
-	 *  coordinates, depending on whether this roi uses the line or area convention
-	 *  for coordinates. */
-	public int offScreenX(int sx) {
-		if (slide == null) return sx;
-		return useLineSubpixelConvention() ? slide.offScreenX(sx) : slide.offScreenX2(sx);
-	}
-		
-	/** Converts slideglass screen y coordinates to integer offscreen image pixel
-	 *  coordinates, depending on whether this roi uses the line or area convention
-	 *  for coordinates. */
-	public int offScreenY(int sy) {
-		if (slide == null) return sy;
-		return useLineSubpixelConvention() ? slide.offScreenY(sy) : slide.offScreenY2(sy);
-	}
-	
-	/** Converts slideglass screen x coordinates to floating-point offscreen image pixel
-	 *  coordinates, depending on whether this roi uses the line or area convention
-	 *  for coordinates. */
-	protected double offScreenXD(int sx) {
-		if (slide == null) return sx;
-		double offScreenValue = slide.offScreenXD(sx);
-		if (useLineSubpixelConvention())
-			offScreenValue -= 0.5;
-		return offScreenValue;
-	}
-
-	/** Converts slideglass screen y coordinates to floating-point offscreen image pixel
-	 *  coordinates, depending on whether this roi uses the line or area convention
-	 *  for coordinates. */
-	protected double offScreenYD(int sy) {
-		if (slide == null) return sy;
-		double offScreenValue = slide.offScreenYD(sy);
-		if (useLineSubpixelConvention())
-			offScreenValue -= 0.5;
-		return offScreenValue;
-	}
-	
-	/**Converts an image pixel x (offscreen)coordinate to a screen x coordinate,
-	 * taking the the line or area convention for coordinates into account */
-	protected int screenXD(double ox) {
-		if (slide==null) return (int)ox;
-		if (useLineSubpixelConvention()) ox += 0.5;
-		return slide!=null?(int)slide.screenXD(ox):(int)ox;
-	}
-
-	/**Converts an image pixel y (offscreen)coordinate to a screen y coordinate,
-	 * taking the the line or area convention for coordinates into account */
-	protected int screenYD(double oy) {
-		if (slide==null) return (int)oy;
-		if (useLineSubpixelConvention()) oy += 0.5;
-		return slide!=null? (int)slide.screenYD(oy):(int)oy;
-	}
-
-	protected int screenX(int ox) {return screenXD(ox);}
-	protected int screenY(int oy) {return screenYD(oy);}
+//	/** Converts slideglass x coordinates to integer offscreen image pixel
+//	 *  coordinates, depending on whether this roi uses the line or area convention
+//	 *  for coordinates. */
+//	public int offScreenX(int sx) {
+//		if (slide == null) return sx;
+//		
+//		return useLineSubpixelConvention() ? slide.offScreenX(sx) : slide.offScreenX2(sx);
+//	}
+//		
+//	/** Converts slideglass screen y coordinates to integer offscreen image pixel
+//	 *  coordinates, depending on whether this roi uses the line or area convention
+//	 *  for coordinates. */
+//	public int offScreenY(int sy) {
+//		if (slide == null) return sy;
+//		return useLineSubpixelConvention() ? slide.offScreenY(sy) : slide.offScreenY2(sy);
+//	}
+//	
+//	/** Converts slideglass screen x coordinates to floating-point offscreen image pixel
+//	 *  coordinates, depending on whether this roi uses the line or area convention
+//	 *  for coordinates. */
+//	protected double offScreenXD(int sx) {
+//		if (slide == null) return sx;
+//		double offScreenValue = slide.offScreenXD(sx);
+//		if (useLineSubpixelConvention())
+//			offScreenValue -= 0.5;
+//		return offScreenValue;
+//	}
+//
+//	/** Converts slideglass screen y coordinates to floating-point offscreen image pixel
+//	 *  coordinates, depending on whether this roi uses the line or area convention
+//	 *  for coordinates. */
+//	protected double offScreenYD(int sy) {
+//		if (slide == null) return sy;
+//		double offScreenValue = slide.offScreenYD(sy);
+//		if (useLineSubpixelConvention())
+//			offScreenValue -= 0.5;
+//		return offScreenValue;
+//	}
+//	
+//	/**Converts an image pixel x (offscreen)coordinate to a screen x coordinate,
+//	 * taking the the line or area convention for coordinates into account */
+//	protected int screenXD(double ox) {
+//		if (slide==null) return (int)ox;
+//		if (useLineSubpixelConvention()) ox += 0.5;
+//		return slide!=null?(int)slide.screenXD(ox):(int)ox;
+//	}
+//
+//	/**Converts an image pixel y (offscreen)coordinate to a screen y coordinate,
+//	 * taking the the line or area convention for coordinates into account */
+//	protected int screenYD(double oy) {
+//		if (slide==null) return (int)oy;
+//		if (useLineSubpixelConvention()) oy += 0.5;
+//		return slide!=null? (int)slide.screenYD(oy):(int)oy;
+//	}
+//
+//	protected int screenX(int ox) {return screenXD(ox);}
+//	protected int screenY(int oy) {return screenYD(oy);}
 
 	public void setActiveOverlayRoi(boolean active) {
 		activeOverlayRoi = active;

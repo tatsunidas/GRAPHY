@@ -3,7 +3,10 @@ package com.vis.core.view.D2.roi;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.NoninvertibleTransformException;
+import java.util.logging.Level;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import ij.gui.Wand;
@@ -58,8 +61,17 @@ public class OvalRoi extends RoiObj {
 	protected void moveHandle(int sx, int sy) {
 		double asp;
 		if (clipboard!=null) return;
-		int ox = offScreenX(sx);
-		int oy = offScreenY(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		@SuppressWarnings("unused")
 		int x1=x, y1=y, x2=x+width, y2=y+height, xc=x+width/2, yc=y+height/2;
 		int w2 = (int)(0.14645*width);
@@ -367,10 +379,14 @@ public class OvalRoi extends RoiObj {
 		if (clipboard!=null || slide==null) return -1;
 		int size = getHandleSize()+3;
 		int halfSize = size/2;
-		int sx1 = screenX(x) - halfSize;
-		int sy1 = screenY(y) - halfSize;
-		int sx3 = screenX(x+width) - halfSize;
-		int sy3 = screenY(y+height) - halfSize;
+		
+		Point s1 = slide.slideglassCoordinateFromOffScreen(x, y);
+		Point s3 = slide.slideglassCoordinateFromOffScreen(x+width, y+height);
+		
+		int sx1 = s1.x - halfSize;
+		int sy1 = s1.y - halfSize;
+		int sx3 = s3.x - halfSize;
+		int sy3 = s3.y - halfSize;
 		int sx2 = sx1 + (sx3 - sx1)/2;
 		int sy2 = sy1 + (sy3 - sy1)/2;
 		

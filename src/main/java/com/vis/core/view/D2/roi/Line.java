@@ -9,12 +9,15 @@ import ij.plugin.Straightener;
 import java.awt.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.logging.Level;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
+import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Rectangle2D;
 
 /** This class represents a straight line selection. 
@@ -87,8 +90,18 @@ public class Line extends RoiObj {
 		oldY = y;
 		oldWidth = width;
 		oldHeight = height;
-		double xend = offScreenXD(sx);
-		double yend = offScreenYD(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		double xend = p.x;
+		double yend = p.y;
+		
 		if (xend < 0.0)
 			xend = 0.0;
 		if (yend < 0.0)
@@ -132,8 +145,18 @@ public class Line extends RoiObj {
 	}
 
 	void move(int sx, int sy) {
-		int xNew = offScreenX(sx);
-		int yNew = offScreenY(sy);
+		
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		int xNew = p.x;
+		int yNew = p.y;
+		
 		x += xNew - startxd;
 		y += yNew - startyd;
 		clipboard=null;
@@ -157,8 +180,16 @@ public class Line extends RoiObj {
 			sx = previousSX + dx;
 			sy = previousSY + dy;
 		}
-		double ox = offScreenXD(sx);
-		double oy = offScreenYD(sy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		double ox = p.x;
+		double oy = p.y;
 		double x1d=getXBase()+x1R, y1d=getYBase()+y1R;
 		double x2d=getXBase()+x2R, y2d=getYBase()+y2R;
 		double length = Math.sqrt(sqr(x2d-x1d) + sqr(y2d-y1d));
@@ -563,8 +594,16 @@ public class Line extends RoiObj {
 	
 	public void mouseDown(MouseEvent e) {
 		super.mouseDown(e);// set start mouse position
-		startxd = offScreenXD(e.getX());
-		startyd = offScreenYD(e.getY());
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(e.getX(), e.getY());
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		startxd = p.x;
+		startyd = p.y;
 	}
 
 	/**
@@ -576,10 +615,14 @@ public class Line extends RoiObj {
 		int size = HANDLE_SIZE+5;
 		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
 		int halfSize = size/2;
-		int sx1 = screenXD(getXBase()+x1R) - halfSize;
-		int sy1 = screenYD(getYBase()+y1R) - halfSize;
-		int sx2 = screenXD(getXBase()+x2R) - halfSize;
-		int sy2 = screenYD(getYBase()+y2R) - halfSize;
+		
+		Point s1p = slide.slideglassCoordinateFromOffScreen(getXBase()+x1R, getYBase()+y1R);
+		Point s2p = slide.slideglassCoordinateFromOffScreen(getXBase()+x2R, getYBase()+y2R);
+		
+		int sx1 = s1p.x - halfSize;
+		int sy1 = s1p.y - halfSize;
+		int sx2 = s2p.x - halfSize;
+		int sy2 = s2p.y - halfSize;
 		int sx3 = sx1 + (sx2-sx1)/2-1;
 		int sy3 = sy1 + (sy2-sy1)/2-1;
 		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
@@ -647,7 +690,9 @@ public class Line extends RoiObj {
 			x2R += inc;
 			break;
 		}
-		grow(screenXD(x + x2R), screenYD(y + y2R));
+		
+		Point sp = slide.slideglassCoordinateFromOffScreen(x+x2R, y+y2R);
+		grow(sp.x, sp.y);
 	}
 	
 	/*

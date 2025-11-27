@@ -41,6 +41,8 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
+import java.awt.geom.NoninvertibleTransformException;
+import java.util.logging.Level;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
@@ -97,8 +99,16 @@ public class RoiBrush {
 		int slideX = pressedEvent.getX();
 		int slideY = pressedEvent.getY();
 		int size = getBrushSize();
-		int ox = slide.offScreenX(slideX);
-		int oy = slide.offScreenY(slideY);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(slideX, slideY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		
 		/*
 		 * build any time
@@ -144,8 +154,16 @@ public class RoiBrush {
 		
 		int RoiOffset = getBrushSize()/2;//original image scale 
 		
-		int ox = slide.offScreenX(sx);
-		int oy = slide.offScreenY(sy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
+		int ox = p.x;
+		int oy = p.y;
 		
 		int xNew = ox-RoiOffset;
 		int yNew = oy-RoiOffset;
@@ -203,9 +221,14 @@ public class RoiBrush {
 	public void brushRoi(MouseEvent e) {
 		int slideX = e.getX();
 		int slideY = e.getY();
-		int ox = slide.offScreenX(slideX);
-		int oy = slide.offScreenY(slideY);
-		Point p = new Point(ox, oy);
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(slideX, slideY);
+		} catch (NoninvertibleTransformException nte) {
+			nte.printStackTrace();
+			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+		}
+		
 		if(currentBrushingRoi == null) {
 			currentBrushingRoi = slide.getRoiLocationAt(slideX, slideY);
 		}else {
