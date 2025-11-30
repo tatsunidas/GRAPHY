@@ -1134,9 +1134,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			Roi fillerRoi = new RoiConverter().convert2Roi(roi);
 			ip.fill(fillerRoi);// draw to image
 			imp.setProcessor(ip);
-			imp.updateImage();
+			imp.updateAndDraw();
 			imp.deleteRoi();
-			slide.setDisplayImage(imp);
+			slide.setImage(imp);
 			slide.repaint();
 		}
 	}

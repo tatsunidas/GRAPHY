@@ -1731,10 +1731,10 @@ public class Praparat extends JPanel {
 		final int top = 0;
 		viewPanel.removeAll();
 		viewPanel.add(currentGlass, top);
-		currentGlass.requestFocus();
-		currentGlass.setFocusGained(true);//for key listener
 		currentGlass.revalidate();//check layout
 		currentGlass.repaint();//repaint all layered glasses(image/roi/text).
+		currentGlass.requestFocus();
+		currentGlass.setFocusGained(true);//for key listener
 	}
 	
 	public void setImagePositionTo(SlideGlass sg) {

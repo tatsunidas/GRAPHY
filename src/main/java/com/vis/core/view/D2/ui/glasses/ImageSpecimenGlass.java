@@ -42,11 +42,16 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
 
 import javax.swing.JPanel;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
@@ -71,8 +76,8 @@ public class ImageSpecimenGlass extends JPanel{
 	 * The orgImg is calibrated by SlideGlass.initImageInfo().
 	 * See also, GDicomTools.calibrate() function.
 	 */
-	private final ImagePlus orgImg;//without calibration
-	ImagePlus displayImg;
+	private ImagePlus orgImg;//without calibration
+	BufferedImage display;
 	
 	private final String sopUID;
 	private final SlideGlass sg;
@@ -86,6 +91,9 @@ public class ImageSpecimenGlass extends JPanel{
 	final int orgCols;
 	final int orgRows;
 	
+	private final Object drawLock = new Object();
+	AffineTransform at;
+	
 	private boolean transparent = true;
 	private float alpha = 1.0f;
 	
@@ -97,7 +105,8 @@ public class ImageSpecimenGlass extends JPanel{
 		this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
 		orgCols = orgImg.getWidth();
 		orgRows = orgImg.getHeight();
-		setOpaque(false);
+		setOpaque(true);//最下層のため、true/false どちらでも良い
+		setBackground(Color.BLACK);
 		resetImageOrigin();
 	}
 	
@@ -139,12 +148,9 @@ public class ImageSpecimenGlass extends JPanel{
 			double mag = sg.getMagnification();
 			dup = sg.imgProcess.zoom(dup, mag);
 		}
-		if (sg.isRotated()) {
-			sg.imgProcess.rotate(dup, sg.getRotateAngle());
-			updateOriginWithCurrentCondition();
-		}
+		
 		dup.setLut(sg.currentLUT);
-		dup.updateAndDraw();
+		
 		if (sg.isInverted()) {
 			sg.imgProcess.invert(dup);
 		}
@@ -164,7 +170,7 @@ public class ImageSpecimenGlass extends JPanel{
 		if (sg.windowing) {
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
 		}
-		
+		dup.updateAndDraw();
 		return dup;
 	}
 	
@@ -237,14 +243,6 @@ public class ImageSpecimenGlass extends JPanel{
 		return this.orgImg;
 	}
 	
-	public ImagePlus getDisplayImage() {
-		return this.displayImg;
-	}
-	
-	public void setDisplayImage(ImagePlus disp) {
-		this.displayImg = disp;
-	}
-	
 	int getDisplayOriginX() {
 		return originX;
 	}
@@ -263,6 +261,25 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	public boolean isTransparent() {
 		return transparent;
+	}
+	
+	/**
+	 * To update image to process.
+	 * @param img
+	 */
+	void setImage(ImagePlus img) {
+		if(dcmImg == null) {
+			throw new IllegalArgumentException("ImageSpecimen DicomImage can not ready. Cannot replace image.");
+		}
+		if(img != null) {
+			if(img.getType() == orgImg.getType() && img.getWidth() == orgCols && img.getHeight() == orgRows) {
+				this.dcmImg.setPixelData(0/*0 base*/, orgCols, orgRows, img.getNChannels(), img.getBitDepth(), img.getProcessor().getPixels());
+				this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
+				updateDisplayImage();
+			}else {
+				Log.logger.warning("Image type is not same. ImageSpecimen cannot replace image.");
+			}
+		}
 	}
 	
 	public void setAlphaForTransparent(Float alpha) {
@@ -294,9 +311,6 @@ public class ImageSpecimenGlass extends JPanel{
 		if(sg == null) {
 			return;
 		}
-		if(displayImg == null) {
-			return;
-		}
 		Point newOrigin = sg.slideglassCoordinateFromOffScreen(0/*offscreenX*/, 0/*offscreenY*/);
 		updateOrigin(newOrigin.x, newOrigin.y);
 	}
@@ -309,29 +323,131 @@ public class ImageSpecimenGlass extends JPanel{
 		this.originY = originY;
 	}
 	
+	/**
+	 * Use this.
+	 * - here you do processing something -, then,
+	 * imageSpecimen.updateDisplayImage(); // update display image which applied current conditions.
+	 */
+	public void updateDisplayImage() {
+		
+		if(sg == null) {
+			return;
+		}
+		
+		Double calculatedScale = null; // 正確なスケールを保持する変数
+
+		if (!sg.panningFlag) {
+			// --- 修正箇所: ここで正確なスケールを逆算する ---
+			Dimension dispDim = calcImageSize2FitComponent();
+			if (dispDim == null) {
+				return;
+			}
+
+			// 原点の計算
+			Point init_coord = calcDefaultImageOrigin(dispDim.width, dispDim.height);
+			originX = init_coord.x;
+			originY = init_coord.y;
+
+			// 重要: dispDim.width は int ですが、描画時のズレをなくすため
+			calculatedScale = (double) dispDim.width / (double) orgCols;
+		}
+	    
+	    
+		synchronized (drawLock) { // ロックを開始
+			updateTransform(calculatedScale);
+			ImagePlus dup = createInitialDisplayImage();
+			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
+			BufferedImage srcImg = dup.getBufferedImage();
+
+			int w = Math.max(1, getWidth()/*表示するコンポーネントサイズにする*/);
+			int h = Math.max(1, getHeight()/*表示するコンポーネントサイズにする*/);
+
+			int type = srcImg.getType();
+
+			// 注意: TYPE_CUSTOM (0) の場合は扱いづらいため、ARGBにフォールバックします
+			if (type == BufferedImage.TYPE_CUSTOM) {
+				type = BufferedImage.TYPE_INT_ARGB;
+			}
+
+			// ImagePlusのタイプに合わせたBufferedImageを作成
+			BufferedImage dstImg = new BufferedImage(w, h, type);
+			
+			try {
+	            // AffineTransformOpの作成
+				AffineTransformOp op = null;
+				if(sg.INTERPOLATION_METHOD == ImageProcessor.BILINEAR) {
+					op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+				}else if(sg.INTERPOLATION_METHOD == ImageProcessor.BICUBIC) {
+					op = new AffineTransformOp(at, AffineTransformOp.TYPE_BICUBIC);
+				}else {
+					op = new AffineTransformOp(at, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+				}
+				op.filter(srcImg, dstImg);
+
+	        } catch (Exception e) {
+	            Log.logger.warning("Transform failed: " + e.getMessage());
+	            return;
+	        }
+			this.display = dstImg;
+		}
+		
+		revalidate();
+		repaint();
+	}
+	
+	private void updateTransform(Double forceScale) {
+		if(sg == null) {
+			return;
+		}
+		double scaleToFit = (forceScale != null) ? forceScale : sg.getScaleFactor()[0];
+//		double scaleToFit = sg.getScaleFactor()[0];
+		double zoomFactor = sg.getMagnification();
+		double s = scaleToFit * zoomFactor;
+		double sx = sg.flipVerticalFlag ? -s : s;//Head-Foot X axis flip
+       double sy = sg.flipHorizontalFlag ? -s : s;//LR Y axis flip
+		// 回転角度（度数法をラジアンに変換）
+		double rotateAngleInDegrees = sg.getRotateAngle();
+		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
+
+		Dimension offScreen = sg.getOriginalImageSize(); // OffScreen image size
+		double offCenterX = offScreen.width / 2.0;
+		double offCenterY = offScreen.height / 2.0;
+
+		// パンニングオフセット（パネル座標）
+		Point dispOrigin = new Point(this.originX, this.originY);
+
+		/* 順変換行列 (OffScreen -> Panel) */
+		at = new AffineTransform();
+		at.translate(dispOrigin.x, dispOrigin.y);
+		at.scale(sx, sy);
+		at.translate(offCenterX, offCenterY);
+		at.rotate(thetaInRadians);
+		// 回転の中心をもとに戻す(パネル座標系)
+		at.translate(-offCenterX, -offCenterY);
+	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		Graphics2D g2d = (Graphics2D) g;
-		
-		Dimension dispDim = calcImageSize2FitComponent();
-		ImagePlus dup = createInitialDisplayImage();
-		dup = dup.resize(dispDim.width, dispDim.height, "none" /*here, keep NONE ! See, applyCurrentState()*/);
-		this.displayImg = applyCurrentState(dup);
-		
-		Point init_coord = calcDefaultImageOrigin(dispDim.width, dispDim.height);
-		if(!sg.panningFlag) {
-			originX = init_coord.x;
-			originY = init_coord.y;
+		/*
+		 * Do not insert image transformation code here.
+		 * Use updateDisplayImage().
+		 */
+		if(this.display != null) {
+			synchronized (drawLock) { // ロックを開始
+				Graphics2D g2d = (Graphics2D) g;
+				
+				/*
+				 * DO NOT g2d.setTransform(at) in paintComponent.
+				 * This cause display time lag.
+				 */
+				if (transparent) {
+					g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+					g2d.drawImage(this.display, 0, 0, this);
+				} else {
+					g2d.drawImage(this.display, 0, 0, this);
+				}
+			}
 		}
-		
-		if (transparent) {
-			g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-			g2d.drawImage(this.displayImg.getImage(), originX, originY, this);
-		} else {
-			g2d.drawImage(this.displayImg.getImage(), originX, originY, this);
-		}
-		g2d.dispose();
 	}
 }

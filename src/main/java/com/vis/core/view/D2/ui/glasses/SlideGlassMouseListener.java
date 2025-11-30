@@ -198,7 +198,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				return;
 			}
 			if (Math.abs(wheelRotationAccumulator) >= wheelThreshold) {
-				logger.fine("zoom!");
+				logger.fine("zoom performed!");
 				this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 				double currentMag = slide.getMagnification();
 				double change = 0.1;
@@ -476,11 +476,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			
 			if (viewerToolType == Viewer2DToolBar.NONE || viewerToolType == Viewer2DToolBar.Windowing) {
 				if (!pp.isProcessSeries()) {
-					ImagePlus disp = slide.getCurrentDisplayImagePlus();
-					if(disp != null) {//20251126
-						slide.lastMin = disp.getDisplayRangeMin();
-						slide.lastMax = disp.getDisplayRangeMax();
-					}
+					slide.lastMin = slide.currentMin;
+					slide.lastMax = slide.currentMax;
 				} else {
 					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
@@ -489,11 +486,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 						sg.lastPressedY = e.getY();
 						sg.lastDraggedX = e.getX();
 						sg.lastDraggedY = e.getY();
-						ImagePlus disp = sg.getCurrentDisplayImagePlus();
-						if(disp != null) {//20251126
-							sg.lastMin = disp.getDisplayRangeMin();
-							sg.lastMax = disp.getDisplayRangeMax();
-						}
+						sg.lastMin = sg.currentMin;
+						sg.lastMax = sg.currentMax;
 					}
 				}
 			} // ww/wl end

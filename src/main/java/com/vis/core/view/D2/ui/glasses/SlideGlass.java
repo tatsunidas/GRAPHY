@@ -61,6 +61,7 @@ import javax.swing.border.Border;
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
+import com.vis.core.util.MathUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -239,7 +240,7 @@ public class SlideGlass extends JLayeredPane {
 	 * see also ImageUtils.autoContrast()
 	 */
 	public void autoWindowing() {
-		if (getOriginalImage() == null || getCurrentDisplayImagePlus() == null) {
+		if (getOriginalImage() == null) {
 			return;
 		}
 		if (isRGB()) {
@@ -280,8 +281,7 @@ public class SlideGlass extends JLayeredPane {
 		currentMax = newMax;
 		if (Utils.isDebug)
 			logger.info("change ww/wl : newMin " + newMin + " newMax " + newMax);
-		imgProcess.windowing(imageSpecimen.getDisplayImage(), newMin, newMax);
-		repaint();
+		imageSpecimen.updateDisplayImage();
 	}
 
 	/**
@@ -364,10 +364,6 @@ public class SlideGlass extends JLayeredPane {
 	public RoiObj getActiveRoi() {
 		return roiOverlay.getActiveRoi();
 	}
-
-	public ImagePlus getCurrentDisplayImagePlus() {
-		return this.imageSpecimen.getDisplayImage();
-	}
 	
 	/*
 	 * mouse position on slide glass XY location
@@ -376,17 +372,20 @@ public class SlideGlass extends JLayeredPane {
 		Point pointOnViewPanel = new Point(mouseX, mouseY);
 		return pointOnViewPanel;
 	}
+	
+	public double[] getCurrentWindowMinMax() {
+		return new double[] {currentMin, currentMax};
+	}
 
 	public DicomImage getDicomImage() {
 		return this.dcmImg;
 	}
 
 	public Dimension getDisplayImageDimension() {
-		if(this.imageSpecimen.getDisplayImage() == null) {
-			return null;
-		}
-		int[] dim = this.imageSpecimen.getDisplayImage().getDimensions();
-		return new Dimension(dim[0], dim[1]);
+		double scaleComp = getScaleFactor()[0];
+		double zoomFactor = getMagnification();
+		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
+		return new Dimension((int)(defaultDim.width*scaleComp*zoomFactor), (int)(defaultDim.height*scaleComp*zoomFactor));
 	}
 
 	/*
@@ -590,6 +589,7 @@ public class SlideGlass extends JLayeredPane {
 		if(pp.getViewMode() != ViewMode.Thumbnail) {
 			loadRoiFromDB();
 		}
+		imageSpecimen.updateDisplayImage();
 	}
 
 	/**
@@ -680,9 +680,6 @@ public class SlideGlass extends JLayeredPane {
 			return;
 		}
 		if(imageSpecimen == null) {
-			return;
-		}
-		if(imageSpecimen.getDisplayImage() == null) {
 			return;
 		}
 		
@@ -890,10 +887,10 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	/**
-	 * Panning is simply a movement of the display image origin position. Zoom is
-	 * ignored.
+	 * Panning is simply a movement of the display image origin position. 
 	 * 
-	 * moveX : Amount to be moved on X axis moveY : Amount to be moved on Y axis
+	 * @param moveX: screen coordinate
+	 * @param moveY: screen coordinate
 	 */
 	void panning(double moveX, double moveY) {
 		panningFlag = true;
@@ -925,7 +922,6 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public void reset() {
-		imageSpecimen.resetImageOrigin();
 		setMagnification(1.0d);
 		setRotateAngle(0);
 		setHorizontalFlipState(false);
@@ -936,7 +932,8 @@ public class SlideGlass extends JLayeredPane {
 		rotatedFlag = false;
 		panningFlag = false;
 		roiOverlay.reset();
-		repaint();
+		imageSpecimen.resetImageOrigin();
+		imageSpecimen.updateDisplayImage();
 	}
 
 	public void resetWindowing() {
@@ -953,8 +950,7 @@ public class SlideGlass extends JLayeredPane {
 	void rotate(int changeAngle) {
 		double willRotateAngle = getRotateAngle() + changeAngle;
 		setRotateAngle((int) willRotateAngle);
-		
-		repaint();
+		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
 
@@ -978,10 +974,6 @@ public class SlideGlass extends JLayeredPane {
 		repaint();
 	}
 	
-	public void setDisplayImage(ImagePlus disp) {
-		imageSpecimen.setDisplayImage(disp);
-	}
-
 	public void setHorizontalFlipState(boolean flip) {
 		flipHorizontalFlag = flip;
 	}
@@ -1020,6 +1012,14 @@ public class SlideGlass extends JLayeredPane {
 	public void setInvertState(boolean invert) {
 		invertFlag = invert;
 	}
+	
+	/**
+	 * Set/Replace to new ImagePlus.
+	 * Header is remaining.
+	 */
+	public void setImage(ImagePlus imp) {
+		imageSpecimen.setImage(imp);
+	}
 
 	public void setLUT(LUT lut) {
 		if (invertFlag) {
@@ -1031,7 +1031,7 @@ public class SlideGlass extends JLayeredPane {
 		repaint();
 	}
 
-	public void setMagnification(double mag) {
+	private void setMagnification(double mag) {
 		this.magnification = mag;
 		if (mag == 1.0d) {
 			zoomFlag = false;
@@ -1050,8 +1050,7 @@ public class SlideGlass extends JLayeredPane {
 
 	public void setRotateAngle(int angle) {
 		this.currentRotateAngle = angle;
-		System.out.println("setRotateAngle:: " + angle);
-		if (angle == 0) {
+		if (angle % 360 == 0) {
 			rotatedFlag = false;
 		} else {
 			rotatedFlag = true;
@@ -1143,7 +1142,9 @@ public class SlideGlass extends JLayeredPane {
 		setGlassSize(coverGlass, compW, compH);
 		updateScale();
 		initPrapInfoLabel();
-		repaint();
+		//finally
+		imageSpecimen.updateDisplayImage();
+		repaint();//repaint all glasses.
 	}
 
 	public void setTextVisible(boolean v) {
@@ -1212,7 +1213,7 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			panningFlag = true;
 		}
-		repaint();
+		imageSpecimen.updateDisplayImage();
 	}
 
 	/*
@@ -1268,6 +1269,14 @@ public class SlideGlass extends JLayeredPane {
 	 * @param zoomUp
 	 */
 	void zoom(double mag, boolean zoomUp) {
+		
+		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
+		mag = MathUtils.truncateToDecimalPlace(mag, 3);
+		
+		if(currentMag == mag) {
+			return;
+		}
+		
 		// set magnification min max
 		if (mag < 0.1) {
 			mag = 0.1;
@@ -1276,19 +1285,31 @@ public class SlideGlass extends JLayeredPane {
 			mag = 30.0;
 			logger.info("Zoom: magnification is too large, not up to 30.");
 		}
+		
+		//update magnification
 		setMagnification(mag);
-		if (mag != 1.0 && !panningFlag) {
-			panningFlag = true;// because, image origin shifted by focuse zoom.
+		
+		Dimension dispImageSize = getDisplayImageDimension();
+		
+		int w = dispImageSize.width;
+		int h = dispImageSize.height;
+		
+		/*
+		 * w and h are current "display" image size which already scaled by the mag factor.
+		 * Here, correct size to previous size with previous mag factor, then, re-zoom current mag, and subtract prev - current.
+		 */
+		int shiftX = (int)((w/currentMag*mag - w)/2);
+		int shiftY = (int)((h/currentMag*mag - h)/2);
+		
+		if (mag != 1.0) {
+			panningFlag = true;// because, image origin shifted by zoom.
 		}
 		// update origin
-		if (zoomUp) {
-			imageSpecimen.originX = (int) ((imageSpecimen.originX - lastPressedX) * (mag / (mag - .1)) + lastPressedX);
-			imageSpecimen.originY = (int) ((imageSpecimen.originY - lastPressedY) * (mag / (mag - .1)) + lastPressedY);
-		} else {
-			imageSpecimen.originX = (int) ((imageSpecimen.originX - lastPressedX) * (mag / (mag + .1)) + lastPressedX);
-			imageSpecimen.originY = (int) ((imageSpecimen.originY - lastPressedY) * (mag / (mag + .1)) + lastPressedY);
-		}
-		imageSpecimen.repaint();
+		imageSpecimen.updateOrigin(imageSpecimen.originX-shiftX, imageSpecimen.originY-shiftY);
+		
+		Log.logger.fine("Origin changed by ZOOM: (x) "+imageSpecimen.originX +", (y) "+imageSpecimen.originY);
+		
+		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
 }

@@ -748,9 +748,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			 */
 			background = originalImagePanel.getImagePlus();
 			//update original image contrast
-			ImagePlus dispImg = originalImagePanel.getCurrentSlide().getCurrentDisplayImagePlus();
-			double min = dispImg.getDisplayRangeMin();
-			double max = dispImg.getDisplayRangeMax();
+			double[] dispWinMinMax = originalImagePanel.getCurrentSlide().getCurrentWindowMinMax();
+			double min = dispWinMinMax[0];
+			double max = dispWinMinMax[1];
 			int pos = background.getCurrentSlice();
 			for (int i = 1; i <= background.getNSlices(); i++) {
 				background.setSlice(i);
