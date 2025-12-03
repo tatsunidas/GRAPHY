@@ -111,6 +111,9 @@ public class SlideGlass extends JLayeredPane {
 	private TextOverlayGlass textOverlay;
 	private CanvasGlass roiOverlay;
 	private EventGlass coverGlass;/* KeyListener */
+	
+	//transform
+	AffineTransform currentTransform;
 
 	// flags
 	// private boolean focusFlag = false;
@@ -156,8 +159,8 @@ public class SlideGlass extends JLayeredPane {
 	public int mouseX = 0;// current mouse loc on slideglass
 	public int mouseY = 0;// current mouse loc on slideglass
 	
-	public int lastPressedX = 0;
-	public int lastPressedY = 0;
+	public int lastPressedX = 0;//SlideGlass coordinate
+	public int lastPressedY = 0;//SlideGlass coordinate
 	
 	LUT currentLUT;// null-able, if null set grayscale
 
@@ -706,6 +709,7 @@ public class SlideGlass extends JLayeredPane {
 		}
 		TextOverlayGlass tg = (TextOverlayGlass) getGlassAt(TEXT_LAYER);
 		tg.setInvertState(this.invertFlag);
+		imageSpecimen.updateDisplayImage();
 		repaint();
 	}
 
@@ -782,7 +786,7 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.loadRoiFromDB();
 	}
 	
-	AffineTransform getCurrentAffineTransform() {
+	AffineTransform calculateCurrentAffineTransform() {
 		double scaleToFit = getScaleFactor()[0];
 		double zoomFactor = getMagnification();
 		double s = scaleToFit * zoomFactor;
@@ -807,21 +811,28 @@ public class SlideGlass extends JLayeredPane {
 		double destCenterY = imageSpecimen.originY + (currentImgH / 2.0);
 
 		// 3. 行列の作成 (順序が重要です)
-		AffineTransform at = new AffineTransform();
+		currentTransform = new AffineTransform();
 
 		// Step 4: 最後に、求めた画面上の中心位置へ移動させる
-		at.translate(destCenterX, destCenterY);
+		currentTransform.translate(destCenterX, destCenterY);
 
 		// Step 3: 回転させる
-		at.rotate(thetaInRadians);
+		currentTransform.rotate(thetaInRadians);
 
 		// Step 2: スケール（拡大縮小）とフリップ（反転）を適用する
-		at.scale(sx, sy);
+		currentTransform.scale(sx, sy);
 
 		// Step 1: まず、元画像の中心を原点(0,0)に持ってくる
-		at.translate(-offCenterX, -offCenterY);
+		currentTransform.translate(-offCenterX, -offCenterY);
 
-		return at;
+		return currentTransform;
+	}
+	
+	public AffineTransform getCurrentTransform() {
+		if(currentTransform == null) {
+			return calculateCurrentAffineTransform();
+		}
+		return currentTransform;
 	}
 	
 	/**
@@ -833,7 +844,7 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public Point offScreenCoordinate(double glassX, double glassY) throws NoninvertibleTransformException {
 
-		AffineTransform at = getCurrentAffineTransform();
+		AffineTransform at = getCurrentTransform();
 		/* 逆変換の実行 (Panel -> OffScreen) */
 		try {
 			// 逆行列を取得
@@ -854,23 +865,18 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	/**
-	 * Calculate display image origin in current condition.
+	 * Calculate slide glass coordinate in current condition.
 	 * @return
 	 */
 	public Point slideglassCoordinateFromOffScreen(double offScreenX, double offScreenY) {
 		
-		AffineTransform at = getCurrentAffineTransform();
+		AffineTransform at = getCurrentTransform();
 		
 		// OffScreen origin
 		Point2D.Double offOrigin = new Point2D.Double(offScreenX, offScreenY);
 		// Display Image Coordinates
 		Point2D.Double newOrigin = new Point2D.Double();
 		at.transform(offOrigin, newOrigin);
-		
-		imageSpecimen.originX = (int) Math.round(newOrigin.getX());
-		imageSpecimen.originY = (int) Math.round(newOrigin.getY());
-		
-		Log.logger.fine("New display image origin after ROTATE:"+imageSpecimen.originX+" and "+imageSpecimen.originY);
 		
 		return new Point((int) Math.round(newOrigin.getX()), (int) Math.round(newOrigin.getY()));
 	}
@@ -939,6 +945,8 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.reset();
 		imageSpecimen.resetImageOrigin();
 		imageSpecimen.updateDisplayImage();
+		TextOverlayGlass tg = (TextOverlayGlass) getGlassAt(TEXT_LAYER);
+		tg.setInvertState(this.invertFlag);
 	}
 
 	public void resetWindowing() {

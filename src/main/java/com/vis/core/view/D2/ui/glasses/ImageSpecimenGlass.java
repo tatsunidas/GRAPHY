@@ -91,7 +91,6 @@ public class ImageSpecimenGlass extends JPanel{
 	final int orgRows;
 	
 	private final Object drawLock = new Object();
-	AffineTransform at;
 	
 	private boolean transparent = true;
 	private float alpha = 1.0f;
@@ -353,9 +352,13 @@ public class ImageSpecimenGlass extends JPanel{
 	    
 	    
 		synchronized (drawLock) { // ロックを開始
-			updateTransform(calculatedScale);
+			//update transform
+			sg.calculateCurrentAffineTransform();
 			ImagePlus dup = createInitialDisplayImage();
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
+			if(sg.isInverted()) {
+				sg.imgProcess.invert(dup);
+			}
 			BufferedImage srcImg = dup.getBufferedImage();
 
 			int w = Math.max(1, getWidth()/*表示するコンポーネントサイズにする*/);
@@ -375,11 +378,11 @@ public class ImageSpecimenGlass extends JPanel{
 	            // AffineTransformOpの作成
 				AffineTransformOp op = null;
 				if(sg.INTERPOLATION_METHOD == ImageProcessor.BILINEAR) {
-					op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_BILINEAR);
 				}else if(sg.INTERPOLATION_METHOD == ImageProcessor.BICUBIC) {
-					op = new AffineTransformOp(at, AffineTransformOp.TYPE_BICUBIC);
+					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_BICUBIC);
 				}else {
-					op = new AffineTransformOp(at, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
 				}
 				op.filter(srcImg, dstImg);
 
@@ -394,12 +397,6 @@ public class ImageSpecimenGlass extends JPanel{
 		repaint();
 	}
 	
-	private void updateTransform(Double forceScale) {
-		if(sg == null) {
-			return;
-		}
-		at = sg.getCurrentAffineTransform();
-	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {

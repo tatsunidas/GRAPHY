@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.vis.graphy</groupId>
 	<artifactId>graphy</artifactId>
-	<version>0.0.5</version>
+	<version>0.0.6</version>
 	
 	<licenses>
 		<license>
@@ -197,7 +197,7 @@
 		<dependency>
 		    <groupId>io.github.tatsunidas</groupId>
 		    <artifactId>radiomicsj</artifactId>
-		    <version>2.1.12</version>
+		    <version>2.1.13</version>
 		</dependency>
 		
 		<dependency>

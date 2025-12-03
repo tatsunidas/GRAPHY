@@ -782,18 +782,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	public void draw(Graphics g) {
 		Graphics2D g2d = (Graphics2D)g;
-		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
-		//AffineTransform aTx = new AffineTransform();//DO NOT USE
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			//First, translate image origin without mag and component scale.
-			aTx.translate(offset.x, offset.y);
-			//Second, scale Roi graphics
-			aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
 		Color color = strokeColor != null ? strokeColor : ROIColor;
 		if(fill) {
 			color = fillColor;
@@ -823,7 +811,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
 		if (cornerDiameter>0) {
-			int sArcSize = (int)Math.round(cornerDiameter*mag*scaleXY[0]);
+			int sArcSize = (int)Math.round(cornerDiameter*mag);
 			if (fillColor!=null && fill) {
 				g2d.fillRoundRect(x1, y1, w, h, sArcSize, sArcSize);
 			}

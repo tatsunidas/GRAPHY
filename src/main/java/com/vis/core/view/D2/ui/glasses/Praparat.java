@@ -1822,6 +1822,7 @@ public class Praparat extends JPanel {
 	
 	/**
 	 * Praparat selection state
+	 * See, SlideGlassMouseListener
 	 * True if any one of the SlideGlasses is in the selected state.
 	 */
 	public void setSelectionState(boolean select) {

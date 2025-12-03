@@ -423,64 +423,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		repaint();
 	}
 	
-	private void drawCross(Graphics g) {
-		if(crossLine != null) {
-			Graphics2D g2 = (Graphics2D)g;
-			g2.setColor(crossLineColor);
-			g2.setStroke(new BasicStroke(crossLineStrokeSize));
-			g2.draw(crossLine);
-		}
-	}
-
-	private void drawCanvas(Graphics g) {
-		//AffinTransform is done in performed by paintComponent.
-		drawRoi(g);
-		drawReferenceLine(g);
-		drawLocalizerLine(g);
-		drawCross(g);
-	}
-
-	private void drawLocalizerLine(Graphics g) {
-		if (localizerGeo != null && pp.getReferenceLineMPR()== null) {
-			Point2D p0_leftUpper = localizerGeo.get(0);
-			Point2D p1_rightUpper = localizerGeo.get(1);
-			Point2D p2_rightLower = localizerGeo.get(2);
-			Point2D p3_leftLower = localizerGeo.get(3);
-			GeneralPath loca = new GeneralPath();
-			loca.moveTo(p0_leftUpper.getX(), p0_leftUpper.getY());
-			loca.lineTo(p1_rightUpper.getX(), p1_rightUpper.getY());
-			loca.lineTo(p2_rightLower.getX(), p2_rightLower.getY());
-			loca.lineTo(p3_leftLower.getX(), p3_leftLower.getY());
-			loca.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
-			Graphics2D g2 = (Graphics2D) g;
-			g2.setColor(localizerColor);
-			g2.setStroke(new BasicStroke(localizerStrokeSize));
-			g2.draw(loca);
-		}
-	}
-	
-	/**
-	 * for reslice
-	 * @param g
-	 */
-	private void drawReferenceLine(Graphics g) {
-		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
-		if (refLineMPR != null) {
-			refLineMPR.draw(g, pp.getName()/*XY XZ YZ*/);
-		}
-	}
-
-	private void drawRoi(Graphics g) {
-		for (int i = 0; i < roiset.size(); i++) {
-			RoiObj roiObj = roiset.get(i);
-			if(roiObj !=null) roiObj.draw(g);
-		}
-		
-		if(brush != null) {
-			brush.draw(g);
-		}
-	}
-	
 	public RoiObj findCurrentRoi() {
 		return getActiveRoi();
 	}
@@ -1013,31 +955,74 @@ public class CanvasGlass extends javax.swing.JPanel {
 		return true;
 	}
 	
+	private void drawCross(Graphics g) {
+		if(crossLine != null) {
+			Graphics2D g2 = (Graphics2D)g;
+			g2.setColor(crossLineColor);
+			g2.setStroke(new BasicStroke(crossLineStrokeSize));
+			g2.draw(crossLine);
+		}
+	}
+	
+	private void drawLocalizerLine(Graphics g) {
+		if (localizerGeo != null && pp.getReferenceLineMPR()== null) {
+			Point2D p0_leftUpper = localizerGeo.get(0);
+			Point2D p1_rightUpper = localizerGeo.get(1);
+			Point2D p2_rightLower = localizerGeo.get(2);
+			Point2D p3_leftLower = localizerGeo.get(3);
+			GeneralPath loca = new GeneralPath();
+			loca.moveTo(p0_leftUpper.getX(), p0_leftUpper.getY());
+			loca.lineTo(p1_rightUpper.getX(), p1_rightUpper.getY());
+			loca.lineTo(p2_rightLower.getX(), p2_rightLower.getY());
+			loca.lineTo(p3_leftLower.getX(), p3_leftLower.getY());
+			loca.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
+			Graphics2D g2 = (Graphics2D) g;
+			g2.setColor(localizerColor);
+			g2.setStroke(new BasicStroke(localizerStrokeSize));
+			g2.draw(loca);
+		}
+	}
+	
+	/**
+	 * for reslice
+	 * @param g
+	 */
+	private void drawReferenceLine(Graphics g) {
+		ReferenceLineMPR refLineMPR = pp.getReferenceLineMPR();
+		if (refLineMPR != null) {
+			refLineMPR.draw(g, pp.getName()/*XY XZ YZ*/);
+		}
+	}
+
+	private void drawRoi(Graphics g) {
+		for (int i = 0; i < roiset.size(); i++) {
+			RoiObj roiObj = roiset.get(i);
+			if(roiObj !=null) roiObj.draw(g);
+		}
+		
+		if(brush != null) {
+			brush.draw(g);
+		}
+	}
+	
 	/**
 	 * Handle draw event on OffScreen (without Caliper).
 	 */
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		
-		Graphics2D g2d = (Graphics2D) g;
-	    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
+		// show first, do not require transform.
 		if (paintCaliper) {
 			showCaliper(g);
 		}
+		Graphics2D g2d = (Graphics2D) g;
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2d.setTransform(sg.getCurrentTransform());
 		
-		AffineTransform aTx = new AffineTransform();
-		double mag = sg.getMagnification();
-		double scaleXY[] = sg.getScaleFactor();
-		Point offset = sg.getDisplayImageOriginXY();
-		//First, translate image origin without mag and component scale.
-		aTx.translate(offset.x, offset.y);
-		//Second, scale Roi graphics
-		aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-		g2d.setTransform(aTx);
-		//then draw all
-		drawCanvas(g);
+		drawRoi(g2d);
+		drawReferenceLine(g);
+		drawLocalizerLine(g);
+		drawCross(g);
 	}
 	
 	/**

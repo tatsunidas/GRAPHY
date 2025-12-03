@@ -500,7 +500,6 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	void drawRubberBand(int sx, int sy) {
-		
 		Point p = null;
 		try {
 			p = slide.offScreenCoordinate(sx, sy);
