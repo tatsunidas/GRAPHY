@@ -80,6 +80,12 @@ public /*abstract*/ class ImageOrientation {
 		}
 		return null;
 	}
+	
+	public static CutSurface getCutsurface(double[] iop) {
+		Vector3d vr = new Vector3d(iop[0], iop[1], iop[2]);
+		Vector3d vc = new Vector3d(iop[3], iop[4], iop[5]);
+		return getCutsurface(vr, vc);
+	}
 
 	/**
 	 * Get a plan describing the axial, coronal or sagittal plane from row and

@@ -333,6 +333,11 @@ public class BufferedImageUtils {
 				// get pixels array reference
 				final short[] pix = ((short[]) img_16.getPixels()).clone();//ushort in imp
 				// adjust raw pixel values
+				/*
+				 * ??? Really ??? 20251201 should be test.
+				 * If images collapsed, try correction
+				 * - int i = pixels[j]&0xffff
+				 */
 				for (int i=0; i<pix.length; i++) {
 					pix[i] += 32768;
 				}

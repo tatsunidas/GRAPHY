@@ -25,7 +25,6 @@ import ij.plugin.FolderOpener;
 public class PlanarSupport {
 
 	//debug
-	@SuppressWarnings("unused")
 	public static void main(String[] args) {
 		/*
 		 * AX、COR、SAGのIOP変換で回転が使えるのは完全に回転がない面の状態のときのみ。
@@ -557,5 +556,62 @@ public class PlanarSupport {
             dividedPlanes.add(inner);
         }
 		return dividedPlanes;
+	}
+	
+	/**
+	 * ベクトルを正規化し、直交性を保証する（NaN回避・堅牢化版）
+	 */
+	public static void normalizeAndOrthogonalize(Vector3d r, Vector3d c) {
+	    // 定数: 計算誤差とみなす閾値
+	    final double EPSILON = 1.0e-6;
+
+	    // 1. Row (r) のチェックと正規化
+	    if (r.lengthSquared() < EPSILON) {
+	        System.err.println("Error: Row vector is too small or zero. Resetting to default.");
+	        r.set(1, 0, 0); // 強制的にX軸にリセット
+	    } else {
+	        r.normalize();
+	    }
+	    
+	    // この時点で r は NaN ではなく長さ1であることが保証される
+
+	    // 2. 法線 (normal) の計算
+	    Vector3d normal = new Vector3d();
+	    r.cross(c, normal); // normal = r × c
+
+	    // 3. 法線 (normal) のチェックと正規化
+	    // r と c が平行、あるいは c がゼロの場合、外積結果はゼロベクトルになる
+	    if (normal.lengthSquared() < EPSILON) {
+	        System.err.println("Error: Vectors are parallel or Col is zero. Attempting fallback.");
+	        
+	        // 救済措置: r とは異なる適当なベクトル(Z軸など)を使って法線を作る
+	        // もし r が Z軸(0,0,1) に近ければ、X軸(1,0,0) を使う
+	        if (Math.abs(r.z) > 0.9) {
+	            r.cross(new Vector3d(1, 0, 0), normal);
+	        } else {
+	            r.cross(new Vector3d(0, 0, 1), normal);
+	        }
+	        
+	        // それでもダメなら強制リセット
+	        if (normal.lengthSquared() < EPSILON) {
+	            normal.set(0, 1, 0); // 適当なY軸
+	        }
+	    }
+	    
+	    // 法線を正規化
+	    normal.normalize();
+
+	    // 4. Col (c) の再計算
+	    // 正規化された法線と r から、直交する c を逆算する
+	    normal.cross(r, c); // c = normal × r
+	    c.normalize();      // 数値誤差除去のため念のため正規化
+
+	    // 結果の確認（デバッグ用）
+	    if (Double.isNaN(r.x) || Double.isNaN(c.x)) {
+	        System.err.println("Critical Error: NaN persisted after fix!");
+	        // 最終防衛ライン：標準的なIOPに戻す
+	        r.set(1, 0, 0);
+	        c.set(0, 1, 0);
+	    }
 	}
 }

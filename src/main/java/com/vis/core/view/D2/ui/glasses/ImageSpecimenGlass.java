@@ -42,7 +42,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.geom.AffineTransform;
@@ -348,7 +347,7 @@ public class ImageSpecimenGlass extends JPanel{
 			originX = init_coord.x;
 			originY = init_coord.y;
 
-			// 重要: dispDim.width は int ですが、描画時のズレをなくすため
+			// 念の為。描画時のズレをなくす目的
 			calculatedScale = (double) dispDim.width / (double) orgCols;
 		}
 	    
@@ -399,31 +398,7 @@ public class ImageSpecimenGlass extends JPanel{
 		if(sg == null) {
 			return;
 		}
-		double scaleToFit = (forceScale != null) ? forceScale : sg.getScaleFactor()[0];
-//		double scaleToFit = sg.getScaleFactor()[0];
-		double zoomFactor = sg.getMagnification();
-		double s = scaleToFit * zoomFactor;
-		double sx = sg.flipVerticalFlag ? -s : s;//Head-Foot X axis flip
-       double sy = sg.flipHorizontalFlag ? -s : s;//LR Y axis flip
-		// 回転角度（度数法をラジアンに変換）
-		double rotateAngleInDegrees = sg.getRotateAngle();
-		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
-
-		Dimension offScreen = sg.getOriginalImageSize(); // OffScreen image size
-		double offCenterX = offScreen.width / 2.0;
-		double offCenterY = offScreen.height / 2.0;
-
-		// パンニングオフセット（パネル座標）
-		Point dispOrigin = new Point(this.originX, this.originY);
-
-		/* 順変換行列 (OffScreen -> Panel) */
-		at = new AffineTransform();
-		at.translate(dispOrigin.x, dispOrigin.y);
-		at.scale(sx, sy);
-		at.translate(offCenterX, offCenterY);
-		at.rotate(thetaInRadians);
-		// 回転の中心をもとに戻す(パネル座標系)
-		at.translate(-offCenterX, -offCenterY);
+		at = sg.getCurrentAffineTransform();
 	}
 	
 	@Override

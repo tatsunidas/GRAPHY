@@ -58,6 +58,8 @@ import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
 import javax.swing.border.Border;
 
+import org.joml.Vector3d;
+
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
@@ -69,6 +71,9 @@ import com.vis.core.view.D2.roi.RoiPopUpDialog;
 import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation;
+import com.vis.core.view.D2.ui.orientation.SubjectOrientation;
+import com.vis.core.view.mpr.PlanarSupport;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
@@ -119,7 +124,9 @@ public class SlideGlass extends JLayeredPane {
 	boolean isPDF = false;
 	boolean isGrayscale = false;
 	boolean isRGB = false;
-	//private int mouseActionFlag = -1; // MouseAction ModifierEx.
+	
+	final boolean isBiped;
+	final double[] display_iop = new double[6];
 
 	// ww/wl settings
 //	private Calibration originalCal = null;
@@ -175,6 +182,7 @@ public class SlideGlass extends JLayeredPane {
 			throw new NullPointerException();
 		}
 		initComponents(pp, dcmImg);
+		isBiped = SubjectOrientation.isBiped(dcmImg.getCore());
 	}
 
 	public void addRoi(RoiObj roi) {
@@ -346,6 +354,8 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			setVerticalFlipState(true);
 		}
+		imageSpecimen.updateDisplayImage();
+		updateOrientation();
 		repaint();//update image specimen
 	}
 
@@ -358,6 +368,8 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			setHorizontalFlipState(true);
 		}
+		imageSpecimen.updateDisplayImage();
+		updateOrientation();
 		repaint();//update image specimen
 	}
 
@@ -770,6 +782,48 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.loadRoiFromDB();
 	}
 	
+	AffineTransform getCurrentAffineTransform() {
+		double scaleToFit = getScaleFactor()[0];
+		double zoomFactor = getMagnification();
+		double s = scaleToFit * zoomFactor;
+		double sx = flipHorizontalFlag ? -s : s;// LR flip
+		double sy = flipVerticalFlag ? -s : s;// Head-Foot flip
+
+		// 回転角度（度数法をラジアンに変換）
+		double rotateAngleInDegrees = getRotateAngle();
+		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
+
+		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
+		double offCenterX = offScreen.width / 2.0;
+		double offCenterY = offScreen.height / 2.0;
+
+		// B. 画面上の表示位置（Destination）の中心
+		// originX, originY は「画像の左上」を指しているため、サイズ/2 を足して中心を求めます。
+		// ※ここでのサイズは、回転前の元画像のサイズにスケールを掛けたものです。
+		double currentImgW = offScreen.width * s;
+		double currentImgH = offScreen.height * s;
+
+		double destCenterX = imageSpecimen.originX + (currentImgW / 2.0);
+		double destCenterY = imageSpecimen.originY + (currentImgH / 2.0);
+
+		// 3. 行列の作成 (順序が重要です)
+		AffineTransform at = new AffineTransform();
+
+		// Step 4: 最後に、求めた画面上の中心位置へ移動させる
+		at.translate(destCenterX, destCenterY);
+
+		// Step 3: 回転させる
+		at.rotate(thetaInRadians);
+
+		// Step 2: スケール（拡大縮小）とフリップ（反転）を適用する
+		at.scale(sx, sy);
+
+		// Step 1: まず、元画像の中心を原点(0,0)に持ってくる
+		at.translate(-offCenterX, -offCenterY);
+
+		return at;
+	}
+	
 	/**
 	 * 
 	 * @param glassX SlideGlassX (screenX)
@@ -779,37 +833,11 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public Point offScreenCoordinate(double glassX, double glassY) throws NoninvertibleTransformException {
 
-		/* 1. 順変換に必要なパラメータの取得 */
-		// スケールとズームの合成倍率
-		double scaleToFit = getScaleFactor()[0];
-		double zoomFactor = getMagnification();
-		double s = scaleToFit * zoomFactor;
-		double sx = flipVerticalFlag ? -s : s;//Head-Foot X axis flip
-       double sy = flipHorizontalFlag ? -s : s;//LR Y axis flip
-		// 回転角度（度数法をラジアンに変換）
-		double rotateAngleInDegrees = getRotateAngle();
-		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
-
-		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
-		double offCenterX = offScreen.width / 2.0;
-		double offCenterY = offScreen.height / 2.0;
-
-		// パンニングオフセット（パネル座標）
-		Point dispOrigin = getDisplayImageOriginXY();
-
-		/* 順変換行列 (OffScreen -> Panel) */
-		java.awt.geom.AffineTransform forwardAt = new AffineTransform();
-		forwardAt.translate(dispOrigin.x, dispOrigin.y);
-		forwardAt.scale(sx, sy);
-		forwardAt.translate(offCenterX, offCenterY);
-		forwardAt.rotate(thetaInRadians);
-		// 回転の中心をもとに戻す(パネル座標系)
-		forwardAt.translate(-offCenterX, -offCenterY);
-		
-		/* 3. 逆変換の実行 (Panel -> OffScreen) */
+		AffineTransform at = getCurrentAffineTransform();
+		/* 逆変換の実行 (Panel -> OffScreen) */
 		try {
 			// 逆行列を取得
-			AffineTransform inverseAt = forwardAt.createInverse();
+			AffineTransform inverseAt = at.createInverse();
 			// JPanel上の座標 (入力値)
 			Point2D.Double panelPoint = new Point2D.Double(glassX, glassY);
 			// OffScreen座標 (出力先)
@@ -831,36 +859,13 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public Point slideglassCoordinateFromOffScreen(double offScreenX, double offScreenY) {
 		
-		double scaleToFit = getScaleFactor()[0];
-		double zoomFactor = getMagnification();
-		double s = scaleToFit * zoomFactor;
-		double sx = flipVerticalFlag ? -s : s;// Head-Foot X axis flip
-		double sy = flipHorizontalFlag ? -s : s;// LR Y axis flip
-		
-		// 回転角度（度数法をラジアンに変換）
-		double rotateAngleInDegrees = getRotateAngle();
-		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
-
-		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
-		double offCenterX = offScreen.width / 2.0;
-		double offCenterY = offScreen.height / 2.0;
-
-		// パンニングオフセット（パネル座標）
-		Point dispOrigin = getDisplayImageOriginXY();
-
-		/* 順変換行列 (OffScreen -> Panel) */
-		java.awt.geom.AffineTransform forwardAt = new AffineTransform();
-		forwardAt.translate(dispOrigin.x, dispOrigin.y);
-		forwardAt.scale(sx, sy);
-		forwardAt.translate(offCenterX, offCenterY);
-		forwardAt.rotate(thetaInRadians);
-		forwardAt.translate(-offCenterX, -offCenterY);
+		AffineTransform at = getCurrentAffineTransform();
 		
 		// OffScreen origin
 		Point2D.Double offOrigin = new Point2D.Double(offScreenX, offScreenY);
 		// Display Image Coordinates
 		Point2D.Double newOrigin = new Point2D.Double();
-		forwardAt.transform(offOrigin, newOrigin);
+		at.transform(offOrigin, newOrigin);
 		
 		imageSpecimen.originX = (int) Math.round(newOrigin.getX());
 		imageSpecimen.originY = (int) Math.round(newOrigin.getY());
@@ -952,6 +957,70 @@ public class SlideGlass extends JLayeredPane {
 		setRotateAngle((int) willRotateAngle);
 		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
+		updateOrientation();
+	}
+	
+	void updateOrientation() {
+
+		double rotateAngleInDegrees = getRotateAngle();
+		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
+
+		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getCore());
+		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getCore());
+
+//       System.out.println("BaseRow: " + baseRow.toString() + ", Length: " + baseRow.length());
+//       System.out.println("BaseCol: " + baseCol.toString() + ", Length: " + baseCol.length());
+
+		if (baseRow.length() < 1e-6 || baseCol.length() < 1e-6) {
+			Log.logger.log(Level.WARNING, "ImagePositionPatient is NULL, cannot calculate Orientations.");
+			return; // 処理を中断
+		}
+		
+		double flipX = flipHorizontalFlag ? -1.0 : 1.0;
+       double flipY = flipVerticalFlag ? -1.0 : 1.0;
+       
+       Vector3d workingRow = new Vector3d(baseRow).mul(flipX);
+       Vector3d workingCol = new Vector3d(baseCol).mul(flipY);
+
+		// 2. 回転計算 (線形結合)
+		// 画面上での回転は、RowベクトルとColベクトルの合成で表現できます。
+		// これにより、Axial/Sagittal/Coronal/Obliqueすべて自動的に対応します。
+		double cos = Math.cos(thetaInRadians);
+		double sin = Math.sin(thetaInRadians);
+
+//		// --- New Row の計算 ---
+//		// 式: NewRow = (baseRow * cos) - (baseCol * sin)
+//		Vector3d rCopy1 = new Vector3d(baseRow);
+//		Vector3d cCopy1 = new Vector3d(baseCol);
+//		Vector3d newRow = rCopy1.mul(cos).sub(cCopy1.mul(sin));
+//
+//		// 次の計算のため、再度元の値からコピーを作る
+//		Vector3d rCopy2 = new Vector3d(baseRow);
+//		Vector3d cCopy2 = new Vector3d(baseCol);
+//		Vector3d newCol = rCopy2.mul(sin).add(cCopy2.mul(cos));
+		
+		// NewRow = workingRow * cos - workingCol * sin
+		Vector3d newRow = new Vector3d(workingRow).mul(cos)
+                .sub(new Vector3d(workingCol).mul(sin));
+
+		// NewCol = workingRow * sin + workingCol * cos
+		Vector3d newCol = new Vector3d(workingRow).mul(sin)
+		                .add(new Vector3d(workingCol).mul(cos));
+
+		// 3. 直交性と長さの正規化を保証する (重要)
+		// 誤差蓄積や元画像の歪みを補正し、常に正しい90度を保ちます。
+		PlanarSupport.normalizeAndOrthogonalize(newRow, newCol);
+
+		// 4. 結果をdisplay_iopに格納
+		display_iop[0] = newRow.x;
+		display_iop[1] = newRow.y;
+		display_iop[2] = newRow.z;
+		display_iop[3] = newCol.x;
+		display_iop[4] = newCol.y;
+		display_iop[5] = newCol.z;
+
+		textOverlay.updateDisplayDirection(display_iop, isBiped);
+
 	}
 
 	public void saveCurrentRoiSate() {

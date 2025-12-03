@@ -267,6 +267,34 @@ public class TextOverlayGlass extends JPanel{
 		return tags;
 	}
 	
+	public void updateDisplayDirection(double[] display_iop, boolean isBiped) {
+		
+		Vector3d row_vec = new Vector3d(display_iop[0],display_iop[1],display_iop[2]);
+		Vector3d col_vec = new Vector3d(display_iop[3],display_iop[4],display_iop[5]);
+
+		//get orientation
+		boolean biped = isBiped;
+		String xAxis_right_side_orientation = ImageOrientation.getOrientation(row_vec, !biped).substring(0,1);
+		String xAxis_left_side_orientation = ImageOrientation.getImageOrientationOpposite(xAxis_right_side_orientation, !biped);
+		String yAxis_lower_side_orientation = ImageOrientation.getOrientation(col_vec, !biped).substring(0, 1);
+		String yAxis_upper_side_orientation = ImageOrientation.getImageOrientationOpposite(yAxis_lower_side_orientation, !biped);
+		directions = new HashMap<>(4);
+		directions.put("LEFT", new JLabel(xAxis_left_side_orientation));
+		directions.put("RIGHT", new JLabel(xAxis_right_side_orientation));
+		directions.put("TOP", new JLabel(yAxis_upper_side_orientation));
+		directions.put("BOTTOM", new JLabel(yAxis_lower_side_orientation));
+		directions.get("LEFT").setHorizontalAlignment(SwingConstants.LEFT);
+		directions.get("LEFT").setVerticalAlignment(SwingConstants.CENTER);
+		directions.get("RIGHT").setHorizontalAlignment(SwingConstants.RIGHT);
+		directions.get("RIGHT").setVerticalAlignment(SwingConstants.CENTER);
+		directions.get("TOP").setHorizontalAlignment(SwingConstants.CENTER);
+		directions.get("TOP").setVerticalAlignment(SwingConstants.TOP);
+		directions.get("BOTTOM").setHorizontalAlignment(SwingConstants.CENTER);
+		directions.get("BOTTOM").setVerticalAlignment(SwingConstants.BOTTOM);
+		repaint();
+//		initDirectionLabels();
+	}
+	
 	private void loadDirection(DicomObject dcm) {
 		Vector3d row_vec = ImageOrientation.getRowDirection(dcm);
 		Vector3d col_vec = ImageOrientation.getColumnDirection(dcm);
