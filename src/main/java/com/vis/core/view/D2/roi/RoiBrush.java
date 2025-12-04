@@ -77,8 +77,14 @@ public class RoiBrush {
 	
 	SlideGlass slide = null;
 	
+	/**
+	 * Brushing tool Roi
+	 */
 	ShapeRoi brush = null;
 	
+	/**
+	 * Selection Roi painted by brush.
+	 */
 	RoiObj currentBrushingRoi = null;
 	
 	public RoiBrush(SlideGlass slide, MouseEvent pressedEvent, boolean createBrush) {
@@ -261,15 +267,19 @@ public class RoiBrush {
 		}
 	}
 	
-	void add(RoiObj roi, ShapeRoi brush, int x, int y) {
+	void add(RoiObj roi/*currentBrushingRoi*/, ShapeRoi brush, int x, int y) {
 		if(roi != null) {
+			String roiId = roi.getProperty(ContextKey.RoiID.name());
+			// be careful for RoiObj or ROI sub classes.clone() method.
 			ShapeRoi replace = new ShapeRoi(roi);//done copyAttributes
+//			String afterRoiId = roi.getProperty(ContextKey.RoiID.name());//check whether replace new RoiID...(no expected)
 			replace = replace.or(brush);
-			replace.setProperty(ContextKey.RoiID.name(), roi.getProperty(ContextKey.RoiID.name()));
+			replace.setProperty(ContextKey.RoiID.name(), roiId);
 			slide.updateRoi(replace);
 			currentBrushingRoi = replace;
 			roi = null;
 		}else {
+			//replace original brush to brushingRoi.
 			ShapeRoi r = (ShapeRoi)brush.clone();
 			slide.addRoi(r);
 			currentBrushingRoi = r;
