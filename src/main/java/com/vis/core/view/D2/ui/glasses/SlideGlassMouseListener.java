@@ -68,8 +68,6 @@ import com.vis.core.view.mpr.CenterPositionLine;
 import com.vis.core.view.mpr.MPRViewerWindow;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 
-import ij.ImagePlus;
-
 /**
  * 
  * @author tatsunidas

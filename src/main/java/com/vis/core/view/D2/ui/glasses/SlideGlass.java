@@ -359,7 +359,7 @@ public class SlideGlass extends JLayeredPane {
 		}
 		imageSpecimen.updateDisplayImage();
 		updateOrientation();
-		repaint();//update image specimen
+		repaint();
 	}
 
 	/**
@@ -547,8 +547,8 @@ public class SlideGlass extends JLayeredPane {
 	 * @param y slideY
 	 * @return
 	 */
-	public RoiObj getRoiLocationAt(int x, int y) {
-		return roiOverlay.getRoiLoacationAt(x, y);
+	public RoiObj getRoiLocationAt(int sx, int sy) {
+		return roiOverlay.getRoiLoacationAt(sx, sy);
 	}
 
 	/**
@@ -828,6 +828,10 @@ public class SlideGlass extends JLayeredPane {
 		return currentTransform;
 	}
 	
+	/**
+	 * Calculate current transform and update it.
+	 * @return
+	 */
 	public AffineTransform getCurrentTransform() {
 		if(currentTransform == null) {
 			return calculateCurrentAffineTransform();
@@ -947,6 +951,7 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.updateDisplayImage();
 		TextOverlayGlass tg = (TextOverlayGlass) getGlassAt(TEXT_LAYER);
 		tg.setInvertState(this.invertFlag);
+		repaint();//show rois
 	}
 
 	public void resetWindowing() {
@@ -975,13 +980,10 @@ public class SlideGlass extends JLayeredPane {
 
 		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getCore());
 		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getCore());
-
-//       System.out.println("BaseRow: " + baseRow.toString() + ", Length: " + baseRow.length());
-//       System.out.println("BaseCol: " + baseCol.toString() + ", Length: " + baseCol.length());
-
+		
 		if (baseRow.length() < 1e-6 || baseCol.length() < 1e-6) {
 			Log.logger.log(Level.WARNING, "ImagePositionPatient is NULL, cannot calculate Orientations.");
-			return; // 処理を中断
+			return;
 		}
 		
 		double flipX = flipHorizontalFlag ? -1.0 : 1.0;
@@ -991,21 +993,8 @@ public class SlideGlass extends JLayeredPane {
        Vector3d workingCol = new Vector3d(baseCol).mul(flipY);
 
 		// 2. 回転計算 (線形結合)
-		// 画面上での回転は、RowベクトルとColベクトルの合成で表現できます。
-		// これにより、Axial/Sagittal/Coronal/Obliqueすべて自動的に対応します。
 		double cos = Math.cos(thetaInRadians);
 		double sin = Math.sin(thetaInRadians);
-
-//		// --- New Row の計算 ---
-//		// 式: NewRow = (baseRow * cos) - (baseCol * sin)
-//		Vector3d rCopy1 = new Vector3d(baseRow);
-//		Vector3d cCopy1 = new Vector3d(baseCol);
-//		Vector3d newRow = rCopy1.mul(cos).sub(cCopy1.mul(sin));
-//
-//		// 次の計算のため、再度元の値からコピーを作る
-//		Vector3d rCopy2 = new Vector3d(baseRow);
-//		Vector3d cCopy2 = new Vector3d(baseCol);
-//		Vector3d newCol = rCopy2.mul(sin).add(cCopy2.mul(cos));
 		
 		// NewRow = workingRow * cos - workingCol * sin
 		Vector3d newRow = new Vector3d(workingRow).mul(cos)
@@ -1015,8 +1004,7 @@ public class SlideGlass extends JLayeredPane {
 		Vector3d newCol = new Vector3d(workingRow).mul(sin)
 		                .add(new Vector3d(workingCol).mul(cos));
 
-		// 3. 直交性と長さの正規化を保証する (重要)
-		// 誤差蓄積や元画像の歪みを補正し、常に正しい90度を保ちます。
+		// 3. 直交性と長さの正規化を保証する
 		PlanarSupport.normalizeAndOrthogonalize(newRow, newCol);
 
 		// 4. 結果をdisplay_iopに格納

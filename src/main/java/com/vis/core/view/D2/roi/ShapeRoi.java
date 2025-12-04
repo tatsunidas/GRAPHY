@@ -48,6 +48,10 @@ public class ShapeRoi extends RoiObj {
     private static final int OR=0, AND=1, XOR=2, NOT=3;
 
     /**The <code>java.awt.Shape</code> encapsulated by this object.*/
+    /**
+     * tatsu
+     * All coordinates in shape keeps origin to (0,0).
+     */
     private Shape shape;
     
     /**The instance value of the maximum tolerance (MAXERROR) allowed in calculating the 
@@ -120,7 +124,6 @@ public class ShapeRoi extends RoiObj {
      */
 	ShapeRoi(RoiObj r, double flatness, double maxerror, boolean forceAngle, boolean forceTrace, boolean flatten,
 			int maxPoly, SlideGlass slide) {
-		//DO NOT USE origin in doubles to keep bounds null.
 		super(r.startX, r.startY, r.width, r.height, 0/*cornerDiameter*/, slide);//default
 		this.type = RoiType.COMPOSITE.id();
 		this.flatness = flatness;
@@ -138,7 +141,6 @@ public class ShapeRoi extends RoiObj {
 	 * @param slide
 	 */
     public ShapeRoi(float[] shapeArray, SlideGlass slide) {
-    	//DO NOT USE origin in doubles to keep bounds null.
         super(0,0,0,0,0/*cornerDiameter*/,slide);
         shape = makeShapeFromArray(shapeArray);
         Rectangle r = shape.getBounds();
@@ -147,7 +149,7 @@ public class ShapeRoi extends RoiObj {
         width = r.width;
         height = r.height;
         state = NORMAL;
-        oldX=x; oldY=y; oldWidth=width; oldHeight=height;               
+        oldX=x; oldY=y; oldWidth=width; oldHeight=height;
         AffineTransform at = new AffineTransform();
         at.translate(-x, -y);
         shape = new GeneralPath(at.createTransformedShape(shape));
@@ -187,7 +189,7 @@ public class ShapeRoi extends RoiObj {
         sr.maxerror = maxerror;
         sr.forceAngle = forceAngle;
         sr.forceTrace = forceTrace;
-        sr.setSlideGlass(slide);
+        sr.setSlideGlass(slide);//update UIDs and set new RoiID
         sr.setShape(ShapeRoi.cloneShape(shape));
         return sr;
     }
@@ -807,7 +809,7 @@ public class ShapeRoi extends RoiObj {
             shapeArray.add(segType);
             int nCoords = nCoords(segType);
             if (nCoords > 0) {
-                addOffset(coords, nCoords, xBase, yBase);//TODO
+                addOffset(coords, nCoords, xBase, yBase);
                 shapeArray.add(coords, nCoords);
             }
             pIt.next();
@@ -976,6 +978,7 @@ public class ShapeRoi extends RoiObj {
 
     /** Non-destructively draws the shape of this object on the associated ImagePlus. */
 	public void draw(Graphics g) {
+		Graphics2D g2d = (Graphics2D) g;
 		Color color = strokeColor;
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
@@ -983,46 +986,14 @@ public class ShapeRoi extends RoiObj {
 			//see, com.vis.core.view.D2.ui.glasses.BorderMaker.class
 			color = Color.MAGENTA;
 		}
-		g.setColor(color);
-
-		double mag = getMagnification();
-		double scale[] = getComponentScaleFactor();
-		Graphics2D g2d = (Graphics2D) g;
-//		AffineTransform aTx = new AffineTransform();//DO NOT USE
-		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
+		g2d.setColor(color);
+		
 		if (stroke != null && !isActiveOverlayRoi()) {
 			g2d.setStroke((slide != null) || isCursor() ? stroke : getScaledStroke());
 		}
 		
-		Shape clone = cloneShape(shape);
-		if (slide != null) {
-			double roiOX = getXBase();// bounds is not using in ShapeRoi.
-			double roiOY = getYBase();
-			if((int)roiOX != x && (int)roiOY != y) {
-				roiOX = x;
-				roiOY = y;
-			}
-			/*
-			 * The shape does not have position information in the upper left corner. Adjust everything using Transform.
-			 */
-			//move to offset
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			//set zoom scale for origin and shape points
-			aTx.scale(mag * scale[0], mag * scale[1]);
-			//then translate with scale to bounds x and y.
-			aTx.translate(roiOX, roiOY);
-			g2d.setTransform(aTx);
-			
-			// following code why linux is OK ? (windows can not show correctly)
-//			aTx.scale(mag * scale[0], mag * scale[1]);
-//			aTx.translate(roiOX, roiOY);
-//			clone = aTx.createTransformedShape(clone);
-//			aTx = new AffineTransform();
-//			Point offset = slide.getDisplayImageOriginXY();
-//			aTx.translate(offset.x, offset.y);
-//			g2d.setTransform(aTx);
-		}
+		Shape clone = makeShapeFromArray(getShapeAsArray(shape, (int)getXBase(), (int)getYBase()));
+		
 		if (fill) {
 			g2d.draw(clone);
 			g2d.setColor(fillColor);

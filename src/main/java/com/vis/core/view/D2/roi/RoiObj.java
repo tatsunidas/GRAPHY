@@ -202,16 +202,22 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/*
 	 * Coordinate system conforms to the original image coordinate system.
 	 */
+	/*
+	 * startX, Y : first construction point for polygon/points/angle
+	 */
 	public int startX, startY;
 	public double startXD, startYD;
+	/*
+	 * origin
+	 */
 	public int x, y;
+	/*
+	 * bounds
+	 */
 	protected int width, height;
 	//Original image coordinate basis
-	int previousX;// on imageX
-	int previousY;// on imageY
-	// SlideGlass coordinate basis.
-	int previousSX;// on slideX
-	int previousSY;// on slideY
+	int previousX;// offscreenX
+	int previousY;// offscreenY
 	java.awt.geom.Rectangle2D.Double bounds;
 	int activeHandle;
 	int state = NORMAL;
@@ -709,15 +715,16 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	/**
-	 * Returns a copy of this roi. See Thinking is Java by Bruce Eckel
+	 * Returns a copy of this roi. 
+	 * 
+	 * UIDs and RoiID also have.
+	 * 
+	 * See Thinking is Java by Bruce Eckel
 	 * (www.eckelobjects.com) for a good description of object cloning.
 	 */
 	public synchronized Object clone() {
 		try {
 			RoiObj r = (RoiObj) super.clone();
-			r.setProperty(ContextKey.RoiID.name(), createRoiIndex());
-//			r.setSlideGlass(null);
-//			r.setImage(null);
 			if (!usingDefaultStroke) {
 				r.setStroke(getStroke());
 			}
@@ -1943,8 +1950,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}else {
 			mouseDownInHandle(handleId, sx, sy);
 		}
-		previousSX = sx;
-		previousSY = sy;
 		
 		Point p = null;
 		try {
@@ -1956,6 +1961,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		
 		int ox = p.x;
 		int oy = p.y;
+		
+		previousX = ox;
+		previousY = oy;
 		
 		if(state != CONSTRUCTING) {
 			startX = ox;
@@ -2245,17 +2253,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	void move(int sx, int sy) {
-		if (constrain) {  // constrain translation in 90deg steps
-			int dx = sx - previousSX;
-			int dy = sy - previousSY;
-			if (Math.abs(dx) > Math.abs(dy))
-				dy = 0;
-			else
-				dx = 0;
-			sx = previousSX + dx;
-			sy = previousSY + dy;
-		}
-		
+		/*
+		 * offscreen X and Y
+		 */
 		Point p = null;
 		try {
 			p = slide.offScreenCoordinate(sx, sy);
@@ -2266,6 +2266,17 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		
 		int xNew = p.x;
 		int yNew = p.y;
+		
+		if (constrain) {  // constrain translation in 90deg steps
+			int dx = xNew - previousX;
+			int dy = yNew - previousY;
+			if (Math.abs(dx) > Math.abs(dy))
+				dy = 0;
+			else
+				dx = 0;
+			xNew = previousX + dx;
+			yNew = previousY + dy;
+		}
 		
 		int dx = xNew - startX;
 		int dy = yNew - startY;
@@ -2289,6 +2300,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if (type==RoiType.POINT.id() || ((this instanceof TextRoi) && ((TextRoi)this).getAngle()!=0.0))
 			ignoreClipRect = true;
 		updateClipRect();
+		
+		previousX = xNew;
+		previousY = yNew;
 		oldX = x;
 		oldY = y;
 		oldWidth = width;

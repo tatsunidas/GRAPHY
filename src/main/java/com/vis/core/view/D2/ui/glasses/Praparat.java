@@ -789,38 +789,6 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	public ImagePlus cropRectangle(boolean show) {
-		SlideGlass sg = getCurrentSlide();
-		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-		RoiObj roi = cg.findCurrentRoi();
-		if(roi == null) {
-			return null;
-		}
-		int res = JOptionPane.showConfirmDialog(this, "Process all slides in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-		final ImagePlus crop;
-		if(res != JOptionPane.YES_OPTION) {
-			ImagePlus imp = getImagePlus();
-			imp.setSlice(getCurrentSlidePos()+1);
-			crop = new ImageProcessing().cropRect(imp, roi, false);
-		}else {
-			ImagePlus imp = getImagePlus();
-			crop = new ImageProcessing().cropRect(imp, roi, true);
-		}
-		if(crop == null || crop.getNSlices() < 1) {
-			return null;
-		}
-		if(show) {
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					Praparat prap = new Praparat(crop, getStudyColor(), mode);
-					new SeriesWindow(prap);
-				}
-			});
-		}
-		return crop;
-	}
-
 	public void doFilmGridLayout(Integer col) {
 		if(col == null) {
 			col = minimumGridCol;//5
@@ -901,11 +869,6 @@ public class Praparat extends JPanel {
 		int iter = 0;
 		for (int arrayOrder : slides.keySet()) {
 			SlideGlass sg = slides.get(arrayOrder);
-			/**
-			 * 20250610
-			 * should do test
-			 */
-//			ImagePlus imp = sg.convertToImagePlus();//memory leak
 			ImagePlus imp = sg.getOriginalImage();
 			/*
 			 * calibration is gone here, so finally add it.
@@ -1415,14 +1378,55 @@ public class Praparat extends JPanel {
 		}
 	}
 	
+	public ImagePlus processCropRectangle(boolean show) {
+		SlideGlass sg = getCurrentSlide();
+		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		RoiObj roi = cg.getSelectedRoi();
+		if(roi == null) {
+			JOptionPane.showMessageDialog(this, "Please select/create roi first. Can not cropping.", "Crop Tool", JOptionPane.INFORMATION_MESSAGE);
+			return null;
+		}
+		
+		RoiObj rect = new RoiObj(roi.getXBase(), roi.getYBase(), roi.getBounds().width, roi.getBounds().height, null);
+		
+		int res = JOptionPane.showConfirmDialog(this, "Process all slides in this series ?", "Crop series ?", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+		final ImagePlus crop;
+		if(res != JOptionPane.YES_OPTION) {
+			ImagePlus imp = getImagePlus();
+			imp.setSlice(getCurrentSlidePos()+1);
+			crop = new ImageProcessing().cropRect(imp, rect, false);
+		}else {
+			ImagePlus imp = getImagePlus();
+			crop = new ImageProcessing().cropRect(imp, rect, true);
+		}
+		if(crop == null || crop.getNSlices() < 1) {
+			Log.logger.severe("Cropping was failed...");
+			return null;
+		}
+		
+		if(show) {
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					Praparat prap = new Praparat(crop, getStudyColor(), mode);
+					new SeriesWindow(prap);
+				}
+			});
+		}
+		return crop;
+	}
+	
 	public ImagePlus processCut(boolean show) {
 		SlideGlass sg = getCurrentSlide();
 		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-		RoiObj currentRoi = cg.findCurrentRoi();
+		RoiObj currentRoi = cg.getSelectedRoi();
 		if(currentRoi == null ) {
 			Log.logger.info("Current ROI is null...");
 			return null;
 		}
+		
+		//RoiObj rect = new RoiObj(currentRoi.getXBase(), currentRoi.getYBase(), currentRoi.getBounds().width, currentRoi.getBounds().height, null);
+		
 		final ImagePlus cut;
 		int res = JOptionPane.showConfirmDialog(this, "Process all slide in this series ?", "Cut...", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res != JOptionPane.YES_OPTION) {
@@ -1433,6 +1437,14 @@ public class Praparat extends JPanel {
 			ImagePlus imp2 = getImagePlus();
 			cut = new ImageProcessing().cut(imp2, currentRoi, true);
 		}
+		
+		if(cut == null) {
+			Log.logger.info("Cut failed... Please re-try...");
+			return null;
+		}
+		
+		new ImageProcessing().windowing(cut, sg.currentMin, sg.currentMax);
+		
 		if(show) {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
@@ -1442,6 +1454,7 @@ public class Praparat extends JPanel {
 				}
 			});
 		}
+		
 		return cut;
 	}
 

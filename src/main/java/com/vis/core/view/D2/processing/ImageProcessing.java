@@ -123,6 +123,7 @@ public class ImageProcessing {
 		RoiObj roi = rectRoi;
 		RoiType type = roi.getRoiType();
 		if (type != RoiType.RECTANGLE && type != RoiType.OVAL && type != RoiType.POLYGON) {
+			JOptionPane.showMessageDialog(null, "Sorry, RoiType should be Rectangle. Cropping was canceled.", "Crop Tool", JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
 		Rectangle2D rect = roi.getBounds();
@@ -202,7 +203,7 @@ public class ImageProcessing {
 			ImagePlus cut = new ImagePlus(imp.getTitle()+"_CUT", stack);
 			cut.setProperty("Info", imp.getStack().getSliceLabel(imp.getCurrentSlice()));
 			cut.setCalibration(cal);
-			cut.resetDisplayRange();
+//			cut.resetDisplayRange();
 			return cut;
 		}else {
 			int size = imp.getNSlices();
@@ -219,7 +220,7 @@ public class ImageProcessing {
 				stack.addSlice(temp.getStack().getSliceLabel(1), temp.getProcessor());
 			}
 			ImagePlus im = new ImagePlus(imp.getTitle()+"_CUT", stack);
-			im.resetDisplayRange();
+//			im.resetDisplayRange();
 			im.setCalibration(cal);
 			return im;
 		}

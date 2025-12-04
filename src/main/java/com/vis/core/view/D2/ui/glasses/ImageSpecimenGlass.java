@@ -44,7 +44,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Point;
-import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 
@@ -323,8 +322,9 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	/**
 	 * Use this.
-	 * - here you do processing something -, then,
-	 * imageSpecimen.updateDisplayImage(); // update display image which applied current conditions.
+	 * 1: do processing something 
+	 * 2: then, imageSpecimen.updateDisplayImage();
+	 * to update display image which applied current conditions.
 	 */
 	public void updateDisplayImage() {
 		
@@ -332,33 +332,23 @@ public class ImageSpecimenGlass extends JPanel{
 			return;
 		}
 		
-		Double calculatedScale = null; // 正確なスケールを保持する変数
-
 		if (!sg.panningFlag) {
-			// --- 修正箇所: ここで正確なスケールを逆算する ---
-			Dimension dispDim = calcImageSize2FitComponent();
-			if (dispDim == null) {
-				return;
-			}
-
-			// 原点の計算
-			Point init_coord = calcDefaultImageOrigin(dispDim.width, dispDim.height);
-			originX = init_coord.x;
-			originY = init_coord.y;
-
-			// 念の為。描画時のズレをなくす目的
-			calculatedScale = (double) dispDim.width / (double) orgCols;
+			//to display open-up
+			resetImageOrigin();
 		}
-	    
-	    
+		
 		synchronized (drawLock) { // ロックを開始
 			//update transform
 			sg.calculateCurrentAffineTransform();
+			//create copy of original
 			ImagePlus dup = createInitialDisplayImage();
+			//adjust contrast to current
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
+			//invert if it set
 			if(sg.isInverted()) {
 				sg.imgProcess.invert(dup);
 			}
+			//create image to display
 			BufferedImage srcImg = dup.getBufferedImage();
 
 			int w = Math.max(1, getWidth()/*表示するコンポーネントサイズにする*/);

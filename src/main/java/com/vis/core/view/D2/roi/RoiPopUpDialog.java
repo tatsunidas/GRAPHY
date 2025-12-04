@@ -15,9 +15,6 @@ import ij.process.ImageStatistics;
 /**
  * TODO
  * 
- * RoiPopUpDialogは、CanvasGlassのpaintComponent内で表示・非表示を操作できるように改良したい。
-RoiMouseMoved、ActivateROI、ShowDialog。
- * 
  * @author tatsunidas
  *
  */

@@ -1,7 +1,6 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.*;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.NoninvertibleTransformException;
 import java.util.logging.Level;
@@ -247,15 +246,6 @@ public class OvalRoi extends RoiObj {
 
 	public void draw(Graphics g) {
 		Graphics2D g2d = (Graphics2D)g;
-		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		if(fill) color = fillColor;
 		if (isActiveOverlayRoi()) {

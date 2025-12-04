@@ -41,7 +41,6 @@ import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
@@ -268,34 +267,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		case MULTIPOINT:
 			roi = new PointRoi(imageX, imageY, RoiType.MULTIPOINT.id(), sg);
 			break;
-//			if (Prefs.pointAddToOverlay) {
-//				int measurements = Analyzer.getMeasurements();
-//				if (!(Prefs.pointAutoMeasure && (measurements & Measurements.ADD_TO_OVERLAY) != 0))
-//					IJ.run(this, "Add Selection...", "");
-//				Overlay overlay2 = getOverlay();
-//				if (overlay2 != null)
-//					overlay2.drawLabels(!Prefs.noPointLabels);
-//				Prefs.pointAddToManager = false;
-//			}
-//			if (Prefs.pointAutoMeasure || (Prefs.pointAutoNextSlice && !Prefs.pointAddToManager))
-//				IJ.run(this, "Measure", "");
-//			if (Prefs.pointAddToManager) {
-//				IJ.run(this, "Add to Manager ", "");
-//				ImageCanvas ic = getCanvas();
-//				if (ic != null) {
-//					RoiManager rm = RoiManager.getInstance();
-//					if (rm != null) {
-//						if (Prefs.noPointLabels)
-//							rm.runCommand("show all without labels");
-//						else
-//							rm.runCommand("show all with labels");
-//					}
-//				}
-//			}
-//			if (Prefs.pointAutoNextSlice && getStackSize() > 1) {
-//				IJ.run(this, "Next Slice [>]", "");
-//				deleteRoi();
-//			}
 		default:
 			//do nothig
 		}
@@ -421,6 +392,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 		path.lineTo(ix, sg.getOriginalImage().getHeight());
 		setCrossLine(path);
 		repaint();
+	}
+	
+	public RoiObj getSelectedRoi() {
+		for (RoiObj roi : roiset) {
+			if (roi.isSelected()) {
+				return roi;
+			}
+		}
+		return null;
 	}
 	
 	public RoiObj findCurrentRoi() {
@@ -1011,14 +991,18 @@ public class CanvasGlass extends javax.swing.JPanel {
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		// show first, do not require transform.
 		if (paintCaliper) {
+			// show first, do not require transform.
+			//slide glass coordinates
 			showCaliper(g);
 		}
 		Graphics2D g2d = (Graphics2D) g;
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		//g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g2d.setTransform(sg.getCurrentTransform());
 		
+		/*
+		 * offscreen cood.
+		 */
 		drawRoi(g2d);
 		drawReferenceLine(g);
 		drawLocalizerLine(g);

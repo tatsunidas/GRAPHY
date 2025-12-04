@@ -192,24 +192,8 @@ public class PointRoi extends PolygonRoi {
 	void drawPoint(Graphics g, int x, int y, int n) {
 		int size2 = size / 2;
 		boolean colorSet = false;
-
-		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
 		Graphics2D g2d = (Graphics2D) g;
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			// First, translate image origin without mag and component scale.
-			aTx.translate(offset.x, offset.y);
-			// Second, scale Roi graphics
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
-
 		Color color = strokeColor != null ? strokeColor : ROIColor;
-//		if (!overlay && isActiveOverlayRoi()) {
-//			color = Color.cyan;
-//		}
 		if (isActiveOverlayRoi()) {
 			color = Color.cyan;
 		}else if(isSelected) {

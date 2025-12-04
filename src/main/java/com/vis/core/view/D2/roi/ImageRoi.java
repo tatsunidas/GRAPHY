@@ -41,7 +41,6 @@ import ij.ImagePlus;
 import ij.process.*;
 import ij.io.FileSaver;
 import java.awt.*;
-import java.awt.geom.AffineTransform;
 import java.awt.image.*;
 
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
@@ -77,16 +76,7 @@ public class ImageRoi extends RoiObj {
 	}
 		
 	public void draw(Graphics g) {
-		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
 		Graphics2D g2d = (Graphics2D) g;
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
 		int x2 = x+width;
 		int y2 = y+height;
 		Composite saveComposite = null;

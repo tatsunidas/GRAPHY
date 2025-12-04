@@ -15,7 +15,6 @@ import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Rectangle2D;
@@ -170,16 +169,7 @@ public class Line extends RoiObj {
 	}
 
 	protected void moveHandle(int sx, int sy) {
-		if (constrain && activeHandle == 2) {  // constrain translation in 90deg steps
-			int dx = sx - previousSX;
-			int dy = sy - previousSY;
-			if (Math.abs(dx) > Math.abs(dy))
-				dy = 0;
-			else
-				dx = 0;
-			sx = previousSX + dx;
-			sy = previousSY + dy;
-		}
+		
 		Point p = null;
 		try {
 			p = slide.offScreenCoordinate(sx, sy);
@@ -187,9 +177,20 @@ public class Line extends RoiObj {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
 		}
-		
 		double ox = p.x;
 		double oy = p.y;
+		
+		if (constrain && activeHandle == 2) {  // constrain translation in 90deg steps
+			int dx = (int) (ox - previousX);
+			int dy = (int) (oy - previousY);
+			if (Math.abs(dx) > Math.abs(dy))
+				dy = 0;
+			else
+				dx = 0;
+			ox = previousX + dx;
+			oy = previousY + dy;
+		}
+		
 		double x1d=getXBase()+x1R, y1d=getYBase()+y1R;
 		double x2d=getXBase()+x2R, y2d=getYBase()+y2R;
 		double length = Math.sqrt(sqr(x2d-x1d) + sqr(y2d-y1d));
@@ -384,15 +385,6 @@ public class Line extends RoiObj {
 	/** Draws this line on the image. */
 	public void draw(Graphics g) {
 		Graphics2D g2d = (Graphics2D) g;
-		AffineTransform aTx = g2d.getDeviceConfiguration().getDefaultTransform();
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
 		Color color =  strokeColor!=null? strokeColor:ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
 		if (isActiveOverlayRoi) {

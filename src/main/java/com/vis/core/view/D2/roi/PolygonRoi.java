@@ -145,10 +145,6 @@ public class PolygonRoi extends RoiObj {
 		previousX = offscreenX;
 		previousY = offscreenY;
 		
-		Point sp = sg.slideglassCoordinateFromOffScreen(offscreenX, offscreenY);
-		
-		previousSX = sp.x;
-		previousSY = sp.y;
 		x = offscreenX;
 		y = offscreenY;
 		startXD = x;
@@ -196,16 +192,7 @@ public class PolygonRoi extends RoiObj {
 
 	public void draw(Graphics g) {
 		updatePolygon();
-		AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
 		Graphics2D g2d = (Graphics2D) g;
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2d.setTransform(aTx);
-		}
 		boolean hasHandles = xSpline != null || type == RoiType.POLYGON.id() || type == RoiType.POLYLINE.id() || type == RoiType.ANGLE.id();
 		Color color = strokeColor != null ? strokeColor : ROIColor;
 		boolean isActiveOverlayRoi = isActiveOverlayRoi();
@@ -379,20 +366,30 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	public void mouseMoved(MouseEvent e) {
-		SlideGlass sg = slide;
 		int sx = e.getX();
 		int sy = e.getY();
+		//offscreen x and y
+		Point p = null;
+		try {
+			p = slide.offScreenCoordinate(sx, sy);
+		} catch (NoninvertibleTransformException e1) {
+			e1.printStackTrace();
+			return;
+		}
+		int ix = p.x;
+		int iy = p.y;
+		
 		int flags = e.getModifiersEx();
 		constrain = (flags & InputEvent.SHIFT_DOWN_MASK) != 0;
 		if (constrain) { // constrain in 90deg steps
-			int dx = sx - previousSX;
-			int dy = sy - previousSY;
+			int dx = ix - previousX;
+			int dy = iy - previousY;
 			if (Math.abs(dx) > Math.abs(dy))
 				dy = 0;
 			else
 				dx = 0;
-			sx = previousSX + dx;
-			sy = previousSY + dy;
+			ix = previousX + dx;
+			iy = previousY + dy;
 		}
 
 		if (IJ.altKeyDown())
@@ -422,7 +419,7 @@ public class PolygonRoi extends RoiObj {
 				/*
 				 * original or display ?? please test tatsu
 				 */
-				double pw = sg.getPixelSpacingX(), ph = sg.getPixelSpacingY();
+				double pw = slide.getPixelSpacingX(), ph = slide.getPixelSpacingY();
 				if (IJ.altKeyDown()) {
 					pw = 1.0;
 					ph = 1.0;
@@ -441,12 +438,9 @@ public class PolygonRoi extends RoiObj {
 					degrees = 360.0 - degrees;
 			}
 		}
-//		String length = len != -1 ? ", length=" + IJ.d2s(len) : "";
-//		double degrees2 = type == ANGLE && nPoints == 3 && Prefs.reflexAngle ? 360.0 - degrees : degrees;
-//		String angle = !Double.isNaN(degrees) ? ", angle=" + IJ.d2s(degrees2) : "";
-//		int ox = sg.onImageX(sx);
-//		int oy = sg.onImageY(sy);
-//		IJ.showStatus(imp.getLocationAsString(ox, oy) + length + angle);
+		
+		previousX = ix;
+		previousY = iy;
 	}
 
 	// Mouse behaves like an eraser when moved backwards with alt key down.
@@ -506,6 +500,7 @@ public class PolygonRoi extends RoiObj {
 		} catch (NoninvertibleTransformException nte) {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+			return;
 		}
 		
 		int ox = p.x;
@@ -623,6 +618,7 @@ public class PolygonRoi extends RoiObj {
 			modifyRoi();
 		LineWidthAdjuster.update();
 		notifyListeners(RoiListener.COMPLETED);
+		Log.logger.fine("Finish Polygon familes Roi Constructing.");
 	}
 
 	public void exitConstructingMode() {
@@ -634,31 +630,32 @@ public class PolygonRoi extends RoiObj {
 
 	@Override
 	protected void moveHandle(int sx, int sy) {
-		SlideGlass sg = getSlideGlass();
-		if (constrain) { // constrain in 90deg steps
-			int dx = sx - previousSX;
-			int dy = sy - previousSY;
-			if (Math.abs(dx) > Math.abs(dy))
-				dy = 0;
-			else
-				dx = 0;
-			sx = sg.lastDraggedX + dx;
-			sy = sg.lastDraggedY + dy;
-		}
-
-		if (clipboard != null)
-			return;
-
 		Point p = null;
 		try {
 			p = slide.offScreenCoordinate(sx, sy);
 		} catch (NoninvertibleTransformException nte) {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+			return;
 		}
-		
 		int ox = p.x;
 		int oy = p.y;
+		
+		if (constrain) { // constrain in 90deg steps
+			int dx = ox - previousX;
+			int dy = oy - previousY;
+			if (Math.abs(dx) > Math.abs(dy))
+				dy = 0;
+			else
+				dx = 0;
+			ox = previousX + dx;
+			oy = previousY + dy;
+		}
+
+		if (clipboard != null)
+			return;
+
+		
 		if (xpf != null) {
 			xpf[activeHandle] = (float) (ox - getXBase());
 			ypf[activeHandle] = (float) (oy - getYBase());
@@ -678,10 +675,9 @@ public class PolygonRoi extends RoiObj {
 			}
 			updateClipRectAndDraw();
 		}
-		//update degrees
-//		String angle = type == RoiType.ANGLE.id() ? getAngleAsString() : "";
+		previousX = ox;
+		previousY = oy;
 		modifyRoi();
-//		IJ.showStatus(imp.getLocationAsString(ox, oy) + angle);
 	}
 
 	/** After handle is moved, find clip rect and repaint. */
@@ -1237,17 +1233,12 @@ public class PolygonRoi extends RoiObj {
 		else {
 			samePoint = (xp[nPoints-2]==xp[nPoints-1] && yp[nPoints-2]==yp[nPoints-1]);
 		}
-		if(nPoints == 2 && type == RoiType.MULTIPOINT.id()) {
-			//first clicked
-			
-		}
+		
 		boolean doubleClick = (System.currentTimeMillis()-mouseUpTime)<=300;
 		@SuppressWarnings("unused")
 		int size = boxSize+2;
 		@SuppressWarnings("unused")
 		int size2 = boxSize/2 +1;
-		
-		Point sp = super.slide.slideglassCoordinateFromOffScreen(startXD, startYD);
 		
 		Point p = null;
 		try {
@@ -1255,32 +1246,36 @@ public class PolygonRoi extends RoiObj {
 		} catch (NoninvertibleTransformException nte) {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+			return;
 		}
 		
 		int ox = p.x;
 		int oy = p.y;
 		
-		Rectangle biggerStartBox = new Rectangle(sp.x-5, sp.y-5, 10, 10);
-		boolean bigContain = (nPoints>2 && (biggerStartBox.contains(sx, sy)));
-		boolean clickFirstPoint = (ox== (int)startXD && oy== (int)startYD);
+		boolean multiPointCreated = nPoints>2;
+		/*
+		 * to check finish polygon construction
+		 * Rectangle with the center of starting polygon point. 
+		 */
+		Rectangle biggerStartBox = new Rectangle((int)startXD-5, (int)startYD-5, 10, 10);//starting polygon point
+		boolean clickStartBoxToFinishPolygon = multiPointCreated && biggerStartBox.contains(ox, oy);
+		/*
+		 * tatsu 20251204
+		 * When start polygon construction, 
+		 * clickStartingPoint is almost be "true".
+		 * Ignore it here.
+		 */
+		//boolean clickStartingPoint = (ox== (int)startXD && oy== (int)startYD);
 		boolean samePointAndDoubleClicked = (samePoint && doubleClick);
-		if (bigContain|| clickFirstPoint || samePointAndDoubleClicked) {
+		if (clickStartBoxToFinishPolygon || samePointAndDoubleClicked) {
 			boolean okayToFinish = true;
-			if (type==RoiType.POLYGON.id() && samePoint && doubleClick && nPoints>25) {
+			if ((type==RoiType.POLYGON.id() || type==RoiType.MULTIPOINT.id()) && samePoint && doubleClick) {
 				Viewer2DScreen d2 = Viewer2DScreen.getInstance();
-				int res = PopUpMessage.showDialog(d2 ,"Polygon Tool", "Complete the selection?", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				int res = PopUpMessage.showDialog(d2 ,"Polygon Tool", "Complete the roi selection ?", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 				okayToFinish = res == JOptionPane.OK_OPTION;
 			}
 			if (okayToFinish) {
-				/*
-				 * tatsu
-				 * I do not know why nPoints-- here.
-				 * If use nPints--, angle calculated by line,
-				 * else, calculated it by 2 cross lines. 
-				 */
-				if(type!=RoiType.ANGLE.id()) {
-					nPoints--;
-				}
+				nPoints--;
 				addOffset();
 				finishPolygon();
 				return;
@@ -1307,17 +1302,17 @@ public class PolygonRoi extends RoiObj {
 					enlargeArrays();
 			}
 			if (constrain) {  // this point was constrained in 90deg steps; correct coordinates
-				int dx = sx - previousSX;
-				int dy = sy - previousSY;
+				int dx = ox - previousX;
+				int dy = oy - previousY;
 				if (Math.abs(dx) > Math.abs(dy))
 					dy = 0;
 				else
 					dx = 0;
-				sx = previousSX + dx;
-				sy = previousSY + dy;
+				ox = previousX + dx;
+				oy = previousY + dy;
 			}
-			previousSX = sx;  //save for constraining next line if desired
-			previousSY = sy;
+			previousX = ox;  //save for constraining next line if desired
+			previousY = oy;
 			notifyListeners(RoiListener.EXTENDED);
 		}
 	}

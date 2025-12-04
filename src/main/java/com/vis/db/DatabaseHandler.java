@@ -50,7 +50,6 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
-import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -254,21 +253,23 @@ public class DatabaseHandler {
 	}
 
 	public boolean checkRecordExists(String tablename, String fieldname, String value) {
+		boolean res = false;
 		String sql = "SELECT COUNT(" + fieldname + ") FROM " + tablename + " WHERE " + fieldname + " = ?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, value);
 			try(ResultSet rs = pstmt.executeQuery();){
 				rs.next();
 				if (rs.getInt(1) > 0) {
+					res = true;
 					conn.commit();
-					return true;
+					return res;
 				}
 			}
 			conn.commit();
 		} catch (SQLException e) {
 			return false;
 		}
-		return false;
+		return res;
 	}
 
 	public boolean checkSeriesRecordExists(String patID, String studyIUID, String seriesIUID) {

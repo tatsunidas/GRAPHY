@@ -60,19 +60,7 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 
     /** Draws this arrow on the image. */
     public void draw(Graphics g) {
-    	AffineTransform aTx = (((Graphics2D) g).getDeviceConfiguration()).getDefaultTransform();
 		Graphics2D g2 = (Graphics2D) g;
-		double mag = getMagnification();
-		double scaleXY[] = getComponentScaleFactor();
-		if (slide != null) {
-			/*
-			 * Lines and arrows appear thicker than the other ROIs due to the magnification factor, since the Shape is drawn as it is.
-			 */
-			Point offset = slide.getDisplayImageOriginXY();
-			aTx.translate(offset.x, offset.y);
-			aTx.scale(mag * scaleXY[0], mag * scaleXY[1]);
-			g2.setTransform(aTx);
-		}
     	Shape shape2 = null;
 		if (doubleHeaded) {
 			flipEnds();
