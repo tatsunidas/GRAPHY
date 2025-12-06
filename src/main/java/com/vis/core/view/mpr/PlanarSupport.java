@@ -3,6 +3,8 @@ package com.vis.core.view.mpr;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
@@ -19,8 +21,10 @@ import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.measure.Calibration;
 import ij.plugin.FolderOpener;
+import ij.process.ImageProcessor;
 
 public class PlanarSupport {
 
@@ -34,32 +38,34 @@ public class PlanarSupport {
 		//axi src
 //		ImagePlus src = FolderOpener.open(
 //				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		
+//		ImagePlus src = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
 
 		//cor src
 //		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
 //		ImagePlus src = FolderOpener.open(corDir);
 		
 		//sag src
-		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-		ImagePlus src = FolderOpener.open(sagDir);
+//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//		ImagePlus src = FolderOpener.open(sagDir);
 		
 		//Sag to Axi EXAMPLE
-		double[] srcIOP = GDicomTools.getImageOrientationPatient(src, 1);
-		double[] row = new double[] {srcIOP[0],srcIOP[1],srcIOP[2]};//Z vertor
-		double[] col = new double[] {srcIOP[3],srcIOP[4],srcIOP[5]};//Y vector
-		Vector3d norm = calculateNormal(new Vector3d(row), new Vector3d(col), true);//X vector
-		/*
-		 * {-1,0,0} to {1,0,0} of X vector in HFS
-		 */
-		if(norm.x < 0.0) {
-			norm.x *= -1;
-			norm.y *= -1;
-			norm.z *= -1;
-		}
-		
-		double[] axi_iop = new double[] {norm.x,norm.y,norm.z,row[0],row[1],row[2]};
-		
-		LocalizerPoster.validateDirectionCosines(axi_iop);//clear
+//		double[] srcIOP = GDicomTools.getImageOrientationPatient(src, 1);
+//		double[] row = new double[] {srcIOP[0],srcIOP[1],srcIOP[2]};//Z vertor
+//		double[] col = new double[] {srcIOP[3],srcIOP[4],srcIOP[5]};//Y vector
+//		Vector3d norm = calculateNormal(new Vector3d(row), new Vector3d(col), true);//X vector
+//		/*
+//		 * {-1,0,0} to {1,0,0} of X vector in HFS
+//		 */
+//		if(norm.x < 0.0) {
+//			norm.x *= -1;
+//			norm.y *= -1;
+//			norm.z *= -1;
+//		}
+//		
+//		double[] axi_iop = new double[] {norm.x,norm.y,norm.z,row[0],row[1],row[2]};
+//		
+//		LocalizerPoster.validateDirectionCosines(axi_iop);//clear
 	}
 
 	private static final String ipp = "0020,0032";// image position patient
@@ -391,22 +397,22 @@ public class PlanarSupport {
 	}
 	
 	/**
-	 * If true with HFS/HFP position, it slicing Foot->Head direction in RCS.
+	 * If true with HFS/HFP position, it slicing Foot->Head direction in RCS (Brain images case).
 	 * @param imp
 	 * @return
 	 */
-	public static boolean isSlicingToUpperZSide(ImagePlus imp) {
-		if(ImageOrientation.getCutSurface(imp) != CutSurface.AXIAL) {
+	public static boolean isSlicingToUpperZSide(ImagePlus axialImp) {
+		if(ImageOrientation.getCutSurface(axialImp) != CutSurface.AXIAL) {
 			throw new IllegalArgumentException("This images are not AXIAL...");
 		}
-		int size = imp.getNSlices();
-		int prev_pos = imp.getCurrentSlice();
+		int size = axialImp.getNSlices();
+		int prev_pos = axialImp.getCurrentSlice();
 		if(size > 1) {
-			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2);
+			double[] ipp1 = GDicomTools.getImagePositionPatient(axialImp, 1);
+			double[] ipp2 = GDicomTools.getImagePositionPatient(axialImp, 2);
 			if(ipp1 != null && ipp2 != null) {
 				//back to prev pos
-				imp.setSlice(prev_pos);
+				axialImp.setSlice(prev_pos);
 				return ipp1[2] < ipp2[2];
 			}
 		}
@@ -458,6 +464,131 @@ public class PlanarSupport {
 		}
 		return false;
 	}
+	
+	public static ImagePlus loadAndSortDicomImages(ImagePlus imp) {
+	    List<SortableSlice> slices = new ArrayList<>();
+	    ImageStack originalStack = imp.getStack();
+	    // ファイルリストなどから読み込むループ (例)
+		for (int i = 0; i < imp.getNSlices(); i++) {
+			double[] ipp = GDicomTools.getImagePositionPatient(imp, i + 1/* slice pos */);
+			double[] iop = GDicomTools.getImageOrientationPatient(imp, i + 1/* slice pos */);
+
+			imp.setSlice(i + 1);
+			// 2. リストに追加
+			slices.add(new SortableSlice(
+					originalStack.getProcessor(i + 1).duplicate(), /* be safe */
+					originalStack.getSliceLabel(i + 1), 
+					ipp,
+					iop));
+		}
+	    
+	    boolean isHeadFirstPosition = isHeadFirst(imp);
+
+	    // 3. ソート実行
+	    ImageStack sortedStack = createSortedStack(slices, isHeadFirstPosition);
+
+	    return new ImagePlus("Sorted Head-to-Feet", sortedStack);
+	}
+	
+	/**
+	 * 画像データと位置情報をセットにした内部クラス
+	 */
+	public static class SortableSlice {
+		public ImageProcessor processor;
+		public String label; // スライス名などを保持したい場合
+		public double[] ipp; // Image Position Patient {x, y, z}
+		public double[] iop; // Image Orientation Patient {rx, ry, rz, cx, cy, cz}
+
+		public SortableSlice(ImageProcessor processor, String label, double[] ipp, double[] iop) {
+			this.processor = processor;
+			this.label = label;
+			this.ipp = ipp;
+			this.iop = iop;
+		}
+	}
+
+    /**
+     * SortableSliceのリストを受け取り、Head-to-Feetにソートして
+     * 新しいImageStackを返します。
+     *
+     * @param sliceList 画像と位置情報のリスト
+     * @return ソート済みのImageStack
+     */
+	private static ImageStack createSortedStack(List<SortableSlice> sliceList, boolean isHeadFirstPosition) {
+		if (sliceList == null || sliceList.isEmpty()) {
+			return null;
+		}
+
+		// --- 1. 空間的ソート (Normal Vector & Projection) ---
+		// 基準となるIOPを取得（最初の画像）
+		double[] baseIop = sliceList.get(0).iop;
+		if (baseIop == null)
+			return buildStackFromList(sliceList); // 情報がない場合はそのまま返す
+
+		double[] rowVec = { baseIop[0], baseIop[1], baseIop[2] };
+		double[] colVec = { baseIop[3], baseIop[4], baseIop[5] };
+		final double[] normalVec = crossProduct(rowVec, colVec);
+
+		// 距離計算でソート
+		Collections.sort(sliceList, new Comparator<SortableSlice>() {
+			@Override
+			public int compare(SortableSlice s1, SortableSlice s2) {
+				double dist1 = dotProduct(normalVec, s1.ipp);
+				double dist2 = dotProduct(normalVec, s2.ipp);
+				return Double.compare(dist1, dist2);
+			}
+		});
+
+		// --- 2. Head-to-Feet (頭->足) の順序保証 ---
+
+		double zFirst = sliceList.get(0).ipp[2];
+		double zLast = sliceList.get(sliceList.size() - 1).ipp[2];
+
+		// Z軸において「先頭 < 末尾」になっている場合、
+		// 足側(Z小)から頭側(Z大)に並んでいることになるため、反転させる。
+		if (isHeadFirstPosition && zFirst < zLast) {
+			Collections.reverse(sliceList);
+			// FeetFirstPositionの場合で、Z軸において「先頭 > 末尾」になっている場合、
+			// 足側(Z大)から頭側(Z小)に並んでいることになるため、反転させる。
+		} else if (!isHeadFirstPosition && zFirst > zLast) {
+			Collections.reverse(sliceList);
+		}
+		// --- 3. 新しいImageStackの構築 ---
+		return buildStackFromList(sliceList);
+	}
+
+    // リストからImageStackを組み立てるヘルパー
+    private static ImageStack buildStackFromList(List<SortableSlice> list) {
+        if (list.isEmpty()) return null;
+        
+        int width = list.get(0).processor.getWidth();
+        int height = list.get(0).processor.getHeight();
+        
+        ImageStack sortedStack = new ImageStack(width, height);
+        
+        for (SortableSlice slice : list) {
+            sortedStack.addSlice(slice.label, slice.processor);
+        }
+        return sortedStack;
+    }
+
+    /**
+     * ベクトルの外積（Cross Product）を計算
+     */
+    private static double[] crossProduct(double[] v1, double[] v2) {
+        return new double[] {
+            v1[1] * v2[2] - v1[2] * v2[1], // x
+            v1[2] * v2[0] - v1[0] * v2[2], // y
+            v1[0] * v2[1] - v1[1] * v2[0]  // z
+        };
+    }
+
+    /**
+     * ベクトルの内積（Dot Product）を計算
+     */
+    private static double dotProduct(double[] v1, double[] v2) {
+        return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+    }
 	
 	public static int getOriginSlicePosition(int totalSliceSize, boolean isSlicingIncreaseAxisCoord, boolean isHeadFirst) {
 		if (isHeadFirst && isSlicingIncreaseAxisCoord) return totalSliceSize;

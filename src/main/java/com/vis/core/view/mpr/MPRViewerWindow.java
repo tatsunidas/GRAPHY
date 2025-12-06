@@ -58,7 +58,6 @@ import org.joml.Vector3d;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.util.ImageUtils;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -139,14 +138,16 @@ public class MPRViewerWindow extends JFrame {
 	 */
 	public static void main(String[] args) {
 		//axi src
-//		ImagePlus ax = FolderOpener.open(
-//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-//		new MPRViewerWindow(ax, null);
+		ImagePlus ax = FolderOpener.open(
+				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		
+//		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
+		new MPRViewerWindow(ax, null);
 		
 		//cor src
-		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
-		ImagePlus xz = FolderOpener.open(corDir);
-		new MPRViewerWindow(xz, null);
+//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+//		ImagePlus xz = FolderOpener.open(corDir);
+//		new MPRViewerWindow(xz, null);
 		
 		//sag src
 //		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
@@ -422,9 +423,8 @@ public class MPRViewerWindow extends JFrame {
 	private void initImages() {
 		if (srcCutSurface == CutSurface.AXIAL) {
 			xy_image = new Duplicator().run(imp);
-			if(PlanarSupport.isHeadFirst(imp)) {
-				xy_image = ImageUtils.sort(xy_image, true/*reverse order*/, ImageUtils.SORT_BY_Z);
-			}
+			//see also, com.vis.core.util.ImageUtils.sort(xy_image, true/*reverse order*/, ImageUtils.SORT_BY_Z);
+			xy_image = PlanarSupport.loadAndSortDicomImages(xy_image);
 			Calibration cal = imp.getCalibration();
 			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
 			xy_image.setCalibration(cal);
