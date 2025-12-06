@@ -37,6 +37,7 @@
  */
 package com.vis.core.ui.main.dcmtreetable;
 
+import java.awt.Cursor;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.ArrayList;
@@ -107,7 +108,11 @@ public class TreeTableMouseListener implements MouseListener{
 				/*
 				 * show on the bird's eye
 				 */
-				WindowManager.getMainScreen().showImagesOnBirdsEye();
+				new Thread(()->{
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+					WindowManager.getMainScreen().showImagesOnBirdsEye();
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+				}).start();
 			}else {
 				//do nothiing
 			}
@@ -127,11 +132,15 @@ public class TreeTableMouseListener implements MouseListener{
 				return;
 			}
 			if(!isRemote) {
-				ArrayList<DICOMNode> clicked = new ArrayList<>();
-				clicked.add(node);
-				viewer.loadImagesOnStage(clicked);
-				viewer.setVisible(true);
-				viewer.toFront();
+				new Thread(() -> {
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+					ArrayList<DICOMNode> clicked = new ArrayList<>();
+					clicked.add(node);
+					viewer.loadImagesOnStage(clicked);
+					viewer.setVisible(true);
+					viewer.toFront();
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+				}).start();
 			}else{
 				String msg = "GRAPHY will retrieve to show images on viewer.\n";
 				msg += "YES : Retrieve to DB and then show images on viewer.\n";
@@ -146,23 +155,24 @@ public class TreeTableMouseListener implements MouseListener{
 						new String[] {"Retrieve", "Cancel"},
 						"Retrieve"	);
 				if(res == JOptionPane.YES_OPTION) {
-					QueryRetrieve qr = new QueryRetrieve(false/*queryOnly*/);
-					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node, false/* false means will load to db*/);
-					qr.start();
-					qr.monitorTasks();
 					new Thread(() -> {
+						QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
+						qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node,
+								false/* false means will load to db */);
+						qr.start();
+						qr.monitorTasks();
 						try {
 							qr.getThread().join(); // waiting finish qr task on background.
 							Thread.sleep(1000);
 						} catch (InterruptedException ie) {
 							Log.logger.warning(ie.getLocalizedMessage());
 						}
-						SwingUtilities.invokeLater(() -> {
-							viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
-									(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
-							viewer.setVisible(true);
-							viewer.toFront();
-						});
+						WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+						viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
+								(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
+						viewer.setVisible(true);
+						viewer.toFront();
+						WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					}).start();
 				}
 			}

@@ -133,7 +133,9 @@ public class SearchToolBar extends JToolBar{
 		searchBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				dbScreen.searchCurrentConditions();
+				new Thread(() -> {
+					dbScreen.searchCurrentConditions();
+				}).start();
 			}
 		});
 		Font font = new Font(Font.SANS_SERIF, Font.BOLD, 14);

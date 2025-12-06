@@ -76,10 +76,12 @@ public class QRUpdater extends Timer {
 			if (Utils.isDebug) {
 				System.out.println(" TreeTableUpdater is Running ");
 			}
-			MainScreen mainSc = WindowManager.getMainScreen();
-			if(mainSc != null && mainSc.isVisible()) {
-				mainSc.searchCurrentConditions();
-			}
+			new Thread(() -> {
+				MainScreen mainSc = WindowManager.getMainScreen();
+				if(mainSc != null && mainSc.isVisible()) {
+					mainSc.searchCurrentConditions();
+				}
+			}).start();
 		}
 
 		@Override

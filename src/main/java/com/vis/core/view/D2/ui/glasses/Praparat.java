@@ -856,52 +856,64 @@ public class Praparat extends JPanel {
 
 	/**
 	 * return slides as imageplus.
+	 * 
+	 * TODO: if multi-frame ??
+	 * 
 	 * @return imageplus
 	 */
 	public ImagePlus getImagePlus() {
 		if (slides == null || slides.size() < 1) {
 			return null;
 		}
-		ImagePlus org = getCurrentSlide().getOriginalImage();
-		Calibration cal = org.getCalibration();
-		ImageStack stack = new ImageStack();
-		String info = "";
-		int iter = 0;
-		for (int arrayOrder : slides.keySet()) {
-			SlideGlass sg = slides.get(arrayOrder);
-			ImagePlus imp = sg.getOriginalImage();
-			/*
-			 * calibration is gone here, so finally add it.
-			 */
-			ImageProcessor ip = imp.getProcessor();
-			if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
-				ip.snapshot();// keep original pixels
+		
+		ImagePlus replica = null;
+		
+		if(!isMultiFrame()) {
+			Calibration cal = null;
+			ImageStack stack = new ImageStack();
+			String info = "";
+			int iter = 0;
+			for (int arrayOrder : slides.keySet()) {
+				SlideGlass sg = slides.get(arrayOrder);
+				ImagePlus imp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage());
+				if(cal == null) {
+					cal = imp.getCalibration();
+				}
+				ImageProcessor ip = imp.getProcessor();
+				if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
+					ip.snapshot();// keep original pixels
+				}
+				/*
+				 * In this case, allways return only one slice.
+				 * It case use getInfoProperty().
+				 */
+				String header = imp.getInfoProperty();
+				/*
+				 * if header has "\n" in head (at index 0), 
+				 * DicomTools.getTag() return null.
+				 */
+//				String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
+				if(iter == 0){
+					info = header;
+					iter++;
+				}
+				stack.addSlice(header, imp.getProcessor());
 			}
+			replica = new ImagePlus("stack-series", stack);
 			/*
-			 * In this case, allways return only one slice.
-			 * It case use getInfoProperty().
+			 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
 			 */
-			String header = imp.getInfoProperty();
-			/*
-			 * if header has "\n" in head (at index 0), 
-			 * DicomTools.getTag() return null.
-			 */
-//			String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
-			if(iter == 0){
-				info = header;
-				iter++;
+			if(replica.getNSlices() == 1) {
+				replica.setProp("Info", info);
 			}
-			stack.addSlice(header, ip);
+			replica.setCalibration(cal);
+		}else {
+			String msg = "Return NULL ImagePlus...\nThis praparat has multi-frame dicom.\n";
+			msg += "Current version does not have compatible with it.";
+			JOptionPane.showMessageDialog(this, msg);
 		}
-		ImagePlus stacked = new ImagePlus("stack-series", stack);
-		/*
-		 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
-		 */
-		if(stacked.getNSlices() == 1) {
-			stacked.setProp("Info", info);
-		}
-		stacked.setCalibration(cal);
-		return stacked;
+		
+		return replica;
 	}
 	
 	public int getImageScreenSizeX() {

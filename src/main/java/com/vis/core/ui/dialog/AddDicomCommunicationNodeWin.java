@@ -220,7 +220,9 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		}
 		
 		pacsPrefPanel.constructTableModel(pacsPrefPanel.getTable());
-		WindowManager.getMainScreen().updateQRTreeTables();
+		new Thread(() -> {
+		    WindowManager.getMainScreen().updateQRTreeTables();
+		}).start();
 	}
 	
 	boolean checkCFINDCapability(String aet, String host, String port) {

@@ -74,7 +74,6 @@ import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 
 import java.awt.BorderLayout;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -218,7 +217,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		bev.ignoreRepaintAllSlides(ignore);
 	}
 	
-	private void initTreeTables(){
+	private void initHomeTreeTables(){
 		// Local/QR TreeTables Manager
 		tabDockManager = new TreeTableDockManager();//TabbedPane
 		/* Local(HOME) TreeTable */
@@ -234,6 +233,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				e1.printStackTrace();
 			}
 		}
+	}
+	
+	private void initQRTreeTables() {
 		/* QR TreeTables */
 		ArrayList<DicomCommunicationNode> servers = DatabaseHandler.getInstance().loadServerList();
 		if(servers != null && !servers.isEmpty()) {
@@ -395,9 +397,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 //			}
 			String anchorNickName = tabDockManager.getCurrentAnchorTitle();
 			TabDock anchor = tabDockManager.getDock(anchorNickName);
-			queryAndUpadateTreeTable(anchor, patID, patName, from, to, modalities);
+			new Thread(()->{
+				queryAndUpadateTreeTable(anchor, patID, patName, from, to, modalities);
+			}).start();
 		}else {
-			queryAndUpadateTreeTable(dock, patID, patName, from, to, modalities);
+			new Thread(()->{
+				queryAndUpadateTreeTable(dock, patID, patName, from, to, modalities);
+			}).start();
 		}
 	}
 	
@@ -446,7 +452,16 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		treeTbaleAndBirdsEyeSplitPane.setOneTouchExpandable(true);
 		
 		//treeTables
-		initTreeTables();
+		initHomeTreeTables();
+		
+		//Next, update QRTables.
+		/*
+		 * do not use main threads.　To avoid freeze during QR.
+		 */
+		new Thread(() -> {
+			initQRTreeTables();
+		}).start();
+		
 		treeTbaleAndBirdsEyeSplitPane.setLeftComponent(tabDockManager);
 		
 		//birds eye view
@@ -606,26 +621,16 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		if(bev != null) {
 			String currentShowingStudyUID = bev.getShowingStudyUID();
 			if(currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						tt.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-						bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
-						tt.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-					}
-				});
+				new Thread(()->{
+					bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+				}).start();
 			}else if(currentShowingStudyUID.equals(studyUID)) {
 				if(selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size()==0) {
 					return;
 				}
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						tt.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-						bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
-						tt.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-					}
-				});
+				new Thread(()->{
+					bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
+				}).start();
 			}
 		}
 	}

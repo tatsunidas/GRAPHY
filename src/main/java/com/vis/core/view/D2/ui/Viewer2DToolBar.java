@@ -829,7 +829,7 @@ public class Viewer2DToolBar extends JToolBar{
 					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
 						new MPRViewerWindow(prap);
-			        }).start();
+					}).start();
 					
 					currentTool = Windowing;
 					setSelectedToolBackground();

@@ -37,6 +37,7 @@
  */
 package com.vis.core.ui.main;
 
+import java.awt.Cursor;
 import java.awt.Frame;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
@@ -155,9 +156,11 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					DicomImporterDialog fcd = new DicomImporterDialog(WindowManager.getMainScreen(), true);
-					fcd.setLocationRelativeTo(WindowManager.getMainScreen());
-					fcd.setVisible(true);
+					new Thread(() -> {
+						DicomImporterDialog fcd = new DicomImporterDialog(WindowManager.getMainScreen(), true);
+						fcd.setLocationRelativeTo(WindowManager.getMainScreen());
+						fcd.setVisible(true);
+					}).start();
 				}
 			});
 			break;
@@ -168,10 +171,12 @@ public class MainScreenToolBar extends JToolBar {
 					/**
 					 * only work when browsing on Home Dock.
 					 */
-					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
-					DicomExporter export = new DicomExporter(selected);
-					export.start();
-					export.monitorTasks();
+					new Thread(() -> {
+						ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
+						DicomExporter export = new DicomExporter(selected);
+						export.start();
+						export.monitorTasks();
+					}).start();
 				}
 			});
 			break;
@@ -179,7 +184,9 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					new NonDicomImageImporter(WindowManager.getMainScreen(), false);
+					new Thread(() -> {
+						new NonDicomImageImporter(WindowManager.getMainScreen(), false);
+					}).start();
 				}
 			});
 			break;
@@ -190,7 +197,10 @@ public class MainScreenToolBar extends JToolBar {
 					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Delete selected records from DB ?");
 					if(res == JOptionPane.OK_OPTION) {
 						ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
-						DeleteImage.deleteImages(selected);
+						// run with another thread. (no EDT thread.)
+						new Thread(() -> {
+							DeleteImage.deleteImages(selected);
+						}).start();
 					}
 				}
 			});
@@ -199,12 +209,14 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					try {
-						new DatabaseBrowser();
-					} catch (Exception e1) {
-						e1.printStackTrace();
-						return;
-					}
+					new Thread(() -> {
+						try {
+							new DatabaseBrowser();
+						} catch (Exception e1) {
+							e1.printStackTrace();
+							return;
+						}
+					}).start();
 				}
 			});
 			break;
@@ -221,7 +233,9 @@ public class MainScreenToolBar extends JToolBar {
 						}
 					}
 					File burnDestFileInTemp = Utils.createNewDirInTemp();
-					new BurnerWindow(burnDestFileInTemp, false /*with dicomdir*/);
+					new Thread(() -> {
+						new BurnerWindow(burnDestFileInTemp, false /*with dicomdir*/);
+					}).start();
 				}
 			});
 			break;
@@ -234,12 +248,9 @@ public class MainScreenToolBar extends JToolBar {
 						return;
 					}
 					DICOMNode focusNode = selected.get(0);
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							new DicomTagsViewer(focusNode);
-						}
-					});
+					new Thread(() -> {
+						new DicomTagsViewer(focusNode);
+					}).start();
 				}
 			});
 			break;
@@ -248,15 +259,12 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					/*
-					 * only allow localtreetable
+					 * only allow the localtreetable
 					 */
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							new DicomPostman(selected);
-						}
-					});
+					new Thread(() -> {
+						new DicomPostman(selected);
+					}).start();
 				}
 			});
 			break;
@@ -265,11 +273,15 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					SwingUtilities.invokeLater(() -> {
-						Viewer2DScreen viewer = Viewer2DScreen.getInstance();
-						if(viewer != null) {
-							viewer.loadImagesOnStage();
-							viewer.setVisible(true);
-						}
+						new Thread(() -> {
+							Viewer2DScreen viewer = Viewer2DScreen.getInstance();
+							if(viewer != null) {
+								WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+								viewer.loadImagesOnStage();
+								viewer.setVisible(true);
+								WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+							}
+						}).start();
 					});
 				}	
 			});
