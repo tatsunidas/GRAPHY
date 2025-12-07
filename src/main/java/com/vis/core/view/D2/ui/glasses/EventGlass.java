@@ -37,9 +37,7 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
-import java.awt.Component;
 import java.awt.Container;
-
 import javax.swing.JPanel;
 
 /**
