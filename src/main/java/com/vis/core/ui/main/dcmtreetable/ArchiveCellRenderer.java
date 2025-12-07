@@ -56,7 +56,7 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
 import com.vis.core.ui.MissingIcon;
-import com.vis.core.ui.main.QRUtil;
+import com.vis.core.ui.qr.QRUtil;
 
 /**
  * 

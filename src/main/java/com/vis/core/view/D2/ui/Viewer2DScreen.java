@@ -39,6 +39,7 @@ package com.vis.core.view.D2.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -62,7 +63,10 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.ui.main.TabDock;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
+import com.vis.core.ui.qr.QueryRetrieve;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiObjManager;
@@ -190,6 +194,58 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		sdm.toTop(patID);
 		revalidate();
 		repaint();
+	}
+	
+	/**
+	 * load from external dicom network node
+	 */
+	public void loadImagesOnStageFromExternal() {
+		MainScreen ms = WindowManager.getMainScreen();
+		TabDock dock = ms.getTreeTableDockManager().getCurrentTopDockStayInTabbedPane();
+		DICOMTreeTable treeTable = dock.getDICOMTreeTable();
+		if(ms.isHomeTop() || dock.isHomeTab() || !treeTable.isQR) {
+			loadImagesOnStage();
+		}else {
+			String msg = "GRAPHY will retrieve to show images on viewer.\n";
+			msg += "YES : Retrieve to DB and then show images on viewer.\n";
+			msg += "NO : Cancel";
+			int res = JOptionPane.showOptionDialog(
+					ms, 
+					msg, 
+					"Load images from Remote DB?",//title 
+					JOptionPane.YES_NO_OPTION, 
+					JOptionPane.QUESTION_MESSAGE,
+					null,
+					new String[] {"Retrieve", "Cancel"},
+					"Retrieve"	);
+			if(res == JOptionPane.YES_OPTION) {
+				new Thread(() -> {
+					List<DICOMNode> studies = treeTable.getSelectedNodes();
+					if(studies == null || studies.size()==0) {
+						Log.logger.warning("No DICOM Study selected... Return.");
+						return;
+					}
+					DICOMNode node = studies.get(0);
+					QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
+					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node,
+							false/* false means will load to db */);
+					qr.start();
+					qr.monitorTasks();
+					try {
+						qr.getThread().join(); // waiting finish qr task on background.
+						Thread.sleep(500);
+					} catch (InterruptedException ie) {
+						Log.logger.warning(ie.getLocalizedMessage());
+					}
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+					loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
+							(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
+					setVisible(true);
+					toFront();
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+				}).start();
+			}
+		}
 	}
 
 	/**

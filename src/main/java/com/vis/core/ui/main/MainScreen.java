@@ -62,6 +62,8 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.core.ui.qr.QRUtil;
+import com.vis.core.ui.qr.QueryRetrieve;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -213,6 +215,10 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		return homeTreeTable.getSelectedNodes();
 	}
 	
+	public boolean isHomeTop() {
+		return tabDockManager.isHomeTop();
+	}
+	
 	public void ignoreRepaintBirdsEye(boolean ignore) {
 		bev.ignoreRepaintAllSlides(ignore);
 	}
@@ -247,7 +253,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				if(!svrReady) {
 					continue;
 				}
-				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToDay(svr));
+				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToday(svr));
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
@@ -365,7 +371,12 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		String to = (String)keys.get("To");
 		@SuppressWarnings("unchecked")
 		ArrayList<String> m = (ArrayList<String>)keys.get("Modalities");
-		queryAndUpadateTreeTable(patID, patName, from, to, m, false/*ask null search key*/);
+		boolean ignoreNullSearchKeyWarning = Utils.ignoreNullSearchKeyWarning();
+		if(Utils.isDebug) {
+			Log.logger.log(Level.FINE, "Ignore null search key warning when DEBUG mode.");
+			ignoreNullSearchKeyWarning = true;
+		}
+		queryAndUpadateTreeTable(patID, patName, from, to, m, ignoreNullSearchKeyWarning);
 	}
 	
 	/**
@@ -379,8 +390,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * @param askNullSearchKey
 	 */
 	public void queryAndUpadateTreeTable(String patID, String patName, String from, String to,
-			ArrayList<String> modalities, boolean askNullSearchKey) {
-		if(askNullSearchKey) {
+			ArrayList<String> modalities, boolean ignoreNullSearchKey) {
+		if(!ignoreNullSearchKey) {
 			if(searchToolBar.nullSearchKeys()) {
 				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
 				if(res != JOptionPane.OK_OPTION) {
@@ -698,7 +709,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTableModel model = new DICOMTreeTableModel(root);
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 			}else{//addNew
-				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToDay(svr));
+				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToday(svr));
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 				/* add or update Dock */
 				try {

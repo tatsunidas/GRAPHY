@@ -314,4 +314,63 @@ public class DICOMNode extends DefaultMutableTreeNode{
     	 */
         this.children.remove(index);
     }
+    
+    /**
+     * 子ノードを現在のレベルに応じてソートします。
+     * - 現在がSTUDYレベルの場合: 子(Series)をSeriesNumberでソート
+     * - 現在がSERIESレベルの場合: 子(Image)をInstanceNumberでソート
+     * @param recursive trueの場合、子孫ノードも含めて再帰的にソートします
+     */
+	public void sortChildren(boolean recursive) {
+		if (this.children == null || this.children.isEmpty()) {
+			return;
+		}
+
+		// 現在のレベルに応じたソート処理
+		if (this.level == STUDY) {
+			// 子はSeriesなので、SeriesNumberでソート
+			this.children.sort(
+					(node1, node2) -> compareNumericString(node1.getData(SeriesNumber), node2.getData(SeriesNumber)));
+		} else if (this.level == SERIES) {
+			// 子はImageなので、InstanceNumberでソート
+			this.children.sort((node1, node2) -> compareNumericString(node1.getData(InstanceNumber),
+					node2.getData(InstanceNumber)));
+		}
+
+		// 再帰的に子ノード（さらに下の階層）もソートする場合
+		if (recursive) {
+			for (DICOMNode child : this.children) {
+				child.sortChildren(true);
+			}
+		}
+	}
+
+    /**
+     * 数値の文字列を比較するためのヘルパーメソッド。
+     * 文字列比較だと "10" < "2" となってしまうため、数値に変換して比較します。
+     * 数値変換できない場合は、通常の文字列比較を行います。
+     */
+	private int compareNumericString(String s1, String s2) {
+		if (s1 == null)
+			s1 = "";
+		if (s2 == null)
+			s2 = "";
+
+		try {
+			// 空白除去
+			s1 = s1.trim();
+			s2 = s2.trim();
+
+			// 整数としてパースして比較
+			// DICOMのNumber系はIntegerで扱える範囲が一般的ですが、
+			// 安全策をとるならDoubleやLongでも可
+			int i1 = s1.isEmpty() ? 0 : Integer.parseInt(s1);
+			int i2 = s2.isEmpty() ? 0 : Integer.parseInt(s2);
+
+			return Integer.compare(i1, i2);
+		} catch (NumberFormatException e) {
+			// 数値でない文字列が含まれている場合は、通常の文字列比較にフォールバック
+			return s1.compareTo(s2);
+		}
+	}
 }

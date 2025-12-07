@@ -70,8 +70,8 @@ import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
-import com.vis.core.ui.main.QRUpdater;
 import com.vis.core.ui.main.TabDock;
+import com.vis.core.ui.qr.QRUpdater;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 
@@ -325,6 +325,17 @@ public class TreeTableDockManager extends JTabbedPane {
 //		}
 		currentAnchor = nickname;
 		showKeepTop();
+	}
+	
+	public boolean isHomeTop() {
+		String top = getTopTabNickname();
+		if(top == null) {
+			return true;
+		}
+		if(top.equals(homeTabName)) {
+			return true;
+		}
+		return false;
 	}
 	
 	/**

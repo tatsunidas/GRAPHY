@@ -48,7 +48,7 @@ import javax.swing.SwingUtilities;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.task.Task;
-import com.vis.core.ui.main.QueryRetrieve;
+import com.vis.core.ui.qr.QueryRetrieve;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 
 /**
@@ -147,14 +147,18 @@ public class TreeTableMouseListener implements MouseListener{
 				msg += "NO : Cancel";
 				int res = JOptionPane.showOptionDialog(
 						treeTable, 
-						"Load images from Remote DB?", 
 						msg, 
+						"Load images from Remote DB?",//title 
 						JOptionPane.YES_NO_OPTION, 
 						JOptionPane.QUESTION_MESSAGE,
 						null,
 						new String[] {"Retrieve", "Cancel"},
 						"Retrieve"	);
 				if(res == JOptionPane.YES_OPTION) {
+					/*
+					 * node is selected by mouse action.
+					 * Do not use viewer.loadImagesOnStageFromExternal();
+					 */
 					new Thread(() -> {
 						QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
 						qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node,

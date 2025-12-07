@@ -172,10 +172,15 @@ public class MainScreenToolBar extends JToolBar {
 					 * only work when browsing on Home Dock.
 					 */
 					new Thread(() -> {
-						ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
-						DicomExporter export = new DicomExporter(selected);
-						export.start();
-						export.monitorTasks();
+						MainScreen ms = WindowManager.getMainScreen();
+						if(ms.isHomeTop()) {
+							ArrayList<DICOMNode> selected = ms.getSelectedNode();
+							DicomExporter export = new DicomExporter(selected);
+							export.start();
+							export.monitorTasks();
+						}else {
+							JOptionPane.showMessageDialog(ms, "You cannot export files from external dicom network node. Use 'HOME' instead.");
+						}
 					}).start();
 				}
 			});
@@ -194,9 +199,14 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Delete selected records from DB ?");
+					MainScreen ms = WindowManager.getMainScreen();
+					if(!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms, "You cannot delete files on external dicom network node. Use 'HOME' instead.");
+						return;
+					}
+					int res = JOptionPane.showConfirmDialog(ms, "Delete selected records from DB ?");
 					if(res == JOptionPane.OK_OPTION) {
-						ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
+						ArrayList<DICOMNode> selected = ms.getSelectedNode();
 						// run with another thread. (no EDT thread.)
 						new Thread(() -> {
 							DeleteImage.deleteImages(selected);
@@ -232,6 +242,11 @@ public class MainScreenToolBar extends JToolBar {
 							Log.logger.fine("BurnCD function is running, continue in debug mode.");
 						}
 					}
+					MainScreen ms = WindowManager.getMainScreen();
+					if(!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms, "You cannot burn files in external dicom network node. Use 'HOME' instead.");
+						return;
+					}
 					File burnDestFileInTemp = Utils.createNewDirInTemp();
 					new Thread(() -> {
 						new BurnerWindow(burnDestFileInTemp, false /*with dicomdir*/);
@@ -243,6 +258,11 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
+					MainScreen ms = WindowManager.getMainScreen();
+					if(!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms, "You cannot show metadata in external dicom network node. Use 'HOME' instead.");
+						return;
+					}
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					if (selected == null || selected.size() < 1) {
 						return;
@@ -261,6 +281,11 @@ public class MainScreenToolBar extends JToolBar {
 					/*
 					 * only allow the localtreetable
 					 */
+					MainScreen ms = WindowManager.getMainScreen();
+					if(!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms, "You cannot send files in external dicom network node. Use 'HOME' instead.");
+						return;
+					}
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
 					new Thread(() -> {
 						new DicomPostman(selected);
@@ -276,10 +301,17 @@ public class MainScreenToolBar extends JToolBar {
 						new Thread(() -> {
 							Viewer2DScreen viewer = Viewer2DScreen.getInstance();
 							if(viewer != null) {
-								WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-								viewer.loadImagesOnStage();
-								viewer.setVisible(true);
-								WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+								MainScreen ms = WindowManager.getMainScreen();
+								if(ms.isHomeTop()) {
+									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+									viewer.loadImagesOnStage();
+									viewer.setVisible(true);
+									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+								}else {
+									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+									viewer.loadImagesOnStageFromExternal();
+									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+								}
 							}
 						}).start();
 					});

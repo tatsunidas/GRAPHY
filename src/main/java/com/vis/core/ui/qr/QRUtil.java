@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.ui.main;
+package com.vis.core.ui.qr;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;

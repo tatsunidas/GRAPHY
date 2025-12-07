@@ -1956,10 +1956,12 @@ public class Praparat extends JPanel {
 		if(mode == ViewMode.Thumbnail) {
 			//do noting
 		}else if(mode == ViewMode.FilmGrid) {
-			Component con = viewPanel.getComponent(0);
-			if(con instanceof SlideGlassGrid) {
-				SlideGlassGrid sgg = (SlideGlassGrid)con;
-				sgg.update(viewPanel.getWidth());
+			if (viewPanel.getComponentCount() >=1) {
+				Component con = viewPanel.getComponent(0);
+				if(con instanceof SlideGlassGrid) {
+					SlideGlassGrid sgg = (SlideGlassGrid)con;
+					sgg.update(viewPanel.getWidth());
+				}
 			}
 		}else {
 			for(Integer k : slides.keySet()) {

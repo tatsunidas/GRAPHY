@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.ui.main;
+package com.vis.core.ui.qr;
 
 import java.awt.Window;
 import java.io.File;
@@ -59,6 +59,8 @@ import com.vis.core.task.TaskContext;
 import com.vis.core.task.TaskManager;
 import com.vis.core.task.TaskType;
 import com.vis.core.task.context.ImportingStateContext;
+import com.vis.core.ui.main.MainScreen;
+import com.vis.core.ui.main.TabDock;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
@@ -70,18 +72,10 @@ import com.vis.dicom.dimse.DimseUtilities;
 import com.vis.dicom.dimse.FindSCU;
 
 /**
- * 
- * When execute query, can use query family methods.
- * 
- * When execute retrieve, do following.
  * QueryRetrieve qr = new QueryRetrieve(false);
  * qr.prepareRetrieve(DICOMCommunicationNode remote, DICOMNode retrieveTargetNode);
  * qr.start();
  * qr.monitorTasks();//remove task from manager after end of task.
- * 
- * TODO
- * - update multi-threading, see, DicomExporter.class
- * 
  * 
  * @author tatsunidas
  *
@@ -135,9 +129,9 @@ public class QueryRetrieve implements Task, Runnable {
 		}
 	}
 
-	public DICOMNode queryToDay(DicomCommunicationNode dest) {
+	public DICOMNode queryToday(DicomCommunicationNode dest) {
 		/*
-		 * today query is default
+		 * today's query is default
 		 */
 		boolean fuzzy = false;
 		List<String> studyKeys = new ArrayList<String>();
@@ -180,27 +174,6 @@ public class QueryRetrieve implements Task, Runnable {
 		return query(dest, false, patKeys, studyKeys, seriesKeys, null);
 	}
 
-//	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
-//			ArrayList<String> modalities) {
-//		ArrayList<DICOMNode> rootResultList = new ArrayList<DICOMNode>();
-//		if (modalities != null && modalities.size() > 0) {
-//			for (String modality : modalities) {
-//				List<String> seriesKeys = new ArrayList<String>();
-//				seriesKeys.add("Modality=" + modality);
-//				rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, seriesKeys, null));
-//			}
-//		} else {
-//			rootResultList.add(query(dest, fuzzy, patKeys, studyKeys, null, null));
-//		}
-//		rootResultList.removeAll(Collections.singleton(null));
-//		List<DICOMNode> studies = new ArrayList<DICOMNode>();
-//		for (DICOMNode rootResult : rootResultList) {
-//			List<DICOMNode> studiesResult = (List<DICOMNode>) rootResult.getChildren();
-//			studies.addAll(studiesResult);
-//		}
-//		return new DICOMNode(true, studies);
-//	}
-
 	/**
 	 * keys-> -m,"key=value"... statements; usage=findscu [options] -c
 	 * <aet>@<host>:<port> [--] [<dicom-file>|<xml-file>...]
@@ -210,7 +183,7 @@ public class QueryRetrieve implements Task, Runnable {
 		// echo
 		if (!DimseUtilities.echo(dest)) {
 			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed.",
-					"Query validation...", JOptionPane.INFORMATION_MESSAGE);
+					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
 		/*
@@ -244,11 +217,14 @@ public class QueryRetrieve implements Task, Runnable {
 					for (Attributes studyResp : studyResps) {
 						DICOMNode studyNode = constructStudyNode(patResp, studyResp);
 						String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
+						int numOfSeriesInThisStudy = 0;
+						int numOfInstanceInThisStudy = 0;
 						ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
 						if (seriesResps != null) {
 							for (Attributes seriesResp : seriesResps) {
 								DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
 								String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+								int numOfInstanceInThisSeries = 0;
 								ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID,
 										instKeys);
 								if (instResps != null) {
@@ -256,21 +232,38 @@ public class QueryRetrieve implements Task, Runnable {
 										DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp,
 												instResp);
 										seriesNode.addChild(instNode);
+										numOfInstanceInThisSeries += 1;
 									}
 								} else {
 									continue;
 								}
+								//set number of instances
+								if(numOfInstanceInThisSeries == 0) {
+									//empty series
+									continue;
+								}
+								seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
 								studyNode.addChild(seriesNode);
+								numOfSeriesInThisStudy += 1;
+								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
 							}
 						} else {
 							continue;
 						}
+						//set number of instances
+						if(numOfInstanceInThisStudy == 0 && numOfSeriesInThisStudy == 0) {
+							//empty series
+							continue;
+						}
+						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+						studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
 						root.addChild(studyNode);
 					}
 				} else {
 					continue;
 				}
 			}
+			root.sortChildren(true);
 			return root;
 		} else {
 			return emptyRoot();
@@ -328,6 +321,7 @@ public class QueryRetrieve implements Task, Runnable {
 			cfind = new FindSCU();
 		} catch (IOException e) {
 			e.printStackTrace();
+			Log.logger.severe("Failed initialize a FindScu...");
 			return null;
 		}
 		String[] query = queryStmt.toArray(new String[queryStmt.size()]);
@@ -595,8 +589,8 @@ public class QueryRetrieve implements Task, Runnable {
 				"", // acquisitionNumber,
 				"", // instanceNumber,
 				studyResp.getString(Tag.AccessionNumber, ""), // AccessionNumber,
-				studyResp.getString(Tag.NumberOfStudyRelatedSeries, ""), // numOfSeries,
-				studyResp.getString(Tag.NumberOfStudyRelatedInstances, ""), // numOfInstances,
+				"",//studyResp.getString(Tag.NumberOfStudyRelatedSeries, ""), // related series is means "all series". so do not use here. count one by one.
+				"",//studyResp.getString(Tag.NumberOfStudyRelatedInstances, ""), // related instance is means "all images". so do not use here. count one by one.
 				studyResp.getString(Tag.StudyInstanceUID, ""), // studyUID,
 				"", // SeriesInstanceUID,
 				"", // sopInstaceUID,
@@ -624,7 +618,7 @@ public class QueryRetrieve implements Task, Runnable {
 				"", // instanceNumber,
 				"", // AccessionNumber,
 				"", // numOfSeries,
-				seriesResp.getString(Tag.NumberOfSeriesRelatedInstances), // numOfInstances,
+				"",//seriesResp.getString(Tag.NumberOfSeriesRelatedInstances), // count one by one in for-loop.
 				studyResp.getString(Tag.StudyInstanceUID, ""), // studyUID,
 				seriesResp.getString(Tag.SeriesInstanceUID, ""), "", // sopInstaceUID,
 				null);

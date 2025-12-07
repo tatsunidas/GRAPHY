@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.ui.main;
+package com.vis.core.ui.qr;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -43,6 +43,7 @@ import java.util.TimerTask;
 import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
 
 /**
