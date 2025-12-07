@@ -994,7 +994,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (paintCaliper) {
 			// show first, do not require transform.
 			//slide glass coordinates
-			showCaliper(g);
+			drawScaleBar(g);
 		}
 		Graphics2D g2d = (Graphics2D) g;
 		//g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -1157,90 +1157,277 @@ public class CanvasGlass extends javax.swing.JPanel {
 		this.paintCaliper = show;
 	}
 
+//	/**
+//	 * 100mm scaler
+//	 * @param gs
+//	 */
+//	private void showCaliper(Graphics gs) {
+//		if (sg != null) {
+//			/*
+//			 * calc FOV
+//			 */
+//			Dimension dim = sg.getOriginalImageSize();
+//			double orgImgHeight = dim.height;
+//			double compHeight = getHeight();
+//			double viewScale = compHeight/orgImgHeight;
+//			
+//			double left_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingY() * viewScale;
+//			double bottom_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingX() * viewScale;
+//			
+//			// show location
+//			// upper
+//			int y1 = (int)(getHeight() - left_bar_size_in_pixel) / 2;
+//			// lower
+//			int y2 = y1 + (int)left_bar_size_in_pixel;
+//			// location x
+//			int x = 20;
+//			if (sg.getPixelSpacingUnit().equals("mm")) {
+//				gs.setColor(Color.YELLOW);
+//			} else {
+//				// pixel unit
+//				gs.setColor(Color.LIGHT_GRAY);
+//			}
+//			//main
+//			gs.drawLine(x, y1, x, y2);
+//			//upper, lower
+//			gs.drawLine(x, y1, x + 12, y1);
+//			gs.drawLine(x, y2, x + 12, y2);
+//			
+//			gs.drawString(sg.getPixelSpacingUnit(), x , y1 - 5); 
+//			
+//			double viewScaleHeightUnitTick = (double) (left_bar_size_in_pixel / 100d);
+//			for (int i = 1; i <= 99; i++) {
+//				int currentY = (int) (y1 + (viewScaleHeightUnitTick * i));
+//				int tickLength = 3; // 1単位の目盛りの初期長さ
+//
+//				if (i == 50) {
+//					tickLength = 12; // 50単位マーク (一番長い)
+//				} else if (i % 10 == 0) {
+//					tickLength = 9; // 10単位ごと (中くらい長い)
+//				} else if (i % 5 == 0) {
+//					tickLength = 6; // 5単位ごと (標準)
+//				}
+//				
+//				// 目盛り線を描画
+//				gs.drawLine(x, currentY, x + tickLength, currentY); 
+//			}
+//			
+//			/*
+//			 * Bottom scaler (show under of slide)
+//			 */
+//			int x1 = (int) (getWidth() - bottom_bar_size_in_pixel) / 2;
+//			int x2 = (int) (x1 + bottom_bar_size_in_pixel);
+//			int y = getHeight() - 20;
+//			gs.drawLine(x1, y, x2, y);
+//			gs.drawLine(x1, y, x1, y - 12);
+//			gs.drawLine(x2, y, x2, y - 12);
+//			double viewScaleWidthUnitTick = (double) (bottom_bar_size_in_pixel / 100d);
+//
+//			// ----------------------------------------------------
+//			// 横のスケーラの目盛り（100段階、1単位ごと）を描画
+//			// ----------------------------------------------------
+//			for (int i = 1; i <= 99; i++) {
+//				int currentX = (int) (x1 + (viewScaleWidthUnitTick * i));
+//				int tickLength = 3; // 1単位の目盛りの初期長さ
+//
+//				if (i == 50) {
+//					tickLength = 12; // 50単位マーク (一番長い)
+//				} else if (i % 10 == 0) {
+//					tickLength = 9; // 10単位ごと (中くらい長い)
+//				} else if (i % 5 == 0) {
+//					tickLength = 6; // 5単位ごと (標準)
+//				}
+//
+//				// 目盛り線を描画
+//				gs.drawLine(currentX, y, currentX, y - tickLength);
+//			}
+//		}
+//	}
+	
 	/**
-	 * 100mm scaler
+	 * Dynamic Scale Bar.
+	 * 動的にサイズが変わるキャリパーを表示する
+	 * 
 	 * @param gs
 	 */
-	private void showCaliper(Graphics gs) {
-		if (sg != null) {
-			/*
-			 * calc FOV
-			 */
-			Dimension dim = sg.getOriginalImageSize();
-			double orgImgHeight = dim.height;
-			double compHeight = getHeight();
-			double viewScale = compHeight/orgImgHeight;
-			
-			double left_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingY() * viewScale;
-			double bottom_bar_size_in_pixel = 100.0/(double)sg.getPixelSpacingX() * viewScale;
-			
-			// show location
-			// upper
-			int y1 = (int)(getHeight() - left_bar_size_in_pixel) / 2;
-			// lower
-			int y2 = y1 + (int)left_bar_size_in_pixel;
-			// location x
-			int x = 20;
-			if (sg.getPixelSpacingUnit().equals("mm")) {
-				gs.setColor(Color.YELLOW);
-			} else {
-				// pixel unit
-				gs.setColor(Color.LIGHT_GRAY);
-			}
-			//main
-			gs.drawLine(x, y1, x, y2);
-			//upper, lower
-			gs.drawLine(x, y1, x + 12, y1);
-			gs.drawLine(x, y2, x + 12, y2);
-			
-			gs.drawString(sg.getPixelSpacingUnit(), x , y1 - 5); 
-			
-			double viewScaleHeightUnitTick = (double) (left_bar_size_in_pixel / 100d);
-			for (int i = 1; i <= 99; i++) {
-				int currentY = (int) (y1 + (viewScaleHeightUnitTick * i));
-				int tickLength = 3; // 1単位の目盛りの初期長さ
+	private void drawScaleBar(Graphics gs) {
+		if (sg == null)
+			return;
 
-				if (i == 50) {
-					tickLength = 12; // 50単位マーク (一番長い)
-				} else if (i % 10 == 0) {
-					tickLength = 9; // 10単位ごと (中くらい長い)
-				} else if (i % 5 == 0) {
-					tickLength = 6; // 5単位ごと (標準)
+		// 1. 基本パラメータの計算
+		Dimension orgDim = sg.getOriginalImageSize();
+		double viewScale = (double) getHeight() / orgDim.height; // 現在の表示倍率
+
+		// 2. 単位とスペーシングの決定
+		String rawUnit = sg.getPixelSpacingUnit();
+		double spX = sg.getPixelSpacingX();
+		double spY = sg.getPixelSpacingY();
+		Color color;
+		String displayUnit = "px";
+
+		// 単位判定 (mm または um/µm)
+		boolean isMm = "mm".equalsIgnoreCase(rawUnit);
+		boolean isUm = "um".equalsIgnoreCase(rawUnit) || "µm".equalsIgnoreCase(rawUnit)
+				|| "micro".equalsIgnoreCase(rawUnit);
+
+		if ((isMm || isUm) && spX > 0 && spY > 0) {
+			color = Color.YELLOW;
+			// 表示用の単位文字列を整える
+			displayUnit = isMm ? "mm" : "\u00B5m"; // µm
+		} else {
+			// ピクセル単位として扱う（フォールバック）
+			spX = 1.0;
+			spY = 1.0;
+			color = Color.LIGHT_GRAY;
+			displayUnit = "px";
+		}
+
+		gs.setColor(color);
+
+		// 3. 縦と横で、短い方の距離を選択して統一する処理
+
+		// 画面の幅・高さの約60%を最大ピクセル長とする
+		double maxHPixels = getWidth() * 0.6;
+		double maxVPixels = getHeight() * 0.6;
+
+		// それを物理サイズ(またはpx単位)に変換
+		// 実世界サイズ = ピクセル数 / 倍率 * 画素サイズ
+		double maxHPhysical = maxHPixels / viewScale * spX;
+		double maxVPhysical = maxVPixels / viewScale * spY;
+
+		// 【変更点2】縦と横で「物理的に短い方」を基準にする
+		double commonMaxPhysical = Math.min(maxHPhysical, maxVPhysical);
+
+		// 「キリの良い」数値を決定 (例: 100mm, 50um...)
+		double targetPhysicalSize = getNiceRoundNumber(commonMaxPhysical);
+
+		// ----------------------------------------------------
+		// 縦のスケーラ (左側に表示)
+		// ----------------------------------------------------
+		// Y位置は画面中央
+		drawRuler(gs, true, targetPhysicalSize, viewScale, spY, displayUnit, 10, getHeight() / 2);
+
+		// ----------------------------------------------------
+		// 横のスケーラ (下側に表示)
+		// ----------------------------------------------------
+		// X位置は画面中央、Y位置は画面下部から20px上
+		drawRuler(gs, false, targetPhysicalSize, viewScale, spX, displayUnit, getWidth() / 2, getHeight() - 10);
+	}
+
+	/**
+	 * ルーラー（定規）を描画するヘルパーメソッド 変更点: 内部でサイズ計算せず、渡された targetPhysicalSize を描画することに専念する
+	 * * @param gs Graphics context
+	 * 
+	 * @param isVertical         縦向きならtrue
+	 * @param targetPhysicalSize 描画する物理サイズ（キリの良い数字、例: 100.0）
+	 * @param viewScale          表示倍率
+	 * @param pixelSpacing       物理サイズ/ピクセル (mm/px) または 1.0
+	 * @param unit               単位文字列 ("mm", "µm", "px")
+	 * @param centerX            描画中心X
+	 * @param centerY            描画中心Y
+	 */
+	private void drawRuler(Graphics gs, boolean isVertical, double targetPhysicalSize, double viewScale,
+			double pixelSpacing, String unit, int centerX, int centerY) {
+
+		// 1. キリの良い数値を、画面上のピクセル長に変換
+		// ピクセル数 = 実世界サイズ / 画素サイズ * 倍率
+		double drawLengthPx = targetPhysicalSize / pixelSpacing * viewScale;
+
+		// 2. 座標計算 (中心基準)
+		int startX, startY, endX, endY;
+
+		if (isVertical) {
+			startX = centerX;
+			startY = (int) (centerY - (drawLengthPx / 2));
+			endX = centerX;
+			endY = (int) (centerY + (drawLengthPx / 2));
+		} else {
+			startX = (int) (centerX - (drawLengthPx / 2));
+			startY = centerY;
+			endX = (int) (centerX + (drawLengthPx / 2));
+			endY = centerY;
+		}
+
+		// --- メインの線を描画 ---
+		gs.drawLine(startX, startY, endX, endY);
+
+		// --- 両端の「ヒゲ」を描画 ---
+		int barSize = 12; // ヒゲの長さ
+
+		// 数値のフォーマット (小数は必要なら表示、整数なら.0を消す)
+		String valueStr = (targetPhysicalSize % 1 == 0) ? String.valueOf((int) targetPhysicalSize)
+				: String.valueOf(targetPhysicalSize);
+
+		if (isVertical) {
+			gs.drawLine(startX, startY, startX + barSize, startY);
+			gs.drawLine(endX, endY, endX + barSize, endY);
+			// テキスト描画 (上端の少し上)
+			gs.drawString(valueStr + " " + unit, startX, startY - 5);
+		} else {
+			gs.drawLine(startX, startY, startX, startY - barSize);
+			gs.drawLine(endX, endY, endX, endY - barSize);
+			// テキスト描画 (右端の少し右)
+			gs.drawString(valueStr + " " + unit, endX + 5, endY);
+		}
+
+		// --- 目盛りを描画 ---
+		// 1単位(1mm or 1px)あたりの画面上の長さ
+		double pixelsPerUnit = drawLengthPx / targetPhysicalSize;
+
+		// 目盛りのループ回数
+		// targetPhysicalSizeが小数の場合(例: 0.5)も考慮し、最小単位での描画ロジックが必要ですが、
+		// ここでは簡易的に「数値が整数の場合」または「十分大きい場合」を前提とした既存ロジックを流用します。
+		// ※厳密に0.1mm単位などを描画したい場合はループのステップを変更する必要があります。
+
+		int totalUnits = (int) targetPhysicalSize;
+
+		if (totalUnits > 0) {
+			for (int i = 1; i < totalUnits; i++) {
+				// 現在の単位位置での画面上のオフセット
+				double offset = i * pixelsPerUnit;
+
+				int tickLen = 3; // 小目盛り
+				// 目盛りの間引きロジック (数値の大きさによって調整)
+				if (i % 50 == 0)
+					tickLen = 12;
+				else if (i % 10 == 0)
+					tickLen = 9;
+				else if (i % 5 == 0)
+					tickLen = 6;
+
+				if (isVertical) {
+					int y = (int) (startY + offset);
+					gs.drawLine(startX, y, startX + tickLen, y);
+				} else {
+					int x = (int) (startX + offset);
+					gs.drawLine(x, startY, x, startY - tickLen);
 				}
-				
-				// 目盛り線を描画
-				gs.drawLine(x, currentY, x + tickLength, currentY); 
 			}
-			
-			/*
-			 * Bottom scaler (show under of slide)
-			 */
-			int x1 = (int) (getWidth() - bottom_bar_size_in_pixel) / 2;
-			int x2 = (int) (x1 + bottom_bar_size_in_pixel);
-			int y = getHeight() - 20;
-			gs.drawLine(x1, y, x2, y);
-			gs.drawLine(x1, y, x1, y - 12);
-			gs.drawLine(x2, y, x2, y - 12);
-			double viewScaleWidthUnitTick = (double) (bottom_bar_size_in_pixel / 100d);
+		}
+	}
 
-			// ----------------------------------------------------
-			// 横のスケーラの目盛り（100段階、1単位ごと）を描画
-			// ----------------------------------------------------
-			for (int i = 1; i <= 99; i++) {
-				int currentX = (int) (x1 + (viewScaleWidthUnitTick * i));
-				int tickLength = 3; // 1単位の目盛りの初期長さ
+	/**
+	 * 与えられた最大値以下で、最も適切な「キリの良い数字」を返す 改良版: 桁数が変わっても対応できるように対数的に計算する 例: 85 -> 50, 120
+	 * -> 100, 0.8 -> 0.5
+	 */
+	private double getNiceRoundNumber(double maxVal) {
+		if (maxVal <= 0)
+			return 1.0;
 
-				if (i == 50) {
-					tickLength = 12; // 50単位マーク (一番長い)
-				} else if (i % 10 == 0) {
-					tickLength = 9; // 10単位ごと (中くらい長い)
-				} else if (i % 5 == 0) {
-					tickLength = 6; // 5単位ごと (標準)
-				}
+		// 桁数を求める (例: 85 -> 10^1=10, 850 -> 10^2=100)
+		double log10 = Math.log10(maxVal);
+		double base = Math.pow(10, Math.floor(log10));
 
-				// 目盛り線を描画
-				gs.drawLine(currentX, y, currentX, y - tickLength);
-			}
+		// 先頭の数字 (例: 85なら 8.5)
+		double unitVal = maxVal / base;
+
+		// 候補: 1, 2, 5 (x base)
+		if (unitVal >= 5) {
+			return 5 * base;
+		} else if (unitVal >= 2) {
+			return 2 * base;
+		} else {
+			return 1 * base;
 		}
 	}
 	
