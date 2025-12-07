@@ -14,7 +14,6 @@ import org.joml.Vector3d;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
-import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
@@ -23,7 +22,6 @@ import com.vis.dicom.image.GDicomTools;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
-import ij.plugin.FolderOpener;
 import ij.process.ImageProcessor;
 
 public class PlanarSupport {
@@ -36,7 +34,7 @@ public class PlanarSupport {
 		 * 直交した方向余弦を得たいときは、calculateNormal(row, col)で得る。
 		 */
 		//axi src
-//		ImagePlus src = FolderOpener.open(
+//		ImagePlus src =  ij.plugin.FolderOpener.open(
 //				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 		
 //		ImagePlus src = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
