@@ -39,8 +39,9 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.HashMap;
 
 import javax.swing.JPanel;
@@ -48,176 +49,155 @@ import javax.swing.JScrollPane;
 
 import com.vis.core.log.Log;
 
-public class SlideGlassGrid extends JScrollPane{
+public class SlideGlassGrid extends JScrollPane {
 
-	private static final long serialVersionUID = 1002582639306789967L;
-	private final HashMap<Integer, SlideGlass> slides;
-	private int rows = -1;
-	private int cols = -1;
-	private final int numOfImage;
-	private final int defaultCol = 5;
-	private final int defaultPanelSize = 200;
-	private final int minimumCellSize = 64;
-	private int padding = 3;
-	private final JPanel view;
-	private final boolean useGridLayout; 
-	
-	int prevParentW = 0;
-	
-	public SlideGlassGrid(Praparat pp, int cols, boolean useGridLayout) {
-		this.slides = pp.getAllSlides();
-		if(cols < 0) {
-			Log.logger.info("Cols must be larger than 0. it to be set default cols(5).");
-			cols = defaultCol;
-		}
-		this.cols = cols;
-		rows = calcRows(cols);
-		numOfImage = slides.size();
-		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
-		view.setBackground(Color.black);
-		this.useGridLayout = useGridLayout;
-		init();
-	}
-	
-	public SlideGlassGrid(HashMap<Integer, SlideGlass> slides, int rows, int cols, boolean useGridLayout) {
-		this.slides = slides;
-		this.rows = rows;
-		this.cols = cols;
-		numOfImage = slides.size();
-		view = new JPanel(useGridLayout ? new GridLayout(rows, cols): null);
-		view.setBackground(Color.black);
-		this.useGridLayout = useGridLayout;
-		init();
-	}
-	
-	private int calcRows(int cols) {
-		int numOfImage = slides.size();
-		if(numOfImage <= cols) {
-			return 1;
-		}else {
-			if (numOfImage % cols > 0) {
-				return (int) (numOfImage / cols) + 1;
-			} else {
-				return (int) (numOfImage / cols);
-			}
-		}
-	}
-	
-	private int calcCellSize(int parentW) {
-		int gap_size = (cols+1) * padding;
-		int space = parentW - gap_size;
-		int newW = space/cols;
-		if(newW < minimumCellSize) {
-			return minimumCellSize;
-		}else {
-			return newW;
-		}
-	}
-	
-	private void init() {
-		int cellSize = defaultPanelSize;
-		if (!useGridLayout) {
-			for (int r = 0; r < rows; r++) {
-				for (int c = 0; c < cols; c++) {
-					if(((r*cols) + c)<numOfImage) {
-						SlideGlass sg = slides.get((r*cols) + c);
-						sg.setSize(cellSize, cellSize);
-						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
-								cellSize, cellSize);
-						view.add(sg);
-					}else {
-						JPanel emptyP = new JPanel();
-						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
-						emptyP.setBackground(Color.BLACK);
-						emptyP.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
-								cellSize, cellSize);
-						view.add(emptyP);
-					}
-				}
-			}
-		} else {
-			for (int r = 0; r < rows; r++) {
-				for (int c = 0; c < cols; c++) {
-					if(((r*cols) + c)<=numOfImage) {
-						SlideGlass sg = slides.get((r*cols) + c);
-						sg.setSize(cellSize, cellSize);
-						view.add(sg);
-					}else {
-						JPanel emptyP = new JPanel();
-						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
-						emptyP.setBackground(Color.BLACK);
-						view.add(emptyP);
-					}
-				}
-			}
-		}
-		int viewW = cellSize * cols + (padding * (cols + 1));
-		int viewH = cellSize * rows + (padding * (rows + 1));
-		view.setPreferredSize(new Dimension(viewW, viewH));
-		setViewportView(view);
-	}
-	
-	public void update(int parentW) {
-		int cellSize = calcCellSize(parentW);
-		Log.logger.fine("FilmGridCellSize: "+ cellSize);
-		view.removeAll();
-		if (!useGridLayout) {
-			Log.logger.fine("cell size:"+cellSize);
-			for (int r = 0; r < rows; r++) {
-				for (int c = 0; c < cols; c++) {
-					if(((r*cols) + c)<numOfImage) {
-						SlideGlass sg = slides.get((r*cols) + c);
-						sg.setSize(cellSize, cellSize);
-						sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
-								cellSize, cellSize);
-						view.add(sg);
-						sg.repaint();
-					}else {
-						JPanel emptyP = new JPanel();
-						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
-						emptyP.setBackground(Color.BLACK);
-						emptyP.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
-								cellSize, cellSize);
-						view.add(emptyP);
-					}
-				}
-			}
-		} else {
-			for (int r = 0; r < rows; r++) {
-				for (int c = 0; c < cols; c++) {
-					if(((r*cols) + c)<numOfImage) {
-						SlideGlass sg = slides.get((r*cols) + c);
-						sg.setSize(cellSize, cellSize);
-						view.add(sg);
-					}else {
-						JPanel emptyP = new JPanel();
-						emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
-						emptyP.setBackground(Color.BLACK);
-						view.add(emptyP);
-					}
-				}
-			}
-		}
-		int viewW = cellSize * cols + (padding * (cols + 1));
-		int viewH = cellSize * rows + (padding * (rows + 1));
-		view.setPreferredSize(new Dimension(viewW, viewH));
-		view.setBounds(0, 0, viewW, viewH);
-		setViewportView(view);
-	}
-	
-	@Override
-	protected void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		int panelWidth = getParent().getWidth();
-		int panelHeight = getParent().getHeight();
-		if(prevParentW == panelWidth) {
-			view.repaint();
-			return;
-		}
-		// set bounds of slideglassgrid to same as pp.viewPanel.
-		setBounds(0, 0, panelWidth, panelHeight);
-		update(panelWidth);
-		view.repaint();
-		prevParentW = panelWidth;
-	}
+    private static final long serialVersionUID = 1002582639306789967L;
+    private final HashMap<Integer, SlideGlass> slides;
+    private int rows = -1;
+    private int cols = -1;
+    private final int numOfImage;
+    private final int defaultCol = 5;
+    private final int defaultPanelSize = 200;
+    private final int minimumCellSize = 64;
+    private int padding = 3;
+    private final JPanel view;
+    private final boolean useGridLayout;
+
+
+    public SlideGlassGrid(Praparat pp, int cols, boolean useGridLayout) {
+        this.slides = pp.getAllSlides();
+        if (cols < 0) {
+            Log.logger.info("Cols must be larger than 0. it to be set default cols(5).");
+            cols = defaultCol;
+        }
+        this.cols = cols;
+        rows = calcRows(cols);
+        numOfImage = slides.size();
+        view = new JPanel(useGridLayout ? new GridLayout(rows, cols) : null);
+        view.setBackground(Color.black);
+        this.useGridLayout = useGridLayout;
+        init();
+    }
+
+    private int calcRows(int cols) {
+        int numOfImage = -1;
+        if (this.slides != null) {
+            numOfImage = slides.size();
+        }
+        if (numOfImage <= cols) {
+            return 1;
+        } else {
+            if (numOfImage % cols > 0) {
+                return (int) (numOfImage / cols) + 1;
+            } else {
+                return (int) (numOfImage / cols);
+            }
+        }
+    }
+
+    /**
+     * 親の幅ではなく、利用可能なビューポートの幅に基づいて計算します。
+     */
+    private int calcCellSize(int availableWidth) {
+        // 幅が極端に小さい場合（初期化時など）のガード
+        if (availableWidth <= 0) return defaultPanelSize;
+
+        int gap_size = (cols + 1) * padding;
+        int space = availableWidth - gap_size;
+        int newW = space / cols;
+        if (newW < minimumCellSize) {
+            return minimumCellSize;
+        } else {
+            return newW;
+        }
+    }
+
+    private void init() {
+        // 初期構築
+        constructView(defaultPanelSize);
+        setViewportView(view);
+
+        // ★修正点: リサイズイベントの監視を追加
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                // スクロールバーを除いた表示領域の幅を取得
+                int width = getViewport().getWidth();
+                // 初期化直後などで幅が0の場合は処理しない、または親の幅を使う
+                if (width <= 0) width = getWidth();
+                
+                update(width);
+            }
+        });
+    }
+
+    /**
+     * viewの中身を構築するロジックを分離
+     */
+    private void constructView(int cellSize) {
+        view.removeAll(); // 既存のコンポーネントをクリア
+
+        if (!useGridLayout) {
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    if (((r * cols) + c) < numOfImage) {
+                        SlideGlass sg = slides.get((r * cols) + c);
+                        sg.setSize(cellSize, cellSize);
+                        sg.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+                                cellSize, cellSize);
+                        view.add(sg);
+                        sg.updateDisplayImage();
+                        // sg.repaint(); // ここでのrepaintは不要（addされた時点でSwingが管理する）
+                    } else {
+                        JPanel emptyP = new JPanel();
+                        emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+                        emptyP.setBackground(Color.BLACK);
+                        emptyP.setBounds(((c + 1) * padding) + (cellSize * c), ((r + 1) * padding) + (cellSize * r),
+                                cellSize, cellSize);
+                        view.add(emptyP);
+                    }
+                }
+            }
+        } else {
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    if (((r * cols) + c) < numOfImage) {
+                        SlideGlass sg = slides.get((r * cols) + c);
+                        // GridLayoutの場合、サイズ設定はLayoutManagerに任せるためsg.setSizeは本来無視されますが、
+                        // 画像更新のために残しておきます。
+                        sg.setSize(cellSize, cellSize);
+                        view.add(sg);
+                        sg.updateDisplayImage();
+                    } else {
+                        JPanel emptyP = new JPanel();
+                        emptyP.setPreferredSize(new Dimension(cellSize, cellSize));
+                        emptyP.setBackground(Color.BLACK);
+                        view.add(emptyP);
+                    }
+                }
+            }
+        }
+
+        int viewW = cellSize * cols + (padding * (cols + 1));
+        int viewH = cellSize * rows + (padding * (rows + 1));
+        view.setPreferredSize(new Dimension(viewW, viewH));
+        
+        // !useGridLayout の場合、view自体のサイズ確定に必要
+        if (!useGridLayout) {
+            view.setSize(new Dimension(viewW, viewH)); 
+        }
+    }
+
+    public void update(int availableWidth) {
+        int cellSize = calcCellSize(availableWidth);
+        Log.logger.fine("FilmGridCellSize: " + cellSize);
+
+        // Viewの再構築
+        constructView(cellSize);
+
+        // レイアウトの更新を通知
+        view.revalidate();
+        view.repaint();
+    }
+
 }

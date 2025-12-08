@@ -1560,22 +1560,27 @@ public class Praparat extends JPanel {
 		}
 		
 		if(mode == ViewMode.Normal || mode == ViewMode.SingleGrid) {
-			if (isShowGridViewOn()) {
-				showGridViewOn = false;
-			}
 			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
-			// reload slides
-			//prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
-			//setTextVisible(pvcp.isShowInfo());
-			//setAnnotationVisible(pvcp.isShowRoi());
-			//doSingleGridLayout();
+			if (isShowGridViewOn()) {
+				showGridViewOn = false;
+				doFilmGridLayout(filmGridColumns);
+			}else {
+				// reload slides
+				//prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+				//setTextVisible(pvcp.isShowInfo());
+				//setAnnotationVisible(pvcp.isShowRoi());
+				doSingleGridLayout();
+			}
 			for(int i : slides.keySet()) {
 				slides.get(i).reset();
 			}
 			return;
 		}
 		
+		/*
+		 * BirdsEye FilmGrid
+		 */
 		if(mode == ViewMode.FilmGrid) {
 			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
@@ -1583,7 +1588,7 @@ public class Praparat extends JPanel {
 //			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 //			setTextVisible(false);
 //			setAnnotationVisible(false);
-//			doFilmGridLayout(filmGridColumns);
+			doFilmGridLayout(filmGridColumns);
 			for(int i : slides.keySet()) {
 				slides.get(i).reset();
 			}
@@ -1756,6 +1761,7 @@ public class Praparat extends JPanel {
 		final int top = 0;
 		viewPanel.removeAll();
 		viewPanel.add(currentGlass, top);
+		currentGlass.updateDisplayImage();
 		currentGlass.revalidate();//check layout
 		currentGlass.repaint();//repaint all layered glasses(image/roi/text).
 		currentGlass.requestFocus();

@@ -1323,6 +1323,10 @@ public class SlideGlass extends JLayeredPane {
 			}
 		}
 	}
+	
+	public void updateDisplayImage() {
+		imageSpecimen.updateDisplayImage();
+	}
 
 	/**
 	 * 
