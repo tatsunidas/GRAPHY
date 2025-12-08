@@ -21,10 +21,16 @@ import ij.ImageStack;
 import ij.gui.Roi;
 import ij.measure.Calibration;
 import ij.process.ImageProcessor;
+import ij.process.LUT;
 
 public class ImageProcessing {
 	
 	public ImageProcessing(){}
+	
+	public void applyLUT(ImagePlus imp, LUT lut) {
+		imp.setLut(lut);
+		imp.updateAndDraw();
+	}
 	
 	public void invert(ImagePlus imp) {
 		imp.getProcessor().invert();//invertLUT??

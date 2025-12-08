@@ -10,6 +10,7 @@ import javax.swing.ImageIcon;
 
 import com.vis.core.log.Log;
 import com.vis.core.util.Platform;
+import com.vis.core.util.Utils;
 
 import ij.plugin.LutLoader;
 
@@ -204,8 +205,12 @@ public enum Resources {
 		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
 		File appDir = Platform.getAppDirectory();
 		File parent = new File(appDir.getAbsolutePath()+File.separator+"luts");//no pathSeparator ";"
-		System.out.println(parent.getAbsolutePath());
+		if(Utils.isDebug) {
+			parent = new File("luts");
+		}
+		Log.logger.fine("luts parent:"+parent.getAbsolutePath());
 		File[] lutFileList = parent.listFiles();
+		Log.logger.fine(lutFileList.length + " lut files are loaded.");
 		for(File l:lutFileList) {
 			String name = l.getName();
 			if(name.endsWith("lut")) {

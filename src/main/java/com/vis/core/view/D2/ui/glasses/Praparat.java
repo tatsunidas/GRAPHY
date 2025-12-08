@@ -1824,11 +1824,11 @@ public class Praparat extends JPanel {
 		this.lut = lut;
 		if(!isProcessSeries()) {
 			SlideGlass sg = getCurrentSlide();
-			sg.setLUT(lut);
+			sg.setLUT(this.lut);
 		}else {
 			for(Integer key:slides.keySet()) {
 				SlideGlass sg = slides.get(key);
-				sg.setLUT(lut);
+				sg.setLUT(this.lut);
 			}
 		}
 	}

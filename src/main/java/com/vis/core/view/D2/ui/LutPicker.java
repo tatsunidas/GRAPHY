@@ -22,6 +22,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
 
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
@@ -55,7 +56,6 @@ public class LutPicker extends JDialog implements WindowListener{
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		JPanel base = new JPanel();
 		int[] rowAndCol = calcRowAndCol();
-		System.out.println(rowAndCol[0]+" "+rowAndCol[1]);
 		GridLayout gl = new GridLayout(rowAndCol[0], rowAndCol[1]);
 		base.setLayout(gl);
 		base.setBackground(Color.black);
@@ -110,8 +110,8 @@ public class LutPicker extends JDialog implements WindowListener{
 	
 	class LUTCellPanel extends JLabel implements MouseListener{
 		
-		LUT lut;
-		String name;
+		final LUT lut;
+		final String name;
 		
 		private LUTCellPanel(LUT lut, String name) {
 			this.lut = lut;
@@ -151,7 +151,7 @@ public class LutPicker extends JDialog implements WindowListener{
 		@Override
 		public void mouseClicked(MouseEvent me) {
 			if(SwingUtilities.isLeftMouseButton(me)) {
-				System.out.println("LUT Picker: "+name + " selected.");
+				Log.logger.fine("LUT Picker: "+name + " is selected.");
 				selectedLUT = this.lut;
 				selectedLUTName.setText(this.name);
 			}

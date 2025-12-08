@@ -33,7 +33,7 @@ public class ColorBar extends JLabel implements ComponentListener{
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				LutPicker p = new LutPicker();
-				p.setLocationRelativeTo(pp);
+				p.setLocationRelativeTo(praparat());
 				LUT lut = p.run();
 				setColor(lut);
 				praparat().setLUT(lut);
@@ -110,7 +110,7 @@ public class ColorBar extends JLabel implements ComponentListener{
 	
 	@Override
 	protected void paintComponent(Graphics g) {
-		super.paintComponent(g);//Needed??
+		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g.create();
 		LinearGradientPaint lgp = new LinearGradientPaint(
 				new Point(0, 0), 

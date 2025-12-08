@@ -46,6 +46,7 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
 
 import javax.swing.JPanel;
 
@@ -139,6 +140,7 @@ public class ImageSpecimenGlass extends JPanel{
 		return dup;
 	}
 	
+	@Deprecated
 	ImagePlus applyCurrentState(ImagePlus dup) {
 
 		if (sg.isZoomed()) {
@@ -159,6 +161,8 @@ public class ImageSpecimenGlass extends JPanel{
 		if(sg.flipHorizontalFlag) {
 			sg.imgProcess.flipLR(dup);
 		}
+		
+		sg.imgProcess.applyLUT(dup, sg.currentLUT);
 		
 		/*
 		 * skip panning, to delegate slideglass::updateImage
@@ -328,6 +332,10 @@ public class ImageSpecimenGlass extends JPanel{
 	 */
 	public void updateDisplayImage() {
 		
+		if(!this.isDisplayable() || !this.isVisible()) {
+			return;
+		}
+		
 		if(sg == null) {
 			return;
 		}
@@ -342,6 +350,9 @@ public class ImageSpecimenGlass extends JPanel{
 			sg.calculateCurrentAffineTransform();
 			//create copy of original
 			ImagePlus dup = createInitialDisplayImage();
+			
+			sg.imgProcess.applyLUT(dup, sg.currentLUT);
+			
 			//adjust contrast to current
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
 			//invert if it set
@@ -363,6 +374,12 @@ public class ImageSpecimenGlass extends JPanel{
 
 			// ImagePlusのタイプに合わせたBufferedImageを作成
 			BufferedImage dstImg = new BufferedImage(w, h, type);
+			/*
+			 * LUT, index color model
+			 */
+			if (type == BufferedImage.TYPE_BYTE_INDEXED) {
+				dstImg = new BufferedImage(w, h, type, (IndexColorModel) srcImg.getColorModel());
+			}
 			
 			try {
 	            // AffineTransformOpの作成

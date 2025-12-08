@@ -1087,13 +1087,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public void setLUT(LUT lut) {
-		if (invertFlag) {
-			// do nothing
-		} else {
-			// do nothing
-		}
 		this.currentLUT = lut;
-		repaint();
+		imageSpecimen.updateDisplayImage();
+//		repaint();
 	}
 
 	private void setMagnification(double mag) {
