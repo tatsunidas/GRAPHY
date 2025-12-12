@@ -183,15 +183,11 @@ public class QueryRetrieve implements Task, Runnable {
 	 */
 	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
 			List<String> seriesKeys, List<String> instKeys) {
-		// echo
 		if (!DimseUtilities.echo(dest)) {
 			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed.",
 					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
-		/*
-		 * check query key is empty or not
-		 */
 		if (patKeys == null) {
 			patKeys = Collections.emptyList();
 		}
@@ -204,72 +200,237 @@ public class QueryRetrieve implements Task, Runnable {
 		if (instKeys == null) {
 			instKeys = Collections.emptyList();
 		}
-		/* remove null value */
 		patKeys.removeAll(Collections.singleton(null));
 		studyKeys.removeAll(Collections.singleton(null));
 		seriesKeys.removeAll(Collections.singleton(null));
 		instKeys.removeAll(Collections.singleton(null));
-		// Patient Level QR and set root.
+		
 		ArrayList<Attributes> patResps = queryPatientLevel(dest, patKeys, fuzzy);
 		if (patResps != null) {
 			DICOMNode root = new DICOMNode(true, null);
-			for (Attributes patResp : patResps) {
-				String patID = patResp.getString(Tag.PatientID);
-				ArrayList<Attributes> studyResps = queryStudyLevel(dest, patID, studyKeys);
-				if (studyResps != null) {
-					for (Attributes studyResp : studyResps) {
-						DICOMNode studyNode = constructStudyNode(patResp, studyResp);
-						String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
-						int numOfSeriesInThisStudy = 0;
-						int numOfInstanceInThisStudy = 0;
-						ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
-						if (seriesResps != null) {
-							for (Attributes seriesResp : seriesResps) {
-								DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
-								String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
-								int numOfInstanceInThisSeries = 0;
-								ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID,
-										instKeys);
-								if (instResps != null) {
-									for (Attributes instResp : instResps) {
-										DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp,
-												instResp);
-										seriesNode.addChild(instNode);
-										numOfInstanceInThisSeries += 1;
+			FindSCU studyRootSession = null;
+			try {
+				studyRootSession = createStudyRootSession(dest);
+				for (Attributes patResp : patResps) {
+					String patID = patResp.getString(Tag.PatientID);
+					ArrayList<Attributes> studyResps = queryStudyLevelWithSession(studyRootSession, patID, studyKeys);
+					if (studyResps != null) {
+						for (Attributes studyResp : studyResps) {
+							DICOMNode studyNode = constructStudyNode(patResp, studyResp);
+							String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
+							int numOfSeriesInThisStudy = 0;
+							int numOfInstanceInThisStudy = 0;
+							ArrayList<Attributes> seriesResps = querySeriesLevelWithSession(studyRootSession, studyIUID, seriesKeys);
+							if (seriesResps != null) {
+								for (Attributes seriesResp : seriesResps) {
+									DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
+									String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+									int numOfInstanceInThisSeries = 0;
+									ArrayList<Attributes> instResps = queryInstanceLevelWithSession(studyRootSession, studyIUID, seriesIUID, instKeys);
+									if (instResps != null) {
+										for (Attributes instResp : instResps) {
+											DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp, instResp);
+											seriesNode.addChild(instNode);
+											numOfInstanceInThisSeries += 1;
+										}
+									} else {
+										continue;
 									}
-								} else {
-									continue;
+									if(numOfInstanceInThisSeries == 0) {
+										continue;
+									}
+									seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
+									studyNode.addChild(seriesNode);
+									numOfSeriesInThisStudy += 1;
+									numOfInstanceInThisStudy += numOfInstanceInThisSeries;
 								}
-								//set number of instances
-								if(numOfInstanceInThisSeries == 0) {
-									//empty series
-									continue;
-								}
-								seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
-								studyNode.addChild(seriesNode);
-								numOfSeriesInThisStudy += 1;
-								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
+							} else {
+								continue;
 							}
-						} else {
-							continue;
+							if(numOfInstanceInThisStudy == 0 && numOfSeriesInThisStudy == 0) {
+								continue;
+							}
+							studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+							studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
+							root.addChild(studyNode);
 						}
-						//set number of instances
-						if(numOfInstanceInThisStudy == 0 && numOfSeriesInThisStudy == 0) {
-							//empty series
-							continue;
-						}
-						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
-						studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
-						root.addChild(studyNode);
+					} else {
+						continue;
 					}
-				} else {
-					continue;
+				}
+			} catch (Exception e) {
+				Log.logger.warning("Failed to create StudyRoot session, falling back to individual queries: " + e.getMessage());
+				return queryWithoutSession(dest, fuzzy, patKeys, studyKeys, seriesKeys, instKeys, patResps);
+			} finally {
+				if (studyRootSession != null) {
+					studyRootSession.closeSession();
 				}
 			}
 			root.sortChildren(true);
 			return root;
 		} else {
 			return emptyRoot();
+		}
+	}
+	
+	private DICOMNode queryWithoutSession(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, 
+			List<String> studyKeys, List<String> seriesKeys, List<String> instKeys, ArrayList<Attributes> patResps) {
+		DICOMNode root = new DICOMNode(true, null);
+		for (Attributes patResp : patResps) {
+			String patID = patResp.getString(Tag.PatientID);
+			ArrayList<Attributes> studyResps = queryStudyLevel(dest, patID, studyKeys);
+			if (studyResps != null) {
+				for (Attributes studyResp : studyResps) {
+					DICOMNode studyNode = constructStudyNode(patResp, studyResp);
+					String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
+					int numOfSeriesInThisStudy = 0;
+					int numOfInstanceInThisStudy = 0;
+					ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
+					if (seriesResps != null) {
+						for (Attributes seriesResp : seriesResps) {
+							DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
+							String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+							int numOfInstanceInThisSeries = 0;
+							ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID, instKeys);
+							if (instResps != null) {
+								for (Attributes instResp : instResps) {
+									DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp, instResp);
+									seriesNode.addChild(instNode);
+									numOfInstanceInThisSeries += 1;
+								}
+							} else {
+								continue;
+							}
+							if(numOfInstanceInThisSeries == 0) {
+								continue;
+							}
+							seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
+							studyNode.addChild(seriesNode);
+							numOfSeriesInThisStudy += 1;
+							numOfInstanceInThisStudy += numOfInstanceInThisSeries;
+						}
+					} else {
+						continue;
+					}
+					if(numOfInstanceInThisStudy == 0 && numOfSeriesInThisStudy == 0) {
+						continue;
+					}
+					studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+					studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
+					root.addChild(studyNode);
+				}
+			} else {
+				continue;
+			}
+		}
+		root.sortChildren(true);
+		return root;
+	}
+	
+	private FindSCU createStudyRootSession(DicomCommunicationNode dest) throws Exception {
+		ArrayList<String> args = new ArrayList<>();
+		args.add("-c");
+		args.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());
+		args.add("--accept-timeout");
+		args.add("60000");
+		args.add("-L");
+		args.add("STUDY");
+		args.add("-M");
+		args.add("StudyRoot");
+		args.add("-r");
+		args.add("PatientID");
+		
+		FindSCU cfind = new FindSCU();
+		cfind.setUp(args.toArray(new String[0]));
+		cfind.openSession();
+		return cfind;
+	}
+	
+	private ArrayList<Attributes> queryStudyLevelWithSession(FindSCU session, String patID, List<String> studyKeys) {
+		try {
+			Attributes keys = new Attributes();
+			keys.setString(Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "STUDY");
+			keys.setString(Tag.PatientID, org.dcm4che3.data.VR.LO, patID != null ? patID : "");
+			keys.setNull(Tag.PatientName, org.dcm4che3.data.VR.PN);
+			keys.setNull(Tag.PatientSex, org.dcm4che3.data.VR.CS);
+			keys.setNull(Tag.PatientBirthDate, org.dcm4che3.data.VR.DA);
+			keys.setNull(Tag.StudyDate, org.dcm4che3.data.VR.DA);
+			keys.setNull(Tag.StudyTime, org.dcm4che3.data.VR.TM);
+			keys.setNull(Tag.ModalitiesInStudy, org.dcm4che3.data.VR.CS);
+			keys.setNull(Tag.StudyDescription, org.dcm4che3.data.VR.LO);
+			keys.setNull(Tag.NumberOfStudyRelatedSeries, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.NumberOfStudyRelatedInstances, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.AccessionNumber, org.dcm4che3.data.VR.SH);
+			keys.setNull(Tag.StudyInstanceUID, org.dcm4che3.data.VR.UI);
+			
+			if (studyKeys != null) {
+				for (String keyVal : studyKeys) {
+					if (keyVal != null && keyVal.contains("=")) {
+						String[] parts = keyVal.split("=", 2);
+						if (parts[0].equals("StudyDate")) {
+							keys.setString(Tag.StudyDate, org.dcm4che3.data.VR.DA, parts.length > 1 ? parts[1] : "");
+						}
+					}
+				}
+			}
+			
+			ArrayList<Attributes> result = session.queryAndGetResult(keys);
+			return (result == null || result.isEmpty()) ? null : result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private ArrayList<Attributes> querySeriesLevelWithSession(FindSCU session, String studyIUID, List<String> seriesKeys) {
+		try {
+			Attributes keys = new Attributes();
+			keys.setString(Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "SERIES");
+			keys.setString(Tag.StudyInstanceUID, org.dcm4che3.data.VR.UI, studyIUID != null ? studyIUID : "");
+			keys.setNull(Tag.SeriesDate, org.dcm4che3.data.VR.DA);
+			keys.setNull(Tag.SeriesDescription, org.dcm4che3.data.VR.LO);
+			keys.setNull(Tag.Modality, org.dcm4che3.data.VR.CS);
+			keys.setNull(Tag.InstitutionName, org.dcm4che3.data.VR.LO);
+			keys.setNull(Tag.ManufacturerModelName, org.dcm4che3.data.VR.LO);
+			keys.setNull(Tag.SeriesNumber, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.NumberOfSeriesRelatedInstances, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.SeriesInstanceUID, org.dcm4che3.data.VR.UI);
+			
+			if (seriesKeys != null) {
+				for (String keyVal : seriesKeys) {
+					if (keyVal != null && keyVal.contains("=")) {
+						String[] parts = keyVal.split("=", 2);
+						if (parts[0].equals("Modality")) {
+							keys.setString(Tag.Modality, org.dcm4che3.data.VR.CS, parts.length > 1 ? parts[1] : "");
+						}
+					}
+				}
+			}
+			
+			ArrayList<Attributes> result = session.queryAndGetResult(keys);
+			return (result == null || result.isEmpty()) ? null : result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private ArrayList<Attributes> queryInstanceLevelWithSession(FindSCU session, String studyIUID, String seriesIUID, List<String> instKeys) {
+		try {
+			Attributes keys = new Attributes();
+			keys.setString(Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "IMAGE");
+			keys.setString(Tag.StudyInstanceUID, org.dcm4che3.data.VR.UI, studyIUID != null ? studyIUID : "");
+			keys.setString(Tag.SeriesInstanceUID, org.dcm4che3.data.VR.UI, seriesIUID != null ? seriesIUID : "");
+			keys.setNull(Tag.AcquisitionTime, org.dcm4che3.data.VR.TM);
+			keys.setNull(Tag.AcquisitionNumber, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.InstanceNumber, org.dcm4che3.data.VR.IS);
+			keys.setNull(Tag.SOPInstanceUID, org.dcm4che3.data.VR.UI);
+			
+			ArrayList<Attributes> result = session.queryAndGetResult(keys);
+			return (result == null || result.isEmpty()) ? null : result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
 		}
 	}
 
