@@ -55,6 +55,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.JComboBox;
 
@@ -203,7 +204,8 @@ public class DicomPostman extends JDialog implements Runnable{
 			row++;
 		}
 		JList<String> list = new JList<>(candidateInfo);
-		panel.add(list, BorderLayout.CENTER);
+		JScrollPane scrollPane = new JScrollPane(list);
+		panel.add(scrollPane, BorderLayout.CENTER);
 		
 		JPanel panel_2 = new JPanel();
 		panel.add(panel_2, BorderLayout.NORTH);
