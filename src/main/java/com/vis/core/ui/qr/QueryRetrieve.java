@@ -811,6 +811,7 @@ public class QueryRetrieve implements Task, Runnable {
 		return tempRetriveDir;
 	}
 	
+	@SuppressWarnings("unused")
 	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
 			String sopIUID) throws Exception {
 		//C-GET

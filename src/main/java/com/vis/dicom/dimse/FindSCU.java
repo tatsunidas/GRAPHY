@@ -605,6 +605,7 @@ public class FindSCU {
 		attrs.addAll(keys);
 	}
 
+	@SuppressWarnings("unused")
 	private ArrayList<Attributes> queryAndGetResult_(Attributes keys) throws IOException, InterruptedException{
 		ArrayList<Attributes> result = new ArrayList<>();
 		DimseRSP rsp = as.cfind(model.cuid, priority, keys, null, cancelAfter);
