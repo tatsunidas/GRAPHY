@@ -148,6 +148,9 @@ public class FindSCU {
 
 	private Association as;
 	private AtomicInteger totNumMatches = new AtomicInteger();
+	
+	private ExecutorService sessionExecutor;
+	private ScheduledExecutorService sessionScheduledExecutor;
 
 	public FindSCU() throws IOException {
 		device.addConnection(conn);
@@ -555,6 +558,30 @@ public class FindSCU {
 		SafeClose.close(out);
 		out = null;
 	}
+	
+	public void openSession() throws IOException, InterruptedException, IncompatibleConnectionException, GeneralSecurityException {
+		sessionExecutor = Executors.newSingleThreadExecutor();
+		sessionScheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+		device.setExecutor(sessionExecutor);
+		device.setScheduledExecutor(sessionScheduledExecutor);
+		open();
+	}
+	
+	public void closeSession() {
+		try {
+			close();
+		} catch (IOException | InterruptedException e) {
+			e.printStackTrace();
+		}
+		if (sessionExecutor != null) {
+			sessionExecutor.shutdown();
+			sessionExecutor = null;
+		}
+		if (sessionScheduledExecutor != null) {
+			sessionScheduledExecutor.shutdown();
+			sessionScheduledExecutor = null;
+		}
+	}
 
 	public void query(File f) throws Exception {
 		Attributes attrs;
@@ -605,6 +632,7 @@ public class FindSCU {
 		attrs.addAll(keys);
 	}
 
+	@SuppressWarnings("unused")
 	private ArrayList<Attributes> queryAndGetResult_(Attributes keys) throws IOException, InterruptedException{
 		ArrayList<Attributes> result = new ArrayList<>();
 		DimseRSP rsp = as.cfind(model.cuid, priority, keys, null, cancelAfter);
@@ -619,7 +647,7 @@ public class FindSCU {
 		return result;
 	}
 
-	private ArrayList<Attributes> queryAndGetResult(Attributes keys) throws IOException, InterruptedException {
+	public ArrayList<Attributes> queryAndGetResult(Attributes keys) throws IOException, InterruptedException {
 		ArrayList<Attributes> result = new ArrayList<>();
 		DimseRSPHandler rspHandler = new DimseRSPHandler(as.nextMessageID()) {
 			int cancelAfter = FindSCU.this.cancelAfter;

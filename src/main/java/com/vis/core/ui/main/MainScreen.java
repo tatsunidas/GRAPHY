@@ -358,12 +358,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	public void queryAndUpadateTreeTable(){
-		if(searchToolBar.nullSearchKeys() && !Utils.ignoreNullSearchKeyWarning()) {
-			int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			if(res != JOptionPane.OK_OPTION) {
-				return;
-			}
-		}
 		HashMap<String, Object> keys = searchToolBar.getCurrentSearchConditions();
 		String patID = (String)keys.get("PatientID");
 		String patName = (String)keys.get("PatientName");
