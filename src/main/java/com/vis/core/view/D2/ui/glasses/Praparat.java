@@ -763,8 +763,8 @@ public class Praparat extends JPanel {
 		if(p == null) {
 			return;
 		}
-		HashMap<Integer, SlideGlass> slides = p.getAllSlides();
-		if (slides == null || slides.size() < 1) {
+		HashMap<Integer, SlideGlass> srcSlides = p.getAllSlides();
+		if (srcSlides == null || srcSlides.size() < 1) {
 			System.out.println("Slides have no images...");
 			return;
 		}
@@ -772,19 +772,19 @@ public class Praparat extends JPanel {
 		removeSlide(currentSlice);
 		this.slides = new HashMap<Integer, SlideGlass>();
 		
-		Set<Integer> keys = slides.keySet();
+		Set<Integer> keys = srcSlides.keySet();
 		for(Integer k : keys) {
 			//init slide from another slides to set this praparat.
-			SlideGlass sg = slides.get(k);
+			SlideGlass sg = srcSlides.get(k);
 			SlideGlass newsg = new SlideGlass(this, sg.getDicomImage());
 			this.slides.put(k, newsg);
 		}
 		if(Utils.isDebug) {
-			Log.logger.fine(slides.size()+" images loaded.");
+			Log.logger.fine(this.slides.size()+" images loaded.");
 		}
 		if(lut != null) {
-			for(Integer pos : slides.keySet()) {
-				slides.get(pos).setLUT(lut);
+			for(Integer pos : this.slides.keySet()) {
+				this.slides.get(pos).setLUT(lut);
 			}
 		}
 	}
@@ -1286,6 +1286,11 @@ public class Praparat extends JPanel {
 		if(p == null) {
 			logger.log(Level.SEVERE, "Can not load images from this Praparat.");
 			return;
+		}
+		// Copy LUT from source Praparat if we don't have one yet
+		LUT srcLut = p.getLUT();
+		if(this.lut == null && srcLut != null) {
+			this.lut = srcLut;
 		}
 		HashMap<String, Object> info = p.getInfoSet();
 		String patID = (String)info.get("PatientID");
