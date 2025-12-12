@@ -418,13 +418,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeys2(patID, patName, from, to, modalities);
 			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
-			dock.updateTreeTable(newRoot);
+			SwingUtilities.invokeLater(() -> dock.updateTreeTable(newRoot));
 		} else {
 			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName()+"]");
 			/* root */
 			DICOMNode queryResults = new QueryRetrieve(true/*queryOnly*/).querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
 					modalities);
-			dock.updateTreeTable(queryResults);
+			SwingUtilities.invokeLater(() -> dock.updateTreeTable(queryResults));
 		}
 	}
 	

@@ -186,7 +186,7 @@ public class TabDock extends JToolBar{ //implements AncestorListener{
 		this.floating = bool;
 	}
 	
-	public synchronized void updateTreeTable(DICOMNode newRoot) {
+	public void updateTreeTable(DICOMNode newRoot) {
 		JViewport viewport = tableScroll.getViewport(); 
 		DICOMTreeTable treeTable = (DICOMTreeTable)viewport.getView();
 		this.studyCountLbl.setText(getStudyCount(newRoot) + " studies");
