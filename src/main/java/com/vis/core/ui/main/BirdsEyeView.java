@@ -173,7 +173,7 @@ public class BirdsEyeView extends JPanel{
 		}
 		HashMap<Integer, SlideGlass> slides2 = singleGridView.getAllSlides();
 		if(slides2 != null && slides2.size() > 0) {
-			for(Integer key : slides1.keySet()) {
+			for(Integer key : slides2.keySet()) {
 				slides2.get(key).setIgnoreRepaint(ignore);
 			}
 		}
