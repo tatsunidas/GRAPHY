@@ -237,29 +237,21 @@ public class QueryRetrieve implements Task, Runnable {
 										seriesNode.addChild(instNode);
 										numOfInstanceInThisSeries += 1;
 									}
-								} else {
-									continue;
 								}
-								//set number of instances
-								if(numOfInstanceInThisSeries == 0) {
-									//empty series
-									continue;
+								if (numOfInstanceInThisSeries > 0) {
+									seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
 								}
-								seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
 								studyNode.addChild(seriesNode);
 								numOfSeriesInThisStudy += 1;
 								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
 							}
-						} else {
-							continue;
 						}
-						//set number of instances
-						if(numOfInstanceInThisStudy == 0 && numOfSeriesInThisStudy == 0) {
-							//empty series
-							continue;
+						if (numOfSeriesInThisStudy > 0) {
+							if (numOfInstanceInThisStudy > 0) {
+								studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+							}
+							studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
 						}
-						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
-						studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
 						root.addChild(studyNode);
 					}
 				} else {
