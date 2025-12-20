@@ -190,6 +190,7 @@ public class TabDock extends JToolBar{ //implements AncestorListener{
 		JViewport viewport = tableScroll.getViewport(); 
 		DICOMTreeTable treeTable = (DICOMTreeTable)viewport.getView();
 		this.studyCountLbl.setText(getStudyCount(newRoot) + " studies");
+		this.studyCountLbl.repaint();
 		treeInfoPanel.repaint();
 		int[] selectedRows = treeTable.getSelectedRows();//using table no good	
 		//get already opened tree node locations

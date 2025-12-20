@@ -185,8 +185,11 @@ public class QueryRetrieve implements Task, Runnable {
 			List<String> seriesKeys, List<String> instKeys) {
 		// echo
 		if (!DimseUtilities.echo(dest)) {
-			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed.",
+			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed. :"+dest.getAETitle(),
 					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
+			MainScreen ms = WindowManager.getMainScreen();
+			TreeTableDockManager ttdm = ms.getTreeTableDockManager();
+			ttdm.removeDockAt(dest.getNickname());
 			return null;
 		}
 		/*
