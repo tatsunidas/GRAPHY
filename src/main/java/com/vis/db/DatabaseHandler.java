@@ -68,6 +68,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.Resources;
@@ -2383,14 +2385,27 @@ public class DatabaseHandler {
 	 * update if already exists.
 	 * @param roiCon
 	 */
+	@SuppressWarnings("unlikely-arg-type")
 	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
 		/**
 		 * If you change arguments, also check loadRoiContextFromInstance().
 		 */
-		insertRoi((String) roiCon.get(ContextKey.RoiID.name()), (String) roiCon.get(ContextKey.Name.name()),
+		String jsonProperties = "";
+		if(roiCon.get(ContextKey.RoiMetaProperties) != null) {
+			@SuppressWarnings("unchecked")
+			Map<String, String> metaAttributes = (Map<String, String>)roiCon.get(ContextKey.RoiMetaProperties);
+			// 3. Gsonを使って Map -> JSON文字列 に変換
+		    Gson gson = new Gson();
+		    jsonProperties = gson.toJson(metaAttributes);
+		}
+		insertRoi(
+				(String) roiCon.get(ContextKey.RoiID.name()), 
+				(String) roiCon.get(ContextKey.Name.name()),
 				Integer.parseInt((String) roiCon.get(ContextKey.RoiType.name())),
-				(int) roiCon.get(RoiGeometry.OriginX.name()), (int) roiCon.get(RoiGeometry.OriginY.name()),
-				(int) roiCon.get(RoiGeometry.Width.name()), (int) roiCon.get(RoiGeometry.Height.name()),
+				(int) roiCon.get(RoiGeometry.OriginX.name()), 
+				(int) roiCon.get(RoiGeometry.OriginY.name()),
+				(int) roiCon.get(RoiGeometry.Width.name()), 
+				(int) roiCon.get(RoiGeometry.Height.name()),
 				(double[]) roiCon.get(RoiGeometry.PointX.name()), (double[]) roiCon.get(RoiGeometry.PointY.name()),
 				(double[]) roiCon.get(RoiGeometry.Shape.name()),
 				roiCon.get(ContextKey.InstanceNo.name()) == null ? Integer.MIN_VALUE
@@ -2401,14 +2416,16 @@ public class DatabaseHandler {
 				(String) roiCon.get(ContextKey.Organ.name()), (String) roiCon.get(ContextKey.Description.name()),
 				roiCon.get(ContextKey.StudyDate.name()) == null ? null
 						: DateUtils.toSQLDateObj((String) roiCon.get(ContextKey.StudyDate.name())),
-				(String) roiCon.get(ContextKey.CrossSection.name()), (String) roiCon.get("PatientID"),
+				(String) roiCon.get(ContextKey.CrossSection.name()), 
+				jsonProperties,
+				(String) roiCon.get("PatientID"),
 				(String) roiCon.get("StudyInstanceUID"), (String) roiCon.get("SeriesInstanceUID"),
 				(String) roiCon.get("SOPInstanceUID"));
 	}
 
-	public void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,
+	private void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String txt/* description */, java.sql.Date studyDate, String crossSection,
+			String objType, String organ, String desc/* description */, java.sql.Date studyDate, String crossSection,String jsonProperties,
 			String pid, String studyUid, String seriesUid, String sopUid) {
 		if (pointX != null && pointY != null) {
 			if (pointX.length != pointY.length) {
@@ -2446,16 +2463,8 @@ public class DatabaseHandler {
 				byteArrayShape = bbS.array();
 			}
 
-			String sql = "insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+			String sql = "insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 			try (Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(sql);){
-				/*
-				 * RoiID varchar(255) NOT NULL CONSTRAINT RoiID_pk PRIMARY KEY, Roi name,
-				 * RoiType integer, OriginX integer, OriginY integer, Width integer, Height
-				 * integer, PointX blob, PointY blob, Shape blob, InstanceNo integer, int
-				 * roiGroup, String roilbl, String objType, String organ, Description PatientID
-				 * varchar(255), StudyInstanceUID varchar(255), SeriesInstanceUID varchar(255),
-				 * SOPInstanceUID varchar(255),
-				 */
 				insertStmt.setString(1, roiId);
 				insertStmt.setString(2, name);
 				insertStmt.setInt(3, roiType);
@@ -2474,13 +2483,14 @@ public class DatabaseHandler {
 				insertStmt.setString(13, roilbl);
 				insertStmt.setString(14, objType);
 				insertStmt.setString(15, organ);
-				insertStmt.setString(16, txt);
+				insertStmt.setString(16, desc);
 				insertStmt.setDate(17, studyDate);
 				insertStmt.setString(18, crossSection);
-				insertStmt.setString(19, pid);
-				insertStmt.setString(20, studyUid);
-				insertStmt.setString(21, seriesUid);
-				insertStmt.setString(22, sopUid);
+				insertStmt.setString(19, jsonProperties);
+				insertStmt.setString(20, pid);
+				insertStmt.setString(21, studyUid);
+				insertStmt.setString(22, seriesUid);
+				insertStmt.setString(23, sopUid);
 				insertStmt.executeUpdate();
 				conn.commit();
 			} catch (SQLException ex) {
@@ -2489,7 +2499,7 @@ public class DatabaseHandler {
 		} else {// already exists
 			// updation
 			updateRoiInfo(roiId, name, roiType, originX, originY, w, h, pointX, pointY, shapeArray, instNo, roiGroup,
-					roilbl, objType, organ, txt, studyDate, crossSection, pid, studyUid, seriesUid, sopUid);
+					roilbl, objType, organ, desc, studyDate, crossSection, jsonProperties, pid,studyUid, seriesUid, sopUid);
 		}
 	}
 
@@ -2807,19 +2817,37 @@ public class DatabaseHandler {
 			try(ResultSet rset = pstmt.executeQuery()){
 				if (rset.next()) {
 					roiCon.put("RoiID", rset.getString("RoiID"));
-					roiCon.put("RoiType", rset.getInt("RoiType"));
+					roiCon.put("Name", rset.getString("Name"));
+					roiCon.put("RoiType", rset.getInt("RoiType"));// int
 					roiCon.put("OriginX", rset.getInt("OriginX"));
 					roiCon.put("OriginY", rset.getInt("OriginY"));
 					roiCon.put("Width", rset.getInt("Width"));
 					roiCon.put("Height", rset.getInt("Height"));
-					roiCon.put("PointX", rset.getBlob("PointX"));
-					roiCon.put("PointY", rset.getBlob("PointY"));
-					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
-					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
+					roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
+					roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
+					roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
+					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
+					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
 					roiCon.put("RoiLabel", rset.getString("RoiLabel"));
 					roiCon.put("ObjectType", rset.getString("ObjectType"));
 					roiCon.put("Organ", rset.getString("Organ"));
 					roiCon.put("Description", rset.getString("Description"));
+					if (rset.getDate(ContextKey.StudyDate.name()) != null) {
+						java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
+						SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
+						roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+					} else {
+						roiCon.put(ContextKey.StudyDate.name(), null);
+					}
+					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
+					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
+						Gson gson = new Gson();
+						// JSON -> Map に変換
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
+						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
+						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
+					}
 					roiCon.put("PatientID", rset.getString("PatientID"));
 					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
@@ -2870,6 +2898,75 @@ public class DatabaseHandler {
 						roiCon.put(ContextKey.StudyDate.name(), null);
 					}
 					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
+					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
+						Gson gson = new Gson();
+						// JSON -> Map に変換
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
+						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
+						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
+					}
+					roiCon.put("PatientID", rset.getString("PatientID"));
+					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
+					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
+					roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
+					set.add(roiCon);
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		if (set.size() > 0) {
+			return set;
+		} else {
+			return null;
+		}
+	}
+	
+	public ArrayList<HashMap<String, Object>> loadRoiContextFromPatient(String pid) {
+		if(pid == null) {
+			return null;
+		}
+		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
+		String statement = "SELECT * FROM ROI WHERE PatientID=?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);){
+			pstmt.setString(1, pid);
+			try(ResultSet rset = pstmt.executeQuery();){
+				while (rset.next()) {
+					HashMap<String, Object> roiCon = new HashMap<>();
+					roiCon.put("RoiID", rset.getString("RoiID"));
+					roiCon.put("Name", rset.getString("Name"));
+					roiCon.put("RoiType", rset.getInt("RoiType"));// int
+					roiCon.put("OriginX", rset.getInt("OriginX"));
+					roiCon.put("OriginY", rset.getInt("OriginY"));
+					roiCon.put("Width", rset.getInt("Width"));
+					roiCon.put("Height", rset.getInt("Height"));
+					roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
+					roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
+					roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
+					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
+					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
+					roiCon.put("RoiLabel", rset.getString("RoiLabel"));
+					roiCon.put("ObjectType", rset.getString("ObjectType"));
+					roiCon.put("Organ", rset.getString("Organ"));
+					roiCon.put("Description", rset.getString("Description"));
+					if (rset.getDate(ContextKey.StudyDate.name()) != null) {
+						java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
+						SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
+						roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+					} else {
+						roiCon.put(ContextKey.StudyDate.name(), null);
+					}
+					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
+					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
+						Gson gson = new Gson();
+						// JSON -> Map に変換
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
+						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
+						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
+					}
 					roiCon.put("PatientID", rset.getString("PatientID"));
 					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
@@ -3756,10 +3853,42 @@ public class DatabaseHandler {
 		}
 	}
 
+	/**
+	 * 
+	 * @param roiId
+	 * @param name
+	 * @param roiType
+	 * @param originX
+	 * @param originY
+	 * @param w
+	 * @param h
+	 * @param pointX
+	 * @param pointY
+	 * @param shapeArray
+	 * @param instNo
+	 * @param roiGroup
+	 * @param roilbl
+	 * @param objType
+	 * @param organ
+	 * @param desc
+	 * @param studyDate
+	 * @param crossSection
+	 * @param jsonProperties String jsonProperties = "";
+	 *                       if(roiCon.get(ContextKey.RoiProperties) != null)
+	 *                       { @SuppressWarnings("unchecked") Map<String, String>
+	 *                       metaAttributes = (Map<String,
+	 *                       String>)roiCon.get(ContextKey.RoiProperties); // 3.
+	 *                       Gsonを使って Map -> JSON文字列 に変換 Gson gson = new Gson();
+	 *                       jsonProperties = gson.toJson(metaAttributes); }
+	 * @param pid
+	 * @param studyUid
+	 * @param seriesUid
+	 * @param sopUid
+	 */
 	public void updateRoiInfo(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String txt, java.sql.Date studyDate, String crossSection, String pid,
-			String studyUid, String seriesUid, String sopUid) {
+			String objType, String organ, String desc, java.sql.Date studyDate, String crossSection, String jsonProperties,
+			String pid, String studyUid, String seriesUid, String sopUid) {
 
 		// get as byte
 		byte[] byteArrayX = null;
@@ -3789,7 +3918,7 @@ public class DatabaseHandler {
 		try (Connection conn = openConnection();){
 			String statement = "UPDATE ROI ";// need space at end
 			statement = statement
-					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? ";
+					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , MetaProperties=?";
 			statement = statement
 					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);
@@ -3806,18 +3935,19 @@ public class DatabaseHandler {
 			pstmt.setBlob(9, byteArrayShape != null ? new ByteArrayInputStream(byteArrayShape) : null,
 					byteArrayShape != null ? byteArrayShape.length : 0);
 			pstmt.setInt(10, instNo);
-			pstmt.setString(11, txt);
+			pstmt.setString(11, desc);
 			pstmt.setInt(12, roiGroup);
 			pstmt.setString(13, roilbl);
 			pstmt.setString(14, objType);
 			pstmt.setString(15, organ);
 			pstmt.setDate(16, studyDate);
 			pstmt.setString(17, crossSection);
-			pstmt.setString(18, pid);
-			pstmt.setString(19, studyUid);
-			pstmt.setString(20, seriesUid);
-			pstmt.setString(21, sopUid);
-			pstmt.setString(22, roiId);
+			pstmt.setString(18, jsonProperties);
+			pstmt.setString(19, pid);
+			pstmt.setString(20, studyUid);
+			pstmt.setString(21, seriesUid);
+			pstmt.setString(22, sopUid);
+			pstmt.setString(23, roiId);
 			pstmt.executeUpdate();
 			pstmt.close();
 			conn.commit();

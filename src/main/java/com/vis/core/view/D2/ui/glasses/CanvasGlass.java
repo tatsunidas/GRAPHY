@@ -180,9 +180,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 			String sopUID = uids.get(ContextKey.SOPInstanceUID);
 			String roiID = uids.get(ContextKey.RoiID);
 			updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
+			//this roi already in RoiObjManager.
 		} else {
 			roiset.add(newRoi);
 			insertOrUpdateRoi4DB(newRoi);
+			//update RoiObjManager
+			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
+			if(rom != null) {
+				rom.updateState();
+			}
 		}
 	}
 

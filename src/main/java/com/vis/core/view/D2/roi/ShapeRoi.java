@@ -3,8 +3,10 @@ package com.vis.core.view.D2.roi;
 import java.awt.*;
 import java.awt.geom.*;
 import java.util.*;
+import java.util.logging.Level;
 
 import com.vis.configuration.ContextKey;
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.process.*;
@@ -163,10 +165,35 @@ public class ShapeRoi extends RoiObj {
     @Override
     public HashMap<String, Object> readContext(){
     	HashMap<String,Object> con = new HashMap<>();
-    	//basic info as to String
-    	for(ContextKey k:ContextKey.values()) {
-    		con.put(k.name(), getProperty(k.name()));
-    	}
+    	//read main attributes
+		for (ContextKey k : ContextKey.values()) {
+			if (k == ContextKey.RoiMetaProperties) {
+				continue;
+			}
+			String v = getProperty(k.name());
+			if (v != null) {
+				con.put(k.name(), v);// keep as String.
+			}
+		}
+		// read meta attributes
+		for (Object k : props.keySet()) {
+			boolean mainProp = false;
+			for (ContextKey ck : ContextKey.values()) {
+				if (((String) k).equals(ck.name())) {
+					mainProp = true;
+					if (k == ContextKey.RoiMetaProperties) {
+						Log.logger.log(Level.WARNING,
+								"RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
+					}
+					break;
+				}
+			}
+			if (mainProp) {
+				continue;
+			}
+			String metaAttr = (String) props.get(k);
+			con.put((String) k, metaAttr);
+		}
 		con.put("OriginX", x);//con.put("OriginX", (int) getXBase());
 		con.put("OriginY", y);//con.put("OriginY", (int) getYBase());
 		con.put("Width", width);

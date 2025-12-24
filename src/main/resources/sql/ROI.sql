@@ -17,6 +17,7 @@ create table roi (
 	Organ varchar(64),
 	StudyDate date,
 	CrossSection varchar(16),
+	MetaProperties clob,
 	PatientID varchar(255),
 	foreign key(PatientID) references Patient(PatientID),
 	StudyInstanceUID varchar(255),

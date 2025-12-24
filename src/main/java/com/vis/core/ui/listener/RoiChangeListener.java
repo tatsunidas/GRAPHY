@@ -35,40 +35,25 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.configuration;
+package com.vis.core.ui.listener;
+
+import com.vis.core.view.D2.roi.RoiObj;
 
 /**
- * Context information.
- * These are not including Roi geometry data (such as points, coordinates etc).
  * 
  * @author tatsunidas
+ *
  */
-public enum ContextKey {
-	PatientID,
-	StudyInstanceUID,
-	SeriesInstanceUID,
-	SOPInstanceUID,
-	FrameOfReferenceUID,
-	RoiID,
-	Name,
-	InstanceNo,//int //this is NOT slice position!! //int
-	StudyDate,
-	CrossSection, // AXI, SAG, COR
-	RoiType, //int
-	RoiGroup, //int
-	RoiLabel, //string
-	ObjectType,//string target object type, e.g., target lesion.
-	Organ,//string
-	Description,//for textroi and any context.string
-	RoiMetaProperties;
-	
-	public static boolean checkPropertyKey(String key) {
-		for (ContextKey k : ContextKey.values()) {
-			String stringKey = k.name();
-			if (stringKey.equals(key)) {
-				return true;
-			}
-		}
-		return false;
-	}
+public interface RoiChangeListener {
+	/**
+	 * ROIが作成・変形・移動された時に呼ばれる
+	 * 
+	 * @param updatedRoi 変更されたROIオブジェクト（最新の形状を持つ）
+	 */
+	void onRoiUpdated(RoiObj updatedRoi);
+
+	/**
+	 * ROIが選択（クリック）された時に呼ばれる
+	 */
+	void onRoiSelected(RoiObj selectedRoi);
 }

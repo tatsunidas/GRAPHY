@@ -85,7 +85,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 
 	private static final long serialVersionUID = 7624168171524035750L;
 	private static final Viewer2DScreen viewerWin = new Viewer2DScreen();
-	private static RoiObjManager rom = new RoiObjManager();
+	private static RoiObjManager rom = RoiObjManager.getInstance();
 	private DatabaseHandler db = DatabaseHandler.getInstance();
 	private Viewer2DToolBar toolBar;
 

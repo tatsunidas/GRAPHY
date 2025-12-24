@@ -1580,7 +1580,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public String getProperties() {
+	public String getAllPropertiesAsString() {
 		if (props == null)
 			return null;
 		Vector v = new Vector();
@@ -1611,15 +1611,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			// if integer
 			if (property.equals(ContextKey.RoiType.name())) {
 				return String.valueOf(getType());
-			} else if (property.equals(ContextKey.RoiGroup.name())) {
-				// basicaly, roiGroup was saved as string.
-				// here, return sa-is
-			} else if (property.equals(ContextKey.InstanceNo.name())) {
-				// here, return sa-is
 			}
-			// else
 			return props.getProperty(property);
 		}
+	}
+	
+	public Properties getProperties() {
+		return this.props;
 	}
 
 	public int getPropertyCount() {
@@ -2635,15 +2633,37 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	/*
-	 * see also override another Roi.
+	 * see also ShapeRoi.readContext().
 	 */
 	public HashMap<String, Object> readContext() {
 		HashMap<String, Object> con = new HashMap<>();
+		//read main attributes
 		for (ContextKey k : ContextKey.values()) {
+			if(k==ContextKey.RoiMetaProperties) {
+				continue;
+			}
 			String v = getProperty(k.name());
 			if (v != null) {
 				con.put(k.name(), v);//keep as String.
 			}
+		}
+		//read meta attributes
+		for(Object k : props.keySet()) {
+			boolean mainProp = false;
+			for (ContextKey ck : ContextKey.values()) {
+				if(((String)k).equals(ck.name())) {
+					mainProp = true;
+					if(k==ContextKey.RoiMetaProperties) {
+						Log.logger.log(Level.WARNING, "RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
+					}
+					break;
+				}
+			}
+			if(mainProp) {
+				continue;
+			}
+			String metaAttr = (String)props.get(k);
+			con.put((String)k, metaAttr);
 		}
 		con.put(RoiGeometry.OriginX.name(), (int) getXBase());
 		con.put(RoiGeometry.OriginY.name(), (int) getYBase());
@@ -2653,7 +2673,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		con.put(RoiGeometry.PointY.name(), fArray2dArray(getFloatPolygon().ypoints));
 		// See also ShapeRoi::readContext(), roiToShape(RoiObj roi)
 		con.put(RoiGeometry.Shape.name(), null);
-
 		return con;
 	}
 	

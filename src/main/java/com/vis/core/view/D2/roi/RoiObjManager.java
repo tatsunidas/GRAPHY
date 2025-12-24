@@ -99,6 +99,7 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.listener.RoiChangeListener;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.*;
@@ -161,6 +162,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	private JPopupMenu pm;
 //	private JCheckBox labelsCheckbox = new JCheckBox("Labels", false);
 	
+	private List<RoiChangeListener> listeners = new ArrayList<>();
+	
 	private static String errorMessage;
 	
 	/*
@@ -180,7 +183,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	/*
 	 * used for Viewer2DScreen
 	 */
-	public RoiObjManager() {
+	private RoiObjManager() {
 		super("Analysis Assistant");
 		if (instance!=null) {
 			return;
@@ -246,8 +249,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		add(funcPanel, BorderLayout.EAST);
 	}
 	
-	public RoiObjManager getInstance() {
-		return instance;
+	public static RoiObjManager getInstance() {
+		if(RoiObjManager.instance == null) {
+			RoiObjManager.instance = new RoiObjManager();
+		}
+		return RoiObjManager.instance;
 	}
 	
 	@Override
@@ -378,8 +384,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				patComboModel.addElement(lists[i]);
 			}
 		}
-		patList.revalidate();
-		patList.repaint();
+		if(isVisible()) {
+			patList.revalidate();
+			patList.repaint();
+		}
 	}
 	
 	/**
@@ -411,7 +419,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				}
 			}
 		}
-		list.repaint();
+		if(isVisible()) {
+			list.repaint();
+		}
 	}
 	
 	/**
@@ -422,7 +432,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		//clear all info
 		currentRoi = null;//IMPORTANT to avoid auto save by list selection
 		resetRoiInfoFields();
-//		updateRoiObjList();// execute from change listener
+		if(patList == null || patList.getItemCount()==0) {
+			return;
+		}
+		String selectedPatID = patList.getItemAt(patList.getSelectedIndex());
+		if (selectedPatID == null) {
+			return;
+		}
+		updateRoiObjList(selectedPatID);// execute from change listener
 	}
 	
 	private void resetRoiInfoFields() {
@@ -1648,37 +1665,54 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if (e.getSource() instanceof JComboBox) {
 			JComboBox<String> patCombo = (JComboBox<String>) e.getSource();
 			String selectedPatID = patCombo.getItemAt(patCombo.getSelectedIndex());
-			if(selectedPatID != null) {
+			if (selectedPatID != null) {
 				updateRoiObjList(patCombo.getItemAt(patCombo.getSelectedIndex()));
 			}
 		}
 	}
+
+	static class DateInputVerifier extends InputVerifier {
+		private final SimpleDateFormat dateFormat;
+
+		public DateInputVerifier(String dateFormatPattern) {
+			this.dateFormat = new SimpleDateFormat(dateFormatPattern);
+			this.dateFormat.setLenient(false);
+		}
+
+		@Override
+		public boolean verify(JComponent input) {
+			JTextField textField = (JTextField) input;
+			String text = textField.getText();
+
+			if (text.isEmpty() || text.length() == 0) {
+				return true;
+			}
+
+			try {
+				dateFormat.parse(text);
+				return true;
+			} catch (ParseException e) {
+				JOptionPane.showMessageDialog(input, "Date is formatted by " + dateFormat.toPattern() + ".");
+				return false;
+			}
+		}
+	}
 	
-	 static class DateInputVerifier extends InputVerifier {
-	        private final SimpleDateFormat dateFormat;
+	public void addRoiChangeListener(RoiChangeListener listener) {
+        this.listeners.add(listener);
+    }
 
-	        public DateInputVerifier(String dateFormatPattern) {
-	            this.dateFormat = new SimpleDateFormat(dateFormatPattern);
-	            this.dateFormat.setLenient(false);
-	        }
+    public void removeRoiChangeListener(RoiChangeListener listener) {
+        this.listeners.remove(listener);
+    }
 
-	        @Override
-	        public boolean verify(JComponent input) {
-	            JTextField textField = (JTextField) input;
-	            String text = textField.getText();
-	            
-	            if(text.isEmpty() || text.length() == 0){
-	            	return true;
-	            }
-	            
-	            try {
-	                dateFormat.parse(text);
-	                return true;
-	            } catch (ParseException e) {
-	                JOptionPane.showMessageDialog(input, "Date is formatted by " + dateFormat.toPattern() + ".");
-	                return false;
-	            }
-	        }
-	    }
+    /**
+     * GRAPHYのビューア(MouseListenerなど)から呼ばれるメソッド
+     */
+    public void notifyRoiUpdated(RoiObj roi) {
+        for (RoiChangeListener l : listeners) {
+            l.onRoiUpdated(roi);
+        }
+    }
 
 }

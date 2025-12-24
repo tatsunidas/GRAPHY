@@ -39,6 +39,9 @@ package com.vis.core.view.D2.roi;
 
 import java.awt.Font;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Level;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
@@ -115,14 +118,43 @@ public class RoiConverter {
 	
 	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi){
 		for(ContextKey key : ContextKey.values()) {
+			if(key == ContextKey.RoiMetaProperties) {
+				continue;
+			}
 			String value = roiObj.getProperty(key.name());
 			if(value != null) {
 				ijRoi.setProperty(key.name(), value);
 			}
 		}
+		Properties props = roiObj.getProperties();
+		for(Object k : props.keySet()) {
+			boolean mainProp = false;
+			for (ContextKey ck : ContextKey.values()) {
+				if(((String)k).equals(ck.name())) {
+					mainProp = true;
+					if(k==ContextKey.RoiMetaProperties) {
+						Log.logger.log(Level.WARNING, "RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
+					}
+					break;
+				}
+			}
+			if(mainProp) {
+				continue;
+			}
+			String metaAttr = (String)props.get(k);
+			ijRoi.setProperty((String) k, metaAttr);
+		}
 		return ijRoi;
 	}
 	
+	/**
+	 * convert original imagej'roi to GRAPHY roi.
+	 * Even if imagej'roi has extra meta data, ignore it.
+	 * Because imagej'roi does not open prop variable.
+	 * 
+	 * @param roi
+	 * @return
+	 */
 	public RoiObj convert2RoiObj(Roi roi){
 		HashMap<String, Object> roiCon = new HashMap<>();
 		int x = roi.getBounds().x;
@@ -165,6 +197,7 @@ public class RoiConverter {
 				roiCon.put(key.name(), value);
 			}
 		}
+		
 		return buildRoiObj(roiCon);
 	}
 	
@@ -181,24 +214,31 @@ public class RoiConverter {
 
 		String desc = (String)roiCon.get("Description");//TextRoi
 		
+		//add meta properties
+		
+		RoiObj roi = null;
 		RoiType t = RoiType.find(type);
 		switch (t) {
 		case RECTANGLE:
 			RoiObj rect = new RoiObj(x, y, w, h, 0, null);
 			rect.setProperties(roiCon);
-			return rect;
+			roi = rect;
+			break;
 		case POLYGON:
 			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYGON.id(), null);
 			poly.setProperties(roiCon);
-			return poly;
+			roi = poly;
+			break;
 		case POLYLINE:
 			RoiObj polyline = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYLINE.id(), null);
 			polyline.setProperties(roiCon);
-			return polyline;
+			roi = polyline;
+			break;
 		case ANGLE:
 			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.ANGLE.id(), null);
 			angle.setProperties(roiCon);
-			return angle;
+			roi = angle;
+			break;
 		case OVAL:
 			RoiObj oval = new com.vis.core.view.D2.roi.OvalRoi(x,y,w,h,null);
 			oval.setProperties(roiCon);
@@ -206,53 +246,69 @@ public class RoiConverter {
 		case FREEROI:
 			RoiObj free = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.FREEROI.id(), null);
 			free.setProperties(roiCon);
-			return free;
+			roi = free;
+			break;
 		case LINE:
 			RoiObj line = new com.vis.core.view.D2.roi.Line(pointX[0],pointY[0],pointX[1],pointY[1],null);
 			line.setProperties(roiCon);
-			return line;
+			roi = line;
+			break;
 		case FREELINE:
 			RoiObj freeline = new com.vis.core.view.D2.roi.PolygonRoi(pointX,pointY,pointX.length,RoiType.FREELINE.id(),null);
 			freeline.setProperties(roiCon);
-			return freeline;
+			roi = freeline;
+			break;
 		case ARROW:
 			/*
 			 * 4 points included of x and y points.
 			 */
 			RoiObj arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[2],pointY[2],null);
 			arrow.setProperties(roiCon);
-			return arrow;
+			roi = arrow;
+			break;
 		case TEXT:
 			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, desc, null, null);
 			txt.setProperties(roiCon);//update text string
-			return txt;
+			roi = txt;
+			break;
 		case POINT:case MULTIPOINT:
 			RoiObj pt = new com.vis.core.view.D2.roi.PointRoi(pointX,pointY,null);
 			pt.setProperties(roiCon);
-			return pt;
+			roi = pt;
+			break;
 		case COMPOSITE:
 			if(shapeArray == null) {
 				return null;
 			}
 			ShapeRoi sr = new com.vis.core.view.D2.roi.ShapeRoi(shapeArray, null);
 			sr.setProperties(roiCon);//update text string
-			return sr;
+			roi = sr;
+			break;
 		case TRACED_ROI:
 			if(shapeArray == null) {
 				RoiObj polyTrace = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYGON.id(), null);
 				polyTrace.setProperties(roiCon);
-				return polyTrace;
+				roi = polyTrace;
+				break;
 			}
 			ShapeRoi srTrace = new com.vis.core.view.D2.roi.ShapeRoi(shapeArray, null);
 			srTrace.setProperties(roiCon);//update text string
-			return srTrace;
+			roi = srTrace;
+			break;
 		// add cases
 		default:
 			return null;
 		}
 		
+		//add meta prop
+		if(roiCon.get(ContextKey.RoiMetaProperties.name()) == null) {
+			return roi;
+		}
+		@SuppressWarnings("unchecked")
+		Map<String, String> metaProp = (HashMap<String,String>)roiCon.get(ContextKey.RoiMetaProperties.name());
+		for(String k : metaProp.keySet()) {
+			roi.addProperty(k, metaProp.get(k));
+		}
+		return roi;
 	}
-	
-	
-
 }
