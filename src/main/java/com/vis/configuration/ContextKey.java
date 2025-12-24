@@ -57,7 +57,7 @@ public enum ContextKey {
 	RoiType, //int
 	RoiGroup, //int
 	RoiLabel, //string
-	ObjectType,//string target object type, e.g., target lesions.
+	ObjectType,//string target object type, e.g., target lesion.
 	Organ,//string
 	Description;//for textroi and any context.string
 	

@@ -186,19 +186,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 
-	public void addRoi(RoiObj newRoi, boolean updateDB) {
-		if(newRoi instanceof CenterPositionLine) {
-			return;
-		}
-		if(updateDB) {
-			addRoi(newRoi);
-		}else {
-			if (!this.roiset.contains(newRoi)) {
-				roiset.add(newRoi);
-			}
-		}
-	}
-
 	/**
 	 * Starts the process of creating a new selection, where sx and sy are the
 	 * starting screen coordinates. The selection type is determined by which tool
@@ -659,7 +646,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 					continue;
 				}
 				roi.setSlideGlass(sg);
-				addRoi(roi, false/*update db*/);
+				if (!this.roiset.contains(roi)) {
+					roiset.add(roi);
+				}
 			}
 		}
 	}
