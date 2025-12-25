@@ -99,7 +99,6 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
-import com.vis.core.ui.listener.RoiChangeListener;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.*;
@@ -161,8 +160,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	private HashMap<String,RoiObj> selectedRois = new HashMap<>();//selected on list
 	private JPopupMenu pm;
 //	private JCheckBox labelsCheckbox = new JCheckBox("Labels", false);
-	
-	private List<RoiChangeListener> listeners = new ArrayList<>();
 	
 	private static String errorMessage;
 	
@@ -1698,21 +1695,4 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 	}
 	
-	public void addRoiChangeListener(RoiChangeListener listener) {
-        this.listeners.add(listener);
-    }
-
-    public void removeRoiChangeListener(RoiChangeListener listener) {
-        this.listeners.remove(listener);
-    }
-
-    /**
-     * GRAPHYのビューア(MouseListenerなど)から呼ばれるメソッド
-     */
-    public void notifyRoiUpdated(RoiObj roi) {
-        for (RoiChangeListener l : listeners) {
-            l.onRoiUpdated(roi);
-        }
-    }
-
 }

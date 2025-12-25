@@ -39,7 +39,6 @@ package com.vis.core.view.D2.roi;
 
 import ij.*;
 import ij.gui.Roi;
-import ij.gui.RoiListener;
 import ij.process.*;
 import ij.process.PolygonFiller;
 import ij.measure.*;
@@ -57,6 +56,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.ui.glasses.*;
@@ -196,7 +196,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	protected static Color defaultFillColor = Color.white;
 	protected static Color defaultHandleColor = Color.yellow;
 	protected static int pasteMode = Blitter.COPY;
-	private static Vector<RoiListener> listeners = new Vector<RoiListener>();
+	private static Vector<RoiObjListener> listeners = new Vector<RoiObjListener>();
 	private static int defaultHandleSize;
 	
 	/*
@@ -279,8 +279,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	/*
 	 * STATIC METHOD
 	 */
-	
-	public static void addRoiListener(RoiListener listener) {
+	public static void addRoiListener(RoiObjListener listener) {
 		listeners.addElement(listener);
 	}
 
@@ -516,7 +515,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return magnification > 1.5;
 	}
 
-	public static void removeRoiListener(RoiListener listener) {
+	public static void removeRoiListener(RoiObjListener listener) {
 		listeners.removeElement(listener);
 	}
 	public static void resetDefaultHandleSize() {
@@ -2543,15 +2542,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void notifyListeners(int id) {
-		if (id == RoiListener.CREATED) {
+		if (id == RoiObjListener.CREATED) {
 			if (listenersNotified)
 				return;
 			listenersNotified = true;
 		}
 		synchronized (listeners) {
 			for (int i = 0; i < listeners.size(); i++) {
-				RoiListener listener = (RoiListener) listeners.elementAt(i);
-				listener.roiModified(imp, id);
+				RoiObjListener listener = (RoiObjListener) listeners.elementAt(i);
+				listener.roiModified(slide, id);
 			}
 		}
 	}
@@ -2604,29 +2603,28 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			height--;
 			if (height < 1)
 				height = 1;
-//				notifyListeners(RoiListener.MODIFIED);//tatsu
+				notifyListeners(RoiObjListener.MODIFIED);
 			break;
 		case KeyEvent.VK_DOWN:
 			height++;
 			if ((y + height) > yMax)
 				height = yMax - y;
-//				notifyListeners(RoiListener.MODIFIED);
+				notifyListeners(RoiObjListener.MODIFIED);
 			break;
 		case KeyEvent.VK_LEFT:
 			width--;
 			if (width < 1)
 				width = 1;
-//				notifyListeners(RoiListener.MODIFIED);
+				notifyListeners(RoiObjListener.MODIFIED);
 			break;
 		case KeyEvent.VK_RIGHT:
 			width++;
 			if ((x + width) > xMax)
 				width = xMax - x;
-//				notifyListeners(RoiListener.MODIFIED);
+				notifyListeners(RoiObjListener.MODIFIED);
 			break;
 		}
 		updateClipRect();
-//		imp.draw(clipX, clipY, clipWidth, clipHeight);
 		oldX = x;
 		oldY = y;
 		cachedMask = null;
@@ -3115,7 +3113,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		else
 			this.stroke = new BasicStroke(strokeWidth);
 		if (notify)
-			notifyListeners(RoiListener.MODIFIED);
+			notifyListeners(RoiObjListener.MODIFIED);
 	}
 
 	public void setType(RoiType t) {

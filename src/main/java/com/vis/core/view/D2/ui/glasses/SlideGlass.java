@@ -49,6 +49,8 @@ import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -584,6 +586,25 @@ public class SlideGlass extends JLayeredPane {
 		uids[2] = header != null ? header.getString(Tag.Series​Instance​UID, "NO_SeriesInstanceUID") : null;
 		uids[3] = header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID") : null;
 		return uids;
+	}
+	
+	public String getStudyDate() {
+	    String rawDate = (header != null) ? header.getString(Tag.Study​Date) : null;
+	    // 値が取得できない、またはDICOM標準の8桁に満たない場合のガード
+	    if (rawDate == null || rawDate.length() < 8) {
+	        return "0000/00/00"; // または "NO_DATE" など
+	    }
+	    try {
+	        // DICOM形式 (yyyyMMdd) を LocalDate にパース
+	        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+	        LocalDate date = LocalDate.parse(rawDate.substring(0, 8), inputFormatter);
+
+	        // yyyy/MM/dd 形式に変換
+	        return date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+	    } catch (Exception e) {
+	        // パースエラー（不正な日付文字列など）の場合
+	        return "0000/00/00";
+	    }
 	}
 	
 	public void initComponents(Praparat pp, DicomImage dcmImg/* single frame */) {

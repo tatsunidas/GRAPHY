@@ -37,23 +37,23 @@
  */
 package com.vis.core.ui.listener;
 
-import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 /**
  * 
  * @author tatsunidas
  *
  */
-public interface RoiChangeListener {
-	/**
-	 * ROIが作成・変形・移動された時に呼ばれる
-	 * 
-	 * @param updatedRoi 変更されたROIオブジェクト（最新の形状を持つ）
-	 */
-	void onRoiUpdated(RoiObj updatedRoi);
+public interface RoiObjListener {
+	public static final int CREATED = 1;
+	public static final int MOVED = 2;
+	public static final int MODIFIED = 3;
+	public static final int EXTENDED = 4;
+	public static final int COMPLETED = 5;
+	public static final int DELETED = 6;
+	
+	//graphy original
+	public static final int SELECTED = 7;
 
-	/**
-	 * ROIが選択（クリック）された時に呼ばれる
-	 */
-	void onRoiSelected(RoiObj selectedRoi);
+	public void roiModified(SlideGlass slide, int actionId);
 }

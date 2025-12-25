@@ -200,6 +200,10 @@ public class ViewerMenu extends JMenuBar {
 //		mnPrefs.add(mntmSettings);
 	}
 	
+	public void addPluginMenuItem(JMenuItem pluginMenuItem) {
+		this.pluginMenu.add(pluginMenuItem);
+	}
+	
 	void addCompileItem() {
 		JMenuItem pluginItem = new JMenuItem("Compile...");// getText() can get key name.
 		pluginItem.addActionListener(new ActionListener() {
