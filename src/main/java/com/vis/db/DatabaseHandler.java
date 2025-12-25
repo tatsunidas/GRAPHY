@@ -2385,15 +2385,14 @@ public class DatabaseHandler {
 	 * update if already exists.
 	 * @param roiCon
 	 */
-	@SuppressWarnings("unlikely-arg-type")
 	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
 		/**
 		 * If you change arguments, also check loadRoiContextFromInstance().
 		 */
 		String jsonProperties = "";
-		if(roiCon.get(ContextKey.RoiMetaProperties) != null) {
+		if(roiCon.get(ContextKey.RoiMetaProperties.name()) != null) {
 			@SuppressWarnings("unchecked")
-			Map<String, String> metaAttributes = (Map<String, String>)roiCon.get(ContextKey.RoiMetaProperties);
+			Map<String, String> metaAttributes = (Map<String, String>)roiCon.get(ContextKey.RoiMetaProperties.name());
 			// 3. Gsonを使って Map -> JSON文字列 に変換
 		    Gson gson = new Gson();
 		    jsonProperties = gson.toJson(metaAttributes);
@@ -2806,60 +2805,77 @@ public class DatabaseHandler {
 
 	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid,
 			String sopUid) {
+		
 		HashMap<String, Object> roiCon = new HashMap<>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
-			pstmt.setString(1, pid);
-			pstmt.setString(2, studyUid);
-			pstmt.setString(3, seriesUid);
-			pstmt.setString(4, sopUid);
-			pstmt.setString(5, roiId);
-			try(ResultSet rset = pstmt.executeQuery()){
-				if (rset.next()) {
-					roiCon.put("RoiID", rset.getString("RoiID"));
-					roiCon.put("Name", rset.getString("Name"));
-					roiCon.put("RoiType", rset.getInt("RoiType"));// int
-					roiCon.put("OriginX", rset.getInt("OriginX"));
-					roiCon.put("OriginY", rset.getInt("OriginY"));
-					roiCon.put("Width", rset.getInt("Width"));
-					roiCon.put("Height", rset.getInt("Height"));
-					roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
-					roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
-					roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
-					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
-					roiCon.put("RoiLabel", rset.getString("RoiLabel"));
-					roiCon.put("ObjectType", rset.getString("ObjectType"));
-					roiCon.put("Organ", rset.getString("Organ"));
-					roiCon.put("Description", rset.getString("Description"));
-					if (rset.getDate(ContextKey.StudyDate.name()) != null) {
-						java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
-						SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
-						roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+
+		// Connection, PreparedStatement, ResultSet を try-with-resources で管理
+		try (Connection conn = openConnection()) {
+			// SELECTのみなので、もし自動コミットがオフなら念のため読み取り専用に設定するか、
+			// 最後に何もせず閉じるだけでOKですが、念のため try 構造を整理します。
+			try (PreparedStatement pstmt = conn.prepareStatement(statement)) {
+				pstmt.setString(1, pid);
+				pstmt.setString(2, studyUid);
+				pstmt.setString(3, seriesUid);
+				pstmt.setString(4, sopUid);
+				pstmt.setString(5, roiId);
+				try (ResultSet rset = pstmt.executeQuery()) {
+					if (rset.next()) {
+						roiCon.put("RoiID", rset.getString("RoiID"));
+						roiCon.put("Name", rset.getString("Name"));
+						roiCon.put("RoiType", rset.getInt("RoiType"));
+						roiCon.put("OriginX", rset.getInt("OriginX"));
+						roiCon.put("OriginY", rset.getInt("OriginY"));
+						roiCon.put("Width", rset.getInt("Width"));
+						roiCon.put("Height", rset.getInt("Height"));
+						roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
+						roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
+						roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
+						roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
+						roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
+						roiCon.put("RoiLabel", rset.getString("RoiLabel"));
+						roiCon.put("ObjectType", rset.getString("ObjectType"));
+						roiCon.put("Organ", rset.getString("Organ"));
+						roiCon.put("Description", rset.getString("Description"));
+
+						if (rset.getDate(ContextKey.StudyDate.name()) != null) {
+							java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
+							SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
+							roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+						} else {
+							roiCon.put(ContextKey.StudyDate.name(), null);
+						}
+
+						roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
+
+						if (rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+							String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
+							Gson gson = new Gson();
+							java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
+							}.getType();
+							Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
+							roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
+						}
+
+						roiCon.put("PatientID", rset.getString("PatientID"));
+						roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
+						roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
+						roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
+
+						// ここで return せず、ブロックを抜けてから return する
 					} else {
-						roiCon.put(ContextKey.StudyDate.name(), null);
+						return null; // データがなければ null
 					}
-					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
-					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
-						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
-						Gson gson = new Gson();
-						// JSON -> Map に変換
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
-						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
-						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
-					}
-					roiCon.put("PatientID", rset.getString("PatientID"));
-					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-					roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-					return roiCon;
 				}
 			}
+			// DBの設定で必須のため、ここで conn.commit(); を実行
 			conn.commit();
 		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
+			logger.severe("Database error in loadRoiContext: " + ex.getMessage());
+			return null;
 		}
-		return null;
+
+		return roiCon;
 	}
 
 	public ArrayList<HashMap<String, Object>> loadRoiContextFromInstance(String pid, String studyUid, String seriesUid,
@@ -3918,7 +3934,7 @@ public class DatabaseHandler {
 		try (Connection conn = openConnection();){
 			String statement = "UPDATE ROI ";// need space at end
 			statement = statement
-					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , MetaProperties=?";
+					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , RoiMetaProperties=?";
 			statement = statement
 					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);

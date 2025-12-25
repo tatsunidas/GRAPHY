@@ -59,7 +59,6 @@ import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -77,7 +76,6 @@ import javax.swing.undo.UndoableEdit;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
 
 /**
  * 
@@ -321,27 +319,6 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		setFont();
 	}
 	
-	public void close() {
-		close(true);
-	}
-
-	/**
-	 * Closes this ResultsWindow. Display a "save changes" dialog if this is the
-	 * "Results" window and 'showDialog' is true.
-	 */
-	public void close(boolean showDialog) {
-		if(showDialog) {
-			int res = PopUpMessage.showDialog(this, "Close Result Window", "Will close Result Window?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-			if(res == JOptionPane.OK_OPTION) {
-				dispose();
-			}else {
-				setVisible(true);
-			}
-		}else {
-			dispose();
-		}		
-	}
-
 	/**
 	 * Copies the current selection to the system clipboard. Returns the number of
 	 * characters copied.
@@ -751,7 +728,7 @@ public class ResultWindow extends JFrame implements ActionListener, ItemListener
 		super.processWindowEvent(e);
 		int id = e.getID();
 		if (id == WindowEvent.WINDOW_CLOSING) {
-			close();
+			//do something ?
 		}
 	}
 

@@ -3,6 +3,7 @@ package com.vis.core.view.D2.roi;
 import java.awt.*;
 
 import com.vis.core.log.Log;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
@@ -10,7 +11,6 @@ import java.awt.geom.NoninvertibleTransformException;
 import java.util.logging.Level;
 
 import ij.*;
-import ij.gui.RoiListener;
 import ij.plugin.frame.Recorder;
 import ij.process.FloatPolygon;
 import ij.measure.Calibration;
@@ -124,7 +124,7 @@ public class EllipseRoi extends PolygonRoi {
             case KeyEvent.VK_RIGHT: x2+=inc; break;
         }
         makeEllipse(x1, y1, x2, y2);
-        notifyListeners(RoiListener.MOVED);
+        notifyListeners(RoiObjListener.MOVED);
         showStatus();
     }
 

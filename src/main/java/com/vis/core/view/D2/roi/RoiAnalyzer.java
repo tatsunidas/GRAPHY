@@ -47,8 +47,8 @@ import java.util.Set;
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.ui.ResultWindow;
-import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.ImagePlus;
@@ -392,7 +392,7 @@ public class RoiAnalyzer {
 		if(win == null) {
 			rw = new ResultWindow(ConfigInfo.ResultWindow.name(), null, 400, 350, true/*showRowIndex*/);
 			WindowManager.addWindow(rw);
-			rw.setLocationRelativeTo(Viewer2DScreen.getInstance());
+			rw.setLocationRelativeTo(MainScreen.getInstance());
 		}else {
 			rw = (ResultWindow)win;
 		}

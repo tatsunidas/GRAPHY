@@ -99,6 +99,7 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.*;
@@ -203,6 +204,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		});
 		
 		WindowManager.addWindow(this);
+		setAlwaysOnTop(true);
 	}
 	
 	private void setUp() {
@@ -495,8 +497,12 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			if(r != null) {
 				SlideGlass slide = r.getSlideGlass();
 				if(slide != null) {
+					/*
+					 * notify will done in canvas glass.
+					 */
 					slide.deleteRoi(r);
 				}else {
+					r.notifyListeners(RoiObjListener.DELETED);
 					HashMap<ContextKey, String> uids = r.getUIDs();
 					String patID = uids.get(ContextKey.PatientID);
 					String studyUID = uids.get(ContextKey.StudyInstanceUID);

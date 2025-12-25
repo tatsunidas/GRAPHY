@@ -1,7 +1,6 @@
 package com.vis.core.view.D2.roi;
 
 import ij.*;
-import ij.gui.RoiListener;
 import ij.process.*;
 import ij.measure.*;
 import ij.plugin.frame.*;
@@ -9,6 +8,7 @@ import java.awt.*;
 
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -617,7 +617,7 @@ public class PolygonRoi extends RoiObj {
 		if (type != RoiType.POINT.id())
 			modifyRoi();
 		LineWidthAdjuster.update();
-		notifyListeners(RoiListener.COMPLETED);
+		notifyListeners(RoiObjListener.COMPLETED);
 		Log.logger.fine("Finish Polygon familes Roi Constructing.");
 	}
 
@@ -1313,7 +1313,7 @@ public class PolygonRoi extends RoiObj {
 			}
 			previousX = ox;  //save for constraining next line if desired
 			previousY = oy;
-			notifyListeners(RoiListener.EXTENDED);
+			notifyListeners(RoiObjListener.EXTENDED);
 		}
 	}
 

@@ -7,6 +7,7 @@ import java.util.logging.Level;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 
 import ij.process.*;
@@ -100,6 +101,7 @@ public class ShapeRoi extends RoiObj {
         at.translate(-x, -y);
         shape = new GeneralPath(at.createTransformedShape(s));
         type = RoiType.COMPOSITE.id();
+        notifyListeners(RoiObjListener.CREATED);
     }
 
     /** Constructs a ShapeRoi from a Shape. */
@@ -108,6 +110,7 @@ public class ShapeRoi extends RoiObj {
 		super(x, y, s.getBounds().width, s.getBounds().height, slide);
 		shape = new GeneralPath(s);
 		type = RoiType.COMPOSITE.id();
+		notifyListeners(RoiObjListener.CREATED);
 	}
 
     /**Creates a ShapeRoi object from a "classical" ImageJ ROI.
@@ -135,6 +138,7 @@ public class ShapeRoi extends RoiObj {
 		this.maxPoly = maxPoly;
 		this.flatten = flatten;
 		shape = roiToShape(r);
+		notifyListeners(RoiObjListener.CREATED);
 	}
 
 	/**
@@ -160,6 +164,7 @@ public class ShapeRoi extends RoiObj {
         maxPoly = ShapeRoi.MAXPOLY;
         flatten = false;
         setType(RoiType.COMPOSITE);
+        notifyListeners(RoiObjListener.CREATED);
     }
     
     @Override
@@ -175,7 +180,8 @@ public class ShapeRoi extends RoiObj {
 				con.put(k.name(), v);// keep as String.
 			}
 		}
-		// read meta attributes
+		//read meta attributes
+		Map<String, String> metaProp = new HashMap<String, String>();
 		for (Object k : props.keySet()) {
 			boolean mainProp = false;
 			for (ContextKey ck : ContextKey.values()) {
@@ -192,14 +198,18 @@ public class ShapeRoi extends RoiObj {
 				continue;
 			}
 			String metaAttr = (String) props.get(k);
-			con.put((String) k, metaAttr);
+			metaProp.put((String) k, metaAttr);
 		}
+		con.put(ContextKey.RoiMetaProperties.name(), metaProp);
 		con.put("OriginX", x);//con.put("OriginX", (int) getXBase());
 		con.put("OriginY", y);//con.put("OriginY", (int) getYBase());
 		con.put("Width", width);
     	con.put("Height", height);	
 		con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
 		con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
+		
+		con.put(ContextKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
+		
 		/*
 		 * if you want (0,0) origin shape float array,
 		 * use getShapeAsArray(shape,0,0)

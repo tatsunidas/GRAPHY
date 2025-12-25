@@ -56,6 +56,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
@@ -282,6 +283,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 			String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
 			String sopUID = uids.get(ContextKey.SOPInstanceUID);
 			String roiID = uids.get(ContextKey.RoiID);
+			/*
+			 * see, deleteRoiFromDB to notify listener.
+			 */
 			deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
 			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager.toString());
 			if(rom != null) {
@@ -301,6 +305,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
 		String sopUID = uids.get(ContextKey.SOPInstanceUID);
 		String roiID = uids.get(ContextKey.RoiID);
+		/*
+		 * see, deleteRoiFromDB to notify listener.
+		 */
 		deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
 		if(brushTool != null) {
 			brushTool.clearCurrentBrushingRoi();
@@ -358,6 +365,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
 		String sopUID = uids.get(ContextKey.SOPInstanceUID);
 		String roiID = uids.get(ContextKey.RoiID);
+		//notify
+		roi.notifyListeners(RoiObjListener.DELETED);
 		DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID,sopUID,roiID);
 		if(Viewer2DScreen.getRoiObjManager() != null) {
 			RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
