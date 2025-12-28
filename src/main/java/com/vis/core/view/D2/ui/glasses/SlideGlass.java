@@ -462,6 +462,14 @@ public class SlideGlass extends JLayeredPane {
 	public ImagePlus getOriginalImage() {
 		return this.imageSpecimen.getOriginalImage();
 	}
+	
+	/**
+	 * 
+	 * @return 8 bit or rgb buffered image.
+	 */
+	public BufferedImage getBufferedImage() {
+		return this.imageSpecimen.getOriginalImage().getBufferedImage();
+	}
 
 	public Dimension getOriginalImageSize() {
 		int[] dims = getOriginalImage().getDimensions();
