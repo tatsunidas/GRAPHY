@@ -58,21 +58,21 @@ public class ExecutionProp {
 		
 	public static File loadCdrecordExecution() {
 		String osName = System.getProperty("os.name").toLowerCase();
-        if (osName.startsWith("mac")) {
-        	return new File("cdrtools/mac/cdrecord");
-        } else if (osName.startsWith("windows")) {
-        	if(isArchType64()) {
+		if (osName.startsWith("mac")) {
+			return new File("native/native_cdrtools/mac/cdrecord");
+		} else if (osName.startsWith("windows")) {
+			if (isArchType64()) {
 //        		return new File("cdrtools/windows-cdrtools-3.02a01_mingw/win64/cdrecord.exe");//bug, can not run command. do not use
-        		return new File("cdrtools/windows/win32/cdrecord.exe");
-        	}else {
-        		return new File("cdrtools/windows/win32/cdrecord.exe");
-        	}
-        } else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
-        	return new File("cdrtools/linux/cdrecord");
-        }else {
-        	System.err.println("Graphy can not create media on UnknownOS..., return");
-        	return null;
-        }
+				return new File("native/native_cdrtools/windows/win32/cdrecord.exe");
+			} else {
+				return new File("native/native_cdrtools/windows/win32/cdrecord.exe");
+			}
+		} else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
+			return new File("native/native_cdrtools/linux/cdrecord");
+		} else {
+			System.err.println("Graphy can not create media on UnknownOS..., return");
+			return null;
+		}
 	}
 	
 	public static File loadMakeIsoFsExecution() {
@@ -82,12 +82,12 @@ public class ExecutionProp {
         } else if (osName.startsWith("windows")) {
         	if(isArchType64()) {
 //        		return new File("cdrtools/windows-cdrtools-3.02a01_mingw/win64/mkisofs.exe");//bug, can not runn command. do not use
-        		return new File("cdrtools/windows/win32/mkisofs.exe");
+        		return new File("native/native_cdrtools/windows/win32/mkisofs.exe");
         	}else {
-        		return new File("cdrtools/windows/win32/mkisofs.exe");
+        		return new File("native/native_cdrtools/windows/win32/mkisofs.exe");
         	}
         } else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
-        	return new File("cdrtools/linux/mkisofs");
+        	return new File("native/native_cdrtools/linux/mkisofs");
         }else {
         	System.err.println("Graphy can not create media on This UnknownOS..., return");
         	return null;

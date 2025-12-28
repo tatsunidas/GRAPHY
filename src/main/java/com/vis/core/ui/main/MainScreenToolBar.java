@@ -55,7 +55,6 @@ import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
-import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.BurnerWindow;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
@@ -234,22 +233,18 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg) {
-					if(Platform.getOS() != Platform.WINDOWS) {
-						Log.logger.warning("Cannot run BurnCD function in this OS.");
-						if(!Utils.isDebug) {
-							return;
-						}else {
-							Log.logger.fine("BurnCD function is running, continue in debug mode.");
-						}
-					}
 					MainScreen ms = WindowManager.getMainScreen();
 					if(!ms.isHomeTop()) {
 						JOptionPane.showMessageDialog(ms, "You cannot burn files in external dicom network node. Use 'HOME' instead.");
 						return;
 					}
 					File burnDestFileInTemp = Utils.createNewDirInTemp();
+					ArrayList<DICOMNode> selected = ms.getSelectedNode();
+					ArrayList<String[]> dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(selected);
 					new Thread(() -> {
-						new BurnerWindow(burnDestFileInTemp, false /*with dicomdir*/);
+						DicomExporter export = new DicomExporter();
+						export.exportDICOM(burnDestFileInTemp, dcmFilesUIDs, false/*flat*/, false/*decompress*/, false/*with viewer*/);
+						new BurnerWindow(burnDestFileInTemp, false /*debug*/);
 					}).start();
 				}
 			});

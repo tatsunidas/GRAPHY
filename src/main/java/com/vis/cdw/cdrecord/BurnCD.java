@@ -43,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.JOptionPane;
@@ -126,7 +127,7 @@ public class BurnCD {
 
 	Logger log = Log.logger;
 
-	public BurnCD(String device, int speed, boolean eject, boolean verify, boolean dummy) {
+	public BurnCD(String device, int speed, boolean eject, boolean verify) {
 		// set up
 		File homedir = new File(".");
 		this.logFile = new File(homedir, "log" + File.separator + "BurnCD.log");
@@ -134,7 +135,6 @@ public class BurnCD {
 		setWriteSpeed(speed);
 		setEject(eject);
 		setVerify(verify);
-		setSimulate(dummy);
 	}
 
 	/*
@@ -254,50 +254,13 @@ public class BurnCD {
 	}
 
 	public void burn(File isoRoot, File isoImageFile) throws MediaCreationException {
-
-		if (isoRoot != null) {
-			try {
-				// create iso
-				// Create a new root of our disc
-				IsoCreation sampleCreation = new IsoCreation();
-				// Add our files, you have to give a directory to use the recusively adding
-				// function
-				sampleCreation.insertFile(isoRoot);// parent dir
-				// This is the base iso9660 standard file system
-				String volumeId = isoRoot.getName();
-				sampleCreation.setIsoConfig(volumeId.substring(0, Math.min(volumeId.length(), 15)));
-				// To quote wikipedia "Rock Ridge is an extension to the ISO 9660 volume format,
-				// commonly used on CD-ROM and
-				// DVD media, which adds POSIX file system semantics."
-				sampleCreation.setRockConfig();
-				// This is another extension to the standard after Windows 95 to add support for
-				// longer filenames
-				sampleCreation.setJolietConfig(volumeId.substring(0, Math.min(volumeId.length(), 15)));
-				// El Torito is boot information for the disc
-				sampleCreation.setElToritoConfig();
-				// Finalize and save our ISO
-				sampleCreation.finalizeDisc(isoImageFile);
-			} catch (Exception ignore) {
-				// TODO: handle exception
-			}
-		}
-
-		// faile safe
-		try {
-			Thread.sleep(1200L);
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-
 		if (!isoImageFile.exists()) {
-			log.warning("iso files not ready.");
-			throw new MediaCreationException(ExecutionStatusInfo.CHECK_MCD_SRV, "ISO file creation failed");
-		}
+            throw new MediaCreationException("ISO file not found: " + isoImageFile.getAbsolutePath());
+        }
 		
 		if (!checkDrive(getDeviceScsi())) {
 			log.warning("Drive not ready.");
-			throw new MediaCreationException(ExecutionStatusInfo.CHECK_MCD_SRV, "Drive Check failed");
+			throw new MediaCreationException("Drive Check failed");
 		}
 
 		int exit = -1;
@@ -316,10 +279,6 @@ public class BurnCD {
 					logout.close();
 					if (exit != 0) {
 						log.warning("Burn cd/dvd maybe failed...");
-						JOptionPane.showConfirmDialog(null,
-								"Media creation was failed, please check media is blank or insert correctly.",
-								"Burn failed", JOptionPane.WARNING_MESSAGE);
-						return;
 					}
 					if (verify) {
 						load(device);
@@ -333,27 +292,35 @@ public class BurnCD {
 						}
 					}
 					log.info("Finished Creating Media");
-				} catch (IOException ignore) {
+				} catch (Exception e) {
+					
 				}
 		}
 	}
-
-	protected String[] makeBurnCmd(File isoImageFile) {
-		ArrayList<String> cmd = new ArrayList<String>();
+	
+	private List<String> buildCommand(File isoImageFile) {
+		List<String> cmd = new ArrayList<>();
 		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-v"); // verbose
 		cmd.add("speed=" + writeSpeed);
-//        if (multiSession) cmd.add("-multi");//never using
+		if (eject)
+			cmd.add("-eject");
+		cmd.add("dev=" + device);
+		cmd.add("-dao"); // Disk At Once推奨
 		if (simulate) {
 			cmd.add("-dummy");
 		}
-		if (eject) {
-			cmd.add("-eject");
-		}
-//        cmd.add("-" + writeMode);//dao // for auto set mode
-//        cmd.add(padding ? "-pad" : "-nopad");//never padding.
-//        cmd.add("-" + trackType);//never using
-		cmd.add("dev=" + getDeviceScsi());// 0,0,0
 		cmd.add(isoImageFile.getAbsolutePath());
+		
+//      if (multiSession) cmd.add("-multi");//never using
+//      cmd.add("-" + writeMode);//dao // for auto set mode
+//      cmd.add(padding ? "-pad" : "-nopad");//never padding.
+//      cmd.add("-" + trackType);//never using
+		return cmd;
+	}
+
+	protected String[] makeBurnCmd(File isoImageFile) {
+		List<String> cmd = buildCommand(isoImageFile);
 		return (String[]) cmd.toArray(new String[cmd.size()]);
 	}
 
@@ -394,26 +361,7 @@ public class BurnCD {
 		}
 	}
 
-//	protected boolean check(String[] cmdarray, String match) throws MediaCreationException {
-//		try {
-//			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
-//    		java.lang.Process p = rt.exec(cmdarray);
-//            int exit = p.waitFor();
-//			String result = IOUtils.toString(p.getInputStream(), "UTF-8");
-//			String stderr = IOUtils.toString(p.getErrorStream(), "UTF-8");
-//			if (log.isDebugEnabled())
-//				log.debug(burncmd + " stdout: " + result);
-//			if (exit != 0) {
-//				log.warn(burncmd + " stderr: " + stderr);
-//			}
-//			return exit == 0 && result.indexOf(match) != -1;
-//		} catch (InterruptedException e) {
-//			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, e);
-//		} catch (IOException e) {
-//			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, e);
-//		}
-//	}
-
+	
 	public boolean checkDrive(String device) throws MediaCreationException {
 		return new DriveUtil().checkDrive(device);
 	}

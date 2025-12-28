@@ -130,7 +130,7 @@ public class ExportOptionPanel extends JPanel {
 		springLayout.putConstraint(SpringLayout.NORTH, chckbxWithViewer, 6, SpringLayout.SOUTH, rdbtnDecompress);
 		springLayout.putConstraint(SpringLayout.WEST, chckbxWithViewer, 0, SpringLayout.WEST, lblNewLabel);
 		add(chckbxWithViewer);
-		chckbxWithViewer.setEnabled(false);//TODO
+		chckbxWithViewer.setEnabled(true);
 //		formatGroup.add(rdbtnJpegFormat);
 	}
 	

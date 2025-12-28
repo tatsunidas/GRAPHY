@@ -58,11 +58,11 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 		 * TODO
 		 * too many fils, return
 		 */
-		if(instlist.size() > 1500) {
-			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Dragging files too many, please Export function instead!");
-			Log.logger.severe("Drag and Drop Files too many...return.dragGestureRecognized::DICOMNodeDragGestureListener");
-			return;
-		}
+//		if(instlist.size() > 1500) {
+//			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Dragging files too many, please Export function instead!");
+//			Log.logger.severe("Drag and Drop Files too many...return.dragGestureRecognized::DICOMNodeDragGestureListener");
+//			return;
+//		}
 		
 		ArrayList<String> patIDs = new ArrayList<String>();
 		ArrayList<String> studyIUIDs = new ArrayList<String>();

@@ -88,7 +88,7 @@ public enum ConfigInfo {
 	CDRTOOL_Props("conf/cdrecord.properties"),
 	BURN2CDLocation("temp/BURN2CD"),
 	
-	WEASIS("weasis/weasis-portable/"),
+	WEASIS("weasis-portable/"),
 	
 	SERVER_AE_Props("conf/ae.properties"),
 	SERVER_QRSOPCLASSES_Props("conf/query-sop-classes.properties"),

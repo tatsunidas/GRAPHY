@@ -64,6 +64,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
+import com.vis.dicom.DicomUtilities;
 
 import java.awt.FlowLayout;
 import javax.swing.JCheckBox;
@@ -110,7 +111,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 	 * how to embed weasis in cdr
 	 * https://groups.google.com/g/dcm4che/c/9HIr2lyR9Os
 	 * 
-	 * burnFile-DICOM and DICOMDIR (without weasis)
+	 * burnFile-DICOM and DICOMDIR and weasis-portable's files
 	 */
 	public BurnerWindow(File burnDestDirInTemp, boolean debug) {
 		super("Burn to CD/DVD");
@@ -203,11 +204,12 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		btnAnonymize.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(anonymizer == null) {
-					anonymizer = new DcmAnonymizer2();
-				}else {
-					anonymizer.setVisible(true);
-				}
+//				if(anonymizer == null) {
+//					anonymizer = new DcmAnonymizer2();
+//				}else {
+//					anonymizer.setVisible(true);
+//				}
+				JOptionPane.showConfirmDialog(null, "Anonymize function is under development...");
 			}
 		});
 
@@ -345,7 +347,8 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		boolean eject = chckbxEject.isSelected();
 		if (withViewer()) {
 			try {
-				Utils.copyResourceFromJAR(ConfigInfo.WEASIS.toString(), burnFileInTemp.getAbsolutePath());
+				DicomUtilities.attachDICOMDIRTo(burnFileInTemp.getAbsolutePath());
+				Utils.copyDirectory(ConfigInfo.WEASIS.toString(), burnFileInTemp.getAbsolutePath());
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (Exception e) {
@@ -354,7 +357,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		}
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				BurnCD burner = new BurnCD(device, speed, eject, false, debug);
+				BurnCD burner = new BurnCD(device, speed, eject, false);
 				burner.setSimulate(false);
 				try {
 					burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));
