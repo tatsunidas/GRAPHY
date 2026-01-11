@@ -17,8 +17,6 @@ import com.vis.dicom.VR.Holder;
 
 /**
  * DicomObject implementation class.
- * keep almost read-only.
- * if you more complex function needed, prepare another class.
  * 
  * @author tatsunidas
  *
@@ -35,8 +33,6 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 	private static final long serialVersionUID = -3556564730921871109L;
 	
 	private static final int INIT_CAPACITY = 16;
-//	private transient Attributes parent;
-//	private final boolean bigEndian;
 
 	public DicomObjectChe() {
 		this(false);
@@ -52,8 +48,6 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 
 	public DicomObjectChe(boolean bigEndian, int initialCapacity) {
 		super(bigEndian, initialCapacity);
-//		this.parent = super.getParent();
-//		this.bigEndian = bigEndian;
 	}
 
 	public DicomObjectChe(Attributes other) {
@@ -62,20 +56,14 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 
 	public DicomObjectChe(Attributes other, boolean bigEndian) {
 		super(other, other.bigEndian());
-//		this.parent = super.getParent();
-//		this.bigEndian = bigEndian;
 	}
 
 	public DicomObjectChe(Attributes other, boolean bigEndian, int... selection) {
 		super(other, bigEndian, selection);
-//		this.parent = super.getParent();
-//		this.bigEndian = bigEndian;
 	}
 
     public DicomObjectChe(Attributes other, boolean bigEndian, Attributes selection) {
     	super(other, bigEndian, selection);
-//    	this.parent = super.getParent();
-//    	this.bigEndian = bigEndian;
     }
    
     /**

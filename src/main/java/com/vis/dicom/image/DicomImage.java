@@ -49,25 +49,26 @@ public interface DicomImage {
 	
 	public static DicomImage newDicomImage(String path, DICOMBackend backend) {
 		DicomReader reader = DicomReader.newDicomReader(backend);
-		reader.read(path);
-		DicomObject dcm = reader.getCore();
-		return newDicomImage(dcm, reader.checkTSUID(), backend);
+		reader.read(path, false/*with pixel*/);
+		DicomObject header = reader.getHeader();
+		DicomObject fmi = reader.getFileMetaInfomation();
+		return newDicomImage(path, header, fmi, reader.checkTSUID(), backend);
 	}
 	
-	public static DicomImage newDicomImage(DicomObject core, UID tsUID) {
-		return newDicomImage(core, tsUID, null);
+	public static DicomImage newDicomImage(String path, DicomObject header, DicomObject fmi, UID tsUID) {
+		return newDicomImage(path, header, fmi, tsUID, null);
 	}
 	
-	public static DicomImage newDicomImage(DicomObject core, UID tsUID, DICOMBackend backend) {
+	public static DicomImage newDicomImage(String path, DicomObject header, DicomObject fmi, UID tsUID, DICOMBackend backend) {
 		if(backend == null || backend == DICOMBackend.DCM4CHE) {
-			return new DicomImageChe(core, tsUID);
+			return new DicomImageChe(path, header, fmi, tsUID);
 		}else {
 			
 		}
 		return null;
 	}
 	
-	public DicomObject getCore();
+	public DicomObject getHeader();
 	public DicomObject getFileMetaInfo();
 	public UID getTSUID();
 	public UID getSopClassUID();
@@ -80,12 +81,13 @@ public interface DicomImage {
 	public int getBitsStored();
 	public int getNumOfFrames();
 	public byte[] getPixelData(int frame);
+	public boolean ensurePixelDataLoaded();
 	public ImageProcessor getImageProcessor(int frame);
-	
-	public abstract void setCore(DicomObject attr);
+	public abstract void setHeader(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
 	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object pixels);
 	public void decompressed(boolean decompressed);
+	public void releasePixelBulkFromHeader();
 	
 	public abstract void updateFileMetaInfo(UID uid);//com.vis.dicom.UID
 	

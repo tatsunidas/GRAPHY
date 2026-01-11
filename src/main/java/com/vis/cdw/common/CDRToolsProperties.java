@@ -47,6 +47,11 @@ import com.vis.configuration.ConfigInfo;
 
 public class CDRToolsProperties {
 
+	/**
+	 * 
+	 * @return
+	 */
+	@Deprecated
 	public static String[] loadDeviceCandidates() {
 		java.util.Properties prop = new java.util.Properties();
 		FileInputStream fis = null;
@@ -61,13 +66,11 @@ public class CDRToolsProperties {
 			}
 			return candi.toArray(new String[candi.size()]);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
 			try {
 				fis.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			prop = null;

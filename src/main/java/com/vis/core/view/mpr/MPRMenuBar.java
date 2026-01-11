@@ -170,12 +170,12 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 				HashMap<Integer,SlideGlass> images = pp.getAllSlides();
 				DicomWriter writer = DicomWriter.newDicomWriter();
 				for(Integer i : images.keySet()) {
-					String sopUID = images.get(i).getDicomImage().getCore().getString(Tag.SOP​Instance​UID);
+					String sopUID = images.get(i).getDicomImage().getHeader().getString(Tag.SOP​Instance​UID);
 					if(sopUID == null || sopUID.length() == 0) {
 						throw new IllegalArgumentException("SOP Instance UID is null, Cannot save file as dicom.");
 					}
 					DicomImage dcm = images.get(i).getDicomImage();
-					writer.write(dcm.getCore(), UID.ImplicitVRLittleEndian.uid(), destChi.getAbsolutePath()+File.separator+sopUID);
+					writer.write(dcm.getHeader(), UID.ImplicitVRLittleEndian.uid(), destChi.getAbsolutePath()+File.separator+sopUID);
 				}
 				JOptionPane.showMessageDialog(this, "Reslice series was saved !");
 			}else {

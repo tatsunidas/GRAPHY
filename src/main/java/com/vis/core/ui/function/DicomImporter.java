@@ -169,8 +169,8 @@ public class DicomImporter implements Task, Runnable {
 			try {
 				String candidate = candidateList.get(count);
 				DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-				reader.read(new File(candidate).getAbsolutePath());
-				DicomObject data = reader.getCore();
+				reader.read(new File(candidate).getAbsolutePath(),false);
+				DicomObject data = reader.getHeader();
 				DatabaseHandler db = DatabaseHandler.getInstance();
 				db.setSaveAsLinkState(false);//never use saveAsLink
 				if (data != null) {

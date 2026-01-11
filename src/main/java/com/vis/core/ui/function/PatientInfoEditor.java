@@ -305,7 +305,7 @@ public class PatientInfoEditor {
 		DicomReader dr = DicomReader.newDicomReader(backend); 
 		dr.read(filePath, true);// with pixel
 		
-		DicomObject orgDcm = dr.getCore();
+		DicomObject orgDcm = dr.getHeader();
 		String tsUID = dr.checkTSUID().uid();
 
 		String PID = pmap.get("PatientID").trim(); //pid is never changing

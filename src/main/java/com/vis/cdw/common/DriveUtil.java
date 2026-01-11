@@ -49,11 +49,10 @@ import java.util.HashMap;
 
 import org.apache.commons.io.IOUtils;
 
+
 public class DriveUtil {
 	
-	/*
-	 * https://kagamihoge.hatenablog.com/entry/20130110/1357810886
-	 */
+	
 	private String[] makeCheckDriveCmd(String devicescsi) {
 		return new String[] {ExecutionProp.loadCdrecordExecution().getAbsolutePath(),"-checkdrive","dev="+devicescsi};
 	}

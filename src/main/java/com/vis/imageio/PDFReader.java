@@ -63,8 +63,8 @@ public class PDFReader implements Closeable, KeyListener{
 		boolean isDcm = DicomUtilities.isDicomFile(pdfOrDcm);
 		if(isDcm) {
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-			reader.read(pdfOrDcm.toURI());
-			DicomObject dcm = reader.getCore();
+			reader.read(pdfOrDcm.toURI(), false);
+			DicomObject dcm = reader.getHeader();
 			String sopUID = dcm.getString(Tag.SOP​Class​UID);
 			if(!sopUID.equals(UID.EncapsulatedPDFStorage.uid())) {
 				Log.logger.warning("PDFReader:This dicom file is not PDF, return ...");

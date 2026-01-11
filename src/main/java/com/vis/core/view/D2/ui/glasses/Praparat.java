@@ -119,11 +119,13 @@ public class Praparat extends JPanel {
 	
 	public enum ViewMode{
 		Normal,/*Switch-able mode, both single view and film grid view*/
-		Thumbnail,/*Thumbnail mode ( has limit some features)*/
+		Thumbnail,/*Thumbnail mode ( has limit functions)*/
 		SingleGrid,/*Single grid view, film grid view no acceptable.(for bird's eye)*/
 		FilmGrid,/*Film grid view, single grid view no acceptable. (for bird's eye)*/
 		MPR,/*Allow showing crosslines. Its features are same as Normal mode.*/
 	}
+	public static final int ThumbnailSize = BirdsEyeView.thumbnailSize;
+	
 	//patient info set keys
 	public final String KEY_PadID = "Patient​ID";
 	public final String KEY_StudyUID = "StudyInstanceUID";
@@ -142,9 +144,7 @@ public class Praparat extends JPanel {
 	private Color studyColor = Color.CYAN;
 	private LUT lut;//null-able
 	
-	public static final int ThumbnailSize = BirdsEyeView.thumbnailSize;
-	private int currentSlice = 0;
-	private int prevSlice = -1;
+	private int currentSlice = -1;
 
 	private int filmGridColumns = 5;
 	private boolean isMultiframe = false;/*to set video option*/
@@ -157,7 +157,7 @@ public class Praparat extends JPanel {
 
 	private ReferenceLineMPR refLineMPR;
 
-	private ArrayList<String> pathToImages = null;
+	private List<String> pathToImages = null;
 	Eyepiece prapManager;
 	String patID;
 	String studyUID;
@@ -170,6 +170,9 @@ public class Praparat extends JPanel {
 	int prevH;
 	
 	private HashMap<Integer/*0 to N-1*/, SlideGlass> slides;
+	
+	private final int PREFETCH_RANGE = 3;
+	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
 	
 	final ViewMode mode;
 	
@@ -205,11 +208,11 @@ public class Praparat extends JPanel {
 		prepareSlideGlassesUsingImagePlus(stack);
 	}
 	
-	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
+	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
 		this(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages, null, null, studyColor, mode);
 	}
 	
-	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToSortedinstNoImages, String refUID, Eyepiece manager,
+	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToSortedinstNoImages, String refUID, Eyepiece manager,
 			Color studyColor, ViewMode mode) {
 		if(mode == null) {
 			this.mode = ViewMode.Normal;
@@ -220,7 +223,6 @@ public class Praparat extends JPanel {
 			this.studyColor = studyColor;
 		}
 		this.prapManager = manager;
-		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, pathToSortedinstNoImages);
 		init();
 		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
 		if(mode != ViewMode.FilmGrid) {
@@ -305,12 +307,12 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if(!pvcp.processSeries()) {
-			SlideGlass target = slides.get(currentSlice);
+			SlideGlass target = slides.get(currentSlice == -1 ? 0:currentSlice);
 			if(target != null) {
 				target.setSize(w, h);
 			}
 		}else {
-			SlideGlass target = slides.get(currentSlice);
+			SlideGlass target = slides.get(currentSlice == -1 ? 0:currentSlice);
 			if(target != null) {
 				target.setSize(w,h);
 			}
@@ -347,8 +349,7 @@ public class Praparat extends JPanel {
 	}
 	
 	/**
-	 * TODO
-	 * Cannot reflect to images ?
+	 * Signedの場合に注意。See, sg.resetContrast()
 	 * 
 	 * @param min
 	 * @param max
@@ -457,118 +458,8 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-//	private void constructSlideGlassesFromDicom(ArrayList<String> imgFiles) {
-//		//including only one series.
-//		if(imgFiles == null) {
-//			imgFiles = getImageFileLocations();
-//		}
-//		if (imgFiles == null || imgFiles.size() < 1) {
-//			logger.info("Please set file locations, Praparat::constructSeriesGlassesAsLayer");
-//			return;
-//		}
-//		// init
-//		slides = new HashMap<Integer, SlideGlass>();
-//		
-//		/*
-//		 * as a premise, image files were sorted by inst No before loading.
-//		 */
-//		DICOMBackend backend = DICOMBackend.getCurrent();
-//		for (int i = 0; i < imgFiles.size(); i++) {
-//			DicomReader reader = DicomReader.newDicomReader(backend);
-//			reader.read(imgFiles.get(i), false);/*read only head*/
-//			DicomObject header = reader.getCore();
-//			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
-//			UID tsUID = reader.checkTSUID();
-//			//PDF
-//			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
-//				//read as series level
-//				PDFReader pdfReader = new PDFReader(new File(imgFiles.get(i))/*read dicom*/);
-//				ImagePlus pdfStack = pdfReader.pdf2ImageStack();
-//				isMultiframe = true;//always treats multi
-//				isPDF = true;
-//				//if thumbnail, load only one frame
-//				if(getViewMode() == ViewMode.Thumbnail) {
-//					ImageProcessor instIp = pdfStack.getStack().getProcessor(1);
-//					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-//					instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-//					instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-//					instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-//					instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-//					instHeader.setInt(Tag.Instance​Number, VR.IS, (1));
-//					DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-//					img.setPixelData(0, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-//					SlideGlass sg = new SlideGlass(this, img);
-//					slides.put(0, sg);
-//				}else {
-//					for (int j = 0; j < pdfStack.getNSlices(); j++) {
-//						ImageProcessor instIp = pdfStack.getStack().getProcessor(j + 1);
-//						DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-//						instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-//						instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-//						instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-//						instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-//						instHeader.setInt(Tag.Instance​Number, VR.IS, (j + 1));
-//						DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-//						img.setPixelData(j, pdfStack.getWidth(), pdfStack.getHeight(), 3, 8, instIp.getPixels());
-//						SlideGlass sg = new SlideGlass(this, img);
-//						slides.put(j, sg);
-//					}
-//				}
-//				pdfReader.close();
-//				break;//if multiframe, load only first file.
-//			}
-//			// images
-//			int size = header.getInt(Tag.Number​Of​Frames, -1);
-//			/*
-//			 * isMultiFrame
-//			 * 1.General image types do not have NumberOfFrames tag.(means -1).
-//			 * 2.When image acquiring in 3d sequence on MRI, number of frame is 1 (of each image).
-//			 */
-//			isMultiframe = size > 1;
-//			//single frame
-//			if(!isMultiframe) {
-//				DicomImage dcmimg = DicomImage.newDicomImage(imgFiles.get(i), backend);
-//				if(Codec.isCompressed(tsUID.uid())) {
-//					Decompressor.newInstance(dcmimg).decompress();
-//				}
-//				SlideGlass sg = new SlideGlass(this, dcmimg);
-//				slides.put(i, sg);
-//			}else {
-//				/*
-//				 * multiframe to one series.
-//				 */
-//				DicomReader video_reader_ = DicomReader.newDicomReader(backend);
-//				video_reader_.read(imgFiles.get(i), true/*with bulk*/);
-//				DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
-//				int w = header.getInt(Tag.Columns, 0);
-//				int h = header.getInt(Tag.Rows, 0);
-//				int c = header.getInt(Tag.Samples​Per​Pixel, 1);
-//				int bits = header.getInt(Tag.Bits​Allocated, 8);
-//				/*
-//				 * to address jpeg multiframe
-//				 */
-//				if(Codec.isCompressed(reader.checkTSUID())) {
-//					Decompressor.newInstance(videoDcm).decompress();
-//				}
-//				for(int j=0;j<size;j++) {
-//					DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-//					instHeader.setInt(Tag.Instance​Number, VR.IS, (j+1));
-//					DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
-//					frame.setPixelData(j, w, h, c, bits, videoDcm.getImageProcessor(j).getPixels());
-//					SlideGlass sg = new SlideGlass(this, frame);
-//					slides.put(j, sg);
-//				}
-//				video_reader_ = null;
-//				/*
-//				 * if multiframe, load as only one file.
-//				 */
-//				break;
-//			}
-//			reader = null;
-//		}
-//	}
 	
-	private void constructSlideGlassesFromDicom(ArrayList<String> imgFiles) {
+	private void constructSlideGlassesFromDicom(List<String> imgFiles) {
 		//including only one series.
 		if(imgFiles == null) {
 			imgFiles = getImageFileLocations();
@@ -587,7 +478,7 @@ public class Praparat extends JPanel {
 		for (int i = 0; i < imgFiles.size(); i++) {
 			DicomReader reader = DicomReader.newDicomReader(backend);
 			reader.read(imgFiles.get(i), false);/*read only head*/
-			DicomObject header = reader.getCore();
+			DicomObject header = reader.getHeader();
 			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
 			UID tsUID = reader.checkTSUID();
 			//PDF
@@ -632,9 +523,10 @@ public class Praparat extends JPanel {
 		List<Future<SlideGlass>> futures = new ArrayList<>();
 		Callable<SlideGlass> task = () -> {
 			DicomImage dcmimg = DicomImage.newDicomImage(path2dcm, backend);
-			if (Codec.isCompressed(tsUID.uid())) {
-				Decompressor.newInstance(dcmimg).decompress();
-			}
+			//20260110
+//			if (Codec.isCompressed(tsUID.uid())) {
+//				Decompressor.newInstance(dcmimg).decompress();
+//			}
 			return new SlideGlass(this, dcmimg);
 		};
 		futures.add(executor.submit(task));
@@ -646,11 +538,11 @@ public class Praparat extends JPanel {
 			}
 		}
 		executor.shutdown();
-		try {
-			executor.awaitTermination(1, TimeUnit.MINUTES);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			executor.awaitTermination(1, TimeUnit.MINUTES);
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
 	private void loadSlideGlassFromMultiFrame(String path2dcm, DicomObject header, DICOMBackend backend) {
@@ -660,7 +552,7 @@ public class Praparat extends JPanel {
 
 		DicomReader video_reader_ = DicomReader.newDicomReader(backend);
 		video_reader_.read(path2dcm, true/* with bulk */);
-		DicomImage videoDcm = DicomImage.newDicomImage(video_reader_.getCore(), video_reader_.checkTSUID());
+		DicomImage videoDcm = DicomImage.newDicomImage(path2dcm, video_reader_.getHeader(), video_reader_.getFileMetaInfomation(), video_reader_.checkTSUID());
 		int w = header.getInt(Tag.Columns, 0);
 		int h = header.getInt(Tag.Rows, 0);
 		int c = header.getInt(Tag.Samples​Per​Pixel, 1);
@@ -677,7 +569,7 @@ public class Praparat extends JPanel {
 			Callable<SlideGlass> task = () -> {
 				DicomObject instHeader = DicomObject.newDicomObject(header, backend);
 				instHeader.setInt(Tag.Instance​Number, VR.IS, (k + 1));
-				DicomImage frame = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+				DicomImage frame = DicomImage.newDicomImage(null, instHeader, null, UID.ImplicitVRLittleEndian, backend);
 				frame.setPixelData(k, w, h, c, bits, videoDcm.getImageProcessor(k).getPixels());
 				return new SlideGlass(this, frame);
 			};
@@ -725,7 +617,7 @@ public class Praparat extends JPanel {
 		instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
 		instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
 		instHeader.setInt(Tag.Instance​Number, VR.IS, (pos + 1));
-		DicomImage img = DicomImage.newDicomImage(instHeader, UID.ImplicitVRLittleEndian, backend);
+		DicomImage img = DicomImage.newDicomImage(null, instHeader, null, UID.ImplicitVRLittleEndian, backend);
 		img.setPixelData(pos, pdf.getWidth(), pdf.getHeight(), 3, 8, instIp.getPixels());
 		return new SlideGlass(this, img);
 	}
@@ -810,13 +702,10 @@ public class Praparat extends JPanel {
 	public void doSingleGridLayout() {
 		gridViewOn(false);
 		adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
-		setImagePositionUsingSlider(currentSlice);
+//		setImagePositionUsingSlider(0/*init*/);
 	}
 	
 	public HashMap<Integer, SlideGlass> getAllSlides() {
-		if (currentSlice == -1) {
-			return null;
-		}
 		if(slides != null && slides.size() < 1) {
 			return null;
 		}
@@ -828,8 +717,11 @@ public class Praparat extends JPanel {
 	}
 	
 	public SlideGlass getCurrentSlide() {
-		if (currentSlice == -1) {
+		if(slides == null) {
 			return null;
+		}
+		if (currentSlice == -1) {
+			return slides.get(0);
 		}
 		return slides.get(currentSlice);
 	}
@@ -850,7 +742,7 @@ public class Praparat extends JPanel {
 		return prapManager;
 	}
 
-	public ArrayList<String> getImageFileLocations() {
+	public List<String> getImageFileLocations() {
 		return this.pathToImages;
 	}
 
@@ -1297,7 +1189,7 @@ public class Praparat extends JPanel {
 		String studyUID = (String)info.get("StudyInstanceUID");
 		String seriesUID = (String)info.get("SeriesInstanceUID");
 		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
-		ArrayList<String> pathToImages = p.getImageFileLocations();
+		List<String> pathToImages = p.getImageFileLocations();
 		
 		if(pathToImages == null || pathToImages.size()==0) {
 			logger.warning("prap needs path to images..., return.");
@@ -1306,8 +1198,7 @@ public class Praparat extends JPanel {
 		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromPraparat(p);
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
+		currentSlice = -1;
 		if(slider != null) {
 			slider.initContext();
 		}
@@ -1342,17 +1233,18 @@ public class Praparat extends JPanel {
 		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 	}
 	
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToImages) {
 		if(pathToImages == null || pathToImages.size()==0) {
 			System.out.println("prap needs path to images..., return.");
 			return;
 		}
 		viewPanel.removeAll();
-		
+		/*
+		 * update information of series images.
+		 */
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
-		prevSlice = -1;// IMPORTANT
-		currentSlice = 0;
+		currentSlice = -1;
 		if(slider != null) {
 			slider.initContext();
 		}
@@ -1366,10 +1258,26 @@ public class Praparat extends JPanel {
 			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
 			return;
 		}
-		prevSlice = -1;
-		currentSlice = 0;
+		currentSlice = -1;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
+		String pid = GDicomTools.getTag(images, "0010,0020");
+		String studyUID = GDicomTools.getTag(images, "0020,000D");
+		String seriesUID = GDicomTools.getTag(images, "0020,000E");
+		String[] sopUIDs = new String[images.getNSlices()];//0008,0016
+		List<String> paths = new ArrayList<>();
+		int pos = images.getCurrentSlice();
+		for(int i=0;i<images.getNSlices(); i++) {
+			sopUIDs[i] = GDicomTools.getTag(images, i+1, "0008,0016");
+			images.setSlice(i+1);
+			String path = images.getFileInfo().getFilePath();
+			if(path != null && path.length() > 0) {
+				paths.add(path);
+			}
+		}
+		images.setSlice(pos);//back to first.
+		setInfo(pid, studyUID, seriesUID, sopUIDs, paths);
 		constructSlideGlassesFromImagePlus(images);
+		
 		if(slider != null) {
 			slider.initContext();
 		}
@@ -1383,9 +1291,27 @@ public class Praparat extends JPanel {
 			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
 			return;
 		}
-		prevSlice = -1;
-		currentSlice = 0;
+		currentSlice = -1;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
+		
+		String pid = null;
+		String studyUID = null;
+		String seriesUID = null;
+		String[] sopUIDs = new String[paths.size()];
+		DICOMBackend be = DICOMBackend.getCurrent();
+		int j =0;
+		for(String path : paths) {
+			DicomReader reader = DicomReader.newDicomReader(be);
+			reader.read(path, false);
+			DicomObject dcmObj = reader.getHeader();
+			if(pid == null) {
+				pid = dcmObj.getString(Tag.Patient​ID);
+				studyUID = dcmObj.getString(Tag.Study​Instance​UID);
+				seriesUID = dcmObj.getString(Tag.Series​Instance​UID);
+			}
+			sopUIDs[j++] = dcmObj.getString(Tag.SOP​Instance​UID);
+		}
+		setInfo(pid, studyUID, seriesUID, sopUIDs, paths);
 		constructSlideGlassesFromDicom(paths);
 		if(slider != null) {
 			slider.initContext();
@@ -1508,6 +1434,98 @@ public class Praparat extends JPanel {
 				SlideGlass sg = slides.get(key);
 				sg.invert();
 			}
+		}
+	}
+	
+	/**
+	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
+	 */
+	private void realizeImage(int index /* 0 to N-1 */, boolean processSeries, Double syncMag, Double syncRot, Double syncMin, Double syncMax, Point syncOrigin) {
+		if (index < 0 || index >= slides.size())
+			return;
+
+		SlideGlass sg = slides.get(index);
+		DicomImage dcmimg = sg.getDicomImage();
+
+		// まだピクセルデータがロードされていない、または解凍されていない場合
+		if (sg.getOriginalImage() == null) {
+			// 1. ファイルからピクセルを読み込む
+			if (dcmimg.ensurePixelDataLoaded()) {
+				// pixel情報がある場合にのみ更新
+				// 2. 解凍処理 (既存のDecompressorを利用)
+				if (Codec.isCompressed(dcmimg.getTSUID())) {
+					Decompressor.newInstance(dcmimg).decompress();
+					logger.fine("Decompressed slice: " + index);
+				}
+				ImagePlus im = new ImagePlus(""+index, dcmimg.getImageProcessor(0));
+				sg.imageSpecimen.setOriginalImage(im);
+				sg.initCalibrationAndLUT();
+				if(processSeries) {
+					//move, zoom, rotate, windowing
+					if(syncMag!=null && !syncMag.isNaN()) sg.zoom(syncMag, false/*dummy*/);
+					if(syncRot!=null && !syncRot.isNaN()) sg.rotate(syncRot);
+					if((syncMin!=null && !syncMin.isNaN()) && (syncMax!=null && !syncMax.isNaN())) sg.changeWindowingByMinMax(syncMin, syncMax);
+					//finally set origin
+					if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * キャッシュ管理：円環（リングバッファ）状に前後10枚をロードする
+	 */
+	public void manageCache(int currentIndex) {
+		if (slides == null || slides.isEmpty())
+			return;
+		
+		// --- 同期する状態のスナップショットを取得 ---
+	    SlideGlass current = getCurrentSlide();
+	    final double syncMag = current.getMagnification();
+	    final double syncRot = current.getRotateAngle();
+	    final double syncMin = current.currentMin;
+	    final double syncMax = current.currentMax;
+	    final Point syncOrigin = current.getDisplayImageOriginXY();
+	    final boolean processSeries = isProcessSeries();
+
+		prefetchExecutor.submit(() -> {
+			int totalSize = slides.size();
+
+			// 1. 周回を考慮した範囲の画像をロード
+			// currentIndexを中心に、-10から+10までの相対位置を計算
+			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
+				// 剰余演算を利用してインデックスを [0 ～ totalSize-1] に収める
+				// (currentIndex + i + totalSize) % totalSize により、マイナス値も正しく末尾へ回る
+				int targetIndex = (currentIndex + i + totalSize) % totalSize;
+				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
+			}
+
+			// 2. メモリ解放（範囲外の画像をアンロード）
+			// 枚数が少ない場合は解放不要（例: 全体が21枚以下の場合は全て保持）
+			if (totalSize > (PREFETCH_RANGE * 2 + 1)) {
+				for (int j = 0; j < totalSize; j++) {
+					if (!isWithinCircularRange(j, currentIndex, totalSize, PREFETCH_RANGE)) {
+						unloadImage(j);
+					}
+				}
+			}
+		});
+	}
+
+	/**
+	 * 円環状のインデックスにおいて、targetがcenterのrange内にあるか判定するヘルパー
+	 */
+	private boolean isWithinCircularRange(int target, int center, int totalSize, int range) {
+		// 2点間の最短距離（周回考慮）を計算
+		int diff = Math.abs(target - center);
+		int distance = Math.min(diff, totalSize - diff);
+		return distance <= range;
+	}
+
+	private void unloadImage(int index) {
+		SlideGlass sg = slides.get(index);
+		if (sg != null && sg.getDicomImage() != null) {
+			sg.getDicomImage().releasePixelBulkFromHeader();
 		}
 	}
 
@@ -1737,7 +1755,7 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	private void setImageFileLocations(ArrayList<String> pathToImages) {
+	private void setImageFileLocations(List<String> pathToImages) {
 		this.pathToImages = pathToImages;
 	}
 	
@@ -1746,31 +1764,67 @@ public class Praparat extends JPanel {
 	 * @param sliceIndex:number of slice index, 0 to n-1
 	 */
 	void setImagePosition(int sliceIndex) {
-		if (slides == null) { //do not include pathToImages
+		if (slides == null) { // do not include pathToImages
 			return;
 		}
-		if(isShowGridViewOn()) {
-			if(prevSlice == sliceIndex) {
+		if (isShowGridViewOn()) {
+			return;
+		}
+		
+		if(currentSlice == -1) {
+			currentSlice = sliceIndex;
+			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
+			double syncMag = 1.0;
+			double syncRot = 0.0;
+			Double syncMin = null;
+			Double syncMax = null;
+			Point syncOrigin = null;
+			realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
+
+			SlideGlass currentGlass = this.slides.get(currentSlice);
+			if (currentGlass == null)
 				return;
-			}
-			prevSlice = currentSlice;
-			currentSlice = sliceIndex;
+
+			viewPanel.removeAll();
+			viewPanel.add(currentGlass, 0);
+
+			// 2. 前後の先読みを開始（バックグラウンドスレッド）
+			manageCache(currentSlice);
+
+			currentGlass.updateDisplayImage();
+			currentGlass.repaint();
+			currentGlass.requestFocus();
+			currentGlass.setFocusGained(true);// for key listener
 			return;
 		}
-		if(currentSlice != sliceIndex) {
-			prevSlice = currentSlice;
-			currentSlice = sliceIndex;
+		
+		if(currentSlice == sliceIndex) {
+			return;
 		}
+
+		currentSlice = sliceIndex;
+		// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
 		SlideGlass currentGlass = this.slides.get(currentSlice);
-		if(currentGlass == null) return;
-		final int top = 0;
+		if (currentGlass == null)
+			return;
+		
+		double syncMag = currentGlass.getMagnification();
+		double syncRot = currentGlass.getRotateAngle();
+		Double syncMin = currentGlass.currentMin;
+		Double syncMax = currentGlass.currentMax;
+		Point syncOrigin = currentGlass.getDisplayImageOriginXY();
+		realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
+
 		viewPanel.removeAll();
-		viewPanel.add(currentGlass, top);
+		viewPanel.add(currentGlass, 0);
+
+		// 2. 前後の先読みを開始（バックグラウンドスレッド）
+		manageCache(currentSlice);
+
 		currentGlass.updateDisplayImage();
-		currentGlass.revalidate();//check layout
-		currentGlass.repaint();//repaint all layered glasses(image/roi/text).
+		currentGlass.repaint();
 		currentGlass.requestFocus();
-		currentGlass.setFocusGained(true);//for key listener
+		currentGlass.setFocusGained(true);// for key listener
 	}
 	
 	public void setImagePositionTo(SlideGlass sg) {
@@ -1796,7 +1850,7 @@ public class Praparat extends JPanel {
 				 * Slider does not fire state change when the same index as the current index is
 				 * entered.
 				 */
-				if(slider.getCurrentSliceIndex()/*1 to N*/ == (pos+1) /*0 to N-1*/) {
+				if(slider.getCurrentSliceIndex()/*1 to N*/ == (pos+1) /*pos is 0 to N-1*/) {
 					setImagePosition(pos);
 					callBackLocalizer();
 				}else {
@@ -1806,7 +1860,7 @@ public class Praparat extends JPanel {
 		});
 	}
 	
-	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, ArrayList<String> pathToImages) {
+	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToImages) {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		String frameOfRefUID = null;
 		if(db != null) {
@@ -1817,7 +1871,7 @@ public class Praparat extends JPanel {
 		setInfo(patID, studyUID, seriesUID, sopUIDs, frameOfRefUID, pathToImages);
 	}
 	
-	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID, ArrayList<String> pathToImages) {
+	private void setInfo(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID, List<String> pathToImages) {
 		this.patID = patID;
 		this.studyUID = studyUID;
 		this.seriesUID = seriesUID;
@@ -1938,11 +1992,9 @@ public class Praparat extends JPanel {
 	}
 	
 	public void showFirstImage() {
-		slider.initContext();//slider setValue -1.
 		// position range is 0 to n-1
-		prevSlice = -1;
-		currentSlice = 0;
-		setImagePosition(currentSlice);
+		currentSlice = -1;
+		setImagePosition(0);
 	}
 	
 	private void updateInfoLabel(Point p, String value, double[] scaleXY, double mag, double rotate) {

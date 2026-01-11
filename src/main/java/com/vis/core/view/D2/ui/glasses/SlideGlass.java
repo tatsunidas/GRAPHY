@@ -49,6 +49,7 @@ import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -64,7 +65,6 @@ import org.joml.Vector3d;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
-import com.vis.core.util.ByteUtils;
 import com.vis.core.util.MathUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
@@ -103,9 +103,13 @@ public class SlideGlass extends JLayeredPane {
 	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
 	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
 	public final static int EVENT_LAYER = JLayeredPane.DRAG_LAYER;
+	
+	private static final String UNIT_MM = "mm";
+	private static final String UNIT_HU = "HU";
+	private static final String UNIT_GRAY = "Gray Value";
 
 	private Praparat pp;// series viewer
-	private DicomObject header;
+	private DicomObject header;//from dicom image
 	private DicomImage dcmImg;
 
 	// glasses
@@ -187,7 +191,8 @@ public class SlideGlass extends JLayeredPane {
 			throw new NullPointerException();
 		}
 		initComponents(pp, dcmImg);
-		isBiped = SubjectOrientation.isBiped(dcmImg.getCore());
+		isRGB = dcmImg.isColor();
+		isBiped = SubjectOrientation.isBiped(dcmImg.getHeader());
 	}
 
 	public void addRoi(RoiObj roi) {
@@ -197,44 +202,35 @@ public class SlideGlass extends JLayeredPane {
 	void adjustContrastFromMouseAction(int dragX, int dragY) {
 		int xDiff = dragX - lastDraggedX;
 		int yDiff = dragY - lastDraggedY;
-//		double minMaxDifference = getCurrentDisplayImagePlus().getDisplayRangeMax()
-//				- getCurrentDisplayImagePlus().getDisplayRangeMin();
-//		int totalWidth = pp.getImageScreenSizeX();
-//		int totalHeight = pp.getImageScreenSizeY();
-//		double xRatio = ((double) xDiff) / ((double) totalWidth);
-//		double yRatio = ((double) yDiff) / ((double) totalHeight);
-//		// scale to our image range
-//		double xScaledValue = minMaxDifference * xRatio;
-//		double yScaledValue = minMaxDifference * yRatio;
-//		// to avoid rangeMin > rangeMax
-//		if (Math.abs(xScaledValue) > minMaxDifference) {
-//			if (xScaledValue < 0) {
-//				xScaledValue = -1 * minMaxDifference;
-//			} else {
-//				xScaledValue = minMaxDifference;
-//			}
-//		}
-//		if (Math.abs(yScaledValue) > minMaxDifference) {
-//			if (yScaledValue < 0) {
-//				yScaledValue = -1 * minMaxDifference;
-//			} else {
-//				yScaledValue = minMaxDifference;
-//			}
-//		}
-		// invert x
-//				 xScaledValue = xScaledValue * -1;
-//		adjustWindowLevel(xScaledValue, yScaledValue);
-		adjustWindowLevel(xDiff, yDiff);
+		double minMaxDifference = currentMax - currentMin;
+		
+		int totalWidth = pp.getImageScreenSizeX();
+		int totalHeight = pp.getImageScreenSizeY();
+		double xRatio = ((double) xDiff) / ((double) totalWidth);
+		double yRatio = ((double) yDiff) / ((double) totalHeight);
+		// scale to our image range
+		double xScaledValue = minMaxDifference * xRatio;
+		double yScaledValue = minMaxDifference * yRatio;
+		// to avoid rangeMin > rangeMax
+		if (Math.abs(xScaledValue) > minMaxDifference) {
+			if (xScaledValue < 0) {
+				xScaledValue = -1 * minMaxDifference;
+			} else {
+				xScaledValue = minMaxDifference;
+			}
+		}
+		if (Math.abs(yScaledValue) > minMaxDifference) {
+			if (yScaledValue < 0) {
+				yScaledValue = -1 * minMaxDifference;
+			} else {
+				yScaledValue = minMaxDifference;
+			}
+		}
+		
+		adjustWindowLevel(xScaledValue, yScaledValue);
+//		adjustWindowLevel(xDiff, yDiff);
 		lastDraggedX = dragX;
 		lastDraggedY = dragY;
-	}
-
-	void adjustWindow2Current() {
-		if (currentMax == -1 || currentMin == -1) {
-			return;
-		}
-		setWindowingState(true);
-		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
 	void adjustWindowLevel(double xDifference, double yDifference) {
@@ -267,27 +263,22 @@ public class SlideGlass extends JLayeredPane {
 		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
-	public void changeWindowing(int WL, int WW) {
+	public void changeWindowing(double WL, double WW) {
 		double newMin = WL - (.5 * WW);
 		double newMax = WL + (.5 * WW);
 		if (newMin >= newMax) {
 			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than or equals max; min " + newMin + " max " + newMax);
 			return;
 		}
-		lastMin = currentMin; 
-		lastMax = currentMax;
-		currentMin = newMin;
-		currentMax = newMax;
-		if (Utils.isDebug)
-			logger.info("change ww/wl : newMin " + newMin + " newMax " + newMax);
-		changeWindowingByMinMax(this.currentMin, this.currentMax);
+		changeWindowingByMinMax(newMin, newMax);
 	}
 	
-	public void changeWindowingByMinMax(double newMin, double newMax) {
+	void changeWindowingByMinMax(double newMin, double newMax) {
 		if (newMin > newMax) {
 			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than max; min " + newMin + " max " + newMax);
 			return;
 		}
+		
 		lastMin = currentMin;
 		lastMax = currentMax; 
 		currentMin = newMin;
@@ -406,7 +397,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	/*
-	 * current display image origin
+	 * current display image origin (offscreen coordinate)
 	 */
 	public Point getDisplayImageOriginXY() {
 		Point origin = new Point(imageSpecimen.getDisplayOriginX(), imageSpecimen.getDisplayOriginY());
@@ -456,7 +447,10 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Calibration getOriginalCalibration() {
-		return getOriginalImage().getCalibration();
+		if(getOriginalImage() !=null) {
+			return getOriginalImage().getCalibration();
+		}
+		return null;
 	}
 
 	public ImagePlus getOriginalImage() {
@@ -472,8 +466,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Dimension getOriginalImageSize() {
-		int[] dims = getOriginalImage().getDimensions();
-		return new Dimension(dims[0], dims[1]);
+		int w = header.getInt(Tag.Columns, 0);
+		int h = header.getInt(Tag.Rows, 0);
+		return new Dimension(w,h);
 	}
 
 	public double getOriginalPixelSpacingX() {
@@ -504,6 +499,9 @@ public class SlideGlass extends JLayeredPane {
 			return null;
 		}
 		if (!isRGB()) {
+			if(getOriginalImage() == null) {
+				return null;
+			}
 			double pix_raw = getOriginalImage().getProcessor().get(orgImageX, orgImageY);
 			double pix_cal = getOriginalImage().getProcessor().getPixelValue(orgImageX, orgImageY);
 			if (dcmImg.getBitsAllocated() == 32) {
@@ -619,11 +617,11 @@ public class SlideGlass extends JLayeredPane {
 		this.pp = pp;
 //		this.roiset = new ArrayList<RoiObj>();
 		this.dcmImg = dcmImg;
-		this.header = dcmImg.getCore();
+		this.header = dcmImg.getHeader();
 		setBorder(BorderMaker.make(this, false));
 		setOpaque(false);
 		setUpGlassLayer(header);
-		initImageInfo(header);
+		initCalibrationAndLUT(header);
 		setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		SlideGlassMouseListener sgml = new SlideGlassMouseListener(this);
 		coverGlass.addMouseListener(sgml);
@@ -635,88 +633,146 @@ public class SlideGlass extends JLayeredPane {
 		}
 		imageSpecimen.updateDisplayImage();
 	}
+	
+	public void initCalibrationAndLUT() {
+		if(getOriginalImage() == null) {
+			return;
+		}
+		initCalibrationAndLUT(header);
+	}
 
 	/**
 	 * Calibrate original image
 	 * 
-	 * @param dataset
+	 * @param header
 	 */
-	private void initImageInfo(DicomObject dataset) {
-		if (this.header == null) {
-			this.header = dataset;
-		}
-		/* No calibrated imageplus */
-		ImagePlus org = getOriginalImage();
-		Calibration originalCal = org.getCalibration();
-		/*
-		 * TODO load lut from dicom tag ? todo, see dicomwriter as reference.
-		 */
-		setLUT(org.getProcessor().getLut());
-		isRGB = org.getType() == ImagePlus.COLOR_RGB;// choice suitable one.
-		if (isRGB()) {
-			org.getProcessor().snapshot();
-		}
-
-		/*
-		 * Spatial calibrations
-		 */
-		// x-y-z
-		double pixelSpacingX = 1.0;
-		double pixelSpacingY = 1.0;
-		double pixelSpacingZ = 1.0;
-		boolean pixelSpacingFound = false;
-		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
-		double[] pixelSpacing = dataset.getDoubles(Tag.Pixel​Spacing);
-		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-			pixelSpacingX = pixelSpacing[1];// column
-			pixelSpacingY = pixelSpacing[0];// row
-			pixelSpacingFound = true;
-		}
-		pixelSpacingZ = GDicomTools.getVoxelDepth(dataset);
-		if(pixelSpacingFound) {
-			/*
-			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-			 * definition.
-			 */
-			originalCal.setUnit("mm");
-		}
-		// then, set to cal
-		originalCal.pixelWidth = pixelSpacingX;
-		originalCal.pixelHeight = pixelSpacingY;
-		originalCal.pixelDepth = pixelSpacingZ;
-
-		/*
-		 * density calibration
-		 */
-		Double slope = dataset.getDouble(Tag.Rescale​Slope, Double.NaN);
-		Double intercept = dataset.getDouble(Tag.Rescale​Intercept, Double.NaN);
-		Boolean signed = (dataset.getInt(Tag.Pixel​Representation, -1) == 1);
-		String modality = getModality();
-		if (dataset.getInt(Tag.Bits​Allocated, -1) == 16 && signed) {
-			if (!intercept.isNaN() && !slope.isNaN()) {
-				//need more test...
-				// y = a + bx
-				double[] coeff = new double[2];// [a,b]
-				coeff[0] = intercept - 32768*slope;
-				coeff[1] = slope;
-				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-				// add another modalities unit...
-			} else {
-				originalCal.setSigned16BitCalibration();
-			}
-			if (modality != null && modality.equals("CT")) {
-				originalCal.setValueUnit("HU");
-			}
-		} else if (!intercept.isNaN() && !slope.isNaN()) {
-			double[] coeff = new double[2];
-			coeff[0] = intercept;
-			coeff[1] = slope;
-			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-			//originalCal.getCTable();// to make cTable.
-		}
+	private void initCalibrationAndLUT(DicomObject header) {
+		
+		Calibration originalCal = new Calibration();
+		setLUT(extractDisplayLUT(header));
+		
+		setupSpatialCalibration(originalCal, header);
+		setupDensityCalibration(originalCal, header);
 		// adjust WW/WL
-		resetWindowing();
+		resetContrast();
 		setOriginalCalibration(originalCal);
+	}
+	
+	private LUT extractDisplayLUT(DicomObject header) {
+		// Red, Green, Blue の Descriptor を取得 [エントリー数, 最初のエントリー値, ビット数]
+		int[] rDesc = header.getInts(Tag.Red​Palette​Color​Lookup​Table​Descriptor);
+		int[] gDesc = header.getInts(Tag.Green​Palette​Color​Lookup​Table​Descriptor);
+		int[] bDesc = header.getInts(Tag.Blue​Palette​Color​Lookup​Table​Descriptor);
+
+		if (rDesc == null || gDesc == null || bDesc == null)
+			return null;
+
+		// LUT Data を取得
+		try {
+			byte[] rData = header.getBytes(Tag.Red​Palette​Color​Lookup​Table​Data);
+			byte[] gData = header.getBytes(Tag.Green​Palette​Color​Lookup​Table​Data);
+			byte[] bData = header.getBytes(Tag.Blue​Palette​Color​Lookup​Table​Data);
+
+			if (rData == null || gData == null || bData == null)
+				return null;
+
+			// ImageJの標準的な256色LUTにマッピングする場合（表示用）
+			// DICOMのLUTは通常 16-bit (65536エントリー) のことが多いですが、
+			// 多くの表示系では 8-bit (256段階) にリサンプルして使用します。
+			byte[] r = new byte[256];
+			byte[] g = new byte[256];
+			byte[] b = new byte[256];
+
+			// DICOM LUTから256段階をサンプリング
+			// (DICOMデータが16bit値で格納されている場合は上位バイトを取得)
+			int step = Math.max(1, (rData.length / 2) / 256);
+			for (int i = 0; i < 256; i++) {
+				int idx = i * step * 2; // byte[] なので 2倍
+				if (idx < rData.length) {
+					// DICOMのLUTデータはLittle Endianの16bitであることが多いため上位バイトを使用
+					r[i] = rData[idx + 1];
+					g[i] = gData[idx + 1];
+					b[i] = bData[idx + 1];
+				}
+			}
+
+			return new LUT(r, g, b);
+
+		} catch (IOException ioe) {
+			System.out.println(ioe);
+			logger.log(Level.WARNING, "LUT loading failed...");
+			return null;
+		}
+	}
+	
+	/**
+	 * ピクセル間隔（Pixel Spacing / Voxel Depth）を設定します。
+	 */
+	private void setupSpatialCalibration(Calibration cal, DicomObject header) {
+	    double[] spacing = header.getDoubles(Tag.Pixel​Spacing);
+	    if (spacing != null && spacing.length >= 2) {
+	        // DICOM: [0]=Row Spacing(Y), [1]=Column Spacing(X)
+	        cal.pixelWidth = spacing[1];
+	        cal.pixelHeight = spacing[0];
+	        cal.setUnit(UNIT_MM);
+	    } else {
+	        cal.pixelWidth = 1.0;
+	        cal.pixelHeight = 1.0;
+	    }
+	    cal.pixelDepth = GDicomTools.getVoxelDepth(header);
+	}
+	
+	
+	/**
+	 * Rescale Slope/Intercept
+	 * ImageJのShortProcessorは符号なし(0-65535)としてデータを扱う.
+	 */
+	private void setupDensityCalibration(Calibration cal, DicomObject header) {
+
+		double slope = header.getDouble(Tag.Rescale​Slope, 1.0);
+		double intercept = header.getDouble(Tag.Rescale​Intercept, 0.0);
+
+		boolean isSigned = dcmImg.isSigned();
+		int bitsAllocated = header.getInt(Tag.Bits​Allocated, 8);
+		String modality = getModality();
+
+		if (isSigned) {
+			if (bitsAllocated == 8) {
+				if (!Double.isNaN(slope) && !Double.isNaN(intercept)) {
+					// ImageJ内部で 0~255 となっている値を -128~127 にマッピング
+					double[] coeff = { intercept - (128.0 * slope), slope };
+					cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
+				} else {
+					double[] coeff = new double[2];
+					coeff[0] = -128.0;
+					coeff[1] = 1.0;
+					cal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+				}
+			} else if (bitsAllocated == 16) {
+				if (!Double.isNaN(slope) && !Double.isNaN(intercept)) {
+					// ImageJ内部で 0~65535 となっている値を -32768~32767 にマッピングしつつ Slope/Intercept を適用
+					// y=slope⋅(x−32768)+intercept
+					// これを一次関数 y=a+bx の形に整理すると：
+					// 係数 a (Intercept部): intercept−(32768⋅slope)
+					// 係数 b (Slope部): slope
+					// y = slope * (x - 32768) + intercept
+					// y = (intercept - 32768 * slope) + (slope * x)
+					double[] coeff = { intercept - (32768.0 * slope), slope };
+					cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
+				} else {
+					cal.setSigned16BitCalibration();
+				}
+			}
+		} // その他のデータの Rescale Slope/Intercept 適用
+		else if (!Double.isNaN(slope) && !Double.isNaN(intercept)) {
+			double[] coeff = { intercept, slope };
+			cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
+		}
+
+		// モダリティがCTの場合は単位をHU（ハンスフィールド・ユニット）に設定
+		if ("CT".equals(modality)) {
+			cal.setValueUnit(UNIT_HU);
+		}
 	}
 
 	private void initPrapInfoLabel() {
@@ -983,18 +1039,54 @@ public class SlideGlass extends JLayeredPane {
 		repaint();//show rois
 	}
 
-	public void resetWindowing() {
+	public void resetContrast() {
 		// adjust WW/WL
-		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);
-		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+		Double wl = header.getDouble(Tag.Window​Center, Double.NaN);
+		Double ww = header.getDouble(Tag.Window​Width, Double.NaN);
+		if (wl.isNaN() || ww.isNaN()) {
 			autoWindowing();
-		} else {
-			changeWindowing(WL, WW);
+			return;
 		}
+		/*
+		 * * 2. オフセットの計算 ImageJのShortProcessorはUnsigned 16-bit(0-65535)として扱うため、
+		 * Signedデータを読み込む際に足し合わせたオフセットを引いて、 WL/WWの基準をImageJのピクセル値に合わせる必要があります。
+		 */
+		double offset = 0;
+		boolean isSigned = dcmImg.isSigned();
+		int bitsAllocated = dcmImg.getBitsAllocated();
+
+		if (isSigned) {
+			if (bitsAllocated == 16) {
+				// Signed 16-bitの場合、通常中心を32768シフトさせている
+				offset = 32768.0;
+			} else if (bitsAllocated == 8) {
+				// Signed 8-bitの場合（稀）
+				offset = 128.0;
+			}
+		}
+
+		/*
+		 * 3. Rescale Slope/Intercept の考慮 DICOMのWL/WWは「Rescale適用後の値（HUなど）」で定義されています。
+		 * ImageProcessor.setMinAndMax() は「生のピクセル値」に対して行う必要があるため、
+		 * 逆計算をして生のピクセル値ベースのMin/Maxを求めます。
+		 */
+		double slope = header.getDouble(Tag.Rescale​Slope, 1.0);
+		double intercept = header.getDouble(Tag.Rescale​Intercept, 0.0);
+
+		// 表示範囲の最小・最大を計算 (物理単位)
+		double minPhys = wl - (ww / 2.0);
+		double maxPhys = wl + (ww / 2.0);
+
+		// 生のピクセル値 (ImageJの内部値) に逆変換
+		// 物理値 = (raw - offset) * slope + intercept
+		// => raw = ((物理値 - intercept) / slope) + offset
+		double rawMin = ((minPhys - intercept) / slope) + offset;
+		double rawMax = ((maxPhys - intercept) / slope) + offset;
+
+		changeWindowing(rawMin, rawMax);
 	}
 
-	void rotate(int changeAngle) {
+	void rotate(double changeAngle) {
 		double willRotateAngle = getRotateAngle() + changeAngle;
 		setRotateAngle((int) willRotateAngle);
 		imageSpecimen.updateDisplayImage();
@@ -1007,8 +1099,8 @@ public class SlideGlass extends JLayeredPane {
 		double rotateAngleInDegrees = getRotateAngle();
 		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
 
-		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getCore());
-		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getCore());
+		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getHeader());
+		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getHeader());
 		
 		if (baseRow.length() < 1e-6 || baseCol.length() < 1e-6) {
 			Log.logger.log(Level.WARNING, "ImagePositionPatient is NULL, cannot calculate Orientations.");
@@ -1112,13 +1204,16 @@ public class SlideGlass extends JLayeredPane {
 	 * Header is remaining.
 	 */
 	public void setImage(ImagePlus imp) {
-		imageSpecimen.setImage(imp);
+		imageSpecimen.replaceImage(imp);
 	}
 
 	public void setLUT(LUT lut) {
 		this.currentLUT = lut;
 		imageSpecimen.updateDisplayImage();
-//		repaint();
+	}
+	
+	public void setDisplayOrigin(Point p) {
+		imageSpecimen.updateOrigin(p.x, p.y);
 	}
 
 	private void setMagnification(double mag) {
@@ -1131,7 +1226,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	private void setOriginalCalibration(Calibration cal) {
-		getOriginalImage().setCalibration(cal);
+		if(getOriginalImage() != null) {
+			getOriginalImage().setCalibration(cal);
+		}
 	}
 
 	public void setRoiBrush(RoiObj brush) {
@@ -1344,8 +1441,8 @@ public class SlideGlass extends JLayeredPane {
 		Dimension d = imageSpecimen.calcImageSize2FitComponent();
 		if (d != null) {
 			if (header != null) {
-				this.scaleX = (double) d.width / (double) header.getInt(Tag.Columns, getOriginalImage().getWidth());
-				this.scaleY = (double) d.height / (double) header.getInt(Tag.Rows, getOriginalImage().getHeight());
+				this.scaleX = (double) d.width / (double) header.getInt(Tag.Columns, 0);
+				this.scaleY = (double) d.height / (double) header.getInt(Tag.Rows, 0);
 			} else {
 				this.scaleX = (double) d.width / (double) getOriginalImage().getWidth();
 				this.scaleY = (double) d.height / (double) getOriginalImage().getHeight();

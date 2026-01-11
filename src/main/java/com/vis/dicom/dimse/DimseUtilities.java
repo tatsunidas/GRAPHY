@@ -65,8 +65,8 @@ public class DimseUtilities {
 		try {
 			// Edit
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-			reader.read(dcm.getAbsolutePath());
-			DicomObject dobj = reader.getCore();
+			reader.read(dcm.getAbsolutePath(), true/*with pixel*/);
+			DicomObject dobj = reader.getHeader();
 			DicomObject fmi = reader.getFileMetaInfomation();
 			for (int tag : info.keySet()) {
 				dobj.setValue(tag, TagDict.vrType(tag)[0], info.get(tag));

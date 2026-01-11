@@ -133,7 +133,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		if (dcmImg == null)
 			throw new NullPointerException("DicomImage is Null...");
 		this.dcmImg = dcmImg;
-		this.dataset = (Attributes) dcmImg.getCore();
+		this.dataset = (Attributes) dcmImg.getHeader();
 		this.tsuid = dcmImg.getTSUID().uid();
 		this.tstype = TransferSyntaxType.forUID(tsuid);
 		init(this.dataset, this.tsuid);
@@ -291,7 +291,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
     
     public void decompress(File src, File target) {
 		DicomReaderChe reader = new DicomReaderChe(src.getAbsolutePath(), true);
-		DicomObjectChe obj = (DicomObjectChe)reader.getCore();
+		DicomObjectChe obj = (DicomObjectChe)reader.getHeader();
 		new DecompressorChe(obj, reader.checkTSUID().uid()).toDecompressable();
 		DicomWriterChe writer = new DicomWriterChe();
 		writer.writeDicomImage((DicomObject)obj, (DicomObject)obj.createFileMetaInformation(UID.ImplicitVRLittleEndian), target.getAbsolutePath(), true);

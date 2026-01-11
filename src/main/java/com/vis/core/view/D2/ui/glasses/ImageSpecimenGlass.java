@@ -98,11 +98,11 @@ public class ImageSpecimenGlass extends JPanel{
 	public ImageSpecimenGlass(SlideGlass sg /*single frame*/) {
 		this.sg = sg;
 		this.dcmImg = sg.getDicomImage();
-		this.sopUID = dcmImg.getCore().getString(Tag.SOP​Instance​UID);
+		this.sopUID = dcmImg.getHeader().getString(Tag.SOP​Instance​UID);
 		/* No calibrated imageplus */
-		this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
-		orgCols = orgImg.getWidth();
-		orgRows = orgImg.getHeight();
+		//this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
+		orgCols = dcmImg.getHeader().getInt(Tag.Columns, 0);
+		orgRows = dcmImg.getHeader().getInt(Tag.Rows, 0);
 		setOpaque(true);//最下層のため、true/false どちらでも良い
 		setBackground(Color.BLACK);
 		resetImageOrigin();
@@ -115,6 +115,10 @@ public class ImageSpecimenGlass extends JPanel{
 		/*
 		 * getOriginalImage().duplicate();//DO NOT USE, calibration was removed.
 		 */
+		ImagePlus org = getOriginalImage();
+		if(org == null) {
+			return null;
+		}
 		ImagePlus dup = getOriginalImage().createImagePlus();
 		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
 		ip.setInterpolationMethod(sg.INTERPOLATION_METHOD);
@@ -137,6 +141,8 @@ public class ImageSpecimenGlass extends JPanel{
 			dup.getProcessor().setBackgroundValue(0);
 			dup.getProcessor().setBackgroundColor(Color.BLACK);
 		}
+		
+		dup.setCalibration(getOriginalImage().getCalibration());
 		return dup;
 	}
 	
@@ -265,21 +271,43 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	/**
-	 * To update image to process.
+	 * Update image to process.
 	 * @param img
 	 */
-	void setImage(ImagePlus img) {
+	void replaceImage(ImagePlus img) {
 		if(dcmImg == null) {
 			throw new IllegalArgumentException("ImageSpecimen DicomImage can not ready. Cannot replace image.");
 		}
 		if(img != null) {
 			if(img.getType() == orgImg.getType() && img.getWidth() == orgCols && img.getHeight() == orgRows) {
-				this.dcmImg.setPixelData(0/*0 base*/, orgCols, orgRows, img.getNChannels(), img.getBitDepth(), img.getProcessor().getPixels());
+				/*
+				 * imp.getNChannels() may return 1 even if RGB images. reproduce code String url
+				 * = "https://imagej.net/ij/images/flybrain.zip"; ImagePlus image =
+				 * IJ.openImage(url); sysout(image.getNChannels());//return 1
+				 */
+				int samples = img.getProcessor() instanceof ColorProcessor ? 3 : 1;
+				this.dcmImg.setPixelData(0/*0 base*/, orgCols, orgRows, samples, img.getBitDepth(), img.getProcessor().getPixels());
 				this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
 				updateDisplayImage();
 			}else {
 				Log.logger.warning("Image type is not same. ImageSpecimen cannot replace image.");
 			}
+		}
+	}
+	
+	void setOriginalImage(ImagePlus img) {
+		if(dcmImg == null) {
+			throw new IllegalArgumentException("ImageSpecimen DicomImage can not ready. Cannot set image to show.");
+		}
+		if(img != null) {
+			if(img.getNChannels() == dcmImg.getSamples() && img.getWidth() == orgCols && img.getHeight() == orgRows) {
+				this.orgImg = img;
+				updateDisplayImage();
+			}else {
+				Log.logger.warning("Image type is not same. ImageSpecimen cannot replace image.");
+			}
+		}else {
+			this.orgImg = null;
 		}
 	}
 	
@@ -337,6 +365,10 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		
 		if(sg == null) {
+			return;
+		}
+		
+		if(orgImg == null) {
 			return;
 		}
 		

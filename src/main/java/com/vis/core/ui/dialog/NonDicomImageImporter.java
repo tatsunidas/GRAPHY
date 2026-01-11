@@ -399,7 +399,7 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 				System.out.println("Could not convert imp to dcmimg");
 				continue;
 			}
-			DicomObject core = img.get(0).getCore();
+			DicomObject core = img.get(0).getHeader();
 			core.setString(Tag.Patient​Name, TagDict.vrType(Tag.Patient​Name)[0], patName);
 			core.setString(Tag.Patient​ID, TagDict.vrType(Tag.Patient​ID)[0], patID);
 			core.setString(Tag.Patient​Sex, TagDict.vrType(Tag.Patient​Sex)[0], sex);

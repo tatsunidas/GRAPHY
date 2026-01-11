@@ -38,6 +38,7 @@
 package com.vis.dicom;
 
 import java.net.URI;
+
 import com.vis.dicom.dcm4cheImpl.*;
 
 public interface DicomReader {
@@ -58,14 +59,14 @@ public interface DicomReader {
 		return null;
 	}
 
-	void read(String path);
-	void read(URI path);
 	void read(String path, boolean withPixel);
+	void read(URI path, boolean withPixel);
 	
-	DicomObject getCore();
+	DicomObject getHeader();
 	DicomObject getFileMetaInfomation();
 	UID checkTSUID();
 	UID checkSopClassUID();
 	boolean bigEndian();
+	boolean explicitVR();
 	TransferSyntaxType checkTSType();
 }

@@ -137,7 +137,7 @@ public class DicomDuplicator {
 						DicomReader dr = DicomReader.newDicomReader(backend); 
 						dr.read(orgPath, true);// with pixel
 						
-						DicomObject orgDcm = dr.getCore();
+						DicomObject orgDcm = dr.getHeader();
 						String tsUID = dr.checkTSUID().uid();
 
 						String newPID = patInfoMap.get("PatientID").trim();
@@ -229,7 +229,7 @@ public class DicomDuplicator {
 			String orgPath = db.getFileLocation(studyUID, seriesUID, sopUID);
 			DicomReader dr = DicomReader.newDicomReader(backend);
 			dr.read(orgPath, true);
-			DicomObject orgDcm = dr.getCore();
+			DicomObject orgDcm = dr.getHeader();
 			String tsUID = dr.checkTSUID().uid();
 			
 			// change IDs
@@ -289,7 +289,7 @@ public class DicomDuplicator {
 		for (String orgPath : imagePaths) {
 			DicomReader dr = DicomReader.newDicomReader(null);
 			dr.read(orgPath, true);
-			DicomObject orgDcm = dr.getCore();
+			DicomObject orgDcm = dr.getHeader();
 			String tsUID = dr.checkTSUID().uid();
 			
 			// change IDs
@@ -391,7 +391,7 @@ public class DicomDuplicator {
 			String orgPath = db.getFileLocation(studyUID, seriesUID, sopUIDs[0]);
 			DicomReader reader = DicomReader.newDicomReader(null);
 			reader.read(orgPath, false);
-			DicomObject header = reader.getCore();
+			DicomObject header = reader.getHeader();
 			PixelDataDecoder deco = new PixelDataDecoder();
 			byte[] pixels = deco.pixel2Byte(newImages);
 			VR vr = VR.OB;
@@ -452,7 +452,7 @@ public class DicomDuplicator {
 				ImagePlus imp = sg.getOriginalImage();
 				PixelDataDecoder deco = new PixelDataDecoder();
 				byte[] pixels = deco.pixel2Byte(imp);
-				DicomObject core = sg.getDicomImage().getCore();
+				DicomObject core = sg.getDicomImage().getHeader();
 				core.setString(Tag.Series​Number, VR.IS, numOfSeries+"");
 				core.setValue(Tag.Pixel​Data, VR.OB, pixels);
 				// change seriesUID and instUID

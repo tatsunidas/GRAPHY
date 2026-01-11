@@ -19,33 +19,32 @@ import com.vis.dicom.TransferSyntaxType;
 
 import java.util.logging.*;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class DicomReaderChe implements DicomReader{
 	
 	Logger logger = Log.logger;
 	
-	DicomObject dataset4che = null;
+	/**
+	 * without pixels
+	 */
+	DicomObject header4che = null;
 	DicomObject fmi4che = null;
 	com.vis.dicom.UID tsuid;
 	com.vis.dicom.UID sopUID;
 	com.vis.dicom.TransferSyntaxType tstype4che;
 	boolean bigEndian = false;
+	boolean explicitVR = false;
 	
 	public DicomReaderChe() {}
 	
 	public DicomReaderChe(String path, boolean withPixel) {
 		read(path, withPixel);
 	}
-
-	@Override
-	public void read(String path) {
-		read(path, true);
-	}
-
-	@Override
-	public void read(URI path) {
-		read(new File(path).getAbsolutePath(), true);
-	}
-
+	
 	@Override
 	public void read(String path, boolean withPixel) {
 		if(!DicomUtilities.isDicomFile(new File(path))) {
@@ -59,13 +58,15 @@ public class DicomReaderChe implements DicomReader{
 			tsuid = com.vis.dicom.UID.uidOf(dis.getTransferSyntax());
 			tstype4che = TransferSyntaxType.forUID(tsuid.uid());
 			this.bigEndian = dis.bigEndian();
+			this.explicitVR = dis.explicitVR();
 			Attributes dataset4che = null;
 			if (!withPixel) {
+				//get header and
 				dataset4che = dis.readDatasetUntilPixelData();
 			} else {//read full
 				dataset4che = dis.readDataset(-1, o -> false);
 			}
-			this.dataset4che = new DicomObjectChe(dataset4che);
+			this.header4che = new DicomObjectChe(dataset4che);
 			this.fmi4che = new DicomObjectChe(fmi4che);
 			this.sopUID = com.vis.dicom.UID.uidOf(this.fmi4che.getString(Tag.SOP​Class​UID));
 		}catch(DicomStreamException dse) {
@@ -81,8 +82,14 @@ public class DicomReaderChe implements DicomReader{
 	}
 	
 	@Override
-	public DicomObject getCore() {
-		return dataset4che;
+	public void read(URI uri, boolean withPixel) {
+		File f = new File(uri);
+		read(f.getAbsolutePath(), withPixel);
+	}
+	
+	@Override
+	public DicomObject getHeader() {
+		return header4che;
 	}
 	
 	@Override
@@ -90,19 +97,19 @@ public class DicomReaderChe implements DicomReader{
 		return fmi4che;
 	}
 	
-	public Object[] getFmiAndCore() {
-		return new Object[] {getFileMetaInfomation(),getCore()};
+	public Object[] getFmiAndHeader() {
+		return new Object[] {getFileMetaInfomation(),getHeader()};
 	}
 	
 	public String[] checkUIDs() {
-		if(dataset4che == null) {
+		if(header4che == null) {
 			return null;
 		}
 		String[] uids = new String[4];
-		uids[0] = dataset4che.getString(Tag.Patient​ID);
-		uids[1] = dataset4che.getString(Tag.Study​Instance​UID);
-		uids[2] = dataset4che.getString(Tag.Series​Instance​UID);
-		uids[3] = dataset4che.getString(Tag.SOP​Instance​UID);
+		uids[0] = header4che.getString(Tag.Patient​ID);
+		uids[1] = header4che.getString(Tag.Study​Instance​UID);
+		uids[2] = header4che.getString(Tag.Series​Instance​UID);
+		uids[3] = header4che.getString(Tag.SOP​Instance​UID);
 		return uids;
 	}
 	
@@ -125,6 +132,11 @@ public class DicomReaderChe implements DicomReader{
 	@Override
 	public boolean bigEndian() {
 		return this.bigEndian;
+	}
+	
+	@Override
+	public boolean explicitVR() {
+		return this.explicitVR;
 	}
 
 }

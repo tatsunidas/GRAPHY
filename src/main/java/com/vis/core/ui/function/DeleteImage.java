@@ -99,11 +99,11 @@ public class DeleteImage {
 		for(String loc: deleteInstFileLocs) {
 			//0:pid,1:studyuid,2:seriesuid,3:sopuid,4:path2img
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-			reader.read(loc);
-			String patID = reader.getCore().getString(Tag.Patient​ID);
-			String studyUID = reader.getCore().getString(Tag.Study​Instance​UID);
-			String seriesUID = reader.getCore().getString(Tag.Series​Instance​UID);
-			String sopUID = reader.getCore().getString(Tag.SOP​Instance​UID);
+			reader.read(loc, false);
+			String patID = reader.getHeader().getString(Tag.Patient​ID);
+			String studyUID = reader.getHeader().getString(Tag.Study​Instance​UID);
+			String seriesUID = reader.getHeader().getString(Tag.Series​Instance​UID);
+			String sopUID = reader.getHeader().getString(Tag.SOP​Instance​UID);
 			reader = null;//free
 			DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 		}

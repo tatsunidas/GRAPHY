@@ -82,9 +82,9 @@ public class Compressor_old {
 			return null;
 		}
 		
-		if(dcm.getCore().getInt(Tag.Bits​Allocated, 8) > 16) {
+		if(dcm.getHeader().getInt(Tag.Bits​Allocated, 8) > 16) {
 			throw new UnsupportedOperationException(
-                    "Unsupported BitsAllocated: " + dcm.getCore().getInt(Tag.Bits​Allocated, 8));
+                    "Unsupported BitsAllocated: " + dcm.getHeader().getInt(Tag.Bits​Allocated, 8));
 		}
 		
 		if(lossless) {
@@ -95,20 +95,20 @@ public class Compressor_old {
 			ratio = 0.25f;
 		}
 		
-		DicomObject dup = DicomObject.newDicomObject(dcm.getCore(), null);
-		DicomImage dupImg = DicomImage.newDicomImage(dup, dcm.getTSUID());
+		DicomObject dup = DicomObject.newDicomObject(dcm.getHeader(), null);
+		DicomImage dupImg = DicomImage.newDicomImage(null, dup, dcm.getFileMetaInfo(), dcm.getTSUID());
 		if(!dcm.isMultiFrame()) {
 			byte[] compressed = compress(BufferedImageUtils.bulkToImage(dcm)[0], toCompressTS, ratio, lossless);
-			int bitsCompressed = getCompressedBitsPerSample(toCompressTS, dcm.getCore().getInt(Tag.Bits​Allocated, 8));
-			dupImg.setPixelData(0, dcm.getCore().getInt(Tag.Columns, 0), dcm.getCore().getInt(Tag.Rows, 0), dcm.getCore().getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
+			int bitsCompressed = getCompressedBitsPerSample(toCompressTS, dcm.getHeader().getInt(Tag.Bits​Allocated, 8));
+			dupImg.setPixelData(0, dcm.getHeader().getInt(Tag.Columns, 0), dcm.getHeader().getInt(Tag.Rows, 0), dcm.getHeader().getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
 		}else {
 			//check MultiframeExtractor
-			int num = dcm.getCore().getInt(Tag.Number​Of​Frames, 0);
+			int num = dcm.getHeader().getInt(Tag.Number​Of​Frames, 0);
 			BufferedImage[] comps = BufferedImageUtils.bulkToImage(dcm);
-			int bitsCompressed = getCompressedBitsPerSample(toCompressTS, dcm.getCore().getInt(Tag.Bits​Allocated, 8));
+			int bitsCompressed = getCompressedBitsPerSample(toCompressTS, dcm.getHeader().getInt(Tag.Bits​Allocated, 8));
 			for(int i=0;i<num; i++) {
 				byte[] compressed = compress(comps[i], toCompressTS, ratio, lossless);
-				dupImg.setPixelData(i, dcm.getCore().getInt(Tag.Columns, 0), dcm.getCore().getInt(Tag.Rows, 0), dcm.getCore().getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
+				dupImg.setPixelData(i, dcm.getHeader().getInt(Tag.Columns, 0), dcm.getHeader().getInt(Tag.Rows, 0), dcm.getHeader().getInt(Tag.Samples​Per​Pixel, 0), bitsCompressed, compressed);
 			}
 		}
 		return dupImg;

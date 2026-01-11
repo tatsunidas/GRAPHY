@@ -67,8 +67,8 @@ import ij.util.Tools;
  */
 public class GDicomTools extends ij.util.DicomTools{
 	
-	public static String getTag(ImagePlus imp, String id) {
-		String v = ij.util.DicomTools.getTag(imp, id);
+	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
+		String v = ij.util.DicomTools.getTag(imp, tag);
 		if(v != null) {
 			v = v.trim();
 		}
@@ -323,7 +323,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg) {
 		if(!dcmImg.isMultiFrame()) {
 			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0).duplicate());
-			DicomObject header = dcmImg.getCore();
+			DicomObject header = dcmImg.getHeader();
 			int[] tags = header.tags();
 			for(int t : tags) {
 				if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
@@ -357,7 +357,7 @@ public class GDicomTools extends ij.util.DicomTools{
 			for(int i=0; i<size; i++) {
 				/*single frame imp*/
 				ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(i));
-				DicomObject header = dcmImg.getCore();
+				DicomObject header = dcmImg.getHeader();
 				int[] tags = header.tags();
 				for(int t : tags) {
 					if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
@@ -410,7 +410,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		for (int i = 0; i < s; i++) {
 			DicomObject core = DicomObject.newDicomObject();
 			addAttributes(core, i, imp, dealWithSecondaryCapture);
-			DicomImage dcmImg = DicomImage.newDicomImage(core, UID.ImplicitVRLittleEndian);
+			DicomImage dcmImg = DicomImage.newDicomImage(null/*file path*/, core, null/*fmi null-able*/, UID.ImplicitVRLittleEndian);
 			Object pix = imp.getProcessor().getPixels();// setPosition() was done addAttributes()
 			if (signed16) {
 				/*

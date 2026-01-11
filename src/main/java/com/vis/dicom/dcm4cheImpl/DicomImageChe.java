@@ -67,31 +67,35 @@ import ij.process.ImageProcessor;
 public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	
 	private static final long serialVersionUID = 1L;
-	DicomObject core = null;
+	/**
+	 * header, basically without pixels.
+	 * After calling ensurePixelLoaded(),
+	 * header may have pixels bulk.
+	 */
+	DicomObject header = null;
 	DicomObject fmi = null;
 	UID tsuid;
 	boolean decompressed = false;
+	final String filePath;
 	
-	public DicomImageChe(DicomObject core, DicomObject fmi, UID tsUID) {
-		if(core == null ) {
+	public DicomImageChe(String path, DicomObject header, DicomObject fmi, UID tsUID) {
+		this.filePath = path;//null-able
+		if(header == null ) {
 			return;
 		}
 		if(fmi == null) {
-			fmi = (DicomObject)core.createFileMetaInformation(tsUID.uid());
+			fmi = (DicomObject)header.createFileMetaInformation(tsUID.uid());
 		}
-		this.core = core;
+		this.header = header;
 		this.fmi = fmi;
 		this.tsuid = tsUID;
-	}
-	
-	public DicomImageChe(DicomObject core, UID tsUID) {
-		this(core, null, tsUID);
 	}
 	
 	public DicomImageChe(String path, boolean withPixel) {
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
 		reader.read(path, withPixel);
-		this.core = reader.getCore();
+		this.filePath = path;//null-able
+		this.header = reader.getHeader();
 		this.fmi = reader.getFileMetaInfomation();
 		this.tsuid = reader.checkTSUID();
 		reader = null;
@@ -104,17 +108,17 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public int getBitsAllocated() {
-		return core.getInt(Tag.BitsAllocated, -1);
+		return header.getInt(Tag.BitsAllocated, -1);
 	}
 
 	@Override
 	public int getBitsStored() {
-		return core.getInt(Tag.BitsStored, getBitsAllocated());
+		return header.getInt(Tag.BitsStored, getBitsAllocated());
 	}
 
 	@Override
-	public DicomObject getCore() {
-		return core;
+	public DicomObject getHeader() {
+		return header;
 	}
 
 	@Override
@@ -124,7 +128,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public int getHeight() {
-		return core.getInt(Tag.Rows, 0);
+		return header.getInt(Tag.Rows, 0);
 	}
 
 	/**
@@ -145,18 +149,18 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			return null;
 		}
 		PixelDataDecoder pdec = new PixelDataDecoder(this);
-		return pdec.decode(raw).getProcessor();
+		return pdec.decode(raw);
 	}
 	
 	@Override
 	public int getNumOfFrames() {
-		return core.getInt(Tag.NumberOfFrames, 1);
+		return header.getInt(Tag.NumberOfFrames, 1);
 	}
 	
 	@Override
 	public PhotometricInterpretation getPhotometricInterpletation() {
 		return PhotometricInterpretation
-				.fromString(core.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
+				.fromString(header.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
 	}
 
 	@Override
@@ -183,17 +187,17 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		byte[] pixels = null;
 		
 		if(bitsAllocated == 32 && samples == 1) {
-			bulk = this.core.getValue(Tag.FloatPixelData);
+			bulk = this.header.getValue(Tag.FloatPixelData);
 			if(bulk == null) {
-				this.core.getValue(Tag.PixelData);
+				this.header.getValue(Tag.PixelData);
 			}
 		}else if(bitsAllocated == 64 && samples == 1) {
-			bulk = this.core.getValue(Tag.DoubleFloatPixelData);
+			bulk = this.header.getValue(Tag.DoubleFloatPixelData);
 			if(bulk == null) {
-				this.core.getValue(Tag.PixelData);
+				this.header.getValue(Tag.PixelData);
 			}
 		}else {
-			bulk = this.core.getValue(Tag.PixelData);
+			bulk = this.header.getValue(Tag.PixelData);
 		}
 		
 		if(bulk instanceof Fragments) {
@@ -218,7 +222,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		}else if(bulk instanceof BulkData) {
 			BulkData bd = (BulkData)bulk;
 			try {
-				pixels = bd.toBytes(((Attributes)this.core).getVR(Tag.PixelData), bd.bigEndian());
+				pixels = bd.toBytes(((Attributes)this.header).getVR(Tag.PixelData), bd.bigEndian());
 				if(isMultiFrame()) {
 					byte[] dest = new byte[length];
 					System.arraycopy(pixels, frame * length, dest, 0, length);
@@ -247,12 +251,12 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public int getPixel​Representation() {
-		return core.getInt(Tag.PixelRepresentation, -1);
+		return header.getInt(Tag.PixelRepresentation, -1);
 	}
 
 	@Override
 	public int getSamples() {
-		return core.getInt(Tag.SamplesPerPixel, 1);
+		return header.getInt(Tag.SamplesPerPixel, 1);
 	}
 
 	@Override
@@ -271,12 +275,12 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public int getWidth() {
-		return core.getInt(Tag.Columns, 0);
+		return header.getInt(Tag.Columns, 0);
 	}
 	
 	@Override
 	public boolean isBanded() {
-		return core.getInt(Tag.PlanarConfiguration, 0) != 0;
+		return header.getInt(Tag.PlanarConfiguration, 0) != 0;
 	}
 
 	@Override
@@ -291,7 +295,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public boolean isMultiFrame() {
-		int frames = this.core.getInt(Tag.NumberOfFrames, 1);
+		int frames = this.header.getInt(Tag.NumberOfFrames, 1);
 		return frames == 1 ? false:true;
 	}
 
@@ -302,12 +306,53 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public boolean isSigned() {
-		return core.getInt(Tag.PixelRepresentation, 0) != 0;
+		return header.getInt(Tag.PixelRepresentation, 0) != 0;
+	}
+	
+	@Override
+	public boolean ensurePixelDataLoaded() {
+		if(this.filePath != null) {
+			// read from file dicom image
+			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+			reader.read(filePath, true/*load pixel bulk*/);
+			DicomObject full = reader.getHeader();
+			if(full != null) {
+				setHeader(full);
+				return true;
+			}
+		}else {
+			// building-up dicom image
+			int samples = getSamples();
+			int bitsAllocated = getBitsAllocated();
+			// load from original bitsAllocated
+			if(bitsAllocated == 32 && samples == 1) {
+				return header.getValue(Tag.FloatPixelData) != null;
+			}else if(bitsAllocated == 64 && samples == 1) {
+				return  header.getValue(Tag.DoubleFloatPixelData) != null;
+			}else {
+				return header.getValue(Tag.PixelData) != null;
+			}
+		}
+		return false;
+	}
+	
+	@Override
+	public void releasePixelBulkFromHeader() {
+		if (this.filePath != null) {
+			// read from file dicom image
+			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+			reader.read(filePath, false/* load pixel bulk */);
+			DicomObject header = reader.getHeader();
+			if (header != null) {
+				this.header = null;
+				setHeader(header);
+			}
+		}
 	}
 
 	@Override
-	public void setCore(DicomObject attr) {
-		this.core = attr;
+	public void setHeader(DicomObject attr) {
+		this.header = attr;
 		updateFileMetaInfo(tsuid);
 	}
 	
@@ -348,11 +393,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		Object bulk = null;
 		// load from original bitsAllocated
 		if(bitsAllocated == 32 && samples == 1) {
-			bulk = core.getValue(Tag.FloatPixelData);
+			bulk = header.getValue(Tag.FloatPixelData);
 		}else if(bitsAllocated == 64 && samples == 1) {
-			bulk = core.getValue(Tag.DoubleFloatPixelData);
+			bulk = header.getValue(Tag.DoubleFloatPixelData);
 		}else {
-			bulk = core.getValue(Tag.PixelData);
+			bulk = header.getValue(Tag.PixelData);
 		}
 
 		if (bulk instanceof Fragments) {
@@ -363,24 +408,24 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			}
 		} else if (bulk instanceof byte[] || bulk == null/* from scratch */) {
 			if (bitsAllocated == 32 && samples == 1) {
-				core.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
+				header.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
 
 				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),
-						getWidth(), pixelsByte, core);
+						getWidth(), pixelsByte, header);
 
 			} else if (bitsAllocated == 64 && samples == 1) {
-				core.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
+				header.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
 			} else if (bitsAllocated > 8 && bitsAllocated <= 16) {
-				core.setBytes(Tag.PixelData, VR.OW, pixelsByte);
+				header.setBytes(Tag.PixelData, VR.OW, pixelsByte);
 			} else {
-				core.setBytes(Tag.PixelData, VR.OB, pixelsByte);
+				header.setBytes(Tag.PixelData, VR.OB, pixelsByte);
 			}
 		}
 	}
 	
 	@Override
 	public void updateFileMetaInfo(com.vis.dicom.UID tsuid) {
-		this.fmi = (DicomObject) core.createFileMetaInformation(tsuid.uid());
+		this.fmi = (DicomObject) header.createFileMetaInformation(tsuid.uid());
 		this.tsuid = tsuid;
 	}
 }

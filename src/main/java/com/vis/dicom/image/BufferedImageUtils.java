@@ -77,16 +77,16 @@ public class BufferedImageUtils {
 
     public static BufferedImage[] bulkToImage(DicomImage noCompress) {
     	
-    	int numOfFrame = noCompress.getCore().getInt(Tag.Number​Of​Frames, 1);
+    	int numOfFrame = noCompress.getHeader().getInt(Tag.Number​Of​Frames, 1);
     	BufferedImage[] images = new BufferedImage[numOfFrame];
-    	int w = noCompress.getCore().getInt(Tag.Columns, 0);
-    	int h = noCompress.getCore().getInt(Tag.Rows, 0);
+    	int w = noCompress.getHeader().getInt(Tag.Columns, 0);
+    	int h = noCompress.getHeader().getInt(Tag.Rows, 0);
     	PhotometricInterpretation pmi = PhotometricInterpretation
-				.fromString(noCompress.getCore().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
-    	boolean signed = noCompress.getCore().getInt(Tag.Pixel​Representation, -1) == 0;
-    	boolean banded = noCompress.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
-    	int samples = noCompress.getCore().getInt(Tag.Samples​Per​Pixel, 1);
-		int bitsAllocated = noCompress.getCore().getInt(Tag.Bits​Allocated, 8);
+				.fromString(noCompress.getHeader().getString(Tag.Photometric​Interpretation, "MONOCHROME2"));
+    	boolean signed = noCompress.getHeader().getInt(Tag.Pixel​Representation, -1) == 0;
+    	boolean banded = noCompress.getHeader().getInt(Tag.Planar​Configuration, 0) != 0;
+    	int samples = noCompress.getHeader().getInt(Tag.Samples​Per​Pixel, 1);
+		int bitsAllocated = noCompress.getHeader().getInt(Tag.Bits​Allocated, 8);
 		ColorSpace cs = samples >= 3 ? ColorSpace.getInstance(ColorSpace.CS_sRGB):ColorSpace.getInstance(ColorSpace.CS_GRAY);
 		int dataType = dataType(bitsAllocated, signed, samples);
 		//int imageType = samples >= 3 ? BufferedImage.TYPE_3BYTE_BGR:BufferedImage.TYPE_BYTE_GRAY;
@@ -104,13 +104,13 @@ public class BufferedImageUtils {
         		 *   [bbb]
         		 * ]
         		 */
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getCore());
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getHeader());
     			//SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
 				WritableRaster raster = WritableRaster.createBandedRaster(buffer, w, h, w, new int[]{0,0,0}, new int[]{0, w*h, w*h*2}, null);
 				BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);
 				images[i] = dst;
     		}else {
-    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getCore());
+    			ColorModel cmodel = pmi.createColorModel(bitsAllocated, dataType, cs,noCompress.getHeader());
     			SampleModel sampleModel = cmodel.createCompatibleSampleModel(w, h);
     			WritableRaster raster = Raster.createWritableRaster(sampleModel, buffer, null);
     			BufferedImage dst = new BufferedImage(cmodel, raster, false /*preMultipliedAlpha*/, null/*properties*/);

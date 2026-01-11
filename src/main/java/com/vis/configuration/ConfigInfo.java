@@ -87,6 +87,10 @@ public enum ConfigInfo {
 	VERSION("application.properties"),
 	CDRTOOL_Props("conf/cdrecord.properties"),
 	BURN2CDLocation("temp/BURN2CD"),
+	CDRTOOL_WIN32("lib/native_cdrtools/windows/win32"),
+	CDRTOOL_WIN64("lib/native_cdrtools/windows/win64"),
+	CDRTOOL_MAC("lib/native_cdrtools/mac"),
+	CDRTOOL_LINUX("lib/native_cdrtools/linux"),
 	
 	WEASIS("weasis-portable/"),
 	
