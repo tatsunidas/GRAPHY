@@ -62,7 +62,7 @@ public class TestDecompression {
 		String p = "/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/CR_JPG_IR87a.dcm";
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
 		reader.read(p, true);
-		DicomObjectChe dcm = (DicomObjectChe) reader.getCore();
+		DicomObjectChe dcm = (DicomObjectChe) reader.getHeader();
 		DecompressorChe decom = new DecompressorChe(dcm, reader.getFileMetaInfomation().getString(Tag.TransferSyntaxUID));
 		decom.decompress();
 		Object bulk = dcm.getValue(Tag.PixelData);

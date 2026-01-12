@@ -149,12 +149,12 @@ public class TestCompression {
 	
 	static DicomImage create8BitGrayDicomSampleFrom(String path) {
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
-		reader.read(path);
-		DicomObject dcm = reader.getCore();
-		DicomImage img = DicomImage.newDicomImage(dcm, reader.checkTSUID());
+		reader.read(path, true);
+		DicomObject dcm = reader.getHeader();
+		DicomImage img = DicomImage.newDicomImage(null/*path*/, dcm, null/*fmi*/, reader.checkTSUID());
 		
-		int samples = img.getCore().getInt(Tag.Samples​Per​Pixel, 0);
-		boolean banded = img.getCore().getInt(Tag.Planar​Configuration, 0) != 0;
+		int samples = img.getHeader().getInt(Tag.Samples​Per​Pixel, 0);
+		boolean banded = img.getHeader().getInt(Tag.Planar​Configuration, 0) != 0;
 		byte[] pixels = img.getPixelData(0);		
 		if(samples == 3 && banded) {
 			int size = pixels.length/3;

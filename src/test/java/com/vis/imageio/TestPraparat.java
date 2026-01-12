@@ -43,7 +43,13 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 
@@ -52,11 +58,16 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
 
+import org.dcm4che3.data.Tag;
+
 import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
 
 import ij.ImagePlus;
 import ij.plugin.FolderOpener;
@@ -81,9 +92,15 @@ public class TestPraparat {
             Log.logger.setLevel(Level.INFO);
         }
        Log.logger.addHandler(consoleHandler);
-		show();
-//		showGrid();
-//		showThumbnail();
+       
+       /*
+        * single grid and film grid test 
+        */
+//       testNormalMode_LoadDicomFiles();
+//       testThumbnailMode_LoadDicomFiles();
+       
+       testNormalMode_LoadFromImagePlus();
+       
 //		borderTest();
 	}
 	
@@ -108,11 +125,131 @@ public class TestPraparat {
 		System.out.println("to unsigned:"+(us & 0xffff));
 	}
 	
-	static void show() {
+	static void testNormalMode_LoadDicomFiles() {
+	    String dcmDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151";
+	    File parent = new File(dcmDir);
+	    
+	    // Z座標をキーにして自動ソートするTreeMapを使用
+	    // ※ 同じZ座標の画像が複数枚あるケースを想定する場合は、Map<Double, List<File>> にする必要があります
+	    TreeMap<Double, File> sortedFilesMap = new TreeMap<>();
+	    Map<Double, String> sopUidsMap = new HashMap<>();
+	    
+	    String pid = null;
+	    String studyUid = null;
+	    String seriesUid = null;
+
+	    File[] files = parent.listFiles();
+	    if (files == null) return;
+
+	    for (File i : files) {
+	        if (i.isDirectory()) continue;
+
+	        DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+	        reader.read(i.getAbsolutePath(), false);
+	        DicomObject header = reader.getHeader();
+
+	        // Image Position Patient (0020,0032) [x, y, z]
+	        double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
+	        if (ipp != null && ipp.length >= 3) {
+	            double zPos = ipp[2];
+	            sortedFilesMap.put(zPos, i);
+	            sopUidsMap.put(zPos, header.getString(Tag.SOPInstanceUID));
+	        }
+
+	        if (pid == null) {
+	            pid = header.getString(Tag.PatientID);
+	            studyUid = header.getString(Tag.StudyInstanceUID);
+	            seriesUid = header.getString(Tag.SeriesInstanceUID);
+	        }
+	    }
+
+	    // パスとSOP UIDを格納するリストの作成
+	    List<String> pathToSortedImages = new ArrayList<>();
+	    List<String> sortedSopUidsList = new ArrayList<>();
+
+	    // TreeMapはデフォルトで昇順（小さい値から大きい値）
+	    // 足（Inferior）から頭（Superior）への順序になります
+	    // もし逆（頭から足）にしたい場合は sortedFilesMap.descendingKeySet() を使用します
+	    for (Double z : sortedFilesMap.keySet()) {
+	        pathToSortedImages.add(sortedFilesMap.get(z).getAbsolutePath());
+	        sortedSopUidsList.add(sopUidsMap.get(z));
+	    }
+
+	    String[] sopUidsArray = sortedSopUidsList.toArray(new String[0]);
+
+	    Praparat pp = new Praparat(pid, studyUid, seriesUid, sopUidsArray, pathToSortedImages, Color.ORANGE, ViewMode.Normal);
+	    
+	    javax.swing.JFrame f = loadFrame(pp);
+	    f.setSize(300, 300);
+	    f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
+	    f.setVisible(true);
+	}
+	
+	static void testThumbnailMode_LoadDicomFiles() {
+	    String dcmDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151";
+	    File parent = new File(dcmDir);
+	    
+	    // Z座標をキーにして自動ソートするTreeMapを使用
+	    // ※ 同じZ座標の画像が複数枚あるケースを想定する場合は、Map<Double, List<File>> にする必要があります
+	    TreeMap<Double, File> sortedFilesMap = new TreeMap<>();
+	    Map<Double, String> sopUidsMap = new HashMap<>();
+	    
+	    String pid = null;
+	    String studyUid = null;
+	    String seriesUid = null;
+
+	    File[] files = parent.listFiles();
+	    if (files == null) return;
+
+	    for (File i : files) {
+	        if (i.isDirectory()) continue;
+
+	        DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+	        reader.read(i.getAbsolutePath(), false);
+	        DicomObject header = reader.getHeader();
+
+	        // Image Position Patient (0020,0032) [x, y, z]
+	        double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
+	        if (ipp != null && ipp.length >= 3) {
+	            double zPos = ipp[2];
+	            sortedFilesMap.put(zPos, i);
+	            sopUidsMap.put(zPos, header.getString(Tag.SOPInstanceUID));
+	        }
+
+	        if (pid == null) {
+	            pid = header.getString(Tag.PatientID);
+	            studyUid = header.getString(Tag.StudyInstanceUID);
+	            seriesUid = header.getString(Tag.SeriesInstanceUID);
+	        }
+	    }
+
+	    // パスとSOP UIDを格納するリストの作成
+	    List<String> pathToSortedImages = new ArrayList<>();
+	    List<String> sortedSopUidsList = new ArrayList<>();
+
+	    // TreeMapはデフォルトで昇順（小さい値から大きい値）
+	    // 足（Inferior）から頭（Superior）への順序になります
+	    // もし逆（頭から足）にしたい場合は sortedFilesMap.descendingKeySet() を使用します
+	    for (Double z : sortedFilesMap.keySet()) {
+	        pathToSortedImages.add(sortedFilesMap.get(z).getAbsolutePath());
+	        sortedSopUidsList.add(sopUidsMap.get(z));
+	    }
+
+		String[] sopUidsArray = sortedSopUidsList.toArray(new String[0]);
+
+		Praparat th = new Praparat(pid, studyUid, seriesUid, sopUidsArray, pathToSortedImages, Color.ORANGE,
+				ViewMode.Thumbnail);
+		th.setTextVisible(false);
+		th.setAnnotationVisible(false);
+		javax.swing.JFrame f = loadFrame(th);
+		f.setSize(300, 300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
+		f.setVisible(true);
+	}
+	
+	static void testNormalMode_LoadFromImagePlus() {
 		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-//		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		Praparat pp = new Praparat(imp, null, ViewMode.Normal);
-		pp.doSingleGridLayout();
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
@@ -192,7 +329,8 @@ public class TestPraparat {
 		new ImagePlus("",ip).show();
 		System.out.println("replica isSigned16Bit "+ip.isSigned16Bit());//false
 		
-		ij.plugin.DICOM d;//reference
+		@SuppressWarnings("unused")
+		ij.plugin.DICOM dicom;//reference
 		
 		short[] shortArray = new short[spix.length];
 		//short to byte

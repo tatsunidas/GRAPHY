@@ -351,7 +351,7 @@ public class TextOverlayGlass extends JPanel{
 	}
 		
 	private void drawDirection(Graphics g) {
-		if (directions == null) {
+		if (directions == null || directions.size() < 4) {
 			return;
 		}
 		int margin = 3;
