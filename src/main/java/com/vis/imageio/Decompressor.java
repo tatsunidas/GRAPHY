@@ -83,6 +83,7 @@ public interface Decompressor {
 	}
 	
 	public boolean decompress();
+	public byte[] decompress(byte[] compressedFrame);
 	public void decompress(File src, File target);
 	public void dispose();
 

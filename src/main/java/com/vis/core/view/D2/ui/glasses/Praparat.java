@@ -137,6 +137,9 @@ public class Praparat extends JPanel {
 	private JPanel viewPanel;
 	private SlideGlassGrid gridScrollPane;
 	
+	//resize timer
+	javax.swing.Timer resizeTimer;
+	
 	int prevViewPanelW = 0;
 	int prevViewPanelH = 0;
 	
@@ -147,7 +150,7 @@ public class Praparat extends JPanel {
 	private int currentSlice = -1;
 
 	private int filmGridColumns = 5;
-	private boolean isMultiframe = false;/*to set video option*/
+	private boolean isMultiFrame = false;/*to set video option*/
 	private boolean isPDF = false;
 	private boolean selected = false;
 	private boolean focusGained = false;
@@ -186,26 +189,13 @@ public class Praparat extends JPanel {
 		if(studyColor != null) {
 			this.studyColor = studyColor;
 		}
-		String patID = GDicomTools.getTag(stack, "0010,0020");
-		if(patID != null) patID = patID.trim();
-		String studyUID = GDicomTools.getTag(stack, "0020,000D");
-		if(studyUID != null) studyUID = studyUID.trim();
-		String seriesUID = GDicomTools.getTag(stack, "0020,000E");
-		if(seriesUID != null) seriesUID = seriesUID.trim();
-		String[] sopUIDs = new String[stack.getNSlices()];
-		for(int i = 1; i <= stack.getNSlices(); i++) {
-			stack.setPosition(i);
-			String sopInstUid = GDicomTools.getTag(stack, "0008,0018");
-			if(sopInstUid==null || sopInstUid.trim().length()==0) {
-				sopInstUid = UIDUtils.createUID();
-			}else {
-				sopUIDs[i-1] = sopInstUid.trim();//need trim.
-			}
-		}
-		String refUID = GDicomTools.getTag(stack, "0020,0052");
-		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null);
-		init();
+		initComponent();
 		prepareSlideGlassesUsingImagePlus(stack);
+		if(mode != ViewMode.FilmGrid) {
+			doSingleGridLayout();
+		}else {
+			doFilmGridLayout(null);
+		}
 	}
 	
 	public Praparat(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToSortedinstNoImages, Color studyColor, ViewMode mode) {
@@ -223,7 +213,7 @@ public class Praparat extends JPanel {
 			this.studyColor = studyColor;
 		}
 		this.prapManager = manager;
-		init();
+		initComponent();
 		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
 		if(mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
@@ -248,88 +238,9 @@ public class Praparat extends JPanel {
 		}else {
 			this.mode = mode;
 		}
-		init();
+		initComponent();
 	}
 	
-	public void adjustGridViewSize() {
-		synchronized (this) {
-			if(gridScrollPane == null || !showGridViewOn) {
-				return;
-			}
-			Object comp = gridScrollPane.getViewport().getView();
-			if(!(comp instanceof JPanel)) {
-				return;
-			}
-			/*
-			 * update slide glass holder size. 
-			 */
-			int screenSizeW = getViewPanelWidth();
-			int screenSizeH = getViewPanelHeight();
-			
-			if(screenSizeW <= 0 && screenSizeH <= 0) {
-				return;
-			}
-			
-			JPanel gridView = (JPanel) comp;
-//			GridLayout gl = (GridLayout) gridView.getLayout();
-			gridScrollPane.setPreferredSize(new Dimension(screenSizeW, screenSizeH));
-			gridScrollPane.setBounds(0, 0, screenSizeW, screenSizeH);
-			
-			int margin = 4;/*to avoid horizontal scroll bar shown*/
-			int scrollBarWidth = gridScrollPane.getVerticalScrollBar().getWidth()+margin;
-			if(scrollBarWidth <= margin) {
-				scrollBarWidth = 15/*default bar width*/+margin;
-			}
-//			gridView.setSize(screenSizeW-scrollBarWidth, screenSizeH);
-			//DO NOT set setPreferedSize to avoid collapsing squared GridLayout
-			gridView.setBounds(0, 0, screenSizeW-scrollBarWidth, screenSizeH);
-			int cols = getFilmGridColumns();//gl.getColumns();
-			int gridX = gridView.getWidth() / cols;
-			int gridY = gridX;//grids are showed square
-			int s = getNumberOfImages();
-			for (int i = 0; i < s; i++) {
-				SlideGlass slide = slides.get(i);
-				slide.setSize(gridX, gridY);
-			}
-		}
-	}
-	
-	public void adjustSlideGlassSize() {
-		adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
-	}
-	
-	/**
-	 * For single grid view.
-	 * Run after componentResized()
-	 */
-	public void adjustSlideGlassSize(int w , int h) {
-		if(slides == null || slides.size() == 0) {
-			return;
-		}
-		if(!pvcp.processSeries()) {
-			SlideGlass target = slides.get(currentSlice == -1 ? 0:currentSlice);
-			if(target != null) {
-				target.setSize(w, h);
-			}
-		}else {
-			SlideGlass target = slides.get(currentSlice == -1 ? 0:currentSlice);
-			if(target != null) {
-				target.setSize(w,h);
-			}
-			//set origin all slides
-			for (Integer key : slides.keySet()) {
-				SlideGlass sl = slides.get(key);
-				if(target != null && sl == target) continue;
-				if(sl == null) continue;
-				sl.setSize(w,h);
-				if (target != null && !target.panningFlag && !sl.panningFlag) {
-					sl.imageSpecimen.originX = target.imageSpecimen.originX;
-					sl.imageSpecimen.originY = target.imageSpecimen.originY;
-					sl.repaint();
-				}
-			}
-		}
-	}
 	
 	public void adjustContrastFromMouseAction(int dragX, int dragY) {
 		if (!isProcessSeries()) {
@@ -472,10 +383,11 @@ public class Praparat extends JPanel {
 		slides = new HashMap<Integer, SlideGlass>();
 		
 		/*
-		 * as a premise, image files were sorted by inst No before loading.
+		 * as a premise, image files were sorted by inst No or z-order before loading.
 		 */
 		DICOMBackend backend = DICOMBackend.getCurrent();
-		for (int i = 0; i < imgFiles.size(); i++) {
+		int numOfFiles = imgFiles.size();
+		for (int i = 0; i < numOfFiles; i++) {
 			DicomReader reader = DicomReader.newDicomReader(backend);
 			reader.read(imgFiles.get(i), false);/*read only head*/
 			DicomObject header = reader.getHeader();
@@ -488,22 +400,23 @@ public class Praparat extends JPanel {
 				//PDF is one series, break here.
 				break;
 			}
-			// images
-			int size = header.getInt(Tag.Number​Of​Frames, -1);
 			/*
 			 * isMultiFrame
 			 * 1.General image types do not have NumberOfFrames tag.(means -1).
-			 * 2.When image acquiring in 3d sequence on MRI, number of frame is 1 (of each image).
+			 * 2.3d sequence MRI, number of frame is 1 (of each image).
 			 */
-			isMultiframe = size > 1;
+			DicomImage dcm = DicomImage.newDicomImage(imgFiles.get(i), header, reader.getFileMetaInfomation(), reader.checkTSUID(), backend);
+			isMultiFrame = dcm.isMultiFrame();
+			isMultiFrame = isMultiFrame && dcm.getNumOfFrames() > 1;
+			
 			//single frame
-			if(!isMultiframe) {
+			if(!isMultiFrame) {
 				loadSlideGlassFromSimpleDicom(imgFiles.get(i), backend, tsUID);
 			}else {
 				/*
 				 * multiframe to one series.
 				 */
-				loadSlideGlassFromMultiFrame(imgFiles.get(i), header, backend);
+				loadSlideGlassFromMultiFrame(imgFiles.get(i), backend);
 				/*
 				 * if multiframe, load as only one file.
 				 */
@@ -523,10 +436,6 @@ public class Praparat extends JPanel {
 		List<Future<SlideGlass>> futures = new ArrayList<>();
 		Callable<SlideGlass> task = () -> {
 			DicomImage dcmimg = DicomImage.newDicomImage(path2dcm, backend);
-			//20260110
-//			if (Codec.isCompressed(tsUID.uid())) {
-//				Decompressor.newInstance(dcmimg).decompress();
-//			}
 			return new SlideGlass(this, dcmimg);
 		};
 		futures.add(executor.submit(task));
@@ -545,32 +454,25 @@ public class Praparat extends JPanel {
 //		}
 	}
 	
-	private void loadSlideGlassFromMultiFrame(String path2dcm, DicomObject header, DICOMBackend backend) {
+	private void loadSlideGlassFromMultiFrame(String path2dcm, DICOMBackend backend) {
 
 		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
 		List<Future<SlideGlass>> futures = new ArrayList<>();
 
 		DicomReader video_reader_ = DicomReader.newDicomReader(backend);
-		video_reader_.read(path2dcm, true/* with bulk */);
-		DicomImage videoDcm = DicomImage.newDicomImage(path2dcm, video_reader_.getHeader(), video_reader_.getFileMetaInfomation(), video_reader_.checkTSUID());
-		int w = header.getInt(Tag.Columns, 0);
-		int h = header.getInt(Tag.Rows, 0);
-		int c = header.getInt(Tag.Samples​Per​Pixel, 1);
-		int bits = header.getInt(Tag.Bits​Allocated, 8);
+		video_reader_.read(path2dcm, false/* with bulk */);
+		final UID u = video_reader_.checkTSUID();
+		final DicomObject fmi = video_reader_.getFileMetaInfomation();
+		final DicomObject header = video_reader_.getHeader();
 		int size = header.getInt(Tag.Number​Of​Frames, -1);
-		/*
-		 * to address jpeg multiframe
-		 */
-		if (Codec.isCompressed(video_reader_.checkTSUID())) {
-			Decompressor.newInstance(videoDcm).decompress();
-		}
+		// System.out.println(header.getInt(Tag.Instance​Number, -1));
+		
 		for (int j = 0; j < size; j++) {
 			final int k = j;
 			Callable<SlideGlass> task = () -> {
 				DicomObject instHeader = DicomObject.newDicomObject(header, backend);
 				instHeader.setInt(Tag.Instance​Number, VR.IS, (k + 1));
-				DicomImage frame = DicomImage.newDicomImage(null, instHeader, null, UID.ImplicitVRLittleEndian, backend);
-				frame.setPixelData(k, w, h, c, bits, videoDcm.getImageProcessor(k).getPixels());
+				DicomImage frame = DicomImage.newDicomImage(path2dcm, instHeader, fmi, u, backend);
 				return new SlideGlass(this, frame);
 			};
 			futures.add(executor.submit(task));
@@ -578,24 +480,24 @@ public class Praparat extends JPanel {
 		AtomicInteger counter = new AtomicInteger(0);
 		for (Future<SlideGlass> future : futures) {
 			try {
-				slides.put(counter.addAndGet(1), future.get());
+				slides.put(counter.getAndAdd(1), future.get());
 			} catch (InterruptedException | ExecutionException e) {
 				e.printStackTrace();
 			}
 		}
 		executor.shutdown();
-		try {
-			executor.awaitTermination(1, TimeUnit.MINUTES);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			executor.awaitTermination(1, TimeUnit.MINUTES);
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
 		video_reader_ = null;
 	}
 	
 	private void loadSlideGlassFromPDF(String path2dcm, DicomObject header, DICOMBackend backend) {
 		PDFReader pdfReader = new PDFReader(new File(path2dcm)/*read dicom*/);
 		ImagePlus pdfStack = pdfReader.pdf2ImageStack();
-		isMultiframe = true;//always treats multi
+		isMultiFrame = true;//always treats multi
 		isPDF = true;
 		
 		//if thumbnail, load only one frame
@@ -624,7 +526,8 @@ public class Praparat extends JPanel {
 	
 
 	/**
-	 * This method is used to a dependence single series view or MPR.
+	 * Attention: Will use large physical memory.
+	 * This method is only used for single pop-up view or test purpose.
 	 */
 	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
 		if (images == null || images.getStackSize() < 1) {
@@ -639,11 +542,17 @@ public class Praparat extends JPanel {
 		if(sopClassUID == null || instUID == null) {
 			secondaryUse = true;
 		}
-		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse/*treat as secondary*/);
+		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse/*treat as secondary capture*/);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
+			images.setSlice(i+1);
+			sg.imageSpecimen.setOriginalCalibration(images.getCalibration());
 			slides.put(i, sg);
 		}
+		
+		//TODO
+		//lut = images.getLuts();
+		
 		if(lut != null) {
 			for(Integer pos : slides.keySet()) {
 				slides.get(pos).setLUT(lut);
@@ -663,6 +572,8 @@ public class Praparat extends JPanel {
 		// init
 		removeSlide(currentSlice);
 		this.slides = new HashMap<Integer, SlideGlass>();
+		
+		isMultiFrame = p.isMultiFrame();
 		
 		Set<Integer> keys = srcSlides.keySet();
 		for(Integer k : keys) {
@@ -701,8 +612,8 @@ public class Praparat extends JPanel {
 
 	public void doSingleGridLayout() {
 		gridViewOn(false);
-		adjustSlideGlassSize(getViewPanelWidth(), getViewPanelHeight());
-//		setImagePositionUsingSlider(0/*init*/);
+		updateViewPanel();
+		showFirstImage();
 	}
 	
 	public HashMap<Integer, SlideGlass> getAllSlides() {
@@ -754,58 +665,80 @@ public class Praparat extends JPanel {
 	 * @return imageplus
 	 */
 	public ImagePlus getImagePlus() {
+		
 		if (slides == null || slides.size() < 1) {
 			return null;
 		}
 		
+		if(isMultiFrame()) {
+			logger.info("This series multi frame. Do you continue convert imageplus ? It will take a long time...");
+			int res = JOptionPane.showConfirmDialog(this, "This series is multi-frame. Take long time converting to imageplus. Still are you continue ?");
+			if(res != JOptionPane.OK_OPTION) {
+				return null;
+			}
+		}
+
 		ImagePlus replica = null;
-		
+		ImageStack stack = new ImageStack();
+		String info = "";
+
+		// 1. スライドをインデックス順にソートして処理する
+		List<Integer> sortedIndices = new ArrayList<>(slides.keySet());
+		Collections.sort(sortedIndices);
+
+		int iter = 0;
 		if(!isMultiFrame()) {
-			Calibration cal = null;
-			ImageStack stack = new ImageStack();
-			String info = "";
-			int iter = 0;
-			for (int arrayOrder : slides.keySet()) {
-				SlideGlass sg = slides.get(arrayOrder);
-				ImagePlus imp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage());
-				if(cal == null) {
-					cal = imp.getCalibration();
+			for (int index : sortedIndices) {
+				SlideGlass sg = slides.get(index);
+				DicomImage frame = sg.getDicomImage();
+				Calibration orgCal = sg.getOriginalCalibration();
+				if (hasFileSource(index)) {
+					if (!frame.ensurePixelDataLoaded()) {
+						continue;
+					}
 				}
+				
+				ImagePlus imp = GDicomTools.dcmImgToImagePlus(frame, orgCal);
 				ImageProcessor ip = imp.getProcessor();
-				if (ip.getNChannels() == 3 && ip instanceof ColorProcessor) {
+				if (ip.getNChannels() == 3 || ip instanceof ColorProcessor) {
 					ip.snapshot();// keep original pixels
 				}
 				/*
-				 * In this case, allways return only one slice.
-				 * It case use getInfoProperty().
+				 * In this case, always only one slice. It case use getInfoProperty().
 				 */
 				String header = imp.getInfoProperty();
 				/*
-				 * if header has "\n" in head (at index 0), 
-				 * DicomTools.getTag() return null.
+				 * if header has "\n" in head (at index 0), DicomTools.getTag() return null.
 				 */
-//				String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
-				if(iter == 0){
+				// String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
+				if (iter == 0) {
 					info = header;
 					iter++;
 				}
 				stack.addSlice(header, imp.getProcessor());
 			}
-			replica = new ImagePlus("stack-series", stack);
+			replica = new ImagePlus("stack", stack);
 			/*
 			 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
 			 */
-			if(replica.getNSlices() == 1) {
+			if (replica.getNSlices() == 1) {
 				replica.setProp("Info", info);
 			}
-			replica.setCalibration(cal);
+			return replica;
 		}else {
-			String msg = "Return NULL ImagePlus...\nThis praparat has multi-frame dicom.\n";
-			msg += "Current version does not have compatible with it.";
-			JOptionPane.showMessageDialog(this, msg);
+			if (hasFileSource(0)) {
+				Calibration orgCal = getCurrentSlide().getOriginalCalibration();
+				String path = getImageFileLocations().get(0);
+				DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
+				reader.read(path, false);
+				DicomObject header  = reader.getHeader();
+				DicomImage dcm = DicomImage.newDicomImage(path, header, reader.getFileMetaInfomation(), reader.checkTSUID(), DICOMBackend.getCurrent());
+				ImagePlus imp = GDicomTools.dcmImgToImagePlus(dcm, orgCal);
+				return imp;
+			}
 		}
 		
-		return replica;
+		return null;
 	}
 	
 	public int getImageScreenSizeX() {
@@ -838,11 +771,7 @@ public class Praparat extends JPanel {
 	}
 
 	public int getNumberOfImages() {
-		if (isMultiframe) {
-			return slides.size();
-		} else {
-			return slides.size();
-		}
+		return slides.size();
 	}
 	
 	public ReferenceLineMPR getReferenceLineMPR() {
@@ -1035,7 +964,19 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	private void init() {
+	public boolean hasFileSource(int index /* 0 base */) {
+		List<String> paths = getImageFileLocations();
+		if (paths == null) {
+			return false;
+		}
+		if (paths.size() < index) {
+			return false;
+		}
+		String p = paths.get(index);
+		return p != null && new File(p).exists();
+	}
+	
+	private void initComponent() {
 		if(this.mode == null) {
 			throw new NullPointerException();
 		}
@@ -1048,14 +989,31 @@ public class Praparat extends JPanel {
 		setBorder(BorderMaker.make(this, false));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 		slider = new CineSlider(this);
+		/*
+		 *SlideGlass parent component 
+		 */
 		viewPanel = new JPanel();
 		viewPanel.setName("ViewPanel");
 		viewPanel.setBackground(Color.BLACK);//debug purpose
 		viewPanel.setLayout(new GridLayout(1, 1));
+		
+		/*
+		 * Component listener
+		 */
+		// タイマーの初期化（300ミリ秒待機）
+		resizeTimer = new javax.swing.Timer(200, e -> {
+			logger.fine("Delayed resize execution.");
+			updateViewPanel();
+		});
+		resizeTimer.setRepeats(false); // 1回だけ実行
 		viewPanel.addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
-				updateViewPanel();
+				if (resizeTimer.isRunning()) {
+	                resizeTimer.restart();
+	            } else {
+	                resizeTimer.start();
+	            }
 			}
 		});
 		add(viewPanel, BorderLayout.CENTER);
@@ -1087,12 +1045,14 @@ public class Praparat extends JPanel {
 		
 		if(mode == ViewMode.Thumbnail) {
 			/*No controller and slider*/
-			/*
-			 * Do NOT USE setPreferedSize.
-			 */
-			setViewPanelSize(ThumbnailSize, ThumbnailSize);
+			Dimension size = new Dimension(ThumbnailSize, ThumbnailSize);
+			viewPanel.setPreferredSize(size);
+			this.setPreferredSize(size); // FlowLayout用
+			this.setMinimumSize(size);
 			setFocusable(true);
 			setRequestFocusEnabled(true);
+			pvcp.enableShowInfo(false);
+			pvcp.enableShowROI(false);
 		}
 		
 		if(mode == ViewMode.MPR){
@@ -1129,8 +1089,13 @@ public class Praparat extends JPanel {
 		return focusGained;
 	}
 	
+	/**
+	 * boolean isMultiFrame = dcmimg.isMultiFrame();
+	 * isMultiFrame = isMultiFrame && dcmimg.getNumOfFrames() > 1;
+	 * @return
+	 */
 	public boolean isMultiFrame() {
-		return this.isMultiframe;
+		return this.isMultiFrame;
 	}
 	
 	public boolean isPDF() {
@@ -1260,22 +1225,34 @@ public class Praparat extends JPanel {
 		}
 		currentSlice = -1;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
-		String pid = GDicomTools.getTag(images, "0010,0020");
+		
+		String patID = GDicomTools.getTag(images, "0010,0020");
+		if(patID != null) patID = patID.trim();
 		String studyUID = GDicomTools.getTag(images, "0020,000D");
+		if(studyUID != null) studyUID = studyUID.trim();
 		String seriesUID = GDicomTools.getTag(images, "0020,000E");
-		String[] sopUIDs = new String[images.getNSlices()];//0008,0016
+		if(seriesUID != null) seriesUID = seriesUID.trim();
+		String[] sopUIDs = new String[images.getNSlices()];
 		List<String> paths = new ArrayList<>();
-		int pos = images.getCurrentSlice();
-		for(int i=0;i<images.getNSlices(); i++) {
-			sopUIDs[i] = GDicomTools.getTag(images, i+1, "0008,0016");
-			images.setSlice(i+1);
+		for(int i = 1; i <= images.getNSlices(); i++) {
+			images.setPosition(i);
+			String sopInstUid = GDicomTools.getTag(images, "0008,0018");
+			if(sopInstUid==null || sopInstUid.trim().length()==0) {
+				sopInstUid = UIDUtils.createUID();
+			}else {
+				sopUIDs[i-1] = sopInstUid.trim();//need trim.
+			}
 			String path = images.getFileInfo().getFilePath();
-			if(path != null && path.length() > 0) {
-				paths.add(path);
+			if(path != null && path.length() > 0 && new File(path).exists()) {
+				if(!paths.contains(path)) {
+					paths.add(path);
+				}
 			}
 		}
-		images.setSlice(pos);//back to first.
-		setInfo(pid, studyUID, seriesUID, sopUIDs, paths);
+		images.setSlice(1);//back to first.
+		String refUID = GDicomTools.getTag(images, "0020,0052");
+		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, paths.size()==sopUIDs.length?paths:null);
+		
 		constructSlideGlassesFromImagePlus(images);
 		
 		if(slider != null) {
@@ -1441,38 +1418,42 @@ public class Praparat extends JPanel {
 	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
 	 */
 	private void realizeImage(int index /* 0 to N-1 */, boolean processSeries, Double syncMag, Double syncRot, Double syncMin, Double syncMax, Point syncOrigin) {
-		if (index < 0 || index >= slides.size())
+		if (index < 0 || index >= slides.size()) {
 			return;
-
+		}
 		SlideGlass sg = slides.get(index);
 		DicomImage dcmimg = sg.getDicomImage();
-
+		isMultiFrame = dcmimg.isMultiFrame();
+		isMultiFrame = isMultiFrame && dcmimg.getNumOfFrames() > 1;
 		// まだピクセルデータがロードされていない、または解凍されていない場合
 		if (sg.getOriginalImage() == null) {
-			// 1. ファイルからピクセルを読み込む
-			if (dcmimg.ensurePixelDataLoaded()) {
-				// pixel情報がある場合にのみ更新
-				// 2. 解凍処理 (既存のDecompressorを利用)
-				if (Codec.isCompressed(dcmimg.getTSUID())) {
-					Decompressor.newInstance(dcmimg).decompress();
-					logger.fine("Decompressed slice: " + index);
+			/**
+			 * multi frame file has only one file path.
+			 */
+			int pos = isMultiFrame ? 0 : index;
+			if (hasFileSource(pos)) {
+				// 1. ファイルからピクセルを読み込む
+				if (dcmimg.ensurePixelDataLoaded()) {
+					// pixel情報がある場合にのみ更新
+					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(index));
+					sg.imageSpecimen.setOriginalImage(im);
 				}
-				ImagePlus im = new ImagePlus(""+index, dcmimg.getImageProcessor(0));
-				sg.imageSpecimen.setOriginalImage(im);
-				sg.initCalibrationAndLUT();
-				if(processSeries) {
-					//move, zoom, rotate, windowing
-					if(syncMag!=null && !syncMag.isNaN()) sg.zoom(syncMag, false/*dummy*/);
-					if(syncRot!=null && !syncRot.isNaN()) sg.rotate(syncRot);
-					if((syncMin!=null && !syncMin.isNaN()) && (syncMax!=null && !syncMax.isNaN())) sg.changeWindowingByMinMax(syncMin, syncMax);
-					//finally set origin
-					if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
-				}
+			}
+			//common
+			sg.initCalibrationAndLUT();
+			if(processSeries) {
+				//move, zoom, rotate, windowing
+				if(syncMag!=null && !syncMag.isNaN()) sg.zoom(syncMag, false/*dummy*/);
+				if(syncRot!=null && !syncRot.isNaN()) sg.rotate(syncRot);
+				if((syncMin!=null && !syncMin.isNaN()) && (syncMax!=null && !syncMax.isNaN())) sg.changeWindowingByMinMax(syncMin, syncMax);
+				//finally set origin
+				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
 			}
 		}
 	}
 	
 	/**
+	 * SingleGrid描画用
 	 * キャッシュ管理：円環（リングバッファ）状に前後10枚をロードする
 	 */
 	public void manageCache(int currentIndex) {
@@ -1499,6 +1480,15 @@ public class Praparat extends JPanel {
 				int targetIndex = (currentIndex + i + totalSize) % totalSize;
 				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			}
+			
+			// ロード完了後、SlideGlassに再描画を促す
+			SlideGlass sg = slides.get(currentIndex);
+			if (sg != null) {
+				synchronized(sg) {
+					sg.updateDisplayImage();
+					SwingUtilities.invokeLater(sg::repaint);
+				}
+			}
 
 			// 2. メモリ解放（範囲外の画像をアンロード）
 			// 枚数が少ない場合は解放不要（例: 全体が21枚以下の場合は全て保持）
@@ -1521,17 +1511,69 @@ public class Praparat extends JPanel {
 		int distance = Math.min(diff, totalSize - diff);
 		return distance <= range;
 	}
+	
+	/**
+	 * FilmGrid用のキャッシュ管理。
+	 * 表示範囲 [first, last] の画像を実体化し、それ以外を解放する。
+	 */
+	public void manageGridCache(int firstIdx, int lastIdx) {
+		if (slides == null || slides.isEmpty())
+			return;
+
+		prefetchExecutor.submit(() -> {
+			// 1. 指定範囲をロード
+			// FilmGridでは通常同期設定（ズーム等）は不要なため、デフォルト値で呼ぶ
+			for (int i = firstIdx; i <= lastIdx; i++) {
+				realizeImage(i, false, 1.0, 0.0, null, null, null);
+
+				// ロード完了後、SlideGlassに再描画を促す
+				SlideGlass sg = slides.get(i);
+				if (sg != null) {
+					synchronized(sg) {
+						sg.updateDisplayImage();
+						SwingUtilities.invokeLater(sg::repaint);
+					}
+				}
+			}
+
+			// 2. 範囲外（少し余裕を持たせる）をアンロード
+			int buffer = 15; // 画面外前後は保持しておく（頻繁なロード防止）
+			int totalSize = slides.size();
+			for (int j = 0; j < totalSize; j++) {
+				if (j < (firstIdx - buffer) || j > (lastIdx + buffer)) {
+					unloadImage(j);
+				}
+			}
+		});
+	}
 
 	private void unloadImage(int index) {
 		SlideGlass sg = slides.get(index);
 		if (sg != null && sg.getDicomImage() != null) {
-			sg.getDicomImage().releasePixelBulkFromHeader();
+			// original image to null
+			sg.imageSpecimen.setOriginalImage(null);
+			// bulk file release
+			if(!isMultiFrame()) {
+				if (hasFileSource(index)) {
+					sg.getDicomImage().releasePixelBulkFromHeader();
+				}
+			}
 		}
 	}
 
 	public void reloadSlideGlasses(ImagePlus imp) {
 		if (imp == null) { return; }
 		prepareSlideGlassesUsingImagePlus(imp);
+		if(!isShowGridViewOn()) {
+			doSingleGridLayout();
+		}else {
+			doFilmGridLayout(filmGridColumns);
+		}
+	}
+	
+	public void reloadSlideGlasses(Praparat pp) {
+		if (pp == null) { return; }
+		prepareSlideGlasses(pp);
 		if(!isShowGridViewOn()) {
 			doSingleGridLayout();
 		}else {
@@ -1607,8 +1649,6 @@ public class Praparat extends JPanel {
 		if(mode == ViewMode.FilmGrid) {
 			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
-			// reload slides
-//			prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
 //			setTextVisible(false);
 //			setAnnotationVisible(false);
 			doFilmGridLayout(filmGridColumns);
@@ -1642,9 +1682,9 @@ public class Praparat extends JPanel {
 	 * @param slideX SlideGlass mouse X
 	 * @param slideY SlideGlass mouse Y
 	 */
-	public void setAndShowPixelValue(int slideX, int slideY) {
-		SlideGlass currentSlide = getCurrentSlide();
-		if(currentSlide == null) return;
+	public void setAndShowPixelValue(SlideGlass currentSlide, int slideX, int slideY) {
+//		SlideGlass currentSlide = getCurrentSlide();
+//		if(currentSlide == null) return;
 		double[] scaleXY = currentSlide.getScaleFactor();
 		double mag = currentSlide.getMagnification();
 		double rotate = currentSlide.getRotateAngle();
@@ -1656,22 +1696,18 @@ public class Praparat extends JPanel {
 			return;
 		}
 		
-		if(getCurrentSlide().flipHorizontalFlag) {
-			
-		}
-		
-		Object[] val = getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
+		Object[] val = currentSlide.getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 		if(val == null) {
 			updateInfoLabel(pointOnOrg, null+"("+null+")",scaleXY, mag,rotate);
 			return;
 		}
 		if(!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[])getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
+			Double[] pixelRawAndCalibrated = (Double[])currentSlide.getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
 			updateInfoLabel(pointOnOrg, calibrated_v+"("+raw_v+")",scaleXY, mag,rotate);
 		}else {
-			String[] rgbAndColor = (String[])getCurrentSlide().getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
+			String[] rgbAndColor = (String[])currentSlide.getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
@@ -1942,7 +1978,6 @@ public class Praparat extends JPanel {
 	 * @param h
 	 */
 	private void setViewPanelSize(int w, int h) {
-		viewPanel.setSize(w, h);
 		viewPanel.setPreferredSize(new Dimension(w, h));
 		viewPanel.setBounds(0, 0, w, h);
 	}
@@ -2013,12 +2048,22 @@ public class Praparat extends JPanel {
 	public void updateViewPanel() {
 		int currentW = getViewPanelWidth();
 		int currentH = getViewPanelHeight();
+		
+		if(mode == ViewMode.Thumbnail) {
+			for(Integer k : slides.keySet()) {
+				SlideGlass sg = slides.get(k);
+				sg.setSize(ThumbnailSize, ThumbnailSize);
+			}
+			prevViewPanelW = currentW;
+			prevViewPanelH = currentH;
+			return;
+		}
+		
 		if(currentW == prevViewPanelW && currentH == prevViewPanelH) {
 			return;
 		}
-		if(mode == ViewMode.Thumbnail) {
-			//do noting
-		}else if(mode == ViewMode.FilmGrid) {
+		
+		if(mode == ViewMode.FilmGrid || showGridViewOn/*ViewMode.Normal*/) {
 			if (viewPanel.getComponentCount() >=1) {
 				Component con = viewPanel.getComponent(0);
 				if(con instanceof SlideGlassGrid) {

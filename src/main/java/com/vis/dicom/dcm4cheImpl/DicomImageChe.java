@@ -37,6 +37,7 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.dcm4che3.data.Attributes;
@@ -55,6 +56,7 @@ import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.PhotometricInterpretation;
 import com.vis.imageio.Codec;
+import com.vis.imageio.Decompressor;
 import com.vis.imageio.PixelDataDecoder;
 
 import ij.process.ImageProcessor;
@@ -138,15 +140,16 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	 */
 	@Override
 	public ImageProcessor getImageProcessor(int frame) {
-		if(Codec.isCompressed(getTSUID())) {
-			if(!isDecompressed()) {
-				Log.logger.warning("do decompress before getImageProcessor()...");
-				return null;
-			}
-		}
+		
 		byte[] raw = getPixelData(frame);
 		if(raw == null) {
 			return null;
+		}
+		if(Codec.isCompressed(getTSUID())) {
+			Decompressor d = Decompressor.newInstance(DICOMBackend.DCM4CHE);
+			raw = d.decompress(raw);
+			PixelDataDecoder pdec = new PixelDataDecoder(this);
+			return pdec.decodeDecompressedByte(raw);
 		}
 		PixelDataDecoder pdec = new PixelDataDecoder(this);
 		return pdec.decode(raw);
@@ -163,90 +166,228 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 				.fromString(header.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
 	}
 
-	@Override
 	/**
-	 * if you want decompressed pixels, do decompress before getPixelData().
+	 * non-compressed bulk
 	 */
-	public byte[] getPixelData(int frame) {
-		if(getBitsAllocated() == -1) {
-			//this core does not have pixel
+	public byte[] getNativePixelData(int frame) {
+		
+		Attributes attrs = (Attributes) this.header;
+		int tag = Tag.PixelData;
+		
+		// 32/64bit float データのタグ切り替え
+		if (attrs.contains(Tag.FloatPixelData)) {
+			tag = Tag.FloatPixelData;
+		}else if (attrs.contains(Tag.DoubleFloatPixelData)) {
+			tag = Tag.DoubleFloatPixelData;
+		}
+		
+		Object value = attrs.getValue(tag);
+		if (value == null) {
 			return null;
 		}
+		
+		int w = getWidth();
+		int h = getHeight();
+		int samples = getSamples();
+		int bits = getBitsAllocated();
+		int frameLength = w * h * samples * (bits / 8);
 		
 		if(frame < 0 || frame > getNumOfFrames()) {
 			return null;
 		}
 		
-		int bitsAllocated = getBitsAllocated();
-		int samples = getSamples();
-		int w = getWidth();
-		int h = getHeight();
-		//byte array length in single frame.
-		int length = w*h*samples*bitsAllocated/8;
-		Object bulk = null;
-		byte[] pixels = null;
+		// --- ケース1: Fragments (圧縮データ: JPEG/J2K等) ---
+//	    if (value instanceof Fragments) {
+//	        // 本来はCodec/Decompressorで解凍後に抜き出すべき。
+//	        // 未解凍のまま抜き出す場合は、オフセットテーブルを考慮した結合が必要。
+//	        // ここでは簡易的に1フラグメント1フレームと仮定する従来の挙動を安全にする例：
+//	        Fragments frags = (Fragments) value;
+//	        // 0番目は通常Basic Offset Tableなので、frame+1は概ね正しいが、
+//	        // 1フレームが複数フラグメントに跨る場合はこのロジックは破綻します。
+//	        Object frag = (frame + 1 < frags.size()) ? frags.get(frame + 1) : null;
+//	        if (frag instanceof byte[]) return (byte[]) frag;
+//	        if (frag instanceof BulkData) {
+//	            try { return ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false); }
+//	            catch (IOException e) { return null; }
+//	        }
+//	    }
 		
-		if(bitsAllocated == 32 && samples == 1) {
-			bulk = this.header.getValue(Tag.FloatPixelData);
-			if(bulk == null) {
-				this.header.getValue(Tag.PixelData);
-			}
-		}else if(bitsAllocated == 64 && samples == 1) {
-			bulk = this.header.getValue(Tag.DoubleFloatPixelData);
-			if(bulk == null) {
-				this.header.getValue(Tag.PixelData);
-			}
-		}else {
-			bulk = this.header.getValue(Tag.PixelData);
-		}
-		
-		if(bulk instanceof Fragments) {
-			Fragments frags = (Fragments)bulk;
-			Object frag = frags.get(frame+1);//frame number count from 1
-			if (frag instanceof BulkData) {
-				try {
-					pixels = ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}else if(frag instanceof byte[]) {
-				pixels = (byte[])frag;
-			}
-		}else if(bulk instanceof byte[]) {
-			pixels = (byte[])bulk;
-			if(isMultiFrame()) {
-				byte[] dest = new byte[length];
-				System.arraycopy(pixels, frame * length, dest, 0, length);
-				pixels = dest;
-			}
-		}else if(bulk instanceof BulkData) {
-			BulkData bd = (BulkData)bulk;
+		// --- BulkData (非圧縮: ファイルから必要な部分だけ読む) ---
+		if (value instanceof BulkData) {
+			BulkData bd = (BulkData) value;
 			try {
-				pixels = bd.toBytes(((Attributes)this.header).getVR(Tag.PixelData), bd.bigEndian());
-				if(isMultiFrame()) {
-					byte[] dest = new byte[length];
-					System.arraycopy(pixels, frame * length, dest, 0, length);
-					pixels = dest;
-				}
+				byte[] full = bd.toBytes(((Attributes)this.header).getVR(tag), bigEndian());
+				// 必要なフレームのオフセットから読み込む
+				int offset = (int) frame * frameLength;
+				byte[] dest = new byte[frameLength];
+				System.arraycopy(full, offset, dest, 0, frameLength);
+				return dest;
 			} catch (IOException e) {
 				e.printStackTrace();
-			}
-		}else if(bulk instanceof org.dcm4che3.data.Value) {
-			//decompressed pixel
-			org.dcm4che3.data.Value decom_val = (org.dcm4che3.data.Value)bulk;
-			try {
-				pixels = decom_val.toBytes(org.dcm4che3.data.VR.OW, bigEndian());
-				if(isMultiFrame()) {
-					byte[] dest = new byte[length];
-					System.arraycopy(pixels, frame * length, dest, 0, length);
-					pixels = dest;
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
+				return null;
 			}
 		}
 		
-		return pixels;
+		// --- すでにメモリ上にある場合 (byte[] / Value) ---
+		// attrs.getSafeBytes() は内部でマルチフレームの切り出しは行わないため自前で実施
+		byte[] allPixels = attrs.getSafeBytes(tag);
+		if (allPixels == null)
+			return null;
+
+		if (allPixels.length > frameLength) {
+			byte[] dest = new byte[frameLength];
+			System.arraycopy(allPixels, frame * frameLength, dest, 0, frameLength);
+			return dest;
+		}
+		return allPixels;
+	}
+	
+	@Override
+	public byte[] getPixelData(int frame) {
+	    Attributes attrs = (Attributes) this.header;
+	    Object bulk = attrs.getValue(Tag.PixelData);
+	    if (!(bulk instanceof Fragments)) {
+	        // 非圧縮データの場合は前回のBulkData用ロジックへ
+	        return getNativePixelData(frame);
+	    }
+
+	    Fragments frags = (Fragments) bulk;
+	    int numFrames = getNumOfFrames();
+	    if (frame < 0 || frame >= numFrames) return null;
+
+	    // --- Basic Offset Table (BOT) の解析 ---
+	    // インデックス0は必ずBOT。各フレームの開始位置（バイトオフセット）が4バイトずつ入っている。
+	    byte[] bot = (byte[]) frags.get(0);
+	    
+	    int startFrag = 1; // データの開始はインデックス1から
+	    int endFrag = 1;
+
+	    // BOTにデータが入っている場合（長さ > 0）
+	    if (bot != null && bot.length >= (frame + 1) * 4) {
+	        // 現在のフレームの開始オフセットと、次のフレームの開始オフセットを比較して
+	        // このフレームがいくつのフラグメントに跨っているかを判定する
+	        // ※ 多くの医療機器では 1フレーム = 1フラグメント だが、規格上は分割可能
+	        
+	        // 本来はBOTをパースしてフラグメントを特定するが、dcm4cheのFragmentsは
+	        // 内部的にItem（フラグメント）をリスト保持しているため、
+	        // 一般的な実装（1フレーム=1フラグメント）に加え、分割されているケースに対応させる：
+	        
+	        if (frags.size() - 1 == numFrames) {
+	            // 最も一般的なケース: 1フレーム = 1フラグメント
+	            startFrag = frame + 1;
+	            endFrag = frame + 1;
+	        } else {
+	            // フレーム数とフラグメント数が合わない場合、本来はBOTのオフセット値を
+	            // 各フラグメントの累積サイズと比較して境界を特定する必要があります。
+	            // ここでは安全のため、結合が必要なケースを考慮したロジックにします。
+	            startFrag = findStartFragment(frags, bot, frame);
+	            endFrag = findEndFragment(frags, bot, frame, numFrames);
+	        }
+	    } else {
+	        // BOTが空の場合：1フレーム = 1フラグメントと仮定して取得（これしかない）
+	        startFrag = frame + 1;
+	        endFrag = frame + 1;
+	    }
+
+	    // --- フラグメントの結合処理 ---
+	    return combineFragments(frags, startFrag, endFrag);
+	}
+	
+	private byte[] combineFragments(Fragments frags, int start, int end) {
+	    if (start == end) return getFragmentBytes(frags.get(start));
+
+	    // 複数フラグメントに跨る場合、結合して1つの圧縮ストリームにする
+	    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+	        for (int i = start; i <= end; i++) {
+	            baos.write(getFragmentBytes(frags.get(i)));
+	        }
+	        return baos.toByteArray();
+	    } catch (IOException e) {
+	        return null;
+	    }
+	}
+	
+	private byte[] getFragmentBytes(Object frag) {
+	    if (frag instanceof byte[]) return (byte[]) frag;
+	    if (frag instanceof BulkData) {
+	        try { return ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false); }
+	        catch (IOException e) { return null; }
+	    }
+	    return null;
+	}
+	
+	/**
+	 * 指定されたフレームの開始点となるフラグメント・インデックスを取得します。
+	 */
+	private int findStartFragment(Fragments frags, byte[] bot, int frame) {
+	    if (bot == null || bot.length < (frame + 1) * 4) {
+	        return frame + 1; // BOTがない場合は 1フレーム=1フラグメント と仮定
+	    }
+
+	    // BOTから目的のフレームのオフセット（バイト数）を取得
+	    long targetOffset = getOffsetFromBOT(bot, frame);
+	    
+	    // フラグメントを走査してオフセットが一致する場所を探す
+	    long currentStreamPos = 0;
+	    for (int i = 1; i < frags.size(); i++) {
+	        if (currentStreamPos == targetOffset) {
+	            return i;
+	        }
+	        currentStreamPos += getFragmentSize(frags.get(i));
+	    }
+	    return frame + 1; // 見つからない場合のフォールバック
+	}
+
+	/**
+	 * 指定されたフレームの終了点となるフラグメント・インデックスを取得します。
+	 */
+	private int findEndFragment(Fragments frags, byte[] bot, int frame, int numFrames) {
+	    // 最終フレームの場合は、最後のフラグメントまで全て
+	    if (frame == numFrames - 1) {
+	        return frags.size() - 1;
+	    }
+
+	    if (bot == null || bot.length < (frame + 2) * 4) {
+	        return frame + 1; // BOTがない場合は 1フレーム=1フラグメント と仮定
+	    }
+
+	    // 次のフレームの開始オフセットを取得
+	    long nextFrameOffset = getOffsetFromBOT(bot, frame + 1);
+	    
+	    // フラグメントを走査して、次のフレームの直前までを特定する
+	    long currentStreamPos = 0;
+	    for (int i = 1; i < frags.size(); i++) {
+	        currentStreamPos += getFragmentSize(frags.get(i));
+	        // 次のフレームの開始位置に到達した、あるいは超えた場合、その一つ前が終端
+	        if (currentStreamPos >= nextFrameOffset) {
+	            return i;
+	        }
+	    }
+	    return frags.size() - 1;
+	}
+
+	/**
+	 * BOT（4バイトの配列の塊）から特定のフレームのオフセットを little-endian で取得します。
+	 */
+	private long getOffsetFromBOT(byte[] bot, int frame) {
+	    int start = frame * 4;
+	    // 無符号32bit整数としてパースするために & 0xFFL を使用
+	    return ((bot[start] & 0xFFL)) |
+	           ((bot[start + 1] & 0xFFL) << 8) |
+	           ((bot[start + 2] & 0xFFL) << 16) |
+	           ((bot[start + 3] & 0xFFL) << 24);
+	}
+
+	/**
+	 * フラグメント（byte[]またはBulkData）のサイズを取得します。
+	 */
+	private long getFragmentSize(Object frag) {
+	    if (frag instanceof byte[]) {
+	        return ((byte[]) frag).length;
+	    } else if (frag instanceof BulkData) {
+	        return ((BulkData) frag).length();
+	    }
+	    return 0;
 	}
 
 	@Override
@@ -293,10 +434,46 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		return decompressed;
 	}
 
+	/**
+	 * frameが１枚しかないマルチフレームもあるが
+	 */
 	@Override
 	public boolean isMultiFrame() {
-		int frames = this.header.getInt(Tag.NumberOfFrames, 1);
-		return frames == 1 ? false:true;
+		// 1. 枚数が2枚以上なら文句なしにマルチフレーム
+	    if (header.getInt(Tag.NumberOfFrames, 1) > 1) {
+	        return true;
+	    }
+
+	    // 2. 1枚でも Enhanced SOP Class ならマルチフレームとして扱う
+	    // (将来的にフレームが追加される可能性や、座標取得ロジックが異なるため)
+	    if (isEnhancedMultiframe(header)) {
+	        return true;
+	    }
+
+	    // 3. Functional Groups を持っているか（Enhanced型特有のデータ構造）
+	    if (hasMultiframeStructure(header)) {
+	        return true;
+	    }
+
+	    return false;
+	}
+	
+	public boolean isEnhancedMultiframe(DicomObject header) {
+	    String sopClass = header.getString(Tag.SOPClassUID);
+	    // UIDUtilsなどで Enhanced 系のUIDに含まれるかチェック
+	    return sopClass != null && (
+	        sopClass.equals(UID.EnhancedCTImageStorage.uid()) ||
+	        sopClass.equals(UID.EnhancedMRImageStorage.uid()) ||
+	        sopClass.equals(UID.EnhancedPETImageStorage.uid()) ||
+	        sopClass.contains(".1.1.2.1") || // 慣例的なEnhanced CTのサフィックス
+	        sopClass.contains(".1.1.4.1")    // 慣例的なEnhanced MRのサフィックス
+	    );
+	}
+	
+	public boolean hasMultiframeStructure(DicomObject header) {
+	    // どちらかのシーケンスが存在すれば、それはマルチフレーム構造のファイル
+	    return header.contains(Tag.SharedFunctionalGroupsSequence) || 
+	           header.contains(Tag.PerFrameFunctionalGroupsSequence);
 	}
 
 	@Override

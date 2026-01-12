@@ -96,6 +96,7 @@ public interface DicomImage {
 	public boolean isSigned();
 	public boolean isPDF();
 	public boolean isMultiFrame();
+	public boolean hasMultiframeStructure(DicomObject header);
 	
 	public boolean isDecompressed();
 	

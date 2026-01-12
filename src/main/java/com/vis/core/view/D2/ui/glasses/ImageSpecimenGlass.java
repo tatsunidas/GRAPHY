@@ -40,6 +40,8 @@ package com.vis.core.view.D2.ui.glasses;
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
@@ -55,6 +57,7 @@ import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
+import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
@@ -77,6 +80,8 @@ public class ImageSpecimenGlass extends JPanel{
 	 */
 	private ImagePlus orgImg;//without calibration
 	BufferedImage display;
+	
+	Calibration orgCal;
 	
 	private final String sopUID;
 	private final SlideGlass sg;
@@ -119,68 +124,49 @@ public class ImageSpecimenGlass extends JPanel{
 		if(org == null) {
 			return null;
 		}
-		ImagePlus dup = getOriginalImage().createImagePlus();
-		ImageProcessor ip = getOriginalImage().getProcessor().duplicate();
-		ip.setInterpolationMethod(sg.INTERPOLATION_METHOD);
-		if(sg.isRGB && ip instanceof ColorProcessor) {
-			ip.snapshot();//keep original pixels
-		}
-		dup.setProcessor(ip);
-		dup.setTitle("replica");
-		/*
-		 * to fill black background after rotation.
-		 * https://forum.image.sc/t/set-background-color-for-rotation-of-a-16-bit-image-shortprocessor-miss-bgcolor-attribute/20585/10
-		 */
-		if(dup.getBitDepth() == 8) {
-			dup.getProcessor().setBackgroundValue(0);
-		}else if(dup.getBitDepth() == 16) {
-			dup.getProcessor().setBackgroundValue(32768);
-		}else if(dup.getBitDepth() == 32) {
-			dup.getProcessor().setBackgroundValue(0.5/*TODO is it correct ?*/);
-		}else {//color RGB
-			dup.getProcessor().setBackgroundValue(0);
-			dup.getProcessor().setBackgroundColor(Color.BLACK);
-		}
 		
-		dup.setCalibration(getOriginalImage().getCalibration());
-		return dup;
+		synchronized(org) {
+			// 内部で再度 getOriginalImage() を呼ばず、ローカル変数 org を一貫して使う
+			ImagePlus dup = org.createImagePlus();
+			dup.setTitle("replica");
+			
+			ImageProcessor ip = org.getProcessor();
+			if (ip == null) {
+	            return null;
+	        }
+			ImageProcessor ip2 = ip.duplicate();
+			ip2.setInterpolationMethod(sg.INTERPOLATION_METHOD);
+			if(sg.isRGB && ip2 instanceof ColorProcessor) {
+				ip2.snapshot();//keep original pixels
+			}
+			
+			/*
+			 * to fill black background after rotation.
+			 * https://forum.image.sc/t/set-background-color-for-rotation-of-a-16-bit-image-shortprocessor-miss-bgcolor-attribute/20585/10
+			 */
+			if(dup.getBitDepth() == 8) {
+				if(dcmImg.isSigned()) {
+					ip2.setBackgroundValue(128);
+				}else {
+					ip2.setBackgroundValue(0);
+				}
+			}else if(dup.getBitDepth() == 16) {
+				if(dcmImg.isSigned()) {
+					ip2.setBackgroundValue(32768);
+				}else {
+					ip2.setBackgroundValue(0);
+				}
+			}else if(dup.getBitDepth() == 32) {
+				ip2.setBackgroundValue(0.);
+			}else {//color RGB
+				ip2.setBackgroundValue(0);
+				ip2.setBackgroundColor(Color.BLACK);
+			}
+			dup.setProcessor(ip2);
+			dup.setCalibration(org.getCalibration());
+			return dup;
+		}
 	}
-	
-	@Deprecated
-	ImagePlus applyCurrentState(ImagePlus dup) {
-
-		if (sg.isZoomed()) {
-			double mag = sg.getMagnification();
-			dup = sg.imgProcess.zoom(dup, mag);
-		}
-		
-		dup.setLut(sg.currentLUT);
-		
-		if (sg.isInverted()) {
-			sg.imgProcess.invert(dup);
-		}
-		
-		if(sg.flipVerticalFlag) {
-			sg.imgProcess.flipHF(dup);
-		}
-		
-		if(sg.flipHorizontalFlag) {
-			sg.imgProcess.flipLR(dup);
-		}
-		
-		sg.imgProcess.applyLUT(dup, sg.currentLUT);
-		
-		/*
-		 * skip panning, to delegate slideglass::updateImage
-		 */
-		// window
-		if (sg.windowing) {
-			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
-		}
-		dup.updateAndDraw();
-		return dup;
-	}
-	
 	
 	/**
 	 * calc origin xy on image specimen ( which has same size of view panel).
@@ -194,8 +180,8 @@ public class ImageSpecimenGlass extends JPanel{
 	 */
 	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
 		Insets insets = sg.getInsets();//the border's insets
-       int x = (getWidth() - insets.left - insets.right - newImgW) / 2 + insets.left;
-       int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 + insets.top;
+       int x = (getWidth() - insets.left - insets.right - newImgW) / 2 ;
+       int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 ;
 		return new Point(x, y);
 	}
 	
@@ -250,6 +236,10 @@ public class ImageSpecimenGlass extends JPanel{
 		return this.orgImg;
 	}
 	
+	public Calibration getOriginalCalibration() {
+		return this.orgCal;
+	}
+	
 	int getDisplayOriginX() {
 		return originX;
 	}
@@ -295,6 +285,10 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 	}
 	
+	/**
+	 * 
+	 * @param img: keep null-able
+	 */
 	void setOriginalImage(ImagePlus img) {
 		if(dcmImg == null) {
 			throw new IllegalArgumentException("ImageSpecimen DicomImage can not ready. Cannot set image to show.");
@@ -309,6 +303,14 @@ public class ImageSpecimenGlass extends JPanel{
 		}else {
 			this.orgImg = null;
 		}
+	}
+	
+	public void setOriginalCalibration(Calibration cal) {
+		ImagePlus org = getOriginalImage();
+		if(org != null) {
+			org.setCalibration(cal);
+		}
+		this.orgCal = cal;
 	}
 	
 	public void setAlphaForTransparent(Float alpha) {
@@ -377,11 +379,15 @@ public class ImageSpecimenGlass extends JPanel{
 			resetImageOrigin();
 		}
 		
-		synchronized (drawLock) { // ロックを開始
+		ImagePlus dup = createInitialDisplayImage();
+		
+		if(dup == null) {
+			return;
+		}
+		
+		synchronized (dup) { // ロックを開始
 			//update transform
 			sg.calculateCurrentAffineTransform();
-			//create copy of original
-			ImagePlus dup = createInitialDisplayImage();
 			
 			sg.imgProcess.applyLUT(dup, sg.currentLUT);
 			
@@ -440,6 +446,39 @@ public class ImageSpecimenGlass extends JPanel{
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
+		/*
+		 * waiting state
+		 */
+		if (getOriginalImage() == null && dcmImg != null) {
+			Graphics2D g2d = (Graphics2D) g;
+			// 1. 背景を少し暗い色で塗りつぶす（視認性向上のため）
+			g2d.setColor(Color.DARK_GRAY);
+			g2d.fillRect(0, 0, getWidth(), getHeight());
+			// 2. 描画する文字列と、フォントの設定
+			String text = "Loading...";
+			// 例: 少し大きめの太字フォントを設定する（見栄えを良くするため）
+			Font font = g2d.getFont().deriveFont(Font.BOLD, 16f);
+			g2d.setFont(font);
+			g2d.setColor(Color.WHITE);
+
+			// 3. 文字列の寸法を計算するためのFontMetricsを取得
+			FontMetrics fm = g2d.getFontMetrics();
+			int textWidth = fm.stringWidth(text);
+			int textHeight = fm.getHeight();
+
+			// 4. 中心座標を計算する
+			// 横方向の中心 X座標: (パネル幅 - テキスト幅) / 2
+			int x = (getWidth() - textWidth) / 2;
+
+			// 縦方向の中心 Y座標: (パネル高さ - テキスト高さ) / 2 + アセント(ベースライン位置調整)
+			// ※ g.drawStringのY座標は、文字の上端ではなく「ベースライン（基準線）」を指定するため、
+			// 単純に高さの半分を足すのではなく、Ascent（ベースラインから文字上端までの高さ）を考慮します。
+			int y = (getHeight() - textHeight) / 2 + fm.getAscent();
+
+			// 5. 計算した座標に文字列を描画
+			g2d.drawString(text, x, y);
+			return;
+		}
 		/*
 		 * Do not insert image transformation code here.
 		 * Use updateDisplayImage().

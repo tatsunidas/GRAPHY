@@ -40,12 +40,10 @@ package com.vis.dicom.image;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
-import java.util.logging.Level;
 
 import org.joml.Vector3d;
 
 import com.vis.core.log.Log;
-import com.vis.core.util.ByteUtils;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
@@ -320,7 +318,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 	}
 	
-	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg) {
+	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
 		if(!dcmImg.isMultiFrame()) {
 			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0).duplicate());
 			DicomObject header = dcmImg.getHeader();
@@ -348,12 +346,13 @@ public class GDicomTools extends ij.util.DicomTools{
 					setTag(imp,1,ts,v);
 				}
 			}
-			calibrate(imp, header);
+			if(cal != null) {
+				imp.setCalibration(cal);
+			}
 			return imp;
 		}else {
 			int size = dcmImg.getNumOfFrames();
 			ImageStack stack = new ImageStack();
-			Calibration cal = null;
 			for(int i=0; i<size; i++) {
 				/*single frame imp*/
 				ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(i));
@@ -377,10 +376,6 @@ public class GDicomTools extends ij.util.DicomTools{
 					}
 				}
 				setTag(imp,(i+1),TagUtils.toDicomToolsString(Tag.Instance​Number),String.valueOf(i+1));
-				calibrate(imp, header);
-				if(cal == null) {
-					cal = imp.getCalibration();
-				}
 				stack.addSlice(imp.getProcessor());
 				stack.setSliceLabel(imp.getInfoProperty(), i+1);
 			}
@@ -690,99 +685,99 @@ public class GDicomTools extends ij.util.DicomTools{
 	}
 	
 	/**
-	 * Calibrate imageplus using header.
+	 * See, SlideGlass:initCalibrationAndLUT
 	 * @param imp
 	 * @param header
 	 */
-	public static void calibrate(ImagePlus imp/*No calibrated imageplus*/, DicomObject header) {
-		if(imp == null) {
-			throw new NullPointerException();
-		}
-		if(header == null) {
-			return;
-		}
-		/*No calibrated imageplus*/
-		Calibration originalCal = imp.getCalibration();
-		boolean isRGB = imp.getType() == ImagePlus.COLOR_RGB;
-		if(isRGB) {
-			imp.getProcessor().snapshot();
-		}
-		/*
-		 * Spatial calibrations
-		 */
-		// x-y-z
-		double pixelSpacingX = 1.0;
-		double pixelSpacingY = 1.0;
-		double pixelSpacingZ = 1.0;
-		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
-		double[] pixelSpacing = header.getDoubles(Tag.Pixel​Spacing);
-		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, -1);
-		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-			pixelSpacingX = pixelSpacing[1];// column
-			pixelSpacingY = pixelSpacing[0];// row
-			if (spacingBetweenSlices != -1) {
-				pixelSpacingZ = spacingBetweenSlices;
-			} else {
-				double sliceThickness = header.getDouble(Tag.Slice​Thickness, -1);
-				if (sliceThickness != -1) {
-					pixelSpacingZ = sliceThickness;
-				}
-			}
-			/*
-			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-			 * definition.
-			 */
-			originalCal.setUnit("mm");//
-		}
-		// then, set to cal
-		originalCal.pixelWidth = pixelSpacingX;
-		originalCal.pixelHeight = pixelSpacingY;
-		originalCal.pixelDepth = pixelSpacingZ;
-		
-		/*
-		 * density calibration
-		 */
-		Double slope = header.getDouble(Tag.Rescale​Slope, Double.NaN);
-		Double intercept = header.getDouble(Tag.Rescale​Intercept, Double.NaN);
-		String modality = header.getString(Tag.Modality);
-		boolean isSigned = header.getInt(Tag.Pixel​Representation, 0) != 0;
-		if (header.getInt(Tag.Bits​Allocated, -1) == 16 && isSigned) {
-			if (!intercept.isNaN() && !slope.isNaN()) {
-				//y = a + bx
-				double[] coeff = new double[2];//[a,b]
-				coeff[0] = intercept - 32768*slope;
-				coeff[1] = slope;
-				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-				//add another modalities unit...
-				//...
-			}else {
-				originalCal.setSigned16BitCalibration();
-			}
-			if(modality != null && modality.equals("CT")) {
-				originalCal.setValueUnit("HU");
-			}
-		}else if (!intercept.isNaN() && !slope.isNaN()) {
-			double[] coeff = new double[2];
-			coeff[0] = intercept;
-			coeff[1] = slope;
-			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-		}
-		imp.setCalibration(originalCal);
-		// adjust WW/WL
-		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
-		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
-			// do nothing
-		}else {
-			double newMin = WL - (.5 * WW);
-			double newMax = WL + (.5 * WW);
-			if (newMin > newMax) {
-				Log.logger.log(Level.WARNING,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
-			}else {
-				imp.setDisplayRange(newMin, newMax);
-			}
-		}
-	}
+//	public static void calibrate(ImagePlus imp/*No calibrated imageplus*/, DicomObject header) {
+//		if(imp == null) {
+//			throw new NullPointerException();
+//		}
+//		if(header == null) {
+//			return;
+//		}
+//		/*No calibrated imageplus*/
+//		Calibration originalCal = imp.getCalibration();
+//		boolean isRGB = imp.getType() == ImagePlus.COLOR_RGB;
+//		if(isRGB) {
+//			imp.getProcessor().snapshot();
+//		}
+//		/*
+//		 * Spatial calibrations
+//		 */
+//		// x-y-z
+//		double pixelSpacingX = 1.0;
+//		double pixelSpacingY = 1.0;
+//		double pixelSpacingZ = 1.0;
+//		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
+//		double[] pixelSpacing = header.getDoubles(Tag.Pixel​Spacing);
+//		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, -1);
+//		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
+//			pixelSpacingX = pixelSpacing[1];// column
+//			pixelSpacingY = pixelSpacing[0];// row
+//			if (spacingBetweenSlices != -1) {
+//				pixelSpacingZ = spacingBetweenSlices;
+//			} else {
+//				double sliceThickness = header.getDouble(Tag.Slice​Thickness, -1);
+//				if (sliceThickness != -1) {
+//					pixelSpacingZ = sliceThickness;
+//				}
+//			}
+//			/*
+//			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
+//			 * definition.
+//			 */
+//			originalCal.setUnit("mm");//
+//		}
+//		// then, set to cal
+//		originalCal.pixelWidth = pixelSpacingX;
+//		originalCal.pixelHeight = pixelSpacingY;
+//		originalCal.pixelDepth = pixelSpacingZ;
+//		
+//		/*
+//		 * density calibration
+//		 */
+//		Double slope = header.getDouble(Tag.Rescale​Slope, Double.NaN);
+//		Double intercept = header.getDouble(Tag.Rescale​Intercept, Double.NaN);
+//		String modality = header.getString(Tag.Modality);
+//		boolean isSigned = header.getInt(Tag.Pixel​Representation, 0) != 0;
+//		if (header.getInt(Tag.Bits​Allocated, -1) == 16 && isSigned) {
+//			if (!intercept.isNaN() && !slope.isNaN()) {
+//				//y = a + bx
+//				double[] coeff = new double[2];//[a,b]
+//				coeff[0] = intercept - 32768*slope;
+//				coeff[1] = slope;
+//				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+//				//add another modalities unit...
+//				//...
+//			}else {
+//				originalCal.setSigned16BitCalibration();
+//			}
+//			if(modality != null && modality.equals("CT")) {
+//				originalCal.setValueUnit("HU");
+//			}
+//		}else if (!intercept.isNaN() && !slope.isNaN()) {
+//			double[] coeff = new double[2];
+//			coeff[0] = intercept;
+//			coeff[1] = slope;
+//			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
+//		}
+//		imp.setCalibration(originalCal);
+//		// adjust WW/WL
+//		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
+//		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
+//		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
+//			// do nothing
+//		}else {
+//			double newMin = WL - (.5 * WW);
+//			double newMax = WL + (.5 * WW);
+//			if (newMin > newMax) {
+//				Log.logger.log(Level.WARNING,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
+//			}else {
+//				imp.setDisplayRange(newMin, newMax);
+//			}
+//		}
+//	}
 	
 	
 	/**

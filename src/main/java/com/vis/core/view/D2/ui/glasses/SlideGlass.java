@@ -242,7 +242,7 @@ public class SlideGlass extends JLayeredPane {
 		// change
 		double newWindow = currentWindow + xDifference;
 		double newLevel = currentLevel + yDifference;
-		changeWindowing((int) newLevel, (int) newWindow);
+		changeWindowingByWWWL((int) newLevel, (int) newWindow);
 	}
 
 	/**
@@ -263,7 +263,12 @@ public class SlideGlass extends JLayeredPane {
 		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
-	public void changeWindowing(double WL, double WW) {
+	/**
+	 * 
+	 * @param WL : calibrated real value
+	 * @param WW : calibrated real value range
+	 */
+	public void changeWindowingByWWWL(double WL, double WW) {
 		double newMin = WL - (.5 * WW);
 		double newMax = WL + (.5 * WW);
 		if (newMin >= newMax) {
@@ -306,7 +311,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public ImagePlus convertToImagePlus() {
-		return GDicomTools.dcmImgToImagePlus(getDicomImage());
+		return GDicomTools.dcmImgToImagePlus(getDicomImage(), getOriginalCalibration());
 	}
 
 	public ImagePlus cropRect() {
@@ -405,14 +410,23 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public double getPixelSpacingX() {
+		if(getOriginalCalibration() == null) {
+			return 1.;
+		}
 		return getOriginalCalibration().pixelWidth;
 	}
 
 	public double getPixelSpacingY() {
+		if(getOriginalCalibration() == null) {
+			return 1.;
+		}
 		return getOriginalCalibration().pixelHeight;
 	}
 
 	public double getPixelSpacingZ() {
+		if(getOriginalCalibration() == null) {
+			return 1.;
+		}
 		return getOriginalCalibration().pixelDepth;
 	}
 
@@ -449,8 +463,9 @@ public class SlideGlass extends JLayeredPane {
 	public Calibration getOriginalCalibration() {
 		if(getOriginalImage() !=null) {
 			return getOriginalImage().getCalibration();
+		}else {
+			return imageSpecimen.getOriginalCalibration();
 		}
-		return null;
 	}
 
 	public ImagePlus getOriginalImage() {
@@ -488,6 +503,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public String getPixelSpacingUnit() {
+		if(getOriginalCalibration() == null) {
+			return UNIT_GRAY;
+		}
 		return getOriginalCalibration().getUnit();
 	}
 	
@@ -498,20 +516,26 @@ public class SlideGlass extends JLayeredPane {
 		if(orgImageY < 0 || orgImageY > imageSpecimen.orgRows-1) {
 			return null;
 		}
-		if (!isRGB()) {
-			if(getOriginalImage() == null) {
-				return null;
+		
+		ImagePlus org = getOriginalImage();
+		
+		if(org == null) {
+			return null;
+		}
+		
+		synchronized(org) {
+			if (!isRGB()) {
+				double pix_raw = org.getProcessor().get(orgImageX, orgImageY);
+				double pix_cal = org.getProcessor().getPixelValue(orgImageX, orgImageY);
+				if (dcmImg.getBitsAllocated() == 32) {
+					pix_raw = Float.intBitsToFloat((int)pix_raw);
+				}
+				return new Double[] { pix_raw, pix_cal };
+			} else {
+				ColorProcessor cp = (ColorProcessor) org.getProcessor();
+				int[] rgb = cp.getPixel(orgImageX, orgImageY, null);
+				return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
 			}
-			double pix_raw = getOriginalImage().getProcessor().get(orgImageX, orgImageY);
-			double pix_cal = getOriginalImage().getProcessor().getPixelValue(orgImageX, orgImageY);
-			if (dcmImg.getBitsAllocated() == 32) {
-				pix_raw = Float.intBitsToFloat((int)pix_raw);
-			}
-			return new Double[] { pix_raw, pix_cal };
-		} else {
-			ColorProcessor cp = (ColorProcessor) getOriginalImage().getProcessor();
-			int[] rgb = cp.getPixel(orgImageX, orgImageY, null);
-			return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
 		}
 	}
 
@@ -635,9 +659,6 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	public void initCalibrationAndLUT() {
-		if(getOriginalImage() == null) {
-			return;
-		}
 		initCalibrationAndLUT(header);
 	}
 
@@ -783,7 +804,7 @@ public class SlideGlass extends JLayeredPane {
 			return;
 		}
 		
-		pp.setAndShowPixelValue(0, 0);
+		pp.setAndShowPixelValue(this, 0, 0);
 	}
 
 	public void invert() {
@@ -1082,8 +1103,7 @@ public class SlideGlass extends JLayeredPane {
 		// => raw = ((物理値 - intercept) / slope) + offset
 		double rawMin = ((minPhys - intercept) / slope) + offset;
 		double rawMax = ((maxPhys - intercept) / slope) + offset;
-
-		changeWindowing(rawMin, rawMax);
+		changeWindowingByMinMax(rawMin, rawMax);
 	}
 
 	void rotate(double changeAngle) {
@@ -1101,6 +1121,11 @@ public class SlideGlass extends JLayeredPane {
 
 		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getHeader());
 		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getHeader());
+		
+		//DX video
+		if(baseRow == null || baseCol == null) {
+			return;
+		}
 		
 		if (baseRow.length() < 1e-6 || baseCol.length() < 1e-6) {
 			Log.logger.log(Level.WARNING, "ImagePositionPatient is NULL, cannot calculate Orientations.");
@@ -1226,9 +1251,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	private void setOriginalCalibration(Calibration cal) {
-		if(getOriginalImage() != null) {
-			getOriginalImage().setCalibration(cal);
-		}
+		imageSpecimen.setOriginalCalibration(cal);
 	}
 
 	public void setRoiBrush(RoiObj brush) {
@@ -1410,7 +1433,7 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null || pp.getViewMode() == ViewMode.Thumbnail) {
 			return;
 		}
-		pp.setAndShowPixelValue(slideX, slideY);
+		pp.setAndShowPixelValue(this, slideX, slideY);
 	}
 
 	public void updateRoi(RoiObj roi) {

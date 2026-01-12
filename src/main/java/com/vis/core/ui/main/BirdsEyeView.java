@@ -64,6 +64,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.Tag;
 
 @SuppressWarnings("serial")
 public class BirdsEyeView extends JPanel{
@@ -126,7 +127,6 @@ public class BirdsEyeView extends JPanel{
 		
 		birdsEyeSplit.setLeftComponent(seriesListView);
 		birdsEyeSplit.setRightComponent(filmAndSingleGridSplit);
-		
 		
 		filmAndSingleGridSplit.setOneTouchExpandable(true);
 		filmAndSingleGridSplit.setDividerLocation(650);
@@ -296,7 +296,7 @@ public class BirdsEyeView extends JPanel{
 	}
 	
 	/**
-	 * Able to load only one study.
+	 * load only one study.
 	 * @param patId
 	 * @param studyUid
 	 * @param selectedSeriesUIDs : selected series in it's study on treetable
@@ -362,6 +362,7 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		boolean isMultiFrame = thumbnail.isMultiFrame();
+		isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
 		boolean isPDF = thumbnail.isPDF();
 		currentSeriesUID = (String)thumbnail.getUIDs()[2];
 		thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));

@@ -59,6 +59,7 @@ import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageStatistics;
 
@@ -330,8 +331,8 @@ public class ImageUtils {
 		return images;
 	}
 
-	public static ImagePlus dcmImgToImgPlus(DicomImage dcmImg) {
-		return GDicomTools.dcmImgToImagePlus(dcmImg);
+	public static ImagePlus dcmImgToImgPlus(DicomImage dcmImg, Calibration cal) {
+		return GDicomTools.dcmImgToImagePlus(dcmImg, cal);
 	}
 	
 	/**

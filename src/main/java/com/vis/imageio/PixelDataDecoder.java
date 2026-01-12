@@ -111,7 +111,7 @@ public class PixelDataDecoder {
 		banded = dcm.isBanded();
 		signed = dcm.isSigned();
 		this.frames = Math.max(1, dcm.getNumOfFrames());
-		isMultiFrame = dcm.getNumOfFrames() > 0;
+		isMultiFrame = dcm.isMultiFrame();
 		frameLength = w * h * samplesPerPixel * bitsAllocated / 8;
 		length = frameLength * frames;
 
@@ -198,6 +198,16 @@ public class PixelDataDecoder {
 		return new ImagePlus(sopInstUID, stack);
 	}
 
+	/**
+	 * dcm4che decoder will return OW byte[].
+	 * @param bytes
+	 * @return
+	 */
+	public ImageProcessor decodeDecompressedByte(byte[] bytes) {
+		ByteBuffer buffer = ByteBuffer.wrap(bytes).order(bigEndian ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+		return processShort(buffer);
+	}
+	
 	private ImageProcessor decodeGrayscale(byte[] bytes) {
 		ByteBuffer buffer = ByteBuffer.wrap(bytes).order(bigEndian ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
 		switch (bitsAllocated) {

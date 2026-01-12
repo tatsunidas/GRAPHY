@@ -53,6 +53,7 @@ import java.awt.image.Raster;
 import java.awt.image.SampleModel;
 import java.awt.image.SinglePixelPackedSampleModel;
 import java.awt.image.WritableRaster;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -62,6 +63,7 @@ import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.BulkData;
@@ -240,6 +242,43 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 			dataset.setInt(Tag.PlanarConfiguration, VR.US, tstype.getPlanarConfiguration());
 		}
 		return true;
+	}
+	
+	/**
+	 * 外部から渡された圧縮バイト配列（特定の1フレーム分）を解凍し、
+	 * 解凍後の生ピクセルデータ（byte[]）を返します。
+	 * * @param compressedFrame 圧縮されたフレームデータ（JPEG, J2K等）
+	 * @return 解凍後の生ピクセル配列
+	 */
+	public byte[] decompress(byte[] compressedFrame) {
+		if (decompressor == null || compressedFrame == null) {
+			return null;
+		}
+
+		try (ByteArrayInputStream bais = new ByteArrayInputStream(compressedFrame);
+				ImageInputStream iis = new MemoryCacheImageInputStream(bais);
+				ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+			// 1. ImageReaderにストリームをセット
+			// JPEGLSのパッチが必要な場合はここでも適用
+			decompressor.setInput(patchJpegLS != null ? new PatchJPEGLSImageInputStream(iis, patchJpegLS) : iis);
+
+			// 2. フレームを解凍してBufferedImageを取得 (インデックス0を指定)
+			// デフォルトの readParam を使用
+			readParam.setDestination(bi);
+			BufferedImage decompressedBi = decompressor.read(0, readParam);
+
+			// 3. BufferedImageから生ピクセルデータを抽出してOutputStreamへ書き出し
+			// クラス内の既存メソッド writeTo(Raster, OutputStream) を再利用
+			writeTo(decompressedBi.getRaster(), baos);
+
+			return baos.toByteArray();
+
+		} catch (IOException e) {
+			Log.logger.severe("Failed to decompress frame bytes: " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	public boolean toDecompressable() {

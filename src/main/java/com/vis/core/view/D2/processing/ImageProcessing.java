@@ -28,28 +28,34 @@ public class ImageProcessing {
 	public ImageProcessing(){}
 	
 	public void applyLUT(ImagePlus imp, LUT lut) {
-		imp.setLut(lut);
-		imp.updateAndDraw();
+		if(imp != null) {
+			imp.setLut(lut);
+			imp.updateAndDraw();
+		}
 	}
 	
 	public void invert(ImagePlus imp) {
-		imp.getProcessor().invert();//invertLUT??
-		imp.updateImage();
+		if(imp != null) {
+			imp.getProcessor().invert();// invertLUT??
+			imp.updateAndDraw();
+		}
 	}
 	
 	public void windowing(ImagePlus imp, double currentMin, double currentMax) {
 		if(imp == null) {
 			return;
 		}
-		if(imp.getType() == ImagePlus.COLOR_RGB) {
-			//fail safe
-			if(imp.getProcessor().getSnapshotPixels() == null) {
-				imp.getProcessor().snapshot();
+		synchronized(imp) {
+			if (imp.getType() == ImagePlus.COLOR_RGB) {
+				// fail safe
+				if (imp.getProcessor().getSnapshotPixels() == null) {
+					imp.getProcessor().snapshot();
+				}
+				imp.getProcessor().reset();
 			}
-			imp.getProcessor().reset();
+			imp.setDisplayRange(currentMin, currentMax);
+			imp.updateAndDraw();
 		}
-		imp.setDisplayRange(currentMin, currentMax);
-		imp.updateAndDraw();
 	}
 	
 	public ImagePlus zoom(ImagePlus imp, double mag) {

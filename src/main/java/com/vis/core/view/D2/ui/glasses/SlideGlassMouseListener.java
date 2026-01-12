@@ -156,7 +156,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 				e.consume();
 			} else {// showGridViewOn
-				System.out.println("OK!");
 				try {
 					Component t = e.getComponent();
 					Component c = pp.getViewPanel().getComponent(0);
