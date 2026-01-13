@@ -52,7 +52,6 @@ import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
-import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
