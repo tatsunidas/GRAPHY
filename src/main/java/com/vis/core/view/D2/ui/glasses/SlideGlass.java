@@ -66,7 +66,6 @@ import org.joml.Vector3d;
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.util.MathUtils;
-import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
@@ -249,18 +248,25 @@ public class SlideGlass extends JLayeredPane {
 	 * see also ImageUtils.autoContrast()
 	 */
 	public void autoWindowing() {
-		if (getOriginalImage() == null) {
+		ImagePlus org = getOriginalImage();
+		if (org == null) {
 			return;
 		}
-		if (isRGB()) {
-			getOriginalImage().getProcessor().reset();
+		synchronized(org) {
+			ImageProcessor ip = org.getProcessor();
+			if(ip == null) {
+				return;
+			}
+			if (isRGB()) {
+				ip.reset();
+			}
+			lastMin = currentMin; 
+			lastMax = currentMax;
+			new ContrastEnhancer().stretchHistogram(ip, 0.5);
+			this.currentMin = ip.getMin();// DO NOT USE getMinThreshold()
+			this.currentMax = ip.getMax();// DO NOT USE getMaxThreshold()
+			changeWindowingByMinMax(this.currentMin, this.currentMax);
 		}
-		lastMin = currentMin; 
-		lastMax = currentMax;
-		new ContrastEnhancer().stretchHistogram(getOriginalImage().getProcessor(), 0.5);
-		this.currentMin = getOriginalImage().getProcessor().getMin();// DO NOT USE getMinThreshold()
-		this.currentMax = getOriginalImage().getProcessor().getMax();// DO NOT USE getMaxThreshold()
-		changeWindowingByMinMax(this.currentMin, this.currentMax);
 	}
 
 	/**

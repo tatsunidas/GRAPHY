@@ -1,29 +1,36 @@
 package com.vis.imageio;
 
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
-import java.io.Closeable;
+import java.awt.image.ComponentSampleModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferByte;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferShort;
+import java.awt.image.DataBufferUShort;
+import java.awt.image.Raster;
+import java.awt.image.SampleModel;
+import java.awt.image.SinglePixelPackedSampleModel;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 
-import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.dcm4che3.io.DicomOutputStream;
 
 import com.vis.core.log.Log;
 import com.vis.dicom.DICOMBackend;
@@ -40,64 +47,100 @@ import ij.ImageStack;
 import ij.process.ImageProcessor;
 
 /**
- * Please close this instance using close(). 
  * @author tatsunidas
  *
  */
-public class PDFReader implements Closeable, KeyListener{
+public class PDFReader{
 
 	private static final long MAX_FILE_SIZE = 0x7FFFFFFE;
-	int currentPage = 0;
-	int pageMax = -1;
-	PDDocument doc = null;
+	
+	final File pdf;
 	int dpi = 300;
+	final boolean isDcm;
 	
 	/**
 	 * @param pdfOrDcm
 	 */
 	public PDFReader(File pdfOrDcm) {
-		if(pdfOrDcm == null || !pdfOrDcm.exists()) {
-			Log.logger.warning(getClass().getName()+" : This PDF file does not exists.return null...");
-			return;
+		pdf = pdfOrDcm;
+		if(pdf == null || !pdf.exists()) {
+			Log.logger.warning("PDF file is null, or this PDF file does not exists...");
+			throw new IllegalArgumentException("PDF file is null, or this PDF file does not exists...");
 		}
-		boolean isDcm = DicomUtilities.isDicomFile(pdfOrDcm);
+		this.isDcm = DicomUtilities.isDicomFile(pdf);
 		if(isDcm) {
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-			reader.read(pdfOrDcm.toURI(), false);
+			reader.read(pdf.toURI(), false);
 			DicomObject dcm = reader.getHeader();
 			String sopUID = dcm.getString(Tag.SOP​Class​UID);
 			if(!sopUID.equals(UID.EncapsulatedPDFStorage.uid())) {
-				Log.logger.warning("PDFReader:This dicom file is not PDF, return ...");
-				return;
+				Log.logger.warning("PDFReader:This dicom file does not have PDF ...");
+				throw new IllegalArgumentException("PDFReader:This dicom file does not have PDF ...");
 			}
-			this.doc = dcm2pdf(dcm);
-			if(doc != null) {
-				pageMax = doc.getNumberOfPages();
-			}
-		}else {
-			doc = loadFromFile(pdfOrDcm);
-			if(doc == null) {
-				return;
-			}
-			pageMax = doc.getNumberOfPages();
 		}
 	}
 	
+	public static boolean isValidPDF(File file/*pure pdf, not dcm*/) {
+		PDDocument document = null;
+		try {
+			// Attempt to load the document. This will throw an exception if the file
+			// is not a valid or readable PDF document.
+			document = PDDocument.load(file);
+			// Optional: Perform additional checks, e.g., read some metadata to ensure full
+			// parsing
+			PDDocumentInformation info = document.getDocumentInformation();
+			@SuppressWarnings("unused")
+			String title = info.getTitle(); // Accessing info forces some parsing
+			return true;
+		} catch (IOException e) {
+			// An exception occurred, meaning the file is likely not a valid PDF
+			Log.logger.warning("File is not a valid PDF or is corrupted: " + e.getMessage());
+			return false;
+		} finally {
+			// Ensure the document is closed in all cases
+			if (document != null) {
+				try {
+					document.close();
+				} catch (IOException e) {
+					System.err.println("Error closing document: " + e.getMessage());
+				}
+			}
+		}
+	}
+
+	
 	/**
-	 * load pdf file.(No dicom.)
-	 * @param srcPDF
+	 * @param srcPDF/Dcm
 	 * @return
 	 */
-	public static PDDocument loadFromFile(File srcPDF) {
+	public PDDocument loadDocument() {
+		if(!isDcm) {
+			return loadDocumentFromPurePDF(pdf);
+		}else {
+			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
+			reader.read(pdf.toURI(), true/*read fully*/);
+			DicomObject dcm = reader.getHeader();
+			try {
+				byte[] pdfBulk = dcm.getBytes(Tag.Encapsulated​Document);
+				return PDDocument.load(pdfBulk);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				return null;
+			}
+		}
+	}
+	
+	public static PDDocument loadDocumentFromPurePDF(File pdf) {
 		PDDocument doc = null;
 		try {
-			doc = PDDocument.load(srcPDF);
+			doc = PDDocument.load(pdf);
 		} catch (IOException e) {
 			Log.logger.warning("PDFReader:This PDF not readable, return null...\n"+e.getMessage());
 			return null;
 		}
 		if(doc.isEncrypted()) {
-			System.out.println("PDFReader:This PDF is encrypted..., return null...");
+			Log.logger.warning("PDFReader:This PDF is encrypted..., return null...");
 			// if you want set password for decryption
 //          StandardDecryptionMaterial decryptionMaterial = new StandardDecryptionMaterial(password);
 //          doc.openProtection(decryptionMaterial);
@@ -106,15 +149,47 @@ public class PDFReader implements Closeable, KeyListener{
 		return doc;
 	}
 	
+	// 指定ページを画像化
+	public BufferedImage renderPDFPage(int pageIndex) {
+		try (PDDocument doc = loadDocument()) {
+			PDFRenderer renderer = new PDFRenderer(doc);
+			// DPIは画面表示用に調整（150〜200程度が綺麗です）
+			return renderer.renderImageWithDPI(pageIndex, dpi);
+		} catch (IOException e) {
+			return null;
+		}
+	}
+	
+	public byte[] getPDFPageRaw(int pageIndex) {
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+			BufferedImage page = renderPDFPage(pageIndex);
+
+			if (page == null) {
+				Log.logger.severe("decompressFrame が null を返しました。");
+				return null;
+			}
+
+			// 2. 解凍後の Raster から生ピクセルデータを抽出して OutputStream (baos) へ書き出し
+			// クラス内の既存メソッド writeTo(Raster, OutputStream) を再利用します。
+			writeTo(page.getRaster(), baos);
+
+			return baos.toByteArray();
+
+		} catch (IOException e) {
+			Log.logger.severe("decompressFrameToBytes で例外が発生しました: " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
 	/**
 	 * 
 	 * create pdf pages as ImagePlus(stacked)
 	 * 
 	 */
 	public ImagePlus pdf2ImageStack() {
-		if(doc == null) {
-			return null;
-		}
+		PDDocument doc = loadDocument();
 		/*get initial size*/
 		PDPage page = doc.getPage(0);
 		PDRectangle cropBox = page.getCropBox();
@@ -149,6 +224,26 @@ public class PDFReader implements Closeable, KeyListener{
 			stack.addSlice(pageImp.getProcessor());
 		}
 		return new ImagePlus("pdf", stack);
+	}
+	
+	// ページ数を取得
+	public int getPDFPageCount() {
+		try (PDDocument doc = PDDocument.load(pdf)) {
+			return doc.getNumberOfPages();
+		} catch (IOException e) {
+			return 0;
+		}
+	}
+
+	// 指定ページを画像化
+	public BufferedImage renderPDFPage(byte[] pdfBytes, int pageIndex) {
+	    try (PDDocument doc = PDDocument.load(pdfBytes)) {
+	        PDFRenderer renderer = new PDFRenderer(doc);
+	        // DPIは画面表示用に調整（150〜200程度が綺麗です）
+	        return renderer.renderImageWithDPI(pageIndex, 150);
+	    } catch (IOException e) {
+	        return null;
+	    }
 	}
 	
 	public PDDocument dcm2pdf(DicomObject pdfdcm) {
@@ -209,39 +304,21 @@ public class PDFReader implements Closeable, KeyListener{
 	 * show pdf on JFrame as Image.
 	 * @param pdfdcm
 	 */
-	public void showInFrame(DicomObject pdfdcm) {
-		JFrame frame = new JFrame("Simple PDF View");
-		frame.addKeyListener(this);
+	public void show(int pageIndex) {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				try {
-					byte[] contents = pdfdcm.getBytes(Tag.Encapsulated​Document);
-					if(contents == null) {
-						JOptionPane.showMessageDialog(null, "Can not read this PDF...Sorry...");
-						frame.dispose();
-						return;
-					}
-					frame.setSize(700,500);
-					frame.add(new JScrollPane(getViewPanel(contents)));
-//					frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-					frame.setVisible(true);
-				} catch (IOException e) {
-					e.printStackTrace();
-					JOptionPane.showMessageDialog(null, "Can not read this PDF...Sorry...");
-					return;
-				}
+				JFrame frame = new JFrame("Simple PDF View");
+				frame.setSize(700,500);
+				frame.add(new JScrollPane(getViewPanel(pageIndex)));
+//				frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+				frame.setVisible(true);
 			}
 		});
-		
 	}
 
-	private JPanel getViewPanel(byte[] cont) {
-		try {
-			PDDocument doc = PDDocument.load(cont);
-			if(doc != null) {
-				pageMax = doc.getNumberOfPages();
-			}
+	private JPanel getViewPanel(int pageIndex) {
+		try (PDDocument doc = PDDocument.load(pdf);){
 			final PDFRenderer renderer = new PDFRenderer(doc);
 			@SuppressWarnings("serial")
 			JPanel panel = new JPanel() {
@@ -267,7 +344,7 @@ public class PDFReader implements Closeable, KeyListener{
 						} else {
 							g.translate(0, (int) ((getHeight() - imgHeight * xf) / 2));
 						}
-						renderer.renderPageToGraphics(currentPage, (Graphics2D) g, scale);
+						renderer.renderPageToGraphics(pageIndex, (Graphics2D) g, scale);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -295,7 +372,7 @@ public class PDFReader implements Closeable, KeyListener{
 			String seriesUID//if null setNew
 			) {
 		
-		PDDocument doc = loadFromFile(srcPDF);
+		PDDocument doc = loadDocumentFromPurePDF(srcPDF);
 		if(doc == null) {
 			return null;
 		}
@@ -374,7 +451,103 @@ public class PDFReader implements Closeable, KeyListener{
 		return attr;
 	}
 	
-	public void close() {
+	private void writeTo(Raster raster, OutputStream out) throws IOException {
+        SampleModel sm = raster.getSampleModel();
+        DataBuffer db = raster.getDataBuffer();
+        switch (db.getDataType()) {
+        case DataBuffer.TYPE_BYTE:
+            writeTo(sm, ((DataBufferByte) db).getBankData(), out);
+            break;
+        case DataBuffer.TYPE_USHORT:
+            writeTo(sm, ((DataBufferUShort) db).getData(), out);
+            break;
+        case DataBuffer.TYPE_SHORT:
+            writeTo(sm, ((DataBufferShort) db).getData(), out);
+            break;
+        case DataBuffer.TYPE_INT:
+            writeTo(sm, ((DataBufferInt) db).getData(), out);
+            break;
+        default:
+            throw new UnsupportedOperationException(
+                    "Unsupported Datatype: " + db.getDataType());
+        }
+    }
+	
+	private void writeTo(SampleModel sm, byte[][] bankData, OutputStream out) throws IOException {
+		int h = sm.getHeight();
+		int w = sm.getWidth();
+		ComponentSampleModel csm = (ComponentSampleModel) sm;
+		int len = w * csm.getPixelStride();
+		int stride = csm.getScanlineStride();
+		if (csm.getBandOffsets()[0] != 0)
+			bgr2rgb(bankData[0]);
+		int datatype = sm.getDataType();
+		if (datatype == DataBuffer.TYPE_SHORT || datatype == DataBuffer.TYPE_USHORT) {
+			byte[] buf = new byte[len << 1];
+			int j0 = 0;
+			if (out instanceof DicomOutputStream) {
+				j0 = ((DicomOutputStream) out).isBigEndian() ? 1 : 0;
+			}
+			for (byte[] b : bankData)
+				for (int y = 0, off = 0; y < h; ++y, off += stride) {
+					out.write(to16BitsAllocated(b, off, len, buf, j0));
+				}
+		} else {
+			for (byte[] b : bankData)
+				for (int y = 0, off = 0; y < h; ++y, off += stride)
+					out.write(b, off, len);
+		}
+	}
+    
+    private byte[] to16BitsAllocated(byte[] b, int off, int len, byte[] buf, int j0) {
+        for (int i = 0, j = j0; i < len; i++, j++, j++) {
+            buf[j] = b[off + i];
+        }
+        return buf;
+    }
+
+    private static void bgr2rgb(byte[] bs) {
+        for (int i = 0, j = 2; j < bs.length; i += 3, j += 3) {
+            byte b = bs[i];
+            bs[i] = bs[j];
+            bs[j] = b;
+        }
+    }
+
+    private static void writeTo(SampleModel sm, short[] data, OutputStream out)
+            throws IOException {
+        int h = sm.getHeight();
+        int w = sm.getWidth();
+        int stride = ((ComponentSampleModel) sm).getScanlineStride();
+        byte[] b = new byte[w * 2];
+        for (int y = 0; y < h; ++y) {
+            for (int i = 0, j = y * stride; i < b.length;) {
+                short s = data[j++];
+                b[i++] = (byte) s;
+                b[i++] = (byte) (s >> 8);
+            }
+            out.write(b);
+        }
+    }
+
+    private static void writeTo(SampleModel sm, int[] data, OutputStream out)
+            throws IOException {
+        int h = sm.getHeight();
+        int w = sm.getWidth();
+        int stride = ((SinglePixelPackedSampleModel) sm).getScanlineStride();
+        byte[] b = new byte[w * 3];
+        for (int y = 0; y < h; ++y) {
+            for (int i = 0, j = y * stride; i < b.length;) {
+                int s = data[j++];
+                b[i++] = (byte) (s >> 16);
+                b[i++] = (byte) (s >> 8);
+                b[i++] = (byte) s;
+            }
+            out.write(b);
+        }
+    }
+	
+	public void close(PDDocument doc) {
 		if(doc != null) {
 			try {
 				doc.close();
@@ -383,39 +556,5 @@ public class PDFReader implements Closeable, KeyListener{
 			}
 		}
 	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		if(e.getKeyCode() == KeyEvent.VK_DOWN) {
-			//upper page
-			currentPage = currentPage+1;
-			if(currentPage > pageMax-1) {
-				currentPage = 0;
-			}else if(currentPage < 0) {
-				currentPage = pageMax-1;
-			}
-		}else if(e.getKeyCode() == KeyEvent.VK_UP) {
-			currentPage = currentPage-1;
-			if(currentPage > pageMax-1) {
-				currentPage = 0;
-			}else if(currentPage < 0) {
-				currentPage = pageMax-1;
-			}
-		}
-		Object obj = e.getSource();
-		if(obj instanceof JFrame || obj instanceof JPanel) {
-			JComponent comp = (JComponent)obj;
-			Component chi = comp.getComponentAt(comp.getWidth()/2, comp.getHeight()/2);
-			chi.repaint();
-			comp.revalidate();
-			comp.repaint();
-		}
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e) {}
 }
 

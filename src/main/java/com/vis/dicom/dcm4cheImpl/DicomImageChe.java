@@ -37,7 +37,9 @@
  */
 package com.vis.dicom.dcm4cheImpl;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 
 import org.dcm4che3.data.Attributes;
@@ -50,14 +52,17 @@ import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
+import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.PhotometricInterpretation;
 import com.vis.imageio.Codec;
 import com.vis.imageio.Decompressor;
+import com.vis.imageio.PDFReader;
 import com.vis.imageio.PixelDataDecoder;
 
+import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
 /**
@@ -79,6 +84,16 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	boolean decompressed = false;
 	final String filePath;
 	
+	public DicomImageChe(String path, boolean withPixel) {
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+		reader.read(path, withPixel);
+		this.filePath = path;//null-able
+		this.header = reader.getHeader();
+		this.fmi = reader.getFileMetaInfomation();
+		this.tsuid = reader.checkTSUID();
+		reader = null;
+	}
+	
 	public DicomImageChe(String path, DicomObject header, DicomObject fmi, UID tsUID) {
 		this.filePath = path;//null-able
 		if(header == null ) {
@@ -90,16 +105,6 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		this.header = header;
 		this.fmi = fmi;
 		this.tsuid = tsUID;
-	}
-	
-	public DicomImageChe(String path, boolean withPixel) {
-		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
-		reader.read(path, withPixel);
-		this.filePath = path;//null-able
-		this.header = reader.getHeader();
-		this.fmi = reader.getFileMetaInfomation();
-		this.tsuid = reader.checkTSUID();
-		reader = null;
 	}
 
 	@Override
@@ -139,6 +144,16 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	 */
 	@Override
 	public ImageProcessor getImageProcessor(int frame) {
+		
+		if (isPDF()) {
+			PDFReader pdfReader = new PDFReader(new File(filePath));
+			BufferedImage rgb = pdfReader.renderPDFPage(frame);
+			if (rgb != null) {
+				// BufferedImageをImageJのColorProcessorに変換
+				return new ColorProcessor(rgb);
+			}
+			return null;
+		}
 		
 		if(Codec.isCompressed(getTSUID())) {
 			Decompressor d = Decompressor.newInstance(this);
@@ -414,11 +429,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 
 	@Override
 	public UID getSopClassUID() {
-		String sopClassUID = fmi.getString(Tag.SOPClassUID);
+		String sopClassUID = header.getString(Tag.SOPClassUID);
 		if(sopClassUID == null) {
 			return null;
 		}
-		return UID.valueOf(sopClassUID);
+		return UID.uidOf(sopClassUID);
 	}
 
 	@Override

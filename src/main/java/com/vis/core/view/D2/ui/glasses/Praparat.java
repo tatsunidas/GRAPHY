@@ -50,6 +50,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -388,12 +389,16 @@ public class Praparat extends JPanel {
 			DicomReader reader = DicomReader.newDicomReader(backend);
 			reader.read(imgFiles.get(i), false);/*read only head*/
 			DicomObject header = reader.getHeader();
+			DicomObject fmi = reader.getFileMetaInfomation();
 			String sopClassUID = header.getString(Tag.SOP​Class​UID, "");
 			UID tsUID = reader.checkTSUID();
 			//PDF
 			if(sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
-				//if thumbnail, load only one frame
-				loadSlideGlassFromPDF(imgFiles.get(i), header, backend);
+				this.isPDF = true;
+				/*
+				 * PDF to one series.
+				 */
+				loadSlideGlassFromPDF(imgFiles.get(i), header, fmi, backend);
 				//PDF is one series, break here.
 				break;
 			}
@@ -402,7 +407,7 @@ public class Praparat extends JPanel {
 			 * 1.General image types do not have NumberOfFrames tag.(means -1).
 			 * 2.3d sequence MRI, number of frame is 1 (of each image).
 			 */
-			DicomImage dcm = DicomImage.newDicomImage(imgFiles.get(i), header, reader.getFileMetaInfomation(), reader.checkTSUID(), backend);
+			DicomImage dcm = DicomImage.newDicomImage(imgFiles.get(i), header, fmi, tsUID, backend);
 			isMultiFrame = dcm.isMultiFrame();
 			isMultiFrame = isMultiFrame && dcm.getNumOfFrames() > 1;
 			
@@ -483,45 +488,49 @@ public class Praparat extends JPanel {
 			}
 		}
 		executor.shutdown();
-//		try {
-//			executor.awaitTermination(1, TimeUnit.MINUTES);
-//		} catch (InterruptedException e) {
-//			e.printStackTrace();
-//		}
 		video_reader_ = null;
 	}
 	
-	private void loadSlideGlassFromPDF(String path2dcm, DicomObject header, DICOMBackend backend) {
-		PDFReader pdfReader = new PDFReader(new File(path2dcm)/*read dicom*/);
-		ImagePlus pdfStack = pdfReader.pdf2ImageStack();
-		isMultiFrame = true;//always treats multi
-		isPDF = true;
+	private void loadSlideGlassFromPDF(String path2dcm, DicomObject header, DicomObject fmi, DICOMBackend backend) {
 		
+		PDFReader pdfReader = new PDFReader(new File(path2dcm)/*read dicom*/);
+		ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+		List<Future<SlideGlass>> futures = new ArrayList<>();
+		
+		isMultiFrame = true;//always treats multi
+		isPDF = true;//fail safe
+		boolean isThumbnail = getViewMode() == ViewMode.Thumbnail;
+		int size = isThumbnail ? 1 : pdfReader.getPDFPageCount();
 		//if thumbnail, load only one frame
-		if(getViewMode() == ViewMode.Thumbnail) {
-			slides.put(0, loadSlideGlassFromPDF(pdfStack, 0, header, backend));
-		}else {
-			for (int j = 0; j < pdfStack.getNSlices(); j++) {
-				slides.put(j, loadSlideGlassFromPDF(pdfStack, j, header, backend));
+		if (isThumbnail) {
+			Log.logger.fine("Praparat view mode is Thumbnail, PDF will be loaded only first page.");
+		}
+		for (int j = 0; j < size; j++) {
+			final int k = j;
+			Callable<SlideGlass> task = () -> {
+				BufferedImage page = pdfReader.renderPDFPage(k);
+				DicomObject instHeader = DicomObject.newDicomObject(header, backend);
+				instHeader.setInt(Tag.Instance​Number, VR.IS, (k + 1));
+				instHeader.setInt(Tag.Columns, VR.US, page.getWidth());
+				instHeader.setInt(Tag.Rows, VR.US, page.getHeight());
+				instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
+				instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+				DicomImage frame = DicomImage.newDicomImage(path2dcm, instHeader, fmi, UID.ExplicitVRLittleEndian, backend);
+				return new SlideGlass(this, frame);
+			};
+			futures.add(executor.submit(task));
+		}
+		AtomicInteger counter = new AtomicInteger(0);
+		for (Future<SlideGlass> future : futures) {
+			try {
+				slides.put(counter.getAndAdd(1), future.get());
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
 			}
 		}
-		pdfReader.close();
+		executor.shutdown();
 	}
 	
-	private SlideGlass loadSlideGlassFromPDF(ImagePlus pdf, int pos/*0 to n-1*/, DicomObject header, DICOMBackend backend) {
-		ImageProcessor instIp = pdf.getStack().getProcessor(pos + 1);
-		DicomObject instHeader = DicomObject.newDicomObject(header, backend);
-		instHeader.setInt(Tag.Columns, VR.US, instIp.getWidth());
-		instHeader.setInt(Tag.Rows, VR.US, instIp.getHeight());
-		instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
-		instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
-		instHeader.setInt(Tag.Instance​Number, VR.IS, (pos + 1));
-		DicomImage img = DicomImage.newDicomImage(null, instHeader, null, UID.ImplicitVRLittleEndian, backend);
-		img.setPixelData(pos, pdf.getWidth(), pdf.getHeight(), 3, 8, instIp.getPixels());
-		return new SlideGlass(this, img);
-	}
-	
-
 	/**
 	 * Attention: Will use large physical memory.
 	 * This method is only used for single pop-up view or test purpose.
@@ -1422,6 +1431,7 @@ public class Praparat extends JPanel {
 		DicomImage dcmimg = sg.getDicomImage();
 		isMultiFrame = dcmimg.isMultiFrame();
 		isMultiFrame = isMultiFrame && dcmimg.getNumOfFrames() > 1;
+		isMultiFrame = isPDF == true ? true:isMultiFrame;
 		// まだピクセルデータがロードされていない、または解凍されていない場合
 		if (sg.getOriginalImage() == null) {
 			/**

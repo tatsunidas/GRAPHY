@@ -151,7 +151,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		this.dataset = dataset;
 		this.tsuid = tsuid;
 		this.tstype = TransferSyntaxType.forUID(tsuid);
-		 System.out.println("DEBUG: Attempting to decompress TSUID: " + this.tsuid);
+		// System.out.println("DEBUG: Attempting to decompress TSUID: " + this.tsuid);
 		init(this.dataset, this.tsuid);
 	}
 
@@ -193,7 +193,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 				throw new UnsupportedOperationException("Unsupported Transfer Syntax: " + tsuid);
 
 			this.decompressor = ImageReaderFactory.getImageReader(param);
-			Log.logger.info("DecompressorChe:" + decompressor.getClass().getName());
+			Log.logger.fine("DecompressorChe:" + decompressor.getClass().getName());
 			this.readParam = decompressor.getDefaultReadParam();
 			this.patchJpegLS = param.patchJPEGLS;
 			this.pmiAfterDecompression = pmi.isYBR() && TransferSyntaxType.isYBRCompression(tsuid)
@@ -208,7 +208,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 			// この時点で null になるため、後の decompressor = ... で失敗する
 		} else {
 			this.decompressor = ImageReaderFactory.getImageReader(param);
-			Log.logger.info("使用するデコーダ: " + decompressor.getClass().getName());
+			Log.logger.fine("使用するデコーダ: " + decompressor.getClass().getName());
 		}
 	}
 

@@ -98,7 +98,8 @@ public class TestPraparat {
 //       testNormalMode_LoadFromImagePlus();
        
 //       testMultiFrame();
-       testMultiFrame_Compression();
+//       testMultiFrame_Compression();
+       testPDF();
        
 //		borderTest();
 	}
@@ -291,6 +292,32 @@ public class TestPraparat {
 		// パスとSOP UIDを格納するリストの作成
 		List<String> pathToSortedImages = new ArrayList<>();
 		pathToSortedImages.add(video);
+
+		String[] sopUidsArray = new String[] { sopUID };
+
+		Praparat pp = new Praparat(pid, studyUid, seriesUid, sopUidsArray, pathToSortedImages, Color.ORANGE,
+				ViewMode.Normal);
+		javax.swing.JFrame f = loadFrame(pp);
+		f.setSize(300, 300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
+		f.setVisible(true);
+	}
+	
+	static void testPDF() {
+		String pdf_dicom = "/home/tatsunidas/graphy_sample_images/GLFZM_PDFPaper_DICOM.dcm";
+
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+		reader.read(pdf_dicom, false);
+		DicomObject header = reader.getHeader();
+
+		String pid = header.getString(Tag.PatientID);
+		String studyUid = header.getString(Tag.StudyInstanceUID);
+		String seriesUid = header.getString(Tag.SeriesInstanceUID);
+		String sopUID = header.getString(Tag.SOPInstanceUID);
+
+		// パスとSOP UIDを格納するリストの作成
+		List<String> pathToSortedImages = new ArrayList<>();
+		pathToSortedImages.add(pdf_dicom);
 
 		String[] sopUidsArray = new String[] { sopUID };
 
