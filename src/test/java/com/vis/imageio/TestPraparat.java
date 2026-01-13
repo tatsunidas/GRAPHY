@@ -92,14 +92,14 @@ public class TestPraparat {
        /*
         * single grid and film grid test 
         */
-//       testNormalMode_LoadDicomFiles();
+       testNormalMode_LoadDicomFiles();
 //       testThumbnailMode_LoadDicomFiles();
        
 //       testNormalMode_LoadFromImagePlus();
        
 //       testMultiFrame();
 //       testMultiFrame_Compression();
-       testPDF();
+//       testPDF();
        
 //		borderTest();
 	}
