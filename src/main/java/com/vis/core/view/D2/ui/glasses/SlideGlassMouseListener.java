@@ -440,6 +440,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		slide.lastDraggedY = e.getY();
 		slide.lastPressedX = e.getX();
 		slide.lastPressedY = e.getY();
+		slide.startChangeContrastWW = slide.currentMax - slide.currentMin;
+		slide.startChangeContrastWL = slide.currentMin + (slide.startChangeContrastWW/2.);
 		
 		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());

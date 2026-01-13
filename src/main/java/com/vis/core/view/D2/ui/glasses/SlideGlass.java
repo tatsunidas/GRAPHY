@@ -137,11 +137,12 @@ public class SlideGlass extends JLayeredPane {
 	final double[] display_iop = new double[6];
 
 	// ww/wl settings
-//	private Calibration originalCal = null;
 	protected double currentMin = 0;// current window contrast min
 	protected double currentMax = 255;// current window contrast max
-	protected double lastMin = -1;// see,ImageLayerUI::processMouseEvent
-	protected double lastMax = -1;// see,ImageLayerUI::processMouseEvent
+	protected double lastMin = -1;
+	protected double lastMax = -1;
+	double startChangeContrastWW = -1;//mousePressed
+	double startChangeContrastWL = -1;//mousePressed
 	// rotate
 	public int currentRotateAngle = 0;
 	public int lastRotateAngle = 0;
@@ -199,49 +200,42 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	void adjustContrastFromMouseAction(int dragX, int dragY) {
-		int xDiff = dragX - lastDraggedX;
-		int yDiff = dragY - lastDraggedY;
-		double minMaxDifference = currentMax - currentMin;
-		
-		int totalWidth = pp.getImageScreenSizeX();
-		int totalHeight = pp.getImageScreenSizeY();
-		double xRatio = ((double) xDiff) / ((double) totalWidth);
-		double yRatio = ((double) yDiff) / ((double) totalHeight);
-		// scale to our image range
-		double xScaledValue = minMaxDifference * xRatio;
-		double yScaledValue = minMaxDifference * yRatio;
-		// to avoid rangeMin > rangeMax
-		if (Math.abs(xScaledValue) > minMaxDifference) {
-			if (xScaledValue < 0) {
-				xScaledValue = -1 * minMaxDifference;
-			} else {
-				xScaledValue = minMaxDifference;
-			}
-		}
-		if (Math.abs(yScaledValue) > minMaxDifference) {
-			if (yScaledValue < 0) {
-				yScaledValue = -1 * minMaxDifference;
-			} else {
-				yScaledValue = minMaxDifference;
-			}
-		}
-		
-		adjustWindowLevel(xScaledValue, yScaledValue);
-//		adjustWindowLevel(xDiff, yDiff);
-		lastDraggedX = dragX;
-		lastDraggedY = dragY;
-	}
+		// 1. 開始位置からの「総移動距離」を計算 (前回との差分ではない)
+	    int xDiff = dragX - lastPressedX;
+	    int yDiff = dragY - lastPressedY;
 
-	void adjustWindowLevel(double xDifference, double yDifference) {
-		setWindowingState(true);
-		// https://imagej.nih.gov/ij/plugins/window-level-tool/Window_Level_Tool.java
-		// current settings
-		double currentWindow = lastMax - lastMin;
-		double currentLevel = lastMin + (.5 * currentWindow);
-		// change
-		double newWindow = currentWindow + xDifference;
-		double newLevel = currentLevel + yDifference;
-		changeWindowingByWWWL((int) newLevel, (int) newWindow);
+	    // 2. 画面サイズに対する移動割合
+	    int totalWidth = pp.getImageScreenSizeX();
+	    int totalHeight = pp.getImageScreenSizeY();
+	    
+	    // ゼロ除算対策
+	    if (totalWidth == 0 || totalHeight == 0) return;
+
+	    // 感度調整（係数）。1.0だと画面端から端までドラッグして全範囲変化。
+	    // 必要に応じて 2.0 などを掛けて感度を上げてください。
+	    double sensitivity = 1.0; 
+	    
+	    // 現在のダイナミックレンジ（全体の最大-最小）
+	    double dynamicRange = currentMax - currentMin;
+
+	    // 3. 移動量に応じた変化量を計算
+	    // X軸: 右(正)でWWを広げる、左(負)で狭める -> そのまま加算
+	    double windowChange = (xDiff / (double) totalWidth) * dynamicRange * sensitivity;
+	    
+	    // Y軸: 下(正)でWLを下げる、上(負)でWLを上げる -> 符号を反転させる
+	    // (スクリーン座標は下がプラス、要望は上がプラスなので -1 を掛ける)
+	    double levelChange = -1 * (yDiff / (double) totalHeight) * dynamicRange * sensitivity;
+
+	    // 4. 新しい値を計算 (開始時の値 + 変化量)
+	    double newWindow = startChangeContrastWW + windowChange;
+	    double newLevel = startChangeContrastWL + levelChange;
+
+	    // Window幅が1未満や負にならないようにガード
+	    if (newWindow < 1.0) {
+	        newWindow = 1.0;
+	    }
+	    // 5. 適用
+	    changeWindowingByWWWL(newLevel, newWindow);
 	}
 
 	/**

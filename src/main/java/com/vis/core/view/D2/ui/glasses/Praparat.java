@@ -239,16 +239,17 @@ public class Praparat extends JPanel {
 		initComponent();
 	}
 	
-	
 	public void adjustContrastFromMouseAction(int dragX, int dragY) {
-		if (!isProcessSeries()) {
-			SlideGlass slide = getCurrentSlide();
-			slide.adjustContrastFromMouseAction(dragX, dragY);
-		} else {
+		SlideGlass slide = getCurrentSlide();
+		slide.adjustContrastFromMouseAction(dragX, dragY);
+		if (isProcessSeries()) {
 			HashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
-				sg.adjustContrastFromMouseAction(dragX, dragY);
+				if (slide == sg) {
+					continue;
+				}
+				sg.changeWindowingByMinMax(slide.currentMin, slide.currentMax);
 			}
 		}
 	}
