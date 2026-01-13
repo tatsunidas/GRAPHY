@@ -62,7 +62,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.*;
 
@@ -97,8 +96,6 @@ import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.GDicomTools;
-import com.vis.imageio.Codec;
-import com.vis.imageio.Decompressor;
 import com.vis.imageio.PDFReader;
 
 import ij.ImagePlus;
@@ -1430,12 +1427,13 @@ public class Praparat extends JPanel {
 			/**
 			 * multi frame file has only one file path.
 			 */
-			int pos = isMultiFrame ? 0 : index;
-			if (hasFileSource(pos)) {
+			int file_pos = isMultiFrame ? 0 : index;
+			int frame_pos = isMultiFrame ? index : 0;
+			if (hasFileSource(file_pos)) {
 				// 1. ファイルからピクセルを読み込む
 				if (dcmimg.ensurePixelDataLoaded()) {
 					// pixel情報がある場合にのみ更新
-					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(index));
+					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
 					sg.imageSpecimen.setOriginalImage(im);
 				}
 			}
@@ -1977,6 +1975,7 @@ public class Praparat extends JPanel {
 	 * @param w
 	 * @param h
 	 */
+	@SuppressWarnings("unused")
 	private void setViewPanelSize(int w, int h) {
 		viewPanel.setPreferredSize(new Dimension(w, h));
 		viewPanel.setBounds(0, 0, w, h);

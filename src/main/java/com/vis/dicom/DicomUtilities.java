@@ -160,7 +160,11 @@ public class DicomUtilities {
 	}
 	
 	public static String getFrameOfReferenceUID(String path) {
-		return new String((byte[])getDicomElement(path, Tag.FrameOfReferenceUID));
+		Object refUID = getDicomElement(path, Tag.FrameOfReferenceUID);
+		if (refUID != null) {
+			return new String((byte[]) getDicomElement(path, Tag.FrameOfReferenceUID));
+		}
+		return null;
 	}
 	
 	public static String[] getUIDSet(String path) {

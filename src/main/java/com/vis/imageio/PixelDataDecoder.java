@@ -204,6 +204,10 @@ public class PixelDataDecoder {
 	 * @return
 	 */
 	public ImageProcessor decodeDecompressedByte(byte[] bytes) {
+		if (bytes == null) {
+	        Log.logger.severe("解凍されたバイト配列が null です。解凍に失敗した可能性があります。");
+	        return null; // または適切なエラー処理
+	    }
 		ByteBuffer buffer = ByteBuffer.wrap(bytes).order(bigEndian ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
 		return processShort(buffer);
 	}

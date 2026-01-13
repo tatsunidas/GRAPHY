@@ -45,7 +45,6 @@ import org.dcm4che3.data.BulkData;
 import org.dcm4che3.data.Fragments;
 import org.dcm4che3.data.Tag;
 
-import com.vis.core.log.Log;
 import com.vis.core.util.ByteUtils;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
@@ -141,18 +140,19 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	@Override
 	public ImageProcessor getImageProcessor(int frame) {
 		
-		byte[] raw = getPixelData(frame);
-		if(raw == null) {
-			return null;
-		}
 		if(Codec.isCompressed(getTSUID())) {
-			Decompressor d = Decompressor.newInstance(DICOMBackend.DCM4CHE);
-			raw = d.decompress(raw);
+			Decompressor d = Decompressor.newInstance(this);
+			byte[] decompressed_raw = d.decompress(frame);
 			PixelDataDecoder pdec = new PixelDataDecoder(this);
-			return pdec.decodeDecompressedByte(raw);
+			return pdec.decodeDecompressedByte(decompressed_raw);
+		}else {
+			byte[] raw = getPixelData(frame);
+			if(raw == null) {
+				return null;
+			}
+			PixelDataDecoder pdec = new PixelDataDecoder(this);
+			return pdec.decode(raw);
 		}
-		PixelDataDecoder pdec = new PixelDataDecoder(this);
-		return pdec.decode(raw);
 	}
 	
 	@Override
@@ -244,62 +244,74 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	
 	@Override
 	public byte[] getPixelData(int frame) {
-	    Attributes attrs = (Attributes) this.header;
-	    Object bulk = attrs.getValue(Tag.PixelData);
-	    if (!(bulk instanceof Fragments)) {
-	        // 非圧縮データの場合は前回のBulkData用ロジックへ
-	        return getNativePixelData(frame);
-	    }
+		Attributes attrs = (Attributes) this.header;
+		Object bulk = attrs.getValue(Tag.PixelData);
+		if (!(bulk instanceof Fragments)) {
+			// 非圧縮データの場合は前回のBulkData用ロジックへ
+			return getNativePixelData(frame);
+		}
 
-	    Fragments frags = (Fragments) bulk;
-	    int numFrames = getNumOfFrames();
-	    if (frame < 0 || frame >= numFrames) return null;
+		/*
+		 * 20260113 以降のコードは未使用だが残す。 当初、圧縮ピクセルのbyte[]を取り出してから、 byte[]を解凍しようとしていたが、
+		 * DecompressCheの実装に合わせて、 byte[]を取り出さずに、直接フレームインデックス指定で取り出すようにした。
+		 */
+		Fragments frags = (Fragments) bulk;
 
-	    // --- Basic Offset Table (BOT) の解析 ---
-	    // インデックス0は必ずBOT。各フレームの開始位置（バイトオフセット）が4バイトずつ入っている。
-	    byte[] bot = (byte[]) frags.get(0);
-	    
-	    int startFrag = 1; // データの開始はインデックス1から
-	    int endFrag = 1;
+		// --- Basic Offset Table (BOT) の解析 ---
+		Object botObj = frags.get(0);
+		byte[] bot = null;
+		if (botObj instanceof byte[]) {
+			bot = (byte[]) botObj;
+		} else if (botObj instanceof BulkData) {
+			try {
+				bot = ((BulkData) botObj).toBytes(org.dcm4che3.data.VR.OB, false);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 
-	    // BOTにデータが入っている場合（長さ > 0）
-	    if (bot != null && bot.length >= (frame + 1) * 4) {
-	        // 現在のフレームの開始オフセットと、次のフレームの開始オフセットを比較して
-	        // このフレームがいくつのフラグメントに跨っているかを判定する
-	        // ※ 多くの医療機器では 1フレーム = 1フラグメント だが、規格上は分割可能
-	        
-	        // 本来はBOTをパースしてフラグメントを特定するが、dcm4cheのFragmentsは
-	        // 内部的にItem（フラグメント）をリスト保持しているため、
-	        // 一般的な実装（1フレーム=1フラグメント）に加え、分割されているケースに対応させる：
-	        
-	        if (frags.size() - 1 == numFrames) {
-	            // 最も一般的なケース: 1フレーム = 1フラグメント
-	            startFrag = frame + 1;
-	            endFrag = frame + 1;
-	        } else {
-	            // フレーム数とフラグメント数が合わない場合、本来はBOTのオフセット値を
-	            // 各フラグメントの累積サイズと比較して境界を特定する必要があります。
-	            // ここでは安全のため、結合が必要なケースを考慮したロジックにします。
-	            startFrag = findStartFragment(frags, bot, frame);
-	            endFrag = findEndFragment(frags, bot, frame, numFrames);
-	        }
-	    } else {
-	        // BOTが空の場合：1フレーム = 1フラグメントと仮定して取得（これしかない）
-	        startFrag = frame + 1;
-	        endFrag = frame + 1;
-	    }
+		// --- フラグメント範囲の特定 ---
+		int numFrames = getNumOfFrames();
+		int startFrag = findStartFragment(frags, bot, frame);
+		int endFrag = findEndFragment(frags, bot, frame, numFrames);
 
-	    // --- フラグメントの結合処理 ---
-	    return combineFragments(frags, startFrag, endFrag);
+		// --- 修正ポイント 2: フラグメントの結合 (combineFragments) ---
+		return combineFragments(frags, startFrag, endFrag);
 	}
 	
-	private byte[] combineFragments(Fragments frags, int start, int end) {
-	    if (start == end) return getFragmentBytes(frags.get(start));
+	/**
+	 * Fragmentsから安全にbyte[]を取り出すヘルパーメソッド
+	 */
+	private byte[] getFragmentBytes(Object frag) {
+	    if (frag == null) return null;
+	    if (frag instanceof byte[]) {
+	        return (byte[]) frag;
+	    } else if (frag instanceof BulkData) {
+	        try {
+	            // BulkDataを実際のバイト配列として読み込む
+	            return ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false);
+	        } catch (IOException e) {
+	            e.printStackTrace();
+	            return null;
+	        }
+	    }
+	    return null;
+	}
 
-	    // 複数フラグメントに跨る場合、結合して1つの圧縮ストリームにする
+	/**
+	 * 結合処理も getFragmentBytes を使うように修正
+	 */
+	private byte[] combineFragments(Fragments frags, int start, int end) {
+	    if (start == end) {
+	        return getFragmentBytes(frags.get(start));
+	    }
+
 	    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 	        for (int i = start; i <= end; i++) {
-	            baos.write(getFragmentBytes(frags.get(i)));
+	            byte[] b = getFragmentBytes(frags.get(i));
+	            if (b != null) {
+	                baos.write(b);
+	            }
 	        }
 	        return baos.toByteArray();
 	    } catch (IOException e) {
@@ -307,14 +319,14 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	    }
 	}
 	
-	private byte[] getFragmentBytes(Object frag) {
-	    if (frag instanceof byte[]) return (byte[]) frag;
-	    if (frag instanceof BulkData) {
-	        try { return ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false); }
-	        catch (IOException e) { return null; }
-	    }
-	    return null;
-	}
+//	private byte[] getFragmentBytes(Object frag) {
+//	    if (frag instanceof byte[]) return (byte[]) frag;
+//	    if (frag instanceof BulkData) {
+//	        try { return ((BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false); }
+//	        catch (IOException e) { return null; }
+//	    }
+//	    return null;
+//	}
 	
 	/**
 	 * 指定されたフレームの開始点となるフラグメント・インデックスを取得します。

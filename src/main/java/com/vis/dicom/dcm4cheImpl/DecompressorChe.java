@@ -53,7 +53,6 @@ import java.awt.image.Raster;
 import java.awt.image.SampleModel;
 import java.awt.image.SinglePixelPackedSampleModel;
 import java.awt.image.WritableRaster;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -63,7 +62,6 @@ import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.BulkData;
@@ -125,6 +123,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		this.dataset = null;
 		this.tsuid = null;
 		this.tstype = null;
+		
 	};
 	
 	/**
@@ -138,6 +137,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		this.dataset = (Attributes) dcmImg.getHeader();
 		this.tsuid = dcmImg.getTSUID().uid();
 		this.tstype = TransferSyntaxType.forUID(tsuid);
+	    Log.logger.fine("DEBUG: Attempting to decompress TSUID: " + this.tsuid);
 		init(this.dataset, this.tsuid);
 	}
 
@@ -151,62 +151,66 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		this.dataset = dataset;
 		this.tsuid = tsuid;
 		this.tstype = TransferSyntaxType.forUID(tsuid);
+		 System.out.println("DEBUG: Attempting to decompress TSUID: " + this.tsuid);
 		init(this.dataset, this.tsuid);
 	}
-    
-    private void init(Attributes dataset, String tsuid) {
-        Object pixeldata = dataset.getValue(Tag.PixelData);
-        if (pixeldata == null)
-            return;
 
-        if (tstype == null)
-            throw new IllegalArgumentException("Unknown Transfer Syntax: " + tsuid);
-        this.rows = dataset.getInt(Tag.Rows, 0);
-        this.cols = dataset.getInt(Tag.Columns, 0);
-        this.samples = dataset.getInt(Tag.SamplesPerPixel, 0);
-        this.pmi = PhotometricInterpretation.fromString(
-                dataset.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
-        this.pmiAfterDecompression = pmi;
-        this.bitsAllocated = dataset.getInt(Tag.BitsAllocated, 8);
-        this.bitsStored = dataset.getInt(Tag.BitsStored, bitsAllocated);
-        this.banded = dataset.getInt(Tag.PlanarConfiguration, 0) != 0;
-        this.signed = dataset.getInt(Tag.PixelRepresentation, 0) != 0;
-        this.frames = dataset.getInt(Tag.NumberOfFrames, 1);
-        this.frameLength = rows * cols * samples * bitsAllocated / 8;
-        this.length = frameLength * frames;
-        this.imageDescriptor = new ImageDescriptor(dataset);
-        
-        if (pixeldata instanceof Fragments) {
-            if (!tstype.isPixeldataEncapsulated())
-                throw new IllegalArgumentException("Encapusulated Pixel Data"
-                        + "with Transfer Syntax: " + tsuid);
-            this.pixeldataFragments = (Fragments) pixeldata;
+	private void init(Attributes dataset, String tsuid) {
+		Object pixeldata = dataset.getValue(Tag.PixelData);
+		if (pixeldata == null)
+			return;
 
-            int numFragments = pixeldataFragments.size();
-            if (frames == 1 ? (numFragments < 2)
-                            : (numFragments != frames + 1))
-                throw new IllegalArgumentException(
-                        "Number of Pixel Data Fragments: "
-                        + numFragments + " does not match " + frames);
+		if (tstype == null)
+			throw new IllegalArgumentException("Unknown Transfer Syntax: " + tsuid);
+		this.rows = dataset.getInt(Tag.Rows, 0);
+		this.cols = dataset.getInt(Tag.Columns, 0);
+		this.samples = dataset.getInt(Tag.SamplesPerPixel, 0);
+		this.pmi = PhotometricInterpretation
+				.fromString(dataset.getString(Tag.PhotometricInterpretation, "MONOCHROME2"));
+		this.pmiAfterDecompression = pmi;
+		this.bitsAllocated = dataset.getInt(Tag.BitsAllocated, 8);
+		this.bitsStored = dataset.getInt(Tag.BitsStored, bitsAllocated);
+		this.banded = dataset.getInt(Tag.PlanarConfiguration, 0) != 0;
+		this.signed = dataset.getInt(Tag.PixelRepresentation, 0) != 0;
+		this.frames = dataset.getInt(Tag.NumberOfFrames, 1);
+		this.frameLength = rows * cols * samples * bitsAllocated / 8;
+		this.length = frameLength * frames;
+		this.imageDescriptor = new ImageDescriptor(dataset);
 
-            this.file = ((BulkData) pixeldataFragments.get(1)).getFile();
-            ImageReaderFactory.ImageReaderParam param =
-                    ImageReaderFactory.getImageReaderParam(tsuid);
-            if (param == null)
-                throw new UnsupportedOperationException(
-                        "Unsupported Transfer Syntax: " + tsuid);
+		if (pixeldata instanceof Fragments) {
+			if (!tstype.isPixeldataEncapsulated())
+				throw new IllegalArgumentException("Encapusulated Pixel Data" + "with Transfer Syntax: " + tsuid);
+			this.pixeldataFragments = (Fragments) pixeldata;
 
-            this.decompressor = ImageReaderFactory.getImageReader(param);
-            Log.logger.info("DecompressorChe:"+decompressor.getClass().getName());
-            this.readParam = decompressor.getDefaultReadParam();
-            this.patchJpegLS = param.patchJPEGLS;
-            this.pmiAfterDecompression = pmi.isYBR() && TransferSyntaxType.isYBRCompression(tsuid)
-                    ? PhotometricInterpretation.RGB
-                    : pmi;
-        } else {
-            this.file = ((BulkData) pixeldata).getFile();
-        }
-    }
+			int numFragments = pixeldataFragments.size();
+			if (frames == 1 ? (numFragments < 2) : (numFragments != frames + 1))
+				throw new IllegalArgumentException(
+						"Number of Pixel Data Fragments: " + numFragments + " does not match " + frames);
+
+			this.file = ((BulkData) pixeldataFragments.get(1)).getFile();
+			ImageReaderFactory.ImageReaderParam param = ImageReaderFactory.getImageReaderParam(tsuid);
+			if (param == null)
+				throw new UnsupportedOperationException("Unsupported Transfer Syntax: " + tsuid);
+
+			this.decompressor = ImageReaderFactory.getImageReader(param);
+			Log.logger.info("DecompressorChe:" + decompressor.getClass().getName());
+			this.readParam = decompressor.getDefaultReadParam();
+			this.patchJpegLS = param.patchJPEGLS;
+			this.pmiAfterDecompression = pmi.isYBR() && TransferSyntaxType.isYBRCompression(tsuid)
+					? PhotometricInterpretation.RGB
+					: pmi;
+		} else {
+			this.file = ((BulkData) pixeldata).getFile();
+		}
+		ImageReaderFactory.ImageReaderParam param = ImageReaderFactory.getImageReaderParam(tsuid);
+		if (param == null) {
+			Log.logger.severe("ImageReaderParam が取得できません。対応するデコーダがありません: " + tsuid);
+			// この時点で null になるため、後の decompressor = ... で失敗する
+		} else {
+			this.decompressor = ImageReaderFactory.getImageReader(param);
+			Log.logger.info("使用するデコーダ: " + decompressor.getClass().getName());
+		}
+	}
 
 	public void dispose() {
 		if (decompressor != null) {
@@ -243,39 +247,39 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
 		}
 		return true;
 	}
-	
+
 	/**
-	 * 外部から渡された圧縮バイト配列（特定の1フレーム分）を解凍し、
-	 * 解凍後の生ピクセルデータ（byte[]）を返します。
-	 * * @param compressedFrame 圧縮されたフレームデータ（JPEG, J2K等）
-	 * @return 解凍後の生ピクセル配列
+	 * 指定したフレームを解凍し、その生ピクセルデータを byte[] として返します。
+	 * 内部で既存の decompressFrame(iis, index) を呼び出すため、NativeImageReader でも安定して動作します。
 	 */
-	public byte[] decompress(byte[] compressedFrame) {
-		if (decompressor == null || compressedFrame == null) {
+	public byte[] decompress(int frameIndex) {
+		if (decompressor == null || file == null) {
+			Log.logger.severe("Decompressor または File が null です。");
 			return null;
 		}
 
-		try (ByteArrayInputStream bais = new ByteArrayInputStream(compressedFrame);
-				ImageInputStream iis = new MemoryCacheImageInputStream(bais);
+		// クラス内の既存メソッド createImageInputStream() を使用 (FileImageInputStream を返す)
+		// これにより "No stream adaptor found" エラーを回避できます。
+		try (ImageInputStream iis = createImageInputStream();
 				ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-			// 1. ImageReaderにストリームをセット
-			// JPEGLSのパッチが必要な場合はここでも適用
-			decompressor.setInput(patchJpegLS != null ? new PatchJPEGLSImageInputStream(iis, patchJpegLS) : iis);
+			// 1. 既存の解凍メソッドを呼び出し、BufferedImage を取得
+			// ここで SegmentedInputImageStream や NativeImageReader が適切に処理されます。
+			BufferedImage decompressedBi = decompressFrame(iis, frameIndex);
 
-			// 2. フレームを解凍してBufferedImageを取得 (インデックス0を指定)
-			// デフォルトの readParam を使用
-			readParam.setDestination(bi);
-			BufferedImage decompressedBi = decompressor.read(0, readParam);
+			if (decompressedBi == null) {
+				Log.logger.severe("decompressFrame が null を返しました。");
+				return null;
+			}
 
-			// 3. BufferedImageから生ピクセルデータを抽出してOutputStreamへ書き出し
-			// クラス内の既存メソッド writeTo(Raster, OutputStream) を再利用
+			// 2. 解凍後の Raster から生ピクセルデータを抽出して OutputStream (baos) へ書き出し
+			// クラス内の既存メソッド writeTo(Raster, OutputStream) を再利用します。
 			writeTo(decompressedBi.getRaster(), baos);
 
 			return baos.toByteArray();
 
 		} catch (IOException e) {
-			Log.logger.severe("Failed to decompress frame bytes: " + e.getMessage());
+			Log.logger.severe("decompressFrameToBytes で例外が発生しました: " + e.getMessage());
 			e.printStackTrace();
 			return null;
 		}
@@ -514,5 +518,4 @@ public class DecompressorChe implements com.vis.imageio.Decompressor{
             out.write(b);
         }
     }
-
 }

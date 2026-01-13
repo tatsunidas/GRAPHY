@@ -37,18 +37,14 @@
  */
 package com.vis.imageio;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
@@ -99,7 +95,10 @@ public class TestPraparat {
 //       testNormalMode_LoadDicomFiles();
 //       testThumbnailMode_LoadDicomFiles();
        
-       testNormalMode_LoadFromImagePlus();
+//       testNormalMode_LoadFromImagePlus();
+       
+//       testMultiFrame();
+       testMultiFrame_Compression();
        
 //		borderTest();
 	}
@@ -116,13 +115,6 @@ public class TestPraparat {
         });
 		frame.add(pp);
 		return frame;
-	}
-	
-	static void unsined() {
-		short ss = (short)-100;
-		short us = (short)40000;
-		System.out.println("to unsigned:"+((ss+(short)32765) & 0xffff));
-		System.out.println("to unsigned:"+(us & 0xffff));
 	}
 	
 	static void testNormalMode_LoadDicomFiles() {
@@ -256,36 +248,60 @@ public class TestPraparat {
 		f.setVisible(true);
 	}
 	
-	static void showGrid() {
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-//		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
-		Praparat pp = new Praparat(ViewMode.FilmGrid);
-		pp.prepareSlideGlassesUsingImagePlus(imp);
-		pp.doFilmGridLayout(5);
+	static void testMultiFrame() {
+//		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/XA_LEE_IR87a.dcm");//cannot open
+		String video = "/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/XA_LEE_IR87a.dcm";
+
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+		reader.read(video, false);
+		DicomObject header = reader.getHeader();
+
+		String pid = header.getString(Tag.PatientID);
+		String studyUid = header.getString(Tag.StudyInstanceUID);
+		String seriesUid = header.getString(Tag.SeriesInstanceUID);
+		String sopUID = header.getString(Tag.SOPInstanceUID);
+
+		// パスとSOP UIDを格納するリストの作成
+		List<String> pathToSortedImages = new ArrayList<>();
+		pathToSortedImages.add(video);
+
+		String[] sopUidsArray = new String[] { sopUID };
+
+		Praparat pp = new Praparat(pid, studyUid, seriesUid, sopUidsArray, pathToSortedImages, Color.ORANGE,
+				ViewMode.Normal);
 		javax.swing.JFrame f = loadFrame(pp);
-		f.setSize(300,300);
+		f.setSize(300, 300);
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
 	}
 	
-	static void showThumbnail() {
-		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		Praparat pp = new Praparat(ViewMode.Thumbnail);
-		pp.prepareSlideGlassesUsingImagePlus(imp);
-		pp.setTextVisible(false);
-		pp.setAnnotationVisible(false);
-		pp.doSingleGridLayout();
-		
-		javax.swing.JFrame f = new javax.swing.JFrame("PraparatTest");
-		f.setSize(300,300);
-		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);		
+	static void testMultiFrame_Compression() {
+//		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/XA_JPG_IR6a.dcm");//cannot open IJ
+		String video = "/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/XA_JPG_IR6a.dcm";
+
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
+		reader.read(video, false);
+		DicomObject header = reader.getHeader();
+
+		String pid = header.getString(Tag.PatientID);
+		String studyUid = header.getString(Tag.StudyInstanceUID);
+		String seriesUid = header.getString(Tag.SeriesInstanceUID);
+		String sopUID = header.getString(Tag.SOPInstanceUID);
+
+		// パスとSOP UIDを格納するリストの作成
+		List<String> pathToSortedImages = new ArrayList<>();
+		pathToSortedImages.add(video);
+
+		String[] sopUidsArray = new String[] { sopUID };
+
+		Praparat pp = new Praparat(pid, studyUid, seriesUid, sopUidsArray, pathToSortedImages, Color.ORANGE,
+				ViewMode.Normal);
+		javax.swing.JFrame f = loadFrame(pp);
+		f.setSize(300, 300);
+		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		f.setVisible(true);
-		
-		JPanel base = new JPanel(null);
-		f.add(base, BorderLayout.CENTER);
-		base.add(pp);
 	}
-	
+		
 	static void showUsingPixelDecoder() {
 
 		ArrayList<String> paths = new ArrayList<String>();
