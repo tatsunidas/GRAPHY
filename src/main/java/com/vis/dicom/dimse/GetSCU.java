@@ -329,9 +329,12 @@ public class GetSCU {
 
 
 	public static void main(String[] args) throws Exception {
+		ExecutorService executorService = null;
+		ScheduledExecutorService scheduledExecutorService = null;
+		GetSCU main = null;
 		try {
 			CommandLine cl = parseComandLine(args);
-			GetSCU main = new GetSCU();
+			main = new GetSCU();
 			CLIUtils.configureConnect(main.remote, main.rq, cl);
 			CLIUtils.configureBind(main.conn, main.ae, cl);
 			CLIUtils.configure(main.conn, cl);
@@ -342,23 +345,17 @@ public class GetSCU {
 			main.setPriority(CLIUtils.priorityOf(cl));
 			configureStorageDirectory(main, cl);
 			main.setCancelAfter(CLIUtils.getIntOption(cl, "cancel-after", 0));
-			ExecutorService executorService = Executors.newSingleThreadExecutor();
-			ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+			executorService = Executors.newSingleThreadExecutor();
+			scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 			main.device.setExecutor(executorService);
 			main.device.setScheduledExecutor(scheduledExecutorService);
-			try {
-				main.open();
-				List<String> argList = cl.getArgList();
-				if (argList.isEmpty())
-					main.retrieve();
-				else
-					for (String arg : argList)
-						main.retrieve(new File(arg));
-			} finally {
-				main.close();
-				executorService.shutdown();
-				scheduledExecutorService.shutdown();
-			}
+			main.open();
+			List<String> argList = cl.getArgList();
+			if (argList.isEmpty())
+				main.retrieve();
+			else
+				for (String arg : argList)
+					main.retrieve(new File(arg));
 		} catch (ParseException e) {
 			System.err.println("getscu: " + e.getMessage());
 			System.err.println(rb.getString("try"));
@@ -371,6 +368,34 @@ public class GetSCU {
 			System.err.println("getscu: " + e.getMessage());
 			e.printStackTrace();
 			throw e;
+		} finally {
+			if (main != null) {
+				try {
+					main.close();
+				} catch (Exception e) {
+					LOG.warn("Error closing GetSCU: {}", e.getMessage());
+				}
+			}
+			if (executorService != null) {
+				executorService.shutdown();
+				try {
+					if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+						executorService.shutdownNow();
+					}
+				} catch (InterruptedException e) {
+					executorService.shutdownNow();
+				}
+			}
+			if (scheduledExecutorService != null) {
+				scheduledExecutorService.shutdown();
+				try {
+					if (!scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
+						scheduledExecutorService.shutdownNow();
+					}
+				} catch (InterruptedException e) {
+					scheduledExecutorService.shutdownNow();
+				}
+			}
 		}
 	}
 
@@ -441,9 +466,17 @@ public class GetSCU {
     }
 
     public void close() throws IOException, InterruptedException {
-        if (as != null && as.isReadyForDataTransfer()) {
-            as.waitForOutstandingRSP();
-            as.release();
+        if (as != null) {
+            try {
+                if (as.isReadyForDataTransfer()) {
+                    as.waitForOutstandingRSP();
+                    as.release();
+                }
+            } catch (Exception e) {
+                LOG.warn("Error during association release: {}", e.getMessage());
+            } finally {
+                as = null;
+            }
         }
     }
 
