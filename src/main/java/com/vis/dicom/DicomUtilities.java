@@ -219,6 +219,13 @@ public class DicomUtilities {
 		return false;
 	}
 	
+	/**
+	 * path2PatDir
+	 * 		- DICOM
+	 * 			- STUDY1
+	 *  		- STUDY2
+	 * @param path2PatDir
+	 */
 	public static void attachDICOMDIRTo(String path2PatDir) {
 		/*
 		 * path:"DICOM" folder root:"Pname" folder

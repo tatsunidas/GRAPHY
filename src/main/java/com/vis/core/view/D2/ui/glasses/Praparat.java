@@ -266,14 +266,16 @@ public class Praparat extends JPanel {
 	 * @param fromMouseAction
 	 */
 	public void adjustContrastByMinMax(double min, double max) {
-		if (!isProcessSeries()) {
-			SlideGlass slide = getCurrentSlide();
-			slide.changeWindowingByMinMax(min, max);
-		} else {
+		SlideGlass slide = getCurrentSlide();
+		slide.changeWindowingByMinMax(min, max);
+		if (isProcessSeries()) {
 			HashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
-				SlideGlass slide = slides.get(key);
-				slide.changeWindowingByMinMax(min, max);
+				SlideGlass sg = slides.get(key);
+				if(slide == sg) {
+					continue;
+				}
+				sg.changeWindowingByMinMax(min, max);
 			}
 		}
 	}

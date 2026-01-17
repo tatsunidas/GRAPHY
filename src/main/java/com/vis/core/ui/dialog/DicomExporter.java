@@ -329,7 +329,8 @@ public class DicomExporter extends JFrame implements Task {
 		jfc = new JFileChooser();
 		jfc.setDialogTitle("Export Option Dialog");
 		jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		jfc.setCurrentDirectory(new File(System.getProperty("user.home")));
+		String userDir = new File(System.getProperty("user.home")).getAbsolutePath();
+		jfc.setCurrentDirectory(new File(userDir+File.separator+"Export"));
 		eop = new ExportOptionPanel();
 		jfc.setAccessory(eop);
 		jfc.setApproveButtonText(approveButtonText);
@@ -373,7 +374,7 @@ public class DicomExporter extends JFrame implements Task {
 		 * it may cause folder name duplication error.
 		 * Here, use UIDs for folders.
 		 * 
-		 * [NOT USE]
+		 * [NO USE]
 		 * String studyDesc = db.getParticularInfoFromStudy("StudyDescription", patID, studyIUID);
 		 * String seriesDesc = db.getParticularInfoFromSeries("SeriesDescription", patID, studyIUID,seriesIUID);
 		 */
@@ -494,7 +495,6 @@ public class DicomExporter extends JFrame implements Task {
 				e.printStackTrace();
 			}
 		}
-		
 		done();
 	}
 
@@ -502,11 +502,14 @@ public class DicomExporter extends JFrame implements Task {
 	public void done() {
 		if(jfc != null) {
 			jfc = null;
+			/*
+			 * show only export dialog active.
+			 */
+			showExportResult();
 		}
 		if(executor != null && !executor.isShutdown()) {
 			executor.shutdown();
 		}
-		showExportResult();
 		isCompleted = tasks.stream().allMatch(Future::isDone);
 		dispose();
 	}
