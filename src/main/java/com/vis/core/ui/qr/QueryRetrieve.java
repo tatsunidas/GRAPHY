@@ -1058,6 +1058,9 @@ public class QueryRetrieve implements Task, Runnable {
 					
 					main.updateQRTreeTables();
 					
+					// Refresh local database view to show newly retrieved studies
+					main.loadLocalStudiesBySearchKey();
+					
 					// Restore tree expansion state after update
 					DICOMTreeTable newTreeTable = anchorDock.getDICOMTreeTable();
 					if (newTreeTable != null && expandedRows != null) {
