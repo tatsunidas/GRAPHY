@@ -163,30 +163,52 @@ public class DcmQRSCP implements DicomServer{
 			String cuid = rq.getString(Tag.AffectedSOPClassUID);
 			String iuid = rq.getString(Tag.AffectedSOPInstanceUID);
 			String tsuid = pc.getTransferSyntax();
+			
+			// Validate storage directory
+			if (storageDir == null) {
+				LOG.severe("Storage directory is null! Cannot store DICOM file.");
+				throw new DicomServiceException(Status.ProcessingFailure, "Storage directory not configured");
+			}
+			
+			LOG.info("C-STORE received: SOP Instance UID=" + iuid + ", Storage Dir=" + storageDir.getAbsolutePath());
+			
 			File file = new File(storageDir, iuid);
 			try {
 				Attributes fmi = as.createFileMetaInformation(iuid, cuid, tsuid);
 				storeTo(as, fmi, data, file);
+				LOG.info("File stored temporarily: " + file.getAbsolutePath());
+				
 				Attributes attrs = parse(file);
 				File dest = getDestinationFile(attrs);
 				renameTo(as, file, dest);
 				file = dest;
+				LOG.info("File renamed to destination: " + dest.getAbsolutePath());
+				
 				if (!useDicomDir) {
 					//writeDB
 					/* "DICOM/{00100020,hash}/{0020000D,hash}/{0020000E,hash}/{00080018,hash}" */
-					writeGraphyDB(attrs, dest);
-					LOG.info("DB-WROTE\n"+as);
+					boolean dbWriteSuccess = writeGraphyDB(attrs, dest);
+					if (dbWriteSuccess) {
+						LOG.info("DB-WROTE successfully: " + dest.getAbsolutePath() + "\n" + as);
+					} else {
+						LOG.warning("DB-WRITE failed for: " + dest.getAbsolutePath() + "\n" + as);
+					}
 				} else {
 					if (addDicomDirRecords(as, attrs, fmi, file)) {
 						LOG.info("DICOMDIR-UPDATE\n"+as);
 						//and also, write to db
-						writeGraphyDB(attrs, dest);
+						boolean dbWriteSuccess = writeGraphyDB(attrs, dest);
+						if (!dbWriteSuccess) {
+							LOG.warning("DB-WRITE failed after DICOMDIR update for: " + dest.getAbsolutePath());
+						}
 					} else {
 						LOG.info("{}: ignore received object\n"+as);
 						deleteFile(as, file);
 					}
 				}
 			} catch (Exception e) {
+				LOG.severe("Error storing DICOM file: " + e.getMessage());
+				e.printStackTrace();
 				deleteFile(as, file);
 				throw new DicomServiceException(Status.ProcessingFailure, e);
 			}
@@ -1192,13 +1214,21 @@ public class DcmQRSCP implements DicomServer{
 		return attrs;
 	}
 
-	private void writeGraphyDB(Attributes data, File dest) {
+	private boolean writeGraphyDB(Attributes data, File dest) {
 		DicomObjectChe dcmChe = new DicomObjectChe(data);
-		DatabaseHandler.getInstance().writeDatasetInfo((DicomObject)dcmChe, dest.getAbsolutePath());
+		boolean success = DatabaseHandler.getInstance().writeDatasetInfo((DicomObject)dcmChe, dest.getAbsolutePath());
+		if (!success) {
+			LOG.warning("Failed to write to database: " + dest.getAbsolutePath());
+		}
+		return success;
 	}
 	
-	public void writeGraphyDB(DicomObject data, File dest) {
-		DatabaseHandler.getInstance().writeDatasetInfo(data, dest.getAbsolutePath());
+	public boolean writeGraphyDB(DicomObject data, File dest) {
+		boolean success = DatabaseHandler.getInstance().writeDatasetInfo(data, dest.getAbsolutePath());
+		if (!success) {
+			LOG.warning("Failed to write to database: " + dest.getAbsolutePath());
+		}
+		return success;
 	}
 
 	private boolean isListening() {
