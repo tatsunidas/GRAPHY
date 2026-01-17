@@ -52,6 +52,7 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.xml.transform.OutputKeys;
@@ -428,9 +429,10 @@ public class FindSCU {
 		}
 	}
 
-	// tatsu
 	public ArrayList<Attributes> simpleQuery(String[] args) {
 		ArrayList<Attributes> result = new ArrayList<>();
+		ExecutorService executorService = null;
+		ScheduledExecutorService scheduledExecutorService = null;
 		try {
 			CommandLine cl = parseComandLine(args);
 			CLIUtils.configureConnect(remote, rq, cl);
@@ -443,24 +445,18 @@ public class FindSCU {
 			configureOutput(this, cl);
 			configureCancel(this, cl);
 			setPriority(CLIUtils.priorityOf(cl));
-			ExecutorService executorService = Executors.newSingleThreadExecutor();
-			ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+			executorService = Executors.newSingleThreadExecutor();
+			scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 			device.setExecutor(executorService);
 			device.setScheduledExecutor(scheduledExecutorService);
-			try {
-				this.open();
-				List<String> argList = cl.getArgList();
-				if (argList.isEmpty()) {
-					result = queryAndGetResult(keys);
-				} else {
-					for (String arg : argList) {
-						query(new File(arg));
-					}
+			this.open();
+			List<String> argList = cl.getArgList();
+			if (argList.isEmpty()) {
+				result = queryAndGetResult(keys);
+			} else {
+				for (String arg : argList) {
+					query(new File(arg));
 				}
-			} finally {
-				this.close();
-				executorService.shutdown();
-				scheduledExecutorService.shutdown();
 			}
 		} catch (ParseException e) {
 			System.err.println("findscu: " + e.getMessage());
@@ -470,6 +466,32 @@ public class FindSCU {
 			System.err.println("findscu: " + e.getMessage());
 			e.printStackTrace();
 			return null;
+		} finally {
+			try {
+				this.close();
+			} catch (Exception e) {
+				Log.logger.warning("Error closing FindSCU: " + e.getMessage());
+			}
+			if (executorService != null) {
+				executorService.shutdown();
+				try {
+					if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+						executorService.shutdownNow();
+					}
+				} catch (InterruptedException e) {
+					executorService.shutdownNow();
+				}
+			}
+			if (scheduledExecutorService != null) {
+				scheduledExecutorService.shutdown();
+				try {
+					if (!scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
+						scheduledExecutorService.shutdownNow();
+					}
+				} catch (InterruptedException e) {
+					scheduledExecutorService.shutdownNow();
+				}
+			}
 		}
 		return result;
 	}
@@ -548,9 +570,17 @@ public class FindSCU {
 	}
 
 	public void close() throws IOException, InterruptedException {
-		if (as != null && as.isReadyForDataTransfer()) {
-			as.waitForOutstandingRSP();
-			as.release();
+		if (as != null) {
+			try {
+				if (as.isReadyForDataTransfer()) {
+					as.waitForOutstandingRSP();
+					as.release();
+				}
+			} catch (Exception e) {
+				Log.logger.warning("Error during association release: " + e.getMessage());
+			} finally {
+				as = null;
+			}
 		}
 		SafeClose.close(out);
 		out = null;

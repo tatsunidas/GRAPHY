@@ -231,9 +231,12 @@ public class MoveSCU extends Device {
     }
 
     public static void main(String[] args) throws Exception {
+        ExecutorService executorService = null;
+        ScheduledExecutorService scheduledExecutorService = null;
+        MoveSCU main = null;
         try {
             CommandLine cl = parseComandLine(args);
-            MoveSCU main = new MoveSCU();
+            main = new MoveSCU();
             CLIUtils.configureConnect(main.remote, main.rq, cl);
             CLIUtils.configureBind(main.conn, main.ae, cl);
             CLIUtils.configure(main.conn, cl);
@@ -245,26 +248,18 @@ public class MoveSCU extends Device {
             main.setDestination(destinationOf(cl));
             main.setCancelAfter(CLIUtils.getIntOption(cl, "cancel-after", 0));
             main.setReleaseEager(cl.hasOption("release-eager"));
-            ExecutorService executorService =
-                    Executors.newSingleThreadExecutor();
-            ScheduledExecutorService scheduledExecutorService =
-                    Executors.newSingleThreadScheduledExecutor();
+            executorService = Executors.newSingleThreadExecutor();
+            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
             main.setExecutor(executorService);
             main.setScheduledExecutor(scheduledExecutorService);
-            try {
-                main.open();
-                List<String> argList = cl.getArgList();
-                if (argList.isEmpty())
-                    main.retrieve();
-                else
-                    for (String arg : argList)
-                        main.retrieve(new File(arg));
-            } finally {
-                main.close();
-                executorService.shutdown();
-                scheduledExecutorService.shutdown();
-            }
-       } catch (ParseException e) {
+            main.open();
+            List<String> argList = cl.getArgList();
+            if (argList.isEmpty())
+                main.retrieve();
+            else
+                for (String arg : argList)
+                    main.retrieve(new File(arg));
+        } catch (ParseException e) {
             System.err.println("movescu: " + e.getMessage());
             System.err.println(rb.getString("try"));
             Log.logger.severe(e.getMessage());
@@ -274,6 +269,34 @@ public class MoveSCU extends Device {
             e.printStackTrace();
             Log.logger.severe(e.getMessage());
             throw e;
+        } finally {
+            if (main != null) {
+                try {
+                    main.close();
+                } catch (Exception e) {
+                    Log.logger.warning("Error closing MoveSCU: " + e.getMessage());
+                }
+            }
+            if (executorService != null) {
+                executorService.shutdown();
+                try {
+                    if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                        executorService.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executorService.shutdownNow();
+                }
+            }
+            if (scheduledExecutorService != null) {
+                scheduledExecutorService.shutdown();
+                try {
+                    if (!scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                        scheduledExecutorService.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    scheduledExecutorService.shutdownNow();
+                }
+            }
         }
     }
 
@@ -314,14 +337,22 @@ public class MoveSCU extends Device {
     }
 
     public void close() throws IOException, InterruptedException {
-        if (scheduledCancel != null && releaseEager) { // release by scheduler thread
+        if (scheduledCancel != null && releaseEager) {
             return;
         }
-        if (as != null && as.isReadyForDataTransfer()) {
-            if (!releaseEager) {
-                as.waitForOutstandingRSP();
+        if (as != null) {
+            try {
+                if (as.isReadyForDataTransfer()) {
+                    if (!releaseEager) {
+                        as.waitForOutstandingRSP();
+                    }
+                    as.release();
+                }
+            } catch (Exception e) {
+                Log.logger.warning("Error during association release: " + e.getMessage());
+            } finally {
+                as = null;
             }
-            as.release();
         }
     }
 
