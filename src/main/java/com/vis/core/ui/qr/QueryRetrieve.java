@@ -118,8 +118,6 @@ public class QueryRetrieve implements Task, Runnable {
 	
 	public final static int SLEEP_TIME = 1000;
 	
-	boolean copyToTemp = false;
-	
 	public QueryRetrieve(boolean queryOnly) {
 		thisThread = new Thread(this);
 		sleepScheduled = false;//Utils.isDebug;
@@ -703,21 +701,12 @@ public class QueryRetrieve implements Task, Runnable {
 	}
 	
 	/**
-	 * Prepare import to DB.
-	 * @param dest
-	 * @param studynode
-	 */
-	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode) {
-		prepareRetrieve(dest, studynode, false);
-	}
-
-	/**
 	 * 
 	 * @param dest
 	 * @param studynode
 	 * @param copyToTemp : if true, do not store to db. just output temp file dir(temp/studyUID/seriesUID/./). 
 	 */
-	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode, boolean copyToTemp) {
+	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode) {
 		this.candidateInfoSet = null;
 		this.candidateInfoSet = prepareCandidate(studynode);
 		this.dest = dest;
@@ -733,8 +722,6 @@ public class QueryRetrieve implements Task, Runnable {
 				? studynode.getData(DICOMNode.SOPInstanceUID)
 				: "");
 		thisThread = new Thread(this);
-		
-		this.copyToTemp = copyToTemp;
 		
 		stopped = false;
 		//sleepScheduled = true;// useful for debug
@@ -815,30 +802,115 @@ public class QueryRetrieve implements Task, Runnable {
 	}
 	
 	@SuppressWarnings("unused")
-	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
-			String sopIUID) throws Exception {
-		//C-GET
-		// copy to temp dir and store it.
-		File tempRetrieveDir = null;
-		try {
-			tempRetrieveDir = getInstanceToTemp(remote, patID, studyIUID, seriesIUID, sopIUID);
-		} catch (Exception e) {
-			Log.logger.severe(e.getLocalizedMessage());
-			throw e;
-		}
-		File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID);
-		
-		if(!copyToTemp) {
-			// retrieve and delete temp file
-			File[] files = tempRetrieveDir.listFiles();
-			for( File f : files ) {
-				String instancePath = f.getAbsolutePath();
-				store(instancePath);
-			}
-		}
-		DeleteFolder.deleteDirectory(tempRetriveParentDir);
-	}
+//	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
+//			String sopIUID) throws Exception {
+//		//C-GET
+//		// copy to temp dir and store it.
+//		File tempRetrieveDir = null;
+//		try {
+//			tempRetrieveDir = getInstanceToTemp(remote, patID, studyIUID, seriesIUID, sopIUID);
+//		} catch (Exception e) {
+//			Log.logger.severe(e.getLocalizedMessage());
+//			throw e;
+//		}
+//		File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID);
+//		
+//		if(!copyToTemp) {
+//			// retrieve and delete temp file
+//			File[] files = tempRetrieveDir.listFiles();
+//			for( File f : files ) {
+//				String instancePath = f.getAbsolutePath();
+//				store(instancePath);
+//			}
+//		}
+//		DeleteFolder.deleteDirectory(tempRetriveParentDir);
+//	}
 	
+	/**
+     * Refactored C-GET: Supports STUDY, SERIES, and IMAGE levels.
+     * @param remote     Remote DICOM Node
+     * @param patID      Patient ID
+     * @param studyIUID  Study Instance UID (Required)
+     * @param seriesIUID Series Instance UID (Optional for Study level)
+     * @param sopIUID    SOP Instance UID (Optional for Series/Study level)
+     * @throws Exception
+     */
+	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID, String sopIUID)
+			throws Exception {
+
+		// 1. 接続先情報の取得
+		String remoteAET = remote.getAETitle();
+		String remoteHost = remote.getHostName();
+		int remotePort = remote.getPort();
+
+		// 2. 一時保存用ディレクトリの作成
+		// 複雑なパス指定をやめ、Javaの標準機能で一時フォルダを作成します
+		java.nio.file.Path tempPath = java.nio.file.Files.createTempDirectory("dicom_retrieve_");
+		File tempRetrieveDir = tempPath.toFile();
+
+		try {
+			// 3. GetSCUの引数構築
+			ArrayList<String> argsList = new ArrayList<>();
+
+			// 接続先
+			argsList.add("-c");
+			argsList.add(remoteAET + "@" + remoteHost + ":" + remotePort);
+
+			// 保存先（必須）
+			argsList.add("--directory");
+			argsList.add(tempRetrieveDir.getAbsolutePath());
+
+			// 取得レベルとキーの判定
+			if (sopIUID != null && !sopIUID.isEmpty()) {
+				// IMAGE Level
+				argsList.add("-L");
+				argsList.add("IMAGE");
+				argsList.add("-m");
+				argsList.add("StudyInstanceUID=" + studyIUID);
+				argsList.add("-m");
+				argsList.add("SeriesInstanceUID=" + seriesIUID);
+				argsList.add("-m");
+				argsList.add("SOPInstanceUID=" + sopIUID);
+			} else if (seriesIUID != null && !seriesIUID.isEmpty()) {
+				// SERIES Level
+				argsList.add("-L");
+				argsList.add("SERIES");
+				argsList.add("-m");
+				argsList.add("StudyInstanceUID=" + studyIUID);
+				argsList.add("-m");
+				argsList.add("SeriesInstanceUID=" + seriesIUID);
+			} else {
+				// STUDY Level
+				argsList.add("-L");
+				argsList.add("STUDY");
+				argsList.add("-m");
+				argsList.add("StudyInstanceUID=" + studyIUID);
+			}
+
+			// 必要に応じてPatientIDを追加
+			if (patID != null && !patID.isEmpty()) {
+				argsList.add("-m");
+				argsList.add("PatientID=" + patID);
+			}
+
+			// 4. GetSCU実行（ダウンロード）
+			String[] args = argsList.toArray(new String[0]);
+			com.vis.dicom.dimse.GetSCU.main(args);
+
+			// 5. ローカルDBへの取り込み（Store）
+			if (tempRetrieveDir.exists()) {
+				importFilesFromDirectory(tempRetrieveDir);
+			}
+
+		} catch (Exception e) {
+			Log.logger.severe("GetSCU execution failed: " + e.getMessage());
+			throw e;
+		} finally {
+			// 6. 後始末：一時ディレクトリごと削除
+			// 必須ではないコピー（ゴミ）を残さないようにします
+			DeleteFolder.deleteDirectory(tempRetrieveDir);
+		}
+	}
 	
 	private void c_move(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
 			String sopIUID) throws Exception {
@@ -848,7 +920,12 @@ public class QueryRetrieve implements Task, Runnable {
 		int remotePort = remote.getPort();
 
         // 2. 転送先 (画像を受け取る自アプリケーション)
-        String destinationAET = DatabaseHandler.getInstance().getListenerDetails()[0];
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		String[] details = db.getListenerDetails();
+       String destinationAET = details[0];
+//       String destHost = details[1];
+//       String destPort = details[2];
+       //System.out.println(destHost+":"+destPort);
 
         // 3. リクエスト元 (このコマンドを実行するアプリケーション自身)
         String movingAET = destinationAET; // 通常は転送先と同じ
@@ -871,7 +948,7 @@ public class QueryRetrieve implements Task, Runnable {
             args = new String[] {
                 "-c", remoteAET + "@" + remoteHost + ":" + remotePort, // 接続先PACS
                 "--dest", destinationAET,                        // 画像の転送先AET
-                "-b", movingAET,                                 // リクエスト元AET
+                "-b", movingAET,  // リクエスト元AET
                 "-L", "SERIES",                                  // 取得レベル
                 "-m", "StudyInstanceUID=" + studyIUID,           // マッチングキー
                 "-m", "SeriesInstanceUID=" + seriesIUID          // マッチングキー
@@ -896,6 +973,29 @@ public class QueryRetrieve implements Task, Runnable {
             throw e;
         }
 	}
+	
+    /**
+     * Helper method to recursively import files from a directory.
+     */
+    @SuppressWarnings("unused")
+	private void importFilesFromDirectory(File directory) {
+        if (directory == null || !directory.exists()) return;
+
+        File[] files = directory.listFiles();
+        if (files == null) return;
+
+        for (File f : files) {
+            if (f.isDirectory()) {
+                importFilesFromDirectory(f);
+            } else {
+                // Ignore non-DICOM files or system files if necessary
+                if (f.getName().equals("DICOMDIR") || f.isHidden()) continue;
+                
+                // Store using existing store logic
+                store(f.getAbsolutePath());
+            }
+        }
+    }
 	
 	private void performRetrieve() {
 		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {

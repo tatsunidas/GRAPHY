@@ -161,8 +161,7 @@ public class TreeTableMouseListener implements MouseListener{
 					 */
 					new Thread(() -> {
 						QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
-						qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node,
-								false/* false means will load to db */);
+						qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node);
 						qr.start();
 						qr.monitorTasks();
 						try {

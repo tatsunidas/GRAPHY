@@ -227,8 +227,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 					}
 					DICOMNode node = studies.get(0);
 					QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
-					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node,
-							false/* false means will load to db */);
+					qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node);
 					qr.start();
 					qr.monitorTasks();
 					try {

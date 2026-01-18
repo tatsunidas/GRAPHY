@@ -128,8 +128,8 @@ public class DcmQRSCP implements DicomServer{
 	private static final String[] PATIENT_STUDY_ONLY_LEVELS = { "PATIENT", "STUDY" };
 	private static ResourceBundle rb = ResourceBundle.getBundle("dcmqrscp.dcmqrscp-help");
 
-	protected final Device device = new Device("dcmqrscp");
-	protected final ApplicationEntity ae = new ApplicationEntity("*");
+	protected final Device device;
+	protected final ApplicationEntity ae;
 	protected final Connection conn = new Connection();
 
 	private File storageDir;
@@ -440,6 +440,13 @@ public class DcmQRSCP implements DicomServer{
 	}
 
 	public DcmQRSCP() throws IOException {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db == null) {
+			throw new IOException("Can not find graphy database...");
+		}
+		final String[] node = db.getListenerDetails();
+		ae = new ApplicationEntity(node[0]);
+		device = new Device();
 		device.addConnection(conn);
 		device.addApplicationEntity(ae);
 		ae.setAssociationAcceptor(true);
