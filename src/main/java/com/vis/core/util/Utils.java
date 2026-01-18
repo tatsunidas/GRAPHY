@@ -257,7 +257,8 @@ public class Utils {
 
         // コピー元がディレクトリであることを確認
         if (!Files.isDirectory(sourceDir) || !Files.exists(sourceDir)) {
-            throw new IllegalArgumentException("Source must be a directory: " + sourceDir);
+            Log.logger.warning("Source is not exists or Source must be a directory: " + sourceDir);
+            return;
         }
 
         Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {

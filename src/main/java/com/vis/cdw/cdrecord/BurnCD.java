@@ -37,21 +37,13 @@
  */
 package com.vis.cdw.cdrecord;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import javax.swing.JOptionPane;
-
-import com.vis.cdw.common.CDRToolsExec;
 import com.vis.cdw.common.DriveUtil;
 import com.vis.cdw.common.ExecutionProp;
-import com.vis.cdw.common.ExecutionStatusInfo;
 import com.vis.cdw.common.MediaCreationException;
 import com.vis.core.log.Log;
 
@@ -110,7 +102,7 @@ public class BurnCD {
 	private String driveId;
 
 	static final int MIN_RETRY_INTERVAL = 10;
-	protected int writeSpeed = -1;
+	protected int writeSpeed = 24;
 	protected boolean multiSession = false;// always false
 	protected boolean appendEnabled = false;// always false
 	protected boolean simulate = false;
@@ -129,8 +121,6 @@ public class BurnCD {
 
 	public BurnCD(String device, int speed, boolean eject, boolean verify) {
 		// set up
-		File homedir = new File(".");
-		this.logFile = new File(homedir, "log" + File.separator + "BurnCD.log");
 		setDeviceScsi(device);
 		setWriteSpeed(speed);
 		setEject(eject);
@@ -244,181 +234,236 @@ public class BurnCD {
 	public final void setDriveId(String driveId) {
 		this.driveId = driveId;
 	}
+	
+	/**
+     * mkisofs を使ってISOを作成します。
+     */
+    private void createIso(File sourceDir, File destIsoFile) throws MediaCreationException {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadMakeIsoFsExecution().getAbsolutePath());
+        cmd.add("-R"); // RockRidge
+        cmd.add("-J"); // Joliet
+        cmd.add("-f"); // Follow symlinks
+        cmd.add("-o");
+        cmd.add(destIsoFile.getAbsolutePath());
+        cmd.add(sourceDir.getAbsolutePath());
 
-	public void load(String device) {
-		CDRToolsExec.exec(makeLoadCmd(ExecutionProp.loadCdrecordExecution().getAbsolutePath(), device), device, false);
-	}
-
-	public void eject(String device) {
-		CDRToolsExec.exec(makeEjectCmd(ExecutionProp.loadCdrecordExecution().getAbsolutePath(), device), device, false);
-	}
-
-	public void burn(File isoRoot, File isoImageFile) throws MediaCreationException {
-		if (!isoImageFile.exists()) {
-            throw new MediaCreationException("ISO file not found: " + isoImageFile.getAbsolutePath());
+        int exitCode = DriveUtil.executeCommand(cmd, "Creating ISO");
+        if (exitCode != 0) {
+            throw new MediaCreationException("mkisofs failed with exit code: " + exitCode);
         }
-		
-		if (!checkDrive(getDeviceScsi())) {
-			log.warning("Drive not ready.");
-			throw new MediaCreationException("Drive Check failed");
-		}
+    }
 
-		int exit = -1;
-		OutputStream logout = null;
-		try {
-			String[] cmdarray = makeBurnCmd(isoImageFile);
-			if (logEnabled) {
-				logout = new BufferedOutputStream(new FileOutputStream(logFile));
-			}
-			exit = CDRToolsExec.execAndShowProgress(cmdarray, "Burn cd/dvd maybe failed...", false);
-		} catch (IOException e) {
-			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, e);
-		} finally {
-			if (logout != null)
-				try {
-					logout.close();
-					if (exit != 0) {
-						log.warning("Burn cd/dvd maybe failed...");
-					}
-					if (verify) {
-						load(device);
-//                    verify(getDriveLetterOrMountDirectory(), isoImageFile);//future work, deal with every os
-						if (eject) {
-							eject(getDeviceScsi());
-						}
-					} else {
-						if (eject) {
-							eject(getDeviceScsi());
-						}
-					}
-					log.info("Finished Creating Media");
-				} catch (Exception e) {
-					
-				}
-		}
-	}
-	
-	private List<String> buildCommand(File isoImageFile) {
-		List<String> cmd = new ArrayList<>();
-		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
-		cmd.add("-v"); // verbose
-		cmd.add("speed=" + writeSpeed);
-		if (eject)
-			cmd.add("-eject");
-		cmd.add("dev=" + device);
-		cmd.add("-dao"); // Disk At Once推奨
-		if (simulate) {
-			cmd.add("-dummy");
-		}
-		cmd.add(isoImageFile.getAbsolutePath());
-		
-//      if (multiSession) cmd.add("-multi");//never using
-//      cmd.add("-" + writeMode);//dao // for auto set mode
-//      cmd.add(padding ? "-pad" : "-nopad");//never padding.
-//      cmd.add("-" + trackType);//never using
-		return cmd;
-	}
+    /**
+     * cdrecord を使って書き込みを実行します。
+     */
+    private void executeBurn(File isoImageFile) throws MediaCreationException {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+        cmd.add("-v"); // verbose
+        cmd.add("speed=" + writeSpeed);
+        cmd.add("dev=" + device);
+        cmd.add("-dao"); // Disk At Once推奨
+        
+        if (simulate) {
+            cmd.add("-dummy");
+        }
+        if (eject) {
+            cmd.add("-eject");
+        }
+        
+        cmd.add(isoImageFile.getAbsolutePath());
 
-	protected String[] makeBurnCmd(File isoImageFile) {
-		List<String> cmd = buildCommand(isoImageFile);
-		return (String[]) cmd.toArray(new String[cmd.size()]);
-	}
+        int exitCode = DriveUtil.executeCommand(cmd, "Burning Disc");
+        if (exitCode != 0) {
+            throw new MediaCreationException("cdrecord failed with exit code: " + exitCode);
+        }
+    }
+    
+    /**
+     * ISO作成と焼付を一連の流れで実行します。
+     */
+    public void burn(File sourceDir, File destIsoFile) throws MediaCreationException {
+        
+        // 1. ISOファイルの作成
+        if (sourceDir != null && sourceDir.exists()) {
+            log.info("Creating ISO image from: " + sourceDir.getAbsolutePath());
+            createIso(sourceDir, destIsoFile);
+        }
 
-	public String[] makeLoadCmd(String executable, String device) {
-		return new String[] { executable, "-load", "dev=" + device };
-	}
+        if (!destIsoFile.exists()) {
+            throw new MediaCreationException("ISO file creation failed. File not found: " + destIsoFile.getAbsolutePath());
+        }
 
-	public String[] makeEjectCmd(String executable, String device) {
-		return new String[] { executable, "-eject", "dev=" + device };
-	}
+        // 2. 書き込み実行
+        log.info("Starting burn process to device: " + device);
+        executeBurn(destIsoFile);
+    }
+    
+//	public void burn(File isoRoot, File isoImageFile) throws MediaCreationException {
+//		if (!isoImageFile.exists()) {
+//            throw new MediaCreationException("ISO file not found: " + isoImageFile.getAbsolutePath());
+//        }
+//		
+//		if (!DriveUtil.isDriveReady(getDeviceScsi())) {
+//			log.warning("Drive not ready.");
+//			throw new MediaCreationException("Drive Check failed");
+//		}
+//
+//		int exit = -1;
+//		OutputStream logout = null;
+//		try {
+//			String[] cmdarray = makeBurnCmd(isoImageFile);
+//			if (logEnabled) {
+//				logout = new BufferedOutputStream(new FileOutputStream(logFile));
+//			}
+//			exit = CDRToolsExec.execAndShowProgress(cmdarray, "Burn cd/dvd maybe failed...", false);
+//		} catch (IOException e) {
+//			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, e);
+//		} finally {
+//			if (logout != null)
+//				try {
+//					logout.close();
+//					if (exit != 0) {
+//						log.warning("Burn cd/dvd maybe failed...");
+//					}
+//					if (verify) {
+//						load(device);
+////                    verify(getDriveLetterOrMountDirectory(), isoImageFile);//future work, deal with every os
+//						if (eject) {
+//							eject(getDeviceScsi());
+//						}
+//					} else {
+//						if (eject) {
+//							eject(getDeviceScsi());
+//						}
+//					}
+//					log.info("Finished Creating Media");
+//				} catch (Exception e) {
+//					
+//				}
+//		}
+//	}
 
-	/*
-	 * isovfy.exe filetoiso also good ?
-	 */
-	@SuppressWarnings("unused")
-	private void verify(String drivePath, File iso) throws MediaCreationException {
-		try {
-			if (mountTime > 0) {
-				try {
-					Thread.sleep(mountTime * 1000L);
-				} catch (InterruptedException e) {
-					log.warning("Mount Time was interrupted!\n");
-					log.warning(e.getLocalizedMessage());
-				}
-			}
-			if (mount) {
-				mount(drivePath);
-			}
-			// cmp /dev/cdrom /path/cdrom.iso
-			String verifyCmd[] = new String[] { "cmp", drivePath, iso.getAbsolutePath() };
-			if (!exec(verifyCmd, "Verification failed!")) {
-				JOptionPane.showMessageDialog(null,
-						"BurnCD process was not successful, please check/verify disk contents yourself.");
-				throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, "Verification failed!");
-			}
-		} finally {
-			// if (mount) umount(drivePath);
-		}
-	}
-
-	
-	public boolean checkDrive(String device) throws MediaCreationException {
-		return new DriveUtil().checkDrive(device);
-	}
-
-//    public boolean checkDisk(String executable) throws MediaCreationException {
-//        String[] cmdarray = { executable, "--info", "disc", "--drive", driveId};
-//        return check(cmdarray, "writeable");
-//    }
-
-	// for solaris
-	public void mount(String drivePath) throws MediaCreationException {
-		if (drivePath == null) {
-			return;
-		}
-		String[] cmdArray = { "mount", drivePath };
-		int exit = 0;
-		try {
-			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
-			java.lang.Process p = rt.exec(cmdArray);
-			exit = p.waitFor();
-		} catch (Exception e) {
-			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, "mount " + drivePath + " failed:", e);
-		}
-		if (exit != 0) {
-			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE,
-					"mount " + drivePath + " failed: exit(" + exit + ")");
-		}
-	}
-
-	// for solaris
-	public boolean umount(String drivePath) {
-		String[] cmdArray = { "umount", "-l", drivePath };
-		String warning = "Failed to unmount " + drivePath + ":";
-		return exec(cmdArray, warning);
-	}
-
-	private boolean exec(String[] cmd, String warning) {
-		int exit = 0;
-		java.lang.Process p = null;
-		try {
-			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
-			p = rt.exec(cmd);
-			exit = p.waitFor();
-			if (exit == 0) {
-				return true;
-			} else {
-				log.warning(warning + " exit(" + exit + ")");
-			}
-		} catch (Exception e) {
-			log.warning(warning);
-			return false;
-		} finally {
-			if (p != null && p.isAlive()) {
-				p.destroy();
-			}
-		}
-		return false;
-	}
+//	public void load(String device) {
+//		CDRToolsExec.exec(makeLoadCmd(ExecutionProp.loadCdrecordExecution().getAbsolutePath(), device), device, false);
+//	}
+//
+//	public void eject(String device) {
+//		CDRToolsExec.exec(makeEjectCmd(ExecutionProp.loadCdrecordExecution().getAbsolutePath(), device), device, false);
+//	}
+//
+//	private List<String> buildCommand(File isoImageFile) {
+//		List<String> cmd = new ArrayList<>();
+//		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+//		cmd.add("-v"); // verbose
+//		cmd.add("speed=" + writeSpeed);
+//		if (eject)
+//			cmd.add("-eject");
+//		cmd.add("dev=" + device);
+//		cmd.add("-dao"); // Disk At Once推奨
+//		if (simulate) {
+//			cmd.add("-dummy");
+//		}
+//		cmd.add(isoImageFile.getAbsolutePath());
+//		
+////      if (multiSession) cmd.add("-multi");//never using
+////      cmd.add("-" + writeMode);//dao // for auto set mode
+////      cmd.add(padding ? "-pad" : "-nopad");//never padding.
+////      cmd.add("-" + trackType);//never using
+//		return cmd;
+//	}
+//
+//	protected String[] makeBurnCmd(File isoImageFile) {
+//		List<String> cmd = buildCommand(isoImageFile);
+//		return (String[]) cmd.toArray(new String[cmd.size()]);
+//	}
+//
+//	public String[] makeLoadCmd(String executable, String device) {
+//		return new String[] { executable, "-load", "dev=" + device };
+//	}
+//
+//	public String[] makeEjectCmd(String executable, String device) {
+//		return new String[] { executable, "-eject", "dev=" + device };
+//	}
+//
+//	/*
+//	 * isovfy.exe filetoiso also good ?
+//	 */
+//	@SuppressWarnings("unused")
+//	private void verify(String drivePath, File iso) throws MediaCreationException {
+//		try {
+//			if (mountTime > 0) {
+//				try {
+//					Thread.sleep(mountTime * 1000L);
+//				} catch (InterruptedException e) {
+//					log.warning("Mount Time was interrupted!\n");
+//					log.warning(e.getLocalizedMessage());
+//				}
+//			}
+//			if (mount) {
+//				mount(drivePath);
+//			}
+//			// cmp /dev/cdrom /path/cdrom.iso
+//			String verifyCmd[] = new String[] { "cmp", drivePath, iso.getAbsolutePath() };
+//			if (!exec(verifyCmd, "Verification failed!")) {
+//				JOptionPane.showMessageDialog(null,
+//						"BurnCD process was not successful, please check/verify disk contents yourself.");
+//				throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, "Verification failed!");
+//			}
+//		} finally {
+//			// if (mount) umount(drivePath);
+//		}
+//	}
+//
+//	// for solaris
+//	public void mount(String drivePath) throws MediaCreationException {
+//		if (drivePath == null) {
+//			return;
+//		}
+//		String[] cmdArray = { "mount", drivePath };
+//		int exit = 0;
+//		try {
+//			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
+//			java.lang.Process p = rt.exec(cmdArray);
+//			exit = p.waitFor();
+//		} catch (Exception e) {
+//			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE, "mount " + drivePath + " failed:", e);
+//		}
+//		if (exit != 0) {
+//			throw new MediaCreationException(ExecutionStatusInfo.PROC_FAILURE,
+//					"mount " + drivePath + " failed: exit(" + exit + ")");
+//		}
+//	}
+//
+//	// for solaris
+//	public boolean umount(String drivePath) {
+//		String[] cmdArray = { "umount", "-l", drivePath };
+//		String warning = "Failed to unmount " + drivePath + ":";
+//		return exec(cmdArray, warning);
+//	}
+//
+//	private boolean exec(String[] cmd, String warning) {
+//		int exit = 0;
+//		java.lang.Process p = null;
+//		try {
+//			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
+//			p = rt.exec(cmd);
+//			exit = p.waitFor();
+//			if (exit == 0) {
+//				return true;
+//			} else {
+//				log.warning(warning + " exit(" + exit + ")");
+//			}
+//		} catch (Exception e) {
+//			log.warning(warning);
+//			return false;
+//		} finally {
+//			if (p != null && p.isAlive()) {
+//				p.destroy();
+//			}
+//		}
+//		return false;
+//	}
 
 }

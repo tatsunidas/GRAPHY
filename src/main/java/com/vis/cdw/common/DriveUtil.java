@@ -37,252 +37,447 @@
  */
 package com.vis.cdw.common;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileStore;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import org.apache.commons.io.IOUtils;
 
-
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
+/**
+ * Drive management utilities. Handles interaction with cdrtools (checkdrive)
+ * and file system mount points.
+ */
 public class DriveUtil {
-	
-	
-	private String[] makeCheckDriveCmd(String devicescsi) {
-		return new String[] {ExecutionProp.loadCdrecordExecution().getAbsolutePath(),"-checkdrive","dev="+devicescsi};
-	}
-	
-	public boolean checkDrive(String devicescsi) {
-		int exit = 0;
+
+	private static final Logger log = Logger.getLogger(DriveUtil.class.getName());
+	// --- CDRecord Wrapper Methods ---
+
+	/**
+	 * Checks if the drive at the specific SCSI address is available using 'cdrecord
+	 * -checkdrive'.
+	 */
+	public static boolean isDriveReady(String scsiAddress) {
+		List<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-checkdrive");
+		cmd.add("dev=" + scsiAddress);
+
 		try {
-			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
-			java.lang.Process p = rt.exec(makeCheckDriveCmd(devicescsi));
-			exit = p.waitFor();
-			if (exit == 0) {
-				return true;
-			} else {
-				// no drive/device
-				return false;
-			}
-		} catch (Exception e) {
+			// executeCommand returns null on non-zero exit code
+			List<String> result = executeCommand(cmd);
+			return result != null;
+		} catch (IOException e) {
+			log.log(Level.WARNING, "Failed to check drive: " + scsiAddress, e);
 			return false;
 		}
 	}
-	
-	public java.util.HashMap<String,String> loadDriveInfo(String devicescsi) {
-		int exit = 0;
+
+	/**
+	 * Loads detailed drive information using 'cdrecord -checkdrive'.
+	 */
+	public static DriveInfo loadDriveInfo(String scsiAddress) {
+		if (!isDriveReady(scsiAddress)) {
+			return null;
+		}
+
+		List<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-checkdrive");
+		cmd.add("dev=" + scsiAddress);
+
 		try {
-			java.lang.Runtime rt = java.lang.Runtime.getRuntime();
-    		java.lang.Process p = rt.exec(makeCheckDriveCmd(devicescsi));
-            exit = p.waitFor();
-            if(exit == 0) {
-				String stdout = IOUtils.toString(p.getInputStream(), "UTF-8");
-				/*Examples
-				 * Device type    : Removable CD-ROM
-				 * Version        : 0
-				 * Response Format: 2
-				 * Capabilities   : 
-				 * Vendor_info    : 'ASUS    '
-				 * Identifikation : 'SDRW-08U5S-U    '
-				 * Revision       : 'F201'
-				 * Device seems to be: Generic mmc2 DVD-R/DVD-RW/DVD-RAM.
-				 * Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
-				 * Driver flags   : MMC-3 SWABAUDIO BURNFREE 
-				 * Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R96R
-				 */
-				String[] info = stdout.split("\n");
-				HashMap<String,String> res = new HashMap<>();
-				res.put("SCSI", devicescsi);
-				for(String row :info) {
-					if(row.contains("Device type")) {
-						res.put("DeviceType", row.substring(row.indexOf(":")+1).replace(" ", "").replace("'", "").replace("\n", "").replace("\r", ""));//\rも改行文字
-					}else if(row.contains("Vendor_info")) {
-						res.put("VendorInfo", row.substring(row.indexOf(":")+1).replace(" ", "").replace("'", "").replace("\n", "").replace("\r", ""));
-					}else if(row.contains("Identifikation")) {
-						res.put("Identification", row.substring(row.indexOf(":")+1).replace(" ", "").replace("'", "").replace("\n", "").replace("\r", ""));
-					}
-				}
-				return res;
-			}else {
-				//no drivedevice
+			List<String> lines = executeCommand(cmd);
+			if (lines == null)
 				return null;
+
+			String vendor = "";
+			String identification = "";
+			String deviceType = "";
+
+			for (String line : lines) {
+				if (line.contains("Device type")) {
+					deviceType = parseValue(line);
+				} else if (line.contains("Vendor_info")) {
+					vendor = parseValue(line);
+				} else if (line.contains("Identifikation")) {
+					identification = parseValue(line);
+				}
 			}
-		} catch (Exception e) {
+			return new DriveInfo(scsiAddress, vendor, identification, deviceType);
+
+		} catch (IOException e) {
+			log.log(Level.WARNING, "Failed to load drive info: " + scsiAddress, e);
 			return null;
 		}
 	}
-	
-	/*
-	 * all OS 
-	 */
-	private ArrayList<String> grubAliveDevices() {
-		String[] candidate = CDRToolsProperties.loadDeviceCandidates();
-		ArrayList<String> alive = new ArrayList<String>();
-		for(String candi:candidate) {
-			if(checkDrive(candi)) {
-				alive.add(candi);
+
+	private static String parseValue(String line) {
+		int idx = line.indexOf(':');
+		return (idx != -1 && idx < line.length() - 1) ? line.substring(idx + 1) : "";
+	}
+
+	/**
+     * Gets display names for all detected "removable" drives.
+     * This works even if no disc is inserted.
+     */
+	public static List<String> getAvailableDriveNames() {
+		// 動的スキャン結果を使う
+		List<String> scannedAddresses = scanScsiAddresses();
+		List<String> names = new ArrayList<>();
+
+		for (String scsiAddress : scannedAddresses) {
+			// 詳細情報（ベンダー名など）を取得
+			DriveInfo info = loadDriveInfo(scsiAddress);
+			if (info != null) {
+				names.add(info.getDisplayName());
+			} else {
+				// 万が一 loadDriveInfo が失敗しても、アドレスだけでも表示する（保険）
+				names.add("Generic Drive (" + scsiAddress + ")");
 			}
 		}
-//		return list.toArray(new String[list.size()]);//if you want legacy array
-		return alive;
-	}
-	
-	public String[] grubAliveDevicesByNickName() {
-		ArrayList<String> alive =  grubAliveDevices();
-		ArrayList<String> names = new ArrayList<String>();
-		for(String device : alive) {
-			names.add(driveNickName(loadDriveInfo(device)));
-		}
-		return names.toArray(new String[names.size()]);//if you want legacy array
+		return names;
 	}
 	
 	/**
-	 * this is not the device name which defined in Cdrecord.
-	 * just readable name in this apps. 
-	 */
-	public String driveNickName(HashMap<String,String> driveInfo) {
-		String name = new String(driveInfo.get("DeviceType")+"_"+driveInfo.get("VendorInfo")+"_"+driveInfo.get("Identification")+"_"+driveInfo.get("SCSI"));
-		return name.trim();
+     * Executes 'cdrecord -scanbus' and filters ONLY optical drives.
+     */
+	public static List<String> scanScsiAddresses() {
+		List<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-scanbus");
+
+		List<String> foundAddresses = new ArrayList<>();
+
+		try {
+			List<String> lines = executeCommand(cmd);
+			if (lines == null)
+				return foundAddresses;
+
+			for (String line : lines) {
+				String trimmed = line.trim();
+
+				// 1. SCSIアドレスのパターンに一致するか確認 (例: "0,0,0")
+				if (trimmed.matches("^\\d+,\\d+,\\d+.*")) {
+
+					// 2. 【重要】光学ドライブに関連するキーワードが含まれているかチェック
+					// これがないと、HDDや空のスロットも拾ってしまう
+					if (isOpticalDriveLine(trimmed)) {
+						String scsiAddr = trimmed.split("\\s+")[0];
+						foundAddresses.add(scsiAddr);
+					}
+				}
+			}
+		} catch (IOException e) {
+			log.log(Level.WARNING, "Failed to scan bus", e);
+		}
+
+		return foundAddresses;
 	}
-	
-	/*
-	 * this is deprecated.
-	 * you should use cdrecord directly.
-	 * This is useful for windows.
-	 * https://stackoverflow.com/questions/7034216/get-all-dvd-drives-in-java
+
+	/**
+	 * scanbusの出力行が光学ドライブを示しているか判定するヘルパーメソッド
 	 */
-	public ArrayList<File> grubDriveDir4Windows() {
-		ArrayList<File> driveDirs = new ArrayList<File>();
-		for (File root : findRootDirs()) {
-			/*
-			 * a query on the file store's type() should do it.
-			 * With a CD not in the drive, the getFileStore() call throws
-			 * java.nio.file.FileSystemException: D:: The device is not ready.
-			 */
+	private static boolean isOpticalDriveLine(String line) {
+		String upperLine = line.toUpperCase();
+
+		// 明らかに除外すべきものを弾く (Disk=HDD, Processor=CPUなど)
+		if (upperLine.contains("DISK") || upperLine.contains("PROCESSOR")) {
+			return false;
+		}
+
+		// 光学ドライブを示すキーワードが含まれているか
+		// 一般的には "CD-ROM", "DVD", "BD", "WRITER", "REMOVABLE" などが含まれる
+		return upperLine.contains("CD") || upperLine.contains("DVD") || upperLine.contains("BD")
+				|| upperLine.contains("WRITER") || upperLine.contains("ROM");
+	}
+    
+	/**
+	 * Finds the file system path where the optical disc is mounted. Supports
+	 * Windows, Mac, and Linux (Standard paths).
+	 * CDが挿入されていないと検出できない。
+	 */	
+	public static List<File> findAllDriveMountPoints() {
+		List<File> searchRoots = getSystemSearchRoots();
+		List<File> foundDrives = new ArrayList<>(); // 結果格納用リスト
+
+		for (File root : searchRoots) {
+			if (!root.exists())
+				continue;
+
 			try {
 				FileStore store = Files.getFileStore(root.toPath());
-				String type = store.type();
-				//NTFS:HDD or SSD or USB
-				//FAT32 is almost USB
-				if(type.equals("NTFS") || type.equals("FAT32")) {
-					continue;
-				}
-				/*
-				 * タイプ名はOSによっても変わりそう。
-				 * UDFは、WinデフォルトのCDRを入れてUSBフォーマットしたときのタイプ名
-				 * フォーマットしない、あるいはCDのように使うとした場合は、incorrect functionエラーになる
-				 */
-				if(type.contains("CD") || type.contains("DVD") || type.contains("UDF")) {
-					driveDirs.add(root);
-				}
-			} catch (IOException e) {
-				//フォーマットしない、あるいはCDのように使うとした場合は、incorrect functionエラーになるので、レスキュー
-				/*
-				 * D:\: D:\: デバイスの準備ができていません。
-				 * F:\: F:\: ファンクションが間違っています。
-				 */
-				driveDirs.add(root);
-				System.out.println(root.getAbsolutePath() + ": <Maybe this dir is Drive>" + e.getLocalizedMessage());
-				
-			}
-		}
-		return driveDirs.size() < 1  ? null : driveDirs;
-	}
-	
-	public void test() {
-		FileSystem fs = FileSystems.getDefault();
-		for (Path rootPath : fs.getRootDirectories()) {
-			try {
-				FileStore store = Files.getFileStore(rootPath);
-				System.out.println(rootPath + ": " + store.type());
-			} catch (IOException e) {
-				System.out.println(rootPath + ": " + "<error getting store details>");
-			}
-		}
-	}
-	
-	//https://stackoverflow.com/questions/12144098/get-the-drive-program-is-running-on-in-mac
-	public File grubDriveDir4Mac() {
-		File[] mnt_pnt_files = new File("/Volumes").listFiles();
-		File driveDir = null;
-		for(File t : mnt_pnt_files) {
-			try {
-				FileStore store = Files.getFileStore(t.toPath());
-				String type = store.type();
-				if(type.contains("CD") || type.contains("UDF") || type.contains("DVD")) {
-					driveDir = t;
-					break;
-				}
-			} catch (IOException e) {
-				System.out.println(t.getAbsolutePath() + " : " + "<error getting store details>");
-			}
-		}
-		return driveDir;
-	}
-	
-	//https://forums.ubuntulinux.jp/viewtopic.php?id=8834
-	//https://superuser.com/questions/630588/how-to-detect-whether-there-is-a-cd-rom-in-the-drive
-	/*
-	 * linux is means ubuntu...
-	 */
-	//STILL NOT TEST
-	public File grubDriveDir4Linux() {
-		/*
-		 * On ubuntu, cd/dvd drive is mounted by gnome automatically.
-		 * but, in this case, does NOT named /dev/sr0 always.
-		 * some cases, mount point was set to "/media/something/"
-		 * Or, my environment always mount to burn:///
-		 * Here, we using burn:///.
-		 */
-		//if you need user-name::System.getProperty("user.name")
-//		String mnt_parent_point = "/media";
-//		File[] mnt_pnt_files = new File(mnt_parent_point).listFiles();
-//		File driveDir = null;
-//		for(File t : mnt_pnt_files) {
-//			try {
-//				FileStore store = Files.getFileStore(t.toPath());
-//				String type = store.type();
-//				if(type.contains("CD") || type.contains("UDF") || type.contains("DVD")) {
-//					driveDir = t;
-//					break;
-//				}
-//			} catch (IOException e) {
-//				System.out.println(t.getAbsolutePath() + " : " + "<error getting store details>");
-//			}
-//		}
-		return new File("burn:///");
-	}
-	
-	public Long readUsableSpaceOnDisk(File driveDir) {
-		try {
-			FileStore store = Files.getFileStore(driveDir.toPath());
-			return store.getUsableSpace();//suitable
-//			return store.getTotalSpace();
-		} catch (IOException e) {
-			System.err.println(driveDir.getAbsolutePath() + ": " + "<error when getting usable space details>");
-		}
-		return null;
-	}
-	
-	/*
-	 * for windows
-	 * C:\
-	 * D:\
-	 * E:\
-	 * 
-	 * for linux, always return only ["/"]
-	 */
-	public File[] findRootDirs() {
-		return File.listRoots();
-	}
+				String type = store.type().toUpperCase();
 
-	public boolean diskReady() {
+				// Common file system types for Optical Media
+				// Windows: CDFS, UDF
+				// *nix: iso9660, udf, cd9660
+				if (type.contains("CD") || type.contains("DVD") || type.contains("UDF") || type.contains("ISO9660")) {
+					foundDrives.add(root);
+				}
+			} catch (IOException e) {
+				continue;
+			}
+		}
+		return foundDrives;
+	}
+	
+	/**
+     * 指定されたデバイスに空のディスクが入っているか確認します。
+     * コマンド: cdrecord -minfo dev=x,y,z
+     */
+	public static boolean isDiskEmpty(String device) {
+		ArrayList<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-minfo");
+		cmd.add("dev=" + device);
+
+		try {
+			// 以前作成した DriveUtil.executeCommand のような仕組みを使うか、
+			// ここで ProcessBuilder を使って出力を解析します。
+			ProcessBuilder pb = new ProcessBuilder(cmd);
+			pb.redirectErrorStream(true);
+			Process p = pb.start();
+
+			try (java.io.BufferedReader reader = new java.io.BufferedReader(
+					new java.io.InputStreamReader(p.getInputStream()))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					// cdrecordの出力には "Disk status: empty" が含まれます
+					if (line.toLowerCase().contains("disk status: empty")) {
+						return true;
+					}
+					// DVDなどの場合 "blank" と出る場合もあります
+					if (line.toLowerCase().contains("blank")) {
+						return true;
+					}
+				}
+			}
+			p.waitFor();
+		} catch (Exception e) {
+			log.warning("Failed to check media info: " + e.getMessage());
+		}
 		return false;
 	}
+	
+	/**
+     * mkisofs -print-size を使用して、ISO化後の正確なサイズ（ブロック数）を取得します。
+     * ブロックサイズは通常2048バイトです。
+     */
+	public static long getIsoSizeInBlocks(File sourceDir) {
+		ArrayList<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadMakeIsoFsExecution().getAbsolutePath());
+		cmd.add("-print-size");
+		cmd.add("-R"); // RockRidge
+		cmd.add("-J"); // Joliet
+		cmd.add("-f");
+		cmd.add(sourceDir.getAbsolutePath());
 
+		try {
+			// 【修正点】 ProcessBuilderを直接使わず、
+			// 権限付与ロジックが含まれている executeCommand ヘルパーを使う
+			List<String> lines = executeCommand(cmd);
+
+			if (lines != null) {
+				for (String line : lines) {
+					line = line.trim();
+					// 数字だけの行がブロックサイズ
+					if (line.matches("^\\d+$")) {
+						return Long.parseLong(line);
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.warning("Failed to calculate ISO size: " + e.getMessage());
+		}
+		return -1; // 計算失敗
+	}
+
+    /**
+     * cdrecord -minfo を使用して、メディアの空きブロック数を取得します。
+     */
+	public static long getMediaFreeSpaceInBlocks(String device) {
+		ArrayList<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-minfo");
+		cmd.add("dev=" + device);
+
+		try {
+			ProcessBuilder pb = new ProcessBuilder(cmd);
+			pb.redirectErrorStream(true);
+			Process p = pb.start();
+
+			try (java.io.BufferedReader reader = new java.io.BufferedReader(
+					new java.io.InputStreamReader(p.getInputStream()))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					// 出力例: "Remaining writable size: 359846 blocks"
+					if (line.contains("Remaining writable size:")) {
+						String[] parts = line.split(":");
+						if (parts.length > 1) {
+							String blocks = parts[1].replace("blocks", "").trim();
+							return Long.parseLong(blocks);
+						}
+					}
+				}
+			}
+			p.waitFor();
+		} catch (Exception e) {
+			log.warning("Failed to get media info: " + e.getMessage());
+		}
+
+		// 取得失敗時のフォールバック（メディアの種類判定が難しいので安全側に倒して -1）
+		return -1;
+	}
+
+	public static Long getUsableSpace(File driveDir) {
+		if (driveDir == null)
+			return null;
+		try {
+			FileStore store = Files.getFileStore(driveDir.toPath());
+			return store.getUsableSpace();
+		} catch (IOException e) {
+			log.log(Level.WARNING, "Failed to get usable space for: " + driveDir, e);
+			return null;
+		}
+	}
+
+	// --- Private Helpers ---
+
+	private static List<File> getSystemSearchRoots() {
+		List<File> roots = new ArrayList<>();
+		String os = System.getProperty("os.name").toLowerCase();
+
+		if (os.contains("win")) {
+			Collections.addAll(roots, File.listRoots());
+		} else if (os.contains("mac")) {
+			File volumes = new File("/Volumes");
+			if (volumes.exists() && volumes.isDirectory()) {
+				File[] files = volumes.listFiles();
+				if (files != null)
+					Collections.addAll(roots, files);
+			}
+		} else {
+			// Linux/Unix generic attempts
+			String user = System.getProperty("user.name");
+			addIfExists(roots, "/media");
+			addIfExists(roots, "/media/" + user);
+			addIfExists(roots, "/run/media/" + user);
+			addIfExists(roots, "/mnt");
+			addIfExists(roots, "/cdrom");
+		}
+		return roots;
+	}
+
+	private static void addIfExists(List<File> list, String path) {
+		File f = new File(path);
+		if (f.exists() && f.isDirectory()) {
+			list.add(f);
+			// Linuxの/mediaなどは直下がマウントポイントなので、その子要素を追加する必要がある場合が多い
+			File[] subs = f.listFiles();
+			if (subs != null)
+				Collections.addAll(list, subs);
+		}
+	}
+
+	public static List<String> executeCommand(List<String> command) throws IOException {
+		//先にcdrtoolsのbinファイルに実行権限を与える
+		if (command != null && !command.isEmpty()) {
+            File exeFile = new File(command.get(0));
+            if (exeFile.exists() && !exeFile.canExecute()) {
+                boolean success = exeFile.setExecutable(true);
+                if (success) {
+                    log.info("Granted execute permission to: " + exeFile.getAbsolutePath());
+                } else {
+                    log.warning("Failed to grant execute permission to: " + exeFile.getAbsolutePath());
+                }
+            }
+        }
+		
+		ProcessBuilder pb = new ProcessBuilder(command);
+		pb.redirectErrorStream(true);
+
+		Process process = pb.start();
+		List<String> output = new ArrayList<>();
+
+		try (BufferedReader reader = new BufferedReader(
+				new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				output.add(line);
+			}
+		}
+
+		try {
+			int exitCode = process.waitFor();
+			if (exitCode != 0) {
+				// 失敗時はnullを返す設計（呼び出し元でハンドリング）
+				log.warning("Command failed (exit " + exitCode + "): " + command);
+				return null;
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IOException("Interrupted while executing command", e);
+		}
+
+		return output;
+	}
+	
+	public static int executeCommand(List<String> command, String taskName) throws MediaCreationException {
+        // 実行権限のチェックと付与
+        if (!command.isEmpty()) {
+            File exe = new File(command.get(0));
+            if (exe.exists() && !exe.canExecute()) {
+                if (exe.setExecutable(true)) {
+                    log.info("Granted execute permission to: " + exe.getAbsolutePath());
+                } else {
+                    log.warning("Failed to grant permission to: " + exe.getAbsolutePath());
+                }
+            }
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true); // エラー出力を標準出力に統合
+
+        Process process = null;
+        try {
+            log.info("[" + taskName + "] Executing: " + String.join(" ", command));
+            process = pb.start();
+
+            // ログを出力しながら実行待ち
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // cdrecord/mkisofsのログは大量に出るので、INFOレベルで出力
+                    // 必要ならフィルタリングしてください
+                    log.info("[" + taskName + "] " + line);
+                }
+            }
+
+            return process.waitFor();
+
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new MediaCreationException("Exception during " + taskName, e);
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroy();
+            }
+        }
+    }
 }

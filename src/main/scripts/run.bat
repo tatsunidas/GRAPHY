@@ -61,7 +61,7 @@ echo native_opencv : %NATIVE_LIB_PATH%
 
 REM --- Determine native_cdrtools library path suffix ---
 REM For Windows, assume a single 'windows' suffix
-SET "NATIVE_CDRTOOL_SUFFIX=windows"
+SET "NATIVE_CDRTOOL_SUFFIX=windows\win64"
 SET "NATIVE_CDR_LIB_PATH=%SCRIPT_DIR%lib\native_cdrtools\%NATIVE_CDRTOOL_SUFFIX%"
 
 echo native_cdrtools : %NATIVE_CDR_LIB_PATH%

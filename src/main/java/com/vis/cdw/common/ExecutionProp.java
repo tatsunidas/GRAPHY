@@ -40,6 +40,7 @@ package com.vis.cdw.common;
 import java.io.File;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.core.log.Log;
 import com.vis.core.util.Platform;
 
 /**
@@ -48,53 +49,54 @@ import com.vis.core.util.Platform;
  *
  */
 public class ExecutionProp {
-	
+
 	private static boolean isArchType64() {
-//		String arch = System.getenv("PROCESSOR_ARCHITECTURE");
-//		String wow64Arch = System.getenv("PROCESSOR_ARCHITEW6432");
-//
-//		String realArch = arch != null && arch.endsWith("64")
-//		                  || wow64Arch != null && wow64Arch.endsWith("64")
-//		                      ? "64" : "32";
-//		boolean is64 = realArch.equals("64");
 		return Platform.is32bitOS() ? false : true;
 	}
-		
+
 	public static File loadCdrecordExecution() {
 		String osName = System.getProperty("os.name").toLowerCase();
+		File binFile = null;
 		if (osName.startsWith("mac")) {
-			return new File(ConfigInfo.CDRTOOL_MAC.toString()+File.separator+"cdrecord");
+			binFile = new File(ConfigInfo.CDRTOOL_MAC.toString() + File.separator + "cdrecord");
 		} else if (osName.startsWith("windows")) {
 			if (isArchType64()) {
 //        		return new File("cdrtools/windows-cdrtools-3.02a01_mingw/win64/cdrecord.exe");//bug, can not run command. do not use
-				return new File(ConfigInfo.CDRTOOL_WIN64+File.separator+"cdrecord.exe");
+				binFile = new File(ConfigInfo.CDRTOOL_WIN64 + File.separator + "cdrecord.exe");
 			} else {
-				return new File(ConfigInfo.CDRTOOL_WIN32+File.separator+"cdrecord.exe");
+				binFile = new File(ConfigInfo.CDRTOOL_WIN32 + File.separator + "cdrecord.exe");
 			}
 		} else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
-			return new File(ConfigInfo.CDRTOOL_LINUX.toString()+File.separator+"cdrecord");
-		} else {
-			System.err.println("Graphy can not create media on UnknownOS..., return");
+			binFile = new File(ConfigInfo.CDRTOOL_LINUX.toString() + File.separator + "cdrecord");
+		}
+		if (binFile == null || !binFile.exists()) {
+			Log.logger.severe(
+					"Graphy can not find CdrecordExecutions.\nPlease check GRAPHY Dir/lib/native_cdrtools is exists.");
 			return null;
 		}
+		return binFile;
 	}
-	
+
 	public static File loadMakeIsoFsExecution() {
 		String osName = System.getProperty("os.name").toLowerCase();
-        if (osName.startsWith("mac")) {
-        	return new File(ConfigInfo.CDRTOOL_MAC.toString()+File.separator+"mkisofs");
-        } else if (osName.startsWith("windows")) {
-        	if(isArchType64()) {
-        		return new File(ConfigInfo.CDRTOOL_WIN64.toString()+File.separator+"mkisofs.exe");
-        	}else {
-        		return new File(ConfigInfo.CDRTOOL_WIN32.toString()+File.separator+"mkisofs.exe");
-        	}
-        } else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
-        	return new File(ConfigInfo.CDRTOOL_LINUX.toString()+File.separator+"mkisofs");
-        }else {
-        	System.err.println("Graphy can not create media on This UnknownOS..., return");
-        	return null;
-        }
+		File binFile = null;
+		if (osName.startsWith("mac")) {
+			binFile = new File(ConfigInfo.CDRTOOL_MAC.toString() + File.separator + "mkisofs");
+		} else if (osName.startsWith("windows")) {
+			if (isArchType64()) {
+				binFile = new File(ConfigInfo.CDRTOOL_WIN64.toString() + File.separator + "mkisofs.exe");
+			} else {
+				binFile = new File(ConfigInfo.CDRTOOL_WIN32.toString() + File.separator + "mkisofs.exe");
+			}
+		} else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
+			binFile = new File(ConfigInfo.CDRTOOL_LINUX.toString() + File.separator + "mkisofs");
+		}
+		if (binFile == null || !binFile.exists()) {
+			Log.logger.severe(
+					"Graphy can not find CdrecordExecutions.\nPlease check GRAPHY Dir/lib/native_cdrtools is exists.");
+			return null;
+		}
+		return binFile;
 	}
-	
+
 }

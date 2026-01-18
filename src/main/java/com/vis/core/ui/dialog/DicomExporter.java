@@ -101,6 +101,8 @@ public class DicomExporter extends JFrame implements Task {
 	protected boolean suspended = false;//pause
 	boolean isCompleted = false;
 	
+	boolean showExportResult = true;
+	
 	/*
 	 * for burn cd.
 	 */
@@ -157,7 +159,7 @@ public class DicomExporter extends JFrame implements Task {
 			boolean withViewer) {
 		
 		if(selectedDir == null || !selectedDir.exists()) {
-			Log.logger.warning("Export destinatio folder is not exists.");
+			Log.logger.warning("Export destination folder is not exists.");
 			return;
 		}
 		
@@ -206,7 +208,7 @@ public class DicomExporter extends JFrame implements Task {
 			File from = new File(dcmPath);
 			File to = new File(dest);
 			if (!from.exists()) {
-				Log.logger.warning(dcmPath + " is missing in graphy database...");
+				Log.logger.severe(dcmPath + " is missing in graphy database...");
 				continue;
 			}
 			synchronized (to) {
@@ -224,6 +226,14 @@ public class DicomExporter extends JFrame implements Task {
 			}
 		}
 
+		/*
+		 * how to embed weasis in cdr https://groups.google.com/g/dcm4che/c/9HIr2lyR9Os
+		 * 
+		 * DICOM - STUDIES 
+		 * DICOMDIR 
+		 * finally add weasis-portable files
+		 * 
+		 */
 		// finally add viewer and dicomdir
 		if(withViewer) {
 			try {
@@ -239,6 +249,10 @@ public class DicomExporter extends JFrame implements Task {
 			}
 		}
 		done();
+	}
+	
+	public void setShowExportResult(boolean showResult) {
+		this.showExportResult = showResult;
 	}
 	
 	/**
@@ -502,9 +516,8 @@ public class DicomExporter extends JFrame implements Task {
 	public void done() {
 		if(jfc != null) {
 			jfc = null;
-			/*
-			 * show only export dialog active.
-			 */
+		}
+		if(showExportResult) {
 			showExportResult();
 		}
 		if(executor != null && !executor.isShutdown()) {

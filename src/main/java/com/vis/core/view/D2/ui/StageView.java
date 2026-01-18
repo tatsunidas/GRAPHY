@@ -90,8 +90,12 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 	Dimension minSize = new Dimension(64, 64);
 
 	public StageView(HashMap<String, String> patInfoSet) {
-		setLayout(new BorderLayout());
 		this.patInfoSet = patInfoSet;
+		if(this.patInfoSet == null || this.patInfoSet.size()==0) {
+			Log.logger.warning("Patients InfoSet is null or zero. cannot show it on stage.");
+			return;
+		}
+		setLayout(new BorderLayout());
 		setName(patInfoSet.get("PatientID"));
 		addAncestorListener(this);
 		addContainerListener(this);

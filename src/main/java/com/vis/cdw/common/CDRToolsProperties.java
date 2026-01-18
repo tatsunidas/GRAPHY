@@ -41,184 +41,134 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.vis.configuration.ConfigInfo;
 
+/**
+ * 
+ * @author tatsunidas
+ *
+ */
 public class CDRToolsProperties {
 
-	/**
-	 * 
-	 * @return
-	 */
-	@Deprecated
-	public static String[] loadDeviceCandidates() {
-		java.util.Properties prop = new java.util.Properties();
-		FileInputStream fis = null;
-		ArrayList<String> candi = new ArrayList<String>();
-		try {
-			fis = new FileInputStream(new java.io.File(ConfigInfo.getPath(ConfigInfo.CDRTOOL_Props)));
-			prop.load(fis);
-			for (Object key : prop.keySet()) {
-				if (((String) key).contains("DEVICE_CANDIDATES")) {
-					candi.add(prop.getProperty((String) key));
-				}
-			}
-			return candi.toArray(new String[candi.size()]);
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				fis.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			prop = null;
-		}
-		return null;
-	}
+    private static final Logger log = Logger.getLogger(CDRToolsProperties.class.getName());
+    
+    // キーの一部を定数化（検索用）
+    private static final String KEY_PART_SPEED = "SPEED";
+    private static final String KEY_PART_EJECT = "EJECT";
+    private static final String KEY_PART_VIEWER = "WITH_VIEWER";
 
-	public static Integer loadBurnSpeed() {
-		java.util.Properties prop = new java.util.Properties();
-		FileInputStream fis = null;
-		try {
-			fis = new FileInputStream(new java.io.File("cdrtools/cdrecord.properties"));
-			prop.load(fis);
-			for (Object key : prop.keySet()) {
-				if (((String) key).contains("SPEED")) {
-					String res = prop.getProperty((String) key);
-					if (res == null || res.equals("")) {
-						return null;
-					}
-					return Integer.parseInt(res);
-				}
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				fis.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			prop = null;
-		}
-		return null;
-	}
+    /**
+     * 書き込み速度を取得します。
+     * @return 設定された速度。取得できない場合は null
+     */
+    public static Integer loadBurnSpeed() {
+        String res = findValueByKeyPart(KEY_PART_SPEED);
+        if (isValid(res)) {
+            try {
+                return Integer.parseInt(res);
+            } catch (NumberFormatException e) {
+                log.warning("Invalid speed format: " + res);
+            }
+        }
+        return null;
+    }
 
-	public static Boolean loadEjectAfterBurn() {
-		java.util.Properties prop = new java.util.Properties();
-		FileInputStream fis = null;
-		try {
-			fis = new FileInputStream(new java.io.File("cdrtools/cdrecord.properties"));
-			prop.load(fis);
-			for (Object key : prop.keySet()) {
-				if (((String) key).contains("EJECT")) {
-					String res = prop.getProperty((String) key);
-					if (res == null || res.equals("")) {
-						return null;
-					}
-					int eject_label = Integer.parseInt(prop.getProperty((String) key));
-					if (eject_label == 0) {
-						return false;
-					} else {
-						return true;
-					}
-				}
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				fis.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			prop = null;
-		}
-		return null;
-	}
-	
-	public static Boolean loadWithViewer() {
-		java.util.Properties prop = new java.util.Properties();
-		FileInputStream fis = null;
-		try {
-			fis = new FileInputStream(new java.io.File("cdrtools/cdrecord.properties"));
-			prop.load(fis);
-			for (Object key : prop.keySet()) {
-				if (((String) key).contains("WITH_VIEWER")) {
-					String res = prop.getProperty((String) key);
-					if (res == null || res.equals("")) {
-						return null;
-					}
-					int eject_label = Integer.parseInt(prop.getProperty((String) key));
-					if (eject_label == 0) {
-						return false;
-					} else {
-						return true;
-					}
-				}
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				fis.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			prop = null;
-		}
-		return null;
-	}
-	
-	public static void setPropertiesAndSave(String key, String val) {
-		java.util.Properties prop = new java.util.Properties();
-		FileInputStream fis = null;
-		try {
-			fis = new FileInputStream(new java.io.File("cdrtools/cdrecord.properties"));
-			prop.load(fis);
-			prop.put(key, val);
-			saveProperties(prop);
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				fis.close();
-				prop = null;
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	}
-	
-	public static boolean saveProperties(java.util.Properties prop) {
-		FileOutputStream out = null;
-		try {
-			out = new FileOutputStream(new File("cdrtools/cdrecord.properties"));
-			prop.store(out, "overwrite Properties");
-		} catch (IOException e) {
-			e.printStackTrace();
-			return false;
-		} finally {
-			try {
-				out.close();
-				prop = null;
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				return false;
-			}
-		}
-		return true;
-	}
-	
+    /**
+     * 焼き込み後のイジェクト設定を取得します。
+     * @return イジェクトする場合は true, しない場合は false, 設定なしは null
+     */
+    public static Boolean loadEjectAfterBurn() {
+        return loadBooleanSetting(KEY_PART_EJECT);
+    }
+    
+    /**
+     * Viewerを使用するかどうかを取得します。
+     * @return 使用する場合は true
+     */
+    public static Boolean loadWithViewer() {
+        return loadBooleanSetting(KEY_PART_VIEWER);
+    }
+    
+    /**
+     * プロパティを設定して保存します。
+     */
+    public static void setPropertiesAndSave(String key, String val) {
+        Properties prop = loadProperties();
+        prop.put(key, val);
+        saveProperties(prop);
+    }
 
+    // --- Private Helper Methods ---
+
+    /**
+     * 共通のBoolean読み込みロジック (0=false, それ以外=true)
+     */
+    private static Boolean loadBooleanSetting(String keyPart) {
+        String res = findValueByKeyPart(keyPart);
+        if (isValid(res)) {
+            try {
+                int val = Integer.parseInt(res);
+                return val != 0;
+            } catch (NumberFormatException e) {
+                log.warning("Invalid boolean(int) format for " + keyPart + ": " + res);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * プロパティファイルを読み込みます。
+     * 読み込み失敗時は空のPropertiesを返します。
+     */
+    private static Properties loadProperties() {
+        Properties prop = new Properties();
+        File file = getConfigFile();
+        if (file.exists()) {
+            try (FileInputStream fis = new FileInputStream(file)) {
+                prop.load(fis);
+            } catch (IOException e) {
+                log.log(Level.SEVERE, "Failed to load properties file", e);
+            }
+        }
+        return prop;
+    }
+
+    /**
+     * プロパティファイルを保存します。
+     */
+    private static boolean saveProperties(Properties prop) {
+        try (FileOutputStream out = new FileOutputStream(getConfigFile())) {
+            prop.store(out, null);
+            return true;
+        } catch (IOException e) {
+            log.log(Level.SEVERE, "Failed to save properties file", e);
+            return false;
+        }
+    }
+
+    /**
+     * キー名の一部を含むプロパティ値を検索して返します。
+     * (元のコードの contains ロジックを踏襲)
+     */
+    private static String findValueByKeyPart(String keyPart) {
+        Properties prop = loadProperties();
+        for (String key : prop.stringPropertyNames()) {
+            if (key.contains(keyPart)) {
+                return prop.getProperty(key);
+            }
+        }
+        return null;
+    }
+
+    private static File getConfigFile() {
+        return new File(ConfigInfo.getPath(ConfigInfo.CDRTOOL_Props));
+    }
+
+    private static boolean isValid(String str) {
+        return str != null && !str.isEmpty();
+    }
 }

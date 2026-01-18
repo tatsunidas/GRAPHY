@@ -235,7 +235,9 @@ public class MainScreenToolBar extends JToolBar {
 				public void actionPerformed(ActionEvent arg) {
 					MainScreen ms = WindowManager.getMainScreen();
 					if(!ms.isHomeTop()) {
-						JOptionPane.showMessageDialog(ms, "You cannot burn files in external dicom network node. Use 'HOME' instead.");
+						new Thread(() -> {
+							JOptionPane.showMessageDialog(ms, "You can not burn files from an external dicom network node. Use on 'HOME' tab instead.");
+						}).start();
 						return;
 					}
 					File burnDestFileInTemp = Utils.createNewDirInTemp();
@@ -243,6 +245,7 @@ public class MainScreenToolBar extends JToolBar {
 					ArrayList<String[]> dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(selected);
 					new Thread(() -> {
 						DicomExporter export = new DicomExporter();
+						export.setShowExportResult(false);
 						export.exportDICOM(burnDestFileInTemp, dcmFilesUIDs, false/*flat*/, false/*decompress*/, false/*with viewer*/);
 						new BurnerWindow(burnDestFileInTemp, false /*debug*/);
 					}).start();

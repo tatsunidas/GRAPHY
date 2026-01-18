@@ -39,6 +39,7 @@ package com.vis.core.ui.dialog;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JComboBox;
@@ -93,7 +94,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 	private JButton btnAnonymize;
 
 	private boolean simulate = false;
-	private int speed;
+//	private int speed;
 	
 	private DcmAnonymizer2 anonymizer = null;
 
@@ -106,13 +107,6 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		
 	}
 
-	/*
-	 * weasis is 32MB. 
-	 * how to embed weasis in cdr
-	 * https://groups.google.com/g/dcm4che/c/9HIr2lyR9Os
-	 * 
-	 * burnFile-DICOM and DICOMDIR and weasis-portable's files
-	 */
 	public BurnerWindow(File burnDestDirInTemp, boolean debug) {
 		super("Burn to CD/DVD");
 
@@ -122,6 +116,14 @@ public class BurnerWindow extends JFrame implements WindowListener{
 			JOptionPane.showConfirmDialog(MainScreen.getInstance(), "Could not find the burn target folder, please re-try.",
 					"Something strange about burn target media..?? return", JOptionPane.WARNING_MESSAGE);
 			return;
+		}
+		
+		//Check file size
+		// ウィンドウを表示する前にサイズを測り、ユーザーに判断を仰ぐ
+		if (!checkInitialDataSize(burnDestDirInTemp)) {
+			// ユーザーがキャンセルした場合
+			deleteAfterBurn(); // クリーンアップして終了
+			return; // ウィンドウを表示せずにコンストラクタを抜ける
 		}
 
 		setSize(400, 400);
@@ -133,12 +135,12 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		JLabel lblDrive = new JLabel("Select Drive");
 		panelSelectDrive.add(lblDrive, BorderLayout.NORTH);
 
-		String[] drives = new DriveUtil().grubAliveDevicesByNickName();
-		if (drives == null || drives.length < 1) {
+		List<String> drives = DriveUtil.getAvailableDriveNames();
+		if (drives == null || drives.size() < 1) {
 			JOptionPane.showConfirmDialog(null, "GRAPHY can not detect any drive devices, please check device.");
 			return;
 		}
-		comboBoxDrive = new JComboBox<String>(new DriveUtil().grubAliveDevicesByNickName());
+		comboBoxDrive = new JComboBox<String>(drives.toArray(new String[0]));
 		panelSelectDrive.add(comboBoxDrive, BorderLayout.SOUTH);
 
 		JScrollPane scrollPaneBurnList = new JScrollPane();
@@ -238,7 +240,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				// close window and delete temp files
-				cancel();
+				deleteAfterBurn();
 			}
 		});
 		btnCancel.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -337,45 +339,175 @@ public class BurnerWindow extends JFrame implements WindowListener{
 	}
 
 	private void startBurinig(File burnFileInTemp, boolean debug) {
-		speed = (Integer) comboBoxSpeed.getSelectedItem();
-		if (!isCD((String) comboBoxDrive.getSelectedItem())) {
-			// see, BurnCD::setWriteSpeed().
-			Log.logger.info("WriteSpeed changed to 8X for wrinting Non CD-R media.");
-			speed = 8;// DVD, DVDRAM,BD, fastest number...
-		}
-		String device = getDeviveScsi((String) comboBoxDrive.getSelectedItem());
-		boolean eject = chckbxEject.isSelected();
+		// 1. デバイス情報の取得
+		String deviceName = (String) comboBoxDrive.getSelectedItem();
+		String device = getDeviveScsi(deviceName);
+		
+		// attach viewer and DICOMDIR
 		if (withViewer()) {
 			try {
 				DicomUtilities.attachDICOMDIRTo(burnFileInTemp.getAbsolutePath());
 				Utils.copyDirectory(ConfigInfo.WEASIS.toString(), burnFileInTemp.getAbsolutePath());
-			} catch (IOException e) {
-				e.printStackTrace();
 			} catch (Exception e) {
 				e.printStackTrace();
+				JOptionPane.showMessageDialog(this, "データ準備に失敗しました: " + e.getMessage());
+				return;
 			}
 		}
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+		
+		long requiredBlocks = DriveUtil.getIsoSizeInBlocks(burnFileInTemp);
+
+		if (requiredBlocks == -1) {
+			JOptionPane.showMessageDialog(this, "データサイズの計算に失敗しました。");
+			return;
+		}
+		Log.logger.info("Required blocks: " + requiredBlocks);
+
+		// 2. 書き込み速度の設定
+		int speed = (Integer) comboBoxSpeed.getSelectedItem();
+		if (!isCD(deviceName)) {
+			Log.logger.info("WriteSpeed changed to 8X for wrinting Non CD-R media.");
+			speed = 8;
+		}
+		
+		final int speed_final = speed;
+		
+		boolean eject = chckbxEject.isSelected();
+
+		while (true) {
+			// 1. 空ディスクチェック
+			if (DriveUtil.isDiskEmpty(device)) {
+				// 2. 容量チェック
+				long freeBlocks = DriveUtil.getMediaFreeSpaceInBlocks(device);
+				Log.logger.info("Media free blocks: " + freeBlocks);
+
+				if (freeBlocks > requiredBlocks) {
+					// OK: 容量も足りている
+					break;
+				} else if (freeBlocks == -1) {
+					// 容量取得失敗時の対応 (とりあえず警告を出して進めるか、止めるか)
+					int ret = JOptionPane.showConfirmDialog(this, "メディアの容量を取得できませんでした。\n書き込みを続行しますか？", "警告",
+							JOptionPane.YES_NO_OPTION);
+					if (ret == JOptionPane.YES_OPTION)
+						break;
+				} else {
+					// NG: 容量不足
+					long diffMB = (requiredBlocks - freeBlocks) * 2048 / 1024 / 1024;
+					String msg = String.format("メディアの容量が不足しています。\n不足: 約 %d MB\n\nより容量の大きいディスク(DVDなど)を挿入してください。",
+							diffMB);
+
+					int option = JOptionPane.showConfirmDialog(this, msg, "容量不足", JOptionPane.YES_NO_OPTION,
+							JOptionPane.WARNING_MESSAGE);
+					if (option != JOptionPane.YES_OPTION) {
+						cleanUp();
+						return;
+					}
+					// 「はい」の場合はループ継続（メディア入れ替え待ち）
+					continue;
+				}
+			}
+
+			// ディスクが入っていない、または空でない場合
+			int option = JOptionPane.showConfirmDialog(this, "Please insert blank CD/DVD.\nAfter that, press YES to continue burning.", "Media is blank ?",
+					JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+			if (option != JOptionPane.YES_OPTION) {
+				cleanUp();
+				return;
+			}
+		}
+
+		// 5. 書き込み実行 (UIをフリーズさせないため、別スレッドで実行)
+		new Thread(new Runnable() {
+			@Override
 			public void run() {
-				BurnCD burner = new BurnCD(device, speed, eject, false);
+				BurnCD burner = new BurnCD(device, speed_final, eject, false);
 				burner.setSimulate(false);
 				try {
+					// ここで時間がかかる処理を実行
 					burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));
+
+					// 完了後のUI更新だけ invokeLater を使う
+					javax.swing.SwingUtilities.invokeLater(() -> {
+						JOptionPane.showMessageDialog(null, "書き込みが完了しました。");
+						cleanUp();
+					});
+
 				} catch (MediaCreationException e) {
 					e.printStackTrace();
+					javax.swing.SwingUtilities.invokeLater(() -> {
+						JOptionPane.showMessageDialog(null, "書き込みに失敗しました。\n" + e.getMessage(), "エラー",
+								JOptionPane.ERROR_MESSAGE);
+						cleanUp();
+					});
 				}
-				cleanUp();
 			}
-		});
+		}).start();
+	}
+	
+	/**
+     * 書き込み対象データの概算サイズを計算し、CD/DVDの容量を超える場合に警告を出します。
+     * @param targetDir 書き込み対象ディレクトリ
+     * @return ユーザーが「キャンセル」を選んだ場合は false, 「続行」または問題ない場合は true
+     */
+	private boolean checkInitialDataSize(File targetDir) {
+		try {
+			// ディレクトリ内の合計サイズを計算 (バイト単位)
+			long sizeBytes = FileUtils.sizeOfDirectory(targetDir);
+			long sizeMB = sizeBytes / (1024 * 1024); // MB換算
+
+			// 基準値 (安全マージンを考慮して少し少なめに設定)
+			final long WEASIS_MB = 85;//weasis 前提
+			final long CD_LIMIT_MB = 670 - WEASIS_MB; // 700MBメディアの安全圏
+			final long DVD_LIMIT_MB = 4400 - WEASIS_MB; // 4.7GBメディアの安全圏 (約4480MBだが安全を見て)
+
+			String message = null;
+			String title = "データ容量確認";
+			int messageType = JOptionPane.INFORMATION_MESSAGE;
+
+			if (sizeMB > DVD_LIMIT_MB) {
+				// DVD(一層)すら超える場合
+				message = String.format("書き込み対象のデータサイズは約 %,d MB です。\n\n" + "一般的なDVD-R (4.7GB) の容量を超えています。\n"
+						+ "2層DVD (DL) が必要か、書き込みきれない可能性があります。\n\n" + "このまま処理を続行しますか？", sizeMB);
+				messageType = JOptionPane.WARNING_MESSAGE;
+
+			} else if (sizeMB > CD_LIMIT_MB) {
+				// CDには収まらないがDVDなら入る場合
+				message = String.format("書き込み対象のデータサイズは約 %,d MB です。\n\n" + "一般的なCD-R (700MB) には収まりません。\n"
+						+ "DVD-R などの大容量メディアをご用意ください。\n\n" + "このまま処理を続行しますか？", sizeMB);
+				messageType = JOptionPane.QUESTION_MESSAGE;
+			}
+
+			// 警告メッセージがある場合のみダイアログ表示
+			if (message != null) {
+				int option = JOptionPane.showConfirmDialog(this, message, title, JOptionPane.YES_NO_OPTION,
+						messageType);
+
+				if (option != JOptionPane.YES_OPTION) {
+					return false; // キャンセル
+				}
+			}
+
+			return true; // 問題なし、またはユーザーが承諾
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			// サイズ計算に失敗しても、とりあえずプロセス自体は止めない（後続の正確なチェックに任せる）
+			return true;
+		}
 	}
 
-	private void cancel() {
+	private void deleteAfterBurn() {
 		// delete burnFileInTemp
 		File[] files = new File(ConfigInfo.getPath(ConfigInfo.TemporalDirName)).listFiles();
 		if (files != null && files.length > 0) {
 			for (File del : files) {
 				try {
-					FileUtils.deleteDirectory(del);
+					if(del.isFile()) {
+						FileUtils.delete(del);
+					}else if(del.isDirectory()){
+						FileUtils.deleteDirectory(del);
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -392,7 +524,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		CDRToolsProperties.setPropertiesAndSave("SPEED", String.valueOf((int) comboBoxSpeed.getSelectedItem()));
 		CDRToolsProperties.setPropertiesAndSave("EJECT", String.valueOf(chckbxEject.isSelected() ? 1 : 0));
 		CDRToolsProperties.setPropertiesAndSave("WITH_VIEWER", String.valueOf(chckbxViewer.isSelected() ? 1 : 0));
-		cancel();// clean up tmp dir and dispose
+		deleteAfterBurn();// clean up tmp dir and dispose
 	}
 
 	@Override
