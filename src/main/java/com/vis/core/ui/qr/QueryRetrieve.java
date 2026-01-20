@@ -761,7 +761,7 @@ public class QueryRetrieve implements Task, Runnable {
 		/*
 		 * keep strict substance path for instance.
 		 */
-		File tempRetriveDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID+File.separator+studyIUID+File.separator+seriesIUID);
+		File tempRetriveDir = new File(ConfigInfo.getPath(ConfigInfo.TemporalDirName)+File.separator+patID+File.separator+studyIUID+File.separator+seriesIUID);
 		if(!tempRetriveDir.exists()) {
 			if(!tempRetriveDir.mkdirs()) {
 				IOException e = new IOException("Cannot create temp dir for retrive...");

@@ -58,7 +58,9 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.CodeSource;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -132,6 +134,7 @@ public class Utils {
 		return null;
 	}
 
+	@Deprecated
 	public static String getConfSubDirPath(ConfigInfo dirNameType) {
 		return ConfigInfo.getPath(dirNameType);
 	}
@@ -141,24 +144,31 @@ public class Utils {
 	 * @return
 	 */
 	public static File createNewDirInTemp() {
-		File tempParentDir = new File(getConfSubDirPath(ConfigInfo.TemporalDirName));
-		Calendar now = Calendar.getInstance();
-		String tempDirName = now.getTime().toString().replace(":", "_");// do not include ":" in path.
-		Path tempDirPath = null;
-		if(!new File(tempParentDir.getAbsolutePath()+File.separator+tempDirName).exists()) {
-			Path root = tempParentDir.toPath();
-			try {
-				tempDirPath = Files.createTempDirectory(root, tempDirName);
-				if(tempDirPath == null) {
-					Log.logger.severe("temp dir creation failed...:NonDicomImport");
-					throw new NullPointerException("Can not create Temp Folder to create dcm.");
-				}
-				return tempDirPath.toFile();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		return null;
+	    // 1. 親ディレクトリのパス解決 (Path APIを使用)
+	    Path tempParentPath = Paths.get(ConfigInfo.getPath(ConfigInfo.TemporalDirName)).toAbsolutePath().normalize();
+
+	    // 2. 親ディレクトリが存在しない場合は作成する
+	    if (!Files.exists(tempParentPath)) {
+	        try {
+	            Files.createDirectories(tempParentPath);
+	        } catch (IOException e) {
+	            Log.logger.log(Level.SEVERE, "親Tempディレクトリの作成に失敗しました: " + tempParentPath, e);
+	            throw new RuntimeException("Cannot create parent temp folder.", e);
+	        }
+	    }
+
+	    // 3. プレフィックスの生成 (yyyyMMdd_HHmmss_ 形式で、ソートしやすく安全な名前に)
+	    String prefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_"));
+
+	    try {
+	        // 4. 一意なディレクトリを作成 (自動でランダムなサフィックスが付くため重複チェック不要)
+	        Path tempDirPath = Files.createTempDirectory(tempParentPath, prefix);
+	        return tempDirPath.toFile();
+
+	    } catch (IOException e) {
+	        Log.logger.log(Level.SEVERE, "Tempディレクトリの作成に失敗しました", e);
+	        throw new RuntimeException("Cannot create Temp Folder to create dcm.", e);
+	    }
 	}
 	
 	/**

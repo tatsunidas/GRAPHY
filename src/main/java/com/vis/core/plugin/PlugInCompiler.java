@@ -48,7 +48,6 @@ import javax.tools.JavaCompiler;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
-import com.vis.core.util.Utils;
 
 public class PlugInCompiler {
 	
@@ -100,7 +99,7 @@ public class PlugInCompiler {
 				System.out, // 標準出力
 				System.err, // 標準エラー出力
 				"-classpath", currentClassPath, // クラスパスを指定
-				"-d", Utils.getConfSubDirPath(ConfigInfo.PluginDirName),// 保存先ディレクトリを指定
+				"-d", ConfigInfo.getPath(ConfigInfo.PluginDirName),// 保存先ディレクトリを指定
 				javaPath // コンパイルするファイル
 		);
 

@@ -101,7 +101,7 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 						if(!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
 							continue;
 						}
-						String baseDest = Utils.getConfSubDirPath(ConfigInfo.TemporalDirName);
+						String baseDest = ConfigInfo.getPath(ConfigInfo.TemporalDirName);
 						if(patID == null || patID.equals("") || patID.contentEquals(" ") || patID.equals("null")) {
 							patID = "NULL-PatientID";
 							System.out.println("patID is null");

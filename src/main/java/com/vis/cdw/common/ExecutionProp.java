@@ -60,12 +60,15 @@ public class ExecutionProp {
 		if (osName.startsWith("mac")) {
 			binFile = new File(ConfigInfo.CDRTOOL_MAC.toString() + File.separator + "cdrecord");
 		} else if (osName.startsWith("windows")) {
-			if (isArchType64()) {
-//        		return new File("cdrtools/windows-cdrtools-3.02a01_mingw/win64/cdrecord.exe");//bug, can not run command. do not use
-				binFile = new File(ConfigInfo.CDRTOOL_WIN64 + File.separator + "cdrecord.exe");
-			} else {
-				binFile = new File(ConfigInfo.CDRTOOL_WIN32 + File.separator + "cdrecord.exe");
-			}
+//			if (isArchType64()) {
+//				binFile = new File(ConfigInfo.CDRTOOL_WIN64 + File.separator + "cdrecord.exe");
+//			} else {
+//				binFile = new File(ConfigInfo.CDRTOOL_WIN32 + File.separator + "cdrecord.exe");
+//			}
+			/*
+			 * win64は動かないので、常にwin32を使う
+			 */
+			binFile = new File(ConfigInfo.CDRTOOL_WIN32 + File.separator + "cdrecord.exe");
 		} else if (osName.startsWith("linux") || osName.startsWith("solaris")) {
 			binFile = new File(ConfigInfo.CDRTOOL_LINUX.toString() + File.separator + "cdrecord");
 		}

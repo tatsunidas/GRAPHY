@@ -107,7 +107,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		
 	}
 
-	public BurnerWindow(File burnDestDirInTemp, boolean debug) {
+	public BurnerWindow(final File burnDestDirInTemp, boolean debug) {
 		super("Burn to CD/DVD");
 
 		this.simulate = debug;
@@ -327,9 +327,36 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		return chckbxViewer.isSelected();
 	}
 
-	private String getDeviveScsi(String nickname) {
-		return nickname.substring(nickname.lastIndexOf("_") + 1);
-	}
+	// BurnerWindow.java 内部
+
+    private String getDeviveScsi(String nickname) {
+        // nullチェック
+        if (nickname == null) return "0,0,0";
+
+        // パターン1: "Generic Drive (0,0,0)" のようにカッコ付きの場合
+        if (nickname.contains("(") && nickname.endsWith(")")) {
+            try {
+                int start = nickname.lastIndexOf("(") + 1;
+                int end = nickname.lastIndexOf(")");
+                return nickname.substring(start, end).trim();
+            } catch (Exception e) {
+                // パース失敗時はそのまま返すか、デフォルトを返す
+            }
+        }
+
+        // パターン2: "Type_Vendor_Model_0,0,0" のようにアンダースコア区切りの場合（旧仕様）
+        if (nickname.contains("_")) {
+            return nickname.substring(nickname.lastIndexOf("_") + 1);
+        }
+
+        // パターン3: すでに "0,0,0" のような形式の場合
+        if (nickname.matches("^[0-9,]+$")) {
+            return nickname;
+        }
+
+        // 救済措置: そのまま返す（ただしこれだとエラーになる可能性大）
+        return nickname;
+    }
 
 	/*
 	 * this is not good idea, TODO
@@ -375,47 +402,68 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		boolean eject = chckbxEject.isSelected();
 
 		while (true) {
-			// 1. 空ディスクチェック
-			if (DriveUtil.isDiskEmpty(device)) {
-				// 2. 容量チェック
-				long freeBlocks = DriveUtil.getMediaFreeSpaceInBlocks(device);
-				Log.logger.info("Media free blocks: " + freeBlocks);
+            boolean readyToBurn = false;
+            
+            // 1. 空ディスクチェック
+            if (DriveUtil.isDiskEmpty(device)) {
+                // ディスクが正しく認識された場合
+                long freeBlocks = DriveUtil.getMediaFreeSpaceInBlocks(device);
+                Log.logger.info("Media free blocks: " + freeBlocks);
 
-				if (freeBlocks > requiredBlocks) {
-					// OK: 容量も足りている
-					break;
-				} else if (freeBlocks == -1) {
-					// 容量取得失敗時の対応 (とりあえず警告を出して進めるか、止めるか)
-					int ret = JOptionPane.showConfirmDialog(this, "メディアの容量を取得できませんでした。\n書き込みを続行しますか？", "警告",
-							JOptionPane.YES_NO_OPTION);
-					if (ret == JOptionPane.YES_OPTION)
-						break;
-				} else {
-					// NG: 容量不足
-					long diffMB = (requiredBlocks - freeBlocks) * 2048 / 1024 / 1024;
-					String msg = String.format("メディアの容量が不足しています。\n不足: 約 %d MB\n\nより容量の大きいディスク(DVDなど)を挿入してください。",
-							diffMB);
+                if (freeBlocks > requiredBlocks) {
+                    // OK: 容量も足りている
+                    readyToBurn = true;
+                } else if (freeBlocks == -1) {
+                    // 容量取得失敗 -> ユーザー判断
+                    int ret = JOptionPane.showConfirmDialog(this, 
+                            "メディアの空き容量を取得できませんでした。\n構わず書き込みを続行しますか？", 
+                            "容量不明", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                    if (ret == JOptionPane.YES_OPTION) readyToBurn = true;
+                } else {
+                    // NG: 容量不足
+                    long diffMB = (requiredBlocks - freeBlocks) * 2048 / 1024 / 1024;
+                    String msg = String.format("メディアの容量が不足しています。\n不足: 約 %d MB\n入れ替えてください。", diffMB);
+                    int option = JOptionPane.showConfirmDialog(this, msg, "容量不足", 
+                            JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                    if (option != JOptionPane.YES_OPTION) {
+                        cleanUp(); return;
+                    }
+                    continue; // ループ継続
+                }
+            } else {
+                // ディスクが入っていない、または検出エラー(Windowsで頻発)
+                // ★ここを修正：YESなら再試行、NOなら中止、CANCEL(またはOptions)で強制実行
+                
+                String message = "空のCD/DVDが見つかりません。\n\n"
+                        + "・ディスクを挿入済みの場合: ドライブの認識に失敗している可能性があります。\n"
+                        + "・未挿入の場合: 新しいディスクを挿入してください。\n\n"
+                        + "「はい」: 再スキャンします\n"
+                        + "「いいえ」: 書き込みを中止します\n"
+                        + "「キャンセル」: 警告を無視して書き込みを強行します(上級者向)";
 
-					int option = JOptionPane.showConfirmDialog(this, msg, "容量不足", JOptionPane.YES_NO_OPTION,
-							JOptionPane.WARNING_MESSAGE);
-					if (option != JOptionPane.YES_OPTION) {
-						cleanUp();
-						return;
-					}
-					// 「はい」の場合はループ継続（メディア入れ替え待ち）
-					continue;
-				}
-			}
+                int option = JOptionPane.showConfirmDialog(this, message, "メディア確認",
+                        JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
-			// ディスクが入っていない、または空でない場合
-			int option = JOptionPane.showConfirmDialog(this, "Please insert blank CD/DVD.\nAfter that, press YES to continue burning.", "Media is blank ?",
-					JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (option == JOptionPane.YES_OPTION) {
+                    // 再スキャン (ループ継続)
+                    continue;
+                } else if (option == JOptionPane.CANCEL_OPTION) {
+                    // ★強制実行 (Force Burn)
+                    // 検出できていなくても、ユーザーが「入ってる」と言うなら進む
+                    Log.logger.info("User selected FORCE BURN ignoring disk check.");
+                    readyToBurn = true; 
+                } else {
+                    // いいえ -> 中止
+                    cleanUp();
+                    return;
+                }
+            }
 
-			if (option != JOptionPane.YES_OPTION) {
-				cleanUp();
-				return;
-			}
-		}
+            // 書き込みフラグが立ったらループを抜けて本番へ
+            if (readyToBurn) {
+                break;
+            }
+        }
 
 		// 5. 書き込み実行 (UIをフリーズさせないため、別スレッドで実行)
 		new Thread(new Runnable() {

@@ -257,28 +257,30 @@ public class BurnCD {
     /**
      * cdrecord を使って書き込みを実行します。
      */
-    private void executeBurn(File isoImageFile) throws MediaCreationException {
-        List<String> cmd = new ArrayList<>();
-        cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
-        cmd.add("-v"); // verbose
-        cmd.add("speed=" + writeSpeed);
-        cmd.add("dev=" + device);
-        cmd.add("-dao"); // Disk At Once推奨
-        
-        if (simulate) {
-            cmd.add("-dummy");
-        }
-        if (eject) {
-            cmd.add("-eject");
-        }
-        
-        cmd.add(isoImageFile.getAbsolutePath());
+	private void executeBurn(File isoImageFile) throws MediaCreationException {
+		List<String> cmd = new ArrayList<>();
+		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+		cmd.add("-v"); // verbose
+		cmd.add("speed=" + writeSpeed);
+		cmd.add("dev=" + device);
+		cmd.add("-dao"); // Disk At Once推奨
 
-        int exitCode = DriveUtil.executeCommand(cmd, "Burning Disc");
-        if (exitCode != 0) {
-            throw new MediaCreationException("cdrecord failed with exit code: " + exitCode);
-        }
-    }
+		cmd.add("-force");
+
+		if (simulate) {
+			cmd.add("-dummy");
+		}
+		if (eject) {
+			cmd.add("-eject");
+		}
+
+		cmd.add(isoImageFile.getAbsolutePath());
+
+		int exitCode = DriveUtil.executeCommand(cmd, "Burning Disc");
+		if (exitCode != 0) {
+			throw new MediaCreationException("cdrecord failed with exit code: " + exitCode);
+		}
+	}
     
     /**
      * ISO作成と焼付を一連の流れで実行します。

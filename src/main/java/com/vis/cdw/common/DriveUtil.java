@@ -50,6 +50,8 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.vis.core.log.Log;
+
 
 /**
  * 
@@ -69,22 +71,44 @@ public class DriveUtil {
 	 * Checks if the drive at the specific SCSI address is available using 'cdrecord
 	 * -checkdrive'.
 	 */
-	public static boolean isDriveReady(String scsiAddress) {
-		List<String> cmd = new ArrayList<>();
-		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
-		cmd.add("-checkdrive");
-		cmd.add("dev=" + scsiAddress);
+	/**
+     * Checks if the drive at the specific SCSI address is available.
+     */
+    public static boolean isDriveReady(String scsiAddress) {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+        cmd.add("-checkdrive");
+        cmd.add("dev=" + scsiAddress);
 
-		try {
-			// executeCommand returns null on non-zero exit code
-			List<String> result = executeCommand(cmd);
-			return result != null;
-		} catch (IOException e) {
-			log.log(Level.WARNING, "Failed to check drive: " + scsiAddress, e);
-			return false;
-		}
-	}
+        try {
+            List<String> result = executeCommand(cmd);
+            
+            // 成功(exit 0)していれば当然OK
+            if (result != null) {
+                return true;
+            }
+            
+            // 【追加修正】Windowsの場合の救済措置
+            // Windowsでは checkdrive が排他制御等で exit -1 になることが頻発します。
+            // しかし、このメソッドが呼ばれている時点で scanbus (一覧取得) には成功して
+            // アドレス(0,2,0等)が渡ってきているはずなので、
+            // Windowsなら「エラーが出てもドライブは存在する」とみなして true を返します。
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                log.warning("Windows: checkdrive failed for " + scsiAddress + ", but assuming drive exists.");
+                return true; 
+            }
+            
+            return false;
 
+        } catch (IOException e) {
+            log.log(Level.WARNING, "Failed to check drive: " + scsiAddress, e);
+            // 例外の場合もWindowsなら強行突破させるかどうかですが、
+            // ここは一旦 false のままとし、上記 result==null の分岐で救います。
+            return false;
+        }
+    }
+    
 	/**
 	 * Loads detailed drive information using 'cdrecord -checkdrive'.
 	 */
@@ -238,110 +262,146 @@ public class DriveUtil {
      * 指定されたデバイスに空のディスクが入っているか確認します。
      * コマンド: cdrecord -minfo dev=x,y,z
      */
-	public static boolean isDiskEmpty(String device) {
-		ArrayList<String> cmd = new ArrayList<>();
-		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
-		cmd.add("-minfo");
-		cmd.add("dev=" + device);
+	/**
+     * 指定されたデバイスに空のディスクが入っているか確認します。
+     * 判定不能なエラーが出た場合も false を返しますが、ログに残します。
+     */
+    public static boolean isDiskEmpty(String device) {
+        // staticメソッドとして定義（BurnerWindowの呼び出しに合わせています）
+        ArrayList<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+        cmd.add("-minfo");
+        cmd.add("dev=" + device);
 
-		try {
-			// 以前作成した DriveUtil.executeCommand のような仕組みを使うか、
-			// ここで ProcessBuilder を使って出力を解析します。
-			ProcessBuilder pb = new ProcessBuilder(cmd);
-			pb.redirectErrorStream(true);
-			Process p = pb.start();
+        try {
+            // executeCommandは以前作成したものをstaticにするか、インスタンス化して呼んでください
+            // ここでは簡易的にProcessBuilderで書きます
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.redirectErrorStream(true); 
+            Process p = pb.start();
 
-			try (java.io.BufferedReader reader = new java.io.BufferedReader(
-					new java.io.InputStreamReader(p.getInputStream()))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					// cdrecordの出力には "Disk status: empty" が含まれます
-					if (line.toLowerCase().contains("disk status: empty")) {
-						return true;
-					}
-					// DVDなどの場合 "blank" と出る場合もあります
-					if (line.toLowerCase().contains("blank")) {
-						return true;
-					}
-				}
-			}
-			p.waitFor();
-		} catch (Exception e) {
-			log.warning("Failed to check media info: " + e.getMessage());
-		}
-		return false;
-	}
+            boolean isEmpty = false;
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // デバッグ用ログ
+                    // log.info("[minfo] " + line); 
+                    
+                    String lower = line.toLowerCase();
+                    // "empty" または "blank" があれば空とみなす
+                    if (lower.contains("disk status: empty") || lower.contains("blank")) {
+                        isEmpty = true;
+                    }
+                    // "appendable" (追記可能) も空き領域ありとみなすなら true
+                    if (lower.contains("disk status: appendable")) {
+                        isEmpty = true;
+                    }
+                }
+            }
+            p.waitFor();
+            return isEmpty;
+
+        } catch (Exception e) {
+            Log.logger.warning("Failed to check media info: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 空き容量を取得します。失敗時は -1 を返します。
+     */
+    public static long getMediaFreeSpaceInBlocks(String device) {
+        ArrayList<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
+        cmd.add("-minfo");
+        cmd.add("dev=" + device);
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+
+            long size = -1;
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains("Remaining writable size:")) {
+                         String[] parts = line.split(":");
+                         if (parts.length > 1) {
+                             String blocks = parts[1].toLowerCase().replace("blocks", "").trim();
+                             try {
+                                 size = Long.parseLong(blocks);
+                             } catch (NumberFormatException e) {}
+                         }
+                    }
+                }
+            }
+            p.waitFor();
+            return size;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
 	
 	/**
      * mkisofs -print-size を使用して、ISO化後の正確なサイズ（ブロック数）を取得します。
      * ブロックサイズは通常2048バイトです。
      */
-	public static long getIsoSizeInBlocks(File sourceDir) {
-		ArrayList<String> cmd = new ArrayList<>();
-		cmd.add(ExecutionProp.loadMakeIsoFsExecution().getAbsolutePath());
-		cmd.add("-print-size");
-		cmd.add("-R"); // RockRidge
-		cmd.add("-J"); // Joliet
-		cmd.add("-f");
-		cmd.add(sourceDir.getAbsolutePath());
-
-		try {
-			// 【修正点】 ProcessBuilderを直接使わず、
-			// 権限付与ロジックが含まれている executeCommand ヘルパーを使う
-			List<String> lines = executeCommand(cmd);
-
-			if (lines != null) {
-				for (String line : lines) {
-					line = line.trim();
-					// 数字だけの行がブロックサイズ
-					if (line.matches("^\\d+$")) {
-						return Long.parseLong(line);
-					}
-				}
-			}
-		} catch (Exception e) {
-			log.warning("Failed to calculate ISO size: " + e.getMessage());
-		}
-		return -1; // 計算失敗
-	}
-
-    /**
-     * cdrecord -minfo を使用して、メディアの空きブロック数を取得します。
+	/**
+     * mkisofs -print-size を使用して、ISO化後の正確なサイズ（ブロック数）を取得します。
+     * 改良点: ログ出力の強化と、数値パースの柔軟性向上
      */
-	public static long getMediaFreeSpaceInBlocks(String device) {
-		ArrayList<String> cmd = new ArrayList<>();
-		cmd.add(ExecutionProp.loadCdrecordExecution().getAbsolutePath());
-		cmd.add("-minfo");
-		cmd.add("dev=" + device);
+    public static long getIsoSizeInBlocks(File sourceDir) {
+        ArrayList<String> cmd = new ArrayList<>();
+        cmd.add(ExecutionProp.loadMakeIsoFsExecution().getAbsolutePath());
+        cmd.add("-print-size");
+        cmd.add("-quiet"); // 余計なバナー表示を抑制
+        cmd.add("-R");     // RockRidge
+        cmd.add("-J");     // Joliet
+        cmd.add("-V");     // Volume ID (空白対策)
+        cmd.add("DICOM_CD");
+        cmd.add("-f");     // Follow symlinks
+        // パスはすでに正規化されていますが、念のため引用符で囲むか、そのまま渡します
+        // ProcessBuilderは個別の引数として渡せばスペースがあっても自動処理します
+        cmd.add(sourceDir.getAbsolutePath());
 
-		try {
-			ProcessBuilder pb = new ProcessBuilder(cmd);
-			pb.redirectErrorStream(true);
-			Process p = pb.start();
+        long estimatedSize = -1;
 
-			try (java.io.BufferedReader reader = new java.io.BufferedReader(
-					new java.io.InputStreamReader(p.getInputStream()))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					// 出力例: "Remaining writable size: 359846 blocks"
-					if (line.contains("Remaining writable size:")) {
-						String[] parts = line.split(":");
-						if (parts.length > 1) {
-							String blocks = parts[1].replace("blocks", "").trim();
-							return Long.parseLong(blocks);
-						}
-					}
-				}
-			}
-			p.waitFor();
-		} catch (Exception e) {
-			log.warning("Failed to get media info: " + e.getMessage());
-		}
+        try {
+            // executeCommand は標準出力とエラー出力をマージしてリストで返します
+            List<String> lines = executeCommand(cmd);
+            
+            if (lines != null) {
+                for (String line : lines) {
+                    // デバッグ用: mkisofsが何を言っているか全てログに出す
+                    log.info("[mkisofs output] " + line);
+                    
+                    String trimmed = line.trim();
+                    
+                    // 数字だけの行を探す
+                    if (trimmed.matches("^\\d+$")) {
+                        try {
+                            estimatedSize = Long.parseLong(trimmed);
+                        } catch (NumberFormatException e) {
+                            // 無視
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warning("Failed to calculate ISO size: " + e.getMessage());
+        }
+        
+        if (estimatedSize == -1) {
+            log.warning("mkisofs finished but valid size was not found.");
+        }
+        
+        return estimatedSize;
+    }
 
-		// 取得失敗時のフォールバック（メディアの種類判定が難しいので安全側に倒して -1）
-		return -1;
-	}
-
+   
 	public static Long getUsableSpace(File driveDir) {
 		if (driveDir == null)
 			return null;
@@ -436,48 +496,55 @@ public class DriveUtil {
 	}
 	
 	public static int executeCommand(List<String> command, String taskName) throws MediaCreationException {
-        // 実行権限のチェックと付与
-        if (!command.isEmpty()) {
-            File exe = new File(command.get(0));
-            if (exe.exists() && !exe.canExecute()) {
-                if (exe.setExecutable(true)) {
-                    log.info("Granted execute permission to: " + exe.getAbsolutePath());
-                } else {
-                    log.warning("Failed to grant permission to: " + exe.getAbsolutePath());
-                }
-            }
-        }
+		// 実行権限のチェックと付与
+		if (!command.isEmpty()) {
+			File exe = new File(command.get(0));
+			if (exe.exists() && !exe.canExecute()) {
+				if (exe.setExecutable(true)) {
+					log.info("Granted execute permission to: " + exe.getAbsolutePath());
+				} else {
+					log.warning("Failed to grant permission to: " + exe.getAbsolutePath());
+				}
+			}
+		}
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true); // エラー出力を標準出力に統合
+		ProcessBuilder pb = new ProcessBuilder(command);
+		pb.redirectErrorStream(true); // エラー出力を標準出力に統合
 
-        Process process = null;
-        try {
-            log.info("[" + taskName + "] Executing: " + String.join(" ", command));
-            process = pb.start();
+		Process process = null;
 
-            // ログを出力しながら実行待ち
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    // cdrecord/mkisofsのログは大量に出るので、INFOレベルで出力
-                    // 必要ならフィルタリングしてください
-                    log.info("[" + taskName + "] " + line);
-                }
-            }
+		// ★追加：ログを貯めておくためのバッファ
+		StringBuilder outputLog = new StringBuilder();
 
-            return process.waitFor();
+		try {
+			log.info("[" + taskName + "] Executing: " + String.join(" ", command));
+			process = pb.start();
 
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new MediaCreationException("Exception during " + taskName, e);
-        } finally {
-            if (process != null && process.isAlive()) {
-                process.destroy();
-            }
-        }
-    }
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "MS932"))) { // Windows文字化け対策
+				String line;
+				while ((line = reader.readLine()) != null) {
+					log.info("[" + taskName + "] " + line);
+
+					// ★追加：全行を記録しておく
+					outputLog.append(line).append("\n");
+				}
+			}
+
+			int exitCode = process.waitFor();
+
+			// ★変更：失敗時に、貯めておいたログを例外メッセージに突っ込む
+			if (exitCode != 0) {
+				throw new MediaCreationException(taskName + " failed (Exit code " + exitCode + ").\n\n"
+						+ "--- エラー詳細 ---\n" + outputLog.toString());
+			}
+
+			return exitCode;
+
+		} catch (IOException | InterruptedException e) {
+			throw new MediaCreationException("Exception during " + taskName, e);
+		} finally {
+			if (process != null && process.isAlive())
+				process.destroy();
+		}
+	}
 }
