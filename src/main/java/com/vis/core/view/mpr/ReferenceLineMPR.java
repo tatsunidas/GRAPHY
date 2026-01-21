@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.logging.Level;
 
 import org.joml.Vector3d;
-import org.jogamp.vecmath.Point2d;
 
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -552,10 +551,11 @@ public class ReferenceLineMPR {
 		return null;
 	}
 	
-	private Point2d[] nextParallelLinePoints(Point2d lineStart, Point2d lineEnd, boolean topSide) {
-		Point2d startPoint = lineStart;
-		Point2d endPoint = lineEnd;
-		double lineAngle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+	@SuppressWarnings("unused")
+	private java.awt.geom.Point2D[] nextParallelLinePoints(Point2D lineStart, Point2D lineEnd, boolean topSide) {
+		Point2D startPoint = lineStart;
+		Point2D endPoint = lineEnd;
+		double lineAngle = Math.atan2(endPoint.getY() - startPoint.getY(), endPoint.getX() - startPoint.getX());
 		double angle;
 		double gapInPixel = getGapInPixelUnit();
 		double thicknessInPixel = getThicknessInPixelUnit();
@@ -564,27 +564,27 @@ public class ReferenceLineMPR {
 			angle = 90 / radians + lineAngle;
 			double topOffsetX = Math.cos(angle) * (gapInPixel+thicknessInPixel);
 			double topOffsetY = Math.sin(angle) * (gapInPixel+thicknessInPixel);
-			Point2d topStart = new Point2d(startPoint.x + topOffsetX, startPoint.y + topOffsetY);
-			Point2d topEnd = new Point2d(endPoint.x + topOffsetX, endPoint.y + topOffsetY);
-			return new Point2d[]{topStart, topEnd};
+			Point2D topStart = new Point2D.Double(startPoint.getX() + topOffsetX, startPoint.getY() + topOffsetY);
+			Point2D topEnd = new Point2D.Double(endPoint.getX() + topOffsetX, endPoint.getY() + topOffsetY);
+			return new Point2D[]{topStart, topEnd};
 		} else {
 			angle = -90 / radians + lineAngle;
 			double bottomOffsetX = Math.cos(angle) * (gapInPixel+thicknessInPixel);
 			double bottomOffsetY = Math.sin(angle) * (gapInPixel+thicknessInPixel);
-			Point2d bottomStart = new Point2d(startPoint.x + bottomOffsetX, startPoint.y + bottomOffsetY);
-			Point2d bottomEnd = new Point2d(endPoint.x + bottomOffsetX, endPoint.y + bottomOffsetY);
-			return new Point2d[]{bottomStart, bottomEnd};
+			Point2D bottomStart = new Point2D.Double(startPoint.getX() + bottomOffsetX, startPoint.getY() + bottomOffsetY);
+			Point2D bottomEnd = new Point2D.Double(endPoint.getX() + bottomOffsetX, endPoint.getY() + bottomOffsetY);
+			return new Point2D[]{bottomStart, bottomEnd};
 		}
 	}
 	
-	@Deprecated
-	Vector3d nextLineCenter(Point2d lineStart, Point2d lineEnd, boolean topSide) {
-		Vector3d center = getCenterPosition(false);//initial line center, to get Z position.
-		Point2d[] start_end = nextParallelLinePoints(lineStart, lineEnd, topSide);
-		double nextLineCenterX = (start_end[0].x+start_end[1].x)/2;
-		double nextLineCenterY = (start_end[0].y+start_end[1].y)/2;
-		return new Vector3d(nextLineCenterX, nextLineCenterY, center.z);
-	}
+//	@Deprecated
+//	Vector3d nextLineCenter(Point2d lineStart, Point2d lineEnd, boolean topSide) {
+//		Vector3d center = getCenterPosition(false);//initial line center, to get Z position.
+//		Point2d[] start_end = nextParallelLinePoints(lineStart, lineEnd, topSide);
+//		double nextLineCenterX = (start_end[0].x+start_end[1].x)/2;
+//		double nextLineCenterY = (start_end[0].y+start_end[1].y)/2;
+//		return new Vector3d(nextLineCenterX, nextLineCenterY, center.z);
+//	}
 	
 	private void addSlicePlane(
 			Vector3d center,

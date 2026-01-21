@@ -42,7 +42,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
@@ -57,7 +56,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -65,9 +63,7 @@ import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.border.LineBorder;
 
-import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.ui.dialog.PopUpMessage;
@@ -77,10 +73,7 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
-import com.vis.core.view.D3.ui.Viewer3DFrame_IJ;
 import com.vis.core.view.mpr.MPRViewerWindow;
-
-import ij.ImagePlus;
 
 /**
  * buttons design https://material.io/tools/icons/?style=outline
@@ -753,62 +746,21 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					
-					Viewer2DScreen own = Viewer2DScreen.getInstance();
-					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
-					int size = selectedPraps.size();
-					if(selectedPraps == null || size < 1) {
-						return;
-					}
-					//show only first prap
-					Praparat prap = selectedPraps.get(0);
-					ImagePlus replica = prap.getImagePlus();
-					if(prap == null || replica == null) {
-						throw new IllegalArgumentException("Does not have images.");
-					}
-					//to validate getImage().
-//					javax.swing.SwingUtilities.invokeLater(() -> {
-//						replica.show();
-//					});
-					/*
-					 * Currently, the image may not be displayed in 3D if it is consumed by another window. Minimize (iconize) the other windows once to void with this.
-					 */
-					PopUpMessage.showDialog(null, "3D Window Information", "MainScreen and 2D Viewer are minimumized temporally.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
-					Window win = WindowManager.getMainScreen();
-					if (win != null) {
-						((JFrame) win).setState(JFrame.ICONIFIED);
-					}
-
-					Window viewer2d = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
-					if (viewer2d != null) {
-						((JFrame) viewer2d).setState(JFrame.ICONIFIED);
-					}
+//					Viewer2DScreen own = Viewer2DScreen.getInstance();
+//					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
+//					int size = selectedPraps.size();
+//					if(selectedPraps == null || size < 1) {
+//						return;
+//					}
+//					//show only first prap
+//					Praparat prap = selectedPraps.get(0);
+//					ImagePlus replica = prap.getImagePlus();
+//					if(prap == null || replica == null) {
+//						throw new IllegalArgumentException("3D Veiwer Opening Error: Does not have images.");
+//					}
 					
-					Viewer3DFrame_IJ d3 = new Viewer3DFrame_IJ(replica, Viewer3DFrame_IJ.VOLUME);
-					d3.run();
-					/*
-					 * to wait load all images on 3D Window.
-					 */
-					while(!d3.isVisible()) {
-						System.out.println("waiting show 3D window ");
-					}
-					/*
-					 * If the window is returned to normal too soon, it will not display properly 3D universe.
-					 */
-					new Thread(new Runnable() {
-						@Override
-						public void run() {
-							try {
-								Thread.sleep(5000); // 5 seconds
-							} catch (InterruptedException ex) {
-								ex.printStackTrace();
-							}
-							if (win != null) {
-								((JFrame) win).setState(JFrame.NORMAL);
-							}
-							if (viewer2d != null) {
-								((JFrame) viewer2d).setState(JFrame.NORMAL);
-							}
-						}
+					new Thread(() -> {
+						JOptionPane.showConfirmDialog(null, "GRAPHY 3D Viewer is under development. Please use ImageJ's Volume Viewer graphy plugin !");
 					}).start();
 
 					currentTool = Windowing;
