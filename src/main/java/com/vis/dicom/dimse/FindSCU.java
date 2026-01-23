@@ -429,6 +429,13 @@ public class FindSCU {
 		}
 	}
 
+	/**
+	 * インスタンスのネゴシエーション。
+	 * 接続から切断まで。
+	 * 
+	 * @param args
+	 * @return
+	 */
 	public ArrayList<Attributes> simpleQuery(String[] args) {
 		ArrayList<Attributes> result = new ArrayList<>();
 		ExecutorService executorService = null;
@@ -494,6 +501,96 @@ public class FindSCU {
 			}
 		}
 		return result;
+	}
+	
+	/**
+     * 連続クエリのために接続を開き、準備を整えます。
+     * 使用後は必ず releaseConnection() を呼んでください。
+     */
+	public boolean openConnection(String[] args) {
+		try {
+			CommandLine cl = parseComandLine(args);
+			// 既存の設定ロジックを流用
+			CLIUtils.configureConnect(remote, rq, cl);
+			CLIUtils.configureBind(conn, ae, cl);
+			CLIUtils.configure(conn, cl);
+			remote.setTlsProtocols(conn.getTlsProtocols());
+			remote.setTlsCipherSuites(conn.getTlsCipherSuites());
+			configureServiceClass(this, cl);
+			configureKeys(this, cl);
+			configureOutput(this, cl);
+			configureCancel(this, cl);
+			setPriority(CLIUtils.priorityOf(cl));
+
+			// スレッドプールはクラスメンバとして保持し、close時にshutdownする設計にする必要があります
+			if (device.getExecutor() == null) {
+				device.setExecutor(Executors.newSingleThreadExecutor());
+				device.setScheduledExecutor(Executors.newSingleThreadScheduledExecutor());
+			}
+
+			this.open(); // アソシエーション確立
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	/**
+     * 確立済みのアソシエーションを使ってクエリを投げます。
+     * オーバーヘッドが少なく高速です。
+     */
+	public ArrayList<Attributes> queryNext(Attributes searchKeys) {
+		ArrayList<Attributes> result = new ArrayList<>();
+
+		// 既存の queryAndGetResult ロジックを利用
+		try {
+			// queryAndGetResult は内部で非同期処理待ちなどを行っているため
+			// 既存の実装をそのまま呼べばOKですが、keysを引数のものに差し替える必要があります
+
+			// ここではシンプルに query(keys, handler) を呼ぶ形にします
+			DimseRSPHandler rspHandler = new DimseRSPHandler(as.nextMessageID()) {
+				@Override
+				public void onDimseRSP(Association as, Attributes cmd, Attributes data) {
+					super.onDimseRSP(as, cmd, data);
+					int status = cmd.getInt(Tag.Status, -1);
+					if (Status.isPending(status)) {
+						result.add(data);
+					}
+				}
+			};
+
+			// ブロッキングで実行（結果が全部返るまで待つ）
+			as.cfind(model.cuid, priority, searchKeys, null, rspHandler);
+
+			// 重要: dcm4cheのcfindは非同期なので、ここでレスポンス完了を待つ必要があります
+			// DimseRSPHandlerの完了待ち実装が必要、または as.waitForOutstandingRSP() を使う
+			// 簡易的な実装としては以下のような待ちが必要です（dcm4cheのバージョンによりますが）
+			// ※既存コードの queryAndGetResult は非同期実行して結果リストを返していません。
+			// simpleQueryの実装を見ると queryAndGetResult を呼んでいますが、
+			// rspHandler内で result.add しているので、同期的に待たないと result は空のまま抜けてしまいます。
+
+			// 修正案: 同期的に待つ
+			as.waitForOutstandingRSP();
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	
+	public void releaseConnection() {
+		try {
+			this.close();
+			if (device.getExecutor() != null) {
+				((ExecutorService) device.getExecutor()).shutdown();
+			}
+			if (device.getScheduledExecutor() != null) {
+				((ScheduledExecutorService) device.getScheduledExecutor()).shutdown();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	private static EnumSet<QueryOption> queryOptionsOf(FindSCU main, CommandLine cl) {

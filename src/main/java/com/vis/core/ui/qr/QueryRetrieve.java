@@ -43,12 +43,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.ElementDictionary;
 import org.dcm4che3.data.Tag;
 
 import com.vis.configuration.ConfigInfo;
@@ -65,13 +68,15 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.DeleteFolder;
-import com.vis.core.util.Utils;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.DimseUtilities;
 import com.vis.dicom.dimse.FindSCU;
 
 /**
+ * 
+ * This class depends on dcm4che. TODO: replace wrapper classes.
+ * 
  * QueryRetrieve qr = new QueryRetrieve(false);
  * qr.prepareRetrieve(DICOMCommunicationNode remote, DICOMNode retrieveTargetNode);
  * qr.start();
@@ -179,396 +184,675 @@ public class QueryRetrieve implements Task, Runnable {
 	 * keys-> -m,"key=value"... statements; usage=findscu [options] -c
 	 * <aet>@<host>:<port> [--] [<dicom-file>|<xml-file>...]
 	 */
+//	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
+//			List<String> seriesKeys, List<String> instKeys) {
+//		// echo
+//		if (!DimseUtilities.echo(dest)) {
+//			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed. :"+dest.getAETitle(),
+//					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
+//			MainScreen ms = WindowManager.getMainScreen();
+//			TreeTableDockManager ttdm = ms.getTreeTableDockManager();
+//			ttdm.removeDockAt(dest.getNickname());
+//			return null;
+//		}
+//		/*
+//		 * check query key is empty or not
+//		 */
+//		if (patKeys == null) {
+//			patKeys = Collections.emptyList();
+//		}
+//		if (studyKeys == null) {
+//			studyKeys = Collections.emptyList();
+//		}
+//		if (seriesKeys == null) {
+//			seriesKeys = Collections.emptyList();
+//		}
+//		if (instKeys == null) {
+//			instKeys = Collections.emptyList();
+//		}
+//		/* remove null value */
+//		patKeys.removeAll(Collections.singleton(null));
+//		studyKeys.removeAll(Collections.singleton(null));
+//		seriesKeys.removeAll(Collections.singleton(null));
+//		instKeys.removeAll(Collections.singleton(null));
+//		// Patient Level QR and set root.
+//		ArrayList<Attributes> patResps = queryPatientLevel(dest, patKeys, fuzzy);
+//		if (patResps != null) {
+//			DICOMNode root = new DICOMNode(true, null);
+//			for (Attributes patResp : patResps) {
+//				String patID = patResp.getString(Tag.PatientID);
+//				ArrayList<Attributes> studyResps = queryStudyLevel(dest, patID, studyKeys);
+//				if (studyResps != null) {
+//					for (Attributes studyResp : studyResps) {
+//						DICOMNode studyNode = constructStudyNode(patResp, studyResp);
+//						String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
+//						int numOfSeriesInThisStudy = 0;
+//						int numOfInstanceInThisStudy = 0;
+//						ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
+//						if (seriesResps != null) {
+//							for (Attributes seriesResp : seriesResps) {
+//								DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
+//								String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+//								int numOfInstanceInThisSeries = 0;
+//								ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID,
+//										instKeys);
+//								if (instResps != null) {
+//									for (Attributes instResp : instResps) {
+//										DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp,
+//												instResp);
+//										seriesNode.addChild(instNode);
+//										numOfInstanceInThisSeries += 1;
+//									}
+//								}
+//								if (numOfInstanceInThisSeries > 0) {
+//									seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
+//								}
+//								studyNode.addChild(seriesNode);
+//								numOfSeriesInThisStudy += 1;
+//								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
+//							}
+//						}
+//						if (numOfSeriesInThisStudy > 0) {
+//							if (numOfInstanceInThisStudy > 0) {
+//								studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+//							}
+//							studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
+//						}
+//						root.addChild(studyNode);
+//					}
+//				} else {
+//					continue;
+//				}
+//			}
+//			root.sortChildren(true);
+//			return root;
+//		} else {
+//			return emptyRoot();
+//		}
+//	}
+	
+	/**
+	 * リファクタリング版: 接続持続型クエリ
+	 * 1回の接続で全階層を検索するため、FindSCUのインスタンスを生成・維持して各メソッドに渡します。
+	 * 各Keyには階層レベルに対応したUIDは含まれない想定。
+	 */
 	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
 			List<String> seriesKeys, List<String> instKeys) {
-		// echo
+
+		// 1. Echo check
 		if (!DimseUtilities.echo(dest)) {
-			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed. :"+dest.getAETitle(),
-					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
+			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), 
+					"Echo failed. :" + dest.getAETitle(),
+					"Query validation failed.\nCannot QR with destination node.", 
+					JOptionPane.INFORMATION_MESSAGE);
 			MainScreen ms = WindowManager.getMainScreen();
 			TreeTableDockManager ttdm = ms.getTreeTableDockManager();
 			ttdm.removeDockAt(dest.getNickname());
-			return null;
+			return emptyRoot();
 		}
-		/*
-		 * check query key is empty or not
-		 */
-		if (patKeys == null) {
-			patKeys = Collections.emptyList();
-		}
-		if (studyKeys == null) {
-			studyKeys = Collections.emptyList();
-		}
-		if (seriesKeys == null) {
-			seriesKeys = Collections.emptyList();
-		}
-		if (instKeys == null) {
-			instKeys = Collections.emptyList();
-		}
-		/* remove null value */
+
+		// 2. Input validation
+		if (patKeys == null) patKeys = Collections.emptyList();
+		if (studyKeys == null) studyKeys = Collections.emptyList();
+		if (seriesKeys == null) seriesKeys = Collections.emptyList();
+		if (instKeys == null) instKeys = Collections.emptyList();
+
 		patKeys.removeAll(Collections.singleton(null));
 		studyKeys.removeAll(Collections.singleton(null));
 		seriesKeys.removeAll(Collections.singleton(null));
 		instKeys.removeAll(Collections.singleton(null));
-		// Patient Level QR and set root.
-		ArrayList<Attributes> patResps = queryPatientLevel(dest, patKeys, fuzzy);
-		if (patResps != null) {
+		
+		/*
+		 * Query level is STUDY.
+		 * Patient keys are merged into Study keys because root is STUDY.
+		 */
+		// studyKeys自体を変更しないよう、新しいリストを作ってマージします
+		List<String> currentStudyKeys = new ArrayList<>(studyKeys);
+		currentStudyKeys.addAll(patKeys);
+
+		// 3. FindSCU Init & Connect
+		FindSCU activeScu = null;
+		try {
+			activeScu = new FindSCU();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return emptyRoot();
+		}
+		
+		ArrayList<String> connectArgs = new ArrayList<>();
+		connectArgs.add("-c");
+		connectArgs.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());
+		connectArgs.add("--accept-timeout");
+		connectArgs.add("10000");
+		connectArgs.add("-M");
+		connectArgs.add("StudyRoot"); // StudyRoot
+		
+		if (fuzzy) {
+			connectArgs.add("--fuzzy");
+		}
+
+		boolean isConnected = activeScu.openConnection(connectArgs.toArray(new String[0]));
+		if (!isConnected) {
+			Log.logger.severe("Failed to open association for query.");
+			return emptyRoot();
+		}
+
+		try {
+			// execute query
 			DICOMNode root = new DICOMNode(true, null);
-			for (Attributes patResp : patResps) {
-				String patID = patResp.getString(Tag.PatientID);
-				ArrayList<Attributes> studyResps = queryStudyLevel(dest, patID, studyKeys);
-				if (studyResps != null) {
-					for (Attributes studyResp : studyResps) {
-						DICOMNode studyNode = constructStudyNode(patResp, studyResp);
-						String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
-						int numOfSeriesInThisStudy = 0;
-						int numOfInstanceInThisStudy = 0;
-						ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
-						if (seriesResps != null) {
-							for (Attributes seriesResp : seriesResps) {
-								DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
-								String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
-								int numOfInstanceInThisSeries = 0;
-								ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID,
-										instKeys);
-								if (instResps != null) {
-									for (Attributes instResp : instResps) {
-										DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp,
-												instResp);
-										seriesNode.addChild(instNode);
-										numOfInstanceInThisSeries += 1;
-									}
+			
+			// Study Level
+			// ※queryStudyLevelの実装内で currentStudyKeys を使って Attributes を構築してください
+			ArrayList<Attributes> studyResps = queryStudyLevel(activeScu, currentStudyKeys);
+			
+			if (studyResps != null) {
+				for (Attributes studyResp : studyResps) {
+					// StudyRootではPatient情報もStudyレベルで返ってくるので、それを使ってStudyNodeを作る
+					DICOMNode studyNode = constructStudyNode(studyResp);
+					
+					String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
+					int numOfSeriesInThisStudy = 0;
+					int numOfInstanceInThisStudy = 0;
+					
+					// 【修正】このStudy専用のキーリストを作成
+					List<String> currentSeriesKeys = new ArrayList<>(seriesKeys);
+					currentSeriesKeys.add("StudyInstanceUID=" + studyIUID);
+					
+					// Series Level
+					ArrayList<Attributes> seriesResps = querySeriesLevel(activeScu, currentSeriesKeys);
+					
+					if (seriesResps != null) {
+						for (Attributes seriesResp : seriesResps) {
+							DICOMNode seriesNode = constructSeriesNode(studyResp, seriesResp);
+							String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+							int numOfInstanceInThisSeries = 0;
+							
+							// 【修正】このSeries専用のキーリストを作成
+							List<String> currentInstKeys = new ArrayList<>(instKeys);
+							currentInstKeys.add("StudyInstanceUID=" + studyIUID);
+							currentInstKeys.add("SeriesInstanceUID=" + seriesIUID);
+							
+							// Instance Level
+							ArrayList<Attributes> instResps = queryInstanceLevel(activeScu, currentInstKeys);
+
+							if (instResps != null) {
+								for (Attributes instResp : instResps) {
+									DICOMNode instNode = constructInstanceNode(studyResp, seriesResp, instResp);
+									seriesNode.addChild(instNode);
+									numOfInstanceInThisSeries += 1;
 								}
-								if (numOfInstanceInThisSeries > 0) {
-									seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
-								}
-								studyNode.addChild(seriesNode);
-								numOfSeriesInThisStudy += 1;
-								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
 							}
-						}
-						if (numOfSeriesInThisStudy > 0) {
-							if (numOfInstanceInThisStudy > 0) {
-								studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
+
+							if (numOfInstanceInThisSeries > 0) {
+								seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries + "");
 							}
-							studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
+							studyNode.addChild(seriesNode);
+							numOfSeriesInThisStudy += 1;
+							numOfInstanceInThisStudy += numOfInstanceInThisSeries;
 						}
-						root.addChild(studyNode);
 					}
-				} else {
-					continue;
+
+					if (numOfSeriesInThisStudy > 0) {
+						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy + "");
+						studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy + "");
+					}
+					root.addChild(studyNode);
 				}
 			}
 			root.sortChildren(true);
 			return root;
-		} else {
-			return emptyRoot();
+		} finally {
+			// 5. Release connection
+			activeScu.releaseConnection();
 		}
 	}
+	// --- 以下、リファクタリングされた下位メソッド群 ---
+	// 文字列引数ではなく、Attributesを直接構築して queryNext を呼び出します
 
-	/*
-	 * http://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_C.3.4.html
+	@SuppressWarnings("unused")
+	/**
+	 * 
+	 * @param scu
+	 * @param patKeys : pid is not must.
+	 * @return
 	 */
-	private ArrayList<Attributes> queryPatientLevel(DicomCommunicationNode dest, List<String> patKeys, boolean fuzzy) {
-		// set dest
-		ArrayList<String> connectTo = new ArrayList<>();
-		connectTo.add("-c");
-		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
-		if (fuzzy) {
-			connectTo.add("--fuzzy");// fuzzy search for patientName
-		}
-		// set opt
-		ArrayList<String> option = new ArrayList<>();
-		option.add("--accept-timeout");
-		option.add("60000");// 1 minutes
-		option.add("-L");
-		option.add("PATIENT");
-		option.add("-M");
-		option.add("PatientRoot");
+	private ArrayList<Attributes> queryPatientLevel(FindSCU scu, List<String> patKeys) {
+		Attributes keys = new Attributes();
+		//Mandatory
+		keys.setString(org.dcm4che3.data.Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "PATIENT");
+		/*
+		 * PATIENTレベルでは、階層キー（PatientID）は必須ではない。
+		 */
+		
+		// 戻り値キーの設定
+		/*
+		 * レシーブしたい属性は""をセットしておく。
+		 */
+		keys.setString(org.dcm4che3.data.Tag.PatientName, org.dcm4che3.data.VR.PN, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientID, org.dcm4che3.data.VR.LO, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientSex, org.dcm4che3.data.VR.CS, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientBirthDate, org.dcm4che3.data.VR.DA, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientAge, org.dcm4che3.data.VR.AS, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfPatientRelatedStudies, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfPatientRelatedSeries, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfPatientRelatedInstances, org.dcm4che3.data.VR.IS, "");
 
-		/* set requests return value */
-		ArrayList<String> responseKeys = new ArrayList<>();
-		responseKeys.add("-r");
-		responseKeys.add("PatientName");
-		responseKeys.add("-r");
-		responseKeys.add("PatientID");
-		responseKeys.add("-r");
-		responseKeys.add("NumberOfPatientRelatedStudies");
-		responseKeys.add("-r");
-		responseKeys.add("NumberOfPatientRelatedSeries");
-		responseKeys.add("-r");
-		responseKeys.add("NumberOfPatientRelatedInstances");
-		/* no use as usual */
-		/* ************************************** */
-		responseKeys.add("-r");
-		responseKeys.add("PatientSex");
-		responseKeys.add("-r");
-		responseKeys.add("PatientBirthDate");
-		responseKeys.add("-r");// future work, current findscu does not return this value
-		responseKeys.add("PatientAge");
-		/* *************************************** */
-		ArrayList<String> queryStmt = new ArrayList<>();
-		queryStmt.addAll(connectTo);
-		queryStmt.addAll(option);
-		queryStmt = setPairedKeyToQuery(queryStmt, patKeys);
-		queryStmt.addAll(responseKeys);
-		FindSCU cfind = null;
-		try {
-			cfind = new FindSCU();
-		} catch (IOException e) {
-			e.printStackTrace();
-			Log.logger.severe("Failed initialize a FindScu...");
-			return null;
-		}
-		String[] query = queryStmt.toArray(new String[queryStmt.size()]);
-		ArrayList<Attributes> response = cfind.simpleQuery(query);
-		if (response == null || response.size() < 1) {
-			return null;
-		}
-		return response;
+		// 検索キーの追加 (List<String> "key=value" をパースして設定)
+		/*
+		 * ここにPatirntIDが含まれていたら上書きされるので、上で空を設定していてもOK。
+		 */
+		addKeysFromList(keys, patKeys);
+
+		return scu.queryNext(keys);
 	}
 
-	/*
-	 * queryKeys can include pid and pname, study date study time ModalitiesInStudy
-	 * StudyIUID
-	 */
-	private ArrayList<Attributes> queryStudyLevel(DicomCommunicationNode dest, String patID, List<String> studyKeys) {
+	private ArrayList<Attributes> queryStudyLevel(FindSCU scu, List<String> studyKeys) {
+		Attributes keys = new Attributes();
+		//mandatory
+		keys.setString(org.dcm4che3.data.Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "STUDY");
+		/*
+		 * STUDYレベルでは、階層キー（StudyInstUID）は必須ではない。
+		 */
+		
+		// 戻り値キー
+		
+		keys.setString(org.dcm4che3.data.Tag.PatientName, org.dcm4che3.data.VR.PN, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientID, org.dcm4che3.data.VR.LO, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientSex, org.dcm4che3.data.VR.CS, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientBirthDate, org.dcm4che3.data.VR.DA, "");
+		keys.setString(org.dcm4che3.data.Tag.PatientAge, org.dcm4che3.data.VR.AS, "");
+		
+		keys.setString(org.dcm4che3.data.Tag.StudyDate, org.dcm4che3.data.VR.DA, "");
+		keys.setString(org.dcm4che3.data.Tag.StudyTime, org.dcm4che3.data.VR.TM, "");
+		keys.setString(org.dcm4che3.data.Tag.AccessionNumber, org.dcm4che3.data.VR.SH, "");
+		keys.setString(org.dcm4che3.data.Tag.StudyID, org.dcm4che3.data.VR.SH, "");
+		keys.setString(org.dcm4che3.data.Tag.StudyInstanceUID, org.dcm4che3.data.VR.UI, "");
+		keys.setString(org.dcm4che3.data.Tag.ModalitiesInStudy, org.dcm4che3.data.VR.CS, "");
+		keys.setString(org.dcm4che3.data.Tag.StudyDescription, org.dcm4che3.data.VR.LO, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfStudyRelatedSeries, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfStudyRelatedInstances, org.dcm4che3.data.VR.IS, "");
 
-		// set dest
-		ArrayList<String> connectTo = new ArrayList<>();
-		connectTo.add("-c");
-		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
-		// set opt
-		ArrayList<String> option = new ArrayList<>();
-		option.add("--accept-timeout");
-		option.add("60000");// 1 minutes
-		option.add("-L");
-		option.add("STUDY");// findscu default
-		option.add("-M");
-		option.add("StudyRoot");// findscu default
-		// set response
-		ArrayList<String> response = new ArrayList<>();
-		response.add("-r");
-		response.add("PatientName");
-		response.add("-r");
-		response.add("PatientID");
-		response.add("-r");
-		response.add("PatientSex");
-		response.add("-r");
-		response.add("PatientBirthDate");
-		response.add("-r");
-		response.add("StudyDate");
-		response.add("-r");
-		response.add("StudyTime");
-		response.add("-r");
-		response.add("ModalitiesInStudy");
-		response.add("-r");
-		response.add("StudyDescription");
-		response.add("-r");
-		response.add("NumberOfStudyRelatedSeries");
-		response.add("-r");
-		response.add("NumberOfStudyRelatedInstances");
-		response.add("-r");
-		response.add("AccessionNumber");
-		response.add("-r");
-		response.add("StudyInstanceUID");
-		// composite query statement
-		ArrayList<String> queryStudy = new ArrayList<>();
-		queryStudy.addAll(connectTo);
-		queryStudy.addAll(option);
-		queryStudy = setPairedPatIDToQuery(queryStudy, patID);
-		queryStudy = setPairedKeyToQuery(queryStudy, studyKeys);
-		queryStudy.addAll(response);
-		try {
-			FindSCU cfind = new FindSCU();
-			String[] query = queryStudy.toArray(new String[queryStudy.size()]);
-			ArrayList<Attributes> studies = cfind.simpleQuery(query);
-			if (studies == null || studies.size() < 1) {
-				return null;
-			}else {
-				return studies;
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
+		addKeysFromList(keys, studyKeys);
+
+		return scu.queryNext(keys);
+	}
+
+	private ArrayList<Attributes> querySeriesLevel(FindSCU scu, List<String> seriesKeys) {
+		Attributes keys = new Attributes();
+		// mandatory
+		keys.setString(org.dcm4che3.data.Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "SERIES");
+		
+		if(checkMandatoryKeyExists("SERIES", seriesKeys)==false) {
+			throw new IllegalArgumentException("Series level query is require studyUID !");
 		}
+		
+		// 戻り値キー
+		keys.setString(org.dcm4che3.data.Tag.SeriesNumber, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.SeriesInstanceUID, org.dcm4che3.data.VR.UI, "");
+		keys.setString(org.dcm4che3.data.Tag.Modality, org.dcm4che3.data.VR.CS, "");
+		keys.setString(org.dcm4che3.data.Tag.SeriesDescription, org.dcm4che3.data.VR.LO, "");
+		keys.setString(org.dcm4che3.data.Tag.SeriesDate, org.dcm4che3.data.VR.DA, "");
+		keys.setString(org.dcm4che3.data.Tag.NumberOfSeriesRelatedInstances, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.InstitutionName, org.dcm4che3.data.VR.LO, "");
+		keys.setString(org.dcm4che3.data.Tag.ManufacturerModelName, org.dcm4che3.data.VR.LO, "");
+
+		addKeysFromList(keys, seriesKeys);
+
+		return scu.queryNext(keys);
+	}
+
+	private ArrayList<Attributes> queryInstanceLevel(FindSCU scu, List<String> instKeys) {
+		Attributes keys = new Attributes();
+		//mandatory
+		keys.setString(org.dcm4che3.data.Tag.QueryRetrieveLevel, org.dcm4che3.data.VR.CS, "IMAGE");
+		
+		if(checkMandatoryKeyExists("IMAGE", instKeys)==false) {
+			throw new IllegalArgumentException("Image level query is require both studyUID and seriesUID !");
+		}
+
+		// 戻り値キー
+		keys.setString(org.dcm4che3.data.Tag.InstanceNumber, org.dcm4che3.data.VR.IS, "");
+		keys.setString(org.dcm4che3.data.Tag.SOPInstanceUID, org.dcm4che3.data.VR.UI, "");
+		keys.setString(org.dcm4che3.data.Tag.AcquisitionDate, org.dcm4che3.data.VR.DA, "");
+		keys.setString(org.dcm4che3.data.Tag.AcquisitionTime, org.dcm4che3.data.VR.TM, "");
+		keys.setString(org.dcm4che3.data.Tag.AcquisitionNumber, org.dcm4che3.data.VR.IS, "");
+
+		addKeysFromList(keys, instKeys);
+
+		return scu.queryNext(keys);
 	}
 
 	/**
-	 * 
-	 * @param dest
-	 * @param patKeys
-	 * @param studyKeys  must include studyIUID
-	 * @param seriesKeys
-	 * @return
+	 * List<String> ("Key=Value") を Attributes に変換するヘルパー
 	 */
-	private ArrayList<Attributes> querySeriesLevel(DicomCommunicationNode dest, String patID, String studyIUID,
-			List<String> seriesKeys) {
-		// create series request
-		// set dest
-		ArrayList<String> connectTo = new ArrayList<>();
-		connectTo.add("-c");
-		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
-		// set opt
-		ArrayList<String> option = new ArrayList<>();
-		option.add("--accept-timeout");
-		option.add("60000");// 1 minutes
-		option.add("-L");
-		option.add("SERIES");
+	private void addKeysFromList(Attributes attrs, List<String> keyList) {
+		if (keyList == null) return;
+		for (String kv : keyList) {
+			if (kv == null) continue;
+			String[] parts = kv.split("=", 2);
+			if (parts.length == 2) {
+				String keyName = parts[0];
+				String value = parts[1];
+				// タグ名からTag IDを取得 (dcm4cheの機能を利用)
+				int tag = org.dcm4che3.util.TagUtils.forName(keyName);
+				if (tag != -1) {
+					attrs.setString(tag, ElementDictionary.vrOf(tag, null), value);
+				}
+			}
+		}
+	}
+
+//	/*
+//	 * http://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_C.3.4.html
+//	 */
+//	private ArrayList<Attributes> queryPatientLevel(DicomCommunicationNode dest, List<String> patKeys, boolean fuzzy) {
+//		// set dest
+//		ArrayList<String> connectTo = new ArrayList<>();
+//		connectTo.add("-c");
+//		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
+//		if (fuzzy) {
+//			connectTo.add("--fuzzy");// fuzzy search for patientName
+//		}
+//		// set opt
+//		ArrayList<String> option = new ArrayList<>();
+//		option.add("--accept-timeout");
+//		option.add("10000");// 10 seconds
+//		option.add("-L");
+//		option.add("PATIENT");
+//		option.add("-M");
+//		option.add("PatientRoot");
+//
+//		/* set requests return value */
+//		ArrayList<String> responseKeys = new ArrayList<>();
+//		responseKeys.add("-r");
+//		responseKeys.add("PatientName");
+//		responseKeys.add("-r");
+//		responseKeys.add("PatientID");
+//		responseKeys.add("-r");
+//		responseKeys.add("NumberOfPatientRelatedStudies");
+//		responseKeys.add("-r");
+//		responseKeys.add("NumberOfPatientRelatedSeries");
+//		responseKeys.add("-r");
+//		responseKeys.add("NumberOfPatientRelatedInstances");
+//		/* no use as usual */
+//		/* ************************************** */
+//		responseKeys.add("-r");
+//		responseKeys.add("PatientSex");
+//		responseKeys.add("-r");
+//		responseKeys.add("PatientBirthDate");
+//		responseKeys.add("-r");// future work, current findscu does not return this value
+//		responseKeys.add("PatientAge");
+//		/* *************************************** */
+//		ArrayList<String> queryStmt = new ArrayList<>();
+//		queryStmt.addAll(connectTo);
+//		queryStmt.addAll(option);
+//		queryStmt = setPairedKeyToQuery(queryStmt, patKeys);
+//		queryStmt.addAll(responseKeys);
+//		FindSCU cfind = null;
+//		try {
+//			cfind = new FindSCU();
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			Log.logger.severe("Failed initialize a FindScu...");
+//			return null;
+//		}
+//		String[] query = queryStmt.toArray(new String[queryStmt.size()]);
+//		ArrayList<Attributes> response = cfind.simpleQuery(query);
+//		if (response == null || response.size() < 1) {
+//			return null;
+//		}
+//		return response;
+//	}
+//
+//	/*
+//	 * queryKeys can include pid and pname, study date study time ModalitiesInStudy
+//	 * StudyIUID
+//	 */
+//	private ArrayList<Attributes> queryStudyLevel(DicomCommunicationNode dest, String patID, List<String> studyKeys) {
+//
+//		// set dest
+//		ArrayList<String> connectTo = new ArrayList<>();
+//		connectTo.add("-c");
+//		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
+//		// set opt
+//		ArrayList<String> option = new ArrayList<>();
+//		option.add("--accept-timeout");
+//		option.add("10000");// 10 seconds
+//		option.add("-L");
+//		option.add("STUDY");// findscu default
+//		option.add("-M");
+//		option.add("StudyRoot");// findscu default
+//		// set response
+//		ArrayList<String> response = new ArrayList<>();
+//		response.add("-r");
+//		response.add("PatientName");
+//		response.add("-r");
+//		response.add("PatientID");
+//		response.add("-r");
+//		response.add("PatientSex");
+//		response.add("-r");
+//		response.add("PatientBirthDate");
+//		response.add("-r");
+//		response.add("StudyDate");
+//		response.add("-r");
+//		response.add("StudyTime");
+//		response.add("-r");
+//		response.add("ModalitiesInStudy");
+//		response.add("-r");
+//		response.add("StudyDescription");
+//		response.add("-r");
+//		response.add("NumberOfStudyRelatedSeries");
+//		response.add("-r");
+//		response.add("NumberOfStudyRelatedInstances");
+//		response.add("-r");
+//		response.add("AccessionNumber");
+//		response.add("-r");
+//		response.add("StudyInstanceUID");
+//		// composite query statement
+//		ArrayList<String> queryStudy = new ArrayList<>();
+//		queryStudy.addAll(connectTo);
+//		queryStudy.addAll(option);
+//		queryStudy = setPairedPatIDToQuery(queryStudy, patID);
+//		queryStudy = setPairedKeyToQuery(queryStudy, studyKeys);
+//		queryStudy.addAll(response);
+//		try {
+//			FindSCU cfind = new FindSCU();
+//			String[] query = queryStudy.toArray(new String[queryStudy.size()]);
+//			ArrayList<Attributes> studies = cfind.simpleQuery(query);
+//			if (studies == null || studies.size() < 1) {
+//				return null;
+//			}else {
+//				return studies;
+//			}
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			return null;
+//		}
+//	}
+//
+//	/**
+//	 * 
+//	 * @param dest
+//	 * @param patKeys
+//	 * @param studyKeys  must include studyIUID
+//	 * @param seriesKeys
+//	 * @return
+//	 */
+//	private ArrayList<Attributes> querySeriesLevel(DicomCommunicationNode dest, String patID, String studyIUID,
+//			List<String> seriesKeys) {
+//		// create series request
+//		// set dest
+//		ArrayList<String> connectTo = new ArrayList<>();
+//		connectTo.add("-c");
+//		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
+//		// set opt
+//		ArrayList<String> option = new ArrayList<>();
+//		option.add("--accept-timeout");
+//		option.add("10000");// 10 seconds
+//		option.add("-L");
+//		option.add("SERIES");
+////		option.add("-M");
+////		option.add("StudyRoot");// keep study root
+//
+//		// SERIES LEVEL Response
+//		ArrayList<String> response = new ArrayList<>();
+//		response.add("-r");
+//		response.add("SeriesDate");
+//		response.add("-r");
+//		response.add("SeriesDescription");
+//		response.add("-r");
+//		response.add("Modality");
+//		response.add("-r");
+//		response.add("InstitutionName");
+//		response.add("-r");
+//		response.add("ManufacturerModelName");
+//		response.add("-r");
+//		response.add("SeriesNumber");
+//		response.add("-r");
+//		response.add("NumberOfSeriesRelatedInstances");
+//		response.add("-r");
+//		response.add("SeriesInstanceUID");
+//		// composite query statement
+//		ArrayList<String> querySeries = new ArrayList<>();
+//		querySeries.addAll(connectTo);
+//		querySeries.addAll(option);
+////		querySeries = setPairedPatIDToQuery(querySeries, patID);
+//		querySeries = setPairedStudyIUIDToQuery(querySeries, studyIUID);
+//		querySeries = setPairedKeyToQuery(querySeries, seriesKeys);
+//		querySeries.addAll(response);
+//		FindSCU cfind = null;
+//		try {
+//			cfind = new FindSCU();
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			return null;
+//		}
+//		String[] query = querySeries.toArray(new String[querySeries.size()]);
+//		ArrayList<Attributes> series = cfind.simpleQuery(query);
+//		if (series == null || series.size() < 1) {
+//			return null;
+//		}
+//		return series;
+//	}
+	
+	
+	
+	/*
+	 * FindSCU.simpleQuery() is works fine.
+	 * But, negotiation too heavy one by one instance. 
+	 */
+//	/**
+//	 * 
+//	 * @param dest
+//	 * @param patKeys
+//	 * @param studyKeys  : must include studyIUID
+//	 * @param seriesKeys : must include seriesIUID
+//	 * @param instKeys
+//	 * @return
+//	 */
+//	private ArrayList<Attributes> queryInstanceLevel(DicomCommunicationNode dest, String patID, String studyIUID,
+//			String seriesIUID, List<String> instKeys) {
+//		// create image request
+//		// set dest
+//		ArrayList<String> connectTo = new ArrayList<>();
+//		connectTo.add("-c");
+//		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
+//		// set opt
+//		ArrayList<String> option = new ArrayList<>();
+//		option.add("--accept-timeout");
+//		option.add("10000");// 10 seconds
+//		option.add("-L");
+//		option.add("IMAGE");
 //		option.add("-M");
 //		option.add("StudyRoot");// keep study root
-
-		// SERIES LEVEL Response
-		ArrayList<String> response = new ArrayList<>();
-		response.add("-r");
-		response.add("SeriesDate");
-		response.add("-r");
-		response.add("SeriesDescription");
-		response.add("-r");
-		response.add("Modality");
-		response.add("-r");
-		response.add("InstitutionName");
-		response.add("-r");
-		response.add("ManufacturerModelName");
-		response.add("-r");
-		response.add("SeriesNumber");
-		response.add("-r");
-		response.add("NumberOfSeriesRelatedInstances");
-		response.add("-r");
-		response.add("SeriesInstanceUID");
-		// composite query statement
-		ArrayList<String> querySeries = new ArrayList<>();
-		querySeries.addAll(connectTo);
-		querySeries.addAll(option);
-//		querySeries = setPairedPatIDToQuery(querySeries, patID);
-		querySeries = setPairedStudyIUIDToQuery(querySeries, studyIUID);
-		querySeries = setPairedKeyToQuery(querySeries, seriesKeys);
-		querySeries.addAll(response);
-		FindSCU cfind = null;
-		try {
-			cfind = new FindSCU();
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		}
-		String[] query = querySeries.toArray(new String[querySeries.size()]);
-		ArrayList<Attributes> series = cfind.simpleQuery(query);
-		if (series == null || series.size() < 1) {
-			return null;
-		}
-		return series;
-	}
-
-	/**
-	 * 
-	 * @param dest
-	 * @param patKeys
-	 * @param studyKeys  : must include studyIUID
-	 * @param seriesKeys : must include seriesIUID
-	 * @param instKeys
-	 * @return
-	 */
-	private ArrayList<Attributes> queryInstanceLevel(DicomCommunicationNode dest, String patID, String studyIUID,
-			String seriesIUID, List<String> instKeys) {
-		// create image request
-		// set dest
-		ArrayList<String> connectTo = new ArrayList<>();
-		connectTo.add("-c");
-		connectTo.add(dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort());// AET@host:port
-		// set opt
-		ArrayList<String> option = new ArrayList<>();
-		option.add("--accept-timeout");
-		option.add("60000");// 1 minutes
-		option.add("-L");
-		option.add("IMAGE");
-		option.add("-M");
-		option.add("StudyRoot");// keep study root
-		// IMAGE LEVEL Response
-		ArrayList<String> response = new ArrayList<>();
-		response.add("-r");
-		response.add("AcquisitionTime");
-		response.add("-r");
-		response.add("AcquisitionNumber");
-		response.add("-r");
-		response.add("InstanceNumber");
-		response.add("-r");
-		response.add("SOPInstanceUID");
-		ArrayList<String> queryInstance = new ArrayList<>();
-		// composite query statement
-		queryInstance.addAll(connectTo);
-		queryInstance.addAll(option);
-		queryInstance = setPairedPatIDToQuery(queryInstance, patID);
-		queryInstance = setPairedStudyIUIDToQuery(queryInstance, studyIUID);
-		queryInstance = setPairedSeriesIUIDToQuery(queryInstance, seriesIUID);
-		queryInstance = setPairedKeyToQuery(queryInstance, instKeys);
-		queryInstance.addAll(response);
-		FindSCU cfind = null;
-		try {
-			cfind = new FindSCU();
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		}
-		String[] query = queryInstance.toArray(new String[queryInstance.size()]);
-		ArrayList<Attributes> images = cfind.simpleQuery(query);
-		if (images == null || images.size() < 1) {
-			return null;
-		}
-		return images;
-	}
-
-	/**
-	 * 
-	 * @param query
-	 * @param pairedkeys-> string : "key=value"
-	 * @return
-	 */
-	private ArrayList<String> setPairedKeyToQuery(ArrayList<String> query, List<String> pairedkeys) {
-		if (pairedkeys == null || pairedkeys.isEmpty()) {
-			return query;
-		}
-		for (String pairkey : pairedkeys) {
-			query.add("-m");
-			query.add(pairkey);
-		}
-		return query;
-	}
-
-	private ArrayList<String> setPairedPatIDToQuery(ArrayList<String> query, String patID) {
-		if (patID == null) {
-			return query;
-		}
-		query.add("-m");
-		query.add("PatientID=" + patID);
-		return query;
-	}
-
-	private ArrayList<String> setPairedStudyIUIDToQuery(ArrayList<String> query, String studyIUID) {
-		if (studyIUID == null) {
-			return query;
-		}
-		query.add("-m");
-		query.add("StudyInstanceUID=" + studyIUID);
-		return query;
-	}
-
-	private ArrayList<String> setPairedSeriesIUIDToQuery(ArrayList<String> query, String seriesIUID) {
-		if (seriesIUID == null) {
-			return query;
-		}
-		query.add("-m");
-		query.add("SeriesInstanceUID=" + seriesIUID);
-		return query;
-	}
+//		// IMAGE LEVEL Response
+//		ArrayList<String> response = new ArrayList<>();
+//		response.add("-r");
+//		response.add("AcquisitionTime");
+//		response.add("-r");
+//		response.add("AcquisitionNumber");
+//		response.add("-r");
+//		response.add("InstanceNumber");
+//		response.add("-r");
+//		response.add("SOPInstanceUID");
+//		ArrayList<String> queryInstance = new ArrayList<>();
+//		// composite query statement
+//		queryInstance.addAll(connectTo);
+//		queryInstance.addAll(option);
+//		queryInstance = setPairedPatIDToQuery(queryInstance, patID);
+//		queryInstance = setPairedStudyIUIDToQuery(queryInstance, studyIUID);
+//		queryInstance = setPairedSeriesIUIDToQuery(queryInstance, seriesIUID);
+//		queryInstance = setPairedKeyToQuery(queryInstance, instKeys);
+//		queryInstance.addAll(response);
+//		FindSCU cfind = null;
+//		try {
+//			cfind = new FindSCU();
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			return null;
+//		}
+//		String[] query = queryInstance.toArray(new String[queryInstance.size()]);
+//		ArrayList<Attributes> images = cfind.simpleQuery(query);
+//		if (images == null || images.size() < 1) {
+//			return null;
+//		}
+//		return images;
+//	}
 
 	private DICOMNode emptyRoot() {
 		DICOMNode root = new DICOMNode(true, new ArrayList<DICOMNode>());
 		return root;
 	}
+	
+	private boolean checkMandatoryKeyExists(String level, List<String> keyList) {
+		// 1. 最上位レベル（PATIENT, STUDY）は親キー不要なので即true
+		// (NullPointerException防止のため定数を前に配置)
+		if ("PATIENT".equals(level) || "STUDY".equals(level)) {
+			return true;
+		}
 
-	private DICOMNode constructStudyNode(Attributes patResp, Attributes studyResp) {
-		DICOMNode node = new DICOMNode(DICOMNode.STUDY, patResp.getString(Tag.PatientName, ""), // pname,
-				patResp.getString(Tag.PatientID, ""), // pid,
+		if (keyList == null || keyList.isEmpty()) {
+			return false;
+		}
+
+		// 2. リストに含まれる「タグID」を抽出してSetにまとめる
+		// これにより、後続の判定ロジックがシンプルになります
+		Set<Integer> presentTags = new HashSet<>();
+		for (String kv : keyList) {
+			if (kv == null)
+				continue;
+			String[] parts = kv.split("=", 2);
+			if (parts.length == 2) {
+				String keyName = parts[0];
+				int tag = org.dcm4che3.util.TagUtils.forName(keyName);
+				if (tag != -1) {
+					presentTags.add(tag);
+				}
+			}
+		}
+
+		// 3. レベルに応じた必須キーの存在チェック
+		// Set.contains() を使うことで、「count変数」や「複雑なif文」を排除
+		switch (level) {
+		case "SERIES":
+			// Seriesレベル検索には親(Study)のUIDが必須
+			return presentTags.contains(Tag.StudyInstanceUID);
+
+		case "IMAGE":
+			// Imageレベル検索には親(Study)と親(Series)のUIDが必須
+			return presentTags.contains(Tag.StudyInstanceUID) && presentTags.contains(Tag.SeriesInstanceUID);
+
+		default:
+			// 未知のレベルやサポート外のレベル
+			return false;
+		}
+	}
+
+	private DICOMNode constructStudyNode(Attributes studyResp) {
+		DICOMNode node = new DICOMNode(
+				DICOMNode.STUDY, 
+				studyResp.getString(Tag.PatientName, ""), // pname,
+				studyResp.getString(Tag.PatientID, ""), // pid,
 				studyResp.getString(Tag.StudyDate, ""), // studyDate,
 				"", // seriesDate,
 				studyResp.getString(Tag.StudyTime, ""), // studyTime,
@@ -576,9 +860,9 @@ public class QueryRetrieve implements Task, Runnable {
 				studyResp.getString(Tag.StudyDescription, ""), // studyDesc,
 				"", // seriesDesc,
 				studyResp.getString(Tag.ModalitiesInStudy, ""), // modality,
-				patResp.getString(Tag.PatientSex, ""), // sex,
-				patResp.getString(Tag.PatientBirthDate, ""), // bod,
-				patResp.getString(Tag.PatientAge, ""), // age,
+				studyResp.getString(Tag.PatientSex, ""), // sex,
+				studyResp.getString(Tag.PatientBirthDate, ""), // bod,
+				studyResp.getString(Tag.PatientAge, ""), // age,
 				"", // institution,
 				"", // modelname,
 				"", // seriesNumber,
@@ -594,9 +878,11 @@ public class QueryRetrieve implements Task, Runnable {
 		return node;
 	}
 
-	private DICOMNode constructSeriesNode(Attributes patResp, Attributes studyResp, Attributes seriesResp) {
-		DICOMNode node = new DICOMNode(DICOMNode.SERIES, patResp.getString(Tag.PatientName, ""), // pname,
-				patResp.getString(Tag.PatientID, ""), // pid,
+	private DICOMNode constructSeriesNode(Attributes studyResp, Attributes seriesResp) {
+		DICOMNode node = new DICOMNode(
+				DICOMNode.SERIES, 
+				studyResp.getString(Tag.PatientName, ""), // pname,
+				studyResp.getString(Tag.PatientID, ""), // pid,
 				"", // studyDate,
 				seriesResp.getString(Tag.SeriesDate), // seriesDate,
 				"", // studyTime,
@@ -621,10 +907,12 @@ public class QueryRetrieve implements Task, Runnable {
 		return node;
 	}
 
-	private DICOMNode constructInstanceNode(Attributes patResp, Attributes studyResp, Attributes seriesResp,
+	private DICOMNode constructInstanceNode(Attributes studyResp, Attributes seriesResp,
 			Attributes instResp) {
-		DICOMNode node = new DICOMNode(DICOMNode.IMAGE, patResp.getString(Tag.PatientName, ""), // pname,
-				patResp.getString(Tag.PatientID, ""), // pid,
+		DICOMNode node = new DICOMNode(
+				DICOMNode.IMAGE, 
+				studyResp.getString(Tag.PatientName, ""), // pname,
+				studyResp.getString(Tag.PatientID, ""), // pid,
 				"", // studyDate,
 				"", // seriesDate,
 				"", // studyTime,
