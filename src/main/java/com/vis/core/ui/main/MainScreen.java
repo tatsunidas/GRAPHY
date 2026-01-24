@@ -256,16 +256,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
-					if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
-						if (keepTopTitle.equals(svr.getNickname())) {
-							tabDockManager.setToTopTab(keepTopTitle);
-							break;
-						}
-					}
 					tabDockManager.getDock(svr.getNickname()).updateTreeTableStatus();
 				} catch (URISyntaxException e) {
 					e.printStackTrace();
 				}
+			}
+			if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
+				tabDockManager.setToTopTab(keepTopTitle);
 			}
 			tabDockManager.startRefreshQRTableTimer();
 		}
