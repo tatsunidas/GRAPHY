@@ -62,7 +62,6 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMNodeBuilder;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
-import com.vis.core.ui.qr.QRUtil;
 import com.vis.core.ui.qr.QueryRetrieve;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTableModel;
 import com.vis.core.util.PropertiesUtil;
@@ -144,7 +143,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		setSettings();
 		setContents();
 		setLastScreenState();
-		loadLocalStudiesWhenStartingUp();
 	}
 	
 	public static MainScreen getInstance() {
@@ -253,6 +251,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 				if(!svrReady) {
 					continue;
 				}
+				//set today's nodes.
 				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToday(svr));
 				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
 				try {
@@ -263,6 +262,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 							break;
 						}
 					}
+					tabDockManager.getDock(svr.getNickname()).updateTreeTableStatus();
 				} catch (URISyntaxException e) {
 					e.printStackTrace();
 				}
@@ -282,31 +282,31 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		}
 		DICOMNodeBuilder builder = new DICOMNodeBuilder();
 		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(selectedStudies);
-		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
+		this.tabDockManager.getHomeDock().updateTreeTableStatus(newRoot);
 	}
 	
 	/**
 	 * do it starting-up
 	 */
-	private void loadLocalStudiesWhenStartingUp() {
-		/*
-		 * today query is default
-		 */
-		String patID = null;//anybody
-		String from = QRUtil.getTodayString("/");
-		String to = null;
-		ArrayList<String> modalities = null;
-		//study list
-		DatabaseHandler db = DatabaseHandler.getInstance();
-		if(db == null) {
-			return;
-		}
-		ArrayList<DefaultMutableTreeNode> localStudies = db.selectStudiesWithSearchKeys(patID,from, to, modalities);
-		//construct root dicom node
-		DICOMNodeBuilder builder = new DICOMNodeBuilder();
-		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(localStudies);
-		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
-	}
+//	private void loadLocalStudiesWhenStartingUp() {
+//		/*
+//		 * today query is default
+//		 */
+//		String patID = null;//anybody
+//		String from = QRUtil.getTodayString("/");
+//		String to = null;
+//		ArrayList<String> modalities = null;
+//		//study list
+//		DatabaseHandler db = DatabaseHandler.getInstance();
+//		if(db == null) {
+//			return;
+//		}
+//		ArrayList<DefaultMutableTreeNode> localStudies = db.selectStudiesWithSearchKeys(patID,from, to, modalities);
+//		//construct root dicom node
+//		DICOMNodeBuilder builder = new DICOMNodeBuilder();
+//		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(localStudies);
+//		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
+//	}
 	
 	public void maximizeWindow() {
 		if(!isVisible()) {
@@ -418,13 +418,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeys2(patID, patName, from, to, modalities);
 			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
-			SwingUtilities.invokeLater(() -> dock.updateTreeTable(newRoot));
+			SwingUtilities.invokeLater(() -> dock.updateTreeTableStatus(newRoot));
 		} else {
 			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName()+"]");
 			/* root */
 			DICOMNode queryResults = new QueryRetrieve(true/*queryOnly*/).querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
 					modalities);
-			SwingUtilities.invokeLater(() -> dock.updateTreeTable(queryResults));
+			SwingUtilities.invokeLater(() -> dock.updateTreeTableStatus(queryResults));
 		}
 	}
 	

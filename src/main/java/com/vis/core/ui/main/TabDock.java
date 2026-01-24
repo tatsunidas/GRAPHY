@@ -186,16 +186,13 @@ public class TabDock extends JToolBar{ //implements AncestorListener{
 		this.floating = bool;
 	}
 	
-	public void updateTreeTable(DICOMNode newRoot) {
+	public void updateTreeTableStatus() {
 		JViewport viewport = tableScroll.getViewport(); 
 		DICOMTreeTable treeTable = (DICOMTreeTable)viewport.getView();
-		this.studyCountLbl.setText(getStudyCount(newRoot) + " studies");
-		this.studyCountLbl.repaint();
-		treeInfoPanel.repaint();
+		
 		int[] selectedRows = treeTable.getSelectedRows();//using table no good	
 		//get already opened tree node locations
 		ArrayList<Integer> willExpand = treeTable.getExpandedRowsPos();
-		treeTable.reload(newRoot);
 		TableColumnResizer.adjustColumnPreferredWidths(treeTable);
 		//re-expand tree nodes
 		for (int i = 0; i < willExpand.size(); i++) {
@@ -208,6 +205,35 @@ public class TabDock extends JToolBar{ //implements AncestorListener{
 			//treeTable.selectRow(selectedRows);//DO NOT USE
 		}
 		treeTable.setLastColumnOrder();
+		int countStudy = treeTable.countStudy();
+		this.studyCountLbl.setText(countStudy + " studies");
+		this.studyCountLbl.repaint();
+		treeInfoPanel.repaint();
+	}
+	
+	public void updateTreeTableStatus(DICOMNode newRoot) {
+		JViewport viewport = tableScroll.getViewport(); 
+		DICOMTreeTable treeTable = (DICOMTreeTable)viewport.getView();
+		ArrayList<Integer> willExpand = treeTable.getExpandedRowsPos();
+		treeTable.reload(newRoot);
+		TableColumnResizer.adjustColumnPreferredWidths(treeTable);
+		//re-expand tree nodes
+		for (int i = 0; i < willExpand.size(); i++) {
+			treeTable.getTree().expandRow(willExpand.get(i));
+		}
+		int[] selectedRows = treeTable.getSelectedRows();
+		//get already opened tree node locations
+		
+		//re-select node
+		//table approach
+		for(int row:selectedRows) {
+			treeTable.changeSelection(row, 0, true, false);//row,col,toggle,extend
+			//treeTable.selectRow(selectedRows);//DO NOT USE
+		}
+		treeTable.setLastColumnOrder();
+		this.studyCountLbl.setText(treeTable.countStudy() + " studies");
+		this.studyCountLbl.repaint();
+		treeInfoPanel.repaint();
 	}
 	
 	
