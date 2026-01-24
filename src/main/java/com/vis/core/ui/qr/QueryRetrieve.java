@@ -101,10 +101,7 @@ public class QueryRetrieve implements Task, Runnable {
 	// patID,studyUID,seUID,instUID
 	private ArrayList<String[]> candidateInfoSet;
 	private DicomCommunicationNode dest;
-	
-	// Store the retrieve level to optimize retrieval (STUDY, SERIES, or IMAGE level)
-	private int retrieveLevel = DICOMNode.IMAGE;
-	
+		
 	TaskContext con;
 	
 	// Threading
@@ -364,28 +361,32 @@ public class QueryRetrieve implements Task, Runnable {
 					if (seriesResps != null) {
 						for (Attributes seriesResp : seriesResps) {
 							DICOMNode seriesNode = constructSeriesNode(studyResp, seriesResp);
-							String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
-							int numOfInstanceInThisSeries = 0;
 							
-							// 【修正】このSeries専用のキーリストを作成
-							List<String> currentInstKeys = new ArrayList<>(instKeys);
-							currentInstKeys.add("StudyInstanceUID=" + studyIUID);
-							currentInstKeys.add("SeriesInstanceUID=" + seriesIUID);
+							// 【高速化】
+							// Imageレベルのクエリ (queryInstanceLevel) を廃止。
+							// その代わり、Seriesレベルのレスポンスに含まれる「枚数タグ」を使用。
 							
-							// Instance Level
-							ArrayList<Attributes> instResps = queryInstanceLevel(activeScu, currentInstKeys);
-
-							if (instResps != null) {
-								for (Attributes instResp : instResps) {
-									DICOMNode instNode = constructInstanceNode(studyResp, seriesResp, instResp);
-									seriesNode.addChild(instNode);
-									numOfInstanceInThisSeries += 1;
-								}
-							}
-
-							if (numOfInstanceInThisSeries > 0) {
-								seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries + "");
-							}
+							// (0020,1209) Number of Series Related Instances を取得
+							int numOfInstanceInThisSeries = seriesResp.getInt(Tag.NumberOfSeriesRelatedInstances, 0);
+							
+//							String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
+							//インスタンスレベルは作成しない。
+//							// このSeries専用のキーリストを作成
+//							List<String> currentInstKeys = new ArrayList<>(instKeys);
+//							currentInstKeys.add("StudyInstanceUID=" + studyIUID);
+//							currentInstKeys.add("SeriesInstanceUID=" + seriesIUID);
+//							
+//							// Instance Level
+//							ArrayList<Attributes> instResps = queryInstanceLevel(activeScu, currentInstKeys);
+//
+//							if (instResps != null) {
+//								for (Attributes instResp : instResps) {
+//									DICOMNode instNode = constructInstanceNode(studyResp, seriesResp, instResp);
+//									seriesNode.addChild(instNode);
+//									numOfInstanceInThisSeries += 1;
+//								}
+//							}
+							
 							studyNode.addChild(seriesNode);
 							numOfSeriesInThisStudy += 1;
 							numOfInstanceInThisStudy += numOfInstanceInThisSeries;
@@ -393,7 +394,7 @@ public class QueryRetrieve implements Task, Runnable {
 					}
 
 					if (numOfSeriesInThisStudy > 0) {
-						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy + "");
+						studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy==0 ? "": numOfInstanceInThisStudy + "");
 						studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy + "");
 					}
 					root.addChild(studyNode);
@@ -501,6 +502,7 @@ public class QueryRetrieve implements Task, Runnable {
 		return scu.queryNext(keys);
 	}
 
+	@SuppressWarnings("unused")
 	private ArrayList<Attributes> queryInstanceLevel(FindSCU scu, List<String> instKeys) {
 		Attributes keys = new Attributes();
 		//mandatory
@@ -900,13 +902,15 @@ public class QueryRetrieve implements Task, Runnable {
 				"", // instanceNumber,
 				"", // AccessionNumber,
 				"", // numOfSeries,
-				"",//seriesResp.getString(Tag.NumberOfSeriesRelatedInstances), // count one by one in for-loop.
+				seriesResp.getString(Tag.NumberOfSeriesRelatedInstances, ""),
 				studyResp.getString(Tag.StudyInstanceUID, ""), // studyUID,
-				seriesResp.getString(Tag.SeriesInstanceUID, ""), "", // sopInstaceUID,
+				seriesResp.getString(Tag.SeriesInstanceUID, ""), 
+				"", // sopInstaceUID,
 				null);
 		return node;
 	}
 
+	@SuppressWarnings("unused")
 	private DICOMNode constructInstanceNode(Attributes studyResp, Attributes seriesResp,
 			Attributes instResp) {
 		DICOMNode node = new DICOMNode(
@@ -950,32 +954,69 @@ public class QueryRetrieve implements Task, Runnable {
 		}
 	}
 
+//	public ArrayList<String[]> prepareCandidate(DICOMNode node) {
+//		ArrayList<String[]> candidate = new ArrayList<String[]>();
+//		if (node.getLevel() == DICOMNode.STUDY) {
+//			List<DICOMNode> serieslist = node.getChildren();
+//			for (DICOMNode series : serieslist) {
+//				List<DICOMNode> imagelist = series.getChildren();
+//				for (DICOMNode image : imagelist) {
+//					String[] infoset = new String[4];
+//					infoset[0] = image.getData(DICOMNode.PatientID);
+//					infoset[1] = image.getData(DICOMNode.StudyInstanceUID);
+//					infoset[2] = image.getData(DICOMNode.SeriesInstanceUID);
+//					infoset[3] = image.getData(DICOMNode.SOPInstanceUID);
+//					candidate.add(infoset);
+//				}
+//			}
+//		} else if (node.getLevel() == DICOMNode.SERIES) {
+//			List<DICOMNode> imagelist = node.getChildren();
+//			for (DICOMNode image : imagelist) {
+//				String[] infoset = new String[4];
+//				infoset[0] = image.getData(DICOMNode.PatientID);
+//				infoset[1] = image.getData(DICOMNode.StudyInstanceUID);
+//				infoset[2] = image.getData(DICOMNode.SeriesInstanceUID);
+//				infoset[3] = image.getData(DICOMNode.SOPInstanceUID);
+//				candidate.add(infoset);
+//			}
+//		} else if (node.getLevel() == DICOMNode.IMAGE) {
+//			String[] infoset = new String[4];
+//			infoset[0] = node.getData(DICOMNode.PatientID);
+//			infoset[1] = node.getData(DICOMNode.StudyInstanceUID);
+//			infoset[2] = node.getData(DICOMNode.SeriesInstanceUID);
+//			infoset[3] = node.getData(DICOMNode.SOPInstanceUID);
+//			candidate.add(infoset);
+//		} else {
+//			return null;
+//		}
+//		return candidate;
+//	}
+	
 	public ArrayList<String[]> prepareCandidate(DICOMNode node) {
 		ArrayList<String[]> candidate = new ArrayList<String[]>();
+		
 		if (node.getLevel() == DICOMNode.STUDY) {
+			// Studyが選択された場合: 子ノードである「Series」をすべてリストアップする
 			List<DICOMNode> serieslist = node.getChildren();
 			for (DICOMNode series : serieslist) {
-				List<DICOMNode> imagelist = series.getChildren();
-				for (DICOMNode image : imagelist) {
-					String[] infoset = new String[4];
-					infoset[0] = image.getData(DICOMNode.PatientID);
-					infoset[1] = image.getData(DICOMNode.StudyInstanceUID);
-					infoset[2] = image.getData(DICOMNode.SeriesInstanceUID);
-					infoset[3] = image.getData(DICOMNode.SOPInstanceUID);
-					candidate.add(infoset);
-				}
-			}
-		} else if (node.getLevel() == DICOMNode.SERIES) {
-			List<DICOMNode> imagelist = node.getChildren();
-			for (DICOMNode image : imagelist) {
 				String[] infoset = new String[4];
-				infoset[0] = image.getData(DICOMNode.PatientID);
-				infoset[1] = image.getData(DICOMNode.StudyInstanceUID);
-				infoset[2] = image.getData(DICOMNode.SeriesInstanceUID);
-				infoset[3] = image.getData(DICOMNode.SOPInstanceUID);
+				infoset[0] = series.getData(DICOMNode.PatientID);
+				infoset[1] = series.getData(DICOMNode.StudyInstanceUID);
+				infoset[2] = series.getData(DICOMNode.SeriesInstanceUID);
+				infoset[3] = null; // Seriesレベルでの取得となるため、画像ID(SOPUID)はnullにする
 				candidate.add(infoset);
 			}
+		} else if (node.getLevel() == DICOMNode.SERIES) {
+			// Seriesが選択された場合: 自分自身の情報を1つリストアップする
+			// (以前のように子ノードのImageを探しに行かない)
+			String[] infoset = new String[4];
+			infoset[0] = node.getData(DICOMNode.PatientID);
+			infoset[1] = node.getData(DICOMNode.StudyInstanceUID);
+			infoset[2] = node.getData(DICOMNode.SeriesInstanceUID);
+			infoset[3] = null; // 画像IDは指定しない
+			candidate.add(infoset);
 		} else if (node.getLevel() == DICOMNode.IMAGE) {
+			// もしImageノードが存在する場合（将来的な対応など）はそのまま利用
 			String[] infoset = new String[4];
 			infoset[0] = node.getData(DICOMNode.PatientID);
 			infoset[1] = node.getData(DICOMNode.StudyInstanceUID);
@@ -991,23 +1032,21 @@ public class QueryRetrieve implements Task, Runnable {
 	/**
 	 * 
 	 * @param dest
-	 * @param studynode
-	 * @param copyToTemp : if true, do not store to db. just output temp file dir(temp/studyUID/seriesUID/./). 
+	 * @param node
 	 */
-	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode studynode) {
+	public void prepareRetrieve(DicomCommunicationNode dest, DICOMNode node) {
 		this.candidateInfoSet = null;
-		this.candidateInfoSet = prepareCandidate(studynode);
+		this.candidateInfoSet = prepareCandidate(node);
 		this.dest = dest;
 		// Store the retrieve level for optimized retrieval
-		this.retrieveLevel = studynode.getLevel();
 		String[] retrieveinfoset = new String[4];// study will retrieve
-		retrieveinfoset[0] = studynode.getData(DICOMNode.PatientID);
-		retrieveinfoset[1] = studynode.getData(DICOMNode.StudyInstanceUID);
-		retrieveinfoset[2] = (studynode.getData(DICOMNode.SeriesInstanceUID) != null
-				? studynode.getData(DICOMNode.SeriesInstanceUID)
+		retrieveinfoset[0] = node.getData(DICOMNode.PatientID);
+		retrieveinfoset[1] = node.getData(DICOMNode.StudyInstanceUID);
+		retrieveinfoset[2] = (node.getData(DICOMNode.SeriesInstanceUID) != null
+				? node.getData(DICOMNode.SeriesInstanceUID)
 				: "");
-		retrieveinfoset[3] = (studynode.getData(DICOMNode.SOPInstanceUID) != null
-				? studynode.getData(DICOMNode.SOPInstanceUID)
+		retrieveinfoset[3] = (node.getData(DICOMNode.SOPInstanceUID) != null
+				? node.getData(DICOMNode.SOPInstanceUID)
 				: "");
 		thisThread = new Thread(this);
 		
@@ -1284,148 +1323,244 @@ public class QueryRetrieve implements Task, Runnable {
             }
         }
     }
-	
+    
+    /**
+     * Main Retrieve Execution Logic
+     * Simplified to handle Series-Level retrieval loop based on candidateInfoSet.
+     */
 	private void performRetrieve() {
-		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
+		if (!retreiveReady || candidateInfoSet == null || candidateInfoSet.isEmpty() || dest == null) {
 			setStopped(true);
-			Log.logger.warning("Retrieve taget is null ?? please check what you wolud retrieve.");
+			Log.logger.warning("Retrieve target is null. Please check selection.");
 			return;
 		}
+
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 		TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
 		final DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
-		// Fix thread-safety: UI operations must be on EDT
+
+		// Disable header during retrieve
 		SwingUtilities.invokeLater(() -> treeTable.getTableHeader().setEnabled(false));
-		
-		int size = candidateInfoSet.size();
-		
-		// Optimize: Use series/study-level retrieval when possible
-		if (retrieveLevel == DICOMNode.STUDY || retrieveLevel == DICOMNode.SERIES) {
-			// Group candidates by series for batch retrieval
-			HashMap<String, ArrayList<String[]>> seriesGroups = new HashMap<>();
-			for (String[] infoset : candidateInfoSet) {
-				String seriesKey = infoset[1] + "|" + infoset[2]; // studyUID|seriesUID
-				seriesGroups.computeIfAbsent(seriesKey, k -> new ArrayList<>()).add(infoset);
-			}
-			
-			int processedImages = 0;
-			for (String seriesKey : seriesGroups.keySet()) {
-				if (isStopped()) break;
-				
-				synchronized (this) {
-					if (isSuspended()) {
-						try {
-							this.wait();
-						} catch (InterruptedException ie) {
-							setStopped(true);
-							break;
-						}
-					}
-				}
-				if (Thread.interrupted()) {
-					setStopped(true);
-					break;
-				}
-				
-				ArrayList<String[]> seriesImages = seriesGroups.get(seriesKey);
-				String[] firstImage = seriesImages.get(0);
-				String patID = firstImage[0];
-				String studyUID = firstImage[1];
-				String seriesUID = firstImage[2];
-				
-				// Retrieve at series level (one C-MOVE per series instead of per image)
-				try {
-					c_move(dest, patID, studyUID, seriesUID, ""); // Empty sopUID = series-level
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.out.println("An error occurred during series-level C-MOVE. Processing continues with next series.");
-				}
-				
-				// Update progress for all images in this series
-				processedImages += seriesImages.size();
-				final int currentProgress = processedImages;
-				
-				if (con == null) {
-					HashMap<String, Object> update_con = new HashMap<>();
-					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-					update_con.put(TaskContext.TASK_ID, taskId);
-					update_con.put(TaskContext.SIZE, size);
-					update_con.put(TaskContext.CURRENT_IND, currentProgress - 1);
-					con = new ImportingStateContext(studyUID, update_con);
-				} else {
-					HashMap<String, Object> updation = new HashMap<>();
-					updation.put(TaskContext.CURRENT_IND, currentProgress - 1);
-					con.updateState(updation);
-				}
-				
-				// Fix thread-safety: UI updates must be on EDT
-				SwingUtilities.invokeLater(() -> {
-					treeTable.revalidate();
-					treeTable.repaint();
-				});
-			}
-		} else {
-			// IMAGE level: retrieve one by one (original behavior)
-			int count = 0;
-			while (!(count == size) && !(isStopped())) {
-				synchronized (this) {
-					if (isSuspended()) {
-						try {
-							this.wait();
-						} catch (InterruptedException ie) {
-							setStopped(true);
-							break;
-						}
-					}
-				}
-				if (Thread.interrupted()) {
-					setStopped(true);
-					break;
-				}
-				if (sleepScheduled) {
+
+		int totalTasks = candidateInfoSet.size();
+		int currentCount = 0;
+
+		// candidateInfoSetは prepareCandidate で既に「シリーズ単位」のリストとして作成されているため
+		// ここでは単純にループして処理する。
+
+		for (String[] infoset : candidateInfoSet) {
+			// Check flags
+			if (isStopped())
+				break;
+			synchronized (this) {
+				if (isSuspended()) {
 					try {
-						Thread.sleep(SLEEP_TIME);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+						this.wait();
+					} catch (InterruptedException ie) {
+						setStopped(true);
+						break;
 					}
 				}
-				/* retrieve */
-				String infoset[] = candidateInfoSet.get(count);
-				
+			}
+			if (Thread.interrupted()) {
+				setStopped(true);
+				break;
+			}
+
+			// Sleep for debug/throttling if needed
+			if (sleepScheduled) {
 				try {
-					c_move(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
-				} catch (Exception e) {
+					Thread.sleep(SLEEP_TIME);
+				} catch (InterruptedException e) {
 					e.printStackTrace();
-					System.out.println("An error occurred during C-MOVE. Processing has been interrupted. If multiple QR codes are being processed, the next operation will proceed.");
 				}
-				
-				if(count == 0) {
-					HashMap<String, Object> update_con = new HashMap<>();
-					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-					update_con.put(TaskContext.TASK_ID, taskId);
-					update_con.put(TaskContext.SIZE, candidateInfoSet.size());
-					update_con.put(TaskContext.CURRENT_IND, count);
-					con = new ImportingStateContext(infoset[1], update_con);
-				} else {
-					HashMap<String, Object> updation = new HashMap<>();
-					updation.put(TaskContext.CURRENT_IND, count);
-					con.updateState(updation);
-				}
-				/* count up */
-				count++;
+			}
+
+			String patID = infoset[0];
+			String studyUID = infoset[1];
+			String seriesUID = infoset[2];
+			String sopUID = infoset[3]; // Should be null for Series-Level retrieve
+
+			try {
+				// Execute C-MOVE (Series Level)
+				// sopUIDがnullなので、c_move内部で Series Level のリクエストが構築されます
 				/*
-				 * Fix thread-safety: UI updates must be on EDT
+				 * クエリレベルで自動的に下位データはリトリーブされるため、インスタンスの指定は、
+				 * IMAGEレベル以外では、基本不要。指定してもよいが。
 				 */
-				SwingUtilities.invokeLater(() -> {
-					treeTable.revalidate();
-					treeTable.repaint();
-				});
-			} // while loop end
+				c_move(dest, patID, studyUID, seriesUID, sopUID);
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.out.println("Error during C-MOVE for series: " + seriesUID);
+			}
+
+			// Update Context / Progress
+			if (currentCount == 0) {
+				HashMap<String, Object> update_con = new HashMap<>();
+				update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+				update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+				update_con.put(TaskContext.TASK_ID, taskId);
+				update_con.put(TaskContext.SIZE, totalTasks);
+				update_con.put(TaskContext.CURRENT_IND, currentCount);
+				con = new ImportingStateContext(studyUID, update_con); // Show StudyUID as context
+			} else {
+				HashMap<String, Object> updation = new HashMap<>();
+				updation.put(TaskContext.CURRENT_IND, currentCount);
+				con.updateState(updation);
+			}
+
+			currentCount++;
+
+			// Repaint TreeTable
+			SwingUtilities.invokeLater(() -> {
+				treeTable.revalidate();
+				treeTable.repaint();
+			});
 		}
 		done();
 	}
+	
+//	private void performRetrieve() {
+//		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
+//			setStopped(true);
+//			Log.logger.warning("Retrieve taget is null ?? please check what you wolud retrieve.");
+//			return;
+//		}
+//		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
+//		TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
+//		final DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
+//		// Fix thread-safety: UI operations must be on EDT
+//		SwingUtilities.invokeLater(() -> treeTable.getTableHeader().setEnabled(false));
+//		
+//		int size = candidateInfoSet.size();
+//		
+//		// Optimize: Use series/study-level retrieval when possible
+//		if (retrieveLevel == DICOMNode.STUDY || retrieveLevel == DICOMNode.SERIES) {
+//			// Group candidates by series for batch retrieval
+//			HashMap<String, ArrayList<String[]>> seriesGroups = new HashMap<>();
+//			for (String[] infoset : candidateInfoSet) {
+//				String seriesKey = infoset[1] + "|" + infoset[2]; // studyUID|seriesUID
+//				seriesGroups.computeIfAbsent(seriesKey, k -> new ArrayList<>()).add(infoset);
+//			}
+//			
+//			int processedImages = 0;
+//			for (String seriesKey : seriesGroups.keySet()) {
+//				if (isStopped()) break;
+//				
+//				synchronized (this) {
+//					if (isSuspended()) {
+//						try {
+//							this.wait();
+//						} catch (InterruptedException ie) {
+//							setStopped(true);
+//							break;
+//						}
+//					}
+//				}
+//				if (Thread.interrupted()) {
+//					setStopped(true);
+//					break;
+//				}
+//				
+//				ArrayList<String[]> seriesImages = seriesGroups.get(seriesKey);
+//				String[] firstImage = seriesImages.get(0);
+//				String patID = firstImage[0];
+//				String studyUID = firstImage[1];
+//				String seriesUID = firstImage[2];
+//				
+//				// Retrieve at series level (one C-MOVE per series instead of per image)
+//				try {
+//					c_move(dest, patID, studyUID, seriesUID, ""); // Empty sopUID = series-level
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//					System.out.println("An error occurred during series-level C-MOVE. Processing continues with next series.");
+//				}
+//				
+//				// Update progress for all images in this series
+//				processedImages += seriesImages.size();
+//				final int currentProgress = processedImages;
+//				
+//				if (con == null) {
+//					HashMap<String, Object> update_con = new HashMap<>();
+//					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+//					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+//					update_con.put(TaskContext.TASK_ID, taskId);
+//					update_con.put(TaskContext.SIZE, size);
+//					update_con.put(TaskContext.CURRENT_IND, currentProgress - 1);
+//					con = new ImportingStateContext(studyUID, update_con);
+//				} else {
+//					HashMap<String, Object> updation = new HashMap<>();
+//					updation.put(TaskContext.CURRENT_IND, currentProgress - 1);
+//					con.updateState(updation);
+//				}
+//				
+//				// Fix thread-safety: UI updates must be on EDT
+//				SwingUtilities.invokeLater(() -> {
+//					treeTable.revalidate();
+//					treeTable.repaint();
+//				});
+//			}
+//		} else {
+//			// IMAGE level: retrieve one by one (original behavior)
+//			int count = 0;
+//			while (!(count == size) && !(isStopped())) {
+//				synchronized (this) {
+//					if (isSuspended()) {
+//						try {
+//							this.wait();
+//						} catch (InterruptedException ie) {
+//							setStopped(true);
+//							break;
+//						}
+//					}
+//				}
+//				if (Thread.interrupted()) {
+//					setStopped(true);
+//					break;
+//				}
+//				if (sleepScheduled) {
+//					try {
+//						Thread.sleep(SLEEP_TIME);
+//					} catch (InterruptedException e) {
+//						e.printStackTrace();
+//					}
+//				}
+//				/* retrieve */
+//				String infoset[] = candidateInfoSet.get(count);
+//				
+//				try {
+//					c_move(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//					System.out.println("An error occurred during C-MOVE. Processing has been interrupted. If multiple QR codes are being processed, the next operation will proceed.");
+//				}
+//				
+//				if(count == 0) {
+//					HashMap<String, Object> update_con = new HashMap<>();
+//					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
+//					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
+//					update_con.put(TaskContext.TASK_ID, taskId);
+//					update_con.put(TaskContext.SIZE, candidateInfoSet.size());
+//					update_con.put(TaskContext.CURRENT_IND, count);
+//					con = new ImportingStateContext(infoset[1], update_con);
+//				} else {
+//					HashMap<String, Object> updation = new HashMap<>();
+//					updation.put(TaskContext.CURRENT_IND, count);
+//					con.updateState(updation);
+//				}
+//				/* count up */
+//				count++;
+//				/*
+//				 * Fix thread-safety: UI updates must be on EDT
+//				 */
+//				SwingUtilities.invokeLater(() -> {
+//					treeTable.revalidate();
+//					treeTable.repaint();
+//				});
+//			} // while loop end
+//		}
+//		done();
+//	}
 	
 	public void done() {
 		setStopped(true);
