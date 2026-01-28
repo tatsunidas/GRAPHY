@@ -327,23 +327,34 @@ public class GDicomTools extends ij.util.DicomTools{
 				if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
 					continue;
 				}
+				com.vis.dicom.VR vr = header.getVROn(t);
+			    if (vr == com.vis.dicom.VR.SQ) {
+			        continue;
+			    }
+				
 				String ts = TagUtils.toDicomToolsString(t);
 				String vmString = TagDict.vmOf(t);
 				if(vmString == null) { // maybe private tag
 					continue;
 				}
 				if(vmString.equals("1")) {
-					setTag(imp,1,ts,header.getString(t));
+					String val = header.getString(t);
+			        if (val != null) {
+			            setTag(imp, 1, ts, val);
+			        }
 				}else {
 					String[] vals = header.getStrings(t);
-					String v = "";
-					for(String val:vals) {
-						v = v + val+"\\";
+					if (vals != null && vals.length > 0) {
+						// 文字列連結をStringBuilderに変更（高速化・効率化）
+						StringBuilder sb = new StringBuilder();
+						for (int i = 0; i < vals.length; i++) {
+							sb.append(vals[i]);
+							if (i < vals.length - 1/* ignore appending to end of \\ */) {
+								sb.append("\\");
+							}
+						}
+						setTag(imp, 1, ts, sb.toString());
 					}
-					if(v.length() != 0) {
-						v = v.substring(0, v.length()-1);//remove last "\\"
-					}
-					setTag(imp,1,ts,v);
 				}
 			}
 			if(cal != null) {
@@ -362,17 +373,34 @@ public class GDicomTools extends ij.util.DicomTools{
 					if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
 						continue;
 					}
+					com.vis.dicom.VR vr = header.getVROn(t);
+				    if (vr == com.vis.dicom.VR.SQ) {
+				        continue;
+				    }
+					
 					String ts = TagUtils.toDicomToolsString(t);
-					if(TagDict.vmOf(t).equals("1")) {
-						setTag(imp,1,ts,header.getString(t));
+					String vmString = TagDict.vmOf(t);
+					if(vmString == null) { // maybe private tag
+						continue;
+					}
+					if(vmString.equals("1")) {
+						String val = header.getString(t);
+				        if (val != null) {
+				            setTag(imp, 1, ts, val);
+				        }
 					}else {
 						String[] vals = header.getStrings(t);
-						String v = "";
-						for(String val:vals) {
-							v = v + val+"\\";
+						if (vals != null && vals.length > 0) {
+							// 文字列連結をStringBuilderに変更（高速化・効率化）
+							StringBuilder sb = new StringBuilder();
+							for (int q = 0; q < vals.length; q++) {
+								sb.append(vals[q]);
+								if (i < vals.length - 1/* ignore appending to end of \\ */) {
+									sb.append("\\");
+								}
+							}
+							setTag(imp, 1, ts, sb.toString());
 						}
-						v = v.substring(0, v.length()-1);//remove last "\\"
-						setTag(imp,1,ts,v);
 					}
 				}
 				setTag(imp,(i+1),TagUtils.toDicomToolsString(Tag.Instance​Number),String.valueOf(i+1));

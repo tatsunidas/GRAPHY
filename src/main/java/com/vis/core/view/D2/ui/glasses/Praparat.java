@@ -411,8 +411,8 @@ public class Praparat extends JPanel {
 			 * 2.3d sequence MRI, number of frame is 1 (of each image).
 			 */
 			DicomImage dcm = DicomImage.newDicomImage(imgFiles.get(i), header, fmi, tsUID, backend);
-			isMultiFrame = dcm.isMultiFrame();
-			isMultiFrame = isMultiFrame && dcm.getNumOfFrames() > 1;
+			this.isMultiFrame = dcm.isMultiFrame();
+			this.isMultiFrame = this.isMultiFrame && dcm.getNumOfFrames() > 1;
 			
 			//single frame
 			if(!isMultiFrame) {

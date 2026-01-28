@@ -41,7 +41,6 @@ package com.vis.core.util;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Calendar;
-import java.util.Properties;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;

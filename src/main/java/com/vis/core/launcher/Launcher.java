@@ -37,19 +37,8 @@
  */
 package com.vis.core.launcher;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.logging.Level;
-
-import javax.swing.JOptionPane;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -59,14 +48,9 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.GraphyProp;
 import com.vis.configuration.StartingUpConfigurations;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
-import com.vis.core.ui.dialog.PopUpMessage;
-import com.vis.core.util.Platform;
-import com.vis.core.util.PropertiesUtil;
 /**
  * GRAPHY launcher
  * 
