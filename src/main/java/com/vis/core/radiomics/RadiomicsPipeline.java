@@ -411,9 +411,9 @@ public class RadiomicsPipeline {
 				if(ivhf!=null) break;
 				int mode = 0;
 				if(useOriginalIVH==false && useBinCountIVH==false) {
-					mode=2;
+					mode=1;
 				}else if(useBinCountIVH==true) {
-					mode =1;
+					mode =2;
 				}
 				RadiomicsJ.IVH_binCount = binCountIVH;
 				RadiomicsJ.IVH_binWidth = binWidthIVH;
