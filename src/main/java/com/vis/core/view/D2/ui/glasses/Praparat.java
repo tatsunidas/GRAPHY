@@ -66,6 +66,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.*;
 
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -75,10 +76,12 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.BirdsEyeView;
+import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
@@ -176,6 +179,7 @@ public class Praparat extends JPanel {
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
 	
 	final ViewMode mode;
+	
 	
 	/**
 	 * Load normal praparat
@@ -695,12 +699,14 @@ public class Praparat extends JPanel {
 		List<Integer> sortedIndices = new ArrayList<>(slides.keySet());
 		Collections.sort(sortedIndices);
 
-		int iter = 0;
 		if(!isMultiFrame()) {
+			Calibration orgCal = null;
 			for (int index : sortedIndices) {
 				SlideGlass sg = slides.get(index);
 				DicomImage frame = sg.getDicomImage();
-				Calibration orgCal = sg.getOriginalCalibration();
+				if(orgCal == null) {
+					orgCal = sg.getOriginalCalibration();
+				}
 				if (hasFileSource(index)) {
 					if (!frame.ensurePixelDataLoaded()) {
 						continue;
@@ -715,16 +721,12 @@ public class Praparat extends JPanel {
 				/*
 				 * In this case, always only one slice. It case use getInfoProperty().
 				 */
-				String header = imp.getInfoProperty();
+				String headerLabel = imp.getInfoProperty();
 				/*
 				 * if header has "\n" in head (at index 0), DicomTools.getTag() return null.
 				 */
-				// String header = imp.getStack().getSliceLabel(1);//why ? automatically added "\n" in head.
-				if (iter == 0) {
-					info = header;
-					iter++;
-				}
-				stack.addSlice(header, imp.getProcessor());
+				//header = imp.getStack().getSliceLabel(1);
+				stack.addSlice(headerLabel, imp.getProcessor());
 			}
 			replica = new ImagePlus("stack", stack);
 			/*
@@ -733,6 +735,11 @@ public class Praparat extends JPanel {
 			if (replica.getNSlices() == 1) {
 				replica.setProp("Info", info);
 			}
+			/*
+			 * Now, fail safe ?
+			 * But this is not suitable for EnhancedMultiFrame DICOM.
+			 */
+//			replica.setCalibration(orgCal);			
 			return replica;
 		}else {
 			if (hasFileSource(0)) {
@@ -2031,6 +2038,64 @@ public class Praparat extends JPanel {
 				getCurrentSlide().setTextVisible(v);
 			}
 		}
+	}
+	
+	/*
+	 * GhostGlassPane is the filter on top of the 2DViewerFrame. 
+	 * JToolBarは、ユーザーがドラッグしてウィンドウから切り離す（フローティングさせる）ことができる。 
+	 * ツールバーが切り離された場合、そのツールバーは「JFrameの子」ではなくなり、
+	 * 「独立した別のウィンドウ」 になる。 
+	 * 
+	 * Floatingした場合は、JDialogへGhostGlassPaneを自動追加。
+	 * StageView:ancestor
+	 * 
+	 * 切り離されていない時: JFrame の GlassPane でOK。
+	 * 切り離された時: フローティングウィンドウ自身の GlassPane を使う必要がある。
+	 */
+	public GhostGlassPane getGhostGlassPane() {
+		Window currentWindow = SwingUtilities.getWindowAncestor(this);
+		if(currentWindow instanceof JFrame) {
+			JFrame f = (JFrame)currentWindow;
+			Component gp = f.getGlassPane();
+			if(gp != null && gp instanceof GhostGlassPane) {
+				return (GhostGlassPane)gp;
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * Prapがメインフレームにあるか、切り離されているかを判定
+	 * @return true: メインフレーム内にある（ドッキング中）, false: 切り離されている
+	 */
+	public boolean isAttachedToMainFrame() {
+	    Window currentWindow = SwingUtilities.getWindowAncestor(this);
+	    MainScreen mainScreen = MainScreen.getInstance();
+	    return currentWindow == mainScreen;
+	}
+	
+	public boolean isAttachedToViewr2D() {
+	    Window currentWindow = SwingUtilities.getWindowAncestor(this);
+	    Viewer2DScreen d2Screen = Viewer2DScreen.getInstance();
+	    return currentWindow == d2Screen;
+	}
+	
+	public boolean isAttachedToFloatingDialog() {
+	    Window currentWindow = SwingUtilities.getWindowAncestor(this);
+	    // 冗長だが、可読性のために記載
+	    if(isAttachedToMainFrame()) {
+	    	return false;
+	    }
+	    if(isAttachedToViewr2D()) {
+	    	return false;
+	    }
+	    // 親が JFrame なら「くっついている」とみなす
+	    // 親が JDialog (フローティング用) なら「切り離されている」とみなす
+	    if (currentWindow instanceof JFrame) {
+	        return true; // ドッキング中
+	    } else {
+	        return false; // フローティング中（JDialogなど）
+	    }
 	}
 
 	public void showBorder(boolean show) {

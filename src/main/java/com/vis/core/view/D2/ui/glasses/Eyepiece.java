@@ -38,10 +38,15 @@
 
 package com.vis.core.view.D2.ui.glasses;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.util.ArrayList;
@@ -68,12 +73,17 @@ public class Eyepiece extends JPanel{
 	final String patID;
 	DatabaseHandler db = DatabaseHandler.getInstance();
 	PraparatShelf prapShelf = null;
-	GridLayout gridLayout = new GridLayout();
+	
 	HashMap<String, Color> studyColors;
+	
+	private final int gap = 3;
+	GridLayout gridLayout = new GridLayout(1, 0, gap, gap);
 	
 	//MPR functions
 	public boolean crossViewMode;//
 	
+	private Component draggingComponent = null; // 現在ドラッグ中のコンポーネント
+	private int insertionIndex = -1; // ドロップ予定のインデックス
 	
 	public Eyepiece(String patID) {
 		this.patID = patID;
@@ -95,6 +105,7 @@ public class Eyepiece extends JPanel{
 			}
 		}
 		setMinimumSize(new Dimension(64,64));
+		setOpaque(false);
 	}
 	
 	/**
@@ -254,18 +265,123 @@ public class Eyepiece extends JPanel{
 				@Override
 				public void run() {
 					sdm.deleteStage(patID);
+					revalidate();
+					repaint();
 				}
 			});
 		}else {
+			updateLayout(rows, cols);
+		}
+	}
+	
+	/**
+     * 指定されたM×Nでレイアウトを更新します。
+     * @param rows 行数 (M) - 最小 1
+     * @param cols 列数 (N) - 最小 1
+     */
+	public void updateLayout(int rows, int cols) {
+		if (rows < 1 || cols < 1) {
+			Log.logger.warning("Row and Col shoud be > 0.");
+			return;
+		}
+
+		int numOfPrap = prapShelf.howManyPraparat();
+
+		if (numOfPrap == 0) {
+			gridLayout = new GridLayout(1, 1, gap, gap);
+			setLayout(gridLayout);
 			removeAll();
-			gridLayout.setRows(rows);
-			gridLayout.setColumns(cols);
-			for (PraparatContext pcon : prapShelf.getAllShelfContents()) {
-				add(pcon.getPraparat());
-			}
+			return;
+		}
+
+		// 2. update
+		// GridLayout(int rows, int cols, int hgap, int vgap)
+		gridLayout = new GridLayout(rows, cols, 0, 0);
+		setLayout(gridLayout);
+		removeAll();
+		// add praps
+		for (PraparatContext pcon : prapShelf.getAllShelfContents()) {
+			add(pcon.getPraparat());
 		}
 		revalidate();
 		repaint();
+	}
+	
+	/**
+	 * マウス座標から挿入すべきインデックスを計算するロジック
+	 */
+	public void updateInsertionIndex(Point p) {
+		int count = getComponentCount();
+		int closestIndex = -1;
+		double minDistance = Double.MAX_VALUE;
+
+		// 全コンポーネントを走査して、マウスに最も近いものを探す
+		for (int i = 0; i < count; i++) {
+			Component c = getComponent(i);
+			Rectangle b = c.getBounds();
+
+			// コンポーネントの中心点
+			Point center = new Point(b.x + b.width / 2, b.y + b.height / 2);
+			double dist = p.distance(center);
+
+			if (dist < minDistance) {
+				minDistance = dist;
+				closestIndex = i;
+			}
+		}
+
+		if (closestIndex != -1) {
+			Component target = getComponent(closestIndex);
+			Rectangle b = target.getBounds();
+
+			// コンポーネントの左半分なら「その前」、右半分なら「その後ろ」とする
+			// グリッドなのでX座標の相対位置で判断
+			if (p.x < b.x + b.width / 2) {
+				insertionIndex = closestIndex;
+			} else {
+				insertionIndex = closestIndex + 1;
+			}
+		} else {
+			// 空の領域などの場合、末尾にする
+			insertionIndex = count;
+		}
+		
+		Log.logger.fine("INSERT:"+insertionIndex);
+	}
+	
+    /**
+     * 実際の並べ替え処理（Insert）
+     */
+	public void performReorder() {
+		// 現在のインデックスを取得
+		int currentIndex = -1;
+		for (int i = 0; i < getComponentCount(); i++) {
+			if (getComponent(i) == draggingComponent) {
+				currentIndex = i;
+				break;
+			}
+		}
+
+		if (currentIndex == -1) {
+			return;
+		}
+		
+		// 削除してから挿入するため、インデックスのズレを補正
+		// (自分より後ろに挿入する場合、削除によってインデックスが1つ減るため)
+		if (insertionIndex > currentIndex) {
+			insertionIndex--;
+		}
+
+		// 同じ場所なら何もしない
+		if (insertionIndex == currentIndex)
+			return;
+
+		// スワップではなく「挿入」:
+		// SwingのContainer.add(comp, index) は、既存の要素をシフトしてくれる
+		remove(draggingComponent);
+		add(draggingComponent, insertionIndex);
+
+		revalidate(); // レイアウト計算しなおし
 	}
 	
 	public ArrayList<Praparat> getSelectingPraparats() {
@@ -306,4 +422,49 @@ public class Eyepiece extends JPanel{
 			pp.setFocusGained(false);
 		}
 	}
+	
+	public void setDraggingComponent(Component draggingSlide) {
+		this.draggingComponent = draggingSlide;
+	}
+	
+    // 挿入位置のライン（キャレット）を描画
+    @Override
+    protected void paintChildren(Graphics g) {
+        super.paintChildren(g); // 子コンポーネントを描画
+
+        if (draggingComponent != null && insertionIndex >= 0) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setColor(Color.RED);
+            g2.setStroke(new BasicStroke(4f));
+
+            // 挿入位置の座標計算
+            Rectangle bounds;
+            int x, y, h;
+
+            int componentCount = getComponentCount();
+            
+            if (componentCount == 0) return;
+
+            // 末尾への追加か、既存要素の前への挿入か
+            if (insertionIndex < componentCount) {
+                // 既存のコンポーネントの「左側」に描画
+                Component target = getComponent(insertionIndex);
+                bounds = target.getBounds();
+                x = bounds.x;
+                y = bounds.y;
+                h = bounds.height;
+            } else {
+                // 最後のコンポーネントの「右側」に描画
+                Component last = getComponent(componentCount - 1);
+                bounds = last.getBounds();
+                x = bounds.x + bounds.width;
+                y = bounds.y;
+                h = bounds.height;
+            }
+
+            // グリッドの隙間(gap)を考慮して少し調整
+            int gapAdjustment = ((GridLayout)getLayout()).getHgap() / 2;
+            g2.drawLine(x - gapAdjustment, y, x - gapAdjustment, y + h);
+        }
+    }
 }

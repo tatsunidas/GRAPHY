@@ -97,6 +97,8 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 	private StatusBar status;
 	private StageDockManager sdm;// tab pane
 	
+	private GhostGlassPane glassPane = new GhostGlassPane();
+	
 	Dimension minSize = new Dimension(64, 64);
 
 	private Viewer2DScreen() {
@@ -114,6 +116,8 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		initContents();
 		setLastScreenState();
 		WindowManager.addWindow(this);
+		
+       setGlassPane(glassPane);
 	}
 
 	private static GraphicsConfiguration getScreenGraphicsConfiguration() {

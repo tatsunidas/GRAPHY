@@ -106,6 +106,8 @@ public class GDicomTools extends ij.util.DicomTools{
 		return getDoubles(imp, imp.getCurrentSlice(),tag);
 	}
 	
+	
+	
 	/**
 	 * Add / update meta data in ImagePlus.
 	 * Sequence tag are ignored.
@@ -318,7 +320,119 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 	}
 	
+	/**
+     * DicomObjectからImageJ形式("gggg,eeee: value\n")の文字列を一括生成する
+     */
+    private static String getDicomHeaderString(DicomObject header) {
+        StringBuilder sb = new StringBuilder();
+        int[] tags = header.tags();
+        
+        for (int t : tags) {
+            // 除外タグ
+            if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+                continue;
+            }
+            com.vis.dicom.VR vr = header.getVROn(t);
+            if (vr == com.vis.dicom.VR.SQ) {
+                continue;
+            }
+
+            String vmString = TagDict.vmOf(t);
+            if (vmString == null) { // private tag
+                continue;
+            }
+
+            String ts = TagUtils.toDicomToolsString(t); // "0008,0010" 形式
+            String valueStr = "";
+
+            if (vmString.equals("1")) {
+                String val = header.getString(t);
+                if (val != null) valueStr = val;
+            } else {
+                String[] vals = header.getStrings(t);
+                if (vals != null && vals.length > 0) {
+                    StringBuilder valSb = new StringBuilder();
+                    for (int k = 0; k < vals.length; k++) {
+                        valSb.append(vals[k]);
+                        if (k < vals.length - 1) {
+                            valSb.append("\\");
+                        }
+                    }
+                    valueStr = valSb.toString();
+                }
+            }
+
+            // ImageJのInfoプロパティ形式 "gggg,eeee: value\n" を構築
+            if (!valueStr.isEmpty()) {
+                sb.append(ts).append(": ").append(valueStr).append("\n");
+            }
+        }
+        return sb.toString();
+    }
+    
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
+		if (!dcmImg.isMultiFrame()) {
+			// --- Single Frame ---
+			ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(0).duplicate());
+
+			// ヘッダー情報の文字列を一括生成
+			String headerInfo = getDicomHeaderString(dcmImg.getHeader());
+
+			// プロパティにセット (これで getInfoProperty() で取得できるようになります)
+			if (headerInfo.length() > 0) {
+				imp.setProperty("Info", headerInfo);
+			}
+
+			if (cal != null) {
+				imp.setCalibration(cal);
+			}
+			return imp;
+
+		} else {
+			// --- Multi Frame (Stack) ---
+			int size = dcmImg.getNumOfFrames();
+			ImageStack stack = new ImageStack();
+
+			// 最初のフレームのヘッダー情報を保持しておく（ImagePlus全体のInfoとして使うため）
+			String firstFrameHeader = null;
+
+			for (int i = 0; i < size; i++) {
+				// 各フレームのプロセッサを取得
+				ij.process.ImageProcessor ip = dcmImg.getImageProcessor(i);
+
+				// 必要であれば、各スライスごとのヘッダーも生成する
+				// （ImageJの仕様上、スタックの各スライスラベルにヘッダーを入れるのが一般的）
+				// ※ dcmImg.getHeader() がフレームごとに違うオブジェクトを返す前提です。
+				// もし全フレーム同じheaderオブジェクトなら、再生成不要です。
+				DicomObject header = dcmImg.getHeader();
+				String frameHeader = getDicomHeaderString(header);
+
+				// インスタンス番号などを追記したい場合
+				frameHeader += TagUtils.toDicomToolsString(Tag.Instance​Number) + ": " + (i + 1) + "\n";
+
+				stack.addSlice(frameHeader, ip); // ラベル付きでスライス追加
+
+				// 1枚目のヘッダーを全体のInfo用として確保
+				if (i == 0) {
+					firstFrameHeader = frameHeader;
+				}
+			}
+
+			ImagePlus newImp = new ImagePlus("", stack);
+
+			// 【重要】ここで親のImagePlusにInfoプロパティをセットしないとnullになります
+			if (firstFrameHeader != null) {
+				newImp.setProperty("Info", firstFrameHeader);
+			}
+
+			if (cal != null) {
+				newImp.setCalibration(cal);
+			}
+			return newImp;
+		}
+	}
+	
+	public static ImagePlus dcmImgToImagePlusOld(DicomImage dcmImg, Calibration cal) {
 		if(!dcmImg.isMultiFrame()) {
 			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0).duplicate());
 			DicomObject header = dcmImg.getHeader();

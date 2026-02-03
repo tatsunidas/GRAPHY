@@ -69,7 +69,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf;
 
 /**
- * Study Manager contains Eyepiece(study level) and PatientInfoCake
+ * Study Manager, contains Eyepiece(study level) and PatientInfoCake
  * 
  * @author tatsunidas
  *
@@ -111,6 +111,9 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 		updateInfoCake();
 	}
 	
+	/**
+	 * Back to 2DViewer Frame
+	 */
 	@Override
 	public void ancestorAdded(AncestorEvent arg0) {
 		/*
@@ -158,56 +161,67 @@ public class StageView extends JToolBar/*floatable*/ implements AncestorListener
 				sdm.revalidate();
 				sdm.repaint();
 			}
-			
-		} else {
-			Log.logger.fine(patID+" StageDock is floating...");
-			Viewer2DScreen.getInstance().setStageIDInAction(patID);
-			Component win = SwingUtilities.getWindowAncestor(this);
-			if (win instanceof JDialog) {
-				/* OK */
-				JDialog floatingFrame = (JDialog) SwingUtilities.getWindowAncestor(this);
-				if(!floatingFrame.isResizable()) {
-					floatingFrame.setResizable(true);
-				}
-				floatingFrame.addComponentListener(new FloatingDialogWindowListener());
-				floatingFrame.setName(patID);
-				floatingFrame.setTitle(patID);
-				int w = sdm.getWidth();
-				int h = sdm.getHeight();
-//				System.out.println(w +" "+h);
-				if(w < 100) {
-					w = 150;
-				}
-				if(h < 100) {
-					h = 150;
-				}
-				// to avoid floating dialog minimize */
-				floatingFrame.setPreferredSize(new Dimension(w, h));
-				floatingFrame.setBounds(sdm.getLocationOnScreen().x+10, sdm.getLocationOnScreen().y+10, w, h);
-				floatingFrame.revalidate();
-				floatingFrame.repaint();
-				sdm.revalidate();
-				sdm.repaint();
-			}
 		}
 	}
 	
+	/**
+	 * Listener floating JDialog move
+	 */
 	@Override
 	public void ancestorMoved(AncestorEvent arg0) {
 //		System.out.println("stage view moved");
 	}
 	
+	/**
+	 * Check start floating.
+	 */
 	@Override
-	public void ancestorRemoved(AncestorEvent arg0) {}
+	public void ancestorRemoved(AncestorEvent arg0) {
+		StageDockManager sdm = Viewer2DScreen.getInstance().getStageDockManager();
+		String patID = patInfoSet.get("PatientID");
+		Viewer2DScreen.getInstance().setStageIDInAction(patID);
+		Component win = SwingUtilities.getWindowAncestor(this);
+		if (win instanceof JDialog) {
+			/* OK */
+			JDialog floatingFrame = (JDialog) SwingUtilities.getWindowAncestor(this);
+			if(!floatingFrame.isResizable()) {
+				floatingFrame.setResizable(true);
+			}
+			
+			//add GhostGlassPane, see, SlideGlassMouseListener.
+			GhostGlassPane ggp = new GhostGlassPane();
+			floatingFrame.setGlassPane(ggp);
+			
+			floatingFrame.addComponentListener(new FloatingDialogWindowListener());
+			floatingFrame.setName(patID);
+			floatingFrame.setTitle(patID);
+			int w = sdm.getWidth();
+			int h = sdm.getHeight();
+//			System.out.println(w +" "+h);
+			if(w < 100) {
+				w = 150;
+			}
+			if(h < 100) {
+				h = 150;
+			}
+			// to avoid floating dialog minimize */
+			floatingFrame.setPreferredSize(new Dimension(w, h));
+			floatingFrame.setBounds(sdm.getLocationOnScreen().x+10, sdm.getLocationOnScreen().y+10, w, h);
+			floatingFrame.revalidate();
+			floatingFrame.repaint();
+			sdm.revalidate();
+			sdm.repaint();
+		}
+	}
 	
 	@Override
 	public void componentAdded(ContainerEvent e) {
-		Log.logger.fine("added !!!");
+		Log.logger.fine("Tab dock added !!!");
 	}
 		
 	@Override
 	public void componentRemoved(ContainerEvent e) {
-		Log.logger.fine("removed !!!");
+		Log.logger.fine("TabDock removed !!!");
 	}
 		
 	private void constructStage() {

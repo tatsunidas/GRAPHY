@@ -39,7 +39,11 @@ package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Graphics2D;
+import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -47,9 +51,11 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.NoninvertibleTransformException;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import javax.swing.Timer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,6 +67,7 @@ import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -84,6 +91,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private int wheelRotationAccumulator = 0;
 	private final int wheelThreshold = 2;
 	
+	/*
+	 * ghost dragging
+	 */
+	private Timer longPressTimer;
+	private int pressingTimeToBeGhost = 1500;
+	private int GHOST_MOVEMENT_THRESHOLD = 3;
+	boolean isGhostDragging = false;
+		
 	private Logger logger = Log.logger;
 
 	public SlideGlassMouseListener(SlideGlass slide) {
@@ -91,6 +106,16 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		this.cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		this.pp = slide.getPraparat();
 		this.prapManager = pp.getEyepiece();
+
+		ActionListener act = new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				startGhostDrag();
+			}
+		};
+
+		longPressTimer = new Timer(pressingTimeToBeGhost, act);
+		longPressTimer.setRepeats(false); // 1回だけ実行
 	}
 
 	@Override
@@ -299,6 +324,27 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				viewerToolType = Viewer2DToolBar.Windowing;
 			}
 		}
+		
+		// 1. すでにドラッグモードになっている場合 -> 通常の移動処理
+		if (isGhostDragging) {
+			Component source = (Component) e.getSource();
+			Point screenP = e.getPoint();
+			SwingUtilities.convertPointToScreen(screenP, (Component) e.getSource());
+			pp.getGhostGlassPane().moveDrag(screenP);
+
+			//location
+			Point panelPoint = SwingUtilities.convertPoint(source, e.getPoint(), prapManager);
+			prapManager.updateInsertionIndex(panelPoint);
+	       pp.getGhostGlassPane().repaint();
+			return;
+		}
+        // 2. まだドラッグモードでない場合 -> 動きの監視
+        // 移動量のしきい値を超えて動いたら、長押し失敗としてタイマーを解除
+		Point current = e.getPoint();
+		Point pressPoint = new Point(slide.lastPressedX, slide.lastPressedY);
+		if (pressPoint.distance(current) > GHOST_MOVEMENT_THRESHOLD) {
+			longPressTimer.stop();
+		}
 
 		// roi or brush
 		if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
@@ -443,6 +489,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		slide.startChangeContrastWW = slide.currentMax - slide.currentMin;
 		slide.startChangeContrastWL = slide.currentMin + (slide.startChangeContrastWW/2.);
 		
+		isGhostDragging = false;		
+		longPressTimer.start();
+		
 		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			logger.fine("mouse pressed (x,y):" + e.getX() + " " + e.getY());
 			// MPR
@@ -502,6 +551,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		
+		/*
+		 * reset monitoring ghost dragging
+		 */
+		longPressTimer.stop();
+		
 		viewerToolType = pp.getViewer2DToolType();
 		
 		// roi
@@ -526,6 +580,19 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				refLines.mouseReleased();
 			}
 		}
+		
+		if (isGhostDragging) {
+			// ドラッグ完了処理
+			prapManager.performReorder();
+			GhostGlassPane ggp = pp.getGhostGlassPane();
+			// ドラッグ終了処理
+			ggp.setVisible(false);
+			prapManager.setDraggingComponent(null);
+			isGhostDragging = false;
+			e.consume();
+		} else {
+			// do nothing
+		}
 	}
 
 	@Override
@@ -548,6 +615,44 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		viewerToolType = pp.getViewer2DToolType();
 		slide.setFocusGained(false);
 		pp.setFocusGained(false);
+	}
+	
+	private void startGhostDrag() {
+		if (pp == null || prapManager == null) {
+			isGhostDragging = false;
+			return;
+		}
+		
+		if(pp.isAttachedToMainFrame()) {
+			return;
+		}
+		
+		GhostGlassPane ggp = pp.getGhostGlassPane();
+		if (ggp == null) {
+			isGhostDragging = false;
+			Log.logger.warning("If you want to Dragging SlideGlass in Eyepiece, setGhostGlassPane to Prap.");
+			return;
+		}
+		
+		prapManager.setDraggingComponent(pp);
+
+		isGhostDragging = true;
+
+		// 視覚的フィードバック（カーソルが変わる、少し浮くなど）
+		// 現在のマウス位置を取得する必要がある
+		Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
+
+		// ゴースト画像の作成
+		BufferedImage img = new BufferedImage(slide.getWidth(), slide.getHeight(), BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g2 = img.createGraphics();
+		slide.paint(g2);
+		g2.dispose();
+
+		// Use, 2DViewer GhostGlassPane or another JFrame/JDialog's GhostGlassPane
+		ggp.startDrag(img, mouseLoc);
+		ggp.setVisible(true);
+
+		Log.logger.fine("Ghost Drag Mode Activated!");
 	}
 
 }
