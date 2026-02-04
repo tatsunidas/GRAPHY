@@ -179,7 +179,12 @@ public class ImageSpecimenGlass extends JPanel{
 	 * @return
 	 */
 	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
-		Insets insets = sg.getInsets();//the border's insets
+		/*
+		 * Insets is the ImageSpecimenGlass's Insets.
+		 * ImageSpecimen does not have Border, so insets always 0.
+		 * To be explicit code.
+		 */
+		Insets insets = getInsets();//the border's insets
        int x = (getWidth() - insets.left - insets.right - newImgW) / 2 ;
        int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 ;
 		return new Point(x, y);
@@ -197,7 +202,7 @@ public class ImageSpecimenGlass extends JPanel{
 		if(sg == null) {
 			return null;
 		}
-		Insets insets = sg.getInsets();//the border's insets
+		Insets insets = getInsets();//the border's insets
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
 		
@@ -361,8 +366,12 @@ public class ImageSpecimenGlass extends JPanel{
 	 * to update display image which applied current conditions.
 	 */
 	public void updateDisplayImage() {
-		
-		if(!this.isDisplayable() || !this.isVisible()) {
+
+		if (!this.isDisplayable() || !this.isVisible()) {
+			return;
+		}
+
+		if (getWidth() <= 0 || getHeight() <= 0) {
 			return;
 		}
 		
