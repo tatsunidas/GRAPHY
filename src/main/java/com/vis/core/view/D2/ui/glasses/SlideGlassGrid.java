@@ -99,7 +99,7 @@ public class SlideGlassGrid extends JScrollPane {
 		return (int) Math.ceil((double) numOfImage / cols);
 	}
 
-	private int calcCellSize(int availableWidth) {
+	public int calcCellSize(int availableWidth) {
 		if (availableWidth <= 0)
 			return defaultPanelSize;
 

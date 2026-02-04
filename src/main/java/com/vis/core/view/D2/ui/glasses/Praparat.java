@@ -759,12 +759,26 @@ public class Praparat extends JPanel {
 		return null;
 	}
 	
+	/**
+	 * return : ViewPanel Width (same as SlideGlass size border insets included)
+	 */
 	public int getImageScreenSizeX() {
-		return getViewPanelWidth();
+		if(!showGridViewOn) {
+			return getViewPanelWidth();
+		}else {
+			return gridScrollPane.calcCellSize(getViewPanelWidth());
+		}
 	}
 	
+	/**
+	 * return : ViewPanel Height (same as SlideGlass size border insets included)
+	 */
 	public int getImageScreenSizeY() {
-		return getViewPanelHeight();
+		if(!showGridViewOn) {
+			return getViewPanelHeight();
+		}else {
+			return gridScrollPane.calcCellSize(getViewPanelWidth()/*keep use width*/);
+		}
 	}
 	
 	public HashMap<String,Object> getInfoSet() {
@@ -1824,6 +1838,8 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if (isShowGridViewOn()) {
+			//to get current slice 
+			currentSlice = sliceIndex;
 			return;
 		}
 		

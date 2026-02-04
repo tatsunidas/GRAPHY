@@ -205,8 +205,8 @@ public class SlideGlass extends JLayeredPane {
 	    int yDiff = dragY - lastPressedY;
 
 	    // 2. 画面サイズに対する移動割合
-	    int totalWidth = pp.getImageScreenSizeX();
-	    int totalHeight = pp.getImageScreenSizeY();
+	    int totalWidth = getWidth();
+	    int totalHeight = getHeight();
 	    
 	    // ゼロ除算対策
 	    if (totalWidth == 0 || totalHeight == 0) return;

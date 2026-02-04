@@ -489,6 +489,13 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		slide.startChangeContrastWW = slide.currentMax - slide.currentMin;
 		slide.startChangeContrastWL = slide.currentMin + (slide.startChangeContrastWW/2.);
 		
+		if (pp.getViewMode() == Praparat.ViewMode.FilmGrid) {
+			pp.setImagePositionTo(slide);
+		}
+		
+		Log.logger.fine("MousePressed: currentMin=" + slide.currentMin + ", currentMax=" + slide.currentMax);
+		Log.logger.fine("Initialized StartWW=" + slide.startChangeContrastWW + ", StartWL=" + slide.startChangeContrastWL);
+		
 		isGhostDragging = false;		
 		longPressTimer.start();
 		
