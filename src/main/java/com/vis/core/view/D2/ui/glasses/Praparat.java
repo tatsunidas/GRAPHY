@@ -618,8 +618,10 @@ public class Praparat extends JPanel {
 		setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		setFilmGridColumns(col);
 		viewPanel.removeAll();
-		gridScrollPane = new SlideGlassGrid(this, col, false/*GridLayer*/);
-		viewPanel.add(gridScrollPane,0);
+		gridScrollPane = new SlideGlassGrid(this, col, true/*GridLayer*/);
+		viewPanel.add(gridScrollPane,0);// setParent
+		gridScrollPane.populateView();//set images
+		gridScrollPane.update();//update layout and show current images
 		setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
 
@@ -2145,7 +2147,7 @@ public class Praparat extends JPanel {
 				Component con = viewPanel.getComponent(0);
 				if(con instanceof SlideGlassGrid) {
 					SlideGlassGrid sgg = (SlideGlassGrid)con;
-					sgg.update(viewPanel.getWidth());
+					sgg.updateLayout();
 				}
 			}
 		}else {
