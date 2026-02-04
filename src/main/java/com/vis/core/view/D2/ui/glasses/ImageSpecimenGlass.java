@@ -170,15 +170,13 @@ public class ImageSpecimenGlass extends JPanel{
 	
 	/**
 	 * calc origin xy on image specimen ( which has same size of view panel).
-	 * Ignored pannning.
+	 * Ignored panning.
 	 * 
 	 * @param newImgW
 	 * @param newImgH
-	 * @param compWidth
-	 * @param compHeight
 	 * @return
 	 */
-	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
+	Point calcDefaultImageOriginIgnoreInsets(int newImgW, int newImgH) {
 		/*
 		 * Insets is the ImageSpecimenGlass's Insets.
 		 * ImageSpecimen does not have Border, so insets always 0.
@@ -187,6 +185,29 @@ public class ImageSpecimenGlass extends JPanel{
 		Insets insets = getInsets();//the border's insets
        int x = (getWidth() - insets.left - insets.right - newImgW) / 2 ;
        int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 ;
+		return new Point(x, y);
+	}
+	
+	/**
+	 * This method support the origin which is inside border area on slideglass.
+	 * 
+	 * @param newImgW
+	 * @param newImgH
+	 * @return
+	 */
+	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
+		
+		if(sg.getPraparat().mode == Praparat.ViewMode.Thumbnail) {
+			Praparat pp = sg.getPraparat();
+			return calcDefaultImageOriginIgnoreInsets(pp.getWidth(), pp.getHeight());
+		}
+		
+		Insets insets = sg.getInsets(); // the border's insets from slideglass
+		int marginX = (getWidth() - insets.left - insets.right - newImgW) / 2;
+		int marginY = (getHeight() - insets.top - insets.bottom - newImgH) / 2;
+		// 原点の決定： 左(上)ボーダーの幅 + 余白
+		int x = insets.left + marginX;
+		int y = insets.top + marginY;
 		return new Point(x, y);
 	}
 	
@@ -202,9 +223,17 @@ public class ImageSpecimenGlass extends JPanel{
 		if(sg == null) {
 			return null;
 		}
-		Insets insets = getInsets();//the border's insets
+		
+		Insets insets = sg.getInsets();//the border's insets
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
+		
+		if(sg.getPraparat().mode == Praparat.ViewMode.Thumbnail) {
+			Praparat pp = sg.getPraparat();
+			insets = pp.getInsets();//the border's insets
+			drawableWidth = pp.getWidth() - insets.left - insets.right;
+			drawableHeight = pp.getHeight() - insets.top - insets.bottom;
+		}
 		
 		int bound_width = drawableWidth;
 		int bound_height = drawableHeight;

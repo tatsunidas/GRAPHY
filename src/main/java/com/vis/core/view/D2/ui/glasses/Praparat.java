@@ -1064,7 +1064,7 @@ public class Praparat extends JPanel {
 		if(mode == ViewMode.Thumbnail) {
 			/*No controller and slider*/
 			Dimension size = new Dimension(ThumbnailSize, ThumbnailSize);
-			viewPanel.setPreferredSize(size);
+			setViewPanelSize(ThumbnailSize, ThumbnailSize);
 			this.setPreferredSize(size); // FlowLayout用
 			this.setMinimumSize(size);
 			setFocusable(true);
