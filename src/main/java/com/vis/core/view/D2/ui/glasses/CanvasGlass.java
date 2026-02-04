@@ -173,22 +173,24 @@ public class CanvasGlass extends javax.swing.JPanel {
 			//For MPR.
 			return;
 		}
-		if (isExistsInRoiSet(newRoi)) {
-			HashMap<ContextKey, String> uids = newRoi.getUIDs();
-			String patID = uids.get(ContextKey.PatientID);
-			String studyUID = uids.get(ContextKey.StudyInstanceUID);
-			String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-			String sopUID = uids.get(ContextKey.SOPInstanceUID);
-			String roiID = uids.get(ContextKey.RoiID);
-			updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
-			//this roi already in RoiObjManager.
-		} else {
-			roiset.add(newRoi);
-			insertOrUpdateRoi4DB(newRoi);
-			//update RoiObjManager
-			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
-			if(rom != null) {
-				rom.updateState();
+		synchronized(roiset) {
+			if (isExistsInRoiSet(newRoi)) {
+				HashMap<ContextKey, String> uids = newRoi.getUIDs();
+				String patID = uids.get(ContextKey.PatientID);
+				String studyUID = uids.get(ContextKey.StudyInstanceUID);
+				String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
+				String sopUID = uids.get(ContextKey.SOPInstanceUID);
+				String roiID = uids.get(ContextKey.RoiID);
+				updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
+				//this roi already in RoiObjManager.
+			} else {
+				roiset.add(newRoi);
+				insertOrUpdateRoi4DB(newRoi);
+				//update RoiObjManager
+				RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
+				if(rom != null) {
+					rom.updateState();
+				}
 			}
 		}
 	}
@@ -448,10 +450,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		/*
 		 * if rois are overlapping, return roi that find first.
 		 */
-		if (roiset != null && roiset.size() > 0) {
-			for (RoiObj roi : roiset) {
-				if (roi.contains(ix, iy)) {
-					return roi;
+		synchronized(roiset) {
+			if (roiset != null && roiset.size() > 0) {
+				for (RoiObj roi : roiset) {
+					if (roi.contains(ix, iy)) {
+						return roi;
+					}
 				}
 			}
 		}
@@ -757,7 +761,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(pp.getCurrentViewerToolType()==Viewer2DToolBar.Brush) {
 			if(brushTool != null) {
 				brushTool.brushingEnd();
-				repaint();
 			}
 		}
 	}
