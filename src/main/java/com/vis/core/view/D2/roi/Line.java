@@ -584,19 +584,51 @@ public class Line extends RoiObj {
 			return false;
 	}
 	
-	public void mouseDown(MouseEvent e) {
-		super.mouseDown(e);// set start mouse position
-		Point p = null;
-		try {
-			p = slide.offScreenCoordinate(e.getX(), e.getY());
-		} catch (NoninvertibleTransformException nte) {
-			nte.printStackTrace();
-			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
-		}
-		
-		startxd = p.x;
-		startyd = p.y;
-	}
+	@Override
+    public void mouseDown(MouseEvent e) {
+        // --- 修正箇所 START ---
+        // 生成中(CONSTRUCTING)の場合は、ハンドル判定を行わず、初期座標のセットのみ行う
+        // これにより、MOVING_HANDLE への勝手な状態遷移を防ぐ
+        if (state == CONSTRUCTING) {
+            Point p = null;
+            try {
+                p = slide.offScreenCoordinate(e.getX(), e.getY());
+            } catch (NoninvertibleTransformException nte) {
+                nte.printStackTrace();
+                return;
+            }
+            int ox = p.x;
+            int oy = p.y;
+            
+            // RoiObj(親)のフィールドも初期化しておく（growメソッド等で使われるため）
+            startX = ox;
+            startY = oy;
+            startXD = ox;
+            startYD = oy;
+
+            // Arrow/Line用のフィールド初期化
+            startxd = ox;
+            startyd = oy;
+            return; 
+        }
+        // --- 修正箇所 END ---
+
+        super.mouseDown(e);
+        
+        Point p = null;
+        try {
+            p = slide.offScreenCoordinate(e.getX(), e.getY());
+        } catch (NoninvertibleTransformException nte) {
+            nte.printStackTrace();
+            Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
+        }
+        
+        int ox = p.x;
+        int oy = p.y;
+        
+        startxd = ox;
+        startyd = oy;
+    }
 
 	/**
 	 * Returns a handle number if the specified screen coordinates are inside or

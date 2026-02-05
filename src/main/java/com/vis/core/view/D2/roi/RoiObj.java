@@ -2071,27 +2071,33 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		int margin = IJ.getScreenSize().width > 1280 ? 7 : 5;
 		int size = getHandleSize()+margin;
 		int halfSize = size/2;
-		double x = getXBase();//offscreen
+		//offscreen coords
+		double x = getXBase();
 		double y = getYBase();
+		//offscreen w, h
 		double width = getFloatWidth();
 		double height = getFloatHeight();
 		
 		Point p = slide.slideglassCoordinateFromOffScreen(x, y);
+		Point right_lower_onScreen = slide.slideglassCoordinateFromOffScreen(x+width, y+height);
 		
-		int sx1 = p.x - halfSize;
-		int sy1 = p.y - halfSize;
-		int sx3 = (int)(p.x+width) - halfSize;
-		int sy3 = (int)(p.y+height) - halfSize;
+		int sx1 = (int) (p.x - halfSize);
+		int sy1 = (int) (p.y - halfSize);
+		int sx3 = (int)(right_lower_onScreen.x) - halfSize;
+		int sy3 = (int)(right_lower_onScreen.y) - halfSize;
 		int sx2 = sx1 + (sx3 - sx1)/2;
 		int sy2 = sy1 + (sy3 - sy1)/2;
-		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
-		if (sx>=sx2&&sx<=sx2+size&&sy>=sy1&&sy<=sy1+size) return 1;
-		if (sx>=sx3&&sx<=sx3+size&&sy>=sy1&&sy<=sy1+size) return 2;
-		if (sx>=sx3&&sx<=sx3+size&&sy>=sy2&&sy<=sy2+size) return 3;
-		if (sx>=sx3&&sx<=sx3+size&&sy>=sy3&&sy<=sy3+size) return 4;
-		if (sx>=sx2&&sx<=sx2+size&&sy>=sy3&&sy<=sy3+size) return 5;
-		if (sx>=sx1&&sx<=sx1+size&&sy>=sy3&&sy<=sy3+size) return 6;
-		if (sx>=sx1&&sx<=sx1+size&&sy>=sy2&&sy<=sy2+size) return 7;
+		
+		// prior corners.
+		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;//upper left
+		if (sx>=sx3&&sx<=sx3+size&&sy>=sy1&&sy<=sy1+size) return 2;//upper right
+		if (sx>=sx3&&sx<=sx3+size&&sy>=sy3&&sy<=sy3+size) return 4;//lower right
+		if (sx>=sx1&&sx<=sx1+size&&sy>=sy3&&sy<=sy3+size) return 6;//lower left
+		
+		if (sx>=sx2&&sx<=sx2+size&&sy>=sy1&&sy<=sy1+size) return 1;//upper center
+		if (sx>=sx3&&sx<=sx3+size&&sy>=sy2&&sy<=sy2+size) return 3;//right center 
+		if (sx>=sx2&&sx<=sx2+size&&sy>=sy3&&sy<=sy3+size) return 5;//bottom center
+		if (sx>=sx1&&sx<=sx1+size&&sy>=sy2&&sy<=sy2+size) return 7;//left center
 		return -1;
 	}
 
@@ -3037,10 +3043,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if (getState() == CONSTRUCTING) {
 			return;
 		}
-		// TODO
-//		int tool = Toolbar.getToolId();
-//		if (tool>Toolbar.FREEROI && tool!=Toolbar.WAND && tool!=Toolbar.POINT)
-//			{roi.modState = Roi.NO_MODS; return;}
 		if (e.isShiftDown())
 			setModificationState(ADD_TO_ROI);
 		else if (e.isAltDown())

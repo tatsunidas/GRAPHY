@@ -3,13 +3,7 @@ package com.vis.core.view.D2.roi;
 import ij.*;
 import ij.process.*;
 import java.awt.*;
-import java.awt.event.MouseEvent;
 import java.awt.geom.*;
-import java.util.logging.Level;
-
-import com.vis.core.log.Log;
-
-//import java.awt.geom.Rectangle2D;//to avoid Eclipse error: indirectly referenced from required .class files
 
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -295,24 +289,6 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
 		else
 			return super.getBounds();
     }
-
-	public void mouseDown(MouseEvent e) {
-		super.mouseDown(e);
-		
-		Point p = null;
-		try {
-			p = slide.offScreenCoordinate(e.getX(), e.getY());
-		} catch (NoninvertibleTransformException nte) {
-			nte.printStackTrace();
-			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
-		}
-		
-		int ox = p.x;
-		int oy = p.y;
-		
-		startxd = ox;
-		startyd = oy;
-	}
 
 	protected int clipRectMargin() {
 		double mag = getMagnification();

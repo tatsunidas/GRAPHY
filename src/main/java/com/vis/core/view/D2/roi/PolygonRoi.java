@@ -99,7 +99,7 @@ public class PolygonRoi extends RoiObj {
 	private void init2(int type) {
 		if (type == RoiType.ANGLE.id() && nPoints == 3)
 			getAngleAsString();
-		// tatsu
+		// tats
 		if (type == RoiType.POINT.id() || type==RoiType.MULTIPOINT.id()) {
 			Prefs.pointAutoMeasure = false;
 			Prefs.pointAutoNextSlice = false;

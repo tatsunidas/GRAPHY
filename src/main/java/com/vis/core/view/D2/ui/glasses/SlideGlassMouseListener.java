@@ -525,11 +525,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 			}
 			
-			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
-				cg.mousePressed(e);
-				return;
-			}
-			
 			if (viewerToolType == Viewer2DToolBar.NONE || viewerToolType == Viewer2DToolBar.Windowing) {
 				if (!pp.isProcessSeries()) {
 					slide.lastMin = slide.currentMin;
@@ -548,7 +543,16 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				}
 			} // ww/wl end
 		} // left btn down end
-
+		
+		
+		if (SwingUtilities.isLeftMouseButton(e)) {
+			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
+				System.out.println("Brushing with SHIFT key");
+				cg.mousePressed(e);
+				return;
+			}
+		}
+		
 		// do something ?
 		if (SwingUtilities.isMiddleMouseButton(e)) {
 			

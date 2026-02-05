@@ -89,22 +89,6 @@ public class FreehandRoi extends PolygonRoi {
 	}
     
     void drawLine() {
-        int x1, y1, x2, y2;
-        if (xpf!=null) {
-            x1 = (int)Math.round(xpf[nPoints-2]+x);
-            y1 = (int)Math.round(ypf[nPoints-2]+y);
-            x2 = (int)Math.round(xpf[nPoints-1]+x);
-            y2 = (int)Math.round(ypf[nPoints-1]+y);
-        } else {
-            x1 = xp[nPoints-2]+x;
-            y1 = yp[nPoints-2]+y;
-            x2 = xp[nPoints-1]+x;
-            y2 = yp[nPoints-1]+y;
-        }
-        int xmin = Math.min(x1, x2);
-        int xmax = Math.max(x1, x2);
-        int ymin = Math.min(y1, y2);
-        int ymax = Math.max(y1, y2);
         int margin = 4;
         if (lineWidth>margin && isLine())
             margin = lineWidth;
@@ -114,7 +98,11 @@ public class FreehandRoi extends PolygonRoi {
         }
         if (IJ.altKeyDown())
             margin += 20; // for wipeBack
-        imp.draw(xmin-margin, ymin-margin, (xmax-xmin)+margin*2, (ymax-ymin)+margin*2);
+        
+        if(slide !=null) {
+        	CanvasGlass p = (CanvasGlass)slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+        	p.repaint();
+        }
     }
 
     public void handleMouseUp(int screenX, int screenY) {
