@@ -658,15 +658,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String seriesUid = sg.getSeriesInstanceUID();
 		String sopUid = sopUID;
 		ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, sopUid);
-		if(cons != null && cons.size() > 0) {
-			for(int i=0; i<cons.size(); i++) {
-				RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
-				if(roi == null) {
-					continue;
-				}
-				roi.setSlideGlass(sg);
-				if (!this.roiset.contains(roi)) {
-					roiset.add(roi);
+		synchronized(cons) {
+			if(cons != null && cons.size() > 0) {
+				for(int i=0; i<cons.size(); i++) {
+					RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
+					if(roi == null) {
+						continue;
+					}
+					roi.setSlideGlass(sg);
+					if (!this.roiset.contains(roi)) {
+						roiset.add(roi);
+					}
 				}
 			}
 		}
@@ -1004,8 +1006,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 			drawScaleBar(g);
 		}
 		Graphics2D g2d = (Graphics2D) g;
+		java.awt.geom.AffineTransform imageTransform = (java.awt.geom.AffineTransform) sg.getCurrentTransform().clone();
+		g2d.transform(imageTransform);
+		
 		//g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setTransform(sg.getCurrentTransform());
+//		g2d.setTransform(sg.getCurrentTransform());
 		
 		/*
 		 * offscreen cood.

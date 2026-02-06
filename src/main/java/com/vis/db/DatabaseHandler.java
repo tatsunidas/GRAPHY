@@ -2933,11 +2933,7 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		}
-		if (set.size() > 0) {
-			return set;
-		} else {
-			return null;
-		}
+		return set;
 	}
 	
 	public ArrayList<HashMap<String, Object>> loadRoiContextFromPatient(String pid) {

@@ -253,18 +253,15 @@ public class RoiConverter {
 			line.setProperties(roiCon);
 			roi = line;
 			break;
+		case ARROW:
+			RoiObj arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[1],pointY[1],null);
+			arrow.setProperties(roiCon);
+			roi = arrow;
+			break;
 		case FREELINE:
 			RoiObj freeline = new com.vis.core.view.D2.roi.PolygonRoi(pointX,pointY,pointX.length,RoiType.FREELINE.id(),null);
 			freeline.setProperties(roiCon);
 			roi = freeline;
-			break;
-		case ARROW:
-			/*
-			 * 4 points included of x and y points.
-			 */
-			RoiObj arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[2],pointY[2],null);
-			arrow.setProperties(roiCon);
-			roi = arrow;
 			break;
 		case TEXT:
 			RoiObj txt = new com.vis.core.view.D2.roi.TextRoi(x, y, w, h, desc, null, null);

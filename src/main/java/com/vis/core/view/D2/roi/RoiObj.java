@@ -1975,6 +1975,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void mouseDrag(int sx, int sy, int flags) {
+		setActiveOverlayRoi(true);
 		constrain = (flags & InputEvent.SHIFT_DOWN_MASK) != 0;
 		center = (flags & InputEvent.CTRL_DOWN_MASK) != 0 || (Platform.isMac()&& (flags & InputEvent.META_DOWN_MASK) != 0);
 		aspect = (flags & InputEvent.ALT_DOWN_MASK) != 0;

@@ -139,15 +139,16 @@ public class RoiBrush {
 	/**
      * 現在選択されている（アクティブな）ROIを探して返すヘルパー
      */
-    private RoiObj getSelectedRoi() {
-        if (slide == null) return null;
-        for (RoiObj roi : slide.getRois()) {
-            if (roi.isVisible() && roi.isActiveOverlayRoi() || roi.isSelected()) {
-                return roi;
-            }
-        }
-        return null;
-    }
+//	private RoiObj getSelectedRoi() {
+//		if (slide == null)
+//			return null;
+//		for (RoiObj roi : slide.getRois()) {
+//			if (roi.isActiveOverlayRoi() || roi.isSelected()) {
+//				return roi;
+//			}
+//		}
+//		return null;
+//	}
 
 	/**
      * クリック時のモード判定
@@ -278,34 +279,34 @@ public class RoiBrush {
 	}
 
 	public void brushingEnd() {
-        if (calcExecutor != null && !calcExecutor.isShutdown()) {
-            calcExecutor.submit(() -> {
-                final RoiObj roiToSave = internalWorkingRoi;
-                
-                SwingUtilities.invokeLater(() -> {
-                    if (roiToSave != null) {
-                        if(currentBrushingRoi != null) {
-                             slide.updateRoi(roiToSave); 
-                        } else {
-                             slide.addRoi(roiToSave);
-                        }
-                        slide.saveRoi(roiToSave);
-                        
-                        // ★追加: 次回のShift操作のために、確定したROIを記憶しておく
-                        lastOperatedRoi = roiToSave;
-                    }
-                    
-                    clearCurrentBrushingRoi(); // ここでcurrentBrushingRoiはnullになる
-                    slide.setRoiBrush(null);
-                    slide.repaint();
-                });
-                
-                internalWorkingRoi = null;
-            });
-            calcExecutor.shutdown();
-            calcExecutor = null;
-        }
-    }
+		// remove first
+		slide.setRoiBrush(null);
+		slide.repaint();
+		
+		if (calcExecutor != null && !calcExecutor.isShutdown()) {
+			calcExecutor.submit(() -> {
+				final RoiObj roiToSave = internalWorkingRoi;
+
+				SwingUtilities.invokeLater(() -> {
+					if (roiToSave != null) {
+						if (currentBrushingRoi != null) {
+							slide.updateRoi(roiToSave);
+						} else {
+							slide.addRoi(roiToSave);
+						}
+						slide.saveRoi(roiToSave);
+
+						// ★追加: 次回のShift操作のために、確定したROIを記憶しておく
+						lastOperatedRoi = roiToSave;
+					}
+					clearCurrentBrushingRoi(); // ここでcurrentBrushingRoiはnullになる
+				});
+				internalWorkingRoi = null;
+			});
+			calcExecutor.shutdown();
+			calcExecutor = null;
+		}
+	}
 
 	public void brushRoi(MouseEvent e) {
 		final int targetMode = this.mode;

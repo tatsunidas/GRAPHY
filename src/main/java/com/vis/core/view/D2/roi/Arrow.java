@@ -157,7 +157,23 @@ public class Arrow extends com.vis.core.view.D2.roi.Line {
         x1=(int)x1d; y1=(int)y1d; x2=(int)x2d; y2=(int)y2d;
         double dx=x2d-x1d, dy=y2d-y1d;
         double arrowLength = Math.sqrt(dx*dx+dy*dy);
-        dx=dx/arrowLength; dy=dy/arrowLength;
+        
+		// --- 修正箇所 START ---
+		// 長さが0（始点と終点が同じ）の場合、計算を中断してデフォルト値をセットする
+		if (arrowLength < 0.0001) {
+			dx = 0;
+			dy = 0;
+			// 始点と終点が同じなら、すべての点をその位置にまとめるなどしてNaNを防ぐ
+			for (int i = 0; i < points.length; i += 2) {
+				points[i] = (float) x1d;
+				points[i + 1] = (float) y1d;
+			}
+			return;
+		}
+		// --- 修正箇所 END ---
+
+        dx=dx/arrowLength; dy=dy/arrowLength; // ここで NaN になるのを防ぐ
+        
         if (doubleHeaded && style!=HEADLESS) {
             points[0] = (float)(x1d+dx*shaftWidth*2.0);
             points[1] = (float)(y1d+dy*shaftWidth*2.0);
