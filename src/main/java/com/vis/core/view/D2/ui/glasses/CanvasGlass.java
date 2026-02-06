@@ -1005,11 +1005,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 			//slide glass coordinates
 			drawScaleBar(g);
 		}
+		
+		/*
+		 * if Windows high DPI, original transform is already have something transform.
+		 */
 		Graphics2D g2d = (Graphics2D) g;
 		java.awt.geom.AffineTransform imageTransform = (java.awt.geom.AffineTransform) sg.getCurrentTransform().clone();
 		g2d.transform(imageTransform);
 		
-		//g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		/*
+		 * DO NOT set transform directly.
+		 */
 //		g2d.setTransform(sg.getCurrentTransform());
 		
 		/*
