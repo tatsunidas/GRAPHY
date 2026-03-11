@@ -48,6 +48,9 @@ import java.awt.Point;
 import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelListener;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
@@ -281,6 +284,36 @@ public class Praparat extends JPanel {
 				}
 				sg.changeWindowingByMinMax(min, max);
 			}
+		}
+	}
+	
+	@Override
+	public void addMouseListener(MouseListener l) {
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		for (Integer key : slides.keySet()) {
+			SlideGlass sg = slides.get(key);
+			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
+			coverGlass.addMouseListener(l);
+		}
+	}
+	
+	@Override
+	public void addMouseMotionListener(MouseMotionListener l) {
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		for (Integer key : slides.keySet()) {
+			SlideGlass sg = slides.get(key);
+			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
+			coverGlass.addMouseMotionListener(l);
+		}
+	}
+	
+	@Override
+	public void addMouseWheelListener(MouseWheelListener l) {
+		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		for (Integer key : slides.keySet()) {
+			SlideGlass sg = slides.get(key);
+			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
+			coverGlass.addMouseWheelListener(l);
 		}
 	}
 	
@@ -598,6 +631,10 @@ public class Praparat extends JPanel {
 		if(Utils.isDebug) {
 			Log.logger.fine(this.slides.size()+" images loaded.");
 		}
+		
+		//File location
+		setImageFileLocations(p.getImageFileLocations());
+		
 		if(lut != null) {
 			for(Integer pos : this.slides.keySet()) {
 				this.slides.get(pos).setLUT(lut);
@@ -1265,7 +1302,7 @@ public class Praparat extends JPanel {
 		String seriesUID = GDicomTools.getTag(images, "0020,000E");
 		if(seriesUID != null) seriesUID = seriesUID.trim();
 		String[] sopUIDs = new String[images.getNSlices()];
-		List<String> paths = new ArrayList<>();
+//		List<String> paths = new ArrayList<>();
 		for(int i = 1; i <= images.getNSlices(); i++) {
 			images.setPosition(i);
 			String sopInstUid = GDicomTools.getTag(images, "0008,0018");
@@ -1274,22 +1311,25 @@ public class Praparat extends JPanel {
 			}else {
 				sopUIDs[i-1] = sopInstUid.trim();//need trim.
 			}
-			String path = images.getFileInfo().getFilePath();
-			if(path != null && path.length() > 0 && new File(path).exists()) {
-				if(!paths.contains(path)) {
-					paths.add(path);
-				}
-			}
+			//if imageplus has series data, does not have all instance file paths.
+//			String path = images.getFileInfo().getFilePath();
+//			if(path != null && path.length() > 0 && new File(path).exists()) {
+//				if(!paths.contains(path)) {
+//					paths.add(path);
+//				}
+//			}
 		}
 		images.setSlice(1);//back to first.
 		String refUID = GDicomTools.getTag(images, "0020,0052");
-		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, paths.size()==sopUIDs.length?paths:null);
-		
+		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/*keep null file paths*/);
 		constructSlideGlassesFromImagePlus(images);
 		
 		if(slider != null) {
 			slider.initContext();
 		}
+		
+		initGlobalContrast();
+		
 		if(Utils.isDebug) {
 			Log.logger.fine(slides.size()+" images loaded.");
 		}
@@ -1472,14 +1512,27 @@ public class Praparat extends JPanel {
 					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
 					sg.imageSpecimen.setOriginalImage(im);
 				}
+			} else {
+				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合の処理
+				if (dcmimg != null) {
+					ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
+					if (ip != null) {
+						ImagePlus im = new ImagePlus("" + index, ip);
+						sg.imageSpecimen.setOriginalImage(im);
+					}
+				}
 			}
 			//common
 			sg.initCalibrationAndLUT();
 			if(processSeries) {
 				//move, zoom, rotate, windowing
-				if(syncMag!=null && !syncMag.isNaN()) sg.zoom(syncMag, false/*dummy*/);
-				if(syncRot!=null && !syncRot.isNaN()) sg.rotate(syncRot);
-				if((syncMin!=null && !syncMin.isNaN()) && (syncMax!=null && !syncMax.isNaN())) sg.changeWindowingByMinMax(syncMin, syncMax);
+				if(syncMag!=null && Double.isFinite(syncMag)) sg.zoom(syncMag, false/*dummy*/);
+				if(syncRot!=null && Double.isFinite(syncRot)) sg.rotate(syncRot);
+				if((syncMin!=null && Double.isFinite(syncMin)) && (syncMax!=null && Double.isFinite(syncMax))) {
+					sg.changeWindowingByMinMax(syncMin, syncMax);
+				}else if(syncMin==null && syncMax==null){
+					sg.autoWindowing();
+				}
 				//finally set origin
 				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
 			}
@@ -1491,8 +1544,15 @@ public class Praparat extends JPanel {
 	 * キャッシュ管理：円環（リングバッファ）状に前後10枚をロードする
 	 */
 	public void manageCache(int currentIndex) {
-		if (slides == null || slides.isEmpty())
+		if (slides == null || slides.isEmpty()) {
 			return;
+		}
+		
+		// if source is imageplus, does not have paths.
+		List<String> imagePaths = getImageFileLocations();
+		if(imagePaths == null) {
+			return;
+		}
 		
 		// --- 同期する状態のスナップショットを取得 ---
 	    SlideGlass current = getCurrentSlide();
@@ -1505,7 +1565,7 @@ public class Praparat extends JPanel {
 
 		prefetchExecutor.submit(() -> {
 			int totalSize = slides.size();
-
+			
 			// 1. 周回を考慮した範囲の画像をロード
 			// currentIndexを中心に、-10から+10までの相対位置を計算
 			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
@@ -1535,6 +1595,42 @@ public class Praparat extends JPanel {
 			}
 		});
 	}
+	
+	/**
+     * 初回読み込み時に、ボリューム中央の代表スライスからオートコントラストを計算し、
+     * 全スライスの初期コントラスト変数として保持させます。
+     */
+    private void initGlobalContrast() {
+        if (slides == null || slides.isEmpty()) {
+            return;
+        }
+
+        // 1. ボリュームの中央スライスを代表として選択（端の空気ばかりのスライスを避けるため）
+        int centerIndex = slides.size() / 2;
+        SlideGlass centerSlide = slides.get(centerIndex);
+
+        // 2. 中央スライスのピクセルデータが未ロードの場合は実体化させる
+        // （同期フラグなどはfalse/nullで呼び出し、純粋に画像データだけをロードする）
+        realizeImage(centerIndex, false, 1.0, 0.0, null, null, null);
+
+        // 3. 中央スライスでオートコントラストを実行し、基準となるMin/Maxを取得
+        centerSlide.autoWindowing();
+        double baseMin = centerSlide.currentMin;
+        double baseMax = centerSlide.currentMax;
+
+        // 4. 計算したMin/Maxを、全スライスの変数に初期値としてセットする
+        for (Integer key : slides.keySet()) {
+            SlideGlass sg = slides.get(key);
+            sg.currentMin = baseMin;
+            sg.currentMax = baseMax;
+            
+            // ピクセルデータがすでに存在する場合（ImagePlusからの読み込み等）は、
+            // 内部のLUTなども更新しておくためにメソッド経由でセットするのも有効です。
+            // sg.changeWindowingByMinMax(baseMin, baseMax); 
+        }
+        
+        Log.logger.fine("Global contrast initialized. Min: " + baseMin + ", Max: " + baseMax);
+    }
 
 	/**
 	 * 円環状のインデックスにおいて、targetがcenterのrange内にあるか判定するヘルパー
@@ -1843,11 +1939,12 @@ public class Praparat extends JPanel {
 			return;
 		}
 		
+		//set image first time
 		if(currentSlice == -1) {
 			currentSlice = sliceIndex;
 			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
-			double syncMag = 1.0;
-			double syncRot = 0.0;
+			Double syncMag = 1.0;
+			Double syncRot = 0.0;
 			Double syncMin = null;
 			Double syncMax = null;
 			Point syncOrigin = null;
@@ -1856,9 +1953,25 @@ public class Praparat extends JPanel {
 			SlideGlass currentGlass = this.slides.get(currentSlice);
 			if (currentGlass == null)
 				return;
+			
+			//init all slide//already loaded (ImagePlus pattern)
+			//move, zoom, rotate, windowing
+			for(int i=0; i<slides.size();i++) {
+				SlideGlass sg = slides.get(i);
+				if(syncMag!=null && Double.isFinite(syncMag)) sg.zoom(syncMag, false/*dummy*/);
+				if(syncRot!=null && Double.isFinite(syncRot)) sg.rotate(syncRot);
+				if((syncMin!=null && Double.isFinite(syncMin)) && (syncMax!=null && Double.isFinite(syncMax))) {
+					sg.changeWindowingByMinMax(syncMin, syncMax);
+				}else if(syncMin==null && syncMax==null){
+					sg.autoWindowing();
+				}
+				//finally set origin
+				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
+			}
 
 			viewPanel.removeAll();
 			viewPanel.add(currentGlass, 0);
+			currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
 
 			// 2. 前後の先読みを開始（バックグラウンドスレッド）
 			manageCache(currentSlice);

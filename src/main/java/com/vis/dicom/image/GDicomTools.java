@@ -544,11 +544,19 @@ public class GDicomTools extends ij.util.DicomTools{
 		int s = imp.getNSlices();
 		//16 bit
 		boolean signed16 = imp.getProcessor().isSigned16Bit();
+		ImageStack stack = imp.getImageStack();
 		for (int i = 0; i < s; i++) {
+			//create header without pixels.
 			DicomObject core = DicomObject.newDicomObject();
 			addAttributes(core, i, imp, dealWithSecondaryCapture);
 			DicomImage dcmImg = DicomImage.newDicomImage(null/*file path*/, core, null/*fmi null-able*/, UID.ImplicitVRLittleEndian);
-			Object pix = imp.getProcessor().getPixels();// setPosition() was done addAttributes()
+			//add pixels to dicom obj.
+			/*
+			 * I know, setSlice() was done addAttributes().
+			 * But, sometimes this cause error which does not switch slice position.
+			 * Here, use stack explicitly.
+			 */
+			Object pix = stack.getProcessor(i+1).getPixels();
 			if (signed16) {
 				/*
 				 * When loading a pixel array from ImagePlus, Signed16Bit images are already
@@ -576,7 +584,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	private static void addAttributes(DicomObject dcm, int slicePos/* 0 to N-1 */,
 			ImagePlus imp/* should be set current processor */, boolean dealWithSecondaryCapture) {
 
-		imp.setPosition(slicePos + 1);
+		imp.setSlice(slicePos + 1);
 
 		String sopClassUID = GDicomTools.getTag(imp, "0008,0016");
 		if(sopClassUID != null) sopClassUID = sopClassUID.trim();
@@ -714,7 +722,7 @@ public class GDicomTools extends ij.util.DicomTools{
 			Calibration cal = imp.getCalibration();
 			pixelSpacingYX = cal.pixelHeight + "\\\\" + cal.pixelWidth;
 		}
-		Double pixelSpacingZ = GDicomTools.getVoxelDepth(imp.getStack());// SpacingBetweenSlices
+		Double pixelSpacingZ = GDicomTools.getVoxelDepth(imp);// SpacingBetweenSlices
 		if (pixelSpacingZ <= 0.0) {
 			pixelSpacingZ = imp.getCalibration().pixelDepth;
 		}

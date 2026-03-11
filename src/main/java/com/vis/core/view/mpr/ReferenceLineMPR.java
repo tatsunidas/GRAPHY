@@ -20,6 +20,8 @@ import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.core.view.D2.ui.orientation.SlicePlane;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.image.GDicomTools;
 

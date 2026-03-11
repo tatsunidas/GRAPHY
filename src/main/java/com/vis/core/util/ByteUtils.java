@@ -207,10 +207,22 @@ public class ByteUtils {
         return bytes;
     }
     
-	public static byte[] shortToBytes(short[] pixels) {
-		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 2);
-		byteBuffer.order(ByteOrder.nativeOrder()).asShortBuffer().put(pixels);
-		return byteBuffer.array();
+	public static byte[] shortToBytes(short[] pixels, boolean bigEndian) {
+		// 1つのshortは2バイトなので、全体の要素数 × 2 のサイズの空のbyte配列を準備する
+		byte[] destBytes = new byte[pixels.length * 2];
+		// 全ピクセルをループして、4バイトずつ順番に詰め込んでいく
+		for (int i = 0; i < pixels.length; i++) {
+			// 書き込み開始位置（オフセット）は 0, 2, 4, 6... と進む
+			int offset = i * 2;
+			// メソッドを呼び出して書き込む
+			shortToBytes(pixels[i], destBytes, offset, bigEndian);
+		}
+		//または
+//		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 2);
+//		byteBuffer.order(bigEndian ? ByteOrder.BIG_ENDIAN:ByteOrder.LITTLE_ENDIAN);
+//		byteBuffer.asShortBuffer().put(pixels);
+//		return byteBuffer.array();
+		return destBytes;
 	}
 
     public static byte[] intToBytes(int i, byte[] bytes, int off,
@@ -287,8 +299,9 @@ public class ByteUtils {
         return intToBytesLE(Float.floatToIntBits(f), bytes, off);
     }
     
-	public static byte[] floatToBytes(float[] pixels) {
+	public static byte[] floatToBytes(float[] pixels, boolean bigEndian) {
 		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 4);
+		byteBuffer.order(bigEndian ? ByteOrder.BIG_ENDIAN:ByteOrder.LITTLE_ENDIAN);
 		byteBuffer.asFloatBuffer().put(pixels);
 		return byteBuffer.array();
 	}
@@ -307,8 +320,9 @@ public class ByteUtils {
         return longToBytesLE(Double.doubleToLongBits(d), bytes, off);
     }
     
-	public static byte[] doubleToBytes(double[] pixels) {
+	public static byte[] doubleToBytes(double[] pixels, boolean bigEndian) {
 		ByteBuffer byteBuffer = ByteBuffer.allocate(pixels.length * 8);
+		byteBuffer.order(bigEndian ? ByteOrder.BIG_ENDIAN:ByteOrder.LITTLE_ENDIAN);
 		byteBuffer.asDoubleBuffer().put(pixels);
 		return byteBuffer.array();
 	}

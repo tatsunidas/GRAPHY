@@ -232,6 +232,11 @@ public class PixelDataDecoder {
 	// --- 各型専用の高速プロセッサ ---
 	private ImageProcessor processByte(ByteBuffer buffer) {
 		byte[] pixels = new byte[w * h];
+		if(bigEndian) {
+			buffer.order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
+		}
 		buffer.get(pixels);
 		// Signed Byteの場合: -128~127 を 0~255 にマッピング (XOR 0x80)
 		if (signed) {
@@ -253,6 +258,11 @@ public class PixelDataDecoder {
 	 */
 	private ImageProcessor processShort(ByteBuffer buffer) {
 		short[] pixels = new short[w * h];
+		if(bigEndian) {
+			buffer.order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
+		}
 		buffer.asShortBuffer().get(pixels);
 		// Signed Shortの場合: -32768~32767 を 0~65535 にマッピング (XOR 0x8000)
 		if (signed) {
@@ -265,6 +275,11 @@ public class PixelDataDecoder {
 
 	private ImageProcessor processFloat(ByteBuffer buffer) {
 		float[] pixels = new float[w * h];
+		if(bigEndian) {
+			buffer.order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
+		}
 		buffer.asFloatBuffer().get(pixels);
 		// Floatは通常Signedなのでそのまま扱う
 		return new FloatProcessor(w, h, pixels);
@@ -273,6 +288,11 @@ public class PixelDataDecoder {
 	private ImageProcessor processDouble(ByteBuffer buffer) {
 		// ImageJは64bitを直接扱えないため、32bit Floatにダウンキャスト
 		float[] pixels = new float[w * h];
+		if(bigEndian) {
+			buffer.order(ByteOrder.BIG_ENDIAN);
+		}else {
+			buffer.order(ByteOrder.LITTLE_ENDIAN);
+		}
 		for (int i = 0; i < pixels.length; i++) {
 			pixels[i] = (float) buffer.getDouble();
 		}

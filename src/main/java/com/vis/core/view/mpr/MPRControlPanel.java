@@ -23,6 +23,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.NumberFormatter;
 
 import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.image.GDicomTools;
 

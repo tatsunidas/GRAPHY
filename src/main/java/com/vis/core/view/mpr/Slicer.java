@@ -6,6 +6,9 @@ import ij.measure.*;
 import java.util.*;
 import java.util.List;
 import org.joml.Vector3d;
+
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.core.view.D2.ui.orientation.SlicePlane;
 import com.vis.dicom.image.GDicomTools;
 
 public class Slicer {

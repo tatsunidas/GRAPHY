@@ -73,8 +73,8 @@ import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.SubjectOrientation;
-import com.vis.core.view.mpr.PlanarSupport;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
@@ -1106,6 +1106,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	void rotate(double changeAngle) {
+		if(changeAngle == 0) {
+			return;
+		}
 		double willRotateAngle = getRotateAngle() + changeAngle;
 		setRotateAngle((int) willRotateAngle);
 		imageSpecimen.updateDisplayImage();

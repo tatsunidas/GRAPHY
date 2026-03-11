@@ -572,13 +572,13 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			pixelsByte = (byte[])pixels;
 		}else if(pixels instanceof short[]) {
 			short[] pixels_ = (short[])pixels;
-			pixelsByte = ByteUtils.shortToBytes(pixels_);
+			pixelsByte = ByteUtils.shortToBytes(pixels_, bigEndian());
 		}else if(pixels instanceof float[]) {
 			float[] pixels_ = (float[])pixels;
-			pixelsByte = ByteUtils.floatToBytes(pixels_);
+			pixelsByte = ByteUtils.floatToBytes(pixels_, bigEndian());
 		}else if(pixels instanceof double[]) {
 			double[] pixels_ = (double[])pixels;
-			pixelsByte = ByteUtils.doubleToBytes(pixels_);
+			pixelsByte = ByteUtils.doubleToBytes(pixels_, bigEndian());
 		}else if(pixels instanceof int[] && samples == 3) {//RGB
 			int[] pixels_ = (int[])pixels;
 			pixelsByte = ByteUtils.intToBytes(pixels_, true/*ignore alpha*/);
@@ -612,10 +612,6 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		} else if (bulk instanceof byte[] || bulk == null/* from scratch */) {
 			if (bitsAllocated == 32 && samples == 1) {
 				header.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
-
-				BufferedImageUtils.toImagePixelModule(samples, getPhotometricInterpletation().name(), getHeight(),
-						getWidth(), pixelsByte, header);
-
 			} else if (bitsAllocated == 64 && samples == 1) {
 				header.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
 			} else if (bitsAllocated > 8 && bitsAllocated <= 16) {

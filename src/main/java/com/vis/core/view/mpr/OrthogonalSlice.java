@@ -44,6 +44,7 @@ import org.joml.Vector3d;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.IJ;

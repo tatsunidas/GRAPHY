@@ -66,6 +66,8 @@ import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.core.view.D2.ui.orientation.SlicePlane;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 

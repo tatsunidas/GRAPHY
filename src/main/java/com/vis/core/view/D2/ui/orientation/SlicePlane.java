@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.view.mpr;
+package com.vis.core.view.D2.ui.orientation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +43,6 @@ import java.util.List;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
 
-import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
-import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
@@ -57,7 +55,7 @@ import ij.ImagePlus;
 public class SlicePlane {
 
 	GeometryOfSlice geo;
-	Vector3d[] cubeVertices;
+	public Vector3d[] cubeVertices;
 
 	public SlicePlane(int rows, /* rows in slice */
 			int cols, /* cols in slice */

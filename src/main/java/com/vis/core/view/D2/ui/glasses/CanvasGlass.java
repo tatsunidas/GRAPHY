@@ -377,23 +377,22 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void createCross(MouseEvent e) {
-		GeneralPath path = new GeneralPath();
-		Point p = null;
 		try {
-			p = sg.offScreenCoordinate(e.getX(), e.getY());
+			Point p = sg.offScreenCoordinate(e.getX(), e.getY());
+			createCross(p.x, p.y);
 		} catch (NoninvertibleTransformException nte) {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "CanvasGlass::activateRoiAt : Can not translate offscreen coordinates...");
 			return;
 		}
-		
-		int ix = p.x;
-		int iy = p.y;
-		
-		path.moveTo(0f, iy);
-		path.lineTo(sg.getOriginalImage().getWidth(), iy);
-		path.moveTo(ix, 0f);
-		path.lineTo(ix, sg.getOriginalImage().getHeight());
+	}
+	
+	public void createCross(int x, int y) {
+		GeneralPath path = new GeneralPath();
+		path.moveTo(0f, y);
+		path.lineTo(sg.getOriginalImage().getWidth(), y);
+		path.moveTo(x, 0f);
+		path.lineTo(x, sg.getOriginalImage().getHeight());
 		setCrossLine(path);
 		repaint();
 	}

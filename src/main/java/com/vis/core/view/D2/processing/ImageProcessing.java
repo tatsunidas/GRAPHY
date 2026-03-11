@@ -12,7 +12,7 @@ import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
-import com.vis.core.view.mpr.PlanarSupport;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 

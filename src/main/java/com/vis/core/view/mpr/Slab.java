@@ -43,6 +43,8 @@ import org.joml.Vector3d;
 
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.core.view.D2.ui.orientation.SlicePlane;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;

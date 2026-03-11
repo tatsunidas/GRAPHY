@@ -1,4 +1,4 @@
-package com.vis.core.view.mpr;
+package com.vis.core.view.D2.ui.orientation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -12,8 +12,6 @@ import org.apache.commons.math3.linear.RealMatrix;
 import org.joml.Vector3d;
 
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
-import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
@@ -96,7 +94,7 @@ public class PlanarSupport {
 	}
 
 	/**
-	 * 
+	 * Nibabel is RAS coordinates, but DICOM is LPS.
 	 * https://nipy.org/nibabel/dicom/dicom_orientation.html
 	 * 
 	 * @param srcImp
@@ -105,7 +103,7 @@ public class PlanarSupport {
 	 * @param slicePos: slice pos on src imp (1 to N)
 	 * @return
 	 */
-	public Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
+	public static Vector3d getNewImagePositionPatient2D(ImagePlus srcImp, double col, double row, int slicePos) {
 		if(slicePos < 1 || slicePos > srcImp.getNSlices()) {
 			throw new IllegalArgumentException("Slice position should be 1 <= slicePos <= stackSize");
 		}
@@ -135,7 +133,7 @@ public class PlanarSupport {
 		return new Vector3d(newIpp[0][0], newIpp[1][0], newIpp[2][0]);
 	}
 	
-	public Vector3d getNewImagePositionPatient(int w, int h, double[] voxelSize, double[] iop, Vector3d centerIPP) {
+	public static Vector3d getNewImagePositionPatient(int w, int h, double[] voxelSize, double[] iop, Vector3d centerIPP) {
 		Vector3d rcsCenter = centerIPP; // ipp on slice center
 		int rows = h;
 		int cols = w;
@@ -156,8 +154,8 @@ public class PlanarSupport {
 
 	/**
 	 * 
-	 * row direction cosine is; [→]
-	 * col direction cosine is; [↓]
+	 * row direction cosine is [→]
+	 * col direction cosine is [↓]
 	 * 
 	 * Row direction is means X direction in RCS. Column direction is means Y
 	 * direction in RCS.
@@ -176,9 +174,33 @@ public class PlanarSupport {
 	 * @param rotateZ
 	 * @return
 	 */
-	public static double[] rotateImageOrientationPatient(ImagePlus srcImp, int rotateX, int rotateY, int rotateZ) {
+	public static double[] rotateImageOrientationPatient(ImagePlus srcImp, int rotRowX, int rotRowY, int rotRowZ, int rotColX, int rotColY, int rotColZ, double[] defVal) {
 		double[] iop = GDicomTools.getDoubles(srcImp, PlanarSupport.iop);
-		return rotateImageOrientationPatient(iop, rotateX, rotateY, rotateZ);
+		return rotateImageOrientationPatient(iop, rotRowX, rotRowY, rotRowZ, rotColX, rotColY, rotColZ, defVal);
+	}
+	
+	public static double[] rotateImageOrientationPatient(double[] iop, double rotateRowX, double rotateRowY, double rotateRowZ, double rotateColX, double rotateColY, double rotateColZ, double[] defaultVal) {
+		// iop is [rx, ry, rz, cx, cy, cz]
+		double[] rowDirectionCos = { iop[0], iop[1], iop[2] };
+		double[] colDirectionCos = { iop[3], iop[4], iop[5] };
+
+		// Create a rotation matrix and apply rotation to each axis
+		double[] rotatedRow = rotateVector(rowDirectionCos, rotateRowX, rotateRowY, rotateRowZ);
+		double[] rotatedCol = rotateVector(colDirectionCos, rotateColX, rotateColY, rotateColZ);
+		
+		Vector3d row = d2v(rotatedRow).normalize();
+		Vector3d col = d2v(rotatedCol).normalize();
+		
+		try {
+			LocalizerPoster.validateDirectionCosines(row,col);
+		}catch(IllegalArgumentException e) {
+			System.out.println(e.getMessage());
+			return defaultVal;
+		}
+		
+		double[] newIOP = new double[] { row.x, row.y, row.z, col.x, col.y, col.z};
+		
+		return newIOP;
 	}
 
 	public static double[] rotateImagePositionPatient(double[] ipp, double rotateX, double rotateY, double rotateZ) {
@@ -186,25 +208,6 @@ public class PlanarSupport {
 		return ipp;
 	}
 
-	public static double[] rotateImageOrientationPatient(double[] iop, double rotateX, double rotateY, double rotateZ) {
-		// iop is [rx, ry, rz, cx, cy, cz]
-		double[] rowDirectionCos = { iop[0], iop[1], iop[2] };
-		double[] colDirectionCos = { iop[3], iop[4], iop[5] };
-
-		// Create a rotation matrix and apply rotation to each axis
-		double[] rotatedRow = rotateVector(rowDirectionCos, rotateX, rotateY, rotateZ);
-		double[] rotatedCol = rotateVector(colDirectionCos, rotateX, rotateY, rotateZ);
-		
-		double[] newIOP = new double[] { rotatedRow[0], rotatedRow[1], rotatedRow[2], rotatedCol[0], rotatedCol[1],
-				rotatedCol[2] };
-		
-		for(int i=0; i<newIOP.length; i++) {
-			newIOP[i] = truncate(newIOP[i], 6);
-		}
-		
-		return newIOP;
-	}
-	
 	public static Vector3d rotateImageOrientationPatient(Vector3d rowOrCol, double rotateX, double rotateY, double rotateZ) {
 		// iop is [rx, ry, rz, cx, cy, cz]
 		// Create a rotation matrix and apply rotation to each axis
@@ -337,8 +340,6 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double y = vec[1] * Math.cos(radians) - vec[2] * Math.sin(radians);
 		double z = vec[1] * Math.sin(radians) + vec[2] * Math.cos(radians);
-		y = truncate(y, 6);
-		z = truncate(z, 6);
 		return new double[] { vec[0], y, z };
 	}
 
@@ -346,8 +347,6 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double x = vec[0] * Math.cos(radians) + vec[2] * Math.sin(radians);
 		double z = -vec[0] * Math.sin(radians) + vec[2] * Math.cos(radians);
-		x = truncate(x, 6);
-		z = truncate(z, 6);
 		return new double[] { x, vec[1], z };
 	}
 
@@ -355,8 +354,6 @@ public class PlanarSupport {
 		double radians = Math.toRadians(angle);
 		double x = vec[0] * Math.cos(radians) - vec[1] * Math.sin(radians);
 		double y = vec[0] * Math.sin(radians) + vec[1] * Math.cos(radians);
-		x = truncate(x, 6);
-		y = truncate(y, 6);
 		return new double[] { x, y, vec[2] };
 	}
 	
