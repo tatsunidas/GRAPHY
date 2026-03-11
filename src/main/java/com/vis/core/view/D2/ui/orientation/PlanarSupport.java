@@ -382,6 +382,7 @@ public class PlanarSupport {
 	public static boolean isHeadFirst(ImagePlus imp) {
 		String ptpos = GDicomTools.getTag(imp, "0018,5100");
 		if(ptpos == null) {
+			// タグがない場合は標準的な Head First と仮定
 			return true;//handle as head first
 		}
 		if(ptpos.startsWith("F")) {

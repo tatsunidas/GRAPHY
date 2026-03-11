@@ -53,7 +53,6 @@ import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.UID;
 import com.vis.dicom.VR;
-import com.vis.dicom.image.BufferedImageUtils;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.PhotometricInterpretation;
 import com.vis.imageio.Codec;
