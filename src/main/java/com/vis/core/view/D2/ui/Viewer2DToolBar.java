@@ -73,7 +73,7 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
-import com.vis.core.view.mpr.MPRViewerWindow;
+import com.vis.core.view.mpr.SimpleMPRViewer;
 
 /**
  * buttons design https://material.io/tools/icons/?style=outline
@@ -780,7 +780,7 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
-						new MPRViewerWindow(prap);
+						new SimpleMPRViewer(prap.getImagePlus());
 					}).start();
 					
 					currentTool = Windowing;
