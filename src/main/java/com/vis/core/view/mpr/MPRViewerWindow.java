@@ -808,12 +808,11 @@ public class MPRViewerWindow extends JFrame {
 	}
 
 	double[] calcImagePositionPatient(double row, double col, int slicePos) {
-		PlanarSupport psup = new PlanarSupport();
 		if (slicePos < 1 || slicePos > xy_image.getNSlices()) {
 			logger.info("SlicePos out of range.");
 			return null;
 		}
-		org.joml.Vector3d ipp = psup.getNewImagePositionPatient2D(this.xy_image, col, row, slicePos);
+		org.joml.Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(this.xy_image, col, row, slicePos);
 		return new double[] { ipp.x, ipp.y, ipp.z };
 	}
 	
