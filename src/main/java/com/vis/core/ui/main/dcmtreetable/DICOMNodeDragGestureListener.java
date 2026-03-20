@@ -45,24 +45,42 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 		if(Utils.isDebug) {
 			Log.logger.info("Drag recognizes by DICOMNodeDragGestureListener");
 		}
-		com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
 		Cursor cursor = getCursorFromAction(dge.getDragAction(),DnDConstants.ACTION_COPY);
 		DICOMTreeTable table = (DICOMTreeTable)(dge.getComponent());
 		ArrayList<DICOMNode> nodes = table.getSelectedNodes();
 		if(nodes == null || nodes.size()<1) {
 			return;
 		}
-		ArrayList<String[]> instlist = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(nodes);
+		/*
+		 * Defer heavy file preparation (DB queries, file copy) to when the OS
+		 * actually requests the transfer data. This makes the drag initiation
+		 * feel responsive instead of blocking on I/O.
+		 */
+		final ArrayList<DICOMNode> capturedNodes = new ArrayList<>(nodes);
+		dge.startDrag(cursor, new FileTransferable(() -> prepareExportFiles(capturedNodes)), new DICOMNodeDragSourceListener());
+		
+		/**
+		 * TODO 20230825
+		 */
+//		ApplicationContext.treeNodeDragging4Export = true;
 		
 		/*
-		 * TODO
-		 * too many fils, return
+		 * Finally, move to trash files in tmpdir.
+		 * see, DICOMNodeDragSourceListener
 		 */
-//		if(instlist.size() > 1500) {
-//			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Dragging files too many, please Export function instead!");
-//			Log.logger.severe("Drag and Drop Files too many...return.dragGestureRecognized::DICOMNodeDragGestureListener");
-//			return;
-//		}
+	}
+	
+	/**
+	 * Prepare export files by copying DICOM data to a temporary directory.
+	 * This is called lazily when the drop target requests the transfer data.
+	 */
+	private ArrayList<File> prepareExportFiles(ArrayList<DICOMNode> nodes) {
+		com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+		ArrayList<String[]> instlist = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(nodes);
+		
+		if(instlist == null || instlist.isEmpty()) {
+			return new ArrayList<>();
+		}
 		
 		ArrayList<String> patIDs = new ArrayList<String>();
 		ArrayList<String> studyIUIDs = new ArrayList<String>();
@@ -79,21 +97,9 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 		seriesIUIDs = new ArrayList<>(new HashSet<>(seriesIUIDs));
 		sopIUIDs = new ArrayList<>(new HashSet<>(sopIUIDs));
 		
-		/*
-		 * When GRAPHY dropped java obj to Native apps,
-		 * GRAPHY can not know where data drop to.
-		 * So, at first, create copy in /.GRAPHY/tmp/target data files...
-		 * Then, process these copied files after startDrag() started.
-		 * Finally, delete copy files in tmp dir. 
-		 */
-		
 		ArrayList<File> exportFiles = new ArrayList<File>();
-		boolean fileNotFoundInDB = false;//for check links in DB
+		boolean fileNotFoundInDB = false;
 		
-		//patient name, if null or "" -> noname
-		//study date, if null or "" -> studydate-null
-		//series desc, if null or "" -> seriesdesc-null
-		//image -> instanceNo. if null -> AS-IS
 		for (String patID : patIDs) {
 			for(String studyIUID:studyIUIDs) {
 				for(String seriesIUID:seriesIUIDs) {
@@ -106,7 +112,6 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							patID = "NULL-PatientID";
 							System.out.println("patID is null");
 						}
-						//destはdescription使う
 						String studyDesc = db.getValueFromStudy("StudyDescription", patID, studyIUID);
 						if(studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
 							studyDesc = "no-studydesc";
@@ -118,24 +123,16 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							System.out.println("seriesDesc is null");
 						}
 						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
-						/* dest はこの時点ではtemporal dir */
 						String destParent = baseDest+File.separator+patID+File.separator+studyDesc+File.separator+seriesDesc;
 						String dest = destParent+File.separator+instNo+".dcm";
 						File destDir = new File(destParent);
 						if(!destDir.exists()) {
 							destDir.mkdirs();
 						}
-						/*
-						 * 開発環境上では、DirやDICOMデータへのパスをすべてTransferableへ渡すとすべて固有のファイルとして作られる。
-						 * 実際に必要なTempフォルダ内の患者IDフォルダのみを渡せば、階層を保ってコピーできる。
-						 * 同じパスが含まれると何度も上書き処理が実行される。
-						 */
-						/* temporal dir 内のドロップしたいデータ一式を患者IDフォルダで指定 */
 						String destRoot = baseDest+File.separator+patID;
 						if(!exportFiles.contains(new File(destRoot))) {
-							exportFiles.add(new File(baseDest+File.separator+patID));//patient
+							exportFiles.add(new File(baseDest+File.separator+patID));
 						}
-						//copy to temp
 						String dcmPath = db.getValueFromImage("FileStoreUrl", patID,studyIUID, seriesIUID, sopIUID);
 						File from = new File(dcmPath);
 						File to = new File(dest);
@@ -147,31 +144,21 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 							try {
 								Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
 							} catch (IOException e) {
-								// TODO Auto-generated catch block
 								e.printStackTrace();
-								return;
+								return new ArrayList<>();
 							}
-//							exportFiles.add(to);//患者IDフォルダごと渡しているので、IMAGE単位は不要。
 						}
 					}
 				}
 			}
 		}
 		if(fileNotFoundInDB) {
-			JOptionPane.showConfirmDialog(null, "Missing files(maybe linked images...) in DB detected, would not export.");
-			return;
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				JOptionPane.showConfirmDialog(null, "Missing files(maybe linked images...) in DB detected, would not export.");
+			});
+			return new ArrayList<>();
 		}
-		dge.startDrag(cursor, new FileTransferable(exportFiles), new DICOMNodeDragSourceListener());
-		
-		/**
-		 * TODO 20230825
-		 */
-//		ApplicationContext.treeNodeDragging4Export = true;
-		
-		/*
-		 * Finally, move to trash files in tmpdir.
-		 * see, DICOMNodeDragSourceListener
-		 */
+		return exportFiles;
 	}
 	
 	protected Cursor getCursorFromAction(int userAction, int dropAction) {

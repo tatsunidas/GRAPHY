@@ -49,6 +49,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -328,9 +329,15 @@ public class BirdsEyeView extends JPanel{
 
 		/*
 		 * thumbnails: praparat list holder
+		 * Deduplicate by Series UID to prevent duplicate thumbnails
+		 * when multiple clicks trigger concurrent showImages() calls.
 		 */
-		//load all series in study
+		Set<String> addedSeriesUIDs = new HashSet<>();
 		for(String series : allSeriesUIDList) {
+			if(addedSeriesUIDs.contains(series)) {
+				continue;
+			}
+			addedSeriesUIDs.add(series);
 			//add thumbnails
 			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(patId, studyUid, series);
 			if(sopUidsInSeries != null && sopUidsInSeries.size() > 0) {
