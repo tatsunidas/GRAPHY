@@ -44,6 +44,7 @@ import java.awt.event.WindowListener;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -134,6 +135,8 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 
 	Logger logger = Log.logger;
 	
+	/* Guard to cancel stale BirdsEyeView update threads */
+	private final AtomicLong birdsEyeRequestId = new AtomicLong(0);
 	
 	/**
 	 * singleton
@@ -623,14 +626,18 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		if(bev != null) {
 			String currentShowingStudyUID = bev.getShowingStudyUID();
 			if(currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
+				final long reqId = birdsEyeRequestId.incrementAndGet();
 				new Thread(()->{
+					if(reqId != birdsEyeRequestId.get()) return;
 					bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
 			}else if(currentShowingStudyUID.equals(studyUID)) {
 				if(selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size()==0) {
 					return;
 				}
+				final long reqId = birdsEyeRequestId.incrementAndGet();
 				new Thread(()->{
+					if(reqId != birdsEyeRequestId.get()) return;
 					bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
 			}
