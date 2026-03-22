@@ -775,10 +775,11 @@ public class Praparat extends JPanel {
 				replica.setProp("Info", info);
 			}
 			/*
+			 * TODO
 			 * Now, fail safe ?
 			 * But this is not suitable for EnhancedMultiFrame DICOM.
 			 */
-//			replica.setCalibration(orgCal);			
+			replica.setCalibration(orgCal);
 			return replica;
 		}else {
 			if (hasFileSource(0)) {

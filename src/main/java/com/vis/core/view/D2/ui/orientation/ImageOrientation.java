@@ -33,8 +33,6 @@ public /*abstract*/ class ImageOrientation {
 		UNKNOWN, AXIAL, SAGITTAL, CORONAL, OBLIQUE
 	}
 
-	private static final double OBLIQUITY_THRESHOLD = 0.8;
-
 	public static org.joml.Vector3d getRowDirection(DicomObject dcm) {
 		double[] imagePosition = dcm.getDoubles(Tag.Image​Orientation​Patient);
 		if (imagePosition != null && imagePosition.length == 6) {
@@ -50,36 +48,6 @@ public /*abstract*/ class ImageOrientation {
 		}
 		return null;
 	}
-
-	/**
-	 * Get the orientation describing the major axis from a unit vector (direction
-	 * cosine) as found in ImageOrientationPatient.
-	 *
-	 * <p>
-	 * Some degree of deviation from one of the standard orthogonal axes is allowed
-	 * before deciding no major axis applies and returning null.
-	 *
-	 * @param v the vector (direction cosine)
-	 * @return the string describing the orientation of the vector, or null if
-	 *         oblique
-	 */
-	private static Orientation getSubjectOrientation(Vector3d v, boolean quadruped) {
-		double absX = Math.abs(v.x);
-		double absY = Math.abs(v.y);
-		double absZ = Math.abs(v.z);
-
-		if (absX > OBLIQUITY_THRESHOLD && absX > absY && absX > absZ) {
-			return quadruped ? SubjectOrientation.getQuadrupedXOrientation(v)
-					: SubjectOrientation.getBipedXOrientation(v);
-		} else if (absY > OBLIQUITY_THRESHOLD && absY > absX && absY > absZ) {
-			return quadruped ? SubjectOrientation.getQuadrupedYOrientation(v)
-					: SubjectOrientation.getBipedYOrientation(v);
-		} else if (absZ > OBLIQUITY_THRESHOLD && absZ > absX && absZ > absY) {
-			return quadruped ? SubjectOrientation.getQuadrupedZOrientation(v)
-					: SubjectOrientation.getBipedZOrientation(v);
-		}
-		return null;
-	}
 	
 	public static CutSurface getCutsurface(double[] iop) {
 		Vector3d vr = new Vector3d(iop[0], iop[1], iop[2]);
@@ -87,44 +55,80 @@ public /*abstract*/ class ImageOrientation {
 		return getCutsurface(vr, vc);
 	}
 
+//	/**
+//	 * Get a plan describing the axial, coronal or sagittal plane from row and
+//	 * column unit vectors (direction cosines) as found in ImageOrientationPatient.
+//	 *
+//	 * <p>
+//	 * Some degree of deviation from one of the standard orthogonal planes is
+//	 * allowed before deciding the plane is OBLIQUE.
+//	 *
+//	 * @param vr the row vector
+//	 * @param vc the column vector
+//	 * @return the string describing the plane of orientation, AXIAL, CORONAL,
+//	 *         SAGITTAL or OBLIQUE
+//	 */
+//	public static CutSurface getCutsurface(Vector3d vr, Vector3d vc) {
+//		boolean quadruped = false;
+//		Orientation rowAxis = getSubjectOrientation(vr, quadruped);
+//		Orientation colAxis = getSubjectOrientation(vc, quadruped);
+//		if (rowAxis != null && colAxis != null) {
+//			if (rowAxis.getColor().equals(SubjectOrientation.blue)
+//					&& colAxis.getColor().equals(SubjectOrientation.red)) {
+//				return CutSurface.AXIAL;
+//			} else if (colAxis.getColor().equals(SubjectOrientation.blue)
+//					&& rowAxis.getColor().equals(SubjectOrientation.red)) {
+//				return CutSurface.AXIAL;
+//			} else if (rowAxis.getColor().equals(SubjectOrientation.blue)
+//					&& colAxis.getColor().equals(SubjectOrientation.green)) {
+//				return CutSurface.CORONAL;
+//			} else if (colAxis.getColor().equals(SubjectOrientation.blue)
+//					&& rowAxis.getColor().equals(SubjectOrientation.green)) {
+//				return CutSurface.CORONAL;
+//			} else if (rowAxis.getColor().equals(SubjectOrientation.red)
+//					&& colAxis.getColor().equals(SubjectOrientation.green)) {
+//				return CutSurface.SAGITTAL;
+//			} else if (colAxis.getColor().equals(SubjectOrientation.red)
+//					&& rowAxis.getColor().equals(SubjectOrientation.green)) {
+//				return CutSurface.SAGITTAL;
+//			}
+//		}
+//		return CutSurface.OBLIQUE;
+//	}
+	
 	/**
 	 * Get a plan describing the axial, coronal or sagittal plane from row and
-	 * column unit vectors (direction cosines) as found in ImageOrientationPatient.
-	 *
-	 * <p>
-	 * Some degree of deviation from one of the standard orthogonal planes is
-	 * allowed before deciding the plane is OBLIQUE.
+	 * column unit vectors. 法線ベクトル（外積）を用いて、最も向いている直交面を判定します。
 	 *
 	 * @param vr the row vector
 	 * @param vc the column vector
 	 * @return the string describing the plane of orientation, AXIAL, CORONAL,
-	 *         SAGITTAL or OBLIQUE
+	 *         SAGITTAL
 	 */
 	public static CutSurface getCutsurface(Vector3d vr, Vector3d vc) {
-		boolean quadruped = false;
-		Orientation rowAxis = getSubjectOrientation(vr, quadruped);
-		Orientation colAxis = getSubjectOrientation(vc, quadruped);
-		if (rowAxis != null && colAxis != null) {
-			if (rowAxis.getColor().equals(SubjectOrientation.blue)
-					&& colAxis.getColor().equals(SubjectOrientation.red)) {
-				return CutSurface.AXIAL;
-			} else if (colAxis.getColor().equals(SubjectOrientation.blue)
-					&& rowAxis.getColor().equals(SubjectOrientation.red)) {
-				return CutSurface.AXIAL;
-			} else if (rowAxis.getColor().equals(SubjectOrientation.blue)
-					&& colAxis.getColor().equals(SubjectOrientation.green)) {
-				return CutSurface.CORONAL;
-			} else if (colAxis.getColor().equals(SubjectOrientation.blue)
-					&& rowAxis.getColor().equals(SubjectOrientation.green)) {
-				return CutSurface.CORONAL;
-			} else if (rowAxis.getColor().equals(SubjectOrientation.red)
-					&& colAxis.getColor().equals(SubjectOrientation.green)) {
-				return CutSurface.SAGITTAL;
-			} else if (colAxis.getColor().equals(SubjectOrientation.red)
-					&& rowAxis.getColor().equals(SubjectOrientation.green)) {
-				return CutSurface.SAGITTAL;
-			}
+		// 1. RowベクトルとColumnベクトルの外積を計算し、スライスの法線ベクトルを求める
+		double normalX = vr.y * vc.z - vr.z * vc.y;
+		double normalY = vr.z * vc.x - vr.x * vc.z;
+		double normalZ = vr.x * vc.y - vr.y * vc.x;
+
+		// 2. 法線ベクトルの各成分の絶対値を取得
+		double absX = Math.abs(normalX);
+		double absY = Math.abs(normalY);
+		double absZ = Math.abs(normalZ);
+
+		// 3. 最も大きい成分を持つ軸が、そのスライスの直交面となる
+		if (absX > absY && absX > absZ) {
+			// X軸（左右）に垂直な面 ＝ SAGITTAL
+			return CutSurface.SAGITTAL;
+		} else if (absY > absX && absY > absZ) {
+			// Y軸（前後）に垂直な面 ＝ CORONAL
+			return CutSurface.CORONAL;
+		} else if (absZ > absX && absZ > absY) {
+			// Z軸（上下）に垂直な面 ＝ AXIAL
+			return CutSurface.AXIAL;
 		}
+
+		// 万が一完全に同値などで判別できない場合（通常は起こり得ない）
 		return CutSurface.OBLIQUE;
 	}
 
@@ -149,7 +153,7 @@ public /*abstract*/ class ImageOrientation {
 		}
 		return CutSurface.UNKNOWN;
 	}
-
+	
 	/**
 	 * Get the letter representation of the orientation of a vector.
 	 *

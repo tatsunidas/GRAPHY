@@ -75,10 +75,15 @@ public class SimpleMPRViewer extends JFrame {
 	@SuppressWarnings("unused")
 	public static void main(String[] arags) {
 		String ax_path = "/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151";
+		String mra = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/MRA";
 		String sag_path = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
 //		ImagePlus imp = FolderOpener.open(ax_path);
 		ImagePlus imp = FolderOpener.open(sag_path);
-		new SimpleMPRViewer(imp);
+//		ImagePlus imp = FolderOpener.open(mra);
+		// 実際の処理に沿わせる
+		Praparat p = new Praparat(imp, Color.YELLOW, ViewMode.SingleGrid);
+		ImagePlus replica = p.getImagePlus();
+		new SimpleMPRViewer(replica);
 	}
 
 	private static final long serialVersionUID = 1L;
@@ -116,10 +121,7 @@ public class SimpleMPRViewer extends JFrame {
 		if(baseVolume == null || baseVolume.getNSlices() == 0) {
 			throw new IllegalArgumentException("Invalid image stack input...");
 		}
-		System.out.println(baseVolume.getNSlices() + " were loaded.");
-		
-		Calibration cal = baseVolume.getCalibration();
-		cal.pixelDepth = GDicomTools.getVoxelDepth(baseVolume);
+		System.out.println("Starting SimpleMPRViewer, "+baseVolume.getNSlices() + " images were loaded.");
 		
 		setTitle("Simple MPR Viewer");
 		setSize(1000, 1000);
@@ -130,6 +132,9 @@ public class SimpleMPRViewer extends JFrame {
 
 	private void init() {
 		this.basePlane = determineBasePlane(baseVolume);
+		System.out.println("Base volume slice plane is "+ basePlane);
+		
+		checkSpatialCalibration();
 
 		standardizeStackOrientation();
 
@@ -143,6 +148,20 @@ public class SimpleMPRViewer extends JFrame {
 		setupMouseListeners();
 
 		setVisible(true);
+	}
+	
+	private void checkSpatialCalibration() {
+		Calibration cal = baseVolume.getCalibration();
+		double[] pixelspacing = GDicomTools.getDoubles(baseVolume, "0028,0030");
+		if(cal.pixelWidth == 1.0 && pixelspacing != null) {
+			cal.pixelWidth = pixelspacing[1];
+		}
+		
+		if(cal.pixelHeight == 1.0 && pixelspacing != null) {
+			cal.pixelHeight = pixelspacing[0];
+		}
+		//update depth
+		cal.pixelDepth = GDicomTools.getVoxelDepth(baseVolume);
 	}
 
 	/**
@@ -683,7 +702,7 @@ public class SimpleMPRViewer extends JFrame {
 
 		boolean needsReversal = false;
 
-		if (basePlane == CutSurface.AXIAL) {
+		if (basePlane == CutSurface.AXIAL || basePlane == CutSurface.OBLIQUE) {
 			boolean isCurrentlyDescending = ippN[2] < ipp1[2];
 			boolean targetDescending = isHeadFirst;
 			if (isCurrentlyDescending != targetDescending) {

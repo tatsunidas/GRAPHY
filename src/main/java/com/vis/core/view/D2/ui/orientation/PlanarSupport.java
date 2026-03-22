@@ -86,10 +86,6 @@ public class PlanarSupport {
 	 * @return
 	 */
 	public static CutSurface planarOf(ImagePlus dcm) {
-		double[] image_ori = GDicomTools.getDoubles(dcm, iop);
-		if (image_ori == null) {
-			return CutSurface.UNKNOWN;
-		}
 		return ImageOrientation.getCutSurface(dcm);
 	}
 
