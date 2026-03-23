@@ -204,17 +204,25 @@ public class GLCanvas extends AWTGLCanvas {
 		});
 	}
 
-	// データをセットするメソッド (Mainから呼ぶ)
+	
 	public void setVolumeData(VolumeData vol) {
 		this.currentVolumeData = vol;
-
-		// × 削除: ここでGPUに送るとクラッシュします
-		// volumeRenderer.uploadTexture(vol);
-
-		// ○ 正解: 一時変数に入れて、再描画を予約するだけにする
 		this.pendingVolume = vol;
 
-		this.repaint(); // -> これにより、次のフレームで paintGL が呼ばれる
+		// ★追加1: 古いUndo履歴を消去し、メモリリークと誤作動を防ぐ
+		if (this.undoManager != null) {
+			this.undoManager.clear();
+		}
+
+		// ★追加2: 断面位置（スライダー）を中心に戻す
+		this.sliceX = 0.5f;
+		this.sliceY = 0.5f;
+		this.sliceZ = 0.5f;
+
+		// (補足) もしコントラスト(Window/Level)も初期化したい場合は、
+		// volumeRenderer.setWindowLevel(0.5f, 1.0f); などもここに入れます。
+
+		this.repaint();
 	}
 
 	// セッター (スライダーから呼ぶ)

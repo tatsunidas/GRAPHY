@@ -75,4 +75,9 @@ public class UndoManager {
             undoStack.push(cmd);
         }
     }
+    
+    public void clear() {
+        undoStack.clear();
+        redoStack.clear();
+    }
 }
