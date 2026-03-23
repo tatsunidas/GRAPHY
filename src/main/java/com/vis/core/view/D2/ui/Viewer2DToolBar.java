@@ -61,6 +61,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 
 import com.vis.configuration.Resources;
@@ -73,6 +74,9 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D3.ui.Viewer3DMain;
+import com.vis.core.view.D3.ui.VolumeData;
+import com.vis.core.view.D3.ui.VolumeLoader;
 import com.vis.core.view.mpr.SimpleMPRViewer;
 
 /**
@@ -746,21 +750,36 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					
-//					Viewer2DScreen own = Viewer2DScreen.getInstance();
-//					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
-//					int size = selectedPraps.size();
-//					if(selectedPraps == null || size < 1) {
-//						return;
-//					}
-//					//show only first prap
-//					Praparat prap = selectedPraps.get(0);
-//					ImagePlus replica = prap.getImagePlus();
-//					if(prap == null || replica == null) {
-//						throw new IllegalArgumentException("3D Veiwer Opening Error: Does not have images.");
-//					}
-					
+					Viewer2DScreen own = Viewer2DScreen.getInstance();
+					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
+					int size = selectedPraps.size();
+					if(selectedPraps == null || size < 1) {
+						return;
+					}
+					//show only first prap
+					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
-						JOptionPane.showConfirmDialog(null, "GRAPHY 3D Viewer is under development. Please use ImageJ's Volume Viewer graphy plugin !");
+						SwingUtilities.invokeLater(() -> {
+							Viewer3DMain frame = new Viewer3DMain();
+							frame.setVisible(true); // ウィンドウを表示
+							frame.revalidate();
+							frame.repaint();
+
+							javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
+								if (frame.canvas != null) {
+									frame.canvas.render(); // これが呼ばれると paintGL() が動く
+									frame.canvas.repaint();
+								}
+							});
+							timer.setRepeats(true);
+							timer.start();
+							VolumeData vol = VolumeLoader.loadDicom(prap);
+							if (vol != null) {
+								// Canvasにデータを渡す
+								frame.canvas.setVolumeData(vol); // ← これを使う
+							}
+						});
+//						JOptionPane.showConfirmDialog(null, "GRAPHY 3D Viewer is under development. Please use ImageJ's Volume Viewer graphy plugin !");
 					}).start();
 
 					currentTool = Windowing;

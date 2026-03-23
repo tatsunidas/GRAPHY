@@ -39,10 +39,12 @@ package com.vis.core.view.D3.ui;
 
 import org.lwjgl.opengl.awt.GLData;
 import java.awt.BorderLayout;
+import java.io.File;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -83,7 +85,7 @@ public class Viewer3DMain extends JFrame {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	private GLCanvas canvas;
+	public GLCanvas canvas;
 
 	public Viewer3DMain() {
 		setTitle("GRAPHY 3D Viewer");
@@ -115,26 +117,26 @@ public class Viewer3DMain extends JFrame {
 		JMenuItem openItem = new JMenuItem("Open DICOM/Obj...");
 		openItem.addActionListener(e -> {
 			// ファイル選択ダイアログ
-//            JFileChooser fileChooser = new JFileChooser();
-//            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-//            fileChooser.setCurrentDirectory(new File("."));
-//            int result = fileChooser.showOpenDialog(this);
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fileChooser.setCurrentDirectory(new File("."));
+			int result = fileChooser.showOpenDialog(this);
 
 			// debug
-			String path = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//			String path = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
 
-//            if (result == JFileChooser.APPROVE_OPTION) {
-//                String path = fileChooser.getSelectedFile().getAbsolutePath();
+			if (result == JFileChooser.APPROVE_OPTION) {
+				String path = fileChooser.getSelectedFile().getAbsolutePath();
 
-			// ★ここを追加：別スレッドで読み込む（UIを固まらせないため）
-			new Thread(() -> {
-				VolumeData vol = VolumeLoader.loadDicom(path);
-				if (vol != null) {
-					// Canvasにデータを渡す
-					canvas.setVolumeData(vol); // ← これを使う
-				}
-			}).start();
-//            }
+				// ★ここを追加：別スレッドで読み込む（UIを固まらせないため）
+				new Thread(() -> {
+					VolumeData vol = VolumeLoader.loadDicom(path);
+					if (vol != null) {
+						// Canvasにデータを渡す
+						canvas.setVolumeData(vol); // ← これを使う
+					}
+				}).start();
+			}
 		});
 
 		fileMenu.add(openItem);

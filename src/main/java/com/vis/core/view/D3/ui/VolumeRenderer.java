@@ -513,6 +513,8 @@ public class VolumeRenderer {
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 		// --- D & E. データの転送準備 (Java -> Native Memory) と転送 ---
 		try {
