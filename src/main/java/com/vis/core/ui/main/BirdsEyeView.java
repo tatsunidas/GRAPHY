@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import javax.swing.JLabel;
@@ -166,13 +167,13 @@ public class BirdsEyeView extends JPanel{
 	}
 	
 	public void ignoreRepaintAllSlides(boolean ignore) {
-		HashMap<Integer, SlideGlass> slides1 = filmGridView.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides1 = filmGridView.getAllSlides();
 		if(slides1 != null && slides1.size() > 0) {
 			for(Integer key : slides1.keySet()) {
 				slides1.get(key).setIgnoreRepaint(ignore);
 			}
 		}
-		HashMap<Integer, SlideGlass> slides2 = singleGridView.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides2 = singleGridView.getAllSlides();
 		if(slides2 != null && slides2.size() > 0) {
 			for(Integer key : slides2.keySet()) {
 				slides2.get(key).setIgnoreRepaint(ignore);
@@ -181,7 +182,7 @@ public class BirdsEyeView extends JPanel{
 		List<Praparat> thumbs = seriesListView.getAllThumbnails();
 		if(thumbs != null) {
 			for(Praparat pp : thumbs) {
-				HashMap<Integer, SlideGlass> slides3 = pp.getAllSlides();
+				ConcurrentHashMap<Integer, SlideGlass> slides3 = pp.getAllSlides();
 				if(slides3 != null && slides3.size() > 0) {
 					for(Integer key : slides3.keySet()) {
 						slides3.get(key).setIgnoreRepaint(ignore);
@@ -424,7 +425,7 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		//show top slide at selectedSopUIDsInItsSeries.get(0)
-		HashMap<Integer,SlideGlass> slides = singleGridView.getAllSlides();
+		ConcurrentHashMap<Integer,SlideGlass> slides = singleGridView.getAllSlides();
 		Set<Integer> keys = slides.keySet();
 		for(int i : keys) {
 			SlideGlass sg = slides.get(i);

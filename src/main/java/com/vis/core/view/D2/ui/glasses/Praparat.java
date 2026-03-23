@@ -62,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -176,7 +177,7 @@ public class Praparat extends JPanel {
 	int prevW;
 	int prevH;
 	
-	private HashMap<Integer/*0 to N-1*/, SlideGlass> slides;
+	private ConcurrentHashMap<Integer/*0 to N-1*/, SlideGlass> slides;
 	
 	private final int PREFETCH_RANGE = 3;
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
@@ -250,7 +251,7 @@ public class Praparat extends JPanel {
 		SlideGlass slide = getCurrentSlide();
 		slide.adjustContrastFromMouseAction(dragX, dragY);
 		if (isProcessSeries()) {
-			HashMap<Integer, SlideGlass> slides = getAllSlides();
+			ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
 				if (slide == sg) {
@@ -276,7 +277,7 @@ public class Praparat extends JPanel {
 		SlideGlass slide = getCurrentSlide();
 		slide.changeWindowingByMinMax(min, max);
 		if (isProcessSeries()) {
-			HashMap<Integer, SlideGlass> slides = getAllSlides();
+			ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
 				if(slide == sg) {
@@ -289,7 +290,7 @@ public class Praparat extends JPanel {
 	
 	@Override
 	public void addMouseListener(MouseListener l) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		for (Integer key : slides.keySet()) {
 			SlideGlass sg = slides.get(key);
 			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
@@ -299,7 +300,7 @@ public class Praparat extends JPanel {
 	
 	@Override
 	public void addMouseMotionListener(MouseMotionListener l) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		for (Integer key : slides.keySet()) {
 			SlideGlass sg = slides.get(key);
 			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
@@ -309,7 +310,7 @@ public class Praparat extends JPanel {
 	
 	@Override
 	public void addMouseWheelListener(MouseWheelListener l) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		for (Integer key : slides.keySet()) {
 			SlideGlass sg = slides.get(key);
 			EventGlass coverGlass = (EventGlass)sg.getGlassAt(SlideGlass.EVENT_LAYER);
@@ -372,7 +373,7 @@ public class Praparat extends JPanel {
 		List<Praparat> praps = eye.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
 		//remove previous localizers
 		for(Praparat p:praps) {
-			HashMap<Integer, SlideGlass> slides = p.slides;
+			ConcurrentHashMap<Integer, SlideGlass> slides = p.slides;
 			for(Integer k:slides.keySet()) {
 				SlideGlass s = slides.get(k);
 				s.drawLocalizer(null);
@@ -398,7 +399,7 @@ public class Praparat extends JPanel {
 	}
 	
 	public void clearCrossLines() {
-		HashMap<Integer,SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer,SlideGlass> slides = getAllSlides();
 		for(Integer sgKey : slides.keySet()) {
 			SlideGlass sg = slides.get(sgKey);
 			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
@@ -418,7 +419,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		// init
-		slides = new HashMap<Integer, SlideGlass>();
+		slides = new ConcurrentHashMap<Integer, SlideGlass>();
 		
 		/*
 		 * as a premise, image files were sorted by inst No or z-order before loading.
@@ -581,7 +582,7 @@ public class Praparat extends JPanel {
 		}
 		// init
 		viewPanel.removeAll();
-		slides = new HashMap<Integer, SlideGlass>();
+		slides = new ConcurrentHashMap<Integer, SlideGlass>();
 		boolean secondaryUse = false;
 		String sopClassUID = GDicomTools.getTag(images, "0008,0016");
 		String instUID = GDicomTools.getTag(images, "0008,0018");
@@ -610,14 +611,14 @@ public class Praparat extends JPanel {
 		if(p == null) {
 			return;
 		}
-		HashMap<Integer, SlideGlass> srcSlides = p.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> srcSlides = p.getAllSlides();
 		if (srcSlides == null || srcSlides.size() < 1) {
 			System.out.println("Slides have no images...");
 			return;
 		}
 		// init
 		removeSlide(currentSlice);
-		this.slides = new HashMap<Integer, SlideGlass>();
+		this.slides = new ConcurrentHashMap<Integer, SlideGlass>();
 		
 		isMultiFrame = p.isMultiFrame();
 		
@@ -668,7 +669,7 @@ public class Praparat extends JPanel {
 		showFirstImage();
 	}
 	
-	public HashMap<Integer, SlideGlass> getAllSlides() {
+	public ConcurrentHashMap<Integer, SlideGlass> getAllSlides() {
 		if(slides != null && slides.size() < 1) {
 			return null;
 		}
@@ -865,7 +866,7 @@ public class Praparat extends JPanel {
 	}
 
 	public int getSlidePosition(SlideGlass slide) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return -1;
 		}
@@ -890,7 +891,7 @@ public class Praparat extends JPanel {
 	 * @return slide pos : 0 to n-1.
 	 */
 	public int getSlidePosition(String sopUID) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return -1;
 		}
@@ -1054,7 +1055,7 @@ public class Praparat extends JPanel {
 		prevW = getWidth();
 		prevH = getHeight();
 		//init slides
-		slides = new HashMap<Integer, SlideGlass>();
+		slides = new ConcurrentHashMap<Integer, SlideGlass>();
 		setLayout(new BorderLayout());
 		setBorder(BorderMaker.make(this, false));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
@@ -1854,7 +1855,7 @@ public class Praparat extends JPanel {
 	 * @param v
 	 */
 	public void setAnnotationVisible(boolean v) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return;
 		}
@@ -2144,7 +2145,7 @@ public class Praparat extends JPanel {
 	 * @param v
 	 */
 	public void setTextVisible(boolean v) {
-		HashMap<Integer, SlideGlass> slides = getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		if(slides == null) {
 			return;
 		}

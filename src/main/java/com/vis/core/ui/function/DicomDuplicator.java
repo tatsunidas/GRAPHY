@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 import org.apache.commons.io.FileUtils;
@@ -370,7 +371,7 @@ public class DicomDuplicator {
 		/*
 		 * create stacked imageplus using all slides.
 		 */
-		HashMap<Integer, SlideGlass> slides = prap.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = prap.getAllSlides();
 		Integer sampleKey = slides.keySet().iterator().next();
 		ImagePlus sample = slides.get(sampleKey).getOriginalImage();
 		Calibration cal = sample.getCalibration().copy();

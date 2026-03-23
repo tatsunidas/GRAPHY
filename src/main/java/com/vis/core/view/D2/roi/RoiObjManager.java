@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -407,7 +408,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			String seriesUID = (String) uids[2];
 			String[] sopUIDSet = (String[]) uids[3];
 			Praparat prap = stage.getEyepiece().getPraparatAt(patID, studyUID, seriesUID, sopUIDSet);
-			HashMap<Integer,SlideGlass> slides = prap.getAllSlides();
+			ConcurrentHashMap<Integer,SlideGlass> slides = prap.getAllSlides();
 			for (Integer readPos : slides.keySet()) {
 				SlideGlass sg = slides.get(readPos);
 				ArrayList<RoiObj> rois = sg.getRois();
@@ -596,7 +597,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return false;
 		}
-		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 		for(Integer pos : slides.keySet()) {
 			boolean consistent = true;
 			SlideGlass sg = slides.get(pos);
@@ -626,7 +627,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return false;
 		}
-		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 		for(Integer pos : slides.keySet()) {
 			boolean consistent = true;
 			SlideGlass sg = slides.get(pos);
@@ -650,7 +651,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return -1;
 		}
-		HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 		for(Integer pos : slides.keySet()) {
 			boolean consistent = true;
 			SlideGlass sg = slides.get(pos);

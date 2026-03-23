@@ -53,8 +53,9 @@ import java.awt.event.MouseWheelListener;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
 import javax.swing.Timer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -129,7 +130,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			slide.mouseX = e.getX();
 			slide.mouseY = e.getY();
 		} else {
-			HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+			ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
 				sg.mouseX = e.getX();
@@ -206,7 +207,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			if (!pp.isProcessSeries()) {
 				this.slide.rotate(rotation);
 			} else {
-				HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+				ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 				for (Integer key : slides.keySet()) {
 					SlideGlass sg = slides.get(key);
 					sg.rotate(rotation);
@@ -235,7 +236,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if (!pp.isProcessSeries()) {
 					slide.zoom(currentMag, zoomUp);
 				} else {
-					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
 						sg.zoom(currentMag, zoomUp);
@@ -381,7 +382,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			} else {
 				// process series
 				synchronized (this) {
-					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
 						sg.panning(moveX, moveY);
@@ -530,7 +531,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					slide.lastMin = slide.currentMin;
 					slide.lastMax = slide.currentMax;
 				} else {
-					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for (Integer key : slides.keySet()) {
 						SlideGlass sg = slides.get(key);
 						sg.lastPressedX = e.getX();

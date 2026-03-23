@@ -40,7 +40,7 @@ package com.vis.core.view.mpr;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JFileChooser;
 import javax.swing.JMenu;
@@ -167,7 +167,7 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 				if(!destChi.exists()) {
 					destChi.mkdirs();
 				}
-				HashMap<Integer,SlideGlass> images = pp.getAllSlides();
+				ConcurrentHashMap<Integer,SlideGlass> images = pp.getAllSlides();
 				DicomWriter writer = DicomWriter.newDicomWriter();
 				for(Integer i : images.keySet()) {
 					String sopUID = images.get(i).getDicomImage().getHeader().getString(Tag.SOP​Instance​UID);

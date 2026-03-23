@@ -38,7 +38,8 @@
 package com.vis.core.view.D2.processing;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.*;
 
@@ -156,7 +157,7 @@ public class Masking {
 	public static ImagePlus run(Praparat prap, boolean processSeries, Byte maskValue) {
 		if(processSeries) {
 			ImageStack stack = new ImageStack(); 
-			HashMap<Integer, SlideGlass> slides = prap.getAllSlides();
+			ConcurrentHashMap<Integer, SlideGlass> slides = prap.getAllSlides();
 			for(Integer pos : slides.keySet()) {
 				SlideGlass sg = slides.get(pos);
 				ImagePlus imp = run(sg, maskValue);

@@ -45,7 +45,7 @@ import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -56,7 +56,7 @@ import com.vis.core.log.Log;
 public class SlideGlassGrid extends JScrollPane {
 
 	private static final long serialVersionUID = 1L;
-	private final HashMap<Integer, SlideGlass> slides;
+	private final ConcurrentHashMap<Integer, SlideGlass> slides;
 	private int rows = -1;
 	private int cols = -1;
 	private final int numOfImage;

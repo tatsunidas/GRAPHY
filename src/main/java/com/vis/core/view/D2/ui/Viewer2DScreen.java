@@ -50,6 +50,7 @@ import java.awt.event.WindowStateListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
@@ -545,7 +546,7 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 					 * So, not set ignoreRepaint.
 					 */
 					Praparat pp = pcon.getPraparat();
-					HashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+					ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 					for(int pos:slides.keySet()) {
 						SlideGlass sg = slides.get(pos);
 						sg.setIgnoreRepaint(ignore);
