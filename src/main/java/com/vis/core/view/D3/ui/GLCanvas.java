@@ -204,7 +204,6 @@ public class GLCanvas extends AWTGLCanvas {
 		});
 	}
 
-	
 	public void setVolumeData(VolumeData vol) {
 		this.currentVolumeData = vol;
 		this.pendingVolume = vol;
@@ -243,7 +242,7 @@ public class GLCanvas extends AWTGLCanvas {
 		volumeRenderer.setRenderMode(isMIP ? 0 : 1);
 		repaint();
 	}
-	
+
 	public void resetCamera() {
 		camera.reset();
 	}
@@ -278,19 +277,22 @@ public class GLCanvas extends AWTGLCanvas {
 
 	// --- カット実行処理 ---
 	private void performCut() {
-		if (currentVolumeData == null || currentPath.size() < 3) return;
+		if (currentVolumeData == null || currentPath.size() < 3)
+			return;
 
-        int w = getWidth();
-        int h = getHeight();
+		int w = getWidth();
+		int h = getHeight();
 
-        if (h == 0) h = 1;
-        float aspect = (float) w / h;
-        org.joml.Matrix4f proj = new org.joml.Matrix4f().setPerspective((float) Math.toRadians(45.0f), aspect, 0.01f, 100.0f);
-        org.joml.Matrix4f view = camera.getViewMatrix();
-        
-        // ★ 修正: カット投影計算時にも正しいスケール行列を適用する
-        org.joml.Matrix4f model = calculateModelMatrix();
-        org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
+		if (h == 0)
+			h = 1;
+		float aspect = (float) w / h;
+		org.joml.Matrix4f proj = new org.joml.Matrix4f().setPerspective((float) Math.toRadians(45.0f), aspect, 0.01f,
+				100.0f);
+		org.joml.Matrix4f view = camera.getViewMatrix();
+
+		// ★ 修正: カット投影計算時にも正しいスケール行列を適用する
+		org.joml.Matrix4f model = calculateModelMatrix();
+		org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
 
 		// 計算実行 (少し時間がかかるかもしれない)
 		System.out.println("Calculating cut...");
@@ -338,7 +340,7 @@ public class GLCanvas extends AWTGLCanvas {
 	// 描画のたびに呼ばれる
 	@Override
 	public void paintGL() {
-		// 1. データ転送（未処理のボリュームがあればGPUに送る）
+		// 1. データ転送
 		if (pendingVolume != null) {
 			volumeRenderer.uploadTexture(pendingVolume);
 			pendingVolume = null;
@@ -346,42 +348,47 @@ public class GLCanvas extends AWTGLCanvas {
 
 		int w = getWidth();
 		int h = getHeight();
-		if (w == 0 || h == 0) {
-			System.out.println("Warning: Canvas size is 0x0. Skipping render.");
+		if (w == 0 || h == 0)
 			return;
+
+		// ★追加: Windows等のHigh-DPI(ディスプレイ拡大率)を取得
+		double scaleX = 1.0;
+		double scaleY = 1.0;
+		if (getGraphicsConfiguration() != null) {
+			java.awt.geom.AffineTransform t = getGraphicsConfiguration().getDefaultTransform();
+			scaleX = t.getScaleX();
+			scaleY = t.getScaleY();
 		}
 
-		// ★重要: メイン描画のためにビューポートを「全画面」に設定
-		// (Gizmo描画でビューポートが変わっているため、毎回リセットが必要)
-		glViewport(0, 0, w, h);
+		// ★追加: 実際の物理ピクセル数を計算
+		int physW = (int) Math.round(w * scaleX);
+		int physH = (int) Math.round(h * scaleY);
 
-		// 2. 画面クリア（黒に戻します）
-		// 赤いままだとレントゲン写真が見にくいので黒(0,0,0)にします
+		// ★修正: メイン描画のためにビューポートを「物理ピクセル」で全画面に設定
+		glViewport(0, 0, physW, physH);
+
+		// 2. 画面クリア
 		org.lwjgl.opengl.GL11.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		org.lwjgl.opengl.GL11
 				.glClear(org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT | org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT);
 
 		// 3. 行列計算
-		if (h == 0)
-			h = 1;
-		float aspect = (float) w / h;
+		// ★修正: アスペクト比も物理ピクセルから計算する
+		float aspect = (float) physW / physH;
 
 		org.joml.Matrix4f proj = new org.joml.Matrix4f().setPerspective((float) Math.toRadians(45.0f), aspect, 0.01f,
 				100.0f);
 		org.joml.Matrix4f view = camera.getViewMatrix();
 
-		// ★ 修正: 物理サイズに基づく Model 行列を取得
+		// (以前追加した calculateModelMatrix() を呼び出す)
 		org.joml.Matrix4f model = calculateModelMatrix();
 
 		org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
 
 		if (isOrthoMode) {
-			// ★3断面表示モード: スケール済みの行列を渡す
 			org.joml.Matrix4f scaledProjView = new org.joml.Matrix4f(proj).mul(view).mul(model);
 			volumeRenderer.renderOrthoSlices(scaledProjView, sliceX, sliceY, sliceZ);
 		} else {
-			// ★既存のボリュームレンダリング
-			// スケールされた空間にカメラ位置を正しく逆算する
 			org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
 			org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
 			modelViewInv.getTranslation(camPosLocal);
@@ -389,9 +396,10 @@ public class GLCanvas extends AWTGLCanvas {
 			volumeRenderer.render(mvp, camPosLocal);
 		}
 
-		// ★最後にGizmoを描画 (右下にオーバーレイ)
+		// ★修正: 最後にGizmoを描画 (右下にオーバーレイ)
+		// Gizmoにも物理ピクセルサイズを渡さないと、位置がズレたり小さくなったりします
 		if (axesGizmo != null) {
-			axesGizmo.render(camera.getViewMatrix(), w, h);
+			axesGizmo.render(camera.getViewMatrix(), physW, physH);
 		}
 
 		org.lwjgl.opengl.GL11.glFlush();

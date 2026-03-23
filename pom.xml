@@ -39,7 +39,8 @@
 		<joml-version>1.10.5</joml-version>
 		<asm-version>9.5</asm-version>
 		<weka-version>3.9.6</weka-version>
-		<lwjgl.version>3.3.4</lwjgl.version>
+		<!-- lwjgl3-awt 0.2.3 との互換があるので、3.3.6を使うこと -->
+		<lwjgl.version>3.3.6</lwjgl.version>
 	</properties>
 
 	<build>

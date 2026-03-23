@@ -89,22 +89,22 @@ public class Viewer3DMain extends JFrame {
 
 	public Viewer3DMain() {
 		setTitle("GRAPHY 3D Viewer");
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setSize(1000, 800);
 		setLayout(new BorderLayout());
 
 		// 1. OpenGLの設定データを作成
 		GLData data = new GLData();
-		// ★修正点: バージョン指定をあえてコメントアウトするか、低く設定します
-		// LinuxのAWT環境では、3.3 Coreを要求すると失敗することが多いです。
 		data.majorVersion = 3;
-		data.minorVersion = 0; // 3.0まで落とす
+		data.minorVersion = 3;//3.2 or above
 
-		// ★修正点: プロファイルを指定しない（ドライバ任せ）か、COMPATIBILITYにする
+		// OpenGL >= 3.2 
 		data.profile = GLData.Profile.CORE;
 
 		// ダブルバッファはfalse：swapBufferのため
 		data.doubleBuffer = false;
+		
+		data.forwardCompatible = true;
 
 		// 2. キャンバスを作成して中央に配置
 		canvas = new GLCanvas(data);
