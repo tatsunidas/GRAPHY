@@ -42,14 +42,20 @@ package com.vis.core.view.mpr;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
 
 import javax.swing.BorderFactory;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.Timer;
 
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.EventGlass;
@@ -127,42 +133,160 @@ public class SimpleMPRViewer extends JFrame {
 		init();
 	}
 
+//	private void init() {
+//		
+//		/*
+//		 * Tilt check
+//		 */
+//		Modality m = Modality.is(GDicomTools.getTag(this.baseVolume, Tag.Modality));
+//		CutSurface plane = PlanarSupport.planarOf(this.baseVolume);
+//		if (m == Modality.CT && plane == CutSurface.AXIAL) {
+//			GantryTiltCorrector gtc = new GantryTiltCorrector();
+//			double tiltAngle = GDicomTools.getDouble(this.baseVolume, 1, "0018,1120"/* Gantry/Detector Tilt */);
+//			double pixelSpacingY = this.baseVolume.getCalibration().pixelHeight;
+//			double sliceSpacing = GDicomTools.getVoxelDepth(this.baseVolume);
+//			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing : 1d;
+//			this.baseVolume = gtc.correctVolume3D(this.baseVolume/*16-bit image required*/, tiltAngle, pixelSpacingY, sliceSpacing,
+//					reconSliceSpacing);
+//		}
+//		
+//		this.basePlane = determineBasePlane(baseVolume);
+//		System.out.println("Base volume slice plane is " + basePlane);
+//
+//		checkSpatialCalibration();
+//
+//		standardizeStackOrientation();
+//		
+//		convertBaseVolumeToFloat();
+//
+//		// 1. 各断面のImagePlusを生成（ボクセルサイズを考慮したマトリクス生成）
+//		reconstructCenterOrthogonal();
+//
+//		// 2. GUIの構築（メニューと4パネル）
+//		buildGUI();
+//
+//		// 3. マウスイベントの登録
+//		setupMouseListeners();
+//
+//		setVisible(true);
+//	}
+	
 	private void init() {
-		
-		/*
-		 * Tilt check
-		 */
-		Modality m = Modality.is(GDicomTools.getTag(this.baseVolume, Tag.Modality));
-		CutSurface plane = PlanarSupport.planarOf(this.baseVolume);
-		if (m == Modality.CT && plane == CutSurface.AXIAL) {
-			GantryTiltCorrector gtc = new GantryTiltCorrector();
-			double tiltAngle = GDicomTools.getDouble(this.baseVolume, 1, "0018,1120"/* Gantry/Detector Tilt */);
-			double pixelSpacingY = this.baseVolume.getCalibration().pixelHeight;
-			double sliceSpacing = GDicomTools.getVoxelDepth(this.baseVolume);
-			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing : 1d;
-			this.baseVolume = gtc.correctVolume3D(this.baseVolume/*16-bit image required*/, tiltAngle, pixelSpacingY, sliceSpacing,
-					reconSliceSpacing);
-		}
-		
-		this.basePlane = determineBasePlane(baseVolume);
-		System.out.println("Base volume slice plane is " + basePlane);
+		// --- 1. モダンなスプラッシュスクリーン（プログレスダイアログ）の作成 ---
+		JDialog progressDialog = new JDialog(this, "Loading...", false);
+		progressDialog.setUndecorated(true); // ウィンドウの枠を消してモダンでスタイリッシュに
+		progressDialog.setSize(450, 100);
+		progressDialog.setLocationRelativeTo(null); // 画面中央に配置
 
-		checkSpatialCalibration();
+		JPanel panel = new JPanel(new BorderLayout(10, 10));
+		panel.setBackground(new Color(40, 44, 52)); // ダークテーマ風の背景
+		panel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(97, 175, 239), 2), // アクセントカラーの枠線
+				BorderFactory.createEmptyBorder(15, 20, 15, 20)));
 
-		standardizeStackOrientation();
-		
-		convertBaseVolumeToFloat();
+		JLabel statusLabel = new JLabel("Initializing...");
+		statusLabel.setForeground(Color.WHITE);
+		statusLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
 
-		// 1. 各断面のImagePlusを生成（ボクセルサイズを考慮したマトリクス生成）
-		reconstructCenterOrthogonal();
+		JProgressBar progressBar = new JProgressBar(0, 100);
+		progressBar.setStringPainted(true);
+		progressBar.setForeground(new Color(97, 175, 239)); // プログレスバーの色（水色）
+		progressBar.setBackground(new Color(33, 37, 43));
+		progressBar.setBorderPainted(false);
 
-		// 2. GUIの構築（メニューと4パネル）
-		buildGUI();
+		panel.add(statusLabel, BorderLayout.NORTH);
+		panel.add(progressBar, BorderLayout.CENTER);
+		progressDialog.add(panel);
 
-		// 3. マウスイベントの登録
-		setupMouseListeners();
+		progressDialog.setVisible(true);
 
-		setVisible(true);
+		// --- 2. バックグラウンドで重い処理を実行（SwingWorker） ---
+		SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
+
+			@Override
+			protected Void doInBackground() throws Exception {
+				// "進捗率:メッセージ" の形式で publish し、UIを安全に更新する
+
+				publish("10:Checking Modality and Gantry Tilt...");
+				Modality m = Modality.is(GDicomTools.getTag(baseVolume, Tag.Modality));
+				CutSurface plane = PlanarSupport.planarOf(baseVolume);
+
+				if (m == Modality.CT && plane == CutSurface.AXIAL) {
+					GantryTiltCorrector gtc = new GantryTiltCorrector();
+					double tiltAngle = GDicomTools.getDouble(baseVolume, 1, "0018,1120"/* Gantry/Detector Tilt */);
+					double pixelSpacingY = baseVolume.getCalibration().pixelHeight;
+					double sliceSpacing = GDicomTools.getVoxelDepth(baseVolume);
+					double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing : 1d;
+
+					publish("20:Correcting Gantry Tilt (This may take a while)...");
+					baseVolume = gtc.correctVolume3D(baseVolume/* 16-bit image required */, tiltAngle, pixelSpacingY,
+							sliceSpacing, reconSliceSpacing);
+				}
+
+				publish("40:Determining Base Plane...");
+				basePlane = determineBasePlane(baseVolume);
+				System.out.println("Base volume slice plane is " + basePlane);
+
+				publish("50:Checking Spatial Calibration...");
+				checkSpatialCalibration();
+
+				publish("60:Standardizing Stack Orientation...");
+				standardizeStackOrientation();
+
+				publish("70:Converting Base Volume to 32-bit Float...");
+				convertBaseVolumeToFloat();
+
+				publish("85:Reconstructing Orthogonal Planes...");
+				// 1. 各断面のImagePlusを生成（ボクセルサイズを考慮したマトリクス生成）
+				reconstructCenterOrthogonal();
+
+				return null;
+			}
+
+			@Override
+			protected void process(java.util.List<String> chunks) {
+				// publish で送られた最新のメッセージを取得してプログレスバーを更新
+				String lastMessage = chunks.get(chunks.size() - 1);
+				String[] parts = lastMessage.split(":", 2);
+				if (parts.length == 2) {
+					int progress = Integer.parseInt(parts[0]);
+					String text = parts[1];
+					progressBar.setValue(progress);
+					statusLabel.setText(text);
+				}
+			}
+
+			@Override
+			protected void done() {
+				try {
+					get(); // バックグラウンドで発生した例外をここでキャッチする
+
+					// --- 3. UIコンポーネントの構築は必ずここで（UIスレッドで）行う ---
+					progressBar.setValue(95);
+					statusLabel.setText("Building GUI...");
+					buildGUI(); // 2. GUIの構築（メニューと4パネル）
+
+					statusLabel.setText("Setting up Mouse Listeners...");
+					setupMouseListeners(); // 3. マウスイベントの登録
+
+					progressBar.setValue(100);
+					statusLabel.setText("Ready.");
+
+					// 100%の画面をほんの一瞬（300ミリ秒）見せてからダイアログを閉じ、メイン画面を表示
+					Timer timer = new Timer(300, e -> {
+						progressDialog.dispose();
+						setVisible(true);
+					});
+					timer.setRepeats(false);
+					timer.start();
+
+				} catch (Exception e) {
+					e.printStackTrace();
+					progressDialog.dispose();
+				}
+			}
+		};
+
+		worker.execute(); // バックグラウンド処理を開始
 	}
 
 	private void checkSpatialCalibration() {

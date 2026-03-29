@@ -57,7 +57,7 @@ class VideoReaderIJ implements VideoReader{
 	
 	@Override
 	public ImagePlus read() {
-		stack = AVI_Reader.open(video.getAbsolutePath(), false/*virtual*/);
+		stack = AVI_Reader.open(video.getAbsolutePath(), true /*virtual*/);
 		return stack;
 	}
 

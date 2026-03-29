@@ -1193,7 +1193,6 @@ public class QueryRetrieve implements Task, Runnable {
             } else {
                 // Ignore non-DICOM files or system files if necessary
                 if (f.getName().equals("DICOMDIR") || f.isHidden()) continue;
-                
                 // Store using existing store logic
                 store(f.getAbsolutePath());
             }
