@@ -13,6 +13,7 @@ public enum GraphyProp {
 	NO_SPLASH,
 	
 	DICOMBackEnd,
+	DIMSE_CGET_CMOVE,
 	
 	RoiFillColor,
 	RoiStrokeColor,

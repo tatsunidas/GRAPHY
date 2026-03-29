@@ -55,6 +55,7 @@ import org.dcm4che3.data.ElementDictionary;
 import org.dcm4che3.data.Tag;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.task.Task;
@@ -68,6 +69,7 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.DICOMTreeTable;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.core.util.DeleteFolder;
+import com.vis.core.util.PropertiesUtil;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.dimse.DimseUtilities;
@@ -75,7 +77,7 @@ import com.vis.dicom.dimse.FindSCU;
 
 /**
  * 
- * This class depends on dcm4che. TODO: replace wrapper classes.
+ * This class depends on dcm4che. 
  * 
  * QueryRetrieve qr = new QueryRetrieve(false);
  * qr.prepareRetrieve(DICOMCommunicationNode remote, DICOMNode retrieveTargetNode);
@@ -119,6 +121,8 @@ public class QueryRetrieve implements Task, Runnable {
 	final int taskId;
 	
 	public final static int SLEEP_TIME = 1000;
+	
+	public static String DIMSE_CGET_CMOVE = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.DIMSE_CGET_CMOVE);
 	
 	public QueryRetrieve(boolean queryOnly) {
 		thisThread = new Thread(this);
@@ -176,103 +180,7 @@ public class QueryRetrieve implements Task, Runnable {
 		
 		return query(dest, false, patKeys, studyKeys, seriesKeys, null);
 	}
-
-	/**
-	 * keys-> -m,"key=value"... statements; usage=findscu [options] -c
-	 * <aet>@<host>:<port> [--] [<dicom-file>|<xml-file>...]
-	 */
-//	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
-//			List<String> seriesKeys, List<String> instKeys) {
-//		// echo
-//		if (!DimseUtilities.echo(dest)) {
-//			JOptionPane.showMessageDialog(WindowManager.getWindow(ConfigInfo.MainScreen.toString()), "Echo failed. :"+dest.getAETitle(),
-//					"Query validation failed.\nCannot QR with destination node.", JOptionPane.INFORMATION_MESSAGE);
-//			MainScreen ms = WindowManager.getMainScreen();
-//			TreeTableDockManager ttdm = ms.getTreeTableDockManager();
-//			ttdm.removeDockAt(dest.getNickname());
-//			return null;
-//		}
-//		/*
-//		 * check query key is empty or not
-//		 */
-//		if (patKeys == null) {
-//			patKeys = Collections.emptyList();
-//		}
-//		if (studyKeys == null) {
-//			studyKeys = Collections.emptyList();
-//		}
-//		if (seriesKeys == null) {
-//			seriesKeys = Collections.emptyList();
-//		}
-//		if (instKeys == null) {
-//			instKeys = Collections.emptyList();
-//		}
-//		/* remove null value */
-//		patKeys.removeAll(Collections.singleton(null));
-//		studyKeys.removeAll(Collections.singleton(null));
-//		seriesKeys.removeAll(Collections.singleton(null));
-//		instKeys.removeAll(Collections.singleton(null));
-//		// Patient Level QR and set root.
-//		ArrayList<Attributes> patResps = queryPatientLevel(dest, patKeys, fuzzy);
-//		if (patResps != null) {
-//			DICOMNode root = new DICOMNode(true, null);
-//			for (Attributes patResp : patResps) {
-//				String patID = patResp.getString(Tag.PatientID);
-//				ArrayList<Attributes> studyResps = queryStudyLevel(dest, patID, studyKeys);
-//				if (studyResps != null) {
-//					for (Attributes studyResp : studyResps) {
-//						DICOMNode studyNode = constructStudyNode(patResp, studyResp);
-//						String studyIUID = studyResp.getString(Tag.StudyInstanceUID);
-//						int numOfSeriesInThisStudy = 0;
-//						int numOfInstanceInThisStudy = 0;
-//						ArrayList<Attributes> seriesResps = querySeriesLevel(dest, patID, studyIUID, seriesKeys);
-//						if (seriesResps != null) {
-//							for (Attributes seriesResp : seriesResps) {
-//								DICOMNode seriesNode = constructSeriesNode(patResp, studyResp, seriesResp);
-//								String seriesIUID = seriesResp.getString(Tag.SeriesInstanceUID);
-//								int numOfInstanceInThisSeries = 0;
-//								ArrayList<Attributes> instResps = queryInstanceLevel(dest, patID, studyIUID, seriesIUID,
-//										instKeys);
-//								if (instResps != null) {
-//									for (Attributes instResp : instResps) {
-//										DICOMNode instNode = constructInstanceNode(patResp, studyResp, seriesResp,
-//												instResp);
-//										seriesNode.addChild(instNode);
-//										numOfInstanceInThisSeries += 1;
-//									}
-//								}
-//								if (numOfInstanceInThisSeries > 0) {
-//									seriesNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisSeries+"");
-//								}
-//								studyNode.addChild(seriesNode);
-//								numOfSeriesInThisStudy += 1;
-//								numOfInstanceInThisStudy += numOfInstanceInThisSeries;
-//							}
-//						}
-//						if (numOfSeriesInThisStudy > 0) {
-//							if (numOfInstanceInThisStudy > 0) {
-//								studyNode.setData(DICOMNode.NumOfInstances, numOfInstanceInThisStudy+"");
-//							}
-//							studyNode.setData(DICOMNode.NumOfSeries, numOfSeriesInThisStudy+"");
-//						}
-//						root.addChild(studyNode);
-//					}
-//				} else {
-//					continue;
-//				}
-//			}
-//			root.sortChildren(true);
-//			return root;
-//		} else {
-//			return emptyRoot();
-//		}
-//	}
 	
-	/**
-	 * リファクタリング版: 接続持続型クエリ
-	 * 1回の接続で全階層を検索するため、FindSCUのインスタンスを生成・維持して各メソッドに渡します。
-	 * 各Keyには階層レベルに対応したUIDは含まれない想定。
-	 */
 	private DICOMNode query(DicomCommunicationNode dest, boolean fuzzy, List<String> patKeys, List<String> studyKeys,
 			List<String> seriesKeys, List<String> instKeys) {
 
@@ -362,10 +270,6 @@ public class QueryRetrieve implements Task, Runnable {
 						for (Attributes seriesResp : seriesResps) {
 							DICOMNode seriesNode = constructSeriesNode(studyResp, seriesResp);
 							
-							// 【高速化】
-							// Imageレベルのクエリ (queryInstanceLevel) を廃止。
-							// その代わり、Seriesレベルのレスポンスに含まれる「枚数タグ」を使用。
-							
 							// (0020,1209) Number of Series Related Instances を取得
 							int numOfInstanceInThisSeries = seriesResp.getInt(Tag.NumberOfSeriesRelatedInstances, 0);
 							
@@ -407,8 +311,6 @@ public class QueryRetrieve implements Task, Runnable {
 			activeScu.releaseConnection();
 		}
 	}
-	// --- 以下、リファクタリングされた下位メソッド群 ---
-	// 文字列引数ではなく、Attributesを直接構築して queryNext を呼び出します
 
 	@SuppressWarnings("unused")
 	/**
@@ -1128,31 +1030,6 @@ public class QueryRetrieve implements Task, Runnable {
 		return tempRetriveDir;
 	}
 	
-	@SuppressWarnings("unused")
-//	private void c_get(DicomCommunicationNode remote, String patID, String studyIUID, String seriesIUID,
-//			String sopIUID) throws Exception {
-//		//C-GET
-//		// copy to temp dir and store it.
-//		File tempRetrieveDir = null;
-//		try {
-//			tempRetrieveDir = getInstanceToTemp(remote, patID, studyIUID, seriesIUID, sopIUID);
-//		} catch (Exception e) {
-//			Log.logger.severe(e.getLocalizedMessage());
-//			throw e;
-//		}
-//		File tempRetriveParentDir = new File(Utils.getConfSubDirPath(ConfigInfo.TemporalDirName)+File.separator+patID);
-//		
-//		if(!copyToTemp) {
-//			// retrieve and delete temp file
-//			File[] files = tempRetrieveDir.listFiles();
-//			for( File f : files ) {
-//				String instancePath = f.getAbsolutePath();
-//				store(instancePath);
-//			}
-//		}
-//		DeleteFolder.deleteDirectory(tempRetriveParentDir);
-//	}
-	
 	/**
      * Refactored C-GET: Supports STUDY, SERIES, and IMAGE levels.
      * @param remote     Remote DICOM Node
@@ -1304,7 +1181,6 @@ public class QueryRetrieve implements Task, Runnable {
     /**
      * Helper method to recursively import files from a directory.
      */
-    @SuppressWarnings("unused")
 	private void importFilesFromDirectory(File directory) {
         if (directory == null || !directory.exists()) return;
 
@@ -1383,12 +1259,14 @@ public class QueryRetrieve implements Task, Runnable {
 
 			try {
 				// Execute C-MOVE (Series Level)
-				// sopUIDがnullなので、c_move内部で Series Level のリクエストが構築されます
-				/*
-				 * クエリレベルで自動的に下位データはリトリーブされるため、インスタンスの指定は、
-				 * IMAGEレベル以外では、基本不要。指定してもよいが。
-				 */
-				c_move(dest, patID, studyUID, seriesUID, sopUID);
+				if(DIMSE_CGET_CMOVE == null || DIMSE_CGET_CMOVE.equals("CGET")) {
+					c_get(dest, patID, studyUID, seriesUID, sopUID);
+				}else if(DIMSE_CGET_CMOVE.equals("CMOVE")) {
+					c_move(dest, patID, studyUID, seriesUID, sopUID);
+				}else {
+					throw new Exception("Performing QR, but cannot detect DIMSE_CGET_CMOVE type...");
+				}
+				
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.out.println("Error during C-MOVE for series: " + seriesUID);
