@@ -57,7 +57,10 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+import com.vis.core.view.D3.ui.GantryTiltCorrector;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.dicom.Modality;
+import com.vis.dicom.Tag;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 
@@ -94,35 +97,29 @@ public class SimpleMPRViewer extends JFrame {
 
 	// 現在の交点
 	/**
-	 * baseVolumeがどの向きであろうと「その元画像の 横(X), 縦(Y), スライス(Z)」を意味します。
-	 * 1. baseVolume が Axial の場合
-	 * currentX = axX ＝ 絶対X（左右）
-	 * currentY = axY ＝ 絶対Y（前後）
-	 * currentZ = axZ ＝ 絶対Z（頭足）(すべてが一致するため、一番考えやすい状態です)
-	 * 2. baseVolume が Sagittal の場合
-	 * currentX = sagX ＝ 絶対Y（前後）
-	 * currentY = sagY ＝ 絶対Z（頭足）
-	 * currentZ = sagZ ＝ 絶対X（左右）
-	 * 3. baseVolume が Coronal の場合
-	 * currentX = corX ＝ 絶対X（左右）
-	 * currentY = corY ＝ 絶対Z（頭足）
-	 * currentZ = corZ ＝ 絶対Y（前後）
+	 * baseVolumeがどの向きであろうと「その元画像の 横(X), 縦(Y), スライス(Z)」を意味します。 1. baseVolume が Axial
+	 * の場合 currentX = axX ＝ 絶対X（左右） currentY = axY ＝ 絶対Y（前後） currentZ = axZ ＝
+	 * 絶対Z（頭足）(すべてが一致するため、一番考えやすい状態です) 2. baseVolume が Sagittal の場合 currentX = sagX
+	 * ＝ 絶対Y（前後） currentY = sagY ＝ 絶対Z（頭足） currentZ = sagZ ＝ 絶対X（左右） 3. baseVolume が
+	 * Coronal の場合 currentX = corX ＝ 絶対X（左右） currentY = corY ＝ 絶対Z（頭足） currentZ =
+	 * corZ ＝ 絶対Y（前後）
 	 */
 	private int currentX, currentY, currentZ;
 
 	// 元となるベーススタック
 	private ImagePlus baseVolume;
 	private CutSurface basePlane;
-	
+
 	private java.awt.event.MouseAdapter sharedMouseHandler;
 
 	public SimpleMPRViewer(ImagePlus inputImage) {
-		this.baseVolume = inputImage;
-		if(baseVolume == null || baseVolume.getNSlices() == 0) {
+
+		if (inputImage == null || inputImage.getNSlices() == 0) {
 			throw new IllegalArgumentException("Invalid image stack input...");
 		}
-		System.out.println("Starting SimpleMPRViewer, "+baseVolume.getNSlices() + " images were loaded.");
-		
+		this.baseVolume = inputImage;
+		System.out.println("Starting SimpleMPRViewer, " + baseVolume.getNSlices() + " images were loaded.");
+
 		setTitle("Simple MPR Viewer");
 		setSize(1000, 1000);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -131,12 +128,30 @@ public class SimpleMPRViewer extends JFrame {
 	}
 
 	private void init() {
-		this.basePlane = determineBasePlane(baseVolume);
-		System.out.println("Base volume slice plane is "+ basePlane);
 		
+		/*
+		 * Tilt check
+		 */
+		Modality m = Modality.is(GDicomTools.getTag(this.baseVolume, Tag.Modality));
+		CutSurface plane = PlanarSupport.planarOf(this.baseVolume);
+		if (m == Modality.CT && plane == CutSurface.AXIAL) {
+			GantryTiltCorrector gtc = new GantryTiltCorrector();
+			double tiltAngle = GDicomTools.getDouble(this.baseVolume, 1, "0018,1120"/* Gantry/Detector Tilt */);
+			double pixelSpacingY = this.baseVolume.getCalibration().pixelHeight;
+			double sliceSpacing = GDicomTools.getVoxelDepth(this.baseVolume);
+			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing : 1d;
+			this.baseVolume = gtc.correctVolume3D(this.baseVolume/*16-bit image required*/, tiltAngle, pixelSpacingY, sliceSpacing,
+					reconSliceSpacing);
+		}
+		
+		this.basePlane = determineBasePlane(baseVolume);
+		System.out.println("Base volume slice plane is " + basePlane);
+
 		checkSpatialCalibration();
 
 		standardizeStackOrientation();
+		
+		convertBaseVolumeToFloat();
 
 		// 1. 各断面のImagePlusを生成（ボクセルサイズを考慮したマトリクス生成）
 		reconstructCenterOrthogonal();
@@ -149,18 +164,18 @@ public class SimpleMPRViewer extends JFrame {
 
 		setVisible(true);
 	}
-	
+
 	private void checkSpatialCalibration() {
 		Calibration cal = baseVolume.getCalibration();
 		double[] pixelspacing = GDicomTools.getDoubles(baseVolume, "0028,0030");
-		if(cal.pixelWidth == 1.0 && pixelspacing != null) {
+		if (cal.pixelWidth == 1.0 && pixelspacing != null) {
 			cal.pixelWidth = pixelspacing[1];
 		}
-		
-		if(cal.pixelHeight == 1.0 && pixelspacing != null) {
+
+		if (cal.pixelHeight == 1.0 && pixelspacing != null) {
 			cal.pixelHeight = pixelspacing[0];
 		}
-		//update depth
+		// update depth
 		cal.pixelDepth = GDicomTools.getVoxelDepth(baseVolume);
 	}
 
@@ -192,109 +207,126 @@ public class SimpleMPRViewer extends JFrame {
 	/**
 	 * 
 	 * @param willCreatePlane
-	 * @param x : baseVolume voxel indexX
-	 * @param y : baseVolume voxel indexY
-	 * @param z : baseVolume voxel indexZ
+	 * @param x               : baseVolume voxel indexX
+	 * @param y               : baseVolume voxel indexY
+	 * @param z               : baseVolume voxel indexZ
 	 * @return
 	 */
 	private ImagePlus extractPlane(CutSurface willCreatePlane, int x, int y, int z) {
-        if (willCreatePlane == basePlane) {
-            ij.ImageStack stack = baseVolume.getStack();
-            int sliceIndex = Math.max(1, Math.min(z + 1, stack.getSize())); // 1-based index
-            return new ImagePlus(willCreatePlane.name(), stack.getProcessor(sliceIndex).duplicate());
-        }
+		if (willCreatePlane == basePlane) {
+			ij.ImageStack stack = baseVolume.getStack();
+			int sliceIndex = Math.max(1, Math.min(z + 1, stack.getSize())); // 1-based index
+			return new ImagePlus(willCreatePlane.name(), stack.getProcessor(sliceIndex).duplicate());
+		}
 
-        ImagePlus targetBlank = blankImage(willCreatePlane);
-        if (targetBlank == null) return null;
+		ImagePlus targetBlank = blankImage(willCreatePlane);
+		if (targetBlank == null)
+			return null;
 
-        int targetW = targetBlank.getWidth();
-        int targetH = targetBlank.getHeight();
+		int targetW = targetBlank.getWidth();
+		int targetH = targetBlank.getHeight();
 
-        int w = baseVolume.getWidth();
-        int h = baseVolume.getHeight();
-        ij.ImageStack stack = baseVolume.getStack();
-        int d = stack.getSize();
+		int w = baseVolume.getWidth();
+		int h = baseVolume.getHeight();
+		ij.ImageStack stack = baseVolume.getStack();
+		int d = stack.getSize();
 
-        double px = 0.0, py = 0.0, pz = 0.0;
-        Calibration baseCal = baseVolume.getCalibration();
+		double px = 0.0, py = 0.0, pz = 0.0;
+		Calibration baseCal = baseVolume.getCalibration();
 
-        ij.process.ImageProcessor extractedIp = null;
+		ij.process.ImageProcessor extractedIp = null;
 
-        if (basePlane == CutSurface.AXIAL) {
-            if (willCreatePlane == CutSurface.SAGITTAL) {
-                extractedIp = new ij.process.FloatProcessor(h, d);
-                for (int zIdx = 1; zIdx <= d; zIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
-                    for (int yIdx = 0; yIdx < h; yIdx++) {
-                        extractedIp.putPixelValue(yIdx, zIdx - 1, slice.getPixelValue(x, yIdx));
-                    }
-                }
-                px = baseCal.pixelHeight; py = (baseCal.pixelDepth * d) / targetH; pz = baseCal.pixelWidth;
-            } else if (willCreatePlane == CutSurface.CORONAL) {
-                extractedIp = new ij.process.FloatProcessor(w, d);
-                for (int zIdx = 1; zIdx <= d; zIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
-                    for (int xIdx = 0; xIdx < w; xIdx++) {
-                        extractedIp.putPixelValue(xIdx, zIdx - 1, slice.getPixelValue(xIdx, y));
-                    }
-                }
-                px = baseCal.pixelWidth; py = (baseCal.pixelDepth * d) / targetH; pz = baseCal.pixelHeight;
-            }
-        } else if (basePlane == CutSurface.SAGITTAL) {
-            if (willCreatePlane == CutSurface.AXIAL) {
-                extractedIp = new ij.process.FloatProcessor(d, w);
-                for (int xIdx = 1; xIdx <= d; xIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
-                    for (int yIdx = 0; yIdx < w; yIdx++) {
-                        // SagittalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
-                        extractedIp.putPixelValue(xIdx - 1, yIdx, slice.getPixelValue(yIdx, y));
-                    }
-                }
-                px = baseCal.pixelDepth; py = baseCal.pixelWidth; pz = baseCal.pixelHeight;
-            } else if (willCreatePlane == CutSurface.CORONAL) {
-                extractedIp = new ij.process.FloatProcessor(d, h);
-                for (int xIdx = 1; xIdx <= d; xIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
-                    for (int zIdx = 0; zIdx < h; zIdx++) {
-                        // SagittalベースでCoronalを抽出: 固定するのは解剖学的Y (幅=x)
-                        extractedIp.putPixelValue(xIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
-                    }
-                }
-                px = baseCal.pixelDepth; py = baseCal.pixelHeight; pz = baseCal.pixelWidth;
-            }
-        } else if (basePlane == CutSurface.CORONAL) {
-            if (willCreatePlane == CutSurface.AXIAL) {
-                extractedIp = new ij.process.FloatProcessor(w, d);
-                for (int yIdx = 1; yIdx <= d; yIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
-                    for (int xIdx = 0; xIdx < w; xIdx++) {
-                        // CoronalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
-                        extractedIp.putPixelValue(xIdx, yIdx - 1, slice.getPixelValue(xIdx, y));
-                    }
-                }
-                px = baseCal.pixelWidth; py = baseCal.pixelDepth; pz = baseCal.pixelHeight;
-            } else if (willCreatePlane == CutSurface.SAGITTAL) {
-                extractedIp = new ij.process.FloatProcessor(d, h);
-                for (int yIdx = 1; yIdx <= d; yIdx++) {
-                    ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
-                    for (int zIdx = 0; zIdx < h; zIdx++) {
-                        // CoronalベースでSagittalを抽出: 固定するのは解剖学的X (幅=x)
-                        extractedIp.putPixelValue(yIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
-                    }
-                }
-                px = baseCal.pixelDepth; py = baseCal.pixelHeight; pz = baseCal.pixelWidth;
-            }
-        }
+		if (basePlane == CutSurface.AXIAL) {
+			if (willCreatePlane == CutSurface.SAGITTAL) {
+				extractedIp = new ij.process.FloatProcessor(h, d);
+				for (int zIdx = 1; zIdx <= d; zIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+					for (int yIdx = 0; yIdx < h; yIdx++) {
+						extractedIp.setf(yIdx, zIdx - 1, slice.getf(x, yIdx));
+					}
+				}
+				px = baseCal.pixelHeight;
+				py = (baseCal.pixelDepth * d) / targetH;
+				pz = baseCal.pixelWidth;
+			} else if (willCreatePlane == CutSurface.CORONAL) {
+				extractedIp = new ij.process.FloatProcessor(w, d);
+				for (int zIdx = 1; zIdx <= d; zIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+					for (int xIdx = 0; xIdx < w; xIdx++) {
+						extractedIp.putPixelValue(xIdx, zIdx - 1, slice.getPixelValue(xIdx, y));
+					}
+				}
+				px = baseCal.pixelWidth;
+				py = (baseCal.pixelDepth * d) / targetH;
+				pz = baseCal.pixelHeight;
+			}
+		} else if (basePlane == CutSurface.SAGITTAL) {
+			if (willCreatePlane == CutSurface.AXIAL) {
+				extractedIp = new ij.process.FloatProcessor(d, w);
+				for (int xIdx = 1; xIdx <= d; xIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
+					for (int yIdx = 0; yIdx < w; yIdx++) {
+						// SagittalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
+						extractedIp.putPixelValue(xIdx - 1, yIdx, slice.getPixelValue(yIdx, y));
+					}
+				}
+				px = baseCal.pixelDepth;
+				py = baseCal.pixelWidth;
+				pz = baseCal.pixelHeight;
+			} else if (willCreatePlane == CutSurface.CORONAL) {
+				extractedIp = new ij.process.FloatProcessor(d, h);
+				for (int xIdx = 1; xIdx <= d; xIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
+					for (int zIdx = 0; zIdx < h; zIdx++) {
+						// SagittalベースでCoronalを抽出: 固定するのは解剖学的Y (幅=x)
+						extractedIp.putPixelValue(xIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
+					}
+				}
+				px = baseCal.pixelDepth;
+				py = baseCal.pixelHeight;
+				pz = baseCal.pixelWidth;
+			}
+		} else if (basePlane == CutSurface.CORONAL) {
+			if (willCreatePlane == CutSurface.AXIAL) {
+				extractedIp = new ij.process.FloatProcessor(w, d);
+				for (int yIdx = 1; yIdx <= d; yIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
+					for (int xIdx = 0; xIdx < w; xIdx++) {
+						// CoronalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
+						extractedIp.putPixelValue(xIdx, yIdx - 1, slice.getPixelValue(xIdx, y));
+					}
+				}
+				px = baseCal.pixelWidth;
+				py = baseCal.pixelDepth;
+				pz = baseCal.pixelHeight;
+			} else if (willCreatePlane == CutSurface.SAGITTAL) {
+				extractedIp = new ij.process.FloatProcessor(d, h);
+				for (int yIdx = 1; yIdx <= d; yIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
+					for (int zIdx = 0; zIdx < h; zIdx++) {
+						// CoronalベースでSagittalを抽出: 固定するのは解剖学的X (幅=x)
+						extractedIp.putPixelValue(yIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
+					}
+				}
+				px = baseCal.pixelDepth;
+				py = baseCal.pixelHeight;
+				pz = baseCal.pixelWidth;
+			}
+		}
 
-        if (extractedIp != null) {
-            extractedIp.setInterpolationMethod(ij.process.ImageProcessor.BILINEAR);
-            ij.process.ImageProcessor resizedIp = extractedIp.resize(targetW, targetH);
-            ImagePlus ortho = new ImagePlus("orthogonal", resizedIp);
-            copyImageMetaInformation(baseVolume, ortho, willCreatePlane, px, py, pz);
-            return ortho;
-        }
-        return targetBlank;
-    }
+		if (extractedIp != null) {
+			extractedIp.setInterpolationMethod(ij.process.ImageProcessor.BILINEAR);
+			ij.process.ImageProcessor resizedIp = extractedIp.resize(targetW, targetH);
+			ImagePlus ortho = new ImagePlus("orthogonal", resizedIp);
+			copyImageMetaInformation(baseVolume, ortho, willCreatePlane, px, py, pz);
+			/*
+			 * Do not set displayMinMax.
+			 */
+//			ortho.setDisplayRange(baseVolume.getDisplayRangeMin(), baseVolume.getDisplayRangeMax());
+			return ortho;
+		}
+		return targetBlank;
+	}
 
 	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py,
 			double pz) {
@@ -547,9 +579,9 @@ public class SimpleMPRViewer extends JFrame {
 		};
 		return mouseHandler;
 	}
-	
+
 	private void setupMouseListeners() {
-		
+
 		this.sharedMouseHandler = buildMouseListeners();
 
 		axialCanvas.addMouseListener(sharedMouseHandler);
@@ -575,8 +607,7 @@ public class SimpleMPRViewer extends JFrame {
 		}
 
 		/*
-		 * DICOM RCS coordinates.
-		 * NOT baseVolume coords.
+		 * DICOM RCS coordinates. NOT baseVolume coords.
 		 */
 		this.currentX = x;
 		this.currentY = y;
@@ -585,11 +616,15 @@ public class SimpleMPRViewer extends JFrame {
 		reconstructOrthogonalPlanes(activeCanvas);
 		updateCrosslineDisplay();
 	}
-	
+
 	private void reconstructOrthogonalPlanes(Praparat activeCanvas) {
-        // ★ basePlane（元画像）以外の面について、自分が操作中(activeCanvas)でなければ再構築・リロードする
+		// ★ basePlane（元画像）以外の面について、自分が操作中(activeCanvas)でなければ再構築・リロードする
 		if (basePlane != CutSurface.AXIAL && activeCanvas != axialCanvas) {
 			ImagePlus newAxial = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
+			/*
+			 * DO NOT SET display min max.
+			 */
+			//newAxial.setDisplayRange(baseVolume.getDisplayRangeMin(), baseVolume.getDisplayRangeMax());
 			axialImp.setProcessor(newAxial.getProcessor());
 			axialCanvas.reloadSlideGlasses(axialImp);
 			// リロードで消えたリスナーを再登録
@@ -599,6 +634,10 @@ public class SimpleMPRViewer extends JFrame {
 
 		if (basePlane != CutSurface.SAGITTAL && activeCanvas != sagittalCanvas) {
 			ImagePlus newSagittal = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
+			/*
+			 * DO NOT SET display min max.
+			 */
+			//newSagittal.setDisplayRange(baseVolume.getDisplayRangeMin(), baseVolume.getDisplayRangeMax());
 			sagittalImp.setProcessor(newSagittal.getProcessor());
 			sagittalCanvas.reloadSlideGlasses(sagittalImp);
 			// リロードで消えたリスナーを再登録
@@ -608,60 +647,64 @@ public class SimpleMPRViewer extends JFrame {
 
 		if (basePlane != CutSurface.CORONAL && activeCanvas != coronalCanvas) {
 			ImagePlus newCoronal = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
+			/*
+			 * DO NOT SET display min max.
+			 */
+			//newCoronal.setDisplayRange(baseVolume.getDisplayRangeMin(), baseVolume.getDisplayRangeMax());
 			coronalImp.setProcessor(newCoronal.getProcessor());
 			coronalCanvas.reloadSlideGlasses(coronalImp);
 			// リロードで消えたリスナーを再登録
 			coronalCanvas.addMouseListener(sharedMouseHandler);
 			coronalCanvas.addMouseMotionListener(sharedMouseHandler);
 		}
-		
+
 		getBaseCanvas().setImagePositionUsingSlider(currentZ);
-    }
+	}
 
 	private void updateCrosslineDisplay() {
-        int axX = 0, axY = 0, sagX = 0, sagY = 0, corX = 0, corY = 0;
+		int axX = 0, axY = 0, sagX = 0, sagY = 0, corX = 0, corY = 0;
 
-        // 奥行き(スライス数)のみスケール変換の基準として使用する
-        int d = baseVolume.getNSlices();
+		// 奥行き(スライス数)のみスケール変換の基準として使用する
+		int d = baseVolume.getNSlices();
 
-        if (basePlane == CutSurface.AXIAL) {
-            // Axial(ベース): 面内はそのまま
-            axX = currentX; 
-            axY = currentY;
-            // Sagittal: 横軸=前後(Y), 縦軸=頭足(Zスライスをスケール)
-            sagX = currentY; 
-            sagY = scaleZForDisplay(currentZ, d, sagittalImp.getHeight());
-            // Coronal: 横軸=左右(X), 縦軸=頭足(Zスライスをスケール)
-            corX = currentX; 
-            corY = scaleZForDisplay(currentZ, d, coronalImp.getHeight());
-            
-        } else if (basePlane == CutSurface.CORONAL) {
-            // Coronal(ベース): 面内はそのまま
-            corX = currentX; 
-            corY = currentY;
-            // Axial: 横軸=左右(X), 縦軸=前後(Zスライスをスケール)
-            axX = currentX; 
-            axY = scaleZForDisplay(currentZ, d, axialImp.getHeight());
-            // Sagittal: 横軸=前後(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
-            sagX = scaleZForDisplay(currentZ, d, sagittalImp.getWidth());
-            sagY = currentY; 
-            
-        } else if (basePlane == CutSurface.SAGITTAL) {
-            // Sagittal(ベース): 面内はそのまま
-            sagX = currentX; 
-            sagY = currentY;
-            // Axial: 横軸=左右(Zスライスをスケール), 縦軸=前後(Xは面内なのでそのまま)
-            axX = scaleZForDisplay(currentZ, d, axialImp.getWidth());
-            axY = currentX;
-            // Coronal: 横軸=左右(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
-            corX = scaleZForDisplay(currentZ, d, coronalImp.getWidth());
-            corY = currentY; 
-        }
+		if (basePlane == CutSurface.AXIAL) {
+			// Axial(ベース): 面内はそのまま
+			axX = currentX;
+			axY = currentY;
+			// Sagittal: 横軸=前後(Y), 縦軸=頭足(Zスライスをスケール)
+			sagX = currentY;
+			sagY = scaleZForDisplay(currentZ, d, sagittalImp.getHeight());
+			// Coronal: 横軸=左右(X), 縦軸=頭足(Zスライスをスケール)
+			corX = currentX;
+			corY = scaleZForDisplay(currentZ, d, coronalImp.getHeight());
 
-        drawCrosshairOnPraparat(axialCanvas, axX, axY);
-        drawCrosshairOnPraparat(sagittalCanvas, sagX, sagY);
-        drawCrosshairOnPraparat(coronalCanvas, corX, corY);
-    }
+		} else if (basePlane == CutSurface.CORONAL) {
+			// Coronal(ベース): 面内はそのまま
+			corX = currentX;
+			corY = currentY;
+			// Axial: 横軸=左右(X), 縦軸=前後(Zスライスをスケール)
+			axX = currentX;
+			axY = scaleZForDisplay(currentZ, d, axialImp.getHeight());
+			// Sagittal: 横軸=前後(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
+			sagX = scaleZForDisplay(currentZ, d, sagittalImp.getWidth());
+			sagY = currentY;
+
+		} else if (basePlane == CutSurface.SAGITTAL) {
+			// Sagittal(ベース): 面内はそのまま
+			sagX = currentX;
+			sagY = currentY;
+			// Axial: 横軸=左右(Zスライスをスケール), 縦軸=前後(Xは面内なのでそのまま)
+			axX = scaleZForDisplay(currentZ, d, axialImp.getWidth());
+			axY = currentX;
+			// Coronal: 横軸=左右(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
+			corX = scaleZForDisplay(currentZ, d, coronalImp.getWidth());
+			corY = currentY;
+		}
+
+		drawCrosshairOnPraparat(axialCanvas, axX, axY);
+		drawCrosshairOnPraparat(sagittalCanvas, sagX, sagY);
+		drawCrosshairOnPraparat(coronalCanvas, corX, corY);
+	}
 
 	private void drawCrosshairOnPraparat(Praparat prap, int x, int y) {
 		if (prap == null || prap.getCurrentSlide() == null)
@@ -738,6 +781,25 @@ public class SimpleMPRViewer extends JFrame {
 		}
 		imp.setStack(reversedStack);
 	}
+	
+	/**
+     * baseVolume convert to 32-bit FloatProcessor stack
+     */
+    private void convertBaseVolumeToFloat() {
+        if (baseVolume.getType() == ImagePlus.GRAY32) {
+            return;
+        }
+
+        double min = baseVolume.getDisplayRangeMin();
+        double max = baseVolume.getDisplayRangeMax();
+
+        ij.process.ImageConverter converter = new ij.process.ImageConverter(baseVolume);
+        converter.convertToGray32();
+
+        baseVolume.setDisplayRange(min, max);
+        
+        System.out.println("Converted baseVolume to 32-bit Float format. Memory unified.");
+    }
 
 	// TODO
 	@SuppressWarnings("unused")
@@ -745,64 +807,64 @@ public class SimpleMPRViewer extends JFrame {
 		// 既存のまま
 	}
 
-	//TODO
+	// TODO
 	@SuppressWarnings("unused")
 	private void exportDicomSeries(CutSurface targetPlane, double sliceThickness) {
 		// 既存のまま
 	}
 
 	private ImagePlus blankImage(CutSurface surface) {
-        Calibration cal = baseVolume.getCalibration();
-        double pw = cal.pixelWidth;
-        double ph = cal.pixelHeight;
-        double pd = cal.pixelDepth;
+		Calibration cal = baseVolume.getCalibration();
+		double pw = cal.pixelWidth;
+		double ph = cal.pixelHeight;
+		double pd = cal.pixelDepth;
 
-        int w = baseVolume.getWidth();
-        int h = baseVolume.getHeight();
-        int d = baseVolume.getNSlices();
+		int w = baseVolume.getWidth();
+		int h = baseVolume.getHeight();
+		int d = baseVolume.getNSlices();
 
-        int targetWidth = 0;
-        int targetHeight = 0;
+		int targetWidth = 0;
+		int targetHeight = 0;
 
-        if (basePlane == CutSurface.AXIAL) {
-            if (surface == CutSurface.AXIAL) {
-                targetWidth = w;
-                targetHeight = h;
-            } else if (surface == CutSurface.SAGITTAL) {
-                targetWidth = h;
-                targetHeight = (int) Math.round(d * (pd / ph)); // Z軸を引き伸ばす
-            } else if (surface == CutSurface.CORONAL) {
-                targetWidth = w;
-                targetHeight = (int) Math.round(d * (pd / pw)); // Z軸を引き伸ばす
-            }
-        } else if (basePlane == CutSurface.SAGITTAL) {
-            if (surface == CutSurface.AXIAL) {
-                targetWidth = (int) Math.round(d * (pd / pw)); // スライス(LR)を引き伸ばす
-                targetHeight = w; // A-Pは高解像度なので維持
-            } else if (surface == CutSurface.SAGITTAL) {
-                targetWidth = w;
-                targetHeight = h;
-            } else if (surface == CutSurface.CORONAL) {
-                targetWidth = (int) Math.round(d * (pd / ph)); // スライス(LR)を引き伸ばす
-                targetHeight = h; // S-Iは高解像度なので維持
-            }
-        } else if (basePlane == CutSurface.CORONAL) {
-            if (surface == CutSurface.AXIAL) {
-                targetWidth = w; // L-Rは高解像度なので維持
-                targetHeight = (int) Math.round(d * (pd / pw)); // スライス(AP)を引き伸ばす
-            } else if (surface == CutSurface.SAGITTAL) {
-                targetWidth = (int) Math.round(d * (pd / ph)); // スライス(AP)を引き伸ばす
-                targetHeight = h; // S-Iは高解像度なので維持
-            } else if (surface == CutSurface.CORONAL) {
-                targetWidth = w;
-                targetHeight = h;
-            }
-        }
+		if (basePlane == CutSurface.AXIAL) {
+			if (surface == CutSurface.AXIAL) {
+				targetWidth = w;
+				targetHeight = h;
+			} else if (surface == CutSurface.SAGITTAL) {
+				targetWidth = h;
+				targetHeight = (int) Math.round(d * (pd / ph)); // Z軸を引き伸ばす
+			} else if (surface == CutSurface.CORONAL) {
+				targetWidth = w;
+				targetHeight = (int) Math.round(d * (pd / pw)); // Z軸を引き伸ばす
+			}
+		} else if (basePlane == CutSurface.SAGITTAL) {
+			if (surface == CutSurface.AXIAL) {
+				targetWidth = (int) Math.round(d * (pd / pw)); // スライス(LR)を引き伸ばす
+				targetHeight = w; // A-Pは高解像度なので維持
+			} else if (surface == CutSurface.SAGITTAL) {
+				targetWidth = w;
+				targetHeight = h;
+			} else if (surface == CutSurface.CORONAL) {
+				targetWidth = (int) Math.round(d * (pd / ph)); // スライス(LR)を引き伸ばす
+				targetHeight = h; // S-Iは高解像度なので維持
+			}
+		} else if (basePlane == CutSurface.CORONAL) {
+			if (surface == CutSurface.AXIAL) {
+				targetWidth = w; // L-Rは高解像度なので維持
+				targetHeight = (int) Math.round(d * (pd / pw)); // スライス(AP)を引き伸ばす
+			} else if (surface == CutSurface.SAGITTAL) {
+				targetWidth = (int) Math.round(d * (pd / ph)); // スライス(AP)を引き伸ばす
+				targetHeight = h; // S-Iは高解像度なので維持
+			} else if (surface == CutSurface.CORONAL) {
+				targetWidth = w;
+				targetHeight = h;
+			}
+		}
 
-        if (targetWidth > 0 && targetHeight > 0) {
-            return new ImagePlus(surface.name() + "_blank", ij.gui.NewImage
-                    .createFloatImage("", targetWidth, targetHeight, 1, ij.gui.NewImage.FILL_BLACK).getProcessor());
-        }
-        return null;
-    }
+		if (targetWidth > 0 && targetHeight > 0) {
+			return new ImagePlus(surface.name() + "_blank", ij.gui.NewImage
+					.createFloatImage("", targetWidth, targetHeight, 1, ij.gui.NewImage.FILL_BLACK).getProcessor());
+		}
+		return null;
+	}
 }

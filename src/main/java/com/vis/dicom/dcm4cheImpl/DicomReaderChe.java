@@ -67,7 +67,11 @@ public class DicomReaderChe implements DicomReader{
 				dataset4che = dis.readDataset(-1, o -> false);
 			}
 			this.header4che = new DicomObjectChe(dataset4che);
-			this.fmi4che = new DicomObjectChe(fmi4che);
+			if(fmi4che == null) {
+				this.fmi4che = (DicomObject) this.header4che.createFileMetaInformation(tsuid.toString());
+			}else {
+				this.fmi4che = new DicomObjectChe(fmi4che);
+			}
 			this.sopUID = com.vis.dicom.UID.uidOf(this.fmi4che.getString(Tag.SOP​Class​UID));
 		}catch(DicomStreamException dse) {
 			logger.severe("Reading dicom file...:getDicomAttribute\n"+dse.getMessage());

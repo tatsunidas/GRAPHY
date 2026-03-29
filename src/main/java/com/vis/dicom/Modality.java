@@ -82,5 +82,30 @@ public enum Modality {
 	IVUS,//	"Intravascular Ultrasound
 	OP,//	"Ophthalmic Photography
 	SMR,//	"Stereometric Relationship
+	UNKNOWN,
 	;
+	
+	public static Modality is(DicomObject dcm) {
+		if(dcm != null) {
+			String m = dcm.getString(Tag.Modality);
+			for(Modality m_ : values()) {
+				if(m_.toString().equals(m)) {
+					return m_;
+				}
+			}
+		}
+		return UNKNOWN;
+	}
+	
+	public static Modality is(String modalityString) {
+		if(modalityString != null) {
+			String m = modalityString;
+			for (Modality m_ : values()) {
+				if (m_.toString().equals(m)) {
+					return m_;
+				}
+			}
+		}
+		return UNKNOWN;
+	}
 }

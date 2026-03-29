@@ -2,7 +2,6 @@ package com.vis.dicom;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -21,34 +20,55 @@ public class DicomUtilities {
 	static Logger logger = Log.logger;
 	
 	public static boolean isDicomFile(File file) {
-		if (file.isDirectory()) {
-			System.out.println("this file is directory");
+		// 1. Reject directories or non-existent files
+		if (file == null || !file.isFile()) {
+			System.out.println("This file is invalid or a directory.");
 			return false;
 		}
-		FileInputStream fileinstream = null;
-		try {
-			fileinstream = new FileInputStream(file);
-			byte[] dcm = new byte[4];
-			fileinstream.skip(128);
-			@SuppressWarnings("unused")
-			int read = fileinstream.read(dcm, 0, 4);// IMPORTANT
-			if (dcm[0] == 68 && dcm[1] == 73 && dcm[2] == 67 && dcm[3] == 77) {
+
+		// Automate close() using try-with-resources statement (also prevents
+		// NullPointerException)
+		try (FileInputStream fis = new FileInputStream(file)) {
+
+			// Prepare a buffer to read 132 bytes at once (avoid using skip())
+			byte[] buffer = new byte[132];
+			int bytesRead = fis.read(buffer, 0, 132);
+
+			// If the file size is too small, it's not a DICOM file
+			if (bytesRead < 4) {
+				return false;
+			}
+
+			// ==========================================
+			// Pattern A: Standard DICOM (Part 10 compliant)
+			// Check if bytes 128-131 contain the string "DICM"
+			// ==========================================
+			if (bytesRead == 132 && buffer[128] == 68 && buffer[129] == 73 && buffer[130] == 67 && buffer[131] == 77) {
 				return true;
 			}
-		} catch (FileNotFoundException ex) {
-			logger.severe(ex.toString());
-			return false;
-		} catch (IOException ex) {
-			logger.severe(ex.toString());
-			return false;
-		} finally {
-			try {
-				fileinstream.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-				logger.severe("Fail to read file...:isDicomFile\n"+e);
+
+			// ==========================================
+			// Pattern B: DICOM without preamble (Non-standard but common in practice)
+			// Check if the file starts with specific DICOM tags (Group 0002 or Group 0008)
+			// ==========================================
+			// For Little Endian: 0x02 0x00 (Group 0002) or 0x08 0x00 (Group 0008)
+			// For Big Endian: 0x00 0x02 or 0x00 0x08
+			boolean startsWithGroup0002 = (buffer[0] == 0x02 && buffer[1] == 0x00)
+					|| (buffer[0] == 0x00 && buffer[1] == 0x02);
+			boolean startsWithGroup0008 = (buffer[0] == 0x08 && buffer[1] == 0x00)
+					|| (buffer[0] == 0x00 && buffer[1] == 0x08);
+
+			if (startsWithGroup0002 || startsWithGroup0008) {
+				// Treat as DICOM since it starts with a DICOM data structure, even without
+				// "DICM"
+				return true;
 			}
+
+		} catch (IOException ex) {
+			logger.severe("Fail to read file...:isDicomFile\n" + ex.toString());
+			return false;
 		}
+
 		return false;
 	}
 

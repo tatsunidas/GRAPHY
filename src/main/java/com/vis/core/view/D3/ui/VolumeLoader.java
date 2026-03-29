@@ -42,6 +42,8 @@ import java.io.File;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.dicom.Modality;
+import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
@@ -84,6 +86,18 @@ public class VolumeLoader {
 			System.err.println("Failed to load image.");
 			return null;
 		}
+		
+		//at first, know what is modality
+		Modality m = Modality.is(GDicomTools.getTag(imp, Tag.Modality));
+		CutSurface plane = PlanarSupport.planarOf(imp);
+		if(m == Modality.CT && plane == CutSurface.AXIAL) {
+			GantryTiltCorrector gtc = new GantryTiltCorrector();
+			double tiltAngle = GDicomTools.getDouble(imp, 1, "0018,1120"/*Gantry/Detector Tilt*/);
+			double pixelSpacingY = imp.getCalibration().pixelHeight;
+			double sliceSpacing = GDicomTools.getVoxelDepth(imp);
+			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing:1d;
+			imp = gtc.correctVolume3D(imp, tiltAngle, pixelSpacingY, sliceSpacing, reconSliceSpacing);
+		}
 
 		// ★ 追加1: ボクセルサイズの確実な取得 (DICOMタグからの補完)
 		checkSpatialCalibration(imp);
@@ -97,7 +111,7 @@ public class VolumeLoader {
 			imp.close(); // 古い(Axial以外の)メモリを解放
 			imp = axialImp; // 以降は標準化されたAxialとして扱う
 		}
-
+		
 		// --- 以下はすべて「Axial化され、DICOM空間に一致した」データとしての処理 ---
 
 		// 1. サイズ情報の取得

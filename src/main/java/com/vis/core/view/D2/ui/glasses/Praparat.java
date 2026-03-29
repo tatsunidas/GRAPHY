@@ -98,6 +98,7 @@ import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
+import com.vis.dicom.Modality;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UID;
 import com.vis.dicom.UIDUtils;
@@ -172,7 +173,7 @@ public class Praparat extends JPanel {
 	String seriesUID;
 	String[] sopUIDs;
 	String frameOfReferenceUID;
-	String modality = null;
+	Modality modality = null;
 	
 	int prevW;
 	int prevH;
@@ -196,6 +197,8 @@ public class Praparat extends JPanel {
 			this.studyColor = studyColor;
 		}
 		initComponent();
+		String modality_str = GDicomTools.getTag(stack, Tag.Modality);
+		this.modality = Modality.is(modality_str);
 		prepareSlideGlassesUsingImagePlus(stack);
 		if(mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
@@ -221,6 +224,8 @@ public class Praparat extends JPanel {
 		this.prapManager = manager;
 		initComponent();
 		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
+		DicomObject dcm = slides.get(0).getHeader();
+		this.modality = Modality.is(dcm);
 		if(mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
 		}else {
@@ -970,6 +975,10 @@ public class Praparat extends JPanel {
 		return rois;
 	}
 	
+	public Modality getModality() {
+		return this.modality;
+	}
+	
 	private String concatenationOfUIDStrings() {
 		Object[] uids = getUIDs();
 		String str = "";
@@ -1701,6 +1710,7 @@ public class Praparat extends JPanel {
 		}else {
 			doFilmGridLayout(filmGridColumns);
 		}
+		adjustContrastByMinMax(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
 	}
 	
 	public void reloadSlideGlasses(Praparat pp) {
@@ -2128,7 +2138,6 @@ public class Praparat extends JPanel {
 	 * @param w
 	 * @param h
 	 */
-	@SuppressWarnings("unused")
 	private void setViewPanelSize(int w, int h) {
 		viewPanel.setPreferredSize(new Dimension(w, h));
 		viewPanel.setBounds(0, 0, w, h);

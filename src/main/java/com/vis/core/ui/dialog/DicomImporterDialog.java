@@ -118,7 +118,7 @@ public class DicomImporterDialog extends javax.swing.JDialog {
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						PopUpMessage.showDialog(WindowManager.getMainScreen(), "Non dicom file found !", "Dicom Importer can not import non dicom files. Only dicom files will be imported. \nIf you would like to import non dicom, use Non Dcm Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+						PopUpMessage.showDialog(WindowManager.getMainScreen(), "Non dicom file found !", "Dicom Importer can not import non dicom files. \nIf you would like to import non dicom, use Non Dcm Importer instead.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 						//still continue
 					}
 				});

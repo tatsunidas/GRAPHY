@@ -68,6 +68,9 @@ import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.SlicePlane;
+import com.vis.core.view.D3.ui.GantryTiltCorrector;
+import com.vis.dicom.Modality;
+import com.vis.dicom.Tag;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
 
@@ -162,23 +165,39 @@ public class MPRViewerWindow extends JFrame {
 //		new MPRViewerWindow(o, null);
 	}
 
+	/**
+	 * See also, D3.ui.GatryTiltCorrector
+	 * @param prap
+	 */
 	public MPRViewerWindow(Praparat prap) {
 		this(prap.getImagePlus(), prap.getStudyColor());
 	}
 
 	public MPRViewerWindow(ImagePlus imp, Color studyColor) {
-		own = this;
 		if (imp == null || imp.getStackSize() < 1) {
 			throw new IllegalArgumentException("Number of images not enough.");
-		}
-		this.imp = imp;
-		if (studyColor != null) {
-			this.studyColor = studyColor;
 		}
 		patID = GDicomTools.getTag(imp, "0010,0020");
 		studyUID = GDicomTools.getTag(imp, "0020,000D");
 		sopClassUID = GDicomTools.getTag(imp, "0008,0016");
 		refUID = GDicomTools.getTag(imp, "0020,0052");
+		/*
+		 * Tilt check
+		 */
+		Modality m = Modality.is(GDicomTools.getTag(imp, Tag.Modality));
+		if(m == Modality.CT) {
+			GantryTiltCorrector gtc = new GantryTiltCorrector();
+			double tiltAngle = GDicomTools.getDouble(imp, 1, "0018,1120"/*Gantry/Detector Tilt*/);
+			double pixelSpacingY = imp.getCalibration().pixelHeight;
+			double sliceSpacing = GDicomTools.getVoxelDepth(imp);
+			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing:1d;
+			imp = gtc.correctVolume3D(imp, tiltAngle, pixelSpacingY, sliceSpacing, reconSliceSpacing);
+		}
+		own = this;
+		this.imp = imp;
+		if (studyColor != null) {
+			this.studyColor = studyColor;
+		}
 		init();
 	}
 
