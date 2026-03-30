@@ -122,7 +122,7 @@ public class QueryRetrieve implements Task, Runnable {
 	
 	public final static int SLEEP_TIME = 1000;
 	
-	public static String DIMSE_CGET_CMOVE = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.DIMSE_CGET_CMOVE);
+	public static final String DIMSE_CGET_CMOVE = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.DIMSE_CGET_CMOVE);
 	
 	public QueryRetrieve(boolean queryOnly) {
 		thisThread = new Thread(this);
@@ -1063,6 +1063,11 @@ public class QueryRetrieve implements Task, Runnable {
 			// 保存先（必須）
 			argsList.add("--directory");
 			argsList.add(tempRetrieveDir.getAbsolutePath());
+			
+			// 明示的に PatientRoot を指定するとき
+			// StudyRoot is default
+//			argsList.add("-M");
+//			argsList.add("PatientRoot");
 
 			// 取得レベルとキーの判定
 			if (sopIUID != null && !sopIUID.isEmpty()) {
@@ -1219,6 +1224,12 @@ public class QueryRetrieve implements Task, Runnable {
 
 		int totalTasks = candidateInfoSet.size();
 		int currentCount = 0;
+		
+		//check CGET supports
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		String[] details = db.getListenerDetails();
+       String myAET = details[0];
+		boolean[] supports = DimseUtilities.checkRetrieveSupport(dest, myAET);
 
 		// candidateInfoSetは prepareCandidate で既に「シリーズ単位」のリストとして作成されているため
 		// ここでは単純にループして処理する。
@@ -1259,8 +1270,16 @@ public class QueryRetrieve implements Task, Runnable {
 			try {
 				// Execute C-MOVE (Series Level)
 				if(DIMSE_CGET_CMOVE == null || DIMSE_CGET_CMOVE.equals("CGET")) {
-					c_get(dest, patID, studyUID, seriesUID, sopUID);
+					if(supports[0]) {
+						c_get(dest, patID, studyUID, seriesUID, sopUID);
+					}else {
+						Log.logger.info("Destination doesn't support CGET, will try CMOVE instead.");
+						c_move(dest, patID, studyUID, seriesUID, sopUID);
+					}
 				}else if(DIMSE_CGET_CMOVE.equals("CMOVE")) {
+					/*
+					 * C-MOVE is a standard method of communication.
+					 */
 					c_move(dest, patID, studyUID, seriesUID, sopUID);
 				}else {
 					throw new Exception("Performing QR, but cannot detect DIMSE_CGET_CMOVE type...");

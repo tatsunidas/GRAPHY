@@ -10,6 +10,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.dcm4che3.net.ApplicationEntity;
+import org.dcm4che3.net.Association;
+import org.dcm4che3.net.Connection;
+import org.dcm4che3.net.Device;
+import org.dcm4che3.net.pdu.AAssociateRQ;
+import org.dcm4che3.net.pdu.PresentationContext;
+
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
@@ -38,6 +45,73 @@ public class DimseUtilities {
 		boolean res = new EchoImpl(null).echo(listenerInfo[0], listenerInfo[1], listenerInfo[2],
 				dest.getAETitle(), dest.getHostName(), String.valueOf(dest.getPort()));// connection established
 		return res;
+	}
+	
+	/**
+     * 接続先PACS/Modalityが、Study Rootにおける C-GET および C-MOVE をサポートしているか検証します。
+     * @param dest 接続先ノード情報 (IP, Port, AET)
+     * @param localAET 自アプリケーションのAET (例: "GRAPHY")
+     * @return boolean配列 [0]: C-GETのサポート有無, [1]: C-MOVEのサポート有無
+     */
+	public static boolean[] checkRetrieveSupport(DicomCommunicationNode dest, String localAET) {
+		boolean[] supportStatus = new boolean[] { false, false };
+
+		Device device = new Device("capability-checker");
+		Connection conn = new Connection();
+		ApplicationEntity ae = new ApplicationEntity(localAET);
+		device.addConnection(conn);
+		device.addApplicationEntity(ae);
+		ae.addConnection(conn);
+
+		Connection remoteConn = new Connection();
+		remoteConn.setHostname(dest.getHostName());
+		remoteConn.setPort(dest.getPort());
+
+		AAssociateRQ rq = new AAssociateRQ();
+		rq.setCalledAET(dest.getAETitle());
+		rq.setCallingAET(localAET);
+
+		// 【ここがポイント】テストしたい機能を「提案（Presentation Context）」として追加する
+		// IDは奇数である必要があります (1, 3, 5...)
+
+		// 1. C-GET (Study Root) を提案
+		rq.addPresentationContext(
+				new PresentationContext(1, org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelGet,
+						org.dcm4che3.data.UID.ImplicitVRLittleEndian));
+
+		// 2. C-MOVE (Study Root) を提案
+		rq.addPresentationContext(
+				new PresentationContext(3, org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelMove,
+						org.dcm4che3.data.UID.ImplicitVRLittleEndian));
+
+		Association as = null;
+		try {
+			// アソシエーション確立（ここで相手からの Accept または Reject が返ってくる）
+			as = ae.connect(conn, remoteConn, rq);
+
+			// 結果の判定：pcFor(...) が null でなければ、相手が「承諾」したことを意味する
+			supportStatus[0] = as.pcFor(org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelGet,
+					org.dcm4che3.data.UID.ImplicitVRLittleEndian) != null;
+			supportStatus[1] = as.pcFor(org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelMove,
+					org.dcm4che3.data.UID.ImplicitVRLittleEndian) != null;
+
+			Log.logger.info(String.format("Capability Check for %s - C-GET: %b, C-MOVE: %b", dest.getAETitle(),
+					supportStatus[0], supportStatus[1]));
+
+		} catch (Exception e) {
+			Log.logger.warning("Failed to negotiate with " + dest.getAETitle() + ": " + e.getMessage());
+			// 接続自体に失敗した場合は両方 false のまま返す
+		} finally {
+			// 用が済んだらすぐに通信を切断する
+			if (as != null && as.isReadyForDataTransfer()) {
+				try {
+					as.release();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		return supportStatus;
 	}
 	
 	/**
