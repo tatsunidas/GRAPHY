@@ -189,12 +189,12 @@
 			<name>Dcm4Che Repository</name>
 			<url>https://www.dcm4che.org/maven2/</url>
 		</repository>
-		<!-- quickfull3d, but this will remove future. -->
+		<!-- radiomicsj quickfull3d, but this will remove future. -->
 		<repository>
 		    <id>jitpack.io</id>
 		    <url>https://jitpack.io</url>
 		</repository>
-		<!-- radiomicsj ?? -->
+		<!-- dcm4che imageio opencv -->
 		<repository>
 			<id>weasis-github-repo</id>
 			<name>Weasis GitHub Repository</name>
