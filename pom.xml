@@ -26,8 +26,8 @@
 		<exec.mainClass>com.vis.core.launcher.Launcher</exec.mainClass>
 		<java.version>11</java.version>
 		<maven.compiler.source>11</maven.compiler.source>
-       <maven.compiler.target>11</maven.compiler.target>
-       <maven.compiler.release>11</maven.compiler.release>
+		<maven.compiler.target>11</maven.compiler.target>
+		<maven.compiler.release>11</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<imagej-version>1.54f</imagej-version>
@@ -178,12 +178,6 @@
 			<name>XNatLibs Repository</name>
 			<url>https://nrgxnat.jfrog.io/artifactory/libs-release/</url>
 		</repository>
-		<!-- 3D_Viewer -->
-		<repository>
-			<id>ImageJ Releases</id>
-			<name>ImageJ Releases Repository</name>
-			<url>https://maven.imagej.net/content/repositories/releases/</url>
-		</repository>
 		<!-- dcm4che -->
 		<repository>
 			<id>SciJava Public</id>
@@ -194,6 +188,17 @@
 			<id>Dcm4Che</id>
 			<name>Dcm4Che Repository</name>
 			<url>https://www.dcm4che.org/maven2/</url>
+		</repository>
+		<!-- quickfull3d, but this will remove future. -->
+		<repository>
+		    <id>jitpack.io</id>
+		    <url>https://jitpack.io</url>
+		</repository>
+		<!-- radiomicsj ?? -->
+		<repository>
+			<id>weasis-github-repo</id>
+			<name>Weasis GitHub Repository</name>
+			<url>https://raw.githubusercontent.com/nroduit/mvn-repo/master/</url>
 		</repository>
 	</repositories>
 

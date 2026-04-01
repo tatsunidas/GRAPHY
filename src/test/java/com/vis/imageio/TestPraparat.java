@@ -377,7 +377,7 @@ public class TestPraparat {
 		
 		short[] shortArray = new short[spix.length];
 		//short to byte
-		byte[] bpix = ByteUtils.shortToBytes(spix);
+		byte[] bpix = ByteUtils.shortToBytes(spix, false);
 		//back to short
 		ByteUtils.bytesToShorts(bpix, shortArray, 0, spix.length, false);
 		
