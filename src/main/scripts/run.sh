@@ -119,25 +119,25 @@ JVM_OPTS="$JVM_OPTS --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
 JVM_OPTS="$JVM_OPTS --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
 JVM_OPTS="$JVM_OPTS --add-opens java.base/java.io=ALL-UNNAMED"
 
-# jdk
+# jre
 DEFAULT_JAVA_CMD="java"
 JAVA_CMD="$DEFAULT_JAVA_CMD"
 
-LOCAL_JDK_DIR="${SCRIPT_DIR}/jdk"
-LOCAL_JAVA_EXEC="${LOCAL_JDK_DIR}/bin/java"
+LOCAL_JRE_DIR="${SCRIPT_DIR}/jre"
+LOCAL_JAVA_EXEC="${LOCAL_JRE_DIR}/bin/java"
 
-if [ -d "$LOCAL_JDK_DIR" ]; then
-    echo "Info: Found local JDK directory: $LOCAL_JDK_DIR"
+if [ -d "$LOCAL_JRE_DIR" ]; then
+    echo "Info: Found local JRE directory: $LOCAL_JRE_DIR"
     if [ -x "$LOCAL_JAVA_EXEC" ]; then
-        echo "Info: Using Java executable from local JDK: $LOCAL_JAVA_EXEC"
+        echo "Info: Using Java executable from local JRE: $LOCAL_JAVA_EXEC"
         JAVA_CMD="$LOCAL_JAVA_EXEC"
     else
-        # no jdk/bin/java
-        echo "Warning: Found local JDK directory, but cannot execute $LOCAL_JAVA_EXEC."
+        # no jre/bin/java
+        echo "Warning: Found local JRE directory, but cannot execute $LOCAL_JAVA_EXEC."
         echo "         Falling back to default Java command found in PATH: $DEFAULT_JAVA_CMD"
     fi
 else
-    echo "Info: No local JDK directory found at $LOCAL_JDK_DIR."
+    echo "Info: No local JRE directory found at $LOCAL_JRE_DIR."
     echo "      Using default Java command found in PATH: $DEFAULT_JAVA_CMD"
 fi
 

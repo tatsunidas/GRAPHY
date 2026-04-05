@@ -8,25 +8,25 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo "GRAPHY running on : $SCRIPT_DIR"
 
-# --- Check for bundled JDK ---
-# MacのJDKは通常 Contents/Home/bin/java という構造になりますが、
+# --- Check for bundled JRE ---
+# MacのJREは通常 Contents/Home/bin/java という構造になりますが、
 # Windowsのように直接 bin/java が配置されているケースも考慮して両方探します。
 JAVA_COMMAND="java"
-BUNDLED_JDK_MAC_STANDARD="$SCRIPT_DIR/jdk/Contents/Home/bin/java"
-BUNDLED_JDK_FLAT="$SCRIPT_DIR/jdk/bin/java"
+BUNDLED_JRE_MAC_STANDARD="$SCRIPT_DIR/jre/Contents/Home/bin/java"
+BUNDLED_JRE_FLAT="$SCRIPT_DIR/jre/bin/java"
 
-if [ -f "$BUNDLED_JDK_MAC_STANDARD" ]; then
-    echo "Found bundled JDK at: $SCRIPT_DIR/jdk/Contents/Home"
-    JAVA_COMMAND="$BUNDLED_JDK_MAC_STANDARD"
-elif [ -f "$BUNDLED_JDK_FLAT" ]; then
-    echo "Found bundled JDK at: $SCRIPT_DIR/jdk"
-    JAVA_COMMAND="$BUNDLED_JDK_FLAT"
+if [ -f "$BUNDLED_JRE_MAC_STANDARD" ]; then
+    echo "Found bundled JRE at: $SCRIPT_DIR/jre/Contents/Home"
+    JAVA_COMMAND="$BUNDLED_JRE_MAC_STANDARD"
+elif [ -f "$BUNDLED_JRE_FLAT" ]; then
+    echo "Found bundled JRE at: $SCRIPT_DIR/jre"
+    JAVA_COMMAND="$BUNDLED_JRE_FLAT"
 else
-    echo "Bundled JDK not found. Attempting to use system Java."
+    echo "Bundled JRE not found. Attempting to use system Java."
     # Check if system java is available
     if ! command -v java >/dev/null 2>&1; then
         echo "Error: System Java command 'java' not found in PATH."
-        echo "Please install Java or ensure the bundled JDK is present."
+        echo "Please install Java or ensure the bundled JRE is present."
         exit 1
     fi
 fi

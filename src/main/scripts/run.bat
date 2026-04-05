@@ -9,22 +9,22 @@ REM Get the script's own directory (ends with a backslash)
 SET "SCRIPT_DIR=%~dp0"
 echo GRAPHY runnning on : %SCRIPT_DIR%
 
-REM --- Check for bundled JDK ---
-REM JDK folder
-SET "BUNDLED_JDK_DIR=%SCRIPT_DIR%jdk"
+REM --- Check for bundled JRE ---
+REM JRE folder
+SET "BUNDLED_JRE_DIR=%SCRIPT_DIR%jre"
 
 REM Default to system java command
 SET "JAVA_COMMAND=java"
 
-IF EXIST "%BUNDLED_JDK_DIR%\bin\java.exe" (
-    echo Found bundled JDK at: %BUNDLED_JDK_DIR%
-    SET "JAVA_COMMAND=%BUNDLED_JDK_DIR%\bin\java.exe"
+IF EXIST "%BUNDLED_JRE_DIR%\bin\java.exe" (
+    echo Found bundled JRE at: %BUNDLED_JRE_DIR%
+    SET "JAVA_COMMAND=%BUNDLED_JRE_DIR%\bin\java.exe"
 ) ELSE (
-    echo Bundled JDK not found in %BUNDLED_JDK_DIR%. Attempting to use system Java.
+    echo Bundled JRE not found in %BUNDLED_JRE_DIR%. Attempting to use system Java.
     REM Check if system java is available
     WHERE java >nul 2>nul
     IF %ERRORLEVEL% NEQ 0 (
-        echo Error: System Java command 'java' not found in PATH. Please install Java or ensure the bundled JDK is present.
+        echo Error: System Java command 'java' not found in PATH. Please install Java or ensure the bundled JRE is present.
         pause
         exit /b 1
     )
