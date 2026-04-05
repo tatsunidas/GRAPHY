@@ -77,23 +77,14 @@ public class MainScreenToolBar extends JToolBar {
 
 	ArrayList<String> buttonLabels = new ArrayList<String>();
 	ArrayList<String> keys = new ArrayList<>();
-	
+
 	int NEW_WIDTH = 48;
 	int NEW_HEIGHT = 48;
-	
-	private enum Tool{
-		Import,
-		Export,
-		BrowseDB,
-		BurnCD,
-		ImportNoneDcm,
-		Delete,
-		Metadata,
-		Send,
+
+	private enum Tool {
+		Import, Export, BrowseDB, BurnCD, ImportNoneDcm, Delete, Metadata, Send,
 //		Query,//do not need
-		Viewer,
-		Viewer3D,
-		Settings;
+		Viewer, Viewer3D, Settings;
 	}
 
 	public MainScreenToolBar() {
@@ -102,12 +93,14 @@ public class MainScreenToolBar extends JToolBar {
 
 	public void loadButtons() {
 		removeAll();
-		HashMap<Tool,ImageIcon> icons = initButtonList();
-		for(Tool t:Tool.values()) {
+		HashMap<Tool, ImageIcon> icons = initButtonList();
+		for (Tool t : Tool.values()) {
 			ImageIcon ic = icons.get(t);
-			if(ic == null) {continue;}
+			if (ic == null) {
+				continue;
+			}
 			Image img = ic.getImage();
-			Image newimg = img.getScaledInstance( NEW_WIDTH, NEW_HEIGHT,  java.awt.Image.SCALE_SMOOTH );
+			Image newimg = img.getScaledInstance(NEW_WIDTH, NEW_HEIGHT, java.awt.Image.SCALE_SMOOTH);
 			ImageIcon icon = new ImageIcon(newimg);
 			JButton btn = new JButton(t.name(), icon);
 			btn.setName(t.name());
@@ -118,22 +111,22 @@ public class MainScreenToolBar extends JToolBar {
 			add(btn);
 		}
 	}
-	
+
 	public HashMap<Tool, ImageIcon> initButtonList() {
 		HashMap<Tool, ImageIcon> map = new HashMap<>();
 		map.put(Tool.Import, Resources.MenuBarImportIcon.loadIconFromResource());
 		map.put(Tool.Export, Resources.MenuBarExportIcon.loadIconFromResource());
 		map.put(Tool.BrowseDB, Resources.MenuBarBrowseDBIcon.loadIconFromResource());
-		if(Utils.isDebug) {
+		if (Utils.isDebug) {
 			map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
-		}else {
-			if(Platform.getOS()==Platform.WINDOWS) {
+		} else {
+			if (Platform.getOS() == Platform.WINDOWS) {
 				map.put(Tool.BurnCD, Resources.MenuBarBurnCDIcon.loadIconFromResource());
 			}
 		}
 		map.put(Tool.ImportNoneDcm, Resources.MenuBarImportNoDcmIcon.loadIconFromResource());
 		map.put(Tool.Delete, Resources.MenuBarDeleteIcon.loadIconFromResource());
-		map.put(Tool.Metadata,  Resources.MenuBarMetadataIcon.loadIconFromResource());
+		map.put(Tool.Metadata, Resources.MenuBarMetadataIcon.loadIconFromResource());
 		map.put(Tool.Send, Resources.MenuBarSendIcon.loadIconFromResource());
 //		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
@@ -144,8 +137,8 @@ public class MainScreenToolBar extends JToolBar {
 
 	private void setAction(JButton btn) {
 		Tool type = null;
-		for(Tool t:Tool.values()) {
-			if(t.name().equals(btn.getName())) {
+		for (Tool t : Tool.values()) {
+			if (t.name().equals(btn.getName())) {
 				type = t;
 				break;
 			}
@@ -155,11 +148,12 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					new Thread(() -> {
-						DicomImporterDialog fcd = new DicomImporterDialog(WindowManager.getMainScreen(), true);
-						fcd.setLocationRelativeTo(WindowManager.getMainScreen());
-						fcd.setVisible(true);
-					}).start();
+					/*
+					 * DO not use thread. Use EDT as-is.
+					 */
+					DicomImporterDialog fcd = new DicomImporterDialog(WindowManager.getMainScreen(), true);
+					fcd.setLocationRelativeTo(WindowManager.getMainScreen());
+					fcd.setVisible(true);
 				}
 			});
 			break;
@@ -170,17 +164,17 @@ public class MainScreenToolBar extends JToolBar {
 					/**
 					 * only work when browsing on Home Dock.
 					 */
-					new Thread(() -> {
-						MainScreen ms = WindowManager.getMainScreen();
-						if(ms.isHomeTop()) {
-							ArrayList<DICOMNode> selected = ms.getSelectedNode();
-							DicomExporter export = new DicomExporter(selected);
-							export.start();
-							export.monitorTasks();
-						}else {
-							JOptionPane.showMessageDialog(ms, "You cannot export files from external dicom network node. Use 'HOME' instead.");
-						}
-					}).start();
+					// DO NOT USE Thread in EDT
+					MainScreen ms = WindowManager.getMainScreen();
+					if (ms.isHomeTop()) {
+						ArrayList<DICOMNode> selected = ms.getSelectedNode();
+						DicomExporter export = new DicomExporter(selected);
+						export.start();
+						export.monitorTasks();
+					} else {
+						JOptionPane.showMessageDialog(ms,
+								"You cannot export files from external dicom network node. Use 'HOME' instead.");
+					}
 				}
 			});
 			break;
@@ -188,9 +182,8 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					new Thread(() -> {
-						new NonDicomImageImporter(WindowManager.getMainScreen(), false);
-					}).start();
+					//DO NOT USE Thread in EDT
+					new NonDicomImageImporter(WindowManager.getMainScreen(), false);
 				}
 			});
 			break;
@@ -199,12 +192,13 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					MainScreen ms = WindowManager.getMainScreen();
-					if(!ms.isHomeTop()) {
-						JOptionPane.showMessageDialog(ms, "You cannot delete files on external dicom network node. Use 'HOME' instead.");
+					if (!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms,
+								"You cannot delete files on external dicom network node. Use 'HOME' instead.");
 						return;
 					}
 					int res = JOptionPane.showConfirmDialog(ms, "Delete selected records from DB ?");
-					if(res == JOptionPane.OK_OPTION) {
+					if (res == JOptionPane.OK_OPTION) {
 						ArrayList<DICOMNode> selected = ms.getSelectedNode();
 						// run with another thread. (no EDT thread.)
 						new Thread(() -> {
@@ -218,14 +212,12 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					new Thread(() -> {
-						try {
-							new DatabaseBrowser();
-						} catch (Exception e1) {
-							e1.printStackTrace();
-							return;
-						}
-					}).start();
+					try {
+						new DatabaseBrowser();
+					} catch (Exception e1) {
+						e1.printStackTrace();
+						return;
+					}
 				}
 			});
 			break;
@@ -234,21 +226,26 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent arg) {
 					MainScreen ms = WindowManager.getMainScreen();
-					if(!ms.isHomeTop()) {
-						new Thread(() -> {
-							JOptionPane.showMessageDialog(ms, "You can not burn files from an external dicom network node. Use on 'HOME' tab instead.");
-						}).start();
+					if (!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms,
+								"You can not burn files from an external dicom network node. Use on 'HOME' tab instead.");
 						return;
 					}
 					File burnDestFileInTemp = Utils.createNewDirInTemp();
 					ArrayList<DICOMNode> selected = ms.getSelectedNode();
-					ArrayList<String[]> dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable().createNoDuplicateImageList(selected);
-					new Thread(() -> {
-						DicomExporter export = new DicomExporter();
-						export.setShowExportResult(false);
-						export.exportDICOM(burnDestFileInTemp, dcmFilesUIDs, false/*flat*/, false/*decompress*/, false/*with viewer*/);
-						new BurnerWindow(burnDestFileInTemp, false /*debug*/);
-					}).start();
+					ArrayList<String[]> dcmFilesUIDs = WindowManager.getMainScreen().getLocalTreeTable()
+							.createNoDuplicateImageList(selected);
+					DicomExporter export = new DicomExporter();
+					export.setShowExportResult(false);
+					export.exportDICOM(burnDestFileInTemp, dcmFilesUIDs, false/* flat */, false/* decompress */,
+							false/* with viewer */);
+					/*
+					 * exportDICOM method is synchronous.
+					 * So, here simply run after it.
+					 */
+					SwingUtilities.invokeLater(() -> {
+						new BurnerWindow(burnDestFileInTemp, false/* debug */);
+					});
 				}
 			});
 			break;
@@ -257,8 +254,9 @@ public class MainScreenToolBar extends JToolBar {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					MainScreen ms = WindowManager.getMainScreen();
-					if(!ms.isHomeTop()) {
-						JOptionPane.showMessageDialog(ms, "You cannot show metadata in external dicom network node. Use 'HOME' instead.");
+					if (!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms,
+								"You cannot show metadata in external dicom network node. Use 'HOME' instead.");
 						return;
 					}
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
@@ -280,8 +278,9 @@ public class MainScreenToolBar extends JToolBar {
 					 * only allow the localtreetable
 					 */
 					MainScreen ms = WindowManager.getMainScreen();
-					if(!ms.isHomeTop()) {
-						JOptionPane.showMessageDialog(ms, "You cannot send files in external dicom network node. Use 'HOME' instead.");
+					if (!ms.isHomeTop()) {
+						JOptionPane.showMessageDialog(ms,
+								"You cannot send files in external dicom network node. Use 'HOME' instead.");
 						return;
 					}
 					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
@@ -295,25 +294,32 @@ public class MainScreenToolBar extends JToolBar {
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
-					SwingUtilities.invokeLater(() -> {
-						new Thread(() -> {
-							Viewer2DScreen viewer = Viewer2DScreen.getInstance();
-							if(viewer != null) {
-								MainScreen ms = WindowManager.getMainScreen();
-								if(ms.isHomeTop()) {
-									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-									viewer.loadImagesOnStage();
-									viewer.setVisible(true);
-									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-								}else {
-									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-									viewer.loadImagesOnStageFromExternal();
-									WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-								}
+					MainScreen ms = WindowManager.getMainScreen();
+					// カーソルを砂時計にする（GUI操作なのでThreadの外で即座に実行）
+					ms.setCursor(new Cursor(Cursor.WAIT_CURSOR));
+
+					new Thread(() -> {
+						// 画像のロード（重い処理）
+						Viewer2DScreen viewer = Viewer2DScreen.getInstance();
+						if(viewer != null) {
+							if(ms.isHomeTop()) {
+								viewer.loadImagesOnStage();
+							} else {
+								viewer.loadImagesOnStageFromExternal();
 							}
-						}).start();
-					});
-				}	
+							// ロード完了後、画面の表示とカーソル戻し（GUI操作なのでinvokeLater）
+							SwingUtilities.invokeLater(() -> {
+								if(ms.isHomeTop()) {
+									viewer.setVisible(true);
+								}
+								ms.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+							});
+						} else {
+							// エラー時も確実にカーソルを戻す
+							SwingUtilities.invokeLater(() -> ms.setCursor(new Cursor(Cursor.DEFAULT_CURSOR)));
+						}
+					}).start();
+				}
 			});
 			break;
 		case Settings:

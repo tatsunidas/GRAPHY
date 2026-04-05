@@ -1,0 +1,47 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.1"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.1 https://maven.apache.org/xsd/assembly-2.1.1.xsd">
+    <id>windows</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes><include>${project.build.finalName}.jar</include></includes>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/jars</directory>
+            <outputDirectory>/jars</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/luts</directory>
+            <outputDirectory>/luts</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/native/native_cdrtools/windows</directory>
+            <outputDirectory>/lib/native_cdrtools</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/native/native_opencv/windows-x86-64</directory>
+            <outputDirectory>/lib/native_opencv/windows-x86-64</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/native/native_opencv/windows-x86</directory>
+            <outputDirectory>/lib/native_opencv/windows-x86</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/jre-bins/windows</directory>
+            <outputDirectory>/jre</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>src/main/scripts</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes><include>run.bat</include></includes>
+            <!-- Auto change variables in scripts -->
+            <filtered>true</filtered>
+        </fileSet>
+    </fileSets>
+</assembly>

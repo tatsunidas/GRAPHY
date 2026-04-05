@@ -146,6 +146,7 @@ public class DicomExporter extends JFrame implements Task {
 	
 	/**
 	 * Export dcm file from DB to any destination.
+	 * 
 	 * @param flatOutput
 	 * @param decompress
 	 * @param selectedDir

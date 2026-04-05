@@ -30,7 +30,6 @@
 		<maven.compiler.release>11</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-		<imagej-version>1.54f</imagej-version>
 		<dcm4che-version>5.23.2</dcm4che-version>
 		<derby-version>10.13.1.1</derby-version>
 		<pdfbox-version>2.0.24</pdfbox-version>
@@ -53,83 +52,8 @@
 					<release>${java.version}</release>
 				</configuration>
 			</plugin>
+			<!-- Set above from assembly plugin -->
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-jar-plugin</artifactId>
-				<version>3.4.2</version>
-				<configuration>
-					<archive>
-						<manifest>
-							<addClasspath>true</addClasspath>
-							<mainClass>com.vis.core.launcher.Launcher</mainClass>
-							<classpathPrefix>./jars/</classpathPrefix>
-						</manifest>
-					</archive>
-				</configuration>
-			</plugin>
-			
-			<plugin>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.2.0</version>
-				<executions>
-					<!-- copy run scripts -->
-					<execution>
-						<id>copy-scripts</id>
-                     <phase>package</phase>
-                     <goals>
-						 	<goal>copy-resources</goal>
-                     </goals>
-                     <configuration>
-                         <outputDirectory>${project.build.directory}</outputDirectory>
-                         <resources>
-                             <resource>
-                                 <directory>src/main/scripts</directory>
-                                 <filtering>true</filtering>
-                             </resource>
-                         </resources>
-                     </configuration>
-                  </execution>
-                  <!-- copy native libs -->
-					<execution>
-						<id>copy-native-libs</id>
-						<phase>package</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${project.build.directory}/lib</outputDirectory>
-							<resources>
-								<resource>
-									<directory>./native</directory>
-									<includes>
-										<include>**/*</include>
-									</includes>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-					<!-- copy luts -->
-					<execution>
-						<id>copy-luts</id>
-						<phase>package</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${project.build.directory}/luts</outputDirectory>
-							<resources>
-								<resource>
-									<directory>./luts</directory>
-									<includes>
-										<include>**/*</include>
-									</includes>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-            <plugin>
 			    <groupId>org.apache.maven.plugins</groupId>
 			    <artifactId>maven-dependency-plugin</artifactId>
 			    <version>3.6.0</version> <executions>
@@ -147,9 +71,72 @@
 			        </execution>
 			    </executions>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.4.2</version>
+				<configuration>
+					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<mainClass>com.vis.core.launcher.Launcher</mainClass>
+							<classpathPrefix>./jars/</classpathPrefix>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>3.6.0</version>
+				<executions>
+					<execution>
+						<id>make-windows-dist</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<descriptors>
+								<descriptor>src/main/assembly/windows.xml</descriptor>
+							</descriptors>
+							<finalName>GRAPHY-${project.version}-Windows</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+						</configuration>
+					</execution>
+					<execution>
+						<id>make-linux-dist</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<descriptors>
+								<descriptor>src/main/assembly/linux.xml</descriptor>
+							</descriptors>
+							<finalName>GRAPHY-${project.version}-Ubuntu</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+						</configuration>
+					</execution>
+					<execution>
+						<id>make-mac-dist</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<descriptors>
+								<descriptor>src/main/assembly/mac.xml</descriptor>
+							</descriptors>
+							<finalName>GRAPHY-${project.version}-Mac</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 		<resources>
-			<!-- for application.properties -->
+		<!-- for application.properties -->
        	<resource>
           		<directory>src/main/resources</directory>
             	<filtering>true</filtering>
@@ -189,11 +176,6 @@
 			<name>Dcm4Che Repository</name>
 			<url>https://www.dcm4che.org/maven2/</url>
 		</repository>
-		<!-- radiomicsj quickfull3d, but this will remove future. -->
-		<repository>
-		    <id>jitpack.io</id>
-		    <url>https://jitpack.io</url>
-		</repository>
 		<!-- dcm4che imageio opencv -->
 		<repository>
 			<id>weasis-github-repo</id>
@@ -206,7 +188,7 @@
 		<dependency>
 		    <groupId>io.github.tatsunidas</groupId>
 		    <artifactId>radiomicsj</artifactId>
-		    <version>2.1.15</version>
+		    <version>2.1.16</version>
 		</dependency>
 		<!-- DB LIBRARIES -->
 
