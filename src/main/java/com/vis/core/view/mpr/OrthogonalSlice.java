@@ -208,9 +208,8 @@ public class OrthogonalSlice {
 		}
 		xz_image.setProcessor(""+y, xz_ip);
 		
-		PlanarSupport psup = new PlanarSupport();
 		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, 0/*x*/, y, pos_z);
+		Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(src, 0/*x*/, y, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
@@ -352,11 +351,10 @@ public class OrthogonalSlice {
 			yz_ip.setMinAndMax(min, max);
 		yz_image.setProcessor("", yz_ip);
 		// to YZ
-		PlanarSupport psup = new PlanarSupport();
 		double col = x;// x direction
 		double row = 0;// y direction
 		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = psup.getNewImagePositionPatient2D(src, x, 0/*y*/, pos_z);
+		Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(src, x, 0/*y*/, pos_z);
 		double[] iop = null;
 		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
 		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
@@ -482,8 +480,7 @@ public class OrthogonalSlice {
 			 */
 			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
 			
-			PlanarSupport psup = new PlanarSupport();
-			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z);
+			Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z);
 			
 			if (ipp_vec != null && iop !=null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
@@ -594,8 +591,7 @@ public class OrthogonalSlice {
 			 * add iop and ipp.
 			 */
 			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
-			PlanarSupport psup = new PlanarSupport();
-			Vector3d ipp_vec = psup.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z/*1*/);
+			Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z/*1*/);
 			if (ipp_vec != null && iop !=null) {
 				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
 				GDicomTools.setImagePositionPatient(xy_slice, 1, ipp);

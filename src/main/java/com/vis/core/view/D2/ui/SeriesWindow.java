@@ -37,7 +37,6 @@
  */
 package com.vis.core.view.D2.ui;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -61,22 +60,23 @@ import ij.ImagePlus;
 public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.WindowListener{
 	
 	//debug
+	@SuppressWarnings("unused")
 	public static void main(String[] args) {
-//		String dir = "C:\\Users\\ユーザー\\Desktop\\LGG-104\\06-26-2000-MRI Hd wow-05523\\4-Gad Ax T2 Straight-38151";
+		String dir = "/home/tatsunidas/graphy_sample_images/HASSAKU_DCM/T1 AX short";
 		String img = "/home/tatsunidas/crop_test.tif";
 		ImagePlus test = new ImagePlus(img);
 		
-		ij.gui.Roi roi = new ij.gui.Roi(50,50,70,60);
-//		test.setRoi(roi);
-		test.getProcessor().setColor(Color.WHITE);
-//		test.getProcessor().setBackgroundColor(Color.WHITE);
-		test.getProcessor().fill(roi);
-		Object r = test.getRoi();
-		System.out.println(r);
-		test.show();
-////		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir), java.awt.Color.CYAN, Praparat.ViewMode.Normal);
+//		ij.gui.Roi roi = new ij.gui.Roi(50,50,70,60);
+////		test.setRoi(roi);
+//		test.getProcessor().setColor(java.awt.Color.WHITE);
+////		test.getProcessor().setBackgroundColor(Color.WHITE);
+//		test.getProcessor().fill(roi);
+//		Object r = test.getRoi();
+//		System.out.println(r);
+//		test.show();
+		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir), java.awt.Color.CYAN, Praparat.ViewMode.Normal);
 //		Praparat prap = new Praparat(test, java.awt.Color.CYAN, Praparat.ViewMode.Normal);
-//		new SeriesWindow(prap);
+		new SeriesWindow(prap);
 		
 	}
 	

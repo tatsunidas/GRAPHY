@@ -683,6 +683,7 @@ public class FindSCU {
 		out = null;
 	}
 
+	@SuppressWarnings("resource")
 	public void query(File f) throws Exception {
 		Attributes attrs;
 		String filePath = f.getPath();

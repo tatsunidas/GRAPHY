@@ -468,17 +468,22 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	    if (header.getInt(Tag.NumberOfFrames, 1) > 1) {
 	        return true;
 	    }
+	    
+	    /*
+	     * Praparat側において知りたいのは、
+	     * 「データ構造が何であるか」ではなく「そのファイルから画像を何枚取り出せるか」だけ。
+	     */
 
 	    // 2. 1枚でも Enhanced SOP Class ならマルチフレームとして扱う
 	    // (将来的にフレームが追加される可能性や、座標取得ロジックが異なるため)
-	    if (isEnhancedMultiframe(header)) {
-	        return true;
-	    }
-
-	    // 3. Functional Groups を持っているか（Enhanced型特有のデータ構造）
-	    if (hasMultiframeStructure(header)) {
-	        return true;
-	    }
+//	    if (isEnhancedMultiframe(header)) {
+//	        return true;
+//	    }
+//
+//	    // 3. Functional Groups を持っているか（Enhanced型特有のデータ構造）
+//	    if (hasMultiframeStructure(header)) {
+//	        return true;
+//	    }
 
 	    return false;
 	}

@@ -598,7 +598,7 @@ public class ReferenceLineMPR {
 			Double thickness) {
 		//pre rotation
 		double[] iop = refIop;
-		Vector3d centerIPP = new PlanarSupport().getNewImagePositionPatient2D(
+		Vector3d centerIPP = PlanarSupport.getNewImagePositionPatient2D(
 				refVolume, 
 				(int)(center.x), 
 				(int)(center.y),
@@ -614,7 +614,7 @@ public class ReferenceLineMPR {
 		 * because centerline to be located at slice center position.
 		 */
 		voxelSize[2] = voxelSize[2]/2.;
-		Vector3d newIPP = new PlanarSupport().getNewImagePositionPatient(w, h, voxelSize, iop, centerIPP);
+		Vector3d newIPP = PlanarSupport.getNewImagePositionPatient(w, h, voxelSize, iop, centerIPP);
 		
 		//back scale
 		voxelSize[2] *= 2.;
@@ -679,7 +679,7 @@ public class ReferenceLineMPR {
 		double oy = p.y;
 		int oz = pp.getCurrentSlidePos();//0 base
 		ImagePlus ref = imagePlus(pp.getName());
-		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
+		Vector3d ippOnMouse = PlanarSupport.getNewImagePositionPatient2D(ref, ox, oy, oz+1);
 		if(ippOnMouse == null) {
 			return false;
 		}
@@ -702,7 +702,7 @@ public class ReferenceLineMPR {
 		double oy = p.y;
 		int oz = pp.getCurrentSlidePos();//0 base
 		ImagePlus ref = imagePlus(pp.getName());
-		Vector3d ippOnMouse = new PlanarSupport().getNewImagePositionPatient2D(ref, ox, oy, oz+1);
+		Vector3d ippOnMouse = PlanarSupport.getNewImagePositionPatient2D(ref, ox, oy, oz+1);
 		if(ippOnMouse == null) {
 			return false;
 		}

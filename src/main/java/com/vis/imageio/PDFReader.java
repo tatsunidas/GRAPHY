@@ -320,7 +320,6 @@ public class PDFReader{
 	private JPanel getViewPanel(int pageIndex) {
 		try (PDDocument doc = PDDocument.load(pdf);){
 			final PDFRenderer renderer = new PDFRenderer(doc);
-			@SuppressWarnings("serial")
 			JPanel panel = new JPanel() {
 				@Override
 				protected void paintComponent(Graphics g) {

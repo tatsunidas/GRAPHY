@@ -234,8 +234,6 @@ public class Praparat extends JPanel {
 	}
 
 	/**
-	 * Only used for Birds Eye View.
-	 * 
 	 * e.g.,
 	 * Praparat pp = new Praparat(ViewMode.Normal);
 	 * pp.prepareSlideGlassesUsingImagePlus(imp);
@@ -718,6 +716,18 @@ public class Praparat extends JPanel {
 	/**
 	 * return slides as imageplus.
 	 * 
+	 * ImagePlus (全体のコンテナ)
+	 * ├── Calibration (全体共通の単位・スケール)
+	 * ├── Properties (全体のメタデータ：DICOMヘッダーなど)
+	 * └── ImageStack (スライスの集合体)
+	 *     ├── Slice 1
+	 *     │    ├── ImageProcessor (ピクセルデータ + 表示Min/Max)
+	 *     │    └── Slice Label (このスライス固有のメタデータ文字列)
+	 *     ├── Slice 2
+	 *     │    ├── ImageProcessor ...
+	 *     │    └── Slice Label ...
+	 *     └── Slice N ...
+	 * 
 	 * TODO: if multi-frame ??
 	 * 
 	 * @return imageplus
@@ -759,6 +769,7 @@ public class Praparat extends JPanel {
 				}
 				
 				ImagePlus imp = GDicomTools.dcmImgToImagePlus(frame, orgCal);
+				System.out.println(GDicomTools.getTag(imp, "0018,9087"));
 				ImageProcessor ip = imp.getProcessor();
 				if (ip.getNChannels() == 3 || ip instanceof ColorProcessor) {
 					ip.snapshot();// keep original pixels
@@ -766,19 +777,29 @@ public class Praparat extends JPanel {
 				/*
 				 * In this case, always only one slice. It case use getInfoProperty().
 				 */
-				String headerLabel = imp.getInfoProperty();
+				String headerInfo = imp.getInfoProperty();
+				String sliceLabel = imp.getStack().getSliceLabel(1);
+				
+				// 1スライスしかない場合に備えて、最初の1枚目のヘッダー情報を全体の代表プロパティ用に保持しておく
+				if (info.isEmpty() && headerInfo != null) {
+				    info = headerInfo;
+				}
+				
 				/*
 				 * if header has "\n" in head (at index 0), DicomTools.getTag() return null.
 				 */
 				//header = imp.getStack().getSliceLabel(1);
-				stack.addSlice(headerLabel, imp.getProcessor());
+				stack.addSlice(sliceLabel, imp.getProcessor());
 			}
 			replica = new ImagePlus("stack", stack);
 			/*
 			 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
 			 */
-			if (replica.getNSlices() == 1) {
-				replica.setProp("Info", info);
+//			if (replica.getNSlices() == 1) {
+//				replica.setProp("Info", info);
+//			}
+			if (!info.isEmpty()) {
+			    replica.setProperty("Info", info);
 			}
 			/*
 			 * TODO
@@ -1307,11 +1328,8 @@ public class Praparat extends JPanel {
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		
 		String patID = GDicomTools.getTag(images, "0010,0020");
-		if(patID != null) patID = patID.trim();
 		String studyUID = GDicomTools.getTag(images, "0020,000D");
-		if(studyUID != null) studyUID = studyUID.trim();
 		String seriesUID = GDicomTools.getTag(images, "0020,000E");
-		if(seriesUID != null) seriesUID = seriesUID.trim();
 		String[] sopUIDs = new String[images.getNSlices()];
 //		List<String> paths = new ArrayList<>();
 		for(int i = 1; i <= images.getNSlices(); i++) {
@@ -1346,21 +1364,24 @@ public class Praparat extends JPanel {
 		}
 	}
 	
-	public void prepareSlideGlassesFromDcmObj(ArrayList<String> paths) {
-		if(paths == null || paths.size()==0) {
+	public void prepareSlideGlassesFromDcmObj(List<String> dcm_paths) {
+		if(dcm_paths == null || dcm_paths.size()==0) {
 			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
 			return;
 		}
+		
+		//check multi frame
+		
 		currentSlice = -1;
 		updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
 		
 		String pid = null;
 		String studyUID = null;
 		String seriesUID = null;
-		String[] sopUIDs = new String[paths.size()];
+		String[] sopUIDs = new String[dcm_paths.size()];
 		DICOMBackend be = DICOMBackend.getCurrent();
 		int j =0;
-		for(String path : paths) {
+		for(String path : dcm_paths) {
 			DicomReader reader = DicomReader.newDicomReader(be);
 			reader.read(path, false);
 			DicomObject dcmObj = reader.getHeader();
@@ -1371,8 +1392,8 @@ public class Praparat extends JPanel {
 			}
 			sopUIDs[j++] = dcmObj.getString(Tag.SOP​Instance​UID);
 		}
-		setInfo(pid, studyUID, seriesUID, sopUIDs, paths);
-		constructSlideGlassesFromDicom(paths);
+		setInfo(pid, studyUID, seriesUID, sopUIDs, dcm_paths);
+		constructSlideGlassesFromDicom(dcm_paths);
 		if(slider != null) {
 			slider.initContext();
 		}
@@ -1535,14 +1556,17 @@ public class Praparat extends JPanel {
 			}
 			//common
 			sg.initCalibrationAndLUT();
+			
+			if (sg.currentMin != sg.currentMax) {
+				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
+			}
+			
 			if(processSeries) {
 				//move, zoom, rotate, windowing
 				if(syncMag!=null && Double.isFinite(syncMag)) sg.zoom(syncMag, false/*dummy*/);
 				if(syncRot!=null && Double.isFinite(syncRot)) sg.rotate(syncRot);
 				if((syncMin!=null && Double.isFinite(syncMin)) && (syncMax!=null && Double.isFinite(syncMax))) {
 					sg.changeWindowingByMinMax(syncMin, syncMax);
-				}else if(syncMin==null && syncMax==null){
-					sg.autoWindowing();
 				}
 				//finally set origin
 				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
@@ -1560,10 +1584,10 @@ public class Praparat extends JPanel {
 		}
 		
 		// if source is imageplus, does not have paths.
-		List<String> imagePaths = getImageFileLocations();
-		if(imagePaths == null) {
-			return;
-		}
+//		List<String> imagePaths = getImageFileLocations();
+//		if(imagePaths == null) {
+//			return;
+//		}
 		
 		// --- 同期する状態のスナップショットを取得 ---
 	    SlideGlass current = getCurrentSlide();
@@ -1607,40 +1631,53 @@ public class Praparat extends JPanel {
 		});
 	}
 	
-	/**
-     * 初回読み込み時に、ボリューム中央の代表スライスからオートコントラストを計算し、
+    
+    /**
+     * 初回読み込み時に、ボリューム全体のコントラストを計算・取得し、
      * 全スライスの初期コントラスト変数として保持させます。
      */
-    private void initGlobalContrast() {
+    private void initGlobalContrast(ImagePlus sourceImp) {
         if (slides == null || slides.isEmpty()) {
             return;
         }
 
-        // 1. ボリュームの中央スライスを代表として選択（端の空気ばかりのスライスを避けるため）
-        int centerIndex = slides.size() / 2;
-        SlideGlass centerSlide = slides.get(centerIndex);
+        double baseMin = Double.NaN;
+        double baseMax = Double.NaN;
 
-        // 2. 中央スライスのピクセルデータが未ロードの場合は実体化させる
-        // （同期フラグなどはfalse/nullで呼び出し、純粋に画像データだけをロードする）
-        realizeImage(centerIndex, false, 1.0, 0.0, null, null, null);
+        // 1. ソースのImagePlusが明確なWindow/Level（Min/Max）を持っている場合はそれを最優先する
+        if (sourceImp != null && sourceImp.getProcessor() != null) {
+            baseMin = sourceImp.getDisplayRangeMin();
+            baseMax = sourceImp.getDisplayRangeMax();
+        }
 
-        // 3. 中央スライスでオートコントラストを実行し、基準となるMin/Maxを取得
-        centerSlide.autoWindowing();
-        double baseMin = centerSlide.currentMin;
-        double baseMax = centerSlide.currentMax;
+        // 2. 取得できなかった場合（0.0〜0.0やNaN）は、中央スライスからオートコントラストを計算
+        if (Double.isNaN(baseMin) || Double.isNaN(baseMax) || (baseMin == 0.0 && baseMax == 0.0)) {
+            int centerIndex = slides.size() / 2;
+            SlideGlass centerSlide = slides.get(centerIndex);
+            realizeImage(centerIndex, false, 1.0, 0.0, null, null, null);
+            centerSlide.autoWindowing();
+            baseMin = centerSlide.currentMin;
+            baseMax = centerSlide.currentMax;
+        }
 
-        // 4. 計算したMin/Maxを、全スライスの変数に初期値としてセットする
+        // 3. 全スライスにベースとなるMin/Maxを初期値としてセット
         for (Integer key : slides.keySet()) {
             SlideGlass sg = slides.get(key);
             sg.currentMin = baseMin;
             sg.currentMax = baseMax;
             
-            // ピクセルデータがすでに存在する場合（ImagePlusからの読み込み等）は、
-            // 内部のLUTなども更新しておくためにメソッド経由でセットするのも有効です。
-            // sg.changeWindowingByMinMax(baseMin, baseMax); 
+            // ピクセルデータが既にロードされている場合は即座に適用する
+            if (sg.getOriginalImage() != null) {
+                sg.changeWindowingByMinMax(baseMin, baseMax);
+            }
         }
         
         Log.logger.fine("Global contrast initialized. Min: " + baseMin + ", Max: " + baseMax);
+    }
+
+    // 既存コードとの互換性用オーバーロード
+    private void initGlobalContrast() {
+        initGlobalContrast(null);
     }
 
 	/**
@@ -1691,11 +1728,11 @@ public class Praparat extends JPanel {
 	private void unloadImage(int index) {
 		SlideGlass sg = slides.get(index);
 		if (sg != null && sg.getDicomImage() != null) {
-			// original image to null
-			sg.imageSpecimen.setOriginalImage(null);
-			// bulk file release
-			if(!isMultiFrame()) {
-				if (hasFileSource(index)) {
+			if (hasFileSource(index) || (isMultiFrame() && hasFileSource(0))) {
+				// original image to null
+				sg.imageSpecimen.setOriginalImage(null);
+				// bulk file release
+				if(!isMultiFrame()) {
 					sg.getDicomImage().releasePixelBulkFromHeader();
 				}
 			}
@@ -1974,8 +2011,9 @@ public class Praparat extends JPanel {
 				if(syncRot!=null && Double.isFinite(syncRot)) sg.rotate(syncRot);
 				if((syncMin!=null && Double.isFinite(syncMin)) && (syncMax!=null && Double.isFinite(syncMax))) {
 					sg.changeWindowingByMinMax(syncMin, syncMax);
-				}else if(syncMin==null && syncMax==null){
-					sg.autoWindowing();
+				} else if (sg.currentMin != sg.currentMax) {
+					// initGlobalContrast() で設定済みの値をそのまま適用
+					sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
 				}
 				//finally set origin
 				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
@@ -1984,6 +2022,10 @@ public class Praparat extends JPanel {
 			viewPanel.removeAll();
 			viewPanel.add(currentGlass, 0);
 			currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+			
+			// 親パネルにレイアウトの再計算と再描画を強制する
+			viewPanel.revalidate();
+			viewPanel.repaint();
 
 			// 2. 前後の先読みを開始（バックグラウンドスレッド）
 			manageCache(currentSlice);
@@ -2014,6 +2056,12 @@ public class Praparat extends JPanel {
 
 		viewPanel.removeAll();
 		viewPanel.add(currentGlass, 0);
+		
+		currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+		
+		// 親パネルにレイアウトの再計算と再描画を強制する
+		viewPanel.revalidate();
+		viewPanel.repaint();
 
 		// 2. 前後の先読みを開始（バックグラウンドスレッド）
 		manageCache(currentSlice);

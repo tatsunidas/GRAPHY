@@ -63,7 +63,6 @@ public class UndoableTableModel extends DefaultTableModel {
 	@Override
 	public void setValueAt(Object aValue, int row, int column) {
 		// Create an UndoableEdit for the change
-		@SuppressWarnings("serial")
 		UndoableEdit edit = new AbstractUndoableEdit() {
 
 			private final Object oldValue = new String(getValueAt(row, column)!=null?(String)getValueAt(row, column):"");

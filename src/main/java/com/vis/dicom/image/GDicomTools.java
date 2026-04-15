@@ -50,6 +50,7 @@ import com.vis.dicom.TagDict;
 import com.vis.dicom.TagUtils;
 import com.vis.dicom.UID;
 import com.vis.dicom.UIDUtils;
+import com.vis.dicom.VR;
 
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -77,6 +78,93 @@ public class GDicomTools extends ij.util.DicomTools{
 		imp.setSlice(pos);
 		return getTag(imp, tag);
 	}
+	
+	/**
+	 * 階層（シーケンス）のパスを指定してDICOMタグの値を取得する
+	 * 
+	 * @param imp  ImagePlus
+	 * @param pos  スライス番号 (1 to N)
+	 * @param tags タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
+	 * @return 取得した値の文字列。見つからない場合は null
+	 */
+	public static String getTag(ImagePlus imp, int pos/* 1 to N */, String[] tags) {
+		if (tags == null || tags.length == 0) {
+			throw new IllegalArgumentException("Tags array cannot be null or empty.");
+		}
+
+		// 階層がない（1つだけ）の場合は、既存の単一タグ取得メソッドにフォールバック
+		if (tags.length == 1) {
+			return getTag(imp, pos, tags[0]);
+		}
+
+		// 1. スライス固有のラベル、または全体プロパティのInfoからテキストを取得
+		String headerText = null;
+		if (imp != null && pos >= 1 && pos <= imp.getStackSize()) {
+			headerText = imp.getStack().getSliceLabel(pos);
+		}
+		if (headerText == null || headerText.trim().isEmpty()) {
+			if (imp != null) {
+				headerText = (String) imp.getProperty("Info");
+			}
+		}
+
+		if (headerText == null || headerText.trim().isEmpty()) {
+			return null;
+		}
+
+		// 2. 階層化されたテキストから値を抽出
+		return getTagInSequence(headerText, tags);
+	}
+
+	/**
+	 * インデント('>')で表現された階層構造のテキストから、指定されたタグパスの値を抽出するヘルパーメソッド
+	 */
+	private static String getTagInSequence(String headerText, String[] tags) {
+		String[] lines = headerText.split("\n");
+		int currentTargetIndex = 0;
+		int[] sequenceDepths = new int[tags.length];
+
+		for (String line : lines) {
+			if (line.trim().isEmpty())
+				continue;
+
+			// 1. 行の深さ（'>' の数）をカウントする
+			int depth = 0;
+			while (depth < line.length() && line.charAt(depth) == '>') {
+				depth++;
+			}
+
+			// 2. 階層の抜け出し判定
+			// 現在の行の深さが、探索中のシーケンスの深さ「以下」になった場合、
+			// そのシーケンスから外に出たと判断し、探索ターゲットを親階層に戻す
+			while (currentTargetIndex > 0 && depth <= sequenceDepths[currentTargetIndex - 1]) {
+				currentTargetIndex--;
+			}
+
+			// 3. インデントを取り除いた文字列でタグを検証
+			String lineContent = line.substring(depth).trim();
+			String targetTag = tags[currentTargetIndex];
+
+			// タグが見つかった場合 (例: "0018,9087: 900.0" または "0018,9117 SQ")
+			if (lineContent.startsWith(targetTag)) {
+				if (currentTargetIndex == tags.length - 1) {
+					// 探していた最後のタグ（値を持つタグ）に到達した場合
+					int colonIndex = lineContent.indexOf(":");
+					if (colonIndex != -1) {
+						return lineContent.substring(colonIndex + 1).trim();
+					}
+					return null; // コロンがない場合は取得不能
+				} else {
+					// 途中のシーケンスタグを見つけた場合、深さを記録して次の階層のタグを探す
+					sequenceDepths[currentTargetIndex] = depth;
+					currentTargetIndex++;
+				}
+			}
+		}
+
+		return null; // 結局見つからなかった場合
+	}
+	
 	
 	/**
      * @param imp ImagePlus
@@ -124,100 +212,253 @@ public class GDicomTools extends ij.util.DicomTools{
 	
 	
 	
+//	/**
+//	 * Add / update meta data in ImagePlus.
+//	 * Sequence tag are ignored.
+//	 * @param imp
+//	 * @param pos
+//	 * @param tag = No sequence tag.
+//	 * @param value
+//	 */
+//	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag, String value) {
+//		if(imp.getNSlices() > 1) {
+//			ImageStack stack = imp.getStack();
+//			String hdr = stack.getSliceLabel(pos);
+//			if(hdr == null) {
+//				hdr = "";
+//			}
+//			/*
+//			 * Remove "\n" if "\n" in first line head
+//			 * DicomTools.getTag() return null when hdr head "\n".
+//			 */
+//			if(hdr.indexOf("\n")==0) {
+//				hdr = hdr.substring(1, hdr.length());
+//			}
+//			int index1 = hdr.indexOf(tag);
+//			if (index1 != -1) {// found
+//				if (hdr.charAt(index1 + 11) == '>') {
+//					// ignore tags in sequences
+//					index1 = hdr.indexOf(tag, index1 + 10);
+//				}
+//				index1 = hdr.indexOf(":", index1) + 1;
+//				String upper = hdr.substring(0, index1);
+//				int index2 = hdr.indexOf("\n", index1);
+//				String after = hdr.substring(index2);
+//				hdr = upper + value + after;
+//			} else {// not found
+//				if (!hdr.endsWith("\n")) {
+//					hdr = hdr + "\n" + tag + ": " + value + "\n";
+//				} else {
+//					hdr = hdr + tag + ": " + value + "\n";
+//				}
+//			}
+//			stack.setSliceLabel(hdr, pos);
+//		}else {
+//			String hdr = (String)imp.getProperty("Info");
+//			if (hdr == null) {
+//				hdr = "";
+//			}
+//			if(hdr.indexOf("\n")==0) {
+//				hdr = hdr.substring(1, hdr.length());
+//			}
+//			int index1 = hdr.indexOf(tag);
+//			if (index1 != -1 && hdr.endsWith(">")) {// found
+//				if (hdr.charAt(index1 + 11) == '>') {
+//					// ignore tags in sequences
+//					index1 = hdr.indexOf(tag, index1 + 10);
+//				}
+//				index1 = hdr.indexOf(":", index1) + 1;
+//				String upper = hdr.substring(0, index1);
+//				int index2 = hdr.indexOf("\n", index1);
+//				String after = hdr.substring(index2);
+//				hdr = upper + value + after;
+//			} else if(index1 != -1){ // found
+//				// 行ごとに分割
+//				String[] lines = hdr.split("\n");
+//				// 結果を格納するためのStringBuilder
+//				StringBuilder result = new StringBuilder();
+//				// 各行を処理
+//				for (String line : lines) {
+//					if(line.length() ==0) {
+//						continue;
+//					}
+//					// tag文字を取り出す
+//					try {
+//					String prefix = line.substring(0, 9);
+//					String v = line.substring(11);// [gggg,eeee: ]
+//					if (prefix.equals(tag)) {
+//						v = value; // replace
+//					}
+//					result.append(prefix).append(": ").append(v).append("\n");
+//					}catch(java.lang.StringIndexOutOfBoundsException e) {
+//						Log.logger.severe(e.getLocalizedMessage());
+//					}
+//				}
+//				hdr = result.toString();
+//			}else {
+//				if(hdr.equals("")) {
+//					hdr = hdr + tag + ": " + value + "\n";
+//				}else if (!hdr.endsWith("\n")) {
+//					hdr = hdr + "\n" + tag + ": " + value + "\n";
+//				} else {
+//					hdr = hdr + tag + ": " + value + "\n";
+//				}
+//			}
+//			imp.setProperty("Info", hdr);
+//		}
+//	}
+	
 	/**
-	 * Add / update meta data in ImagePlus.
-	 * Sequence tag are ignored.
-	 * @param imp
-	 * @param pos
-	 * @param tag = No sequence tag.
-	 * @param value
+	 * 既存コードとの互換性用（ルート階層のタグの更新・追加）
 	 */
-	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag, String value) {
-		if(imp.getNSlices() > 1) {
-			ImageStack stack = imp.getStack();
-			String hdr = stack.getSliceLabel(pos);
-			if(hdr == null) {
-				hdr = "";
-			}
-			/*
-			 * Remove "\n" if "\n" in first line head
-			 * DicomTools.getTag() return null when hdr head "\n".
-			 */
-			if(hdr.indexOf("\n")==0) {
-				hdr = hdr.substring(1, hdr.length());
-			}
-			int index1 = hdr.indexOf(tag);
-			if (index1 != -1) {// found
-				if (hdr.charAt(index1 + 11) == '>') {
-					// ignore tags in sequences
-					index1 = hdr.indexOf(tag, index1 + 10);
-				}
-				index1 = hdr.indexOf(":", index1) + 1;
-				String upper = hdr.substring(0, index1);
-				int index2 = hdr.indexOf("\n", index1);
-				String after = hdr.substring(index2);
-				hdr = upper + value + after;
-			} else {// not found
-				if (!hdr.endsWith("\n")) {
-					hdr = hdr + "\n" + tag + ": " + value + "\n";
-				} else {
-					hdr = hdr + tag + ": " + value + "\n";
-				}
-			}
-			stack.setSliceLabel(hdr, pos);
-		}else {
-			String hdr = (String)imp.getProperty("Info");
-			if (hdr == null) {
-				hdr = "";
-			}
-			if(hdr.indexOf("\n")==0) {
-				hdr = hdr.substring(1, hdr.length());
-			}
-			int index1 = hdr.indexOf(tag);
-			if (index1 != -1 && hdr.endsWith(">")) {// found
-				if (hdr.charAt(index1 + 11) == '>') {
-					// ignore tags in sequences
-					index1 = hdr.indexOf(tag, index1 + 10);
-				}
-				index1 = hdr.indexOf(":", index1) + 1;
-				String upper = hdr.substring(0, index1);
-				int index2 = hdr.indexOf("\n", index1);
-				String after = hdr.substring(index2);
-				hdr = upper + value + after;
-			} else if(index1 != -1){ // found
-				// 行ごとに分割
-				String[] lines = hdr.split("\n");
-				// 結果を格納するためのStringBuilder
-				StringBuilder result = new StringBuilder();
-				// 各行を処理
-				for (String line : lines) {
-					if(line.length() ==0) {
-						continue;
-					}
-					// tag文字を取り出す
-					try {
-					String prefix = line.substring(0, 9);
-					String v = line.substring(11);// [gggg,eeee: ]
-					if (prefix.equals(tag)) {
-						v = value; // replace
-					}
-					result.append(prefix).append(": ").append(v).append("\n");
-					}catch(java.lang.StringIndexOutOfBoundsException e) {
-						Log.logger.severe(e.getLocalizedMessage());
-					}
-				}
-				hdr = result.toString();
-			}else {
-				if(hdr.equals("")) {
-					hdr = hdr + tag + ": " + value + "\n";
-				}else if (!hdr.endsWith("\n")) {
-					hdr = hdr + "\n" + tag + ": " + value + "\n";
-				} else {
-					hdr = hdr + tag + ": " + value + "\n";
-				}
-			}
-			imp.setProperty("Info", hdr);
+	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag/*only one tag*/, String value) {
+		setTag(imp, pos, new String[]{tag}, value);
+	}
+
+	/**
+	 * 階層（シーケンス）のパスを指定してDICOMタグの値を更新・追加する（完全版）
+	 * @param imp ImagePlus
+	 * @param pos スライス番号 (1 to N)
+	 * @param tags タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
+	 * @param value セットしたい値
+	 */
+	public static void setTag(ImagePlus imp, int pos, String[] tags, String value) {
+		if (imp == null || tags == null || tags.length == 0) return;
+
+		boolean isStack = imp.getStackSize() > 1;
+		String hdr = isStack ? imp.getStack().getSliceLabel(pos) : (String) imp.getProperty("Info");
+		
+		if (hdr == null) hdr = "";
+		// 先頭の余分な改行をクリーンアップ
+		if (hdr.startsWith("\n")) hdr = hdr.substring(1);
+
+		String newHdr;
+		if (tags.length == 1) {
+			newHdr = updateOrAddTagFlat(hdr, tags[0], value);
+		} else {
+			newHdr = updateOrAddTagSequence(hdr, tags, value);
 		}
+
+		if (isStack) {
+			imp.getStack().setSliceLabel(newHdr, pos);
+		} else {
+			imp.setProperty("Info", newHdr);
+		}
+	}
+
+	/**
+	 * 単一タグ（ルート階層）の更新・追記処理
+	 */
+	private static String updateOrAddTagFlat(String headerText, String targetTag, String value) {
+		String[] lines = headerText.split("\n");
+		StringBuilder sb = new StringBuilder();
+		boolean found = false;
+
+		for (String line : lines) {
+			if (line.trim().isEmpty()) continue;
+			
+			// '>' で始まる行（シーケンス内のタグ）は無視し、ルート階層だけを対象にする
+			if (!found && !line.trim().startsWith(">") && line.trim().startsWith(targetTag)) {
+				sb.append(targetTag).append(": ").append(value).append("\n");
+				found = true;
+			} else {
+				sb.append(line).append("\n");
+			}
+		}
+
+		// 見つからなかった場合は末尾に追記
+		if (!found) {
+			sb.append(targetTag).append(": ").append(value).append("\n");
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * シーケンス階層を含むタグの更新・追記処理（状態遷移アルゴリズム）
+	 */
+	private static String updateOrAddTagSequence(String headerText, String[] tags, String value) {
+		String[] lines = headerText.split("\n");
+		StringBuilder sb = new StringBuilder();
+		
+		int currentTargetIndex = 0;
+		int[] sequenceDepths = new int[tags.length];
+		boolean found = false;
+
+		for (String line : lines) {
+			if (line.trim().isEmpty()) continue;
+
+			int depth = 0;
+			while (depth < line.length() && line.charAt(depth) == '>') {
+				depth++;
+			}
+
+			// --- 階層の抜け出し判定と、未発見タグの【挿入】処理 ---
+			if (!found && currentTargetIndex > 0 && depth <= sequenceDepths[currentTargetIndex - 1]) {
+				// 目的のシーケンス内にいたのに、タグが見つからないままシーケンスの外に出ようとしている場合
+				if (currentTargetIndex == tags.length - 1) {
+					// ここでタグを挿入する！
+					String indent = "";
+					for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++) indent += ">";
+					if (!indent.isEmpty()) indent += " ";
+					
+					sb.append(indent).append(tags[currentTargetIndex]).append(": ").append(value).append("\n");
+					found = true;
+				}
+				// 探索階層を親に戻す
+				while (currentTargetIndex > 0 && depth <= sequenceDepths[currentTargetIndex - 1]) {
+					currentTargetIndex--;
+				}
+			}
+
+			String lineContent = line.substring(depth).trim();
+
+			// --- 目的のタグ（または中継するシーケンスタグ）の探索と【上書き】処理 ---
+			if (!found && currentTargetIndex < tags.length) {
+				String targetTag = tags[currentTargetIndex];
+				
+				if (lineContent.startsWith(targetTag)) {
+					if (currentTargetIndex == tags.length - 1) {
+						// 目的の最終タグを発見！行を新しい値で上書きする
+						String indentStr = line.substring(0, line.indexOf(targetTag));
+						line = indentStr + targetTag + ": " + value;
+						found = true;
+					} else {
+						// 中継地点となるシーケンスタグを発見。深さを記録して次へ。
+						sequenceDepths[currentTargetIndex] = depth;
+						currentTargetIndex++;
+					}
+				}
+			}
+
+			sb.append(line).append("\n");
+		}
+
+		// --- ループ終了後、まだ追加できていない場合の【完全新規追加】処理 ---
+		if (!found) {
+			if (currentTargetIndex == tags.length - 1) {
+				// 親シーケンス内に入ったままテキストが終了した場合
+				String indent = "";
+				for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++) indent += ">";
+				if (!indent.isEmpty()) indent += " ";
+				sb.append(indent).append(tags[currentTargetIndex]).append(": ").append(value).append("\n");
+			} else {
+				// そもそも親のシーケンスすら存在しなかった場合、末尾にシーケンス構造ごと新規作成する
+				for (int i = currentTargetIndex; i < tags.length; i++) {
+					String indent = "";
+					for (int j = 0; j < i; j++) indent += ">";
+					if (!indent.isEmpty()) indent += " ";
+
+					if (i == tags.length - 1) {
+						sb.append(indent).append(tags[i]).append(": ").append(value).append("\n");
+					} else {
+						sb.append(indent).append(tags[i]).append("  SQ (Sequence)\n");
+						sb.append(indent).append(" Item #1\n");
+					}
+				}
+			}
+		}
+
+		return sb.toString();
 	}
 	
 	public static void setDoubles(ImagePlus imp, int pos, String tag, double[] values) {
@@ -337,54 +578,122 @@ public class GDicomTools extends ij.util.DicomTools{
 	}
 	
 	/**
+	 * old codes
      * DicomObjectからImageJ形式("gggg,eeee: value\n")の文字列を一括生成する
      */
-    private static String getDicomHeaderString(DicomObject header) {
-        StringBuilder sb = new StringBuilder();
-        int[] tags = header.tags();
-        
-        for (int t : tags) {
-            // 除外タグ
-            if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
-                continue;
-            }
-            com.vis.dicom.VR vr = header.getVROn(t);
-            if (vr == com.vis.dicom.VR.SQ) {
-                continue;
-            }
+//    private static String getDicomHeaderString(DicomObject header) {
+//        StringBuilder sb = new StringBuilder();
+//        int[] tags = header.tags();
+//        
+//        for (int t : tags) {
+//            // 除外タグ
+//            if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+//                continue;
+//            }
+//            com.vis.dicom.VR vr = header.getVROn(t);
+//            if (vr == com.vis.dicom.VR.SQ) {
+//                continue;
+//            }
+//            
+//            if(t == Tag.DiffusionBValue) {
+//            	System.out.println();
+//            }
+//
+//            String vmString = TagDict.vmOf(t);
+//            if (vmString == null) { // private tag
+//                continue;
+//            }
+//
+//            String ts = TagUtils.toDicomToolsString(t); // "0008,0010" 形式
+//            String valueStr = "";
+//
+//            if (vmString.equals("1")) {
+//                String val = header.getString(t);
+//                if (val != null) valueStr = val;
+//            } else {
+//                String[] vals = header.getStrings(t);
+//                if (vals != null && vals.length > 0) {
+//                    StringBuilder valSb = new StringBuilder();
+//                    for (int k = 0; k < vals.length; k++) {
+//                        valSb.append(vals[k]);
+//                        if (k < vals.length - 1) {
+//                            valSb.append("\\");
+//                        }
+//                    }
+//                    valueStr = valSb.toString();
+//                }
+//            }
+//
+//            // ImageJのInfoプロパティ形式 "gggg,eeee: value\n" を構築
+//            if (!valueStr.isEmpty()) {
+//                sb.append(ts).append(": ").append(valueStr).append("\n");
+//            }
+//        }
+//        return sb.toString();
+//    }
+    
+	public static String getHeaderAsString(DicomObject header, StringBuilder sb, int depth) {
 
-            String vmString = TagDict.vmOf(t);
-            if (vmString == null) { // private tag
-                continue;
-            }
+		if (header == null)
+			return null;
 
-            String ts = TagUtils.toDicomToolsString(t); // "0008,0010" 形式
-            String valueStr = "";
+		int[] tags = header.tags();
+		// DICOMの仕様通りタグ番号順に並べる
+		java.util.Arrays.sort(tags);
 
-            if (vmString.equals("1")) {
-                String val = header.getString(t);
-                if (val != null) valueStr = val;
-            } else {
-                String[] vals = header.getStrings(t);
-                if (vals != null && vals.length > 0) {
-                    StringBuilder valSb = new StringBuilder();
-                    for (int k = 0; k < vals.length; k++) {
-                        valSb.append(vals[k]);
-                        if (k < vals.length - 1) {
-                            valSb.append("\\");
-                        }
-                    }
-                    valueStr = valSb.toString();
-                }
-            }
+		for (int tag : tags) {
+			// ピクセルデータ（巨大バイナリ）はスキップ
+			if (tag == Tag.PixelData || tag == Tag.FloatPixelData || tag == Tag.DoubleFloatPixelData) {
+				continue;
+			}
 
-            // ImageJのInfoプロパティ形式 "gggg,eeee: value\n" を構築
-            if (!valueStr.isEmpty()) {
-                sb.append(ts).append(": ").append(valueStr).append("\n");
-            }
-        }
-        return sb.toString();
-    }
+			// 階層に応じたインデント（> ）を作成
+			String indent = "";
+			for (int i = 0; i < depth; i++)
+				indent += ">";
+			if (depth > 0)
+				indent += " ";
+
+			// タグを "gggg,eeee" 形式に変換（上位16ビットと下位16ビットをそれぞれ4桁の16進数でゼロ埋め）
+			String tagStr = String.format("%04x,%04x", (tag >> 16) & 0xFFFF, tag & 0xFFFF);
+
+			VR vr = header.getVROn(tag);
+			if (vr == VR.SQ) {
+				// シーケンスの場合：タグ名だけ出力して中身を再帰処理
+				sb.append(indent).append(tagStr).append("  SQ (Sequence)\n");
+				DicomObject seq = header.getNestedDataset(tag);
+				for (int i = 0; i < seq.tags().length; i++) {
+					sb.append(indent).append(" Item #").append(i + 1).append("\n");
+					getHeaderAsString(seq, sb, depth + 1);
+				}
+			} else {
+				// ★修正箇所：配列タグの場合は "\" で結合し、単一値の場合はそのまま取得する
+				String valueStr = "";
+				String[] vals = header.getStrings(tag);
+
+				if (vals != null && vals.length > 0) {
+					StringBuilder valSb = new StringBuilder();
+					for (int k = 0; k < vals.length; k++) {
+						valSb.append(vals[k]);
+						if (k < vals.length - 1) {
+							valSb.append("\\");
+						}
+					}
+					valueStr = valSb.toString();
+				} else {
+					String val = header.getString(tag);
+					if (val != null)
+						valueStr = val;
+				}
+
+				// ImageJ互換フォーマット: "gggg,eeee: value"
+				if (!valueStr.isEmpty()) {
+					sb.append(indent).append(tagStr).append(": ").append(valueStr).append("\n");
+				}
+			}
+		}
+		return sb.toString();
+	}
     
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
 		if (!dcmImg.isMultiFrame()) {
@@ -392,8 +701,8 @@ public class GDicomTools extends ij.util.DicomTools{
 			ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(0).duplicate());
 
 			// ヘッダー情報の文字列を一括生成
-			String headerInfo = getDicomHeaderString(dcmImg.getHeader());
-
+			String headerInfo = getHeaderAsString(dcmImg.getHeader(), new StringBuilder(), 0);
+			
 			// プロパティにセット (これで getInfoProperty() で取得できるようになります)
 			if (headerInfo.length() > 0) {
 				imp.setProperty("Info", headerInfo);
@@ -411,17 +720,13 @@ public class GDicomTools extends ij.util.DicomTools{
 
 			// 最初のフレームのヘッダー情報を保持しておく（ImagePlus全体のInfoとして使うため）
 			String firstFrameHeader = null;
-
+			DicomObject header = dcmImg.getHeader();
 			for (int i = 0; i < size; i++) {
 				// 各フレームのプロセッサを取得
 				ij.process.ImageProcessor ip = dcmImg.getImageProcessor(i);
 
 				// 必要であれば、各スライスごとのヘッダーも生成する
-				// （ImageJの仕様上、スタックの各スライスラベルにヘッダーを入れるのが一般的）
-				// ※ dcmImg.getHeader() がフレームごとに違うオブジェクトを返す前提です。
-				// もし全フレーム同じheaderオブジェクトなら、再生成不要です。
-				DicomObject header = dcmImg.getHeader();
-				String frameHeader = getDicomHeaderString(header);
+				String frameHeader = getHeaderAsString(header, new StringBuilder(), 0);
 
 				// インスタンス番号などを追記したい場合
 				frameHeader += TagUtils.toDicomToolsString(Tag.Instance​Number) + ": " + (i + 1) + "\n";

@@ -151,7 +151,7 @@ public class ImageProcessing {
 			crop.setProperty("Info", hdr);
 			crop.deleteRoi();
 			//update image position patient
-			Vector3d ipp = new PlanarSupport().getNewImagePositionPatient2D(imp, rect.getX(), rect.getY(), imp.getCurrentSlice());
+			Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(imp, rect.getX(), rect.getY(), imp.getCurrentSlice());
 			GDicomTools.setImagePositionPatient(crop, 1, new double[] {ipp.x,ipp.y,ipp.z});
 			//update instance uid.
 			GDicomTools.setTag(crop, 1, "0008,0018", UIDUtils.createUID());
