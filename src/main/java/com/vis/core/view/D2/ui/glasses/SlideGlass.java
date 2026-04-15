@@ -198,44 +198,46 @@ public class SlideGlass extends JLayeredPane {
 	public void addRoi(RoiObj roi) {
 		roiOverlay.addRoi(roi);
 	}
-
+	
 	void adjustContrastFromMouseAction(int dragX, int dragY) {
-		// 1. 開始位置からの「総移動距離」を計算 (前回との差分ではない)
-	    int xDiff = dragX - lastPressedX;
-	    int yDiff = dragY - lastPressedY;
+		// 1. 開始位置からの「総移動距離」を計算
+		int xDiff = dragX - lastPressedX;
+		int yDiff = dragY - lastPressedY;
 
-	    // 2. 画面サイズに対する移動割合
-	    int totalWidth = getWidth();
-	    int totalHeight = getHeight();
-	    
-	    // ゼロ除算対策
-	    if (totalWidth == 0 || totalHeight == 0) return;
+		// 2. 画面サイズに対する移動割合
+		int totalWidth = getWidth();
+		int totalHeight = getHeight();
+		
+		// ゼロ除算対策
+		if (totalWidth == 0 || totalHeight == 0) return;
 
-	    // 感度調整（係数）。1.0だと画面端から端までドラッグして全範囲変化。
-	    // 必要に応じて 2.0 などを掛けて感度を上げてください。
-	    double sensitivity = 1.0; 
-	    
-	    // 現在のダイナミックレンジ（全体の最大-最小）
-	    double dynamicRange = currentMax - currentMin;
+		// 感度調整。もし動きが遅いと感じたら 2.0 などに上げてください
+		double sensitivity = 1.0; 
+		
+		// ドラッグ中に変動する値ではなく、クリック時の固定されたWindow幅を基準にする
+		double dynamicRange = startChangeContrastWW;
+		
+		// 安全対策：もし何らかの理由で初期Window幅が狭すぎる（または0以下）場合は、
+		// マウスが動かなくなるのを防ぐために最低限の倍率を保証する
+		if (dynamicRange < 1.0) {
+			dynamicRange = 256.0; 
+		}
 
-	    // 3. 移動量に応じた変化量を計算
-	    // X軸: 右(正)でWWを広げる、左(負)で狭める -> そのまま加算
-	    double windowChange = (xDiff / (double) totalWidth) * dynamicRange * sensitivity;
-	    
-	    // Y軸: 下(正)でWLを下げる、上(負)でWLを上げる -> 符号を反転させる
-	    // (スクリーン座標は下がプラス、要望は上がプラスなので -1 を掛ける)
-	    double levelChange = -1 * (yDiff / (double) totalHeight) * dynamicRange * sensitivity;
+		// 3. 移動量に応じた変化量を計算
+		double windowChange = (xDiff / (double) totalWidth) * dynamicRange * sensitivity;
+		double levelChange = -1 * (yDiff / (double) totalHeight) * dynamicRange * sensitivity;
 
-	    // 4. 新しい値を計算 (開始時の値 + 変化量)
-	    double newWindow = startChangeContrastWW + windowChange;
-	    double newLevel = startChangeContrastWL + levelChange;
+		// 4. 新しい値を計算 (開始時の値 + 変化量)
+		double newWindow = startChangeContrastWW + windowChange;
+		double newLevel = startChangeContrastWL + levelChange;
 
-	    // Window幅が1未満や負にならないようにガード
-	    if (newWindow < 1.0) {
-	        newWindow = 1.0;
-	    }
-	    // 5. 適用
-	    changeWindowingByWWWL(newLevel, newWindow);
+		// Window幅が1未満や負にならないようにガード
+		if (newWindow < 1.0) {
+			newWindow = 1.0;
+		}
+		
+		// 5. 適用
+		changeWindowingByWWWL(newLevel, newWindow);
 	}
 
 	/**

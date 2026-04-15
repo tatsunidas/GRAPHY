@@ -578,6 +578,7 @@ public class Praparat extends JPanel {
 	/**
 	 * Attention: Will use large physical memory.
 	 * This method is only used for single pop-up view or test purpose.
+	 * Dicom attributes keeps minimally.
 	 */
 	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
 		if (images == null || images.getStackSize() < 1) {
@@ -1318,7 +1319,11 @@ public class Praparat extends JPanel {
 			System.out.println(slides.size()+" images loaded.");
 		}
 	}
-		
+	
+	/**
+	 * SlideGlasses that created by this method, Dicom attributes keeps minimally.
+	 * @param images
+	 */
 	public void prepareSlideGlassesUsingImagePlus(ImagePlus images) {
 		if(images == null || images.getStackSize()==0) {
 			if(Utils.isDebug) System.out.println("praparat needs images..., return.");
@@ -1793,13 +1798,19 @@ public class Praparat extends JPanel {
 		updateInfoLabel(-1,-1,"-1", new double[] {-1,-1},-1,-1);
 	}
 
-	public void resetView() {
+	/**
+	 * TODO
+	 * 
+	 * ATTENTION
+	 * reloadSlideGlasses(imp); is irreversible operation.
+	 */
+	public void reload() {
 		
 		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
 			ImagePlus imp = getImagePlus();
 			pvcp.setProcessSeries(true);//to show all images after reset
 			updateInfoLabel(-1,-1,"-1",new double[] {-1,-1},-1,-1);
-			reloadSlideGlasses(imp);
+			reloadSlideGlasses(imp);//ATTENTION, irreversible operation. may remove few attributes.
 			return;
 		}
 		
@@ -1841,7 +1852,37 @@ public class Praparat extends JPanel {
 			//do nothing
 			return;
 		}
+	}
+	
+	public void resetView() {
+		// 1. コントロールパネルとラベルの初期化
+		pvcp.setProcessSeries(true);
+		updateInfoLabel(-1, -1, "-1", new double[] { -1, -1 }, -1, -1);
+
+		// 2. グリッド表示の解除
+		if (isShowGridViewOn()) {
+			showGridViewOn = false;
+		}
+
+		// 3. ★重要：全スライドの「表示状態のみ」をリセットする
+		// データを再生成しないため、DICOM属性情報は100%保持されます。
+		if (slides != null) {
+			for (Integer key : slides.keySet()) {
+				SlideGlass sg = slides.get(key);
+				sg.reset();         // ズーム、パン、回転のリセット
+				sg.resetContrast(); // ウィンドウレベル（DICOM値）のリセット
+			}
+		}
+
+		// 4. モードに応じたレイアウトの再適用
+		if (mode == ViewMode.Normal || mode == ViewMode.SingleGrid || mode == ViewMode.MPR) {
+			doSingleGridLayout();
+			showFirstImage();
+		} else if (mode == ViewMode.FilmGrid) {
+			doFilmGridLayout(filmGridColumns);
+		}
 		
+		// サムネイルモードは何もしない
 	}
 	
 	public void resetWindow() {
@@ -2286,6 +2327,16 @@ public class Praparat extends JPanel {
 	    } else {
 	        return false; // フローティング中（JDialogなど）
 	    }
+	}
+	
+	public boolean isSigned() {
+		SlideGlass sg = getCurrentSlide();
+		if(sg != null) {
+			DicomImage dcm = sg.getDicomImage();
+			return dcm.isSigned();
+		}else {
+			return false;
+		}
 	}
 
 	public void showBorder(boolean show) {
