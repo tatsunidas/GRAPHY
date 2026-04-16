@@ -55,6 +55,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.search.DicomTagExtractorDialog;
 import com.vis.core.ui.dialog.BurnerWindow;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
@@ -83,6 +84,7 @@ public class MainScreenToolBar extends JToolBar {
 
 	private enum Tool {
 		Import, Export, BrowseDB, BurnCD, ImportNoneDcm, Delete, Metadata, Send,
+		TagExtractor,
 //		Query,//do not need
 		Viewer, Viewer3D, Settings;
 	}
@@ -131,6 +133,7 @@ public class MainScreenToolBar extends JToolBar {
 //		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
 //		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
+		map.put(Tool.TagExtractor, Resources.MenuBarTagExtractor.loadIconFromResource());
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
 		return map;
 	}
@@ -341,6 +344,12 @@ public class MainScreenToolBar extends JToolBar {
 					PreferencesWin.getInstance().setVisible(true);
 				}
 			});
+		case TagExtractor:
+		    btn.addActionListener(e -> {
+		        DicomTagExtractorDialog dialog = new DicomTagExtractorDialog(WindowManager.getMainScreen());
+		        dialog.setVisible(true);
+		    });
+		    break;
 		default:
 		}
 	}

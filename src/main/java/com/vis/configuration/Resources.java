@@ -9,6 +9,7 @@ import java.util.ResourceBundle;
 import javax.swing.ImageIcon;
 
 import com.vis.core.log.Log;
+import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Platform;
 import com.vis.core.util.Utils;
 
@@ -50,6 +51,7 @@ public enum Resources {
 	MenuBarSendIcon("icon/ic_send_black_48dp.png"),
 	MenuBarSettingsIcon("icon/ic_settings_black_48dp.png"),
 	MenuBarViewer2DIcon("icon/ic_desktop_windows_black_48dp.png"),
+	MenuBarTagExtractor("icon/tag_extractor2_48dp_1F1F1F.png"),
 	
 	//2d viewer
 	Viewer2DFrameWinIcon("icon/GRAPHY-128.png"),
@@ -177,7 +179,11 @@ public enum Resources {
 			}
 			ImageIcon ico = null;
 			try {
-				ico = new ImageIcon(javax.imageio.ImageIO.read(stream));
+				java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(stream);
+				if(img.getWidth() > 48) {
+					img = (java.awt.image.BufferedImage)ImageUtils.resize(img, 48, 48);
+				}
+				ico = new ImageIcon(img);
 			} catch (IOException e) {
 				Log.logger.severe("Cannot load Resources files...");
 				e.printStackTrace();
