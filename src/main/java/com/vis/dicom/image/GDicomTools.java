@@ -662,9 +662,11 @@ public class GDicomTools extends ij.util.DicomTools{
 				// シーケンスの場合：タグ名だけ出力して中身を再帰処理
 				sb.append(indent).append(tagStr).append("  SQ (Sequence)\n");
 				DicomObject seq = header.getNestedDataset(tag);
-				for (int i = 0; i < seq.tags().length; i++) {
-					sb.append(indent).append(" Item #").append(i + 1).append("\n");
-					getHeaderAsString(seq, sb, depth + 1);
+				if(seq != null) {
+					for (int i = 0; i < seq.tags().length; i++) {
+						sb.append(indent).append(" Item #").append(i + 1).append("\n");
+						getHeaderAsString(seq, sb, depth + 1);
+					}
 				}
 			} else {
 				// ★修正箇所：配列タグの場合は "\" で結合し、単一値の場合はそのまま取得する

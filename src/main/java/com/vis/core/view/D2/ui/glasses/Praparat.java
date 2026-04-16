@@ -270,24 +270,108 @@ public class Praparat extends JPanel {
 	}
 	
 	/**
-	 * Signedの場合に注意。See, sg.resetContrast()
 	 * 
 	 * @param min
 	 * @param max
 	 * @param fromMouseAction
 	 */
 	public void adjustContrastByMinMax(double min, double max) {
-		SlideGlass slide = getCurrentSlide();
-		slide.changeWindowingByMinMax(min, max);
 		if (isProcessSeries()) {
 			ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
-				if(slide == sg) {
-					continue;
-				}
 				sg.changeWindowingByMinMax(min, max);
 			}
+		} else {
+			SlideGlass slide = getCurrentSlide();
+			slide.changeWindowingByMinMax(min, max);
+		}
+	}
+	
+	/**
+	 * スタック全体の最適な表示レンジ（Min/Max）からWindow CenterとWindow Widthを算出し、
+	 * すべてのスライスのDICOMタグに統一して書き込みます。
+	 * スライス移動（スクロール）時のコントラストの飛躍（チカチカ）を防止するグローバルAutoWindow調整機能です。
+	 * * @param imp コントラストを統一したいImagePlus
+	 */
+	public void applyGlobalAutoWindow() {
+		if (slides == null || slides.isEmpty()) return;
+
+		double globalMin = Double.MAX_VALUE;
+		double globalMax = -Double.MAX_VALUE; 
+
+		boolean multiFrame = isMultiFrame();
+		int frameIndex = 0; // multiFrame用の連番カウンタ
+
+		// 1. キー(Integer)経由ではなく、値(SlideGlass)を直接ループして安全にアクセス
+		for (SlideGlass sg : slides.values()) {
+			if (sg == null || sg.getDicomImage() == null) {
+				frameIndex++;
+				continue;
+			}
+
+			// マルチフレームの場合は連番(frameIndex)、シングルの場合は常に 0 を指定
+			int targetIndex = multiFrame ? frameIndex : 0;
+			ImageProcessor ip = sg.getDicomImage().getImageProcessor(targetIndex);
+
+			if (ip != null) {
+				ip.resetMinAndMax(); // 念のためピクセル値のMin/Maxを再計算させる
+				double min = ip.getMin();
+				double max = ip.getMax();
+
+				if (min < globalMin) {
+					globalMin = min;
+				}
+				if (max > globalMax) {
+					globalMax = max;
+				}
+			}
+			frameIndex++;
+		}
+
+		// 3. 重複していたガード処理を最後にまとめる (DRY原則)
+		if (globalMin == Double.MAX_VALUE) return;
+		
+		if (globalMin == globalMax) {
+			globalMax = globalMin + 1.0;
+		}
+
+		// 全スライドに統一したコントラストを適用
+		adjustContrastByMinMax(globalMin, globalMax);
+	}
+	
+	/**
+	 * for prepareSlideGlassesUsingImagePlus
+	 * 
+	 * スタック全体の最適な表示レンジ（Min/Max）からWindow CenterとWindow Widthを算出し、
+	 * すべてのスライスのDICOMタグに統一して書き込みます。
+	 * スライス移動（スクロール）時のコントラストの飛躍（チカチカ）を防止するグローバルAutoWindow調整機能です。
+	 * * @param imp コントラストを統一したいImagePlus
+	 */
+	public void applyGlobalAutoWindow(ImagePlus imp) {
+		if (imp == null) return;
+
+		// 1. ImagePlusに設定されている全体の表示範囲(Min/Max)を取得
+		double displayMin = imp.getDisplayRangeMin();
+		double displayMax = imp.getDisplayRangeMax();
+
+		// 万が一Min/Maxが同一（真っ黒な画像など）の場合はゼロ除算等を防ぐために補正
+		if (displayMin == displayMax) {
+			displayMax = displayMin + 1.0;
+		}
+
+		// 2. Window Center と Window Width を計算
+		long windowCenter = Math.round(displayMin + (displayMax - displayMin) / 2.0);
+		long windowWidth = Math.round(displayMax - displayMin);
+
+		String wcStr = String.valueOf(windowCenter);
+		String wwStr = String.valueOf(windowWidth);
+
+		// 3. 全スライスのDICOMメタデータに固定値を書き込む
+		int depth = imp.getNSlices();
+		for (int i = 1; i <= depth; i++) {
+			GDicomTools.setTag(imp, i, "0028,1050", wcStr); // Window Center
+			GDicomTools.setTag(imp, i, "0028,1051", wwStr); // Window Width
 		}
 	}
 	
@@ -1269,6 +1353,7 @@ public class Praparat extends JPanel {
 		if(slider != null) {
 			slider.initContext();
 		}
+		applyGlobalAutoWindow();
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1315,6 +1400,7 @@ public class Praparat extends JPanel {
 		if(slider != null) {
 			slider.initContext();
 		}
+		applyGlobalAutoWindow();
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1356,13 +1442,13 @@ public class Praparat extends JPanel {
 		images.setSlice(1);//back to first.
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/*keep null file paths*/);
+		
 		constructSlideGlassesFromImagePlus(images);
 		
 		if(slider != null) {
 			slider.initContext();
 		}
-		
-		initGlobalContrast();
+		applyGlobalAutoWindow(images);
 		
 		if(Utils.isDebug) {
 			Log.logger.fine(slides.size()+" images loaded.");
@@ -1402,6 +1488,7 @@ public class Praparat extends JPanel {
 		if(slider != null) {
 			slider.initContext();
 		}
+		applyGlobalAutoWindow();
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1637,54 +1724,6 @@ public class Praparat extends JPanel {
 	}
 	
     
-    /**
-     * 初回読み込み時に、ボリューム全体のコントラストを計算・取得し、
-     * 全スライスの初期コントラスト変数として保持させます。
-     */
-    private void initGlobalContrast(ImagePlus sourceImp) {
-        if (slides == null || slides.isEmpty()) {
-            return;
-        }
-
-        double baseMin = Double.NaN;
-        double baseMax = Double.NaN;
-
-        // 1. ソースのImagePlusが明確なWindow/Level（Min/Max）を持っている場合はそれを最優先する
-        if (sourceImp != null && sourceImp.getProcessor() != null) {
-            baseMin = sourceImp.getDisplayRangeMin();
-            baseMax = sourceImp.getDisplayRangeMax();
-        }
-
-        // 2. 取得できなかった場合（0.0〜0.0やNaN）は、中央スライスからオートコントラストを計算
-        if (Double.isNaN(baseMin) || Double.isNaN(baseMax) || (baseMin == 0.0 && baseMax == 0.0)) {
-            int centerIndex = slides.size() / 2;
-            SlideGlass centerSlide = slides.get(centerIndex);
-            realizeImage(centerIndex, false, 1.0, 0.0, null, null, null);
-            centerSlide.autoWindowing();
-            baseMin = centerSlide.currentMin;
-            baseMax = centerSlide.currentMax;
-        }
-
-        // 3. 全スライスにベースとなるMin/Maxを初期値としてセット
-        for (Integer key : slides.keySet()) {
-            SlideGlass sg = slides.get(key);
-            sg.currentMin = baseMin;
-            sg.currentMax = baseMax;
-            
-            // ピクセルデータが既にロードされている場合は即座に適用する
-            if (sg.getOriginalImage() != null) {
-                sg.changeWindowingByMinMax(baseMin, baseMax);
-            }
-        }
-        
-        Log.logger.fine("Global contrast initialized. Min: " + baseMin + ", Max: " + baseMax);
-    }
-
-    // 既存コードとの互換性用オーバーロード
-    private void initGlobalContrast() {
-        initGlobalContrast(null);
-    }
-
 	/**
 	 * 円環状のインデックスにおいて、targetがcenterのrange内にあるか判定するヘルパー
 	 */
@@ -1744,6 +1783,11 @@ public class Praparat extends JPanel {
 		}
 	}
 
+	/**
+	 * irreversible operation.
+	 * 
+	 * @param imp
+	 */
 	public void reloadSlideGlasses(ImagePlus imp) {
 		if (imp == null) { return; }
 		prepareSlideGlassesUsingImagePlus(imp);
@@ -1804,6 +1848,7 @@ public class Praparat extends JPanel {
 	 * ATTENTION
 	 * reloadSlideGlasses(imp); is irreversible operation.
 	 */
+	@Deprecated
 	public void reload() {
 		
 		if (getImageFileLocations() == null || getImageFileLocations().size()==0) {
@@ -2336,6 +2381,20 @@ public class Praparat extends JPanel {
 			return dcm.isSigned();
 		}else {
 			return false;
+		}
+	}
+	
+	public void invert() {
+		if(slides == null || slides.size() == 0) {
+			return;
+		}
+		if(isProcessSeries()) {
+			for(SlideGlass sg : slides.values()) {
+				sg.invert();
+			}
+		}else {
+			SlideGlass sg = getCurrentSlide();
+			sg.invert();
 		}
 	}
 

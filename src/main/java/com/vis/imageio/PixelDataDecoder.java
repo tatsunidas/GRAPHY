@@ -79,7 +79,37 @@ public class PixelDataDecoder {
 	 * banded [true] means rrr...ggg...bbb.. banded [false] mean rgbrgb...
 	 */
 	boolean banded;// i.e, Tag.PlanarConfiguration, 0) != 0;
+	
+	/**
+	 * 1. DICOMが「Unsigned（符号なし）」の場合
+	 * 
+	 * ピクセル値: 0 〜 65535 メモリへの格納: そのままキャストしてJavaの short 配列として扱う。32768
+	 * 以上の値はJavaではマイナス（例: 65535 は -1）に見えるが、ビットの並び自体は全く変わっていないので問題ない。 値の読み出し: ImageJが
+	 * & 0xffff でビットマスクし、マイナスの値を元の 0 〜 65535 に変換する。
+	 * 
+	 * Calibration（輝度校正）: 値は元のままシフトしていないため、DICOMタグの Rescale Intercept と Rescale
+	 * Slope をそのまま適用する。何も設定がなければ、slope=1, intercept=0
+	 * 
+	 * 2. DICOMが「Signed（符号付き）」の場合
+	 * 
+	 * ピクセル値: -32768 〜 32767
+	 * 
+	 * メモリへの格納: ImageJの ShortProcessor
+	 * は「Unsigned（0〜65535）」のみを期待している。Signedをいれるとオーバーフローしてしまう。そこで、ImageJは読み込む際、全ピクセルに
+	 * +32768 を足して、0 〜 65535 の範囲にスライド（シフト）させる。（-32768 は 0 になり、0 は 32768 になる）
+	 * 
+	 * Calibration（輝度校正）: すべて 32768 だけズレて明るくなってしまうため、Calibrationの Intercept に -32768
+	 * を設定する。
+	 * 
+	 * 値の読み出し: cal.getCValue(getf(x,y))あるいは、ip.getPixelValue(x,y) で、「生の値（+32768された値）
+	 * - 32768 = 元の値という計算が行われ、元の値が復元される。
+	 * 
+	 * @param min
+	 * @param max
+	 * @param fromMouseAction
+	 */
 	boolean signed;// = dataset.getInt(Tag.PixelRepresentation, 0) != 0;
+	
 	int frames;// = dataset.getInt(Tag.NumberOfFrames, 1);
 	int frameLength;// = rows * cols * samples * bitsAllocated / 8;
 	int length;// frameLength * frames;
@@ -232,6 +262,9 @@ public class PixelDataDecoder {
 	// --- 各型専用の高速プロセッサ ---
 	private ImageProcessor processByte(ByteBuffer buffer) {
 		byte[] pixels = new byte[w * h];
+		/*
+		 * Endian ByteOrder does not effect to "Byte", but remaining code to explicitly.
+		 */
 		if(bigEndian) {
 			buffer.order(ByteOrder.BIG_ENDIAN);
 		}else {

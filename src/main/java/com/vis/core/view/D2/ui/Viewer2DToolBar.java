@@ -39,6 +39,7 @@
 package com.vis.core.view.D2.ui;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Frame;
@@ -52,6 +53,7 @@ import java.util.TreeMap;
 
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -65,7 +67,11 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 
 import com.vis.configuration.Resources;
+import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
+import com.vis.core.plugin.PlugIn;
+import com.vis.core.plugin.PluginShelf;
+import com.vis.core.plugin.ToolbarPlugIn;
 import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.dialog.WandToolDialog;
@@ -159,6 +165,9 @@ public class Viewer2DToolBar extends JToolBar{
 	
 	int defaultImgIconSize = 48;
 	private int currentTool = Windowing;//default
+	
+	JPanel base;
+	JPanel pluginListPanel;// holds toolbar item buttons
 
 	public Viewer2DToolBar() {
 		
@@ -170,7 +179,7 @@ public class Viewer2DToolBar extends JToolBar{
 			}
 		}
 		
-		JPanel base = new JPanel();
+		base = new JPanel();
 		int hgap = 1;
 		int vgap = hgap;
 		base.setLayout(new FlowLayout(FlowLayout.LEFT, hgap, vgap));
@@ -178,6 +187,8 @@ public class Viewer2DToolBar extends JToolBar{
 		base.add(loadButtons(initProcessFunctions()));
 		addSeparator();
 		base.add(loadButtons(initRois()));
+		addSeparator();
+		loadPluginTools();
 		
 		// after above, add jscrollpane.
 		JScrollPane scrollPane = new JScrollPane();
@@ -906,5 +917,93 @@ public class Viewer2DToolBar extends JToolBar{
 				chb.setBackground(Color.cyan);
 			}
 		}
+	}
+	
+	public void loadPluginTools() {
+
+		PluginShelf pluginShelf = ApplicationFacade.pluginShelf;
+		if (pluginShelf == null) {
+			return;
+		}
+		
+		if(pluginListPanel == null) {
+			pluginListPanel = new JPanel();
+			pluginListPanel.setBorder(new LineBorder(Color.GRAY, 3, true));
+			pluginListPanel.setName("TOOLBAR_PLUGIN_LIST");
+		}
+		
+		if(base != null) {
+			boolean alreadyExists = false;
+			for(Component c : base.getComponents()) {
+				if ("TOOLBAR_PLUGIN_LIST".equals(c.getName())) {
+					alreadyExists = true;
+					break;
+				}
+			}
+			if (!alreadyExists) {
+				base.add(pluginListPanel);
+			}
+		}
+
+		// 1. ロードされた全プラグインのリストを取得
+		HashMap<String, String> loadedPlugins = pluginShelf.getLoadedPluginNames();
+		if (loadedPlugins == null)
+			return;
+
+		// 2. 各プラグインを検査
+		for (String pluginKey : loadedPlugins.keySet()) {
+
+			// pluginShelfのリフレクションを使ってインスタンスを生成・取得
+			PlugIn p = PluginShelf.findPlugIn(pluginKey);
+			if (p != null) {
+				// 3. ToolbarPlugIn インターフェースを実装しているか判定
+				if (p instanceof ToolbarPlugIn) {
+					ToolbarPlugIn tbPlugin = (ToolbarPlugIn) p;
+
+					boolean alreadyExists = false;
+					for (Component c : pluginListPanel.getComponents()) {
+						// コンポーネントにセットした名前とpluginKeyを比較
+						if (pluginKey.equals(c.getName())) {
+							alreadyExists = true;
+							break;
+						}
+					}
+
+					// すでに存在する場合は、このプラグインの追加処理をスキップ
+					if (alreadyExists) {
+						continue;
+					}
+
+					// 4. ボタンを生成
+					JButton btn = new JButton();
+					btn.setName(pluginKey);
+					Icon icon = tbPlugin.getIcon();
+
+					if (icon != null) {
+						btn.setIcon(icon);
+					} else {
+						// アイコンが無い場合はキー名（クラス名）をテキスト表示
+						btn.setText(pluginKey);
+					}
+
+					btn.setToolTipText(tbPlugin.getToolTipText());
+					btn.setFocusable(false); // ツールバーボタンの定石
+
+					// 5. ボタンクリック時のアクションを設定
+					btn.addActionListener(e -> {
+						// プラグインを実行する
+						pluginShelf.runPlugIn(pluginKey, null);
+					});
+
+					// 追加
+					pluginListPanel.add(btn);
+				}
+			}
+		}
+		// 追加後にツールバーの表示を更新
+		pluginListPanel.revalidate();
+		pluginListPanel.repaint();
+		revalidate();
+		repaint();
 	}
 }

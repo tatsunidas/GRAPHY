@@ -1,3 +1,7 @@
+/**
+ * © Visionary Imaging Services, Inc.
+ * @author tatsunidas
+ */
 package com.vis.core.view.D3.ui; // パッケージ名は環境に合わせてください
 
 public class VolumeData {
