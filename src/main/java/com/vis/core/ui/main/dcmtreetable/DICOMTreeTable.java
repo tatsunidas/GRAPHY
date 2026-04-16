@@ -387,16 +387,48 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		return getColumnPosition(DICOMTreeTableModel.ArchivedCol);//"Archived"
 	}
 
+//	public ArrayList<DICOMNode> getSelectedNodes() {
+//		ArrayList<DICOMNode> nodes = new ArrayList<>();
+//		int rows[] = getSelectedRowIndexes();
+//		if (rows == null || rows.length < 1) {
+//			return null;
+//		}
+//		for (int row : rows) {
+//			nodes.add((DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row));
+//		}
+//		return nodes;
+//	}
+	
 	public ArrayList<DICOMNode> getSelectedNodes() {
 		ArrayList<DICOMNode> nodes = new ArrayList<>();
+		
+		// 1. まずは JTable（表全体）の選択行から取得を試みる
 		int rows[] = getSelectedRowIndexes();
-		if (rows == null || rows.length < 1) {
-			return null;
+		if (rows != null && rows.length > 0) {
+			for (int row : rows) {
+				DICOMNode node = (DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row);
+				if (node != null) {
+					nodes.add(node);
+				}
+			}
 		}
-		for (int row : rows) {
-			nodes.add((DICOMNode) ((TreeTableModelAdapter) getModel()).nodeForRow(row));
+
+		// 2. JTable側の選択が空（フォーカス外れ等で解除）の場合、
+		// 内部の JTree（ツリー部分）の選択状態を直接見に行く（強力なフォールバック）
+		if (nodes.isEmpty()) {
+			TreePath[] paths = getTree().getSelectionPaths();
+			if (paths != null) {
+				for (TreePath path : paths) {
+					Object comp = path.getLastPathComponent();
+					if (comp instanceof DICOMNode) {
+						nodes.add((DICOMNode) comp);
+					}
+				}
+			}
 		}
-		return nodes;
+
+		// 選択が1つも無ければ null を返す（呼び出し元のエラー判定のため）
+		return nodes.isEmpty() ? null : nodes;
 	}
 	
 	public int[] getSelectedRowIndexes() {

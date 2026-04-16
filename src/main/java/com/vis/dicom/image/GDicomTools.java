@@ -37,6 +37,7 @@
  */
 package com.vis.dicom.image;
 
+import java.io.File;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import org.joml.Vector3d;
 
 import com.vis.core.log.Log;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.Tag;
 import com.vis.dicom.TagDict;
 import com.vis.dicom.TagUtils;
@@ -1304,5 +1306,101 @@ public class GDicomTools extends ij.util.DicomTools{
 	public static double[] getImageOrientationPatient(ImagePlus imp, int pos/*1 to N*/) {
 		double[] iop = getDoubles(imp, pos, "0020,0037");
 		return iop;
+	}
+	
+
+//	/**
+//	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。
+//	 * ・DICOMDIR は除外
+//	 * ・非DICOMファイルは除外
+//	 * ・SCやKOが通常画像と混ざっている場合は、通常画像を優先して返す。
+//	 * ・SCやKOしか存在しない場合は、それを代表ファイルとして返す。
+//	 * * @param seriesFiles 同じシリーズに属するファイルのリスト
+//	 * @param errorLog エラーやスキップ情報を記録するリスト
+//	 * @return 代表ファイル（有効なファイルがない場合は null）
+//	 */
+//	public static File getRepresentativeFileOfSeries(List<File> seriesFiles, List<String> errorLog) {
+//		File fallbackFile = null;
+//
+//		for (File f : seriesFiles) {
+//			if (!f.exists() || f.isDirectory()) continue;
+//			
+//			// 1. DICOMDIR は除外
+//			if (DicomUtilities.isDICOMDIR(f)) {
+//				if (com.vis.core.util.Utils.isDebug) errorLog.add("Skipped DICOMDIR: " + f.getAbsolutePath());
+//				continue;
+//			}
+//			
+//			// 2. DICOMファイルかどうかのチェック
+//			if (!DicomUtilities.isDicomFile(f)) {
+//				errorLog.add("Not a DICOM file: " + f.getAbsolutePath());
+//				continue;
+//			}
+//
+//			// 3. SCやKOなどの非標準画像かどうかのチェック
+//			if (isSecondaryCaptureOrNonImage(f)) {
+//				// SC/KOしかない場合の保険として、最初の1つをキープしておく
+//				if (fallbackFile == null) fallbackFile = f;
+//				continue;
+//			}
+//
+//			// 4. ここに到達したということは、「純粋な標準画像（CT/MR等）」！これを最優先で返す。
+//			return f;
+//		}
+//
+//		// 標準画像が1枚も見つからなかったが、SC/KOは存在した場合（「それしかない」パターン）
+//		if (fallbackFile != null) {
+//			errorLog.add("Note: Series contains only Secondary Capture or Non-Image data. Using as representative: " + fallbackFile.getAbsolutePath());
+//			return fallbackFile;
+//		}
+//
+//		// 有効なDICOMファイルが1つもなかった場合
+//		return null;
+//	}
+	
+	/**
+	 * SOP Class UID をもとに、Secondary Capture や 非画像データ(KO, PR, SR等) であるかを判定する。
+	 */
+	public static boolean isSecondaryCaptureOrNonImage(File f) {
+		String sopClassUID = DicomUtilities.getSOPClassUID(f.getAbsolutePath());
+		if (sopClassUID == null) return true; // UIDが読めない場合は非正規として扱う
+		sopClassUID = sopClassUID.trim();
+
+		// 代表的な非画像・SC系のSOP Class UIDプレフィックス
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.7")) return true;  // SC (Secondary Capture)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.88")) return true; // SR, KO (Key Object)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.11")) return true; // PR (Presentation State)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.104")) return true;// Encapsulated PDF
+
+		return false; // 上記以外は標準画像とみなす
+	}
+
+	/**
+	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。
+	 * ・SCやKOが通常画像と混ざっている場合は、通常画像を優先して返す。
+	 * ・SCやKOしか存在しない場合は、それを代表ファイルとして返す。
+	 */
+	public static File getRepresentativeFileOfSeries(java.util.List<File> seriesFiles, java.util.List<String> errorLog) {
+		File fallbackFile = null;
+
+		for (File f : seriesFiles) {
+			// SCやKOなどの非標準画像かどうかのチェック
+			if (isSecondaryCaptureOrNonImage(f)) {
+				// SC/KOしかない場合の保険として、最初の1つをキープしておく
+				if (fallbackFile == null) fallbackFile = f;
+				continue;
+			}
+
+			// ここに到達したということは、「純粋な標準画像（CT/MR等）」！これを最優先で返す。
+			return f;
+		}
+
+		// 標準画像が1枚も見つからなかったが、SC/KOは存在した場合（「それしかない」パターン）
+		if (fallbackFile != null) {
+			errorLog.add("通知: このシリーズには画像以外のデータ（SC/KO等）のみが存在します。抽出対象とします: " + fallbackFile.getAbsolutePath());
+			return fallbackFile;
+		}
+
+		return null;
 	}
 }

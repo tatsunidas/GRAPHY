@@ -108,11 +108,9 @@ public class TreeTableMouseListener implements MouseListener{
 				/*
 				 * show on the bird's eye
 				 */
-				new Thread(()->{
-					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-					WindowManager.getMainScreen().showImagesOnBirdsEye();
-					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-				}).start();
+				WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+				WindowManager.getMainScreen().showImagesOnBirdsEye();
+				WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 			}else {
 				//do nothiing
 			}

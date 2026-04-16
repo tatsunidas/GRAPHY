@@ -1018,7 +1018,7 @@ public class DatabaseHandler {
 		if (studyUid == null || seriesUid == null) {
 			throw new NullPointerException("DB:getFileLocationsSeriesLevel:: studyUid or seriesUid must be non-null.");
 		}
-		String sql = "SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=? AND StudyInstanceUID=? Order by InstanceNumber asc";
+		String sql = "SELECT FileStoreUrl FROM IMAGE WHERE StudyInstanceUID=? AND SeriesInstanceUID=? Order by InstanceNumber asc";
 		List<String> locs = new ArrayList<String>();
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, studyUid);// start from 1
