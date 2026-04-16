@@ -13,7 +13,6 @@ import org.dcm4che3.tool.dcmdir.DcmDir;
 import org.dcm4che3.util.SafeClose;
 
 import com.vis.core.log.Log;
-import com.vis.core.util.Utils;
 
 public class DicomUtilities {
 	
@@ -90,23 +89,39 @@ public class DicomUtilities {
 	}
 	
 	public static boolean isDICOMDIR(File file) {
-		if (namedDICOMDIR(file)) {
-			if (DicomUtilities.isDicomFile(file)) {
-				if (Utils.isDebug) {logger.info("DICOMDIR: "+ file.getName() +" found.");}
-				return true;
+		if (file == null || !file.isFile()) {
+			return false;
+		}
+		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
+		try {
+			reader.read(file.getCanonicalPath(), false);
+			DicomObject fmi = reader.getFileMetaInfomation();
+			if (fmi != null) {
+				String mediaStorageSopClassUID = fmi.getString(Tag.MediaStorageSOPClassUID);
+
+				// "1.2.840.10008.1.3.10" (Media Storage Directory Storage)
+				if (UID.MediaStorageDirectoryStorage.uid().equals(mediaStorageSopClassUID)) {
+					if (com.vis.core.util.Utils.isDebug) {
+						logger.info("DICOMDIR (UID Verified): " + file.getName() + " found.");
+					}
+					return true;
+				}
 			}
+		} catch (IOException e) {
+			// ignore
+		}finally {
+			reader = null;
 		}
 		return false;
 	}
 	
-	public static boolean namedDICOMDIR(File f) {
-		if (f.getName().toLowerCase().startsWith("dicomdir")) {
-				return true;
-		}else {
-			return false;
-		}
-	}
-	
+//	public static boolean namedDICOMDIR(File f) {
+//		if (f.getName().toLowerCase().startsWith("dicomdir")) {
+//				return true;
+//		}else {
+//			return false;
+//		}
+//	}
 		
 	private static Object getDicomElement(String path, int tag){
 		DicomInputStream dis = null;

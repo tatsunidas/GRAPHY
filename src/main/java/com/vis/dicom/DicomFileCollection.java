@@ -187,7 +187,7 @@ public class DicomFileCollection {
 				for (int i = 0; i < dicomFiles.length; i++) {
 					if (dicomFiles[i].isFile()) {
 						if (DicomUtilities.isDicomFile(dicomFiles[i])) {
-							if (!DicomUtilities.namedDICOMDIR(dicomFiles[i])) {
+							if (!DicomUtilities.isDICOMDIR(dicomFiles[i])) {
 								addImportCandidate(dicomFiles[i]);
 							}else { //dicomdir
 								dicomdirCandidate.add(dicomFiles[i]);
@@ -200,7 +200,7 @@ public class DicomFileCollection {
 					}
 				}
 			} else {// single file
-				if (!DicomUtilities.namedDICOMDIR(folderOrFile)) {
+				if (!DicomUtilities.isDICOMDIR(folderOrFile)) {
 					if (DicomUtilities.isDicomFile(folderOrFile)) {
 						addImportCandidate(folderOrFile);
 					} else {

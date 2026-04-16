@@ -1381,6 +1381,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	 * ・SCやKOしか存在しない場合は、それを代表ファイルとして返す。
 	 */
 	public static File getRepresentativeFileOfSeries(java.util.List<File> seriesFiles, java.util.List<String> errorLog) {
+		
 		File fallbackFile = null;
 
 		for (File f : seriesFiles) {
