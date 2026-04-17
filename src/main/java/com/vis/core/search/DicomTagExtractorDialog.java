@@ -71,9 +71,36 @@ public class DicomTagExtractorDialog extends JDialog {
 	private List<String> allTagsList = new ArrayList<>();
 
 	private DatabaseHandler db = DatabaseHandler.getInstance();
+	
+	// ★ 追加: ダイアログを開いた時点の選択ノードを保持する変数
+	private List<DICOMNode> cachedSelectedNodes = null;
+	
+	// --- 管理用（自動出力）タグの定義 ---
+	private static final List<String> ADMIN_TAGS = java.util.Arrays.asList(
+			"0010,0020 - PatientID",
+			"0008,0050 - AccessionNumber", 
+			"0008,0060 - Modality", 
+			"0008,0020 - StudyDate",
+			"0020,000D - StudyInstanceUID", 
+			"0020,000E - SeriesInstanceUID", 
+			"0008,0018 - SOPInstanceUID");
 
 	public DicomTagExtractorDialog(JFrame parent) {
 		super(parent, "DICOM Tag Extractor", true);
+		
+		// ★ 追加: ダイアログが生成されフォーカスが移る前に、現在の選択状態を確保しておく！
+		MainScreen mainScreen = (MainScreen) WindowManager.getMainScreen();
+		if (mainScreen != null) {
+			this.cachedSelectedNodes = mainScreen.getSelectedNode();
+			if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
+				int res = JOptionPane.showConfirmDialog(this, "No selected series from the TreeTable, would you continue to use choose directory function?");
+				if(res != JOptionPane.YES_OPTION) {
+					dispose();
+					return;
+				}
+			}
+		}
+		
 		setSize(800, 400);
 		setLocationRelativeTo(parent);
 		setLayout(new BorderLayout());
@@ -177,7 +204,11 @@ public class DicomTagExtractorDialog extends JDialog {
 		// ツリーテーブルから選択されたノード(DICOMNode)のリストを取得するのは、必ずEDT上で行う！
 		final List<DICOMNode> selectedNodes;
 		if (isTreeTable) {
-			selectedNodes = ((MainScreen) WindowManager.getMainScreen()).getSelectedNode();
+			/*
+			 * This lost focus when edit sequence builder
+			 */
+			//selectedNodes = ((MainScreen) WindowManager.getMainScreen()).getSelectedNode();
+			selectedNodes = this.cachedSelectedNodes;//use directly
 			if (selectedNodes == null || selectedNodes.isEmpty()) {
 				JOptionPane.showMessageDialog(this, "Please select at least one series from the TreeTable.");
 				return;
@@ -199,10 +230,18 @@ public class DicomTagExtractorDialog extends JDialog {
 		new Thread(() -> {
 			try {
 
-				// ログを記録するリスト
 				PrintWriter csvWriter = new PrintWriter(new FileWriter(finalOutputFile));
 
+				// --- CSVヘッダーの生成 ---
 				StringBuilder headerStr = new StringBuilder("SeriesSource");
+				
+				// A. まず管理タグを出力
+				for (String admin : ADMIN_TAGS) {
+					String name = admin.split(" - ")[1];
+					headerStr.append(",").append(name);
+				}
+				
+				// B. 次にユーザー指定タグを出力
 				for (String tagItem : tagsToExtract) {
 					String cleanHeader = tagItem.replaceAll("[0-9A-Fa-f]{4},[0-9A-Fa-f]{4} - ", "");
 					cleanHeader = cleanHeader.replace(" > ", ".");
@@ -210,72 +249,52 @@ public class DicomTagExtractorDialog extends JDialog {
 				}
 				csvWriter.println(headerStr.toString());
 
-				// 重いファイル検索やDBアクセスはここで行う
-				// ログを記録するリスト
+				// --- データ抽出ループ ---
 				List<String> errorLog = new ArrayList<>();
 				List<File> targetDicomFiles = getTargetDicomFilesSafe(isTreeTable, selectedNodes, errorLog);
-
 				final DICOMBackend backend = DICOMBackend.getCurrent();
 
 				for (File dcmFile : targetDicomFiles) {
 					StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
-
-					// DicomImageを使ってヘッダ情報のみをパース（ピクセルは読み込まないので高速）
 					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(), backend);
 					DicomObject header = dcm.getHeader();
 
-					for (String tagStr : tagsToExtract) {
-						String val = "N/A";
+					// ★抽出対象の全リスト（管理タグ + ユーザー指定タグ）を連結
+					List<String> totalTags = new ArrayList<>(ADMIN_TAGS);
+					totalTags.addAll(tagsToExtract);
 
+					for (String tagStr : totalTags) {
+						String val = "N/A";
 						if (header != null) {
 							try {
-								// 1. " > " で分割し、階層の配列にする
 								String[] pathParts = tagStr.split(" > ");
 								DicomObject currentObj = header;
-
+								
 								for (int i = 0; i < pathParts.length; i++) {
-									// 2. 文字列からタグの16進数部分を抽出 ("0010,0010 - PatientName" -> "00100010")
 									String hexTag = pathParts[i].substring(0, 9).replace(",", "");
-
-									// 3. 16進数文字列をint型のタグ番号に変換（符号なし32bit）
 									int tagInt = Integer.parseUnsignedInt(hexTag, 16);
-
+									
 									if (i == pathParts.length - 1) {
-										// --- 最終階層：値の取得 ---
-
-										// 配列（複数値）を持つタグ（Image Position Patient等）に対応するため getStrings を使用
 										String[] vals = currentObj.getStrings(tagInt);
 										if (vals != null && vals.length > 0) {
-											val = String.join("\\", vals); // DICOM標準の "\" 区切りで結合
+											val = String.join("\\", vals);
 										} else {
-											// getStrings で取れない場合（稀）のためのフォールバック
 											String singleVal = currentObj.getString(tagInt);
-											if (singleVal != null) {
-												val = singleVal;
-											}
+											if (singleVal != null) val = singleVal;
 										}
 									} else {
-										// --- 途中階層：シーケンスの中（Item #1）に潜る ---
 										currentObj = currentObj.getNestedDataset(tagInt);
-
-										if (currentObj == null) {
-											// シーケンスが存在しなければループを抜ける（値は "N/A" のまま）
-											break;
-										}
+										if (currentObj == null) break;
 									}
 								}
 							} catch (Exception e) {
 								val = "ERROR";
-								e.printStackTrace();
 							}
 						}
-
-						// CSVのエスケープ処理（ダブルクォーテーションを2つに重ねる）をして追加
 						row.append(",\"").append(val.replace("\"", "\"\"")).append("\"");
 					}
 					csvWriter.println(row.toString());
 				}
-
 				csvWriter.close();
 
 				// ★ ログの書き出し処理
@@ -574,8 +593,18 @@ public class DicomTagExtractorDialog extends JDialog {
 
 					// UI表示用の文字列を作る（例: "0010,0010 - PatientName"）
 					String displayStr = formattedHex + " - " + keyword;
-
-					allTagsList.add(displayStr);
+					
+					// ★管理タグに含まれている場合は、UI用リストに追加しない
+					boolean isAdmin = false;
+					for (String admin : ADMIN_TAGS) {
+						if (admin.startsWith(formattedHex)) {
+							isAdmin = true;
+							break;
+						}
+					}
+					if (!isAdmin) {
+						allTagsList.add(displayStr);
+					}
 				}
 			}
 
