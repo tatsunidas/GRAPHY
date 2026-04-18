@@ -43,6 +43,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 import com.vis.core.log.Log;
@@ -55,36 +57,31 @@ import com.vis.core.log.Log;
 public class DicomFileCollection {
 	
 	private File[] files;
-	private ArrayList<File> dicomdirCandidate;// to search DicomDir
-	private ArrayList<File> no_dcm_files;
-	private HashMap<String, String[]> dcmFileCandidate;// path and infoset
+	private ArrayList<File> dicomDirCandidates;
+	private ArrayList<File> nonDicomFiles;
+	private HashMap<String, String[]> dcmFileCandidates; 
 	private int numOfPatient;
 	private HashMap<String, Integer> numOfInstancesPerStudy;
 	
 	boolean ignorePrivate = false;
 	
-	public DicomFileCollection(File[] files){
+	public DicomFileCollection(File[] files) {
 		setSelectedFiles(files);
-	};
+	}
 	
 	private void addImportCandidate(File dcmimage) {
-		if(!this.dcmFileCandidate.keySet().contains(dcmimage.getAbsolutePath())) {
-			String[] info = DicomUtilities.getUIDSet(dcmimage.getAbsolutePath());
-			this.dcmFileCandidate.put(dcmimage.getAbsolutePath(), info);
-		}
+		dcmFileCandidates.computeIfAbsent(dcmimage.getAbsolutePath(), k -> DicomUtilities.getUIDSet(dcmimage.getAbsolutePath()));
 	}
 	
 	private void calcSize() {
-		HashSet<String> patients = new HashSet<>();
+		Set<String> patients = new HashSet<>();
 		numOfInstancesPerStudy = new HashMap<>();
-		for(String p : dcmFileCandidate.keySet()) {
-			String[] ids = dcmFileCandidate.get(p);
-			patients.add(ids[0]);
-			if(!numOfInstancesPerStudy.containsKey(ids[1])) {
-				numOfInstancesPerStudy.put(ids[1], 1);
-				continue;
-			}
-			numOfInstancesPerStudy.put(ids[1], numOfInstancesPerStudy.get(ids[1])+1);
+		
+		for (String[] ids : dcmFileCandidates.values()) {
+			patients.add(ids[0]); // PatientID
+			String studyUID = ids[1];
+			// Java 8以降の getOrDefault を使用して簡略化
+			numOfInstancesPerStudy.put(studyUID, numOfInstancesPerStudy.getOrDefault(studyUID, 0) + 1);
 		}
 		numOfPatient = patients.size();
 	}
@@ -94,18 +91,16 @@ public class DicomFileCollection {
 	 * see also Utils.readFilesRecursively(selectedFiles) to collect non dcm files.
 	 */
 	public boolean collectCandidates() {
-		if (files == null) {
-			Log.logger.fine("Files are null, return.");
+		if (files == null || files.length == 0) {
+			Log.logger.fine("Files are null or not selected, return.");
 			return false;
 		}
-		if (files.length == 0) {
-			Log.logger.fine("Files are not selected, return.");
-			return false;
-		}
+
 		// init
-		dicomdirCandidate = new ArrayList<>();
-		no_dcm_files = new ArrayList<>();
-		dcmFileCandidate = new HashMap<>();
+		dicomDirCandidates = new ArrayList<>();
+		nonDicomFiles = new ArrayList<>();
+		dcmFileCandidates = new HashMap<>();
+		
 		// collect all abs paths
 		try {
 			readAllDICOMFiles(files);
@@ -114,24 +109,26 @@ public class DicomFileCollection {
 			Log.logger.log(Level.SEVERE, e.getMessage());
 			return false;
 		}
-		if (dicomdirCandidate.size() > 0) {
+		
+		if (!dicomDirCandidates.isEmpty()) {
 			try {
-				readDicomDir();// add to dcmFileCandidate array
+				readDicomDir();
 			} catch (Exception e) {
-				e.printStackTrace();
 				Log.logger.log(Level.SEVERE, "Error occured when reading Dicom files...", e);
 				return false;
 			}
 		}
+		
 		calcSize();
+		
 		// output result
-		Log.logger.fine("Number of dicomdir is " + dicomdirCandidate.size() + " found");
-		Log.logger.fine("Number of instances is " + dcmFileCandidate.size() + " found");
+		Log.logger.fine("Number of dicomdir is " + dicomDirCandidates.size() + " found");
+		Log.logger.fine("Number of instances is " + dcmFileCandidates.size() + " found");
 		return true;
 	}
 
 	private ArrayList<File> getDicomDirs() {
-		return this.dicomdirCandidate;
+		return this.dicomDirCandidates;
 	}
 	
 	public int getNumOfPatients() {
@@ -141,160 +138,148 @@ public class DicomFileCollection {
 	// for grouping studies when import
 	public ArrayList<String> getNoSubstituteStudyUIDList() {
 		ArrayList<String> studyUIDs = new ArrayList<>();
-		for(String p : dcmFileCandidate.keySet()) {
-			studyUIDs.add(dcmFileCandidate.get(p)[1]);
+		for(String[] info : dcmFileCandidates.values()) {
+			studyUIDs.add(info[1]);
 		}
-		// no duplicate
-		return new ArrayList<String>(new LinkedHashSet<>(studyUIDs));
+		return new ArrayList<>(new LinkedHashSet<>(studyUIDs));
 	}
 
 	public int getNumOfInstancesInStudy(String studyUID) {
-		if(numOfInstancesPerStudy == null) {
+		if (numOfInstancesPerStudy == null) {
 			return -1;
 		}
-		Integer num = numOfInstancesPerStudy.get(studyUID);
-		return num != null ? num:-1;
+		return numOfInstancesPerStudy.getOrDefault(studyUID, -1);
 	}
 
 	public int getNumOfTotalDcmFiles() {
-		if(dcmFileCandidate != null) {
-			return dcmFileCandidate.size();
-		}else {
-			return -1;
-		}
+		return dcmFileCandidates != null ? dcmFileCandidates.size() : -1;
 	}
 	
 	public ArrayList<File> getNoDcmFiles() {
-		return no_dcm_files;
+		return nonDicomFiles;
 	}
 	
-	private void InvalidDicomDirError(String level) {
-		if (level.equals("Patient")) {
-			Log.logger.log(Level.SEVERE,"Get error when DICOMDIR loading, at Patient level record");
-		} else if (level.equals("Study")) {
-			Log.logger.log(Level.SEVERE,"Get error when DICOMDIR loading, at Study level record");
-		} else if (level.equals("Series")) {
-			Log.logger.log(Level.SEVERE,"Get error when DICOMDIR loading, at Series level record");
-		} else if (level.equals("Instance")) {
-			Log.logger.log(Level.SEVERE,"Get error when DICOMDIR loading, at Instance level record");
-		}
+	private void logInvalidDicomDirError(String level) {
+		Log.logger.log(Level.SEVERE, "Get error when DICOMDIR loading, at " + level + " level record");
 	}
 
 	private void readAllDICOMFiles(File[] foldersAndFiles) throws IOException {
-		for(File folderOrFile : foldersAndFiles) {
-			if (folderOrFile.isDirectory()) {
-				File[] dicomFiles = folderOrFile.listFiles();
-				for (int i = 0; i < dicomFiles.length; i++) {
-					if (dicomFiles[i].isFile()) {
-						if (DicomUtilities.isDicomFile(dicomFiles[i])) {
-							if (!DicomUtilities.isDICOMDIR(dicomFiles[i])) {
-								addImportCandidate(dicomFiles[i]);
-							}else { //dicomdir
-								dicomdirCandidate.add(dicomFiles[i]);
-							}
-						}else {
-							no_dcm_files.add(dicomFiles[i]);
-						}
-					} else {
-						readAllDICOMFiles(new File[] {dicomFiles[i]});
-					}
+		for (File file : foldersAndFiles) {
+			if (file.isDirectory()) {
+				File[] children = file.listFiles();
+				if (children != null) {
+					readAllDICOMFiles(children);
 				}
-			} else {// single file
-				if (!DicomUtilities.isDICOMDIR(folderOrFile)) {
-					if (DicomUtilities.isDicomFile(folderOrFile)) {
-						addImportCandidate(folderOrFile);
-					} else {
-						no_dcm_files.add(folderOrFile);
-					}
-				} else { // dicomdir
-					if (DicomUtilities.isDicomFile(folderOrFile)) {
-						dicomdirCandidate.add(folderOrFile);
-					} else {
-						no_dcm_files.add(folderOrFile);
-					}
-				}
+			} else {
+				categorizeFile(file);
 			}
 		}
 	}
+
+	private void categorizeFile(File file) {
+		if (DicomUtilities.isDicomFile(file)) {
+			if (DicomUtilities.isDICOMDIR(file)) {
+				dicomDirCandidates.add(file);
+			} else {
+				addImportCandidate(file);
+			}
+		} else {
+			nonDicomFiles.add(file);
+		}
+	}
 	
-	//add all files to dcmCandidate
 	private void readDicomDir() throws Exception {
-		DicomDirReader dicomDirReader = null;
 		for (File dcmdir : getDicomDirs()) {
-			dicomDirReader = DicomDirReader.newDicomDirReader(dcmdir);
+			DicomDirReader dicomDirReader = DicomDirReader.newDicomDirReader(dcmdir);
 			DicomObject patient = dicomDirReader.findFirstRootDirectoryRecord(ignorePrivate);
+			
 			while (patient != null) {
-				if (RecordType.PATIENT.name().equals(patient.getString(Tag.Directory​Record​Type))) {
-					if (patient.getString(Tag.Patient​ID) == null) {
-						InvalidDicomDirError("Patient");
-						return;
-					}
-					DicomObject study = dicomDirReader.findLowerDirectoryRecord(patient, ignorePrivate);
-					Log.message(Level.INFO, "Parsing DICOMDIR -Patient");
-					while (study != null) {
-						if (RecordType.STUDY.name().equals(study.getString(Tag.Directory​Record​Type))) {
-							if (study.getString(Tag.Study​Instance​UID) == null) {
-								InvalidDicomDirError("Study");
-								return;
-							}
-							DicomObject series = dicomDirReader.findLowerDirectoryRecord(study, ignorePrivate);
-							Log.message(Level.INFO, "Parsing DICOMDIR -Study");
-							while (series != null) {
-								if (RecordType.SERIES.name().equals(series.getString(Tag.Directory​Record​Type))) {
-									if (series.getString(Tag.Series​Instance​UID) == null) {
-										InvalidDicomDirError("Series");
-										return;
-									}
-									DicomObject instance = dicomDirReader.findLowerDirectoryRecord(series, true);
-									Log.message(Level.INFO, "Parsing DICOMDIR -Series");
-									while (instance != null) {
-										if (RecordType.IMAGE.name()
-												.equals(instance.getString(Tag.Directory​Record​Type))) {
-											File file = toFileName(instance, dicomDirReader);
-											if (file.exists()) {
-												addImportCandidate(file);
-											} else {
-												Log.message(Level.SEVERE, "File : " + file.getAbsolutePath()
-														+ " is not exists at this location specified in dicomdir...");
-											}
-										}
-										// ignorePrivate is true on following process
-										instance = dicomDirReader.findNextDirectoryRecord(instance, true);
-									}
-								}
-								series = dicomDirReader.findNextDirectoryRecord(series, true);
-							}
-						}
-						study = dicomDirReader.findNextDirectoryRecord(study, true);
-					}
-				}
+				processPatientRecord(patient, dicomDirReader);
 				patient = dicomDirReader.findNextDirectoryRecord(patient, true);
 			}
 		}
 	}
 
+	private void processPatientRecord(DicomObject patient, DicomDirReader reader) throws Exception {
+		if (!RecordType.PATIENT.name().equals(patient.getString(Tag.DirectoryRecordType))) return;
+		
+		if (patient.getString(Tag.PatientID) == null) {
+			logInvalidDicomDirError("Patient");
+			return;
+		}
+		
+		DicomObject study = reader.findLowerDirectoryRecord(patient, ignorePrivate);
+		Log.message(Level.INFO, "Parsing DICOMDIR -Patient");
+		
+		while (study != null) {
+			processStudyRecord(study, reader);
+			study = reader.findNextDirectoryRecord(study, true);
+		}
+	}
+
+	private void processStudyRecord(DicomObject study, DicomDirReader reader) throws Exception {
+		if (!RecordType.STUDY.name().equals(study.getString(Tag.DirectoryRecordType))) return;
+		
+		if (study.getString(Tag.StudyInstanceUID) == null) {
+			logInvalidDicomDirError("Study");
+			return;
+		}
+		
+		DicomObject series = reader.findLowerDirectoryRecord(study, ignorePrivate);
+		Log.message(Level.INFO, "Parsing DICOMDIR -Study");
+		
+		while (series != null) {
+			processSeriesRecord(series, reader);
+			series = reader.findNextDirectoryRecord(series, true);
+		}
+	}
+
+	private void processSeriesRecord(DicomObject series, DicomDirReader reader) throws Exception {
+		if (!RecordType.SERIES.name().equals(series.getString(Tag.DirectoryRecordType))) return;
+		
+		if (series.getString(Tag.SeriesInstanceUID) == null) {
+			logInvalidDicomDirError("Series");
+			return;
+		}
+		
+		// 元の仕様通り、Instanceレベルの検索では ignorePrivate ではなくハードコードで true を渡す
+		DicomObject instance = reader.findLowerDirectoryRecord(series, true);
+		Log.message(Level.INFO, "Parsing DICOMDIR -Series");
+		
+		while (instance != null) {
+			processInstanceRecord(instance, reader);
+			instance = reader.findNextDirectoryRecord(instance, true);
+		}
+	}
+
+	private void processInstanceRecord(DicomObject instance, DicomDirReader reader) {
+		if (!RecordType.IMAGE.name().equals(instance.getString(Tag.DirectoryRecordType))) return;
+		
+		File file = toFileName(instance, reader);
+		if (file != null && file.exists()) {
+			addImportCandidate(file);
+		} else {
+			Log.message(Level.SEVERE, "File : " + (file != null ? file.getAbsolutePath() : "null")
+					+ " is not exists at this location specified in dicomdir...");
+		}
+	}
+
 	public ArrayList<String> selectCandidateUsingStudyUID(String willImportStudyUID) {
-		ArrayList<String> list = new ArrayList<String>();
-		for (String p2dcm : dcmFileCandidate.keySet()) {
-			String[] info = dcmFileCandidate.get(p2dcm);
-			if (willImportStudyUID.equals(info[1])) {
-				list.add(p2dcm);
+		ArrayList<String> list = new ArrayList<>();
+		for (Map.Entry<String, String[]> entry : dcmFileCandidates.entrySet()) {
+			if (willImportStudyUID.equals(entry.getValue()[1])) {
+				list.add(entry.getKey());
 			}
 		}
 		return list;
 	}
 
-	private void setSelectedFiles(File[] files){
+	private void setSelectedFiles(File[] files) {
 		this.files = files;
 	}
 	
-	/*
-	 * To read will import dicomdir. 
-	 * From https://github.com/nroduit/Weasis/blob/master/weasis-dicom/weasis-dicom-
-	 * explorer/src/main/java/org/weasis/dicom/explorer/DicomDirLoader.java
-	 */
 	private File toFileName(DicomObject dcmObject, DicomDirReader reader) {
-		String[] fileID = dcmObject.getStrings(Tag.Referenced​File​ID);
+		String[] fileID = dcmObject.getStrings(Tag.ReferencedFileID);
 		if (fileID == null || fileID.length == 0) {
 			return null;
 		}
@@ -304,8 +289,6 @@ public class DicomFileCollection {
 		}
 		File file = new File(reader.getFile().getParent(), sb.toString());
 		if (!file.exists()) {
-			// Try to find lower case relative path, it happens sometimes when mounting
-			// cdrom on Linux
 			File fileLowerCase = new File(reader.getFile().getParent(), sb.toString().toLowerCase());
 			if (fileLowerCase.exists()) {
 				file = fileLowerCase;

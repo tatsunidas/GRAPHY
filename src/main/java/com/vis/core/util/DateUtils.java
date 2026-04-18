@@ -64,6 +64,8 @@ public class DateUtils {
 	//see also DateUtils.
 	private static DateFormat timeFormat = new SimpleDateFormat("kk:mm:ss.SSS");//use kk instead HH for represent 24 hour.
 	
+	private static final String DICOM_DATE_FORMAT = "yyyyMMdd";
+    private static final String DICOM_TIME_FORMAT = "HHmmss"; // 少数以下が不要な場合
 
     public static final Date[] EMPTY_DATES = {};
 
@@ -547,4 +549,64 @@ public class DateUtils {
 			return null;
 		}
 	}
+	
+	/**
+     * Dateオブジェクトから DICOM Date文字列 (DA: yyyyMMdd) を生成します。
+     */
+    public static String toDicomDateString(Date date) {
+        if (date == null) return null;
+        return new SimpleDateFormat(DICOM_DATE_FORMAT).format(date);
+    }
+
+    /**
+     * Dateオブジェクトから DICOM Time文字列 (TM: HHmmss) を生成します。
+     */
+    public static String toDicomTimeString(Date date) {
+        if (date == null) return null;
+        return new SimpleDateFormat(DICOM_TIME_FORMAT).format(date);
+    }
+    
+    /**
+     * DICOM Date文字列 (DA: yyyyMMdd) のみを Dateオブジェクトに変換します。(時刻は 00:00:00 になります)
+     */
+    public static Date fromDicomDateString(String dicomDate) {
+        if (dicomDate == null || dicomDate.trim().isEmpty()) return null;
+        try {
+            return new SimpleDateFormat("yyyyMMdd").parse(dicomDate.trim());
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * DA（日付）とTM（時刻）を別々にDateに戻すのではなく、両方を結合して1つの正確なDateオブジェクトに戻す
+     * 
+     * e.g., Date studyDate = fromDicomDateTimeString(String dicomDate, String dicomTime);
+     * 
+     */
+    public static Date fromDicomDateTimeString(String dicomDate, String dicomTime) {
+        if (dicomDate == null || dicomDate.trim().isEmpty()) return null;
+        
+        // 時刻が空の場合は 00:00:00 (000000) として扱う
+        String timePart = (dicomTime == null || dicomTime.trim().isEmpty()) ? "000000" : dicomTime.trim();
+        
+        // TM に小数点が含まれている場合 (例: 123612.123) は、秒までの "123612" に切り詰める（安全対策）
+        if (timePart.contains(".")) {
+            timePart = timePart.substring(0, timePart.indexOf("."));
+        }
+        
+        // 桁数が足りない場合(HHmmssに満たない場合)の簡単なパディング補完
+        while (timePart.length() < 6) {
+            timePart += "0";
+        }
+
+        try {
+            // yyyyMMdd + HHmmss を結合して一気にパース
+            return new SimpleDateFormat("yyyyMMddHHmmss").parse(dicomDate + timePart);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return null; // パース失敗時はnullを返す
+        }
+    }
 }

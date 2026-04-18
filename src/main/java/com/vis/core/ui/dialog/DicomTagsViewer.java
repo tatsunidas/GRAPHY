@@ -101,6 +101,18 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		getContentPane().add(scrollPane, BorderLayout.CENTER);
 		model = new DefaultTableModel(tagsData, tagViewHeader);
 		dicomTagTable = new JTable(model);
+		
+		// ★追加：テーブルの自動リサイズをオフにし、水平スクロールを有効にする
+		dicomTagTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+
+		// ★追加：各列の初期の推奨幅（ピクセル）を設定して見やすくする
+		if (dicomTagTable.getColumnModel().getColumnCount() == 4) {
+			dicomTagTable.getColumnModel().getColumn(0).setPreferredWidth(150); // gggg,eeee (ネストの > が入るため少し広め)
+			dicomTagTable.getColumnModel().getColumn(1).setPreferredWidth(250); // Name
+			dicomTagTable.getColumnModel().getColumn(2).setPreferredWidth(50); // VR
+			dicomTagTable.getColumnModel().getColumn(3).setPreferredWidth(450); // Value (値が長いことが多いので広め)
+		}
+		
 		scrollPane.setViewportView(dicomTagTable);
 		renderer = new HighlightTableCellRenderer();
 		dicomTagTable.setDefaultRenderer(Object.class, renderer);

@@ -71,6 +71,10 @@ import javax.swing.JCheckBox;
 import javax.swing.JRadioButton;
 import javax.swing.JComboBox;
 
+/**
+ * copyright Visionary Imaging Services, Inc.
+ * @author tatsunidas
+ */
 public class ImportNonDicomImagePanel extends JPanel{
 
 	private static final long serialVersionUID = 1L;
@@ -81,6 +85,12 @@ public class ImportNonDicomImagePanel extends JPanel{
 	private JTextField textField_study;
 	private JTextField textField_series;
 	private ButtonGroup btnGroupSex;
+	
+	private JRadioButton rdbtnMale;
+	private JRadioButton rdbtnFemale;
+	private JRadioButton rdbtnOther;
+	private JRadioButton rdbtnNone;
+	
 	private JComboBox<StudyContext> comboBoxStudies;
 	private JCheckBox chckbxAddToExisting;
 	
@@ -89,6 +99,12 @@ public class ImportNonDicomImagePanel extends JPanel{
 	DatabaseHandler db = DatabaseHandler.getInstance();
 	
 	public ImportNonDicomImagePanel() {
+		initLayout();
+		setupListeners();
+	}
+	
+	
+	private void initLayout() {
 		GridBagLayout gridBagLayout = new GridBagLayout();
 		gridBagLayout.columnWidths = new int[]{0, 0, 231, 0, 0};
 		gridBagLayout.rowHeights = new int[]{0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 0};
@@ -133,21 +149,6 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_textField_pid.gridy = 1;
 		add(textField_pid, gbc_textField_pid);
 		//textField_pid.setColumns(30);
-		// Add a key adapter to the text field
-		textField_pid.addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-				int keyCode = e.getKeyCode();
-				if(keyCode == KeyEvent.VK_ENTER) {
-					Log.logger.fine("Key Pressed: " + KeyEvent.getKeyText(keyCode));
-					searchInDB();
-				}
-			}
-			@Override
-			public void keyReleased(KeyEvent e) {
-				searchInDB();
-			}
-		});
 		
 		JLabel lblPatientName = new JLabel("Patient Name");
 		GridBagConstraints gbc_lblPatientName = new GridBagConstraints();
@@ -199,19 +200,19 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_panel.gridy = 4;
 		add(panel, gbc_panel);
 		
-		JRadioButton rdbtnMale = new JRadioButton("Male");
+		rdbtnMale = new JRadioButton("Male");
 		rdbtnMale.setActionCommand("Male");
 		panel.add(rdbtnMale);
 		
-		JRadioButton rdbtnFemale = new JRadioButton("Female");
+		rdbtnFemale = new JRadioButton("Female");
 		rdbtnFemale.setActionCommand("Female");
 		panel.add(rdbtnFemale);
 		
-		JRadioButton rdbtnOther = new JRadioButton("Other");
+		rdbtnOther = new JRadioButton("Other");
 		rdbtnOther.setActionCommand("Other");
 		panel.add(rdbtnOther);
 		
-		JRadioButton rdbtnNone = new JRadioButton("None");
+		rdbtnNone = new JRadioButton("None");
 		rdbtnNone.setActionCommand("None");
 		panel.add(rdbtnNone);
 		
@@ -236,24 +237,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_chckbxAddToExisting.gridx = 2;
 		gbc_chckbxAddToExisting.gridy = 5;
 		add(chckbxAddToExisting, gbc_chckbxAddToExisting);
-		// Add an action listener to the checkbox
-		chckbxAddToExisting.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if(chckbxAddToExisting.isSelected()) {
-					comboBoxStudies.setEnabled(true);
-					comboBoxStudies.setEditable(false);
-					textField_study.setEnabled(false);
-					textField_study.setEditable(false);
-					
-				}else {
-					comboBoxStudies.setEnabled(false);
-					textField_study.setEnabled(true);
-					textField_study.setEditable(true);
-				}
-			}
-		});
-		
+
 		comboBoxStudies = new JComboBox<>();
 		comboBoxStudies.setEditable(true);
 		// Set the preferred size of the JComboBox
@@ -308,7 +292,29 @@ public class ImportNonDicomImagePanel extends JPanel{
 		gbc_rigidArea_3.gridx = 3;
 		gbc_rigidArea_3.gridy = 9;
 		add(rigidArea_3, gbc_rigidArea_3);
+	}
+	
+	private void setupListeners() {
 		
+		textField_pid.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				int keyCode = e.getKeyCode();
+				if(keyCode == KeyEvent.VK_ENTER) {
+					Log.logger.fine("Key Pressed: " + KeyEvent.getKeyText(keyCode));
+					searchInDB();
+				}
+			}
+			@Override
+			public void keyReleased(KeyEvent e) {
+				searchInDB();
+			}
+		});
+		
+		chckbxAddToExisting.addActionListener(e -> {
+			updateFieldsState(); // DB通信はせず、UIの切り替えだけを行う
+		});
+				
 		//listener
 		AlphanumericTextKeyListener pnameTextListener = new AlphanumericTextKeyListener(64,
 				AlphanumericTextKeyListener.pname_acceptables);
@@ -319,58 +325,44 @@ public class ImportNonDicomImagePanel extends JPanel{
 		textField_pid.addKeyListener(pidTextListener);
 		textField_pname.addKeyListener(pnameTextListener);
 		textField_dob.addKeyListener(dobTextListener);
-		
+	}
+	
+	// 選択された性別のDICOM文字列を取得する
+	private String getSelectedSex() {
+		if (rdbtnMale.isSelected())
+			return "M";
+		if (rdbtnFemale.isSelected())
+			return "F";
+		if (rdbtnOther.isSelected())
+			return "O";
+		return null; // None
+	}
+
+	// DBから取得した性別文字列をラジオボタンに反映する
+	private void setSexSelection(String sex) {
+		if ("M".equals(sex)) {
+			rdbtnMale.setSelected(true);
+		} else if ("F".equals(sex)) {
+			rdbtnFemale.setSelected(true);
+		} else if ("O".equals(sex)) {
+			rdbtnOther.setSelected(true);
+		} else {
+			rdbtnNone.setSelected(true);
+		}
 	}
 	
 	public void searchInDB() {
-		DatabaseHandler db = DatabaseHandler.getInstance();
 		if (textField_pid != null && db != null) {
 			String pid = textField_pid.getText();
-			if (pid != null && pid.strip().length()!=0) {
+			if (pid != null && !pid.trim().isEmpty()) { // strip().length()!=0 から変更
 				HashMap<String, String> info = db.getPatientInfo(pid);
 				if (info != null) {
 					textField_pname.setText(info.get("PatientName"));
 					textField_dob.setText(info.get("PatientBirthDate"));
-					String sex = info.get("PatientSex");
 					
-					Log.logger.fine("PID key listener is working!"+":"+pid+"_"+info.get("PatientName")+"_"+info.get("PatientBirthDate")+"_"+sex);
+					// ★ わずか1行で完了！
+					setSexSelection(info.get("PatientSex"));
 					
-					if (sex != null) {
-						Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
-						while (iter.hasNext()) {
-							AbstractButton currentButton = iter.next();
-							if (sex.equals("M")) {
-								if (currentButton.getActionCommand().equals("Male")) {
-									btnGroupSex.setSelected(currentButton.getModel(), true);
-									break;
-								}
-							} else if (sex.equals("F")) {
-								if (currentButton.getActionCommand().equals("Female")) {
-									btnGroupSex.setSelected(currentButton.getModel(), true);
-									break;
-								}
-							} else if (sex.equals("O")) {
-								if (currentButton.getActionCommand().equals("Other")) {
-									btnGroupSex.setSelected(currentButton.getModel(), true);
-									break;
-								}
-							} else {//for anonymized data
-								if (currentButton.getActionCommand().equals("None")) {
-									btnGroupSex.setSelected(currentButton.getModel(), true);
-									break;
-								}
-							}
-						}
-					}else {
-						Iterator<AbstractButton> iter = btnGroupSex.getElements().asIterator();
-						while (iter.hasNext()) {
-							AbstractButton currentButton = iter.next();
-							if (currentButton.getActionCommand().equals("None")) {
-								btnGroupSex.setSelected(currentButton.getModel(), true);
-								break;
-							}
-						}
-					}
 					//update state of ComboBox
 					whetherItCanBeAddedToStudy(pid);
 				}
@@ -391,19 +383,14 @@ public class ImportNonDicomImagePanel extends JPanel{
 		String pid = textField_pid.getText();
 		String pname = textField_pname.getText();
 		String dob = textField_dob.getText();
-		String sex = btnGroupSex.getSelection().getActionCommand();
-		if(sex.equals("Male")) {
-			sex = "M";
-		}else if(sex.equals("Female")) {
-			sex = "F";
-		}else if(sex.equals("Other")) {
-			sex = "O";
-		}else if(sex.equals("None")) {
-			sex = null;
-		}
+		
+		// ★ わずか1行で安全に取得！
+		String sex = getSelectedSex();
+		
 		String study_uid = getSelectedStudyIUID();
 		String study_desc = null;
 		String series_desc = null;
+		
 		if(isImportNew()) {
 			study_desc = textField_study.getText();
 			series_desc = textField_series.getText();
@@ -414,13 +401,13 @@ public class ImportNonDicomImagePanel extends JPanel{
 		}
 		
 		HashMap<Integer,String> info = new HashMap<>();
-		info.put(Tag.Patient​ID, pid);
-		info.put(Tag.Patient​Name, pname);
-		info.put(Tag.Patient​Birth​Date, dob);
-		info.put(Tag.Patient​Sex, sex);
-		info.put(Tag.Study​Description, study_desc);
-		info.put(Tag.Series​Description, series_desc);
-		info.put(Tag.Study​Instance​UID, study_uid);
+		info.put(Tag.PatientID, pid);      // 注意: 元コードでTag.Patient​ID にゼロ幅スペースが入っていたかもしれません
+		info.put(Tag.PatientName, pname);
+		info.put(Tag.PatientBirthDate, dob);
+		info.put(Tag.PatientSex, sex);
+		info.put(Tag.StudyDescription, study_desc);
+		info.put(Tag.SeriesDescription, series_desc);
+		info.put(Tag.StudyInstanceUID, study_uid);
 		return info;
 	}
 	
@@ -455,29 +442,28 @@ public class ImportNonDicomImagePanel extends JPanel{
 		changeStateThereAreNoStudies(nostudy);
 	}
 	
-	void changeStateThereAreNoStudies(boolean yes) {
-		if(yes) {
-			textField_study.setEditable(true);
-			chckbxAddToExisting.setSelected(false);
-			chckbxAddToExisting.setEnabled(false);
-			comboBoxStudies.setEnabled(false);
-			textField_study.setEnabled(true);
-			textField_study.setEditable(true);
-		}else {
-			chckbxAddToExisting.setEnabled(true);
-			if(chckbxAddToExisting.isSelected()) {
-				comboBoxStudies.setEnabled(true);
-				comboBoxStudies.setEditable(false);
-				textField_study.setEnabled(false);
-				textField_study.setEditable(false);
-				
-			}else {
-				comboBoxStudies.setEnabled(false);
-				textField_study.setEnabled(true);
-				textField_study.setEditable(true);
-			}
-		}
+	// 1. チェックボックスの状態に合わせて、コンボボックスとテキストフィールドを切り替えるだけの処理
+	private void updateFieldsState() {
+		boolean isAddToExisting = chckbxAddToExisting.isSelected();
+
+		comboBoxStudies.setEnabled(isAddToExisting);
+
+		textField_study.setEnabled(!isAddToExisting);
+		textField_study.setEditable(!isAddToExisting);
+
 		repaint();
+	}
+
+	// 2. DB検索の結果（既存Studyがあるかないか）を受け取って、チェックボックス自体の有効/無効を決める処理
+	void changeStateThereAreNoStudies(boolean noStudyFound) {
+		// 既存のStudyがない場合、チェックボックスは強制オフ＆無効化
+		chckbxAddToExisting.setEnabled(!noStudyFound);
+		if (noStudyFound) {
+			chckbxAddToExisting.setSelected(false);
+		}
+
+		// 最後にUIの表示状態を更新
+		updateFieldsState();
 	}
 	
 	class StudyContext{

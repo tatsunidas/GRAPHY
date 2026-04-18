@@ -169,39 +169,12 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	/**
-	 * calc origin xy on image specimen ( which has same size of view panel).
-	 * Ignored panning.
-	 * 
-	 * @param newImgW
-	 * @param newImgH
-	 * @return
-	 */
-	Point calcDefaultImageOriginIgnoreInsets(int newImgW, int newImgH) {
-		/*
-		 * Insets is the ImageSpecimenGlass's Insets.
-		 * ImageSpecimen does not have Border, so insets always 0.
-		 * To be explicit code.
-		 */
-		Insets insets = getInsets();//the border's insets
-       int x = (getWidth() - insets.left - insets.right - newImgW) / 2 ;
-       int y = (getHeight() - insets.top - insets.bottom - newImgH) / 2 ;
-		return new Point(x, y);
-	}
-	
-	/**
 	 * This method support the origin which is inside border area on slideglass.
-	 * 
-	 * @param newImgW
+	 * * @param newImgW
 	 * @param newImgH
 	 * @return
 	 */
 	Point calcDefaultImageOrigin(int newImgW, int newImgH) {
-		
-		if(sg.getPraparat().mode == Praparat.ViewMode.Thumbnail) {
-			Praparat pp = sg.getPraparat();
-			return calcDefaultImageOriginIgnoreInsets(pp.getWidth(), pp.getHeight());
-		}
-		
 		Insets insets = sg.getInsets(); // the border's insets from slideglass
 		int marginX = (getWidth() - insets.left - insets.right - newImgW) / 2;
 		int marginY = (getHeight() - insets.top - insets.bottom - newImgH) / 2;
@@ -227,13 +200,6 @@ public class ImageSpecimenGlass extends JPanel{
 		Insets insets = sg.getInsets();//the border's insets
 		int drawableWidth = getWidth() - insets.left - insets.right;
 		int drawableHeight = getHeight() - insets.top - insets.bottom;
-		
-		if(sg.getPraparat().mode == Praparat.ViewMode.Thumbnail) {
-			Praparat pp = sg.getPraparat();
-			insets = pp.getInsets();//the border's insets
-			drawableWidth = pp.getWidth() - insets.left - insets.right;
-			drawableHeight = pp.getHeight() - insets.top - insets.bottom;
-		}
 		
 		int bound_width = drawableWidth;
 		int bound_height = drawableHeight;
@@ -328,7 +294,16 @@ public class ImageSpecimenGlass extends JPanel{
 			throw new IllegalArgumentException("ImageSpecimen DicomImage can not ready. Cannot set image to show.");
 		}
 		if(img != null) {
-			if(img.getNChannels() == dcmImg.getSamples() && img.getWidth() == orgCols && img.getHeight() == orgRows) {
+			// do not use getNChannels(), this will return 1 even if it is RGB.
+			int imgSamples = img.getProcessor() instanceof ColorProcessor ? 3 : 1;
+			
+			int samples = sg.isRGB ? 3:1;
+			
+			if(sg.isPDF) {
+				samples = 3;
+			}
+			
+			if(imgSamples == samples && img.getWidth() == orgCols && img.getHeight() == orgRows) {
 				this.orgImg = img;
 				updateDisplayImage();
 			}else {

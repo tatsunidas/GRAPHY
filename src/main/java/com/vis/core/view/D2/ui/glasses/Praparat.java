@@ -643,6 +643,10 @@ public class Praparat extends JPanel {
 				instHeader.setInt(Tag.Rows, VR.US, page.getHeight());
 				instHeader.setInt(Tag.Samples​Per​Pixel, VR.US, 3);
 				instHeader.setInt(Tag.Bits​Allocated, VR.US, 8);
+				instHeader.setInt(Tag.Bits​Stored, VR.US, 8);
+				instHeader.setInt(Tag.High​Bit, VR.US, 7);
+				instHeader.setString(Tag.Photometric​Interpretation, VR.CS, "RGB");
+				instHeader.setInt(Tag.Planar​Configuration, VR.US, 0);
 				DicomImage frame = DicomImage.newDicomImage(path2dcm, instHeader, fmi, UID.ExplicitVRLittleEndian, backend);
 				return new SlideGlass(this, frame);
 			};
@@ -2429,7 +2433,8 @@ public class Praparat extends JPanel {
 		if(mode == ViewMode.Thumbnail) {
 			for(Integer k : slides.keySet()) {
 				SlideGlass sg = slides.get(k);
-				sg.setSize(ThumbnailSize, ThumbnailSize);
+				// 実際の可視領域のサイズにピッタリ合わせる
+				sg.setSize(currentW, currentH);
 			}
 			prevViewPanelW = currentW;
 			prevViewPanelH = currentH;

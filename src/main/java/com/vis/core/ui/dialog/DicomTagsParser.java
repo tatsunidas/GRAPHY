@@ -18,6 +18,8 @@ import org.dcm4che3.util.TagUtils;
 public class DicomTagsParser implements DicomInputHandler {
 
 	public static ArrayList<DicomTagModel> tagsArray;
+	
+	private int depth = -1; // ★追加：ネストの深さを管理する変数
 
 	public DicomTagsParser() {
 		tagsArray = new ArrayList<DicomTagModel>();
@@ -25,6 +27,7 @@ public class DicomTagsParser implements DicomInputHandler {
 
 	public ArrayList<DicomTagModel> read(String path) {
 		tagsArray = new ArrayList<>();
+		depth = 0; // ★追加：新しいファイルを読み込むたびにリセットする
 		DicomInputStream dis = null;
 		try {
 			dis = new DicomInputStream(new File(path));
@@ -49,9 +52,6 @@ public class DicomTagsParser implements DicomInputHandler {
 //		dis.readDataset(-1, o -> false);//read all
 		dis.readDatasetUntilPixelData();//read pre-pixel data
 	}
-
-	@Override
-	public void endDataset(DicomInputStream arg0) throws IOException {}
 
 	@Override
 	public void readValue(DicomInputStream dis, Attributes attrs) throws IOException {
@@ -108,7 +108,20 @@ public class DicomTagsParser implements DicomInputHandler {
 	}
 
 	private void setTagVRAndLength(DicomInputStream dis, DicomTagModel tag) {
-		tag.setTag(TagUtils.toString(dis.tag()));
+		// ★変更：タグ番号の文字列（例: 0010,0010）を取得
+		String tagStr = TagUtils.toString(dis.tag());
+		
+		// ★追加：深さが1以上の場合は、その数だけ ">" を先頭にくっつける
+		if (depth > 0) {
+			StringBuilder prefix = new StringBuilder();
+			for (int i = 0; i < depth; i++) {
+				prefix.append(">");
+			}
+			tagStr = prefix.toString() + tagStr;
+		}
+		
+		// 生成した文字列をモデルにセット
+		tag.setTag(tagStr);
 		tag.setVR(new StringBuilder().append(dis.vr()).toString());
 		tag.setTagLength(String.valueOf(dis.length()));
 	}
@@ -120,6 +133,7 @@ public class DicomTagsParser implements DicomInputHandler {
 	@Override
 	public void readValue(DicomInputStream dis, Sequence seq) throws IOException {
 //		String privateCreator = seq.getParent().getPrivateCreator(dis.tag());
+		depth++;
 		DicomTagModel tag = new DicomTagModel();
 		setPosition(dis, tag);
 		setTagVRAndLength(dis, tag);
@@ -134,6 +148,7 @@ public class DicomTagsParser implements DicomInputHandler {
 			setName(dis, tag2);
 			tagsArray.add(tag2);
 		}
+		depth--; // ★追加：SequenceのItemから抜けるので、深さを-1して元に戻します
 	}
 
 	@Override
@@ -142,5 +157,9 @@ public class DicomTagsParser implements DicomInputHandler {
 
 	@Override
 	public void startDataset(DicomInputStream arg0) throws IOException {
+	}
+	
+	@Override
+	public void endDataset(DicomInputStream arg0) throws IOException {
 	}
 }

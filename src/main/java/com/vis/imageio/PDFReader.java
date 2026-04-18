@@ -364,8 +364,10 @@ public class PDFReader{
 			String sex,//M,F,O
 			java.util.Date studyDate,
 			java.util.Date studyTime,
+			String studyDesc,
 			java.util.Date contentDate,
 			java.util.Date contentTime,
+			String seriesDesc,
 			Integer seriesNo,
 			String studyUID,//if null setNew
 			String seriesUID//if null setNew
@@ -400,12 +402,13 @@ public class PDFReader{
 		}else {
 			attr.setDate(Tag.Study​Time, VR.TM, studyTime);
 		}
-//		if(studyID == null) {
-//			attr.setNull(Tag.Study​ID, VR.SH);
-//		}else {
-//			attr.setInt(Tag.Study​ID, VR.SH, studyID);
-//		}
+		if(studyDesc == null) {
+			attr.setNull(Tag.Study​Description, VR.LO);
+		}else {
+			attr.setString(Tag.Study​​Description, VR.LO, studyDesc);
+		}
 		//series
+		attr.setString(Tag.SeriesDescription, VR.LO, seriesDesc);
 		attr.setInt(Tag.Series​Number, VR.IS, seriesNo);
 		//instance
 		if(contentDate == null) {
@@ -418,23 +421,21 @@ public class PDFReader{
 		}else {
 			attr.setDate(Tag.Content​Time, VR.TM, contentTime);
 		}
-//		if(acquisitionDateTime == null) {
-//			attr.setNull(Tag.Acquisition​Date​Time, VR.DT);
-//		}else {
-//			attr.setDate(Tag.Acquisition​Date​Time, VR.DT, acquisitionDateTime);
-//		}
-//		attr.setNull(Tag.Accession​Number, VR.SH);
-//		attr.setNull(Tag.Referring​Physician​Name, VR.PN);
+		
+		// ★PDF特有の必須タグ
+		attr.setString(Tag.MIME​Type​Of​Encapsulated​Document, VR.LO, "application/pdf");
+		attr.setString(Tag.Burned​In​Annotation, VR.CS, "YES");
+//		attr.setString(Tag.ConversionType, VR.CS, "WSD");
+		
 		attr.setString(Tag.Modality, VR.CS, "OT");
 		attr.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc");
-//		attr.setString(Tag.Conversion​Type, VR.CS, "WSD");// workstation
+		
 		attr.setInt(Tag.Instance​Number, VR.IS, 1);
+		
 		attr.setString(Tag.Document​Title, VR.ST, doc.getDocumentInformation().getTitle());
 		attr.setInt(Tag.Number​Of​Frames, VR.IS, doc.getNumberOfPages());
-//		attr.setNull(Tag.Concept​Name​Code​Sequence, VR.SQ);
-//		attr.setString(Tag.MIME​Type​Of​Encapsulated​Document, VR.LO, "application/pdf");
-//		attr.setString(Tag.Burned​In​Annotation, VR.CS, burnedInAnnotation ? "YES":"NO");
-//		//UID
+		
+		// --- SOP Common Module ---
 		attr.setString(Tag.SOP​Class​UID, VR.UI, UID.EncapsulatedPDFStorage.uid());
 		attr.setString(Tag.Study​Instance​UID, VR.UI, studyUID != null ? studyUID:UIDUtils.createUID());
 		attr.setString(Tag.Series​Instance​UID, VR.UI, seriesUID != null ? seriesUID:UIDUtils.createUID());

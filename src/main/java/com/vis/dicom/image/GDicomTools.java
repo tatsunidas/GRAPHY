@@ -1039,7 +1039,7 @@ public class GDicomTools extends ij.util.DicomTools{
 
 //		String samplesPerPixel = GDicomTools.getTag(imp, "0028,0002");
 		int samplesPerPixel = imp.getProcessor() instanceof ColorProcessor ? 3 : 1; // DO NOT USE imp.getNChannels()
-		String planarConfigurationString = GDicomTools.getTag(imp, "0028,0006");
+//		String planarConfigurationString = GDicomTools.getTag(imp, "0028,0006");
 		int rows = imp.getHeight();// GDicomTools.getTag(imp, "0028,0010");
 		int cols = imp.getWidth();// GDicomTools.getTag(imp, "0028,0011");
 		String pixelSpacingYX = GDicomTools.getTag(imp, "0028,0030");
@@ -1051,7 +1051,11 @@ public class GDicomTools extends ij.util.DicomTools{
 		if (pixelSpacingZ <= 0.0) {
 			pixelSpacingZ = imp.getCalibration().pixelDepth;
 		}
-		int bitsAllocated = imp.getBitDepth();// GDicomTools.getTag(imp, "0028,0100");
+		/*
+		 * When RGB, imp.getBitDepth() will return 24.
+		 * In DICOM, RGB image should be 8-bit per-channel.
+		 */
+		int bitsAllocated = samplesPerPixel == 1 ? imp.getBitDepth():8;// GDicomTools.getTag(imp, "0028,0100");
 		String bitsStored = GDicomTools.getTag(imp, "0028,0101");
 		String highBit = GDicomTools.getTag(imp, "0028,0102");
 		String pixelRepresentationString = GDicomTools.getTag(imp, "0028,0103");
@@ -1061,7 +1065,17 @@ public class GDicomTools extends ij.util.DicomTools{
 		String intercept = GDicomTools.getTag(imp, "0028,1052");
 		String slope = GDicomTools.getTag(imp, "0028,1053");
 		setInt(dcm, Tag.Samples​Per​Pixel, samplesPerPixel);
-		setInt(dcm, Tag.Planar​Configuration, planarConfigurationString);// banded or not
+		
+		if (samplesPerPixel == 3) {
+			setInt(dcm, Tag.Bits​Allocated, 8);
+			setInt(dcm, Tag.Bits​Stored, 8);
+			setInt(dcm, Tag.High​Bit, 7);
+			setString(dcm, Tag.Photometric​Interpretation, "RGB");
+			setInt(dcm, Tag.Planar​Configuration, 0); // 0 = RGBがピクセルごとに並んでいる(RGBRGBRGB...)
+		} else {
+			setString(dcm, Tag.Photometric​Interpretation, "MONOCHROME2");
+		}
+		
 		setInt(dcm, Tag.Rows, rows);
 		setInt(dcm, Tag.Columns, cols);
 		setDoubles(dcm, Tag.Pixel​Spacing, pixelSpacingYX);

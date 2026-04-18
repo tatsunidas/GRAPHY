@@ -518,6 +518,18 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	
 	@Override
 	public boolean ensurePixelDataLoaded() {
+		
+		/*
+		 * PDFの場合、ここで新しくヘッダーを作り直すと
+		 * PDFのDICOMファイルにはSamplesPerPixelタグがないため、
+		 * 常にグレースケールとして判断されてしまう。
+		 * 現時点では、PDFは動画のようにバーチャルに読み出ししないため、
+		 * ここでは、ヘッダーを読み取って上書きせずに、そのまま返す。
+		 */
+		if (isPDF()) {
+			return true;
+		}
+		
 		if(this.filePath != null) {
 			// read from file dicom image
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
@@ -545,6 +557,11 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	
 	@Override
 	public void releasePixelBulkFromHeader() {
+		
+		if (isPDF()) {
+			return;
+		}
+		
 		if (this.filePath != null) {
 			// read from file dicom image
 			DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);

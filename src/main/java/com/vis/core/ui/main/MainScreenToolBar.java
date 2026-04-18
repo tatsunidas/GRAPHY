@@ -344,6 +344,7 @@ public class MainScreenToolBar extends JToolBar {
 					PreferencesWin.getInstance().setVisible(true);
 				}
 			});
+			break;
 		case TagExtractor:
 		    btn.addActionListener(e -> {
 		        DicomTagExtractorDialog dialog = new DicomTagExtractorDialog(WindowManager.getMainScreen());

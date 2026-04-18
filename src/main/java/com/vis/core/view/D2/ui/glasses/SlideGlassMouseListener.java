@@ -92,6 +92,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private int wheelRotationAccumulator = 0;
 	private final int wheelThreshold = 2;
 	
+	
 	/*
 	 * ghost dragging
 	 */
@@ -521,6 +522,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 					//if will rotate or move referencelines, return
 					refLines.mousePressed(pp, e.getX(), e.getY());
 					if(refLines.getState() != RoiObj.NORMAL) {
+						longPressTimer.stop(); // ★ 追記1：操作ラインを掴んだらゴーストドラッグのタイマーを止める
 						return;
 					}//else, continue to following.
 				}
@@ -548,7 +550,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		if (SwingUtilities.isLeftMouseButton(e)) {
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
-				System.out.println("Brushing with SHIFT key");
+				longPressTimer.stop();
 				cg.mousePressed(e);
 				return;
 			}
