@@ -653,9 +653,6 @@ public class SlideGlass extends JLayeredPane {
 		coverGlass.addMouseMotionListener(sgml);
 		coverGlass.addMouseWheelListener(sgml);
 		coverGlass.addKeyListener(new SlideGlassKeyListener(this));
-		if(pp.getViewMode() != ViewMode.Thumbnail) {
-			loadRoiFromDB();
-		}
 		imageSpecimen.updateDisplayImage();
 	}
 	

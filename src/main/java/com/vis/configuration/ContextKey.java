@@ -51,7 +51,8 @@ public enum ContextKey {
 	FrameOfReferenceUID,
 	RoiID,
 	Name,
-	InstanceNo,//int //this is NOT slice position!! //int
+	InstanceNo,//int
+	Position, //int, frame position in series viewer, 1 to N.
 	StudyDate,
 	CrossSection, // AXI, SAG, COR
 	RoiType, //int
@@ -60,7 +61,8 @@ public enum ContextKey {
 	ObjectType,//string target object type, e.g., target lesion.
 	Organ,//string
 	Description,//for textroi and any context.string
-	RoiMetaProperties;
+	RoiMetaProperties // see, RoiMetaContextKey
+	;
 	
 	public static boolean checkPropertyKey(String key) {
 		for (ContextKey k : ContextKey.values()) {

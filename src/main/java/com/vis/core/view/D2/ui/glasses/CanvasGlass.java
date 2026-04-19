@@ -656,6 +656,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String studyUid = sg.getStudyInstanceUID();
 		String seriesUid = sg.getSeriesInstanceUID();
 		String sopUid = sopUID;
+		
+		Integer currentInstanceNo = sg.getInstanceNo();
+		
 		ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, sopUid);
 		synchronized(cons) {
 			if(cons != null && cons.size() > 0) {
@@ -663,6 +666,18 @@ public class CanvasGlass extends javax.swing.JPanel {
 					RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
 					if(roi == null) {
 						continue;
+					}
+					
+					String instNoStr = roi.getProperty(ContextKey.InstanceNo.name());
+					if (instNoStr != null && currentInstanceNo != null) {
+						try {
+							int roiInstNo = Integer.parseInt(instNoStr);
+							if (roiInstNo != currentInstanceNo) {
+								continue; // 別のフレームのROIなのでスキップ
+							}
+						} catch (NumberFormatException e) {
+							// 数値パースエラー時は安全のためそのまま通過させる
+						}
 					}
 					roi.setSlideGlass(sg);
 					if (!this.roiset.contains(roi)) {

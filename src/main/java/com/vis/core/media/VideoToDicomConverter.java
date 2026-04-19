@@ -4,12 +4,9 @@
  */
 package com.vis.core.media;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
-import com.vis.core.log.Log;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomWriter;

@@ -58,6 +58,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -66,16 +67,21 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.LineBorder;
 
+import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.plugin.PlugIn;
 import com.vis.core.plugin.PluginShelf;
 import com.vis.core.plugin.ToolbarPlugIn;
 import com.vis.core.radiomics.RadiomicsWindow;
+import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.dialog.WandToolDialog;
 import com.vis.core.util.ImageUtils;
+import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
@@ -716,6 +722,16 @@ public class Viewer2DToolBar extends JToolBar{
 					setSelectedToolBackground();
 				}
 			});
+			// 右クリックを検知してオプションダイアログを開く
+			chk.addMouseListener(new java.awt.event.MouseAdapter() {
+				@Override
+				public void mouseClicked(java.awt.event.MouseEvent e) {
+					// 右クリック（またはMacのControl+クリック）を検知
+					if (SwingUtilities.isRightMouseButton(e)) {
+						showBrushOptionsDialog();
+					}
+				}
+			});
 			break;
 		case "wand":
 			chk.addActionListener(new ActionListener() {
@@ -1005,5 +1021,48 @@ public class Viewer2DToolBar extends JToolBar{
 		pluginListPanel.repaint();
 		revalidate();
 		repaint();
+	}
+	
+	/**
+	 * ブラシオプショントグルダイアログを表示し、プロパティを更新する
+	 */
+	private void showBrushOptionsDialog() {
+		// 1. 現在の設定をプロパティから読み込む
+		int currentSize = 15; // default
+		String sizeStr = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize);
+		if (sizeStr != null) {
+			try {
+				currentSize = Integer.parseInt(sizeStr.trim());
+			} catch (NumberFormatException e) {}
+		}
+		
+		String currentType = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType);
+		if (currentType == null) {
+			currentType = "Circle";
+		}
+
+		// 2. OptionDialog を作成して表示する
+		OptionDialog gd = new OptionDialog("Brush Options", (JFrame)WindowManager.getWindow(ConfigInfo.D2ViewerWindow));
+		gd.addNumericField("Brush Size", currentSize, 0, 5, "pixels");
+		gd.addChoice("Brush Type", new String[]{"Circle", "Square"}, currentType);
+		gd.pack();
+		gd.showDialog();
+
+		// キャンセルされたら何もしない
+		if (gd.wasCanceled()) return;
+
+		// 3. 入力された値を取得
+		int newSize = (int) gd.getNextNumber();
+		String newType = gd.getNextChoice();
+
+		// 安全のためのガード（1未満や大きすぎるサイズを防ぐ）
+		if (newSize < 1) newSize = 1;
+		if (newSize > 500) newSize = 500;
+
+		// 4. プロパティに書き込んで保存する
+		// （※PropertiesUtil の正確な set/save メソッド名に合わせて調整してください）
+		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize, String.valueOf(newSize));
+		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType, newType);
+		
 	}
 }

@@ -1,3 +1,7 @@
+/**
+ * copyright Visionary Imaging Services, Inc.
+ * @author tatsunidas
+ */
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.BorderLayout;
@@ -191,6 +195,7 @@ public class CineSlider extends JPanel implements ActionListener {
 			}
 		}
 		
+		
 		/*
 		 * paging
 		 */
@@ -203,15 +208,17 @@ public class CineSlider extends JPanel implements ActionListener {
 				return;
 			}
 			JSlider source = (JSlider) e.getSource();
-			int nextpos = (int) source.getValue();// 1 to n
-			/*
-			 * When switch GridView, as possible same slice position.
-			 */
-//			if(nextpos != currentSliceIndex) {
+			
+			// ★ ここがポイント：ドラッグ中（調整中）はスキップし、動かし終わった時だけ処理する
+			if (!source.getValueIsAdjusting()) {
+				int nextpos = (int) source.getValue();// 1 to n
+				/*
+				 * When switch GridView, as possible same slice position.
+				 */
 				currentSliceIndex = nextpos;
 				pp.setImagePosition(currentSliceIndex-1);//0 to n-1
 				pp.callBackLocalizer();
-//			}
+			}
 		}
 	}
 }

@@ -400,19 +400,23 @@ public class RadiomicsPanel extends JPanel{
 	}
 	
 	public void saveRois(HashMap<String, List<RoiObj>> roiset, File dir) {
-		File saveTo = new File(dir.getAbsolutePath()+File.separator+"ROI");
-		for(String className : roiset.keySet()) {
-			File saveTo_ = new File(saveTo.getAbsolutePath()+File.separator+className);
-			saveTo_.mkdirs();
-			List<RoiObj> rois = roiset.get(className);
-			int itr = 1;
-			for(RoiObj ro : rois) {
-				if(ro !=null) {
-					String rName = className+"_"+itr;
-					RoiObjManager.saveRoi(ro, saveTo_.getAbsolutePath()+File.separator+rName+".roi");
+		try {
+			File saveTo = new File(dir.getCanonicalPath()+File.separator+"ROI");
+			for(String className : roiset.keySet()) {
+				File saveTo_ = new File(saveTo.getCanonicalPath()+File.separator+className);
+				saveTo_.mkdirs();
+				List<RoiObj> rois = roiset.get(className);
+				int itr = 1;
+				for(RoiObj ro : rois) {
+					if(ro !=null) {
+						String rName = className+"_"+itr;
+						RoiObjManager.saveRoi(ro, saveTo_.getCanonicalPath()+File.separator+rName+".roi");
+					}
+					itr++;
 				}
-				itr++;
 			}
+		}catch(IOException e) {
+			e.printStackTrace();
 		}
 	}
 	

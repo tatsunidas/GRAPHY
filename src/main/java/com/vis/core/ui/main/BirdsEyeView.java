@@ -68,6 +68,9 @@ import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.Tag;
 
+/**
+ * @author tatsunidas
+ */
 @SuppressWarnings("serial")
 public class BirdsEyeView extends JPanel{
 	
@@ -93,6 +96,9 @@ public class BirdsEyeView extends JPanel{
 	public static final int thumbnailSize = 64 + 24;//88
 	
 	Dimension minSize = new Dimension(64, 64);
+	
+	// ★追加：現在実行中のレンダリングタスクIDを管理
+	private final java.util.concurrent.atomic.AtomicLong renderTaskId = new java.util.concurrent.atomic.AtomicLong(0);
 	
 	Logger logger = Log.logger;
 	
@@ -296,15 +302,11 @@ public class BirdsEyeView extends JPanel{
 		pInfo.clear();
 		repaint();
 	}
-	
-	/**
-	 * load only one study.
-	 * @param patId
-	 * @param studyUid
-	 * @param selectedSeriesUIDs : selected series in it's study on treetable
-	 * @param selectedSopUIDs : selected images in series in it's study on treetable
-	 */
+		
 	public void showImages(String patId, String studyUid, ArrayList<String> selectedSeriesUIDs/*nullable*/, HashMap<String, ArrayList<String>> selectedSopUIDs/*nullable*/) {
+		// タスクIDを発行
+		final long myTaskId = renderTaskId.incrementAndGet();
+
 		if(db == null) {
 			db = DatabaseHandler.getInstance();
 		}
@@ -313,9 +315,15 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		ArrayList<String> allSeriesUIDList = db.getSeriesUidList(patId,studyUid);
-//		ArrayList<String> allInstUIDList = db.getAllInstanceUIDsFromSTUDY(studyUid);
 		
-		resetViews(false/*clearPatientInfo*/);
+		// ★ 修正 1：invokeAndWait を使って、確実に画面の初期化（リセット）が終わるまで待機させる！
+		try {
+			javax.swing.SwingUtilities.invokeAndWait(() -> {
+				resetViews(false/*clearPatientInfo*/);
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 		currentStudyUID = studyUid;
 		
@@ -326,39 +334,71 @@ public class BirdsEyeView extends JPanel{
 		}
 		
 		HashMap<String,String> infoset = db.getInfoset(patId, currentStudyUID, currentSeriesUID);
-		setPatientInfo(infoset);
+		
+		javax.swing.SwingUtilities.invokeLater(() -> {
+			setPatientInfo(infoset);
+		});
 
-		/*
-		 * thumbnails: praparat list holder
-		 * Deduplicate by Series UID to prevent duplicate thumbnails
-		 * when multiple clicks trigger concurrent showImages() calls.
-		 */
 		Set<String> addedSeriesUIDs = new HashSet<>();
+		
+		// ★ 修正 2：後でグリッドに表示するためのターゲットを保持する変数を用意
+		Praparat targetThumbnail = null;
+
 		for(String series : allSeriesUIDList) {
+			// タスクキャンセルのガード
+			if (myTaskId != renderTaskId.get()) {
+				return; 
+			}
+
 			if(addedSeriesUIDs.contains(series)) {
 				continue;
 			}
 			addedSeriesUIDs.add(series);
-			//add thumbnails
+			
 			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(patId, studyUid, series);
+			Praparat th = null;
+			
 			if(sopUidsInSeries != null && sopUidsInSeries.size() > 0) {
-				Praparat th = new Praparat(ViewMode.Thumbnail);
+				th = new Praparat(ViewMode.Thumbnail);
 				String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
-				th.prepareSlideGlasses(patId, studyUid, series, sopUids);
+				th.prepareSlideGlasses(patId, studyUid, series, sopUids); 
 				th.setTextVisible(false);
 				th.setAnnotationVisible(false);
 				th.doSingleGridLayout();
-				addSeries(th);
-			}else {
-				addSeries(null);
+				
+				// ★ 修正 3：現在選択されているシリーズなら、ここで実体を確保しておく！
+				if(series.equals(currentSeriesUID)) {
+					targetThumbnail = th;
+				}
 			}
-			if(series.equals(currentSeriesUID)) {
-				seriesListView.highlightSelectedThumbnail(currentSeriesUID);
-			}
+
+			final Praparat finalTh = th;
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				if (myTaskId == renderTaskId.get()) {
+					addSeries(finalTh);
+					if(series.equals(currentSeriesUID)) {
+						seriesListView.highlightSelectedThumbnail(currentSeriesUID);
+					}
+				}
+			});
 		}
-		showImagesFromThumbnailAction(seriesListView.getThumbnail(currentSeriesUID));
-		highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
-		birdsEyeSplit.setDividerLocation(thumbnailSize);
+		
+		final Praparat finalTarget = targetThumbnail;
+		
+		// ループ完走後、確保しておいた実体を使ってグリッドに画像をロードする
+		if (myTaskId == renderTaskId.get() && finalTarget != null) {
+			
+			// ★ 修正 4：UIから探すのではなく、確保した実体を直接渡す！
+			// (この処理自体も重いため、バックグラウンドスレッドのまま実行します)
+			showImagesFromThumbnailAction(finalTarget);
+			
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				if (myTaskId == renderTaskId.get()) {
+					highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
+					birdsEyeSplit.setDividerLocation(thumbnailSize);
+				}
+			});
+		}
 	}
 	
 	/**

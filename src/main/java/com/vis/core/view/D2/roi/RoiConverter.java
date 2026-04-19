@@ -44,6 +44,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 
 import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.log.Log;
 
 import ij.gui.Roi;
@@ -62,6 +63,9 @@ public class RoiConverter {
 		}
 		int type = roiObj.getType();
 		RoiType t = RoiType.find(type);
+		ij.process.FloatPolygon fp;
+		float[] pointsX;
+		float[] pointsY;
 		switch(t) {
 		case RECTANGLE:
 			double x = roiObj.getXBase();
@@ -70,19 +74,34 @@ public class RoiConverter {
 			int h = roiObj.height;
 			return copyProperties2IJRoi(roiObj, new Roi(x,y,w,h));
 		case POLYGON:
-			ij.gui.PolygonRoi polygon = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.POLYGON);
+			fp = roiObj.getFloatPolygon();
+			pointsX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+			pointsY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+			ij.gui.PolygonRoi polygon = new ij.gui.PolygonRoi(pointsX, pointsY, Roi.POLYGON);
 			return copyProperties2IJRoi(roiObj, polygon);
 		case POLYLINE:
-			ij.gui.PolygonRoi pl = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.POLYLINE);
+			fp = roiObj.getFloatPolygon();
+			pointsX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+			pointsY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+			ij.gui.PolygonRoi pl = new ij.gui.PolygonRoi(pointsX, pointsY, Roi.POLYLINE);
 			return copyProperties2IJRoi(roiObj, pl);
 		case FREEROI:
-			ij.gui.PolygonRoi free = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.FREEROI);
+			fp = roiObj.getFloatPolygon();
+			pointsX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+			pointsY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+			ij.gui.PolygonRoi free = new ij.gui.PolygonRoi(pointsX, pointsY, Roi.FREEROI);
 			return copyProperties2IJRoi(roiObj, free);
 		case FREELINE:
-			ij.gui.PolygonRoi freeline = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.FREELINE);
+			fp = roiObj.getFloatPolygon();
+			pointsX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+			pointsY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+			ij.gui.PolygonRoi freeline = new ij.gui.PolygonRoi(pointsX, pointsY, Roi.FREELINE);
 			return copyProperties2IJRoi(roiObj, freeline);
 		case ANGLE:
-			ij.gui.PolygonRoi angle = new ij.gui.PolygonRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints, Roi.ANGLE);
+			fp = roiObj.getFloatPolygon();
+			pointsX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+			pointsY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+			ij.gui.PolygonRoi angle = new ij.gui.PolygonRoi(pointsX, pointsY, Roi.ANGLE);
 			return copyProperties2IJRoi(roiObj, angle);
 		case OVAL:
 			ij.gui.OvalRoi oval = new ij.gui.OvalRoi(roiObj.getXBase(), roiObj.getYBase(),roiObj.getFloatWidth(),roiObj.getFloatHeight());
@@ -116,34 +135,48 @@ public class RoiConverter {
 		}
 	}
 	
-	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi){
-		for(ContextKey key : ContextKey.values()) {
-			if(key == ContextKey.RoiMetaProperties) {
+	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi) {
+		for (ContextKey key : ContextKey.values()) {
+			if (key == ContextKey.RoiMetaProperties) {
 				continue;
 			}
 			String value = roiObj.getProperty(key.name());
-			if(value != null) {
+			if (value != null) {
 				ijRoi.setProperty(key.name(), value);
 			}
 		}
+
 		Properties props = roiObj.getProperties();
-		for(Object k : props.keySet()) {
+		for (Object k : props.keySet()) {
 			boolean mainProp = false;
 			for (ContextKey ck : ContextKey.values()) {
-				if(((String)k).equals(ck.name())) {
+				if (((String) k).equals(ck.name())) {
 					mainProp = true;
-					if(k==ContextKey.RoiMetaProperties) {
-						Log.logger.log(Level.WARNING, "RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
+					if (k == ContextKey.RoiMetaProperties) {
+						Log.logger.log(Level.WARNING,
+								"RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
 					}
 					break;
 				}
 			}
-			if(mainProp) {
+			if (mainProp) {
 				continue;
 			}
-			String metaAttr = (String)props.get(k);
+			String metaAttr = (String) props.get(k);
 			ijRoi.setProperty((String) k, metaAttr);
 		}
+		
+		// ImageJのシステムにポジション（スタックの何枚目か）を認識させるための必須処理
+		String posStr = roiObj.getProperty(ContextKey.Position.name());
+		if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
+			try {
+				int pos = Integer.parseInt(posStr);
+				ijRoi.setPosition(pos); // write to binary header
+			} catch (NumberFormatException e) {
+				// ignore
+			}
+		}
+		
 		return ijRoi;
 	}
 	
@@ -187,6 +220,14 @@ public class RoiConverter {
 		}
 		roiCon.put(ContextKey.RoiType.name(), String.valueOf(type));//keep String
 		
+		// ★ 追加: SplineFit の状態をチェックしてプロパティに入れる
+		if (roi instanceof ij.gui.PolygonRoi) {
+			ij.gui.PolygonRoi pRoi = (ij.gui.PolygonRoi) roi;
+			if (pRoi.isSplineFit()) {
+				roiCon.put(RoiMetaContextKey.isSplineFit.name(), "true");//keep String
+			}
+		}
+		
 		//add all remain context props
 		for(ContextKey key : ContextKey.values()) {
 			if(key == ContextKey.RoiType) {
@@ -208,9 +249,9 @@ public class RoiConverter {
 		int y = (int)roiCon.get("OriginY");
 		int w = (int)roiCon.get("Width");
 		int h = (int)roiCon.get("Height");
-		float[] pointX = roiCon.get("PointX") == null ? null:(float[])roiCon.get("PointX");
-		float[] pointY = roiCon.get("PointY") == null ? null:(float[])roiCon.get("PointY");
-		float[] shapeArray = roiCon.get("Shape") == null ? null:(float[])roiCon.get("Shape");
+		float[] pointX = getFloatArrayFromDB(roiCon.get("PointX"));
+		float[] pointY = getFloatArrayFromDB(roiCon.get("PointY"));
+		float[] shapeArray = getFloatArrayFromDB(roiCon.get("Shape"));
 
 		String desc = (String)roiCon.get("Description");//TextRoi
 		
@@ -225,17 +266,24 @@ public class RoiConverter {
 			roi = rect;
 			break;
 		case POLYGON:
-			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYGON.id(), null);
+			RoiObj poly = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length/*keep num of points*/, RoiType.POLYGON.id(), null);
 			poly.setProperties(roiCon);
+			if ("true".equals(poly.getProperty(RoiMetaContextKey.isSplineFit.name()))) {
+				((com.vis.core.view.D2.roi.PolygonRoi)poly).fitSpline(poly.getOptimalSplinePoints(3.0));
+			}
 			roi = poly;
 			break;
 		case POLYLINE:
-			RoiObj polyline = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.POLYLINE.id(), null);
+			RoiObj polyline = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.POLYLINE.id(), null);
 			polyline.setProperties(roiCon);
+			if ("true".equals(polyline.getProperty(RoiMetaContextKey.isSplineFit.name()))) {
+				((com.vis.core.view.D2.roi.PolygonRoi)polyline).fitSpline(polyline.getOptimalSplinePoints(3.0));
+			}
 			roi = polyline;
 			break;
 		case ANGLE:
-			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.ANGLE.id(), null);
+			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.ANGLE.id(), null);
+//			RoiObj angle = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, RoiType.ANGLE.id(), null);
 			angle.setProperties(roiCon);
 			roi = angle;
 			break;
@@ -307,5 +355,41 @@ public class RoiConverter {
 			roi.addProperty(k, metaProp.get(k));
 		}
 		return roi;
+	}
+	
+	// ★ 追加：DBからの戻り値（Object）を安全に float[] に変換するヘルパーメソッド
+	private float[] getFloatArrayFromDB(Object obj) {
+		if (obj == null) {
+			return null;
+		}
+
+		// もしすでに float[] ならそのまま返す
+		if (obj instanceof float[]) {
+			return (float[]) obj;
+		}
+
+		// もし double[] なら float[] にダウンキャストして返す
+		if (obj instanceof double[]) {
+			double[] doubleArr = (double[]) obj;
+			float[] floatArr = new float[doubleArr.length];
+			for (int i = 0; i < doubleArr.length; i++) {
+				floatArr[i] = (float) doubleArr[i];
+			}
+			return floatArr;
+		}
+
+		// JSONなどで Object[] (または Number[]) として返ってきた場合
+		if (obj instanceof Object[]) {
+			Object[] objArr = (Object[]) obj;
+			float[] floatArr = new float[objArr.length];
+			for (int i = 0; i < objArr.length; i++) {
+				if (objArr[i] instanceof Number) {
+					floatArr[i] = ((Number) objArr[i]).floatValue();
+				}
+			}
+			return floatArr;
+		}
+
+		return null;
 	}
 }

@@ -783,7 +783,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		setSlideGlass(roi2.getSlideGlass());// and create new roiId
 	}
 
-	private String createRoiIndex() {
+	public static String createRoiIndex() {
 		SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS");
 		Date now = new Date();
 		int hash = new Random().hashCode();
@@ -1498,6 +1498,42 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		FloatPolygon fPoly = new FloatPolygon(xPoints, yPoints);
 		return fPoly;
 	}
+	
+	/**
+	 * 周囲長から最適なSplineポイント数を計算する
+	 * 物理単位がmmの場合は約2mm間隔、ピクセルの場合は約10px間隔でポイントを配置する
+	 */
+	public int getOptimalSplinePoints(double interval) {
+		// getLength() はキャリブレーション（ピクセル間隔）が設定されていれば物理的な長さ(mm等)を返す
+		double len = getLength();
+
+		if (slide != null) {
+			String unit = slide.getPixelSpacingUnit();
+			if ("mm".equalsIgnoreCase(unit)) {
+				interval = 2.0;
+			} else if ("cm".equalsIgnoreCase(unit)) {
+				interval = 0.2;
+			} else if ("um".equalsIgnoreCase(unit) || "µm".equalsIgnoreCase(unit) || "micro".equalsIgnoreCase(unit)) {
+				interval = 2000.0;
+			} else {
+				interval = 10.0; // 物理単位がない場合は 10ピクセル間隔
+			}
+		} else {
+			interval = 10.0;
+		}
+
+		int nPoints = (int) Math.round(len / interval);
+
+		// ガード処理：少なすぎて形が崩れる（最低12点）、多すぎてシステムがフリーズする（最大2000点）のを防ぐ
+		if (nPoints < 12)
+			nPoints = 12;
+			System.out.println("SplinePoints is too small, set 12 as minimum num of points");
+		if (nPoints > 2000)
+			nPoints = 2000;
+			System.out.println("SplinePoints is too large, set 2000 as maximum num of points");
+
+		return nPoints;
+	}
 
 	/** Returns the perimeter length. */
 	public double getLength() {
@@ -2030,6 +2066,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		String[] uids = sg.getUIDs();
 		initUIDs(uids);
+		// Save frame position in properties
+		if (sg.getInstanceNo() != null) {
+			setProperty(ContextKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
+		}
+		if (getProperty(ContextKey.Position.name()) == null) {
+			updatePositionProperty(sg);
+		}
 	}
 	
 	protected void updateUIDsBySlideGlass(SlideGlass sg) {
@@ -2039,6 +2082,31 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		String[] uids = sg.getUIDs();
 		setUIDs(uids[0], uids[1], uids[2], uids[3], getProperty(ContextKey.RoiID.name()));
+		// if already have instNo, no update it
+		if (sg.getInstanceNo() != null) {
+			setProperty(ContextKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
+		}
+		// if already have frame position, no update it
+		if (getProperty(ContextKey.Position.name()) == null) {
+			updatePositionProperty(sg);
+		}
+	}
+	
+	private void updatePositionProperty(SlideGlass sg) {
+		int index = -1;
+		// Praparat 内の全スライドから、自分(sg)が何番目かを探す
+		java.util.concurrent.ConcurrentHashMap<Integer, SlideGlass> allSlides = sg.getPraparat().getAllSlides();
+		for (java.util.Map.Entry<Integer, SlideGlass> entry : allSlides.entrySet()) {
+			if (entry.getValue() == sg) {
+				index = entry.getKey();
+				break;
+			}
+		}
+
+		// 見つかったら、1-based (index + 1) で Position にセットする
+		if (index != -1) {
+			setProperty(ContextKey.Position.name(), String.valueOf(index + 1));
+		}
 	}
 
 	/** Returns 'true' if this ROI is displayed and is also in an overlay. */
@@ -2658,6 +2726,12 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			}
 		}
 		//read meta attributes
+		/*
+		 * ContextKeyに列挙されている値はMainPropertiesとして扱う
+		 * それ以外はMetaとして扱う。
+		 * どちらも、propsに並列に保持される。
+		 * （RoiMetaPropertiesというプロパティが別に存在するわけではない）
+		 */
 		Map<String, String> metaProp = new HashMap<String,String>();
 		for(Object k : props.keySet()) {
 			boolean mainProp = false;
@@ -2665,6 +2739,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 				if(((String)k).equals(ck.name())) {
 					mainProp = true;
 					if(k==ContextKey.RoiMetaProperties) {
+						/*
+						 * 単にDBでMetaをグループ化するために利用されるキーのため。
+						 */
 						Log.logger.log(Level.WARNING, "RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
 					}
 					break;
@@ -2676,14 +2753,37 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			String metaAttr = (String)props.get(k);
 			metaProp.put((String)k, metaAttr);
 		}
+		/*
+		 * 保存時はプロパティとして渡されるが、ロード時はフラットにプロパティに保持される
+		 */
 		con.put(ContextKey.RoiMetaProperties.name(), metaProp);
 		
 		con.put(RoiGeometry.OriginX.name(), (int) getXBase());
 		con.put(RoiGeometry.OriginY.name(), (int) getYBase());
 		con.put(RoiGeometry.Width.name(), width);
 		con.put(RoiGeometry.Height.name(), height);
-		con.put(RoiGeometry.PointX.name(), fArray2dArray(getFloatPolygon().xpoints));
-		con.put(RoiGeometry.PointY.name(), fArray2dArray(getFloatPolygon().ypoints));
+		
+		// 座標を抜く一瞬だけ、SplineFitを外す（もとの座標ポイントによるPolygonに戻すことができるように）
+		boolean wasSplineFit = false;
+		if (this instanceof PolygonRoi) {
+			PolygonRoi poly = (PolygonRoi) this;
+			if (poly.isSplineFit()) {
+				wasSplineFit = true;
+				poly.removeSplineFit(); // 一時的に元の少ない頂点に戻す
+			}
+		}
+
+		// npoints 分だけ正確に切り出してDBに保存する
+		FloatPolygon fp = getFloatPolygon();
+		float[] exactX = java.util.Arrays.copyOf(fp.xpoints, fp.npoints);
+		float[] exactY = java.util.Arrays.copyOf(fp.ypoints, fp.npoints);
+		con.put(RoiGeometry.PointX.name(), fArray2dArray(exactX));
+		con.put(RoiGeometry.PointY.name(), fArray2dArray(exactY));
+
+		// ★ 追加：座標を抜き終わったら、即座に滑らかな状態に復元する
+		if (wasSplineFit) {
+			((PolygonRoi) this).fitSpline(getOptimalSplinePoints(3.0));
+		}
 		
 		con.put(ContextKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
 		
@@ -2691,64 +2791,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		con.put(RoiGeometry.Shape.name(), null);
 		return con;
 	}
-	
-//	/** Converts slideglass x coordinates to integer offscreen image pixel
-//	 *  coordinates, depending on whether this roi uses the line or area convention
-//	 *  for coordinates. */
-//	public int offScreenX(int sx) {
-//		if (slide == null) return sx;
-//		
-//		return useLineSubpixelConvention() ? slide.offScreenX(sx) : slide.offScreenX2(sx);
-//	}
-//		
-//	/** Converts slideglass screen y coordinates to integer offscreen image pixel
-//	 *  coordinates, depending on whether this roi uses the line or area convention
-//	 *  for coordinates. */
-//	public int offScreenY(int sy) {
-//		if (slide == null) return sy;
-//		return useLineSubpixelConvention() ? slide.offScreenY(sy) : slide.offScreenY2(sy);
-//	}
-//	
-//	/** Converts slideglass screen x coordinates to floating-point offscreen image pixel
-//	 *  coordinates, depending on whether this roi uses the line or area convention
-//	 *  for coordinates. */
-//	protected double offScreenXD(int sx) {
-//		if (slide == null) return sx;
-//		double offScreenValue = slide.offScreenXD(sx);
-//		if (useLineSubpixelConvention())
-//			offScreenValue -= 0.5;
-//		return offScreenValue;
-//	}
-//
-//	/** Converts slideglass screen y coordinates to floating-point offscreen image pixel
-//	 *  coordinates, depending on whether this roi uses the line or area convention
-//	 *  for coordinates. */
-//	protected double offScreenYD(int sy) {
-//		if (slide == null) return sy;
-//		double offScreenValue = slide.offScreenYD(sy);
-//		if (useLineSubpixelConvention())
-//			offScreenValue -= 0.5;
-//		return offScreenValue;
-//	}
-//	
-//	/**Converts an image pixel x (offscreen)coordinate to a screen x coordinate,
-//	 * taking the the line or area convention for coordinates into account */
-//	protected int screenXD(double ox) {
-//		if (slide==null) return (int)ox;
-//		if (useLineSubpixelConvention()) ox += 0.5;
-//		return slide!=null?(int)slide.screenXD(ox):(int)ox;
-//	}
-//
-//	/**Converts an image pixel y (offscreen)coordinate to a screen y coordinate,
-//	 * taking the the line or area convention for coordinates into account */
-//	protected int screenYD(double oy) {
-//		if (slide==null) return (int)oy;
-//		if (useLineSubpixelConvention()) oy += 0.5;
-//		return slide!=null? (int)slide.screenYD(oy):(int)oy;
-//	}
-//
-//	protected int screenX(int ox) {return screenXD(ox);}
-//	protected int screenY(int oy) {return screenYD(oy);}
 
 	public void setActiveOverlayRoi(boolean active) {
 		activeOverlayRoi = active;

@@ -306,8 +306,9 @@ public class Praparat extends JPanel {
 		// 1. キー(Integer)経由ではなく、値(SlideGlass)を直接ループして安全にアクセス
 		for (SlideGlass sg : slides.values()) {
 			if (sg == null || sg.getDicomImage() == null) {
-				frameIndex++;
-				continue;
+				setImagePosition(frameIndex);
+//				frameIndex++;
+//				continue;
 			}
 
 			// マルチフレームの場合は連番(frameIndex)、シングルの場合は常に 0 を指定
@@ -554,6 +555,9 @@ public class Praparat extends JPanel {
 			}
 			reader = null;
 		}
+		
+		loadRoisFromDB();
+		
 		if(lut != null) {
 			for(Integer pos : slides.keySet()) {
 				slides.get(pos).setLUT(lut);
@@ -689,6 +693,8 @@ public class Praparat extends JPanel {
 			slides.put(i, sg);
 		}
 		
+		loadRoisFromDB();
+		
 		//TODO
 		//lut = images.getLuts();
 		
@@ -727,6 +733,8 @@ public class Praparat extends JPanel {
 		
 		//File location
 		setImageFileLocations(p.getImageFileLocations());
+		
+		loadRoisFromDB();
 		
 		if(lut != null) {
 			for(Integer pos : this.slides.keySet()) {
@@ -1318,6 +1326,17 @@ public class Praparat extends JPanel {
 	public void loadRoiToCurrentSlideGlass() {
 		SlideGlass sg = getCurrentSlide();
 		sg.loadRoiFromDB();
+	}
+	
+	public void loadRoisFromDB() {
+		if(slides == null || slides.size() == 0) {
+			return;
+		}
+		if (getViewMode() != ViewMode.Thumbnail) {
+			for (Integer pos : this.slides.keySet()) {
+				this.slides.get(pos).loadRoiFromDB();
+			}
+		}
 	}
 	
 	public void addRoi(int slidePos, RoiObj r) {
@@ -2108,14 +2127,17 @@ public class Praparat extends JPanel {
 				//finally set origin
 				if(syncOrigin!=null) sg.setDisplayOrigin(syncOrigin);
 			}
-
+			
+			boolean sizeChanged = (currentGlass.getWidth() != viewPanel.getWidth() || currentGlass.getHeight() != viewPanel.getHeight());
+			
 			viewPanel.removeAll();
 			viewPanel.add(currentGlass, 0);
-			currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
 			
-			// 親パネルにレイアウトの再計算と再描画を強制する
-			viewPanel.revalidate();
-			viewPanel.repaint();
+			if (sizeChanged) {
+				currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+				viewPanel.revalidate(); // サイズが変わった時だけ重い処理をする
+			}
+			viewPanel.repaint(); // 画面の更新だけならrepaintで十分
 
 			// 2. 前後の先読みを開始（バックグラウンドスレッド）
 			manageCache(currentSlice);
@@ -2454,9 +2476,13 @@ public class Praparat extends JPanel {
 				}
 			}
 		}else {
-			for(Integer k : slides.keySet()) {
-				SlideGlass sg = slides.get(k);
-				sg.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+//			for(Integer k : slides.keySet()) {
+//				SlideGlass sg = slides.get(k);
+//				sg.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+//			}
+			SlideGlass currentSg = getCurrentSlide();
+			if (currentSg != null) {
+				currentSg.setSize(viewPanel.getWidth(), viewPanel.getHeight());
 			}
 		}
 		prevViewPanelW = currentW;
@@ -2486,12 +2512,19 @@ public class Praparat extends JPanel {
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		if(slides != null) {
-			for(int instNo : slides.keySet()) {
-				SlideGlass sg = slides.get(instNo);
-				sg.repaint();
-			}
-		}
+//		if(slides != null) {
+//			if(getViewMode() == ViewMode.FilmGrid) {
+//				for (int instNo : slides.keySet()) {
+//					SlideGlass sg = slides.get(instNo);
+//					sg.repaint();
+//				}
+//			}else {
+//				SlideGlass current = getCurrentSlide();
+//				if(current != null) {
+//					current.repaint();
+//				}
+//			}
+//		}
 		pvcp.repaint();
 	}
 }

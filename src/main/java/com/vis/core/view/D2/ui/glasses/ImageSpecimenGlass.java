@@ -46,6 +46,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Point;
+import java.awt.RenderingHints;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.IndexColorModel;
@@ -422,16 +423,20 @@ public class ImageSpecimenGlass extends JPanel{
 			if (type == BufferedImage.TYPE_CUSTOM) {
 				type = BufferedImage.TYPE_INT_ARGB;
 			}
+			
+			boolean sizeChanged = false;
 
 			// ImagePlusのタイプに合わせたBufferedImageを作成
-			BufferedImage dstImg = new BufferedImage(w, h, type);
-			/*
-			 * LUT, index color model
-			 */
-			if (type == BufferedImage.TYPE_BYTE_INDEXED) {
-				dstImg = new BufferedImage(w, h, type, (IndexColorModel) srcImg.getColorModel());
+			if (this.display == null || this.display.getWidth() != w || this.display.getHeight() != h || this.display.getType() != type) {
+				sizeChanged = true;
+				//for LUT, index color model
+				if (type == BufferedImage.TYPE_BYTE_INDEXED) {
+					this.display = new BufferedImage(w, h, type, (IndexColorModel) srcImg.getColorModel());
+				}else {// normal
+					this.display = new BufferedImage(w, h, type);
+				}
 			}
-			
+
 			try {
 	            // AffineTransformOpの作成
 				AffineTransformOp op = null;
@@ -442,16 +447,16 @@ public class ImageSpecimenGlass extends JPanel{
 				}else {
 					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
 				}
-				op.filter(srcImg, dstImg);
+				op.filter(srcImg, this.display);
 
 	        } catch (Exception e) {
 	            Log.logger.warning("Transform failed: " + e.getMessage());
 	            return;
 	        }
-			this.display = dstImg;
+			if (sizeChanged) {
+				revalidate();
+			}
 		}
-		
-		revalidate();
 		repaint();
 	}
 	
@@ -459,11 +464,15 @@ public class ImageSpecimenGlass extends JPanel{
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
+		Graphics2D g2d = (Graphics2D) g;
+		g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+		// テキストの滑らかさだけは維持
+		g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		/*
 		 * waiting state
 		 */
 		if (getOriginalImage() == null && dcmImg != null) {
-			Graphics2D g2d = (Graphics2D) g;
 			// 1. 背景を少し暗い色で塗りつぶす（視認性向上のため）
 			g2d.setColor(Color.DARK_GRAY);
 			g2d.fillRect(0, 0, getWidth(), getHeight());
@@ -492,14 +501,13 @@ public class ImageSpecimenGlass extends JPanel{
 			g2d.drawString(text, x, y);
 			return;
 		}
+		
 		/*
 		 * Do not insert image transformation code here.
 		 * Use updateDisplayImage().
 		 */
 		if(this.display != null) {
 			synchronized (drawLock) { // ロックを開始
-				Graphics2D g2d = (Graphics2D) g;
-				
 				/*
 				 * DO NOT g2d.setTransform(at) in paintComponent.
 				 * This cause display time lag.

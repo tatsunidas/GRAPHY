@@ -39,6 +39,7 @@ package com.vis.core.view.D2.roi;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -66,6 +67,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -96,6 +98,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.OptionDialog;
@@ -134,7 +137,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		Delete,
 		LineAndColor,
 		Update,
-		
+		Duplicate,
 		//add more
 		Open,
 		Save,
@@ -170,6 +173,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 */
 	final ContextKey[] roiInfo = new ContextKey[] {
 			ContextKey.Name,
+			ContextKey.Position,
 			ContextKey.RoiGroup,
 			ContextKey.RoiLabel,//lesion or lymph node
 			ContextKey.ObjectType,//target or non target or findings
@@ -211,7 +215,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	private void setUp() {
 		setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 		setIconImage(Resources.RoiObjManagerWinIcon.loadIconFromResource().getImage());
-		setSize(600,300);
+		setSize(650,300);
 		setLayout(new BorderLayout());
 		setLocationRelativeTo(Viewer2DScreen.getInstance());
 		/*
@@ -238,6 +242,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		roiInfoPanel = new JPanel();
 		addRoiInfoFields();
 		JScrollPane jsp = new JScrollPane(roiInfoPanel);
+		jsp.setPreferredSize(new Dimension(320, 0));
 		add(jsp, BorderLayout.WEST);
 		
 		//buttons
@@ -275,6 +280,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		addButton(Functions.Delete.name());
 		addButton(Functions.LineAndColor.name());
 		addButton(Functions.Update.name());
+		addButton(Functions.Duplicate.name());
 		addButton(moreButtonLabel);
 		if(isDebug) {
 			addButton("Test");
@@ -329,7 +335,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		gbc.insets = new Insets(5, 5, 5, 5);
 		for (int i = 0; i < roiInfo.length; i++) {
 			JLabel lbl = new JLabel(roiInfo[i].name() + ":");
-			JTextField tf = new JTextField(12);
+			JTextField tf = new JTextField(10);
 			tf.setName(roiInfo[i].name());
 			if (roiInfo[i] == ContextKey.StudyDate) {
 				tf.setInputVerifier(new DateInputVerifier("yyyy/MM/dd"));
@@ -337,36 +343,96 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			//add to map
 			roiInfoFields.put(roiInfo[i], tf);
 			//set layout
+			// ★変更: ラベル用のレイアウト設定 (横には伸びない)
 			gbc.gridx = 0;
 			gbc.gridy = i;
+			gbc.weightx = 0.0;
+			gbc.gridwidth = 1;
+			gbc.fill = GridBagConstraints.NONE;
+			gbc.anchor = GridBagConstraints.WEST;
 			roiInfoPanel.add(lbl, gbc);
-			gbc.gridx = i - (i-1);
+
+			// ★変更: テキストフィールド用のレイアウト設定 (余白があれば横に伸びる)
+			gbc.gridx = 1;
+			gbc.weightx = 1.0;
+			gbc.fill = GridBagConstraints.HORIZONTAL;
 			roiInfoPanel.add(tf, gbc);
 		}
-		//finally add save btn
+		// finally add save btn
 		gbc.gridx = 0;
 		gbc.gridy = roiInfo.length;
-		JButton saveBtn = new JButton("Save Info");
+		gbc.gridwidth = 2; // 2列分使う
+		gbc.weightx = 1.0;
+		gbc.fill = GridBagConstraints.NONE;
+		gbc.anchor = GridBagConstraints.CENTER;
+		/*
+		 * save properties and update roi frame position if changed.
+		 */
+		JButton saveBtn = new JButton("Save/Update Info");
 		saveBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(list.getSelectedIndices().length > 1) {
-					PopUpMessage.showDialog(list, "Select one", "Please select a roi.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				if (list.getSelectedIndices().length > 1) {
+					PopUpMessage.showDialog(list, "Select one", "Please select a roi.", JOptionPane.OK_OPTION,
+							JOptionPane.INFORMATION_MESSAGE);
 					return;
 				}
 				String rid = list.getSelectedValue();
 				RoiObj r = selectedRois.get(rid);
-				if(r != null) {
-					//add properties
-					for(ContextKey ck : roiInfo) {
+				if (r != null) {
+					// 変更前のPositionを記憶
+					String oldPos = r.getProperty(ContextKey.Position.name());
+					String newPos = roiInfoFields.get(ContextKey.Position).getText();
+					boolean positionChanged = (oldPos != null && newPos != null && !oldPos.equals(newPos));
+
+					// プロパティをROIに反映
+					for (ContextKey ck : roiInfo) {
 						r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
 					}
-					//save or update
+
+					// ★ 追加：Position が変更された場合の「引っ越し」処理
+					if (positionChanged) {
+						try {
+							// Position(1-based) を Praparatのマップ用Index(0-based)に変換
+							int newIndex = Integer.parseInt(newPos) - 1;
+							Praparat pp = r.getSlideGlass().getPraparat();
+
+							SlideGlass newSg = null;
+							if (pp.getAllSlides().containsKey(newIndex)) {
+								newSg = pp.getAllSlides().get(newIndex);
+							}
+
+							if (newSg != null && newSg != r.getSlideGlass()) {
+								// 1. 元のスライドから削除（DB上の古いレコードも消えます）
+								r.getSlideGlass().deleteRoi(r);
+
+								// 2. 新しいスライドの情報をセット（ここで SOPInstanceUID や InstanceNo が自動で書き換わります！）
+								r.setSlideGlass(newSg);
+
+								// 3. 新しいスライドに追加（新しいスライスの画像上で描画され、DBに新規登録されます）
+								newSg.addRoi(r);
+
+								// リストと画面を更新して終了
+								updateState();
+								return;
+							} else {
+								JOptionPane.showMessageDialog(RoiObjManager.this,
+										"Position " + newPos + " is out of bounds or not loaded.", "Error",
+										JOptionPane.ERROR_MESSAGE);
+							}
+						} catch (NumberFormatException ex) {
+							JOptionPane.showMessageDialog(RoiObjManager.this, "Invalid Position format.", "Error",
+									JOptionPane.ERROR_MESSAGE);
+						}
+					}
+
+					// 通常の保存（Position変更がない場合）
 					saveRoi2DB(r);
+					updateState(); // 名前などが変わったかもしれないのでリスト更新
 				}
 			}
 		});
-		roiInfoPanel.add(saveBtn/*save roi info*/, gbc);
+		roiInfoPanel.add(saveBtn/* save roi info */, gbc);
 	}
 	
 	public void updatePatientList() {
@@ -514,6 +580,48 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				}
 			}
 		}
+		updateState();
+	}
+	
+	// ★ 追加：安全にROIを複製するメソッド
+	private void duplicate() {
+		if (selectedRois.size() < 1) {
+			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			return;
+		}
+
+		for (String roiID : selectedRois.keySet()) {
+			RoiObj originalRoi = selectedRois.get(roiID);
+			if (originalRoi == null || originalRoi.getSlideGlass() == null)
+				continue;
+
+			// 1. 形状のクローンを作成
+			RoiObj newRoi = (RoiObj) originalRoi.clone();
+
+			// 2. プロパティのディープコピー
+			java.util.Properties newProps = new java.util.Properties();
+			if (originalRoi.getProperties() != null) {
+				for (Object key : originalRoi.getProperties().keySet()) {
+					newProps.put(key, originalRoi.getProperties().get(key));
+				}
+			}
+			newRoi.props = newProps;
+
+			// 3. 新しいユニークな RoiID を生成してセット
+			String newRoiId = RoiObj.createRoiIndex();
+			newRoi.setProperty(ContextKey.RoiID.name(), newRoiId);
+
+			// 4. 名前を分かりやすく「- Copy」にする
+			String oldName = originalRoi.getName();
+			if (oldName != null) {
+				newRoi.setName(oldName + " - Copy");
+			}
+
+			// 6. スライドに追加（ここでDBにも自動保存される）
+			originalRoi.getSlideGlass().addRoi(newRoi);
+		}
+
+		// リストを更新して新しいROIを表示
 		updateState();
 	}
 	
@@ -916,10 +1024,21 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					for (int i=0; i<keys.length; i++) {
 						RoiObj roiObj = rois.get(keys[i]);
 						String label = roiObj.getProperty(ContextKey.RoiID.name());
+						// ファイル名の先頭に "0005_" のようにポジションを付与する
+						String posStr = roiObj.getProperty(ContextKey.Position.name());
+						if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
+							try {
+								int pos = Integer.parseInt(posStr);
+								// ゼロ埋め（例: 000012_RoiID.roi）にしてソートしやすくする
+								label = String.format("%06d", pos) + "_" + label;
+							} catch (NumberFormatException e) {}
+						}
+						//in here, convert2Roi do roi.setPosition(pos)
 						Roi roi = new RoiConverter().convert2Roi(roiObj);
 						if(roi == null) {
 							continue;
 						}
+						
 						if (!label.endsWith(".roi")) label += ".roi";
 						zos.putNextEntry(new ZipEntry(label));
 						re.write(roi);
@@ -944,6 +1063,17 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					for (int i=0; i<keys.length; i++) {
 						RoiObj roiObj = rois.get(keys[i]);
 						String label = roiObj.getProperty(ContextKey.RoiID.name());
+						
+						// ファイル名の先頭に "0005_" のようにポジションを付与する
+						String posStr = roiObj.getProperty(ContextKey.Position.name());
+						if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
+							try {
+								int pos = Integer.parseInt(posStr);
+								// ゼロ埋め（例: 000012_RoiID.roi）にしてソートしやすくする
+								label = String.format("%06d", pos) + "_" + label;
+							} catch (NumberFormatException e) {}
+						}
+						//roi.setPosition(pos) was done in this.
 						Roi roi = new RoiConverter().convert2Roi(roiObj);
 						if(roi == null) {
 							continue;
@@ -974,12 +1104,23 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if (roiObj == null) {
 			return;
 		}
+		String name = roiObj.getProperty(ContextKey.RoiID.name());
+		// ファイル名の先頭に "0005_" のようにポジションを付与する
+		String posStr = roiObj.getProperty(ContextKey.Position.name());
+		if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
+			try {
+				int pos = Integer.parseInt(posStr);
+				// ゼロ埋め（例: 000012_RoiID.roi）にしてソートしやすくする
+				name = String.format("%06d", pos) + "_" + name;
+			} catch (NumberFormatException e) {}
+		}
+		//in here, convert2Roi do roi.setPosition(pos)
 		Roi roi = new RoiConverter().convert2Roi(roiObj);
 		if(roi == null) {
+			Log.message(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
 			return;
 		}
 		String path = null;
-		String name = roiObj.getProperty(ContextKey.RoiID.name());
 		SaveDialog sd = new SaveDialog("Save Roi...", name, ".roi");
 		String name2 = sd.getFileName();
 		if (name2 == null) {
@@ -997,14 +1138,25 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 	}
 	
+	/**
+	 * save roi to dest.
+	 * 
+	 * This method does not rename by adding a position string(e.g., 0001) in head of file name.
+	 * 
+	 * @param roiObj
+	 * @param dest : ./folder/roi_instance.roi
+	 */
 	public static void saveRoi(RoiObj roiObj, String dest) {
+		
 		if (roiObj == null) {
 			return;
 		}
 		Roi roi = new RoiConverter().convert2Roi(roiObj);
 		if(roi == null) {
+			Log.message(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
 			return;
 		}
+		
 		if (!dest.endsWith(".roi")) dest = dest+".roi";
 		RoiEncoder re = new RoiEncoder(dest);
 		try {
@@ -1174,25 +1326,41 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			SlideGlass s = roi.getSlideGlass();
 			int type = roi.getType();
 			if(!roi.isArea()) continue;
+			
+			// PolygonRoi の場合は双方向トグル（スイッチ）にする
+			if(roi instanceof PolygonRoi) {
+				PolygonRoi polyRoi = (PolygonRoi)roi;
+				if (polyRoi.isSplineFit()) {
+					// すでに滑らかなら、元のカクカクに戻す
+					polyRoi.removeSplineFit();
+					polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
+				} else {
+					// カクカクなら、滑らかにする
+					polyRoi.fitSpline(type == RoiType.TRACED_ROI.id() ? 20 : 100);
+					polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
+				}
+				if(s != null) {
+					s.replaceRoi(roi.getUIDs(), polyRoi); // DB保存と描画更新
+				}
+				continue;
+			}
+			
+			// 以下は元のロジック（RECTANGLEやCOMPOSITEをPolygonRoiに変換して滑らかにする）
 			if(type == RoiType.RECTANGLE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
-				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
+				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null);
+				polyRoi.setSlideGlass(s);
 				polyRoi.fitSpline(100);
-				s.replaceRoi(roi.getUIDs(), polyRoi);
-			}else if(type == RoiType.POLYGON.id()) {
-				PolygonRoi polyRoi = (PolygonRoi)roi;
-				polyRoi.fitSpline(100);
+				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
+				if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
+				
 			}else if(type == RoiType.COMPOSITE.id()) {
 				ShapeRoi sRoi = (ShapeRoi)roi;
-				Polygon poly = sRoi.getPolygon();//roi origin basis (pX-x,pY-y)
+				Polygon poly = sRoi.getPolygon();
 				int num = poly.npoints;
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
-				/*
-				 * composite roi has too many points for spline fit.
-				 * Here, reduce points.
-				 */
+				
 				if (num > 30) {
 					int sparse_points = 10;
 					int interval = (int) num / sparse_points;
@@ -1203,34 +1371,21 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 						sparseX[j] = xps[i];
 						sparseY[j] = yps[i];
 					}
-					PolygonRoi polyRoi = new PolygonRoi(new Polygon(sparseX, sparseY, newSize), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
-					polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
+					PolygonRoi polyRoi = new PolygonRoi(new Polygon(sparseX, sparseY, newSize), RoiType.POLYGON.id(), null);
+					polyRoi.setSlideGlass(s);
 					polyRoi.fitSpline(100);
-					s.replaceRoi(roi.getUIDs(), polyRoi);
+					polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
+					if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
 					continue;
 				}
-				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
-				polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
+				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null);
+				polyRoi.setSlideGlass(s);
 				polyRoi.fitSpline(100);
-				s.replaceRoi(roi.getUIDs(), polyRoi);
-			}else if(type == RoiType.TRACED_ROI.id()) {
-				if(roi instanceof PolygonRoi) {
-					PolygonRoi polyRoi = (PolygonRoi)roi;
-					polyRoi.fitSpline(20);
-				}else {
-					ShapeRoi sRoi = (ShapeRoi)roi;
-					Polygon poly = sRoi.getPolygon();//roi origin basis (pX-x,pY-y)
-					int num = poly.npoints;
-					int[] xps = poly.xpoints;
-					int[] yps = poly.ypoints;
-					PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null /*avoid auto save when modifyRoi()*/);
-					polyRoi.setSlideGlass(s);//after instance creation, set SlideGlass.
-					polyRoi.fitSpline(20);
-					s.replaceRoi(roi.getUIDs(), polyRoi);
-				}
+				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
+				if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
 			}
-			updateState();
 		}
+		updateState();
 	}
 	
 	void convert2Polygon() {
@@ -1245,34 +1400,41 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			SlideGlass s = roi.getSlideGlass();
 			if(s == null) continue;
 			int type = roi.getType();
-			if(type == RoiType.POLYGON.id()) {
+			
+			// ★ 修正: すでにPolygonRoiの場合でも、SplineFitされていればカクカクに解除する
+			if(roi instanceof PolygonRoi) {
+				PolygonRoi polyRoi = (PolygonRoi)roi;
+				if (polyRoi.isSplineFit()) {
+					polyRoi.removeSplineFit();
+					polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
+					s.replaceRoi(roi.getUIDs(), polyRoi);
+				}
 				continue;
 			}
+			
 			if(!roi.isArea()) {
 				continue;
 			}
 			
 			if(type != RoiType.COMPOSITE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
-				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
+				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null);
 				polyRoi.setSlideGlass(s);
-				polyRoi.fitSpline(100);
-				if(s != null) {
-					s.replaceRoi(roi.getUIDs(), polyRoi);
-				}
+				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
+				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}else{
 				ShapeRoi sRoi = (ShapeRoi)roi;
-				Polygon poly = sRoi.getPolygon();//see, ShapeRoi::getFloatPolygon, shape is always shited baseXY
+				Polygon poly = sRoi.getPolygon();
 				int num = poly.npoints;
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
-				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null/*avoid auto save when modifyRoi*/);
+				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null);
 				polyRoi.setSlideGlass(s);
-				polyRoi.fitSpline(100);
+				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
 				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}
-			updateState();
 		}
+		updateState();
 	}
 	
 	private void combine() {
@@ -1520,6 +1682,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			SwingUtilities.invokeLater(()->lineAndColor());
 		}else if (command.equals(Functions.Update.name())) {
 			updateState();
+		}else if (command.equals(Functions.Duplicate.name())) { // ★ 追加
+			duplicate();
 			
 		//more functions
 		}else if (command.equals(moreButtonLabel)) {
@@ -1640,8 +1804,26 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				Set<String> key = selectedRois.keySet();
 				String k = key.iterator().next();
 				currentRoi = rois.get(k);
-				//show on viewer 
-				currentRoi.getSlideGlass().getPraparat().setImagePositionTo(currentRoi.getSlideGlass());
+				//show on viewer
+				Praparat pp = currentRoi.getSlideGlass().getPraparat();
+				String posStr = currentRoi.getProperty(ContextKey.Position.name());
+				
+				if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
+					try {
+						// Positionは1始まりなので、Praparatのマップ用Index(0始まり)に変換
+						int targetIndex = Integer.parseInt(posStr) - 1;
+						
+						// ★ setImagePositionUsingSlider を使うことで、画面下部のスライダーも連動して動くようになります！
+						pp.setImagePositionUsingSlider(targetIndex); 
+						
+					} catch (NumberFormatException ex) {
+						// 万が一パースに失敗した場合は元のメソッドでフォールバック
+						pp.setImagePositionTo(currentRoi.getSlideGlass());
+					}
+				} else {
+					// Positionを持たない古いデータなどの場合
+					pp.setImagePositionTo(currentRoi.getSlideGlass());
+				}
 				toFront();
 				//show info
 				for(ContextKey ck : roiInfo) {

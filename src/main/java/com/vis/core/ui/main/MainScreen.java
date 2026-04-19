@@ -132,11 +132,14 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	DragSourceListener sourceListener;
 
 	DragSource dragSource;
+	
+	
 
 	Logger logger = Log.logger;
 	
 	/* Guard to cancel stale BirdsEyeView update threads */
 	private final AtomicLong birdsEyeRequestId = new AtomicLong(0);
+	private javax.swing.Timer birdsEyeDelayTimer;
 	
 	/**
 	 * singleton
@@ -584,60 +587,93 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * show images on BEV when home tab is selected.
 	 */
 	public void showImagesOnBirdsEye() {
+		if (birdsEyeDelayTimer != null && birdsEyeDelayTimer.isRunning()) {
+			birdsEyeDelayTimer.restart();
+			return;
+		}
+		// 200ミリ秒後に1回だけ実行するタイマーを設定
+		birdsEyeDelayTimer = new javax.swing.Timer(200, e -> {
+			// ★ ここから下が本来の処理（遅延実行される）
+			executeShowImagesOnBirdsEye();
+		});
+		birdsEyeDelayTimer.setRepeats(false);
+		birdsEyeDelayTimer.start();
+
+	}
+	
+	/**
+	 * 実際にBirdsEyeViewへ画像をロードして表示する内部メソッド
+	 */
+	private void executeShowImagesOnBirdsEye() {
 		TreeTableDockManager ttdm = getTreeTableDockManager();
-		if(!ttdm.getCurrentAnchorTitle().equals(TreeTableDockManager.homeTabName)) {
+		if (!ttdm.getCurrentAnchorTitle().equals(TreeTableDockManager.homeTabName)) {
 			return;
 		}
 		TabDock homeDock = ttdm.getHomeDock();
 		DICOMTreeTable tt = homeDock.getDICOMTreeTable();
 		ArrayList<DICOMNode> selectedNodes = tt.getSelectedNodes();
-		if(selectedNodes == null) {
+		
+		// 何も選択されていない場合は画面をクリアして終了
+		if (selectedNodes == null || selectedNodes.isEmpty()) {
+			if (bev != null) bev.resetViews(true);
 			return;
 		}
-		// if selected multiple studies, do not show images 
+		
+		// もし複数スタディが選択されている場合は表示しない
 		int studyCount = 0;
-		for(DICOMNode n : selectedNodes) {
-			if(n.getLevel()==DICOMNode.STUDY) {
+		for (DICOMNode n : selectedNodes) {
+			if (n.getLevel() == DICOMNode.STUDY) {
 				studyCount++;
 			}
 		}
-		if(studyCount > 1) {
+		if (studyCount > 1) {
 			logger.fine("showImagesOnBirdsEye(): Can not show multi studies on Bird's eye view.");
 			return;
 		}
+		
 		ArrayList<String> selectedSeriesUIDs = new ArrayList<>();
 		HashMap<String, ArrayList<String>> selectedImageUIDs = new HashMap<>();
-		for(DICOMNode n : selectedNodes) {
-			if(n.getLevel()==DICOMNode.SERIES) {
+		for (DICOMNode n : selectedNodes) {
+			if (n.getLevel() == DICOMNode.SERIES) {
 				selectedSeriesUIDs.add(n.getData(DICOMNode.SeriesInstanceUID));
 			}
-			if(n.getLevel()==DICOMNode.IMAGE) {
-				if(selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID))==null) {
+			if (n.getLevel() == DICOMNode.IMAGE) {
+				if (selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID)) == null) {
 					ArrayList<String> uids = new ArrayList<>();
 					uids.add(n.getData(DICOMNode.SOPInstanceUID));
 					selectedImageUIDs.put(n.getData(DICOMNode.SeriesInstanceUID), uids);
-				}else {
+				} else {
 					selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID)).add(n.getData(DICOMNode.SOPInstanceUID));
 				}
 			}
 		}
+		
 		String patID = selectedNodes.get(0).getData(DICOMNode.PatientID);
 		String studyUID = selectedNodes.get(0).getData(DICOMNode.StudyInstanceUID);
-		if(bev != null) {
+		
+		if (bev != null) {
 			String currentShowingStudyUID = bev.getShowingStudyUID();
-			if(currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
+			
+			// ★ ここが重要：別の患者（Study）が選択された場合は、スレッド開始前に即座に画面をクリアする！
+			if (currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
+				// ★ 画面クリアを強制実行して、古い患者の画像が残るのを防ぐ
+				bev.resetViews(true); 
+				
 				final long reqId = birdsEyeRequestId.incrementAndGet();
-				new Thread(()->{
-					if(reqId != birdsEyeRequestId.get()) return;
+				new Thread(() -> {
+					// 自分が最新のタスクでなければ即終了
+					if (reqId != birdsEyeRequestId.get()) return;
 					bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
-			}else if(currentShowingStudyUID.equals(studyUID)) {
-				if(selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size()==0) {
+				
+			} else if (currentShowingStudyUID.equals(studyUID)) {
+				if (selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size() == 0) {
 					return;
 				}
 				final long reqId = birdsEyeRequestId.incrementAndGet();
-				new Thread(()->{
-					if(reqId != birdsEyeRequestId.get()) return;
+				new Thread(() -> {
+					// 自分が最新のタスクでなければ即終了
+					if (reqId != birdsEyeRequestId.get()) return;
 					bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
 			}
