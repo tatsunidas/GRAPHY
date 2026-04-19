@@ -565,6 +565,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				SlideGlass slide = r.getSlideGlass();
 				if(slide != null) {
 					/*
+					 * save undo
 					 * notify will done in canvas glass.
 					 */
 					slide.deleteRoi(r);
@@ -1319,6 +1320,11 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
+		
+		//undo save
+		SlideGlass targetSlide = selectedRois.values().iterator().next().getSlideGlass();
+		if (targetSlide != null) targetSlide.saveUndoState();
+		
 		Set<String> keys = selectedRois.keySet();
 		for(String roiID : keys) {
 			RoiObj roi = selectedRois.get(roiID);

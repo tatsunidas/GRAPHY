@@ -295,9 +295,12 @@ public class RoiBrush {
 							slide.addRoi(roiToSave);
 						}
 						slide.saveRoi(roiToSave);
-
+						
 						// ★追加: 次回のShift操作のために、確定したROIを記憶しておく
 						lastOperatedRoi = roiToSave;
+						if (slide != null) {
+							slide.saveUndoState();
+						}
 					}
 					clearCurrentBrushingRoi(); // ここでcurrentBrushingRoiはnullになる
 				});

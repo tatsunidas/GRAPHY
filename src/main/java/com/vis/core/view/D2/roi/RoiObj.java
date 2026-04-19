@@ -734,7 +734,16 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			r.setFillColor(getFillColor());
 			r.listenersNotified = false;
 			if (bounds != null)
-				r.bounds = (Rectangle2D.Double) bounds.clone();
+				r.bounds = (java.awt.geom.Rectangle2D.Double) bounds.clone();
+			
+			// ★ 追加：プロパティ(props)の完全なディープコピー
+			r.props = new java.util.Properties();
+			if (this.props != null) {
+				for (Object key : this.props.keySet()) {
+					r.props.put(key, this.props.get(key));
+				}
+			}
+			
 			return r;
 		} catch (CloneNotSupportedException e) {
 			return null;
@@ -1981,6 +1990,11 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		int sx = e.getX();
 		int sy = e.getY();
 		int handleId = isHandle(sx, sy);
+		
+		if (slide != null) {
+			slide.saveUndoState();
+		}
+		
 		setRoiModState(e, handleId);
 		if(handleId < 0) {
 			mouseDownWithoutHandle(sx, sy);
@@ -2042,7 +2056,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	public void handleMouseUp(int screenX, int screenY) {
 		setState(NORMAL);
 		setModificationState(NO_MODS);
-		Log.logger.fine("Roi RELEASED, state to be normal");
+		Log.logger.fine("Roi RELEASED, state to be waiting");
 		modifyRoi();
 	}
 
@@ -2294,13 +2308,12 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return magnificationForSubPixel(getMagnification());
 	}
 
-	/**
-	 * TODO
-	 * future work, record modify history
-	 */
 	void modifyRoi() {
 		if(getState() == CONSTRUCTING) {
 			return;
+		}
+		if(slide != null) {
+			slide.saveUndoState();
 		}
 		//do something...
 		notifyListeners(RoiObjListener.MODIFIED);

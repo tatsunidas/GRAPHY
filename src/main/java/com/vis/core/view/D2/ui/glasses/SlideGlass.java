@@ -54,6 +54,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -185,6 +186,12 @@ public class SlideGlass extends JLayeredPane {
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	ImageProcessing imgProcess = new ImageProcessing();
 	Logger logger = Log.logger;
+	
+	// ★ 変更：RoiObjのまま保存せず、DB保存用の「HashMap（値の集合）」に変換してスタックに積む！
+	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> undoStack = new java.util.ArrayDeque<>();
+	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> redoStack = new java.util.ArrayDeque<>();
+	private static final int MAX_UNDO_LIMIT = 20; // upper size of snapshots
+	private boolean isRestoring = false;
 
 	public SlideGlass(Praparat pp, DicomImage dcmImg/* single frame */) {
 		if (pp == null || dcmImg == null) {
@@ -1526,5 +1533,182 @@ public class SlideGlass extends JLayeredPane {
 		
 		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
+	}
+
+	/**
+	 * ★ 変更が起きる「直前」にこのメソッドを呼んで、現在の状態を保存します。
+	 */
+	public void saveUndoState() {
+		Log.logger.fine("--- saveUndoState called ---");
+		
+		if (isRestoring) {
+			Log.logger.fine("--- saveUndoState called, is restoring is true, return ---");
+			return; 
+		}
+		
+		java.util.List<java.util.HashMap<String, Object>> currentState = createSnapshot();
+		
+		Log.logger.fine("Current ROIs count to save: " + currentState.size());
+
+		if (!undoStack.isEmpty() && isSameState(undoStack.peek(), currentState)) {
+			Log.logger.fine("State is identical to the top of undoStack. Skipping save.");
+			return;
+		}
+
+		undoStack.push(currentState);
+		if (undoStack.size() > MAX_UNDO_LIMIT) {
+			undoStack.removeLast();
+		}
+		redoStack.clear();
+		Log.logger.fine("Saved to undoStack. undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
+	}
+	
+	private java.util.List<java.util.HashMap<String, Object>> createSnapshot() {
+		java.util.List<java.util.HashMap<String, Object>> snapshot = new java.util.ArrayList<>();
+		java.util.List<RoiObj> currentRois = getRois();
+		if (currentRois != null) {
+			for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
+				java.util.HashMap<String, Object> ctx = roi.readContext();
+				snapshot.add(ctx);
+				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.ContextKey.RoiID.name()) + " (Type: " + ctx.get(com.vis.configuration.ContextKey.RoiType.name()) + ")");
+			}
+		}
+		return snapshot;
+	}
+
+	private boolean isSameState(java.util.List<java.util.HashMap<String, Object>> state1, java.util.List<java.util.HashMap<String, Object>> state2) {
+		if (state1.size() != state2.size()) return false;
+		for (int i = 0; i < state1.size(); i++) {
+			java.util.HashMap<String, Object> r1 = state1.get(i);
+			java.util.HashMap<String, Object> r2 = state2.get(i);
+			
+			// 座標やサイズに変化がないか簡易チェック
+			if (!String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name()))) ||
+			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name()))) ||
+			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name()))) ||
+			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private void saveCurrentStateTo(java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> targetStack) {
+		targetStack.push(createSnapshot());
+	}
+
+//	public void undo() {
+//		Log.logger.fine("--- undo called ---");
+//		Log.logger.fine("Before undo - undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
+//		if (!undoStack.isEmpty()) {
+//			saveCurrentStateTo(redoStack);
+//			java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
+//			Log.logger.fine("Popped state with " + stateToRestore.size() + " ROIs. Restoring...");
+//			restoreState(stateToRestore);
+//		} else {
+//			Log.logger.fine("undoStack is empty. Cannot undo.");
+//		}
+//	}
+//
+//	public void redo() {
+//		Log.logger.fine("--- redo called ---");
+//		if (!redoStack.isEmpty()) {
+//			saveCurrentStateTo(undoStack);
+//			restoreState(redoStack.pop());
+//		}
+//	}
+
+	public void undo() {
+		Log.logger.fine("--- undo called ---");
+		// 過去の履歴がないなら何もしない
+		if (undoStack.isEmpty()) {
+			Log.logger.fine("undoStack is empty.");
+			return;
+		}
+
+		// 1. 今見えている画面の状態を Redo スタックに退避する
+		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
+		redoStack.push(currentlyVisibleState);
+
+		// 2. Undo スタックから一番上の過去を取り出す
+		java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
+		
+		// ★ 究極のガード：もし取り出した過去が「今の画面と全く同じ」なら、それは「無駄に保存された履歴」なので、
+		// もう一回 pop してさらに過去に遡る！
+		while (!undoStack.isEmpty() && isSameState(stateToRestore, currentlyVisibleState)) {
+			Log.logger.fine("Popped state is identical to current. Popping again to find real history.");
+			stateToRestore = undoStack.pop();
+		}
+
+		// 3. 過去を復元する
+		Log.logger.fine("Restoring past state with " + stateToRestore.size() + " ROIs.");
+		restoreState(stateToRestore);
+	}
+
+	public void redo() {
+		Log.logger.fine("--- redo called ---");
+		if (redoStack.isEmpty()) return;
+
+		// 1. 今見えている画面の状態を Undo スタックに退避する
+		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
+		undoStack.push(currentlyVisibleState);
+
+		// 2. Redo スタックから未来を取り出す
+		java.util.List<java.util.HashMap<String, Object>> stateToRestore = redoStack.pop();
+		
+		// 3. 未来を復元する
+		restoreState(stateToRestore);
+	}
+
+	/**
+	 * ★ DBとの整合性を保ちながら過去の状態を復元する心臓部
+	 */	
+	private void restoreState(java.util.List<java.util.HashMap<String, Object>> pastState) {
+
+		isRestoring = true;
+		Log.logger.fine("restoreState executed, it is restoring...");
+
+		try {
+
+			java.util.List<RoiObj> currentRois = getRois();
+			Log.logger.fine("Clearing current ROIs on slide...");
+			if (currentRois != null) {
+				for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
+					roiOverlay.deleteRoi(roi);
+				}
+				currentRois.clear();
+			}
+
+			com.vis.core.view.D2.roi.RoiConverter converter = new com.vis.core.view.D2.roi.RoiConverter();
+			int restoredCount = 0;
+			for (java.util.HashMap<String, Object> pastRoiCtx : pastState) {
+				Log.logger.fine(
+						"Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(ContextKey.RoiID.name()));
+				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
+				if (revivedRoi != null) {
+					revivedRoi.setSlideGlass(this);
+//				if (currentRois != null) currentRois.add(revivedRoi);
+//				db.insertRoi(revivedRoi.readContext());
+					this.addRoi(revivedRoi);
+					restoredCount++;
+					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(ContextKey.RoiID.name()));
+				} else {
+					Log.logger.severe(
+							"CRITICAL: Failed to build RoiObj! converter.buildRoiObj returned null. Context keys: "
+									+ pastRoiCtx.keySet());
+				}
+			}
+
+			Log.logger.fine("Restore complete. Successfully restored " + restoredCount + " ROIs.");
+			repaint();
+
+			repaint();
+			com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
+
+		} finally {
+			// ★ ガード解除：処理が終わったら（エラーが起きても）必ずフラグを下ろす
+			isRestoring = false;
+			Log.logger.fine("restoreState finished.");
+		}
 	}
 }

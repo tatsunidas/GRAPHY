@@ -184,6 +184,13 @@ public class CanvasGlass extends javax.swing.JPanel {
 				updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
 				//this roi already in RoiObjManager.
 			} else {
+				/*
+				 * before adding to list
+				 */
+				if (sg != null) {
+					sg.saveUndoState(); 
+				}
+				
 				roiset.add(newRoi);
 				insertOrUpdateRoi4DB(newRoi);
 				//update RoiObjManager
@@ -361,6 +368,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	private void deleteRoiFromDB(RoiObj roi) {
+		if (sg != null) sg.saveUndoState();
 		HashMap<ContextKey, String> uids = roi.getUIDs();
 		String patID = uids.get(ContextKey.PatientID);
 		String studyUID = uids.get(ContextKey.StudyInstanceUID);
@@ -802,6 +810,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	 * @return move roi done or not
 	 */
 	public boolean keyPressed(int keyCode, int mex/* ModifiersEx */) {
+				
 		boolean doingSomething = false;
 		if ((mex & InputEvent.ALT_DOWN_MASK) != 0) {
 			doingSomething = true;
@@ -821,6 +830,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(doingSomething) {
 			return false;
 		}
+		
 		if(currentRoi == null) {
 			return false;
 		}

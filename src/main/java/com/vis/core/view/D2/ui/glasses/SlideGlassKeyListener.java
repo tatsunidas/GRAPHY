@@ -82,10 +82,22 @@ public class SlideGlassKeyListener implements KeyListener{
 		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 
 		int k = e.getKeyCode();
-		System.out.println(k);
 
 		// add first.
 		pressedKeys.add(k);
+		
+		boolean isCtrlOrCmd = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0
+				|| (e.getModifiersEx() & java.awt.event.InputEvent.META_DOWN_MASK) != 0;
+
+		if (isCtrlOrCmd && e.getKeyCode() == KeyEvent.VK_Z) {
+			if (e.isShiftDown()) {
+				// Ctrl + Shift + Z で Redo
+				sg.redo();
+			} else {
+				// Ctrl + Z で Undo
+				sg.undo();
+			}
+		}
 
 		// reset slide
 		if (e.isControlDown() && e.isShiftDown()) {

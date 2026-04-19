@@ -665,7 +665,7 @@ public class PolygonRoi extends RoiObj {
 		}
 		if (xSpline != null) {
 			fitSpline(splinePoints);
-			imp.draw();
+//			imp.draw();
 		} else {
 			if (!subPixelResolution() || (type == RoiType.POINT.id() && nPoints == 1))
 				resetBoundingRect();
@@ -677,7 +677,6 @@ public class PolygonRoi extends RoiObj {
 		}
 		previousX = ox;
 		previousY = oy;
-		modifyRoi();
 	}
 
 	/** After handle is moved, find clip rect and repaint. */
@@ -919,12 +918,6 @@ public class PolygonRoi extends RoiObj {
 	}
 
 	public void deleteHandle(double ox, double oy) {
-		if (imp == null)
-			return;
-		if (nPoints <= 1) {
-			imp.deleteRoi();
-			return;
-		}
 		boolean splineFit = xSpline != null;
 		if (splineFit)
 			removeSplineFit();
@@ -934,8 +927,8 @@ public class PolygonRoi extends RoiObj {
 			deletePoint(pointToDelete);
 			if (splineFit)
 				fitSpline(splinePoints);
-			imp.draw();
 		}
+		modifyRoi();
 	}
 
 	protected void deletePoint(int index) {
