@@ -2253,6 +2253,9 @@ public class Praparat extends JPanel {
 				sg.setLUT(this.lut);
 			}
 		}
+		if (getViewPanel() != null) {
+			getViewPanel().repaint();
+		}
 	}
 		
 	public void setNextSlice() {

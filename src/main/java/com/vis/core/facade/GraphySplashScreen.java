@@ -37,45 +37,25 @@
  */
 package com.vis.core.facade;
 
-import java.awt.AlphaComposite;
 import java.awt.BorderLayout;
-import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.*;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
-import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
 
 import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 
-/**
- * 
- * From java 6, anybody can use default SplashScreen.class .
- * https://docs.oracle.com/javase/tutorial/uiswing/misc/splashscreen.html
- * 
- * But, it requires jvm option or Manifest option. So, in graphy, use JFrame
- * basis original splash screen.
- * 
- * @author tatsunidas
- *
- */
-@SuppressWarnings({ "serial", "unused" })
+@SuppressWarnings({ "serial"})
 public class GraphySplashScreen extends JFrame {
-
-	// test
-	public static void main(String args[]) {
-		new GraphySplashScreen();
-	}
 
 	JProgressBar progress;
 
@@ -91,7 +71,7 @@ public class GraphySplashScreen extends JFrame {
 		Graphics2D bGr = bimage.createGraphics();
 		bGr.drawImage(splash, 0, 0, null);
 		bGr.dispose();
-		SplashPanel sp = new SplashPanel(bimage);// (splash);
+		SplashPanel sp = new SplashPanel(bimage);
 		add(sp, BorderLayout.CENTER);
 
 		progress = new JProgressBar();
@@ -99,30 +79,36 @@ public class GraphySplashScreen extends JFrame {
 		progress.setMaximum(99);// default
 		progress.setStringPainted(true);
 		progress.setString("Ready to start ...");
-		add(progress, BorderLayout.SOUTH);// System.out.println(progress.getHeight());//here, 0 height yet.
+		add(progress, BorderLayout.SOUTH);
 
-		// https://stackoverflow.com/questions/19869751/get-size-of-jpanel-before-setvisible-called
-		// adjust and fix sizes of components.
+		// ★ 修正1: サイズ計算は pack() にすべて任せる！
+		// SplashPanel が PreferredSize を持っているため、pack() だけで画像とバーが完璧に収まります。
 		pack();
 
-		// then, set sizes
-		setSize(new Dimension(bimage.getWidth(), bimage.getHeight() + progress.getHeight()));
+		// 注意: ここにあった setSize(...) は、高DPI環境でスケーリングを破壊するため削除しました。
 
 		setLocationRelativeTo(null);
 		setVisible(true);
 		toFront();
-
 	}
 
 	public void startProgressAndClose(String progressPrefix, int max) {
 		new Thread() {
 			public void run() {
-				progress.setMaximum(max);
-				progress.setString("[" + progressPrefix + "]:"
-						+ ResourceBundle.getBundle("i18n.i18n").getString("GraphySplashScreen.readyToStart"));
-				progress.repaint();
+				// ★ 修正2: プログレスバー（UIコンポーネント）の操作は必ず invokeLater で包んで安全に行う！
+				SwingUtilities.invokeLater(() -> {
+					progress.setMaximum(max);
+					progress.setString("[" + progressPrefix + "]:"
+							+ ResourceBundle.getBundle("i18n.i18n").getString("GraphySplashScreen.readyToStart"));
+				});
+
 				for (int i = 0; i < max; i++) {
-					progress.setValue(i++);
+					final int currentValue = i;
+					// UIの更新だけをEDT（UIスレッド）に投げる
+					SwingUtilities.invokeLater(() -> {
+						progress.setValue(currentValue);
+					});
+
 					try {
 						Thread.sleep(76);
 					} catch (InterruptedException e) {
@@ -130,15 +116,22 @@ public class GraphySplashScreen extends JFrame {
 						Log.logger.log(Level.SEVERE, e.getMessage());
 					}
 				}
-				progress.setString("GRAPHY start ...");
-				progress.repaint();
+				
+				SwingUtilities.invokeLater(() -> {
+					progress.setString("GRAPHY start ...");
+				});
+				
 				try {
 					Thread.sleep(max < 5 ? 2000 : 1200);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					Log.logger.log(Level.SEVERE, e.getMessage());
 				}
-				dispose();
+				
+				// ウィンドウを閉じる処理もUI操作なので包む
+				SwingUtilities.invokeLater(() -> {
+					dispose();
+				});
 			}
 		}.start();
 	}
@@ -159,16 +152,6 @@ public class GraphySplashScreen extends JFrame {
 		@Override
 		public void paintComponent(Graphics g) {
 			super.paintComponent(g);
-			/*
-			 * if you want to resizing
-			 */
-//			BufferedImage resizedImage = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-//			Graphics2D graphics2D = resizedImage.createGraphics();
-//			graphics2D.drawImage(bg, 0, 0, getWidth(), getHeight(), null);
-//			graphics2D.dispose();
-//			g.drawImage(resizedImage, 0, 0, null);
-
-			// here, simply show image with an original image size.
 			g.drawImage(bg, 0, 0, null);
 		}
 	}

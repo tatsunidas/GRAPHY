@@ -54,7 +54,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -675,13 +674,17 @@ public class SlideGlass extends JLayeredPane {
 	private void initCalibrationAndLUT(DicomObject header) {
 		
 		Calibration originalCal = new Calibration();
-		setLUT(extractDisplayLUT(header));
+		
+		if(currentLUT == null){
+			setLUT(extractDisplayLUT(header));
+		}		
 		
 		setupSpatialCalibration(originalCal, header);
 		setupDensityCalibration(originalCal, header);
-		// adjust WW/WL
-		resetContrast();
 		setOriginalCalibration(originalCal);
+		// adjust WW/WL
+		changeWindowingByMinMax(currentMin, currentMax);
+		
 	}
 	
 	private LUT extractDisplayLUT(DicomObject header) {
@@ -1593,31 +1596,6 @@ public class SlideGlass extends JLayeredPane {
 		return true;
 	}
 
-	private void saveCurrentStateTo(java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> targetStack) {
-		targetStack.push(createSnapshot());
-	}
-
-//	public void undo() {
-//		Log.logger.fine("--- undo called ---");
-//		Log.logger.fine("Before undo - undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
-//		if (!undoStack.isEmpty()) {
-//			saveCurrentStateTo(redoStack);
-//			java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
-//			Log.logger.fine("Popped state with " + stateToRestore.size() + " ROIs. Restoring...");
-//			restoreState(stateToRestore);
-//		} else {
-//			Log.logger.fine("undoStack is empty. Cannot undo.");
-//		}
-//	}
-//
-//	public void redo() {
-//		Log.logger.fine("--- redo called ---");
-//		if (!redoStack.isEmpty()) {
-//			saveCurrentStateTo(undoStack);
-//			restoreState(redoStack.pop());
-//		}
-//	}
-
 	public void undo() {
 		Log.logger.fine("--- undo called ---");
 		// 過去の履歴がないなら何もしない
@@ -1687,8 +1665,6 @@ public class SlideGlass extends JLayeredPane {
 				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(this);
-//				if (currentRois != null) currentRois.add(revivedRoi);
-//				db.insertRoi(revivedRoi.readContext());
 					this.addRoi(revivedRoi);
 					restoredCount++;
 					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(ContextKey.RoiID.name()));
