@@ -683,8 +683,12 @@ public class SlideGlass extends JLayeredPane {
 		setupDensityCalibration(originalCal, header);
 		setOriginalCalibration(originalCal);
 		// adjust WW/WL
-		changeWindowingByMinMax(currentMin, currentMax);
-		
+		if (this.currentMin != 0 && this.currentMax != 255) {
+			changeWindowingByMinMax(currentMin, currentMax);
+		}else {
+			//here, do nothing. delegate global auto contrast.
+//			autoWindowing();
+		}
 	}
 	
 	private LUT extractDisplayLUT(DicomObject header) {
