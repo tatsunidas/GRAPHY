@@ -86,5 +86,4 @@ public class ImageToDicomConverter {
 			writer.write(core, UID.ImplicitVRLittleEndian.uid(), tempDir.getAbsolutePath()+File.separator+core.getString(Tag.SOP​Instance​UID));
 		}
 	}
-
 }

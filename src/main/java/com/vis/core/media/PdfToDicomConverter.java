@@ -32,15 +32,14 @@ public class PdfToDicomConverter {
 		 * When create as new study, set desired date time.
 		 */
 		java.util.Date studyDate = context.studyDate == null ? null:DateUtils.toDateObj(context.studyDate, "/");
-		//TODO convert string to DICOM DateTime format
-		java.util.Date studyTime = context.studyTime == null ? null:DateUtils.toDateObj(context.studyTime, "/");
+		java.util.Date studyTime = context.studyTime == null ? null:DateUtils.toTimeObj(context.studyTime, ":");
 		/*
 		 * Content Date/Time
 		 * Set date/time that images were created. 
 		 */
 		java.util.Date contentDate = context.contentDate == null ? null:DateUtils.toDateObj(context.contentDate, "/");
 		//TODO convert string to DICOM DateTime format
-		java.util.Date contentTime = context.contentTime == null ? null:DateUtils.toDateObj(context.contentTime, "/");
+		java.util.Date contentTime = context.contentTime == null ? null:DateUtils.toTimeObj(context.contentTime, ":");
 		String seriesDesc = context.seriesDesc;
 		
 		String studyUID = context.studyUID;

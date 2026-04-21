@@ -54,10 +54,10 @@ public class VideoToDicomConverter {
 
 		int w = imp.getWidth();
 		int h = imp.getHeight();
-		int c = imp.getNChannels();
-		int bits = imp.getBitDepth();
+		int c = (imp.getProcessor() instanceof ColorProcessor) ? 3 : 1;
+		int bits = c == 3 ? 8 : imp.getBitDepth();
 		int frames = imp.getNSlices();
-		boolean isColor = (c > 1 || bits >= 24);
+		boolean isColor = imp.isRGB();
 		double fps = imp.getCalibration().fps;
 		double duration = Math.rint(frames * fps);
 
@@ -116,58 +116,6 @@ public class VideoToDicomConverter {
 		DicomWriter writer = DicomWriter.newDicomWriter(backend);
 		writer.write(dcmHeader, UID.ImplicitVRLittleEndian.uid(), outputFile.getAbsolutePath());
 	}
-	
-
-	/**
-	 * 1つの動画ファイルを変換する内部メソッド。
-	 */
-//	public static void convertVideo(File videoFile, File tempDir, int seriesNumber, int instanceNumber, Modality m,
-//			String patName, String patID, String sex, java.util.Date dob, String studyUID, String studyID,
-//			String studyDesc, java.util.Date studyDate, java.util.Date studyTime, java.util.Date contentDate,
-//			java.util.Date contentTime, String seriesDesc) throws Exception {
-//
-//		VideoReader reader = VideoReader.load(videoFile);
-//		if (reader == null) {
-//			throw new IllegalArgumentException("Unsupported video format: " + videoFile.getName());
-//		}
-//
-//		ImagePlus imp = reader.read(); // Virtual Stackとして開かれる想定
-//		if (imp == null) {
-//			throw new IOException("Failed to read video data from: " + videoFile.getName());
-//		}
-//
-//		int w = imp.getWidth();
-//		int h = imp.getHeight();
-//		int c = imp.getNChannels();
-//		int bits = imp.getBitDepth();
-//		int frames = imp.getNSlices();
-//		boolean isColor = (c > 1 || bits >= 24);
-//		double fps = imp.getCalibration().fps;
-//		double duration = Math.rint(frames * fps);
-//
-//		// 1. PixelDataを含まないヘッダのみのDicomObjectを作成
-//		DicomObject dcmHeader = createDicomHeader(w, h, frames, isColor, bits, fps, duration, seriesNumber,
-//				instanceNumber, m, patName, patID, sex, dob, studyUID, studyID, studyDesc, studyDate, studyTime,
-//				contentDate, contentTime, seriesDesc);
-//
-//		String sopInstanceUID = dcmHeader.getString(Tag.SOP​Instance​UID);
-//		File outputFile = new File(tempDir, sopInstanceUID);
-//
-//		// 2. まずヘッダだけをファイルに書き出す
-//		DicomWriter writer = DicomWriter.newDicomWriter(backend);
-//		writer.write(dcmHeader, UID.ExplicitVRLittleEndian.uid(), outputFile.getAbsolutePath());
-//
-//		// 3. PixelDataをストリームで追記する（失敗時は作成途中のファイルを削除する）
-//		try {
-//			appendPixelDataStream(outputFile, imp, w, h, frames, isColor);
-//		} catch (Exception e) {
-//			cleanupFailedFile(outputFile);
-//			throw new IOException("Failed during streaming pixel data for " + videoFile.getName(), e);
-//		} finally {
-//			// Virtual Stackを開放し、ファイルロックを解除する
-//			imp.close();
-//		}
-//	}
 
 	/**
 	 * PixelDataを含まないDICOMヘッダ情報のみを構築するメソッド。
