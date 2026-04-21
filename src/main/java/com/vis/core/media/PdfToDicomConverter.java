@@ -38,7 +38,6 @@ public class PdfToDicomConverter {
 		 * Set date/time that images were created. 
 		 */
 		java.util.Date contentDate = context.contentDate == null ? null:DateUtils.toDateObj(context.contentDate, "/");
-		//TODO convert string to DICOM DateTime format
 		java.util.Date contentTime = context.contentTime == null ? null:DateUtils.toTimeObj(context.contentTime, ":");
 		String seriesDesc = context.seriesDesc;
 		
