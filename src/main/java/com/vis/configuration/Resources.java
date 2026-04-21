@@ -1,5 +1,6 @@
 package com.vis.configuration;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -171,6 +172,10 @@ public enum Resources {
 		return null;
 	}
 	
+	/**
+	 * Resize image icon to 48 * 48
+	 * @return
+	 */
 	public ImageIcon loadIconFromResource(){
 		if(pathInResource.endsWith("png") || pathInResource.endsWith("jpg") || pathInResource.endsWith("jpeg")) {
 			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
@@ -190,6 +195,23 @@ public enum Resources {
 				return null;
 			}
 			return ico;
+		}
+		return null;
+	}
+	
+	public BufferedImage loadImageFromResource(){
+		if(pathInResource.endsWith("png") || pathInResource.endsWith("jpg") || pathInResource.endsWith("jpeg")) {
+			InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(pathInResource);
+			if(stream == null) {
+				stream = Resources.class.getResourceAsStream("/"+pathInResource);
+			}
+			try {
+				return javax.imageio.ImageIO.read(stream);
+			} catch (IOException e) {
+				Log.logger.severe("Cannot load Resources files...");
+				e.printStackTrace();
+				return null;
+			}
 		}
 		return null;
 	}

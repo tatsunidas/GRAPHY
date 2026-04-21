@@ -237,9 +237,10 @@ public class ApplicationFacade{
 
 	private void runMainScreen() {
 		
-		if(splash != null) {
-			splash.dispose();
-		}
+//		if(splash != null) {
+//			splash.dispose();
+//		}
+		
 		// look and feels
 		laf = new LookAndFeels();
 		

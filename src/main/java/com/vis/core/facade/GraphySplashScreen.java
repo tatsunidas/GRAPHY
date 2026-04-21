@@ -38,16 +38,21 @@
 package com.vis.core.facade;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.Toolkit;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
-import javax.swing.ImageIcon;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
-import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 
 @SuppressWarnings({ "serial"})
@@ -59,24 +64,66 @@ public class GraphySplashScreen extends JFrame {
 		setLayout(new BorderLayout());
 		setUndecorated(true);
 
-		// 画像の読み込み完了を確実に待機する（元のコードの読み込み失敗バグを解消）
-		ImageIcon splashIcon = Resources.Splash.loadIconFromResource();
+		// 1. ImageIconを使用して画像を確実にロードする
+		Image splash = com.vis.configuration.Resources.Splash.loadImageFromResource();
 		
-		// JLabelに渡すことで、画像の「本来のピクセルサイズ（869x495）」で一切拡大せずに等倍表示する。
-		// 拡大しないため、絶対にボケません。
-		JLabel splashLabel = new JLabel(splashIcon);
-		add(splashLabel, BorderLayout.CENTER);
+		// 2. ★HiDPI対策：現在のモニターの解像度（スケーリング）に合わせてサイズを計算する
+		// モニターのDPIを取得し、標準の96DPIに対して何倍にすべきか算出します
+		int dpi = Toolkit.getDefaultToolkit().getScreenResolution();
+		double scale = dpi / 96.0;
+		if (scale < 1.0) scale = 1.0;
+
+		// 元の画像サイズ (869x495) に倍率をかける
+		int targetW = (int) (869 * scale);
+		int targetH = (int) (495 * scale);
+
+		// 3. 画像をパネル全体に拡大描画する「SplashPanel」を追加
+		SplashPanel sp = new SplashPanel(splash, targetW, targetH);
+		add(sp, BorderLayout.CENTER);
 
 		progress = new JProgressBar();
 		progress.setMaximum(99);
 		progress.setStringPainted(true);
 		progress.setString("Ready to start ...");
+		// プログレスバーの高さもスケーリングに合わせて微調整
+		progress.setPreferredSize(new Dimension(targetW, (int)(25 * scale)));
 		add(progress, BorderLayout.SOUTH);
 
-		pack(); // 画像の本来のサイズに合わせてウィンドウをピタッと包み込む
+		// ウィンドウサイズを計算したターゲットサイズに合わせる
+		pack(); 
+		
 		setLocationRelativeTo(null);
 		setVisible(true);
 		toFront();
+	}
+
+	/**
+	 * 画像をパネルのサイズに合わせて高品質に引き伸ばして描画するインナークラス
+	 */
+	private class SplashPanel extends JPanel {
+		private Image img;
+
+		SplashPanel(Image img, int w, int h) {
+			this.img = img;
+			// 推奨サイズを設定することで pack() した時にこのサイズになります
+			setPreferredSize(new Dimension(w, h));
+			setBackground(Color.BLACK);
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			Graphics2D g2d = (Graphics2D) g;
+
+			// ★ 拡大描画の設定（ボケを抑えて高品質にする）
+			g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+			// 画像をパネルの左上(0,0)から、パネルの幅・高さ一杯に描画
+			if (img != null) {
+				g2d.drawImage(img, 0, 0, getWidth(), getHeight(), this);
+			}
+		}
 	}
 
 	public void startProgressAndClose(String progressPrefix, int max) {
