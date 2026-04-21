@@ -12,6 +12,7 @@ import java.awt.event.ComponentListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 
 import com.vis.core.view.D2.ui.LutPicker;
 
@@ -32,6 +33,10 @@ public class ColorBar extends JLabel implements ComponentListener{
 		addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
+				if(praparat().getCurrentSlide().isRGB) {
+					JOptionPane.showConfirmDialog(pp, "Cannot apply LUT to RGB images.", "LUT warning...", JOptionPane.OK_OPTION);
+					return;
+				}
 				LutPicker p = new LutPicker();
 				p.setLocationRelativeTo(praparat());
 				LUT lut = p.run();

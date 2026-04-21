@@ -809,7 +809,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	private void initPrapInfoLabel() {
-		if (pp == null) {
+		if (pp == null || pp.getViewMode() == ViewMode.Thumbnail) {
 			return;
 		}
 		if(imageSpecimen == null) {

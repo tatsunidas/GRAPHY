@@ -865,7 +865,10 @@ public class GDicomTools extends ij.util.DicomTools{
 		 * IJ.openImage(url); sysout(image.getNChannels());//return 1
 		 */
 		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
-		int bits = imp.getBitDepth();
+		/*
+		 * IJ return 24 when imp is rgb, however, in DICOM, 8-bit per pixel, channel by channel if it is color.
+		 */
+		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
 		int s = imp.getNSlices();
 		//16 bit
 		boolean signed16 = imp.getProcessor().isSigned16Bit();

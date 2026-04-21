@@ -55,7 +55,7 @@ public class PDFReader{
 	private static final long MAX_FILE_SIZE = 0x7FFFFFFE;
 	
 	final File pdf;
-	int dpi = 300;
+	int dpi = 600;
 	final boolean isDcm;
 	
 	/**

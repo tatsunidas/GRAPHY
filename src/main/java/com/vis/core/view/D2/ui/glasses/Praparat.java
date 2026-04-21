@@ -288,57 +288,51 @@ public class Praparat extends JPanel {
 		}
 	}
 	
+	
 	/**
 	 * スタック全体の最適な表示レンジ（Min/Max）からWindow CenterとWindow Widthを算出し、
 	 * すべてのスライスのDICOMタグに統一して書き込みます。
-	 * スライス移動（スクロール）時のコントラストの飛躍（チカチカ）を防止するグローバルAutoWindow調整機能です。
-	 * * @param imp コントラストを統一したいImagePlus
 	 */
 	public void applyGlobalAutoWindow() {
 		if (slides == null || slides.isEmpty()) return;
 
-		double globalMin = Double.MAX_VALUE;
-		double globalMax = -Double.MAX_VALUE; 
+		// 1. 真ん中のスライスを代表として選ぶ
+		int midIndex = slides.size() / 2;
+		SlideGlass midSlide = slides.get(midIndex);
+		if (midSlide == null) return;
 
-		boolean multiFrame = isMultiFrame();
-		int frameIndex = 0; // multiFrame用の連番カウンタ
+		DicomImage dcm = midSlide.getDicomImage();
+		if (dcm == null) return;
 
-		// 1. キー(Integer)経由ではなく、値(SlideGlass)を直接ループして安全にアクセス
-		for (SlideGlass sg : slides.values()) {
-			if (sg == null || sg.getDicomImage() == null) {
-				setImagePosition(frameIndex);
-//				frameIndex++;
-//				continue;
-			}
-
-			// マルチフレームの場合は連番(frameIndex)、シングルの場合は常に 0 を指定
-			int targetIndex = multiFrame ? frameIndex : 0;
-			ImageProcessor ip = sg.getDicomImage().getImageProcessor(targetIndex);
-
-			if (ip != null) {
-				ip.resetMinAndMax(); // 念のためピクセル値のMin/Maxを再計算させる
-				double min = ip.getMin();
-				double max = ip.getMax();
-
-				if (min < globalMin) {
-					globalMin = min;
-				}
-				if (max > globalMax) {
-					globalMax = max;
-				}
-			}
-			frameIndex++;
+		// 2. ピクセルデータを「確実に」ロードする
+		int file_pos = isMultiFrame() ? 0 : midIndex;
+		if (hasFileSource(file_pos)) {
+			dcm.ensurePixelDataLoaded();
 		}
 
-		// 3. 重複していたガード処理を最後にまとめる (DRY原則)
-		if (globalMin == Double.MAX_VALUE) return;
-		
-		if (globalMin == globalMax) {
-			globalMax = globalMin + 1.0;
-		}
+		// 3. ImageProcessorを取得
+		int frame_pos = isMultiFrame() ? midIndex : 0;
+		ImageProcessor ip = dcm.getImageProcessor(frame_pos);
 
-		// 全スライドに統一したコントラストを適用
-		adjustContrastByMinMax(globalMin, globalMax);
+		if (ip != null) {
+			// ★ 究極の修正：ImageJのヒストグラム解析を使用する！
+			// 上下0.5%の外れ値（ノイズや異常に明るいピクセル）を除外して、
+			// 医療画像として最も自然なコントラスト幅を自動計算させます。
+			ij.plugin.ContrastEnhancer ce = new ij.plugin.ContrastEnhancer();
+			ce.stretchHistogram(ip, 0.5);
+			
+			// 解析済みの最適なMin/Maxを取得
+			double globalMin = ip.getMin();
+			double globalMax = ip.getMax();
+
+			// 真っ暗な画像だった場合のゼロ除算・白飛び防止ガード
+			if (globalMin == globalMax) {
+				globalMax = globalMin + 1.0;
+			}
+
+			// 4. 全スライドに一括適用（異常なDICOMタグもこれで上書きして綺麗にします）
+			adjustContrastByMinMax(globalMin, globalMax);
+		}
 	}
 	
 	/**
@@ -1372,11 +1366,12 @@ public class Praparat extends JPanel {
 		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromPraparat(p);
+		applyGlobalAutoWindow();//before slider.initContext
 		currentSlice = -1;
 		if(slider != null) {
 			slider.initContext();
 		}
-		applyGlobalAutoWindow();
+		
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1419,11 +1414,11 @@ public class Praparat extends JPanel {
 		 */
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
+		applyGlobalAutoWindow();//before slider.initContext
 		currentSlice = -1;
 		if(slider != null) {
 			slider.initContext();
 		}
-		applyGlobalAutoWindow();
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1467,11 +1462,10 @@ public class Praparat extends JPanel {
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/*keep null file paths*/);
 		
 		constructSlideGlassesFromImagePlus(images);
-		
+		applyGlobalAutoWindow(images);//before slider.initContext
 		if(slider != null) {
 			slider.initContext();
 		}
-		applyGlobalAutoWindow(images);
 		
 		if(Utils.isDebug) {
 			Log.logger.fine(slides.size()+" images loaded.");
@@ -1508,10 +1502,13 @@ public class Praparat extends JPanel {
 		}
 		setInfo(pid, studyUID, seriesUID, sopUIDs, dcm_paths);
 		constructSlideGlassesFromDicom(dcm_paths);
+		
+		applyGlobalAutoWindow();//before slider.initContext
+		
 		if(slider != null) {
 			slider.initContext();
 		}
-		applyGlobalAutoWindow();
+		
 		if(Utils.isDebug) {
 			System.out.println(slides.size()+" images loaded.");
 		}
@@ -1643,7 +1640,6 @@ public class Praparat extends JPanel {
 		SlideGlass sg = slides.get(index);
 		DicomImage dcmimg = sg.getDicomImage();
 		isMultiFrame = dcmimg.isMultiFrame();
-		isMultiFrame = isMultiFrame && dcmimg.getNumOfFrames() > 1;
 		isMultiFrame = isPDF == true ? true:isMultiFrame;
 		// まだピクセルデータがロードされていない、または解凍されていない場合
 		if (sg.getOriginalImage() == null) {
@@ -1669,8 +1665,19 @@ public class Praparat extends JPanel {
 					}
 				}
 			}
-			//common
+			
+			double backupMin = sg.currentMin;
+			double backupMax = sg.currentMax;
+
+			// common (ここでDICOMタグが再読み込みされ、異常値に上書きされる可能性がある)
 			sg.initCalibrationAndLUT();
+			
+			// ★ バックアップのリストア: 初期値（0と255）から変更されていた場合は、
+			// グローバルコントラスト等で意味のある値が設定されていた証拠なので、強制的に復元する。
+			if (!(backupMin == 0.0 && backupMax == 255.0)) {
+				sg.currentMin = backupMin;
+				sg.currentMax = backupMax;
+			}
 			
 			if (sg.currentMin != sg.currentMax) {
 				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);

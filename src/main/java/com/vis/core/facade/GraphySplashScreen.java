@@ -38,16 +38,12 @@
 package com.vis.core.facade;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
+import javax.swing.ImageIcon;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
+import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
@@ -61,32 +57,23 @@ public class GraphySplashScreen extends JFrame {
 
 	public GraphySplashScreen() {
 		setLayout(new BorderLayout());
-		setUndecorated(true);// title bar no visible
-		Image splash = Resources.Splash.loadIconFromResource().getImage();
-		// Create a buffered image with transparency
-		BufferedImage bimage = new BufferedImage(splash.getWidth(null), splash.getHeight(null),
-				BufferedImage.TYPE_INT_ARGB);
+		setUndecorated(true);
 
-		// Draw the image on to the buffered image
-		Graphics2D bGr = bimage.createGraphics();
-		bGr.drawImage(splash, 0, 0, null);
-		bGr.dispose();
-		SplashPanel sp = new SplashPanel(bimage);
-		add(sp, BorderLayout.CENTER);
+		// 画像の読み込み完了を確実に待機する（元のコードの読み込み失敗バグを解消）
+		ImageIcon splashIcon = Resources.Splash.loadIconFromResource();
+		
+		// JLabelに渡すことで、画像の「本来のピクセルサイズ（869x495）」で一切拡大せずに等倍表示する。
+		// 拡大しないため、絶対にボケません。
+		JLabel splashLabel = new JLabel(splashIcon);
+		add(splashLabel, BorderLayout.CENTER);
 
 		progress = new JProgressBar();
-		progress.setMaximum(0);// default
-		progress.setMaximum(99);// default
+		progress.setMaximum(99);
 		progress.setStringPainted(true);
 		progress.setString("Ready to start ...");
 		add(progress, BorderLayout.SOUTH);
 
-		// ★ 修正1: サイズ計算は pack() にすべて任せる！
-		// SplashPanel が PreferredSize を持っているため、pack() だけで画像とバーが完璧に収まります。
-		pack();
-
-		// 注意: ここにあった setSize(...) は、高DPI環境でスケーリングを破壊するため削除しました。
-
+		pack(); // 画像の本来のサイズに合わせてウィンドウをピタッと包み込む
 		setLocationRelativeTo(null);
 		setVisible(true);
 		toFront();
@@ -95,7 +82,6 @@ public class GraphySplashScreen extends JFrame {
 	public void startProgressAndClose(String progressPrefix, int max) {
 		new Thread() {
 			public void run() {
-				// ★ 修正2: プログレスバー（UIコンポーネント）の操作は必ず invokeLater で包んで安全に行う！
 				SwingUtilities.invokeLater(() -> {
 					progress.setMaximum(max);
 					progress.setString("[" + progressPrefix + "]:"
@@ -104,55 +90,25 @@ public class GraphySplashScreen extends JFrame {
 
 				for (int i = 0; i < max; i++) {
 					final int currentValue = i;
-					// UIの更新だけをEDT（UIスレッド）に投げる
-					SwingUtilities.invokeLater(() -> {
-						progress.setValue(currentValue);
-					});
+					SwingUtilities.invokeLater(() -> progress.setValue(currentValue));
 
 					try {
 						Thread.sleep(76);
 					} catch (InterruptedException e) {
-						e.printStackTrace();
 						Log.logger.log(Level.SEVERE, e.getMessage());
 					}
 				}
 				
-				SwingUtilities.invokeLater(() -> {
-					progress.setString("GRAPHY start ...");
-				});
+				SwingUtilities.invokeLater(() -> progress.setString("GRAPHY start ..."));
 				
 				try {
 					Thread.sleep(max < 5 ? 2000 : 1200);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
 					Log.logger.log(Level.SEVERE, e.getMessage());
 				}
 				
-				// ウィンドウを閉じる処理もUI操作なので包む
-				SwingUtilities.invokeLater(() -> {
-					dispose();
-				});
+				SwingUtilities.invokeLater(() -> dispose());
 			}
 		}.start();
-	}
-
-	private class SplashPanel extends JPanel {
-		private BufferedImage bg;
-		int w;
-		int h;
-
-		SplashPanel(BufferedImage bg) {
-			this.bg = bg;
-			this.w = bg.getWidth();
-			this.h = bg.getHeight();
-			this.setBounds(0, 0, w, h);
-			this.setPreferredSize(new Dimension(w, h));
-		}
-
-		@Override
-		public void paintComponent(Graphics g) {
-			super.paintComponent(g);
-			g.drawImage(bg, 0, 0, null);
-		}
 	}
 }

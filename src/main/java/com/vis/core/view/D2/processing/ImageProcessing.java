@@ -20,6 +20,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.Roi;
 import ij.measure.Calibration;
+import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
@@ -28,7 +29,7 @@ public class ImageProcessing {
 	public ImageProcessing(){}
 	
 	public void applyLUT(ImagePlus imp, LUT lut) {
-		if(imp != null) {
+		if(imp != null && !(imp.getProcessor() instanceof ColorProcessor)) {
 			imp.setLut(lut);
 			imp.updateAndDraw();
 		}
