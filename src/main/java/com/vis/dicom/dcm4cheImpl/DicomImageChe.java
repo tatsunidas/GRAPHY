@@ -82,6 +82,8 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	boolean decompressed = false;
 	final String filePath;
 	
+	private Decompressor mpegDecompressorCache = null;
+	
 	public DicomImageChe(String path, boolean withPixel) {
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
 		reader.read(path, withPixel);
@@ -156,10 +158,13 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		// ★ ここから追加：MPEG用のバイパスルート
 		String tsuid = getTSUID().uid();
 		if (tsuid != null && tsuid.startsWith("1.2.840.10008.1.2.4.10")) {
-			Decompressor d = Decompressor.newInstance(this);
-			// DecompressorChe にキャストして、MPEG専用のダイレクト抽出を呼ぶ
-			if (d instanceof com.vis.dicom.dcm4cheImpl.DecompressorChe) {
-				com.vis.dicom.dcm4cheImpl.DecompressorChe cheDec = (com.vis.dicom.dcm4cheImpl.DecompressorChe) d;
+			
+			// 初回のみ作成してキャッシュ
+			if (this.mpegDecompressorCache == null) {
+				this.mpegDecompressorCache = Decompressor.newInstance(this);
+			}
+			if (this.mpegDecompressorCache instanceof com.vis.dicom.dcm4cheImpl.DecompressorChe) {
+				com.vis.dicom.dcm4cheImpl.DecompressorChe cheDec = (com.vis.dicom.dcm4cheImpl.DecompressorChe) this.mpegDecompressorCache;
 				ImageProcessor mpegIp = cheDec.getImageProcessorFromMpeg(frame);
 				if (mpegIp != null) {
 					return mpegIp; // PixelDataDecoder を完全に無視して返す！

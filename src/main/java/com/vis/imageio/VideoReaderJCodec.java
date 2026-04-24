@@ -52,10 +52,8 @@ import com.vis.core.log.Log;
 
 import ij.ImagePlus;
 import ij.VirtualStack;
-import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
-import ij.process.ShortProcessor;
 
 /**
  * Supported format;AVI (no-compress), MP4-H264, MP4-AVC, ISO BMF, MOV(MPEG-4 multimedia container file format developed by Apple)
@@ -93,6 +91,11 @@ class VideoReaderJCodec implements VideoReader{
 
 	@Override
 	public ImagePlus read() {
+		/*
+		 * 無害なエラーだが、非表示にする。
+		 * [ERROR]	. (:0):	Broken atom of size 0
+		 */
+		org.jcodec.common.logging.Logger.setLevel(org.jcodec.common.logging.LogLevel.ERROR);
 		FileChannelWrapper in = null;
 		try {
 			in = NIOUtils.readableChannel(video);

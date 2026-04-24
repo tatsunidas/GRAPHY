@@ -125,6 +125,8 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 	protected File tempMpegFile;
 	protected ImagePlus mpegVirtualStack;
 	protected boolean isMpeg;
+	
+	private static java.util.concurrent.ConcurrentHashMap<String, ImagePlus> globalMpegStackCache = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/**
 	 * to use method decompress(File from, File to)
@@ -213,10 +215,20 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 				try {
 					this.tempMpegFile = extractMpegToTempFile();
 					if (this.tempMpegFile != null) {
-						VideoReader vReader = VideoReader.load(this.tempMpegFile);
-						if (vReader != null) {
-							this.mpegVirtualStack = vReader.read(); // Virtual Stackとしてロード
-							Log.logger.fine("MPEG Virtual Stack を構築完了: " + this.frames + " frames");
+						String cacheKey = this.tempMpegFile.getAbsolutePath();
+
+						// ★ キャッシュの確認（2回目以降は必ずここを通るため、処理時間ゼロになります）
+						if (globalMpegStackCache.containsKey(cacheKey)) {
+							this.mpegVirtualStack = globalMpegStackCache.get(cacheKey);
+							// ログも出さず、無音・爆速で使い回す
+						} else {
+							// 初回のみ VideoReader で重い初期化処理を行い、キャッシュに保存する
+							VideoReader vReader = VideoReader.load(this.tempMpegFile);
+							if (vReader != null) {
+								this.mpegVirtualStack = vReader.read();
+								globalMpegStackCache.put(cacheKey, this.mpegVirtualStack);
+								Log.logger.info("MPEG Virtual Stack を新規構築・キャッシュしました: " + this.mpegVirtualStack.getNSlices() + " frames");
+							}
 						}
 					}
 				} catch (IOException e) {

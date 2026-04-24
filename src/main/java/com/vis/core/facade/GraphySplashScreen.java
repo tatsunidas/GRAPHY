@@ -44,7 +44,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
-import java.awt.Toolkit;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
@@ -69,13 +68,16 @@ public class GraphySplashScreen extends JFrame {
 		
 		// 2. ★HiDPI対策：現在のモニターの解像度（スケーリング）に合わせてサイズを計算する
 		// モニターのDPIを取得し、標準の96DPIに対して何倍にすべきか算出します
-		int dpi = Toolkit.getDefaultToolkit().getScreenResolution();
-		double scale = dpi / 96.0;
-		if (scale < 1.0) scale = 1.0;
-
-		// 元の画像サイズ (869x495) に倍率をかける
-		int targetW = (int) (869 * scale);
-		int targetH = (int) (495 * scale);
+//		int dpi = Toolkit.getDefaultToolkit().getScreenResolution();
+//		double scale = dpi / 96.0;
+//		if (scale < 1.0) scale = 1.0;
+//
+//		// 元の画像サイズ (869x495) に倍率をかける
+//		int targetW = (int) (869 * scale);
+//		int targetH = (int) (495 * scale);
+		
+		int targetW = 869;
+		int targetH = 495;
 
 		// 3. 画像をパネル全体に拡大描画する「SplashPanel」を追加
 		SplashPanel sp = new SplashPanel(splash, targetW, targetH);
@@ -86,7 +88,7 @@ public class GraphySplashScreen extends JFrame {
 		progress.setStringPainted(true);
 		progress.setString("Ready to start ...");
 		// プログレスバーの高さもスケーリングに合わせて微調整
-		progress.setPreferredSize(new Dimension(targetW, (int)(25 * scale)));
+//		progress.setPreferredSize(new Dimension(targetW, (int)(25 * scale)));
 		add(progress, BorderLayout.SOUTH);
 
 		// ウィンドウサイズを計算したターゲットサイズに合わせる
