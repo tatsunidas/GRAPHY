@@ -304,11 +304,19 @@ public class ImageSpecimenGlass extends JPanel{
 				samples = 3;
 			}
 			
+			int w=  img.getWidth();
+			int h=  img.getHeight();
+			
+			System.out.println();
+			
 			if(imgSamples == samples && img.getWidth() == orgCols && img.getHeight() == orgRows) {
 				this.orgImg = img;
 				updateDisplayImage();
 			}else {
-				Log.logger.warning("Image type is not same. ImageSpecimen cannot replace image.");
+				String txt = "Image type is not same. ImageSpecimen cannot replace image.\n";
+				txt += "samples(new, current)="+imgSamples+","+samples+"\n";
+				txt += "width and height(new, current)="+w+","+orgCols+":"+h+","+orgRows;
+				Log.logger.warning(txt);
 			}
 		}else {
 			this.orgImg = null;

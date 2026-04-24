@@ -153,6 +153,20 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			return null;
 		}
 		
+		// ★ ここから追加：MPEG用のバイパスルート
+		String tsuid = getTSUID().uid();
+		if (tsuid != null && tsuid.startsWith("1.2.840.10008.1.2.4.10")) {
+			Decompressor d = Decompressor.newInstance(this);
+			// DecompressorChe にキャストして、MPEG専用のダイレクト抽出を呼ぶ
+			if (d instanceof com.vis.dicom.dcm4cheImpl.DecompressorChe) {
+				com.vis.dicom.dcm4cheImpl.DecompressorChe cheDec = (com.vis.dicom.dcm4cheImpl.DecompressorChe) d;
+				ImageProcessor mpegIp = cheDec.getImageProcessorFromMpeg(frame);
+				if (mpegIp != null) {
+					return mpegIp; // PixelDataDecoder を完全に無視して返す！
+				}
+			}
+		}
+		
 		if(Codec.isCompressed(getTSUID())) {
 			Decompressor d = Decompressor.newInstance(this);
 			byte[] decompressed_raw = d.decompress(frame);

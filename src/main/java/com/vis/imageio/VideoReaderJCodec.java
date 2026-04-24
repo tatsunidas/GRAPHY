@@ -38,24 +38,20 @@
 package com.vis.imageio;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 
 import org.jcodec.api.FrameGrab;
-import org.jcodec.api.JCodecException;
-import org.jcodec.api.UnsupportedFormatException;
-import org.jcodec.common.SeekableDemuxerTrack;
+import org.jcodec.common.DemuxerTrackMeta;
 import org.jcodec.common.io.FileChannelWrapper;
 import org.jcodec.common.io.NIOUtils;
 import org.jcodec.common.model.Picture;
 import org.jcodec.scale.AWTUtil;
 
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 
 import com.vis.core.log.Log;
 
 import ij.ImagePlus;
-import ij.ImageStack;
+import ij.VirtualStack;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
@@ -69,93 +65,152 @@ import ij.process.ShortProcessor;
  * @author tatsunidas
  *
  */
+
+/*
+ * JAVE には統一できない。
+ * JAVEはコマンドラインツールで、読み書き時の詳細な処理には対応しない。
+ * そのかわり、単純なファイルへの読み書きはJCodecよりも数段速い。
+ * 
+ */
+
 class VideoReaderJCodec implements VideoReader{
 	
-	ImagePlus stack = null;
-	File video;
-	String fileName = null;
-	final String MIMETYPE;
+	private ImagePlus imp = null;
+	private File video;
+	private String fileName;
+	private final String MIMETYPE;
 	
+	private int width = 0;
+	private int height = 0;
+	private int totalFrames = 0;
+	private double fps = 0;
+
 	public VideoReaderJCodec(String MIMETYPE, File video) {
 		this.MIMETYPE = MIMETYPE;
 		this.video = video;
 		this.fileName = video.getName();
 	}
 
+	@Override
 	public ImagePlus read() {
 		FileChannelWrapper in = null;
 		try {
 			in = NIOUtils.readableChannel(video);
 			FrameGrab grab = FrameGrab.createFrameGrab(in);
-			stack = convert2ImagePlus(grab);
-		} catch (FileNotFoundException e) {
-			System.err.println("File not found: ");
-			stack = null;
-		} catch (IOException e) {
-			System.err.println("IOException: ");
-			stack = null;
-		} catch (UnsupportedFormatException e) {
-			Log.logger.warning("This video file is not readable.");
-			stack = null;
-		} catch (JCodecException e) {
-			Log.logger.warning(e.getMessage());
-			stack = null;
+			
+			// 1. 動画のメタデータ（フレーム数、FPS）を取得
+			DemuxerTrackMeta meta = grab.getVideoTrack().getMeta();
+			totalFrames = meta.getTotalFrames();
+			double totalDuration = meta.getTotalDuration();
+			if (totalFrames > 0 && totalDuration > 0) {
+				fps = totalFrames / totalDuration;
+			}
+			
+			// 2. 最初のフレームを読み込んで縦横の解像度を取得
+			Picture firstFrame = grab.getNativeFrame();
+			if (firstFrame != null) {
+				width = firstFrame.getWidth();
+				height = firstFrame.getHeight();
+			} else {
+				Log.logger.severe("動画の解像度が取得できませんでした。");
+				return null;
+			}
+
+			// 3. Virtual Stackの構築
+			MpegVirtualStack vStack = new MpegVirtualStack(width, height, totalFrames, video);
+			imp = new ImagePlus(fileName, vStack);
+			imp.getCalibration().fps = fps;
+			
+			Log.logger.info("Virtual Stackとして動画をロードしました: " + totalFrames + " frames.");
+			
+		} catch (Exception e) {
+			Log.logger.severe("MP4のVirtualStack構築に失敗しました: " + e.getMessage());
+			imp = null;
 		} finally {
-			// Ensure the file channel is closed
 			NIOUtils.closeQuietly(in);
 		}
-		return stack;
-	}
-	
-	private ImagePlus convert2ImagePlus(FrameGrab grab) {
-		if(grab == null) {
-			return null;
-		}
-		ImageStack stack = new ImageStack();
-		Picture pic = null;
-		SeekableDemuxerTrack track = grab.getVideoTrack();
-		double total_time = track.getMeta().getTotalDuration();
-		int numOfFrames = track.getMeta().getTotalFrames();
-		double flops = total_time/numOfFrames; 
-		try {
-			while(null != (pic = grab.getNativeFrame())) {
-				BufferedImage bi = AWTUtil.toBufferedImage(pic);
-				int type = bi.getType();
-				ImageProcessor ip;
-				if(type == BufferedImage.TYPE_BYTE_GRAY || type == BufferedImage.TYPE_BYTE_BINARY) {
-					ip = new ByteProcessor(bi);
-				}else if(type == BufferedImage.TYPE_USHORT_GRAY) {
-					ip = new ShortProcessor(bi);
-				}else {
-					ip = new ColorProcessor(bi);
-				}
-				stack.addSlice(ip);
-			}
-		} catch (IOException e) {
-			Log.logger.warning("Can not read video file : "+e.getMessage());
-			return null;
-		}
-		ImagePlus imp = new ImagePlus(fileName, stack);
-		imp.getCalibration().fps = flops;
 		return imp;
 	}
-	
+
+	@Override
 	public ImagePlus getImagePlus() {
-		return stack;
+		return imp;
 	}
-	
+
+	@Override
 	public int getNumOfFrames() {
-		if(stack == null) return -1;
-		return stack.getNSlices();
+		return totalFrames;
 	}
-	
+
+	@Override
 	public double getFrameRate() {
-		if(stack == null) return -1;
-		return stack.getCalibration().fps;
+		return fps;
 	}
-	
+
 	@Override
 	public String mimeType() {
 		return MIMETYPE;
+	}
+
+	// =========================================================================
+	// VirtualStackの内部クラス（表示時にオンデマンドでフレームを抽出する）
+	// =========================================================================
+	class MpegVirtualStack extends VirtualStack {
+		private File videoFile;
+
+		public MpegVirtualStack(int width, int height, int size, File videoFile) {
+			super(width, height, size);
+			this.videoFile = videoFile;
+		}
+
+		/**
+		 * ImageJから「n番目(1始まり)の画像」が要求された時に呼ばれる
+		 */
+		@Override
+		public ImageProcessor getProcessor(int n) {
+			FileChannelWrapper in = null;
+			try {
+				in = NIOUtils.readableChannel(videoFile);
+				FrameGrab grab = FrameGrab.createFrameGrab(in);
+				
+				// VirtualStackは1始まりだが、JCodecのシークは0始まり
+				grab.seekToFramePrecise(n - 1);
+				Picture pic = grab.getNativeFrame();
+				
+				if (pic != null) {
+					BufferedImage bi = AWTUtil.toBufferedImage(pic);
+					
+					// ★ 【デバッグ機能】最初のフレーム(1枚目)が要求された時、PNGとして保存する
+//					if (n == 1) {
+//						try {
+//							// ユーザーのホームディレクトリ(Windowsなら C:\Users\ユーザー名) に保存
+//							File debugFile = new File(System.getProperty("user.home"), "graphy_debug_frame1.png");
+//							javax.imageio.ImageIO.write(bi, "png", debugFile);
+//							Log.logger.info("【デバッグ】フレーム1のピクセル抽出に成功しました。画像を保存しました: " + debugFile.getAbsolutePath());
+//						} catch (Exception ex) {
+//							Log.logger.warning("デバッグ画像の保存に失敗: " + ex.getMessage());
+//						}
+//					}
+					
+					return new ColorProcessor(bi);
+//					int type = bi.getType();
+//					if (type == BufferedImage.TYPE_BYTE_GRAY || type == BufferedImage.TYPE_BYTE_BINARY) {
+//						return new ByteProcessor(bi);
+//					} else if (type == BufferedImage.TYPE_USHORT_GRAY) {
+//						return new ShortProcessor(bi);
+//					} else {
+//						return new ColorProcessor(bi);
+//					}
+				}
+			} catch (Exception e) {
+				Log.logger.warning("フレーム抽出に失敗しました (Frame " + n + "): " + e.getMessage());
+			} finally {
+				// リソースリークを防ぐため確実に閉じる
+				NIOUtils.closeQuietly(in);
+			}
+			
+			// 抽出失敗時は黒い画像を返してクラッシュを防ぐ
+			return new ColorProcessor(getWidth(), getHeight());
+		}
 	}
 }

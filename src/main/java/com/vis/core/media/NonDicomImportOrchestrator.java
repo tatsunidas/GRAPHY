@@ -58,15 +58,15 @@ public class NonDicomImportOrchestrator {
             // Video用のUIDを新しく発行する（contextの中身を上書き、あるいは直接渡す）
             context.seriesUID = com.vis.dicom.UIDUtils.createUID(); 
             
-            VideoToDicomConverter.convertVideo(
+            VideoToDicomConverter.convertMpegVideo(
                     video, tempDir, currentSeriesNo, 1, Modality.OT, // OT = Other
                     context.pname, context.pid, context.sex, 
                     com.vis.core.util.DateUtils.toDateObj(context.dob, "/"), 
                     context.studyUID, null, context.studyDesc, 
                     com.vis.core.util.DateUtils.toDateObj(context.studyDate, "/"), 
-                    com.vis.core.util.DateUtils.toDateObj(context.studyTime, "/"), 
+                    com.vis.core.util.DateUtils.toTimeObj(context.studyTime, "/"), 
                     com.vis.core.util.DateUtils.toDateObj(context.contentDate, "/"), 
-                    com.vis.core.util.DateUtils.toDateObj(context.contentTime, "/"), 
+                    com.vis.core.util.DateUtils.toTimeObj(context.contentTime, "/"), 
                     context.seriesDesc);
             
             currentSeriesNo++;

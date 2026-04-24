@@ -394,6 +394,20 @@
 		    <artifactId>gson</artifactId>
 		    <version>2.10.1</version>
 		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/ws.schild/jave-core -->
+		<dependency>
+		    <groupId>ws.schild</groupId>
+		    <artifactId>jave-core</artifactId>
+		    <version>3.5.0</version>
+		    <scope>compile</scope>
+		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/ws.schild/jave-all-deps -->
+		<dependency>
+		    <groupId>ws.schild</groupId>
+		    <artifactId>jave-all-deps</artifactId>
+		    <version>3.5.0</version>
+		    <scope>compile</scope>
+		</dependency>
 		<!-- 
 		3D Viewer 
 		LWJGL will automatically detect native libs for each platform.

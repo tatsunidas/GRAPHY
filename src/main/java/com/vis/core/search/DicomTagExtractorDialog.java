@@ -30,11 +30,13 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
@@ -67,6 +69,8 @@ public class DicomTagExtractorDialog extends JDialog {
 	private JList<String> listSelected;
 
 	private JButton btnExport;
+	
+	private JProgressBar progressBar;
 
 	private List<String> allTagsList = new ArrayList<>();
 
@@ -147,7 +151,16 @@ public class DicomTagExtractorDialog extends JDialog {
 		// 3. 実行ボタン
 		btnExport = new JButton("Extract & Export to CSV");
 		btnExport.addActionListener(e -> executeExport());
-		add(btnExport, BorderLayout.SOUTH);
+		
+		progressBar = new JProgressBar();
+		progressBar.setStringPainted(true);
+		progressBar.setVisible(false); // 実行時のみ表示する
+
+		JPanel pnlBottom = new JPanel(new BorderLayout());
+		pnlBottom.add(btnExport, BorderLayout.NORTH);
+		pnlBottom.add(progressBar, BorderLayout.SOUTH);
+		add(pnlBottom, BorderLayout.SOUTH);
+		
 	}
 
 	private void executeExport() {
@@ -253,8 +266,17 @@ public class DicomTagExtractorDialog extends JDialog {
 				List<String> errorLog = new ArrayList<>();
 				List<File> targetDicomFiles = getTargetDicomFilesSafe(isTreeTable, selectedNodes, errorLog);
 				final DICOMBackend backend = DICOMBackend.getCurrent();
+				
+				// ★追加：プログレスバーの初期化
+				int totalSeries = targetDicomFiles.size();
+				SwingUtilities.invokeLater(() -> {
+					progressBar.setMaximum(totalSeries);
+					progressBar.setValue(0);
+					progressBar.setVisible(true);
+				});
 
-				for (File dcmFile : targetDicomFiles) {
+				for (int i =0; i < totalSeries; i++) {
+					File dcmFile = targetDicomFiles.get(i);
 					StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
 					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(), backend);
 					DicomObject header = dcm.getHeader();
@@ -270,11 +292,11 @@ public class DicomTagExtractorDialog extends JDialog {
 								String[] pathParts = tagStr.split(" > ");
 								DicomObject currentObj = header;
 								
-								for (int i = 0; i < pathParts.length; i++) {
-									String hexTag = pathParts[i].substring(0, 9).replace(",", "");
+								for (int j = 0; j < pathParts.length; j++) {
+									String hexTag = pathParts[j].substring(0, 9).replace(",", "");
 									int tagInt = Integer.parseUnsignedInt(hexTag, 16);
 									
-									if (i == pathParts.length - 1) {
+									if (j == pathParts.length - 1) {
 										String[] vals = currentObj.getStrings(tagInt);
 										if (vals != null && vals.length > 0) {
 											val = String.join("\\", vals);
@@ -294,10 +316,13 @@ public class DicomTagExtractorDialog extends JDialog {
 						row.append(",\"").append(val.replace("\"", "\"\"")).append("\"");
 					}
 					csvWriter.println(row.toString());
+					// プログレスバーの更新
+					final int currentProgress = i + 1;
+					SwingUtilities.invokeLater(() -> progressBar.setValue(currentProgress));
 				}
 				csvWriter.close();
 
-				// ★ ログの書き出し処理
+				// ログの書き出し処理
 				if (!errorLog.isEmpty()) {
 					File logFile = new File(finalOutputFile.getAbsolutePath().replace(".csv", "_log.txt"));
 					try (PrintWriter logWriter = new PrintWriter(new FileWriter(logFile))) {
@@ -307,6 +332,16 @@ public class DicomTagExtractorDialog extends JDialog {
 					} catch (Exception e) {
 						e.printStackTrace(); // ログ書き込み失敗時
 					}
+				}
+				
+				// CSVと同じ階層に出力したタグリストが記録された .propertiesファイル を自動出力
+				File propFile = new File(finalOutputFile.getAbsolutePath().replace(".csv", ".properties"));
+				java.util.Properties props = new java.util.Properties();
+				for (int i = 0; i < tagsToExtract.size(); i++) {
+					props.setProperty("tag." + i, convertToTagOnly(tagsToExtract.get(i)));
+				}
+				try (java.io.FileWriter fw = new java.io.FileWriter(propFile)) {
+					props.store(fw, "DICOM Tag Extractor Profile");
 				}
 
 				// 3. 完了通知（UIスレッドに戻す）
@@ -535,8 +570,44 @@ public class DicomTagExtractorDialog extends JDialog {
 		JPanel pnlRight = new JPanel(new BorderLayout());
 		selectedListModel = new DefaultListModel<>();
 		listSelected = new JList<>(selectedListModel);
+		
+		// ★ 追加：上部にヘッダとLoadボタンを配置
+		JPanel pnlRightHeader = new JPanel(new BorderLayout());
+		pnlRightHeader.add(new JLabel("Tags to Extract:"), BorderLayout.WEST);
+		JButton btnLoadProps = new JButton("Load .properties");
+		btnLoadProps.addActionListener(e -> loadPropertiesViaDialog());
+		pnlRightHeader.add(btnLoadProps, BorderLayout.EAST);
+		
 		pnlRight.add(new JLabel("Tags to Extract:"), BorderLayout.NORTH);
 		pnlRight.add(new JScrollPane(listSelected), BorderLayout.CENTER);
+		
+		// ドラッグ＆ドロップ (D&D) のサポート
+		listSelected.setTransferHandler(new TransferHandler() {
+			@Override
+			public boolean canImport(TransferSupport support) {
+				return support.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+			}
+
+			@SuppressWarnings("unchecked")
+			@Override
+			public boolean importData(TransferSupport support) {
+				if (!canImport(support))
+					return false;
+				try {
+					java.util.List<File> files = (java.util.List<File>) support.getTransferable()
+							.getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+					for (File file : files) {
+						if (file.getName().toLowerCase().endsWith(".properties")) {
+							loadPropertiesFile(file); // 後で作るメソッド
+						}
+					}
+					return true;
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				return false;
+			}
+		});
 
 		// --- 全体の組み込み ---
 		// 1. 右側エリア（ボタン群 ＋ 選択済みリスト）を構成
@@ -557,6 +628,72 @@ public class DicomTagExtractorDialog extends JDialog {
 		pnlTags.add(splitPane, BorderLayout.CENTER);
 
 		return pnlTags;
+	}
+	
+	// --- プロパティファイル入出力用ユーティリティ ---
+
+	/** フル文字列("0010,0010 - PatientName")からタグ番号のみ("0010,0010")を抽出する */
+	private String convertToTagOnly(String fullString) {
+		String[] parts = fullString.split(" > ");
+		List<String> tagOnlyParts = new ArrayList<>();
+		for (String part : parts) {
+			tagOnlyParts.add(part.substring(0, 9)); // 先頭の "XXXX,XXXX" を取得
+		}
+		return String.join(" > ", tagOnlyParts);
+	}
+
+	/** タグ番号("0010,0010")から辞書を引いてフル文字列を復元する */
+	private String restoreFullTagString(String tagOnlyString) {
+		String[] parts = tagOnlyString.split(" > ");
+		List<String> fullParts = new ArrayList<>();
+		for (String part : parts) {
+			String hexTag = part.trim();
+			String fullPart = hexTag; // 辞書にない場合のフォールバック
+			for (String dictTag : allTagsList) {
+				if (dictTag.startsWith(hexTag)) {
+					fullPart = dictTag;
+					break;
+				}
+			}
+			fullParts.add(fullPart);
+		}
+		return String.join(" > ", fullParts);
+	}
+
+	/** メニュー(ボタン)からのプロパティ読み込みダイアログ表示 */
+	private void loadPropertiesViaDialog() {
+		JFileChooser jfc = new JFileChooser();
+		jfc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		jfc.setDialogTitle("Load Extractor Properties");
+		jfc.setFileFilter(
+				new javax.swing.filechooser.FileNameExtensionFilter("Properties File (*.properties)", "properties"));
+		if (jfc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+			loadPropertiesFile(jfc.getSelectedFile());
+		}
+	}
+
+	/** プロパティファイルの読み込みとリストへの追加（重複排除） */
+	private void loadPropertiesFile(File file) {
+		try {
+			java.util.Properties props = new java.util.Properties();
+			try (java.io.FileReader fr = new java.io.FileReader(file)) {
+				props.load(fr);
+			}
+
+			// プロパティの値（タグ番号のみ）をループで取得
+			for (Object key : props.keySet()) {
+				String tagOnly = props.getProperty((String) key);
+				String fullTagString = restoreFullTagString(tagOnly);
+
+				// 重複していなければ追加
+				if (!selectedListModel.contains(fullTagString)) {
+					selectedListModel.addElement(fullTagString);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(this, "Failed to load properties file.", "Error", JOptionPane.ERROR_MESSAGE);
+		}
 	}
 
 	// 辞書の絞り込みメソッド

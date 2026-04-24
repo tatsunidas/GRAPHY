@@ -196,9 +196,9 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null || dcmImg == null) {
 			throw new NullPointerException();
 		}
-		initComponents(pp, dcmImg);
 		isRGB = dcmImg.isColor();
 		isBiped = SubjectOrientation.isBiped(dcmImg.getHeader());
+		initComponents(pp, dcmImg);
 	}
 
 	public void addRoi(RoiObj roi) {
@@ -291,7 +291,6 @@ public class SlideGlass extends JLayeredPane {
 			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than max; min " + newMin + " max " + newMax);
 			return;
 		}
-		
 		lastMin = currentMin;
 		lastMax = currentMax; 
 		currentMin = newMin;
@@ -675,15 +674,18 @@ public class SlideGlass extends JLayeredPane {
 		
 		Calibration originalCal = new Calibration();
 		
-		if(currentLUT == null){
+		if(currentLUT == null && !isRGB){
 			setLUT(extractDisplayLUT(header));
 		}		
 		
 		setupSpatialCalibration(originalCal, header);
-		setupDensityCalibration(originalCal, header);
+		if(!isRGB) {
+			setupDensityCalibration(originalCal, header);
+		}
+		
 		setOriginalCalibration(originalCal);
 		// adjust WW/WL
-		if (this.currentMin != 0 && this.currentMax != 255) {
+		if (this.currentMin != 0 && this.currentMax != 255 && !isRGB) {
 			changeWindowingByMinMax(currentMin, currentMax);
 		}else {
 			//here, do nothing. delegate global auto contrast.

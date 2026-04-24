@@ -593,6 +593,7 @@ public class Praparat extends JPanel {
 		final DicomObject fmi = video_reader_.getFileMetaInfomation();
 		final DicomObject header = video_reader_.getHeader();
 		int size = header.getInt(Tag.Number​Of​Frames, -1);
+//		int samples = header.getInt(Tag.SamplesPerPixel, 1);
 		// System.out.println(header.getInt(Tag.Instance​Number, -1));
 		
 		for (int j = 0; j < size; j++) {
