@@ -209,7 +209,7 @@ public class DicomFileCollection {
 		}
 		
 		DicomObject study = reader.findLowerDirectoryRecord(patient, ignorePrivate);
-		Log.message(Level.INFO, "Parsing DICOMDIR -Patient");
+		Log.logger.log(Level.INFO, "Parsing DICOMDIR -Patient");
 		
 		while (study != null) {
 			processStudyRecord(study, reader);
@@ -226,7 +226,7 @@ public class DicomFileCollection {
 		}
 		
 		DicomObject series = reader.findLowerDirectoryRecord(study, ignorePrivate);
-		Log.message(Level.INFO, "Parsing DICOMDIR -Study");
+		Log.logger.log(Level.INFO, "Parsing DICOMDIR -Study");
 		
 		while (series != null) {
 			processSeriesRecord(series, reader);
@@ -244,7 +244,7 @@ public class DicomFileCollection {
 		
 		// 元の仕様通り、Instanceレベルの検索では ignorePrivate ではなくハードコードで true を渡す
 		DicomObject instance = reader.findLowerDirectoryRecord(series, true);
-		Log.message(Level.INFO, "Parsing DICOMDIR -Series");
+		Log.logger.log(Level.INFO, "Parsing DICOMDIR -Series");
 		
 		while (instance != null) {
 			processInstanceRecord(instance, reader);
@@ -259,7 +259,7 @@ public class DicomFileCollection {
 		if (file != null && file.exists()) {
 			addImportCandidate(file);
 		} else {
-			Log.message(Level.SEVERE, "File : " + (file != null ? file.getAbsolutePath() : "null")
+			Log.logger.log(Level.SEVERE, "File : " + (file != null ? file.getAbsolutePath() : "null")
 					+ " is not exists at this location specified in dicomdir...");
 		}
 	}

@@ -826,7 +826,7 @@ public class Viewer2DToolBar extends JToolBar{
 					}
 					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
-						new SimpleMPRViewer(prap.getImagePlus());
+						new SimpleMPRViewer(prap.getImagePlus(-1, -1));
 					}).start();
 					
 					currentTool = Windowing;

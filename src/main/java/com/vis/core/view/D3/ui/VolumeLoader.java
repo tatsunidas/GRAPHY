@@ -77,7 +77,7 @@ public class VolumeLoader {
 
 	public static VolumeData loadDicom(Praparat pp) {
 		System.out.println("Loading DICOM/Image from Praparat.");
-		ImagePlus imp = pp.getImagePlus();
+		ImagePlus imp = pp.getImagePlus(-1,-1);
 		return loadDicom(imp);
 	}
 

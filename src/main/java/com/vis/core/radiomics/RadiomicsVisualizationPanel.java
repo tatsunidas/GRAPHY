@@ -408,11 +408,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		if (originalImage != null) {
 			originalImagePanel.reloadSlideGlasses(originalImage);
 			//init from praparat, important.
-			this.originalImage = originalImagePanel.getImagePlus();
+			this.originalImage = originalImagePanel.getImagePlus(-1,-1);
 			if(this.maskImage != null) {
 				this.maskImage.copyScale(this.originalImage);
 				maskImagePanel.reloadSlideGlasses(this.maskImage);
-				this.maskImage = maskImagePanel.getImagePlus();
+				this.maskImage = maskImagePanel.getImagePlus(-1,-1);
 			}
 		} else {
 			throw new Exception("Failed to open image.");
@@ -444,11 +444,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 		if (maskImage != null) {
 			maskImagePanel.reloadSlideGlasses(maskImage);
-			this.maskImage = maskImagePanel.getImagePlus();
+			this.maskImage = maskImagePanel.getImagePlus(-1,-1);
 			if (this.originalImage != null) {
 				this.maskImage.copyScale(this.originalImage);
 				maskImagePanel.reloadSlideGlasses(this.maskImage);
-				this.maskImage = maskImagePanel.getImagePlus();
+				this.maskImage = maskImagePanel.getImagePlus(-1,-1);
 			}
 		} else {
 			throw new Exception("Failed to open image.");
@@ -746,7 +746,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			/**
 			 * IMPORTANT
 			 */
-			background = originalImagePanel.getImagePlus();
+			background = originalImagePanel.getImagePlus(-1,-1);
 			//update original image contrast
 			double[] dispWinMinMax = originalImagePanel.getCurrentSlide().getCurrentWindowMinMax();
 			double min = dispWinMinMax[0];

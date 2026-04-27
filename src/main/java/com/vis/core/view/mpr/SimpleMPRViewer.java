@@ -46,6 +46,8 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
+import java.util.Arrays;
+import java.util.logging.Level;
 
 import javax.swing.BorderFactory;
 import javax.swing.JDialog;
@@ -57,6 +59,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
+import org.joml.Vector3d;
+
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.EventGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -69,11 +74,13 @@ import com.vis.dicom.Modality;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
+import com.vis.imageio.OrientationCorrector;
 
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
 import ij.plugin.FolderOpener;
+import ij.process.ImageProcessor;
 
 /**
  * * * @author tatsunidas
@@ -123,8 +130,16 @@ public class SimpleMPRViewer extends JFrame {
 		if (inputImage == null || inputImage.getNSlices() == 0) {
 			throw new IllegalArgumentException("Invalid image stack input...");
 		}
-		this.baseVolume = inputImage;
-		System.out.println("Starting SimpleMPRViewer, " + baseVolume.getNSlices() + " images were loaded.");
+		this.baseVolume = normalizeBaseVolume(inputImage);
+		
+//		for(int i=0; i< baseVolume.getNSlices(); i++) {
+//			baseVolume.setPosition(GDicomTools.getRealIndex(baseVolume, i+1));
+//			System.out.println("baseVoluem IOP:"+GDicomTools.getTag(baseVolume, Tag.ImagePositionPatient));
+//		}
+		
+		String msg = "Starting SimpleMPRViewer, \n";
+		msg += "[C, S, T]="+baseVolume.getNChannels()+","+baseVolume.getNSlices()+","+baseVolume.getNFrames()+ " images were loaded.";
+		Log.logger.log(Level.INFO, msg);
 
 		setTitle("Simple MPR Viewer");
 		setSize(1000, 1000);
@@ -288,7 +303,7 @@ public class SimpleMPRViewer extends JFrame {
 
 		worker.execute(); // バックグラウンド処理を開始
 	}
-
+	
 	private void checkSpatialCalibration() {
 		Calibration cal = baseVolume.getCalibration();
 		double[] pixelspacing = GDicomTools.getDoubles(baseVolume, "0028,0030");
@@ -301,31 +316,133 @@ public class SimpleMPRViewer extends JFrame {
 		}
 		// update depth
 		cal.pixelDepth = GDicomTools.getVoxelDepth(baseVolume);
+		String msg = "Voxel size (x,y,z):";
+		msg += cal.pixelWidth+","+cal.pixelHeight+","+cal.pixelDepth;
+		Log.logger.log(Level.FINE, msg);
+	}
+	
+	private ImagePlus normalizeBaseVolume(ImagePlus rawBaseVolume) {
+		int w = rawBaseVolume.getWidth();
+		int h = rawBaseVolume.getHeight();
+		int d = rawBaseVolume.getNSlices();
+		Calibration cal = rawBaseVolume.getCalibration();
+		
+		CutSurface basePlane = PlanarSupport.planarOf(rawBaseVolume);
+		if (basePlane == CutSurface.UNKNOWN || basePlane == CutSurface.OBLIQUE) {
+			return rawBaseVolume;
+		}
+
+		// 目標とする標準LPSの方向ベクトル
+		Vector3d idealRow = new Vector3d();
+		Vector3d idealCol = new Vector3d();
+		if (basePlane == CutSurface.AXIAL) {
+			idealRow.set(1, 0, 0); idealCol.set(0, 1, 0); // X:R->L, Y:A->P
+		} else if (basePlane == CutSurface.CORONAL) {
+			idealRow.set(1, 0, 0); idealCol.set(0, 0, -1); // X:R->L, Y:S->I
+		} else if (basePlane == CutSurface.SAGITTAL) {
+			idealRow.set(0, 1, 0); idealCol.set(0, 0, -1); // X:A->P, Y:S->I
+		}
+
+		ImageStack normalizedStack = new ImageStack(w, h);
+
+		for (int z = 1; z <= d; z++) {
+			ImageProcessor ip = rawBaseVolume.getStack().getProcessor(z).duplicate();
+			double[] oldIop = GDicomTools.getImageOrientationPatient(rawBaseVolume, z);
+			double[] oldIpp = GDicomTools.getImagePositionPatient(rawBaseVolume, z);
+
+			// ★ 2. 補正後の(0,0)ピクセルに対応する「元の空間座標」を計算して新しいIPPとする
+			Vector3d tl = new Vector3d(oldIpp[0], oldIpp[1], oldIpp[2]);
+			Vector3d rowVec = new Vector3d(oldIop[0], oldIop[1], oldIop[2]).mul((w - 1) * cal.pixelWidth);
+			Vector3d colVec = new Vector3d(oldIop[3], oldIop[4], oldIop[5]).mul((h - 1) * cal.pixelHeight);
+			
+			Vector3d tr = new Vector3d(tl).add(rowVec);
+			Vector3d bl = new Vector3d(tl).add(colVec);
+			Vector3d br = new Vector3d(tl).add(rowVec).add(colVec);
+
+			Vector3d[] corners = {tl, tr, bl, br};
+			Vector3d newIpp = corners[0];
+			double minDot = Double.MAX_VALUE;
+			
+			// 新しい画像の「右下」方向ベクトル
+			Vector3d targetDir = new Vector3d(idealRow).add(idealCol).normalize();
+			
+			// 新しい「右下方向」に対して、最も「根元（投影値が最小）」にある角が、新しい(0,0)＝IPP
+			for (Vector3d c : corners) {
+				double dot = c.dot(targetDir);
+				if (dot < minDot) {
+					minDot = dot;
+					newIpp = c;
+				}
+			}
+			newIpp = PlanarSupport.truncate(newIpp, 6);
+
+			// ★ 3. メタデータを一切壊さずに上書き
+			ImageStack tempStack = new ImageStack(w, h);
+			tempStack.addSlice(rawBaseVolume.getStack().getSliceLabel(z), ip);
+			ImagePlus tempImp = new ImagePlus("temp", tempStack);
+			
+			GDicomTools.setDoubles(tempImp, 1, "0020,0032", new double[]{newIpp.x, newIpp.y, newIpp.z});
+			GDicomTools.setDoubles(tempImp, 1, "0020,0037", new double[]{idealRow.x, idealRow.y, idealRow.z, idealCol.x, idealCol.y, idealCol.z});
+
+			normalizedStack.addSlice(tempImp.getStack().getSliceLabel(1), ip);
+		}
+
+		ImagePlus normalizedVolume = new ImagePlus("Normalized_Base", normalizedStack);
+		normalizedVolume.setCalibration(cal);
+		normalizedVolume.setProperty("Info", normalizedStack.getSliceLabel(1));
+		
+		return normalizedVolume;
 	}
 
 	/**
 	 * * show starting-up orthogonals
 	 */
+//	private void reconstructCenterOrthogonal() {
+//		// 中心座標の初期化（baseVolumeのピクセルベース）
+//		currentX = baseVolume.getWidth() / 2;
+//		currentY = baseVolume.getHeight() / 2;
+//		currentZ = baseVolume.getNSlices() / 2;
+//
+//		// basePlaneに応じて、どれを元画像とし、どれを再構成するか決定する
+//		if (basePlane == CutSurface.AXIAL) {
+//			this.axialImp = baseVolume;
+//			this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
+//			this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
+//		} else if (basePlane == CutSurface.SAGITTAL) {
+//			this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
+//			this.sagittalImp = baseVolume;
+//			this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
+//		} else if (basePlane == CutSurface.CORONAL) {
+//			this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
+//			this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
+//			this.coronalImp = baseVolume;
+//		}
+//	}
+	
 	private void reconstructCenterOrthogonal() {
-		// 中心座標の初期化（baseVolumeのピクセルベース）
-		currentX = baseVolume.getWidth() / 2;
-		currentY = baseVolume.getHeight() / 2;
-		currentZ = baseVolume.getNSlices() / 2;
+	    currentX = baseVolume.getWidth() / 2;
+	    currentY = baseVolume.getHeight() / 2;
+	    currentZ = baseVolume.getNSlices() / 2;
 
-		// basePlaneに応じて、どれを元画像とし、どれを再構成するか決定する
-		if (basePlane == CutSurface.AXIAL) {
-			this.axialImp = baseVolume;
-			this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
-			this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
-		} else if (basePlane == CutSurface.SAGITTAL) {
-			this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
-			this.sagittalImp = baseVolume;
-			this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
-		} else if (basePlane == CutSurface.CORONAL) {
-			this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
-			this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
-			this.coronalImp = baseVolume;
-		}
+	    // 断面が特定できない(OBLIQUE含む)場合のフォールバックを組み込む
+	    if (basePlane == CutSurface.SAGITTAL) {
+	        this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
+	        this.sagittalImp = baseVolume;
+	        this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
+	    } else if (basePlane == CutSurface.CORONAL) {
+	        this.axialImp = extractPlane(CutSurface.AXIAL, currentX, currentY, currentZ);
+	        this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
+	        this.coronalImp = baseVolume;
+	    } else {
+	        // AXIAL または OBLIQUE, null の場合は AXIAL として処理
+	        if (basePlane != CutSurface.AXIAL) {
+	            System.out.println("Warning: Forcing fallback from " + basePlane + " to AXIAL.");
+	            basePlane = CutSurface.AXIAL;
+	        }
+	        this.axialImp = baseVolume;
+	        this.sagittalImp = extractPlane(CutSurface.SAGITTAL, currentX, currentY, currentZ);
+	        this.coronalImp = extractPlane(CutSurface.CORONAL, currentX, currentY, currentZ);
+	    }
 	}
 
 	/**
@@ -361,27 +478,54 @@ public class SimpleMPRViewer extends JFrame {
 		ij.process.ImageProcessor extractedIp = null;
 
 		if (basePlane == CutSurface.AXIAL) {
+//			if (willCreatePlane == CutSurface.SAGITTAL) {
+//				extractedIp = new ij.process.FloatProcessor(h, d);
+//				for (int zIdx = 1; zIdx <= d; zIdx++) {
+//					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+//					for (int yIdx = 0; yIdx < h; yIdx++) {
+//						extractedIp.setf(yIdx, zIdx - 1, slice.getf(x, yIdx));
+//					}
+//				}
+//				px = baseCal.pixelHeight;
+//				py = (baseCal.pixelDepth * d) / targetH;
+//				pz = baseCal.pixelWidth;
+//			} else if (willCreatePlane == CutSurface.CORONAL) {
+//				extractedIp = new ij.process.FloatProcessor(w, d);
+//				for (int zIdx = 1; zIdx <= d; zIdx++) {
+//					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+//					for (int xIdx = 0; xIdx < w; xIdx++) {
+//						extractedIp.putPixelValue(xIdx, zIdx - 1, slice.getPixelValue(xIdx, y));
+//					}
+//				}
+//				px = baseCal.pixelWidth;
+//				py = (baseCal.pixelDepth * d) / targetH;
+//				pz = baseCal.pixelHeight;
+//			}
 			if (willCreatePlane == CutSurface.SAGITTAL) {
+				// Sagittal: 横軸は Axial Y (A->P), 縦軸は Axial Z (S->I)
 				extractedIp = new ij.process.FloatProcessor(h, d);
 				for (int zIdx = 1; zIdx <= d; zIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+					ImageProcessor slice = stack.getProcessor(zIdx);
 					for (int yIdx = 0; yIdx < h; yIdx++) {
-						extractedIp.setf(yIdx, zIdx - 1, slice.getf(x, yIdx));
+						// X = Axial Y, Y = Axial Z(反転)
+						extractedIp.setf(yIdx, d - zIdx, slice.getf(x, yIdx));
 					}
 				}
 				px = baseCal.pixelHeight;
-				py = (baseCal.pixelDepth * d) / targetH;
+				py = baseCal.pixelDepth;
 				pz = baseCal.pixelWidth;
 			} else if (willCreatePlane == CutSurface.CORONAL) {
+				// Coronal: 横軸は Axial X (R->L), 縦軸は Axial Z (S->I)
 				extractedIp = new ij.process.FloatProcessor(w, d);
 				for (int zIdx = 1; zIdx <= d; zIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
+					ImageProcessor slice = stack.getProcessor(zIdx);
 					for (int xIdx = 0; xIdx < w; xIdx++) {
-						extractedIp.putPixelValue(xIdx, zIdx - 1, slice.getPixelValue(xIdx, y));
+						// X = Axial X, Y = Axial Z(反転)
+						extractedIp.setf(xIdx, d - zIdx, slice.getf(xIdx, y));
 					}
 				}
 				px = baseCal.pixelWidth;
-				py = (baseCal.pixelDepth * d) / targetH;
+				py = baseCal.pixelDepth;
 				pz = baseCal.pixelHeight;
 			}
 		} else if (basePlane == CutSurface.SAGITTAL) {
@@ -452,99 +596,193 @@ public class SimpleMPRViewer extends JFrame {
 		return targetBlank;
 	}
 
-	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py,
-			double pz) {
+//	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py,
+//			double pz) {
+//		String pid = GDicomTools.getTag(base, "0010,0020");
+//		String studyUid = GDicomTools.getTag(base, "0020,000D");
+//		String seriesUid = UIDUtils.createUID();
+//		String sopUid = UIDUtils.createUID();
+//
+//		double[] baseIop = GDicomTools.getImageOrientationPatient(base, 1);
+//		org.joml.Vector3d baseRow = new org.joml.Vector3d(baseIop[0], baseIop[1], baseIop[2]);
+//		org.joml.Vector3d baseCol = new org.joml.Vector3d(baseIop[3], baseIop[4], baseIop[5]);
+//
+//		double[] ipp1Arr = GDicomTools.getImagePositionPatient(base, 1);
+//		org.joml.Vector3d ipp1 = new org.joml.Vector3d(ipp1Arr[0], ipp1Arr[1], ipp1Arr[2]);
+//		org.joml.Vector3d stackDir = new org.joml.Vector3d();
+//
+//		if (base.getNSlices() > 1) {
+//			double[] ipp2Arr = GDicomTools.getImagePositionPatient(base, 2);
+//			org.joml.Vector3d ipp2 = new org.joml.Vector3d(ipp2Arr[0], ipp2Arr[1], ipp2Arr[2]);
+//			stackDir.set(ipp2).sub(ipp1).normalize();
+//		} else {
+//			baseRow.cross(baseCol, stackDir).normalize();
+//		}
+//
+//		org.joml.Vector3d ipp = new org.joml.Vector3d();
+//		double[] iop = new double[6];
+//		Calibration baseCal = base.getCalibration();
+//
+//		// 9パターンのメタデータマッピング
+//		if (basePlane == CutSurface.AXIAL) {
+//			if (reconPlane == CutSurface.AXIAL) {
+//				ipp.set(ipp1);
+//				iop = baseIop.clone();
+//			} else if (reconPlane == CutSurface.SAGITTAL) {
+//				iop[0] = baseCol.x;
+//				iop[1] = baseCol.y;
+//				iop[2] = baseCol.z;
+//				iop[3] = stackDir.x;
+//				iop[4] = stackDir.y;
+//				iop[5] = stackDir.z;
+//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
+//			} else if (reconPlane == CutSurface.CORONAL) {
+//				iop[0] = baseRow.x;
+//				iop[1] = baseRow.y;
+//				iop[2] = baseRow.z;
+//				iop[3] = stackDir.x;
+//				iop[4] = stackDir.y;
+//				iop[5] = stackDir.z;
+//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
+//			}
+//		} else if (basePlane == CutSurface.SAGITTAL) {
+//			if (reconPlane == CutSurface.SAGITTAL) {
+//				ipp.set(ipp1);
+//				iop = baseIop.clone();
+//			} else if (reconPlane == CutSurface.AXIAL) {
+//				iop[0] = stackDir.x;
+//				iop[1] = stackDir.y;
+//				iop[2] = stackDir.z;
+//				iop[3] = baseRow.x;
+//				iop[4] = baseRow.y;
+//				iop[5] = baseRow.z;
+//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
+//			} else if (reconPlane == CutSurface.CORONAL) {
+//				iop[0] = stackDir.x;
+//				iop[1] = stackDir.y;
+//				iop[2] = stackDir.z;
+//				iop[3] = baseCol.x;
+//				iop[4] = baseCol.y;
+//				iop[5] = baseCol.z;
+//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
+//			}
+//		} else if (basePlane == CutSurface.CORONAL) {
+//			if (reconPlane == CutSurface.CORONAL) {
+//				ipp.set(ipp1);
+//				iop = baseIop.clone();
+//			} else if (reconPlane == CutSurface.AXIAL) {
+//				iop[0] = baseRow.x;
+//				iop[1] = baseRow.y;
+//				iop[2] = baseRow.z;
+//				iop[3] = stackDir.x;
+//				iop[4] = stackDir.y;
+//				iop[5] = stackDir.z;
+//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
+//			} else if (reconPlane == CutSurface.SAGITTAL) {
+//				iop[0] = stackDir.x;
+//				iop[1] = stackDir.y;
+//				iop[2] = stackDir.z;
+//				iop[3] = baseCol.x;
+//				iop[4] = baseCol.y;
+//				iop[5] = baseCol.z;
+//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
+//			}
+//		}
+//		
+//		for (int i = 0; i < 6; i++) {
+//	        if (Math.abs(iop[i]) < 1e-4) iop[i] = 0.0;
+//	        else if (Math.abs(iop[i] - 1.0) < 1e-4) iop[i] = 1.0;
+//	        else if (Math.abs(iop[i] + 1.0) < 1e-4) iop[i] = -1.0;
+//	    }
+//
+//		GDicomTools.setTag(recon, 1, "0010,0020", pid);
+//		GDicomTools.setTag(recon, 1, "0020,000D", studyUid);
+//		GDicomTools.setTag(recon, 1, "0020,000E", seriesUid);
+//		GDicomTools.setTag(recon, 1, "0008,0018", sopUid);
+//		GDicomTools.setDoubles(recon, 1, "0020,0032", new double[] { ipp.x, ipp.y, ipp.z });
+//		GDicomTools.setDoubles(recon, 1, "0020,0037", iop);
+//		GDicomTools.setDoubles(recon, 1, "0028,0030", new double[] { py, px });
+//		GDicomTools.setTag(recon, 1, "0018,0050", String.valueOf(pz));
+//
+//		Calibration reconCal = base.getCalibration().copy();
+//		reconCal.pixelWidth = px;
+//		reconCal.pixelHeight = py;
+//		reconCal.pixelDepth = pz;
+//		recon.setCalibration(reconCal);
+//	}
+	
+	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py, double pz) {
 		String pid = GDicomTools.getTag(base, "0010,0020");
 		String studyUid = GDicomTools.getTag(base, "0020,000D");
 		String seriesUid = UIDUtils.createUID();
 		String sopUid = UIDUtils.createUID();
 
 		double[] baseIop = GDicomTools.getImageOrientationPatient(base, 1);
-		org.joml.Vector3d baseRow = new org.joml.Vector3d(baseIop[0], baseIop[1], baseIop[2]);
-		org.joml.Vector3d baseCol = new org.joml.Vector3d(baseIop[3], baseIop[4], baseIop[5]);
+		Vector3d baseRow = new Vector3d(baseIop[0], baseIop[1], baseIop[2]);
+		Vector3d baseCol = new Vector3d(baseIop[3], baseIop[4], baseIop[5]);
+
+		// 法線ベクトル（Z軸：足 -> 頭）
+		Vector3d stackDir = PlanarSupport.calculateNormal(baseRow, baseCol, true);
 
 		double[] ipp1Arr = GDicomTools.getImagePositionPatient(base, 1);
-		org.joml.Vector3d ipp1 = new org.joml.Vector3d(ipp1Arr[0], ipp1Arr[1], ipp1Arr[2]);
-		org.joml.Vector3d stackDir = new org.joml.Vector3d();
-
-		if (base.getNSlices() > 1) {
-			double[] ipp2Arr = GDicomTools.getImagePositionPatient(base, 2);
-			org.joml.Vector3d ipp2 = new org.joml.Vector3d(ipp2Arr[0], ipp2Arr[1], ipp2Arr[2]);
-			stackDir.set(ipp2).sub(ipp1).normalize();
-		} else {
-			baseRow.cross(baseCol, stackDir).normalize();
-		}
-
-		org.joml.Vector3d ipp = new org.joml.Vector3d();
-		double[] iop = new double[6];
+		Vector3d ipp1 = new Vector3d(ipp1Arr[0], ipp1Arr[1], ipp1Arr[2]);
+		
+		Vector3d ipp = new Vector3d();
+		Vector3d row = new Vector3d();
+		Vector3d col = new Vector3d();
+		
 		Calibration baseCal = base.getCalibration();
+		int maxZ = base.getNSlices() - 1; 
 
-		// 9パターンのメタデータマッピング
 		if (basePlane == CutSurface.AXIAL) {
 			if (reconPlane == CutSurface.AXIAL) {
-				ipp.set(ipp1);
-				iop = baseIop.clone();
+				ipp.set(ipp1); row.set(baseRow); col.set(baseCol);
 			} else if (reconPlane == CutSurface.SAGITTAL) {
-				iop[0] = baseCol.x;
-				iop[1] = baseCol.y;
-				iop[2] = baseCol.z;
-				iop[3] = stackDir.x;
-				iop[4] = stackDir.y;
-				iop[5] = stackDir.z;
-				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
+				row.set(baseCol); 
+				col.set(stackDir).negate(); // ★ 上が頭、下が足なので -Z方向
+				// ★ 原点を X軸現在地 ＋ Z軸終端（頭側） へ正確にシフト
+				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth)
+				   .add(ipp1)
+				   .add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
 			} else if (reconPlane == CutSurface.CORONAL) {
-				iop[0] = baseRow.x;
-				iop[1] = baseRow.y;
-				iop[2] = baseRow.z;
-				iop[3] = stackDir.x;
-				iop[4] = stackDir.y;
-				iop[5] = stackDir.z;
-				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
+				row.set(baseRow); 
+				col.set(stackDir).negate(); // ★ 上が頭、下が足なので -Z方向
+				// ★ 原点を Y軸現在地 ＋ Z軸終端（頭側） へ正確にシフト
+				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight)
+				   .add(ipp1)
+				   .add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
 			}
 		} else if (basePlane == CutSurface.SAGITTAL) {
 			if (reconPlane == CutSurface.SAGITTAL) {
-				ipp.set(ipp1);
-				iop = baseIop.clone();
+				ipp.set(ipp1); row.set(baseRow); col.set(baseCol);
 			} else if (reconPlane == CutSurface.AXIAL) {
-				iop[0] = stackDir.x;
-				iop[1] = stackDir.y;
-				iop[2] = stackDir.z;
-				iop[3] = baseRow.x;
-				iop[4] = baseRow.y;
-				iop[5] = baseRow.z;
+				row.set(stackDir); col.set(baseRow);
 				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
 			} else if (reconPlane == CutSurface.CORONAL) {
-				iop[0] = stackDir.x;
-				iop[1] = stackDir.y;
-				iop[2] = stackDir.z;
-				iop[3] = baseCol.x;
-				iop[4] = baseCol.y;
-				iop[5] = baseCol.z;
+				row.set(stackDir); col.set(baseCol);
 				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
 			}
 		} else if (basePlane == CutSurface.CORONAL) {
 			if (reconPlane == CutSurface.CORONAL) {
-				ipp.set(ipp1);
-				iop = baseIop.clone();
+				ipp.set(ipp1); row.set(baseRow); col.set(baseCol);
 			} else if (reconPlane == CutSurface.AXIAL) {
-				iop[0] = baseRow.x;
-				iop[1] = baseRow.y;
-				iop[2] = baseRow.z;
-				iop[3] = stackDir.x;
-				iop[4] = stackDir.y;
-				iop[5] = stackDir.z;
+				row.set(baseRow); col.set(stackDir);
 				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
 			} else if (reconPlane == CutSurface.SAGITTAL) {
-				iop[0] = stackDir.x;
-				iop[1] = stackDir.y;
-				iop[2] = stackDir.z;
-				iop[3] = baseCol.x;
-				iop[4] = baseCol.y;
-				iop[5] = baseCol.z;
+				row.set(stackDir); col.set(baseCol);
 				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
 			}
 		}
 
+		// ★ 共有いただいた強力なツールで誤差を完全にクレンジング
+		PlanarSupport.normalizeAndOrthogonalize(row, col);
+		row = PlanarSupport.truncate(row, 6);
+		col = PlanarSupport.truncate(col, 6);
+		ipp = PlanarSupport.truncate(ipp, 6);
+
+		double[] iop = new double[] { row.x, row.y, row.z, col.x, col.y, col.z };
+
+		// タグの書き込み
 		GDicomTools.setTag(recon, 1, "0010,0020", pid);
 		GDicomTools.setTag(recon, 1, "0020,000D", studyUid);
 		GDicomTools.setTag(recon, 1, "0020,000E", seriesUid);
@@ -855,44 +1093,88 @@ public class SimpleMPRViewer extends JFrame {
 		return (int) Math.round((double) originalPos * scaledMax / originalMax);
 	}
 
+//	private void standardizeStackOrientation() {
+//		int nSlices = baseVolume.getNSlices();
+//		if (nSlices < 2)
+//			return;
+//
+//		boolean isHeadFirst = PlanarSupport.isHeadFirst(baseVolume);
+//
+//		double[] ipp1 = GDicomTools.getImagePositionPatient(baseVolume, 1);
+//		double[] ippN = GDicomTools.getImagePositionPatient(baseVolume, nSlices);
+//		if (ipp1 == null || ippN == null)
+//			return;
+//
+//		boolean needsReversal = false;
+//
+//		if (basePlane == CutSurface.AXIAL || basePlane == CutSurface.OBLIQUE) {
+//			boolean isCurrentlyDescending = ippN[2] < ipp1[2];
+//			boolean targetDescending = isHeadFirst;
+//			if (isCurrentlyDescending != targetDescending) {
+//				needsReversal = true;
+//			}
+//		} else if (basePlane == CutSurface.CORONAL) {
+//			boolean isCurrentlyAscending = ippN[1] > ipp1[1];
+//			boolean targetAscending = isHeadFirst;
+//			if (isCurrentlyAscending != targetAscending) {
+//				needsReversal = true;
+//			}
+//		} else if (basePlane == CutSurface.SAGITTAL) {
+//			boolean isCurrentlyAscending = ippN[0] > ipp1[0];
+//			boolean targetAscending = isHeadFirst;
+//			if (isCurrentlyAscending != targetAscending) {
+//				needsReversal = true;
+//			}
+//		}
+//
+//		if (needsReversal) {
+//			reverseStack(baseVolume);
+//			System.out.println("Stack order reversed to match standard anatomical orientation.");
+//		}
+//	}
+	
+	/**
+	 * 入力された Raw スタックを、解剖学的な標準順序（LPS）に強制的に並び替えます。
+	 */
 	private void standardizeStackOrientation() {
-		int nSlices = baseVolume.getNSlices();
-		if (nSlices < 2)
-			return;
+	    int nSlices = baseVolume.getNSlices();
+	    if (nSlices < 2) return;
 
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(baseVolume);
+	    double[] ipp1 = GDicomTools.getImagePositionPatient(baseVolume, 1);
+	    double[] ippN = GDicomTools.getImagePositionPatient(baseVolume, nSlices);
+	    
+	    System.out.println(Arrays.toString(ipp1));
+	    System.out.println(Arrays.toString(ippN));
+	    
+	    if (ipp1 == null || ippN == null) return;
 
-		double[] ipp1 = GDicomTools.getImagePositionPatient(baseVolume, 1);
-		double[] ippN = GDicomTools.getImagePositionPatient(baseVolume, nSlices);
-		if (ipp1 == null || ippN == null)
-			return;
+	    boolean needsReversal = false;
 
-		boolean needsReversal = false;
+	    // LPS空間（Radiological Convention）に基づく標準的な順序判定
+	    // Axial: 劣位(足) -> 優位(頭) つまり IPP[2] が増加する順
+	    // Coronal: 前方(顔) -> 後方(後頭部) つまり IPP[1] が減少する順
+	    // Sagittal: 右 -> 左 つまり IPP[0] が減少する順
+	    
+	    if (basePlane == CutSurface.AXIAL) {
+	        if (ipp1[2] > ippN[2]) needsReversal = true;
+	    } else if (basePlane == CutSurface.CORONAL) {
+	        if (ipp1[1] < ippN[1]) needsReversal = true;
+	    } else if (basePlane == CutSurface.SAGITTAL) {
+	        if (ipp1[0] < ippN[0]) needsReversal = true;
+	    } else if (basePlane == CutSurface.OBLIQUE) {
+	        // 斜位の場合は、最も支配的な軸の変化方向で判定
+	        double dz = Math.abs(ippN[2] - ipp1[2]);
+	        double dy = Math.abs(ippN[1] - ipp1[1]);
+	        double dx = Math.abs(ippN[0] - ipp1[0]);
+	        if (dz > dy && dz > dx) { // 垂直に近い
+	            if (ipp1[2] > ippN[2]) needsReversal = true;
+	        }
+	    }
 
-		if (basePlane == CutSurface.AXIAL || basePlane == CutSurface.OBLIQUE) {
-			boolean isCurrentlyDescending = ippN[2] < ipp1[2];
-			boolean targetDescending = isHeadFirst;
-			if (isCurrentlyDescending != targetDescending) {
-				needsReversal = true;
-			}
-		} else if (basePlane == CutSurface.CORONAL) {
-			boolean isCurrentlyAscending = ippN[1] > ipp1[1];
-			boolean targetAscending = isHeadFirst;
-			if (isCurrentlyAscending != targetAscending) {
-				needsReversal = true;
-			}
-		} else if (basePlane == CutSurface.SAGITTAL) {
-			boolean isCurrentlyAscending = ippN[0] > ipp1[0];
-			boolean targetAscending = isHeadFirst;
-			if (isCurrentlyAscending != targetAscending) {
-				needsReversal = true;
-			}
-		}
-
-		if (needsReversal) {
-			reverseStack(baseVolume);
-			System.out.println("Stack order reversed to match standard anatomical orientation.");
-		}
+	    if (needsReversal) {
+	        reverseStack(baseVolume);
+	        Log.logger.log(Level.INFO,"Stack order normalized to LPS standard orientation.");
+	    }
 	}
 
 	private void reverseStack(ImagePlus imp) {
@@ -942,6 +1224,8 @@ public class SimpleMPRViewer extends JFrame {
 		double pw = cal.pixelWidth;
 		double ph = cal.pixelHeight;
 		double pd = cal.pixelDepth;
+		
+		Log.logger.log(Level.FINE, "BaseVolume px,py,pz: "+pw+","+ph+","+pd);
 
 		int w = baseVolume.getWidth();
 		int h = baseVolume.getHeight();

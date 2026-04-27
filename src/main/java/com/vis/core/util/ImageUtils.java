@@ -123,6 +123,17 @@ public class ImageUtils {
 			return false;
 		}
 	}
+	
+	public static boolean isNIfTI(File f) {
+		if (f == null || !f.exists()) {
+			return false;
+		}
+		String name = f.getName();
+		if(name.endsWith(".nii") || name.endsWith(".nii.gz")) {
+			return true;
+		}
+		return false;
+	}
 
 	public static ImagePlus readFile(File f) {
 		if (isDicom(f)) {

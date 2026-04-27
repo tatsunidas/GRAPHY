@@ -79,7 +79,7 @@ public class PlanarSupport {
 		}
 		return ImageOrientation.getCutSurface(dcm).name();
 	}
-	
+		
 	/**
 	 * Use ImageOrientation.getCutSurface(dcm) instead this.
 	 * @param dcm

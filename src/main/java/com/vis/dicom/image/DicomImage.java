@@ -83,6 +83,7 @@ public interface DicomImage {
 	public byte[] getPixelData(int frame);
 	public boolean ensurePixelDataLoaded();
 	public ImageProcessor getImageProcessor(int frame);
+	public ImageProcessor getRawImageProcessor(int frame);
 	public abstract void setHeader(DicomObject attr);
 	public abstract void setFileMetaInfo(DicomObject fmi);
 	public void setPixelData(int frame, int w, int h, int samples, int bitsPerPixel, Object pixels);

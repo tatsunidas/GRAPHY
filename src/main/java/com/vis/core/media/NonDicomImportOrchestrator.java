@@ -31,7 +31,6 @@ public class NonDicomImportOrchestrator {
         ArrayList<File> images = new ArrayList<>();
         ArrayList<File> videos = new ArrayList<>();
         ArrayList<File> pdfs = new ArrayList<>();
-        
         for (File f : files) {
             // (注) DicomUtilities.isDicomFile の判定は UI側(Importer)で弾いている想定ですが、念のため入れてもOK
             String path = f.getAbsolutePath();

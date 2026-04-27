@@ -55,6 +55,8 @@ public class EventGlass extends JPanel{
 		this.sg = sg;
 		setOpaque(false);
 		setFocusable(true);
+		// turn-off IME（Japanese）to input keys on keylistener
+		enableInputMethods(false);
 	}
 	
 	@Override

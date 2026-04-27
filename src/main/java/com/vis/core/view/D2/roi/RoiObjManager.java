@@ -1118,7 +1118,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		//in here, convert2Roi do roi.setPosition(pos)
 		Roi roi = new RoiConverter().convert2Roi(roiObj);
 		if(roi == null) {
-			Log.message(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
+			Log.logger.log(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
 			return;
 		}
 		String path = null;
@@ -1154,7 +1154,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		Roi roi = new RoiConverter().convert2Roi(roiObj);
 		if(roi == null) {
-			Log.message(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
+			Log.logger.log(Level.SEVERE, "Roi conversion was failed. Cannot save rois...");
 			return;
 		}
 		

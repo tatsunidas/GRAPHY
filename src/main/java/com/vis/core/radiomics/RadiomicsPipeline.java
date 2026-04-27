@@ -651,7 +651,7 @@ public class RadiomicsPipeline {
 			}
 		} else { // 2d basis
 			// if 2d basis, calculate slice by slice
-			ImagePlus imp = prap.getImagePlus();
+			ImagePlus imp = prap.getImagePlus(-1,-1);
 			for (RoiObj r : rois) {
 				String sopUID = r.getProperty(ContextKey.SOPInstanceUID);
 				if(sopUID == null) {
@@ -1422,7 +1422,7 @@ public class RadiomicsPipeline {
 			}
 		}
 		
-		ImagePlus imp = prap.getImagePlus();
+		ImagePlus imp = prap.getImagePlus(-1,-1);
 		//imp = new ImagePlus("", imp.getStack().getProcessor(slidePos+1));//DO NOT DO THIS
 		int w = imp.getWidth();
 		int h = imp.getHeight();

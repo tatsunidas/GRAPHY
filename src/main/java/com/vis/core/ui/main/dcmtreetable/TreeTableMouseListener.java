@@ -108,9 +108,12 @@ public class TreeTableMouseListener implements MouseListener{
 				/*
 				 * show on the bird's eye
 				 */
-				WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-				WindowManager.getMainScreen().showImagesOnBirdsEye();
-				WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+				try {
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+					WindowManager.getMainScreen().showImagesOnBirdsEye();
+				}finally {
+					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+				}
 			}else {
 				//do nothiing
 			}
@@ -130,15 +133,16 @@ public class TreeTableMouseListener implements MouseListener{
 				return;
 			}
 			if(!isRemote) {
-				new Thread(() -> {
+				try {
 					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 					ArrayList<DICOMNode> clicked = new ArrayList<>();
 					clicked.add(node);
 					viewer.loadImagesOnStage(clicked);
 					viewer.setVisible(true);
 					viewer.toFront();
+				}finally {
 					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-				}).start();
+				}
 			}else{
 				String msg = "GRAPHY will retrieve to show images on viewer.\n";
 				msg += "YES : Retrieve to DB and then show images on viewer.\n";
@@ -157,24 +161,24 @@ public class TreeTableMouseListener implements MouseListener{
 					 * node is selected by mouse action.
 					 * Do not use viewer.loadImagesOnStageFromExternal();
 					 */
-					new Thread(() -> {
+					try {
 						QueryRetrieve qr = new QueryRetrieve(false/* queryOnly */);
 						qr.prepareRetrieve(treeTable.getRemoteDicomCommunicationNode(), node);
 						qr.start();
 						qr.monitorTasks();
 						try {
 							qr.getThread().join(); // waiting finish qr task on background.
-							Thread.sleep(1000);
 						} catch (InterruptedException ie) {
 							Log.logger.warning(ie.getLocalizedMessage());
 						}
+					}finally {
 						WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 						viewer.loadImagesOnStage((String) node.getData(DICOMNode.PatientID),
 								(String) node.getData(DICOMNode.StudyInstanceUID), null, null, null);
 						viewer.setVisible(true);
 						viewer.toFront();
 						WindowManager.getMainScreen().setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-					}).start();
+					}
 				}
 			}
 		}

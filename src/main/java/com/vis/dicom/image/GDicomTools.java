@@ -40,7 +40,9 @@ package com.vis.dicom.image;
 import java.io.File;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 import org.joml.Vector3d;
 
@@ -68,18 +70,49 @@ import ij.util.Tools;
  */
 public class GDicomTools extends ij.util.DicomTools{
 	
-	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
-		String v = ij.util.DicomTools.getTag(imp, tag);
-		if(v != null) {
-			v = v.trim();
+	/**
+	 * ★ 追加：HyperStack（多次元）の場合に、スライス番号から正確な 1D インデックスを算出する
+	 */
+	public static int getRealIndex(ImagePlus imp, int slicePos/*1 to N*/) {
+		if (imp != null && imp.isHyperStack()) {
+			int c = imp.getChannel() > 0 ? imp.getChannel() : 1;
+			int t = imp.getFrame() > 0 ? imp.getFrame() : 1;
+			// CとTを現在の状態に固定し、目的のZスライスの1Dインデックスを取得する
+			return imp.getStackIndex(c, slicePos, t);
 		}
-		return v;
+		return slicePos;
+	}
+	
+	/**
+	 * ImageJ標準の DicomTools.getTag はヘッダの厳格なバリデーション（PixelDataタグの有無など）を行い、
+	 * 不正とみなすと強制的に1枚目のInfoを返すというバグがあるため、使用を禁止し独自パーサーに迂回させる。
+	 */
+	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
+		if (imp == null) return null;
+		// カレントスライスを取得し、独自パーサーへ
+		int pos = imp.getCurrentSlice();
+		return getTag(imp, pos, new String[]{tag});
 	}
 	
 	public static String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
-		imp.setSlice(pos);
-		return getTag(imp, tag);
+		if (imp == null) return null;
+		// ★ imp.setSlice(pos) による無駄な再描画とフリーズを防ぎつつ、独自パーサーへ直行
+		return getTag(imp, pos, new String[]{tag});
 	}
+	
+//	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
+		//SliceLabelの先頭に改行がないとInfoプロパティしか返さない。
+//		String v = ij.util.DicomTools.getTag(imp, tag);
+//		if(v != null) {
+//			v = v.trim();
+//		}
+//		return v;
+//	}
+//	
+//	public static String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
+//		imp.setPosition(getRealIndex(imp, pos));
+//		return getTag(imp, tag);
+//	}
 	
 	/**
 	 * 階層（シーケンス）のパスを指定してDICOMタグの値を取得する
@@ -95,14 +128,16 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 
 		// 階層がない（1つだけ）の場合は、既存の単一タグ取得メソッドにフォールバック
-		if (tags.length == 1) {
-			return getTag(imp, pos, tags[0]);
-		}
+//		if (tags.length == 1) {
+//			return getTag(imp, pos, tags[0]);
+//		}
+		
+		int realPos = getRealIndex(imp, pos);
 
 		// 1. スライス固有のラベル、または全体プロパティのInfoからテキストを取得
 		String headerText = null;
 		if (imp != null && pos >= 1 && pos <= imp.getStackSize()) {
-			headerText = imp.getStack().getSliceLabel(pos);
+			headerText = imp.getStack().getSliceLabel(realPos);
 		}
 		if (headerText == null || headerText.trim().isEmpty()) {
 			if (imp != null) {
@@ -185,7 +220,6 @@ public class GDicomTools extends ij.util.DicomTools{
 	}
 	
 	public static Double getDouble(ImagePlus imp, int pos/*1 to N*/, String tag) {
-		imp.setSlice(pos);
 		String value = getTag(imp, pos, tag);
 		if (value==null) return Double.NaN;
 		int index3 = value.indexOf("\\");
@@ -326,9 +360,9 @@ public class GDicomTools extends ij.util.DicomTools{
 	 */
 	public static void setTag(ImagePlus imp, int pos, String[] tags, String value) {
 		if (imp == null || tags == null || tags.length == 0) return;
-
+		int realPos = getRealIndex(imp, pos);
 		boolean isStack = imp.getStackSize() > 1;
-		String hdr = isStack ? imp.getStack().getSliceLabel(pos) : (String) imp.getProperty("Info");
+		String hdr = isStack ? imp.getStack().getSliceLabel(realPos) : (String) imp.getProperty("Info");
 		
 		if (hdr == null) hdr = "";
 		// 先頭の余分な改行をクリーンアップ
@@ -342,7 +376,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 
 		if (isStack) {
-			imp.getStack().setSliceLabel(newHdr, pos);
+			imp.getStack().setSliceLabel(newHdr, realPos);
 		} else {
 			imp.setProperty("Info", newHdr);
 		}
@@ -532,6 +566,17 @@ public class GDicomTools extends ij.util.DicomTools{
 
 	        // |(P2 - P1)・N| / |N|
 	        double distance = Math.abs(dotProduct) / norm;
+	        
+	        //if zero, output error message
+	        if(distance <= EPSILON) {
+	        	String msg = "Voxel depth is close to zero (distance < " + distance + "). Please check Image orientation patient slice by slice.";
+	        	msg += "ipp1:"+Arrays.toString(ipp1)+"\n";
+	        	msg += "ipp2:"+Arrays.toString(ipp2)+"\n";
+	        	msg += "Now, will return spacingBetweenSlices instead.";
+	        	Log.logger.log(Level.WARNING, msg);
+	        	return spacingBetweenSlices;
+	        }
+	        
 	        return distance;
 		}
 		
@@ -547,14 +592,14 @@ public class GDicomTools extends ij.util.DicomTools{
 	/**
 	 * 
 	 * @param stack
-	 * @param n : from 1 to n
+	 * @param RealIndex : from 1 to n, by getRealIndex()
 	 * @return
 	 */
-	public static String getHeader(ImageStack stack, int n) {
-		String hdr = stack.getSliceLabel(n);
+	public static String getHeader(ImageStack stack, int RealIndex) {
+		String hdr = stack.getSliceLabel(RealIndex);
 		if ((hdr == null || hdr.length() < 100) && stack.isVirtual()) {
 			String dir = ((VirtualStack) stack).getDirectory();
-			String name = ((VirtualStack) stack).getFileName(n);
+			String name = ((VirtualStack) stack).getFileName(RealIndex);
 			ImagePlus reader = new ImagePlus(dir + name);
 			hdr = reader.getInfoProperty();
 			if (hdr != null)
@@ -573,8 +618,9 @@ public class GDicomTools extends ij.util.DicomTools{
 		}else {
 			int size = from.getNSlices();
 			for(int i=1;i<=size;i++) {
-				String hdr = from.getStack().getSliceLabel(i);
-				to.getStack().setSliceLabel(hdr, i);
+				int index = getRealIndex(from, i);
+				String hdr = from.getStack().getSliceLabel(index);
+				to.getStack().setSliceLabel(hdr, index);
 			}
 		}
 	}
@@ -702,7 +748,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
 		if (!dcmImg.isMultiFrame()) {
 			// --- Single Frame ---
-			ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(0).duplicate());
+			ImagePlus imp = new ImagePlus("", dcmImg.getRawImageProcessor(0).duplicate());
 
 			// ヘッダー情報の文字列を一括生成
 			String headerInfo = getHeaderAsString(dcmImg.getHeader(), new StringBuilder(), 0);
@@ -859,37 +905,26 @@ public class GDicomTools extends ij.util.DicomTools{
 		HashMap<Integer, DicomImage> images = new HashMap<>();
 		int w = imp.getWidth();
 		int h = imp.getHeight();
-		/*
-		 * imp.getNChannels() may return 1 even if RGB images. reproduce code String url
-		 * = "https://imagej.net/ij/images/flybrain.zip"; ImagePlus image =
-		 * IJ.openImage(url); sysout(image.getNChannels());//return 1
-		 */
 		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
-		/*
-		 * IJ return 24 when imp is rgb, however, in DICOM, 8-bit per pixel, channel by channel if it is color.
-		 */
 		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
-		int s = imp.getNSlices();
-		//16 bit
+		
+		int s = imp.getNSlices(); 
+		
 		boolean signed16 = imp.getProcessor().isSigned16Bit();
-		ImageStack stack = imp.getImageStack();
+		
 		for (int i = 0; i < s; i++) {
-			//create header without pixels.
 			DicomObject core = DicomObject.newDicomObject();
+			
+			// 注意: addAttributes 内で imp.setSlice(i + 1) をしている場合、
+			// 多次元ImagePlusでは「現在のCとT」におけるZスライスが切り替わるだけになることがあります。
+			// 先ほど GDicomTools で実装した getRealIndex などを活用し、
+			// 1Dインデックス(i + 1)から正確なスライスのメタデータを引き出せるようにしてください。
 			addAttributes(core, i, imp, dealWithSecondaryCapture);
+			
 			DicomImage dcmImg = DicomImage.newDicomImage(null/*file path*/, core, null/*fmi null-able*/, UID.ImplicitVRLittleEndian);
-			//add pixels to dicom obj.
-			/*
-			 * I know, setSlice() was done addAttributes().
-			 * But, sometimes this cause error which does not switch slice position.
-			 * Here, use stack explicitly.
-			 */
-			Object pix = stack.getProcessor(i+1).getPixels();
+			imp.setSlice(GDicomTools.getRealIndex(imp, i+1));
+			Object pix = imp.getProcessor().getPixels();
 			if (signed16) {
-				/*
-				 * When loading a pixel array from ImagePlus, Signed16Bit images are already
-				 * Unsigned16Bit, so they are converted back to their original format(Signed16Bit).
-				 */
 				short[] pixels = (short[]) pix;
 				for (int k = 0; k < pixels.length; k++) {
 					pixels[k] = (short) (pixels[k] - (short) 32768);
@@ -912,7 +947,7 @@ public class GDicomTools extends ij.util.DicomTools{
 	private static void addAttributes(DicomObject dcm, int slicePos/* 0 to N-1 */,
 			ImagePlus imp/* should be set current processor */, boolean dealWithSecondaryCapture) {
 
-		imp.setSlice(slicePos + 1);
+		imp.setSlice(getRealIndex(imp, slicePos+1));
 
 		String sopClassUID = GDicomTools.getTag(imp, "0008,0016");
 		if(sopClassUID != null) sopClassUID = sopClassUID.trim();

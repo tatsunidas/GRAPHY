@@ -46,6 +46,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Level;
 
+import javax.swing.JOptionPane;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
@@ -204,7 +205,7 @@ public class DatabaseHandler {
 	public boolean checkDBExists() {
 		try {
 			verifyConnection();
-			try(Connection conn = openConnection()){
+			try (Connection conn = openConnection()) {
 				Set<String> tbl = getDBTable(conn);
 				conn.commit();
 				if (tbl == null || tbl.size() == 0) {
@@ -215,6 +216,8 @@ public class DatabaseHandler {
 			}
 		} catch (SQLException e) {
 			logger.severe("database connection is not established...");
+			String msg = "Failed to read the existing database or create a new one.\nIf you have just updated GRAPHY and an existing database is present,\nthis may be caused by SQL differences.\nPlease try backing up or renaming the old '.GRAPHY' folder, and then restart the application.";
+			JOptionPane.showMessageDialog(null, msg);
 			return false;
 		}
 	}
@@ -259,7 +262,7 @@ public class DatabaseHandler {
 		String sql = "SELECT COUNT(" + fieldname + ") FROM " + tablename + " WHERE " + fieldname + " = ?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, value);
-			try(ResultSet rs = pstmt.executeQuery();){
+			try (ResultSet rs = pstmt.executeQuery();) {
 				rs.next();
 				if (rs.getInt(1) > 0) {
 					res = true;
@@ -280,7 +283,7 @@ public class DatabaseHandler {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyIUID);
 			pstmt.setString(3, seriesIUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				rset.setFetchSize(3);
 				if (rset.next()) {
 					conn.commit();
@@ -299,7 +302,7 @@ public class DatabaseHandler {
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyIUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					conn.commit();
 					return true;
@@ -321,9 +324,9 @@ public class DatabaseHandler {
 	private void createTables() throws SQLException {
 		// 1. 実行したいSQLリソースをリストにまとめる
 		List<Resources> sqlResources = Arrays.asList(Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
-				Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME, Resources.SQL_PRESET,
-				Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS,
-				Resources.SQL_TEXTANNOTATION, Resources.SQL_ROI);
+				Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
+				Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
+				Resources.SQL_ROI);
 
 		try (Connection conn = openConnection(); Statement statement = conn.createStatement();) {
 			SQLReader reader = new SQLReader(); // SQLReaderは一度だけインスタンス化する
@@ -373,7 +376,7 @@ public class DatabaseHandler {
 		// the save as link function is not used now...
 //		boolean saveAsLink = isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID);
 		boolean saveAsLink = false;
-		
+
 		// file path from table
 		String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
 
@@ -453,7 +456,7 @@ public class DatabaseHandler {
 		String statement = "SELECT * FROM IMAGE WHERE isLink=?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setBoolean(1, true);
-			try(ResultSet rs = pstmt.executeQuery();){
+			try (ResultSet rs = pstmt.executeQuery();) {
 				while (rs.next()) {
 					String url = rs.getString("FileStoreUrl");
 					String patID = rs.getString("PatientID");
@@ -795,7 +798,7 @@ public class DatabaseHandler {
 		}
 		return instanceUIDs;
 	}
-	
+
 	public ArrayList<HashMap<String, Object>> getCommunicationServerList() {
 		ArrayList<HashMap<String, Object>> serverMaterialsList = new ArrayList<HashMap<String, Object>>();
 		String sql = "SELECT * FROM SERVERS";
@@ -1397,8 +1400,8 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		}
-		if(detail == null) {
-			//set default ?
+		if (detail == null) {
+			// set default ?
 		}
 		return detail;
 	}
@@ -1526,10 +1529,10 @@ public class DatabaseHandler {
 	 */
 	public int getNumOfInstancesInStudy(String studyUid) {
 		int cnt = 0;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet totalInstancesInfo = conn.createStatement()
 					.executeQuery("select count(*) from image where StudyInstanceUID='" + studyUid + "'");
-			if(totalInstancesInfo.next()) {
+			if (totalInstancesInfo.next()) {
 				cnt = totalInstancesInfo.getInt(1);
 			}
 			totalInstancesInfo.close();
@@ -1553,10 +1556,10 @@ public class DatabaseHandler {
 	public int getNumOfInstanceStudy(String patID, String studyUID) {
 		String statement = "SELECT COUNT(SOPInstanceUID) FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=?";
 		int count = 0;
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
-			try(ResultSet rset = pstmt.executeQuery()){
+			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					count = rset.getInt(1);
 				}
@@ -1570,9 +1573,9 @@ public class DatabaseHandler {
 
 	public int getNumOfPatientsInDB() {
 		int cnt = 0;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet totalInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM PATIENT");
-			if(totalInfo.next()) {
+			if (totalInfo.next()) {
 				cnt = totalInfo.getInt(1);
 			}
 			totalInfo.close();
@@ -1586,10 +1589,10 @@ public class DatabaseHandler {
 	public int getNumOfSeries(String patID, String studyUID) {
 		String statement = "SELECT COUNT(SeriesInstanceUID) FROM SERIES WHERE PatientID=? AND StudyInstanceUID=?";
 		int count = 0;
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
-			try(ResultSet rset = pstmt.executeQuery()){
+			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					count = rset.getInt(1);
 				}
@@ -1597,15 +1600,15 @@ public class DatabaseHandler {
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		} 
+		}
 		return count;
 	}
-	
+
 	public int getNumOfSeriesInDB() {
 		int cnt = 0;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet totalInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM SERIES");
-			if(totalInfo.next()) {
+			if (totalInfo.next()) {
 				cnt = totalInfo.getInt(1);
 			}
 			totalInfo.close();
@@ -1618,10 +1621,10 @@ public class DatabaseHandler {
 
 	public int getNumOfSeriesInStudy(String studyUid) {
 		int cnt = 0;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet totalInstancesInfo = conn.createStatement()
 					.executeQuery("select count(*) from SERIES where StudyInstanceUID='" + studyUid + "'");
-			if(totalInstancesInfo.next()) {
+			if (totalInstancesInfo.next()) {
 				cnt = totalInstancesInfo.getInt(1);
 			}
 			totalInstancesInfo.close();
@@ -1634,9 +1637,9 @@ public class DatabaseHandler {
 
 	public int getNumOfStudiesInDB() {
 		int cnt = 0;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet totalStudiesInfo = conn.createStatement().executeQuery("SELECT COUNT(*) FROM STUDY");
-			if(totalStudiesInfo.next()) {
+			if (totalStudiesInfo.next()) {
 				cnt = totalStudiesInfo.getInt(1);
 			}
 			totalStudiesInfo.close();
@@ -1649,10 +1652,10 @@ public class DatabaseHandler {
 
 	public int getNumOfStudyInPatient(String patID) {
 		int cnt = 0;
-		try (Connection conn = openConnection()){
+		try (Connection conn = openConnection()) {
 			ResultSet totalInfo = conn.createStatement()
 					.executeQuery("select count(*) from STUDY where PatientID='" + patID + "'");
-			if(totalInfo.next()) {
+			if (totalInfo.next()) {
 				cnt = totalInfo.getInt(1);
 			}
 			totalInfo.close();
@@ -1666,9 +1669,9 @@ public class DatabaseHandler {
 	public int getNumOfStudyByPatient(String patID) {
 		String statement = "SELECT COUNT(StudyInstanceUID) FROM STUDY WHERE PatientID=?";
 		int count = 0;
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
-			try(ResultSet studyCount = pstmt.executeQuery()){
+			try (ResultSet studyCount = pstmt.executeQuery()) {
 				if (studyCount.next()) {
 					count = studyCount.getInt(1);
 				}
@@ -1679,14 +1682,14 @@ public class DatabaseHandler {
 		}
 		return count;
 	}
-	
+
 	public int getPrimaryKeyIndexInTable(String tableName, String whereField, String whereValue) {
 		String sql = "select pk" + " from " + tableName + " where " + whereField + "=?";
 		int pk = -1;
-		try (Connection conn = openConnection();PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, whereValue);
-			try(ResultSet rs = ps.executeQuery()){
-				if(rs.next()) {
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
 					pk = rs.getInt("pk");
 					conn.commit();
 					return pk;
@@ -1698,22 +1701,23 @@ public class DatabaseHandler {
 		}
 		return -1;
 	}
-	
+
 	/**
 	 * not tested
+	 * 
 	 * @param tableName
 	 * @param columnLabel
 	 * @param whereField
 	 * @param whereValue
 	 * @return
 	 */
-	public Object getValue(String tableName, String columnLabel/*fieldName*/, String whereField, Object whereValue) {
+	public Object getValue(String tableName, String columnLabel/* fieldName */, String whereField, Object whereValue) {
 		String sql = "select *" + " from " + tableName + " where " + whereField + "=?";
 		Object v = null;
-		try (Connection conn = openConnection();PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setObject(1, whereValue);
-			try(ResultSet rs = ps.executeQuery();){
-				if(rs.next()) {
+			try (ResultSet rs = ps.executeQuery();) {
+				if (rs.next()) {
 					v = rs.getObject(columnLabel);
 				}
 			}
@@ -1728,12 +1732,12 @@ public class DatabaseHandler {
 			String sopUID) {
 		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		String something = null;
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){		
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
 			pstmt.setString(3, seriesUID);
 			pstmt.setString(4, sopUID);
-			try(ResultSet rset = pstmt.executeQuery()){
+			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					something = rset.getString(targetColName);
 				}
@@ -1765,11 +1769,11 @@ public class DatabaseHandler {
 	public String getValueFromSeries(String targetColName, String patID, String studyUid, String seriesUid) {
 		String statement = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
 		String something = null;
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUid);
 			pstmt.setString(3, seriesUid);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					something = rset.getString(targetColName);
 				}
@@ -1784,10 +1788,10 @@ public class DatabaseHandler {
 	public String getValueFromStudy(String targetColName, String patID, String studyUid) {
 		String statement = "SELECT * FROM STUDY WHERE PatientID=? AND StudyInstanceUID=?";
 		String something = null;
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUid);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					something = rset.getString(targetColName);
 				}
@@ -1810,9 +1814,9 @@ public class DatabaseHandler {
 		}
 		String sql = "SELECT * FROM PATIENT WHERE PatientID=?";
 		HashMap<String, String> map = new HashMap<>();
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(sql);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, patID);// start from 1
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					map.put("PatientID", patID);
 					map.put("PatientName", rset.getString("PatientName"));
@@ -1835,10 +1839,10 @@ public class DatabaseHandler {
 	public String getRetrieveMode(String serverName) {
 		String sql = "select retrievetype from servers where logicalname=?";
 		String retType = null;
-		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, serverName);
-			try(ResultSet serverNameInfo = ps.executeQuery();){
-				if(serverNameInfo.next()) {
+			try (ResultSet serverNameInfo = ps.executeQuery();) {
+				if (serverNameInfo.next()) {
 					retType = serverNameInfo.getString("retrievetype");
 				}
 			}
@@ -1850,17 +1854,16 @@ public class DatabaseHandler {
 		return retType;
 	}
 
-
 	public List<HashMap<String, String>> getSeriesInfoByUIDs(String patID, String studyUID) {
 		if (getNumOfSeries(patID, studyUID) < 1) {
 			return null;
 		}
 		String sql = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? order by SeriesNumber";
 		List<HashMap<String, String>> seriesInfoList = new ArrayList<HashMap<String, String>>();
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				while (rset.next()) {
 					HashMap<String, String> map = new HashMap<>();
 					map.put("PatientID", patID);
@@ -1870,8 +1873,9 @@ public class DatabaseHandler {
 					map.put("InstitutionName", rset.getString("InstitutionName"));
 					map.put("ModelName", rset.getString("ModelName"));
 					map.put("SeriesNumber", rset.getString("SeriesNumber"));
-					map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
-							rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
+					map.put("NumOfInstanceInSeries",
+							String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
+									rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
 					map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 					map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 					seriesInfoList.add(map);
@@ -1895,11 +1899,11 @@ public class DatabaseHandler {
 		}
 		String sql = "SELECT * FROM SERIES WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
 		HashMap<String, String> map = new HashMap<String, String>();
-		try(Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 			pstmt.setString(1, patID);// start from 1
 			pstmt.setString(2, studyUID);
 			pstmt.setString(3, seriesUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					map.put("PatientID", patID);
 					map.put("SeriesDate", rset.getString("SeriesDate"));
@@ -1908,8 +1912,9 @@ public class DatabaseHandler {
 					map.put("InstitutionName", rset.getString("InstitutionName"));
 					map.put("ModelName", rset.getString("ModelName"));
 					map.put("SeriesNumber", rset.getString("SeriesNumber"));
-					map.put("NumOfInstanceInSeries", String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
-							rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
+					map.put("NumOfInstanceInSeries",
+							String.valueOf(getNumOfInstanceInSeries(rset.getString("PatientID"),
+									rset.getString("StudyInstanceUID"), rset.getString("SeriesInstanceUID"))));
 					map.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
 					map.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
 				}
@@ -1925,15 +1930,15 @@ public class DatabaseHandler {
 		}
 		return null;
 	}
-	
+
 	public String getSeriesIUID(String patID, String studyIUID, String sopIUID) {
 		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SOPInstanceUID=?";
 		String uid = null;
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyIUID);
 			pstmt.setString(3, sopIUID);
-			try(ResultSet rset = pstmt.executeQuery()){
+			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					uid = rset.getString("SeriesInstanceUID");
 				}
@@ -1948,10 +1953,10 @@ public class DatabaseHandler {
 	public ArrayList<String> getSeriesUidList(String patID, String studyUID) {
 		String sql = "select SeriesInstanceUID from SERIES where PatientID=? and StudyInstanceUID=?";
 		ArrayList<String> seriesUids = new ArrayList<String>();
-		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, patID);
 			ps.setString(2, studyUID);
-			try(ResultSet rset = ps.executeQuery()){
+			try (ResultSet rset = ps.executeQuery()) {
 				while (rset.next()) {
 					seriesUids.add(rset.getString("SeriesInstanceUID"));
 				}
@@ -1966,12 +1971,13 @@ public class DatabaseHandler {
 	public HashMap<String, Object> getServerInfo(String nickname) {
 		String sql = "select * from servers where logicalname=?";
 		HashMap<String, Object> nodeMaterials = null;
-		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, nickname);
-			try(ResultSet serverInfo = ps.executeQuery();){
+			try (ResultSet serverInfo = ps.executeQuery();) {
 				if (serverInfo.next()) {
 					nodeMaterials = new HashMap<>();
-					String logicalname = serverInfo.getString("logicalname") != null ? serverInfo.getString("logicalname")
+					String logicalname = serverInfo.getString("logicalname") != null
+							? serverInfo.getString("logicalname")
 							: "";
 					String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle") : "";
 					String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname") : "";
@@ -1980,9 +1986,11 @@ public class DatabaseHandler {
 					String retrievetype = serverInfo.getString("retrievetype") != null
 							? serverInfo.getString("retrievetype")
 							: "";
-					String wadocontext = serverInfo.getString("wadocontext") != null ? serverInfo.getString("wadocontext")
+					String wadocontext = serverInfo.getString("wadocontext") != null
+							? serverInfo.getString("wadocontext")
 							: "";
-					Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null ? serverInfo.getInt("wadoport")
+					Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null
+							? serverInfo.getInt("wadoport")
 							: null;
 					String wadoprotocol = serverInfo.getString("wadoprotocol") != null
 							? serverInfo.getString("wadoprotocol")
@@ -2005,7 +2013,7 @@ public class DatabaseHandler {
 			logger.severe(ex.getMessage());
 			return null;
 		}
-		return nodeMaterials;//if no match, return null.
+		return nodeMaterials;// if no match, return null.
 	}
 
 	/*
@@ -2014,11 +2022,11 @@ public class DatabaseHandler {
 	public HashMap<String, String> getStudyInfo(String patID, String studyUID) {
 		String sql = "SELECT * FROM STUDY WHERE PatientID=? AND StudyInstanceUID=?";
 		HashMap<String, String> map = new HashMap<>();
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(sql);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			// study info
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					map.put("PatientID", patID);
 					map.put("PatientAge", rset.getString("PatientAge"));// age is study level, not pat level.
@@ -2048,11 +2056,11 @@ public class DatabaseHandler {
 	public String getStudyIUID(String patID, String seriesIUID, String sopIUID) {
 		String sql = "SELECT * FROM IMAGE WHERE PatientID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		String studyUID = null;
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, seriesIUID);
 			pstmt.setString(3, sopIUID);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					studyUID = rset.getString("StudyInstanceUID");
 				}
@@ -2068,9 +2076,9 @@ public class DatabaseHandler {
 	public ArrayList<String> getStudyUidList(String patID) {
 		String sql = "select StudyInstanceUID from STUDY where PatientID=?";
 		ArrayList<String> studyUids = new ArrayList<String>();
-		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
-			ps.setString(1,  patID);
-			try(ResultSet rset = ps.executeQuery();){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, patID);
+			try (ResultSet rset = ps.executeQuery();) {
 				while (rset.next()) {
 					studyUids.add(rset.getString("StudyInstanceUID"));
 				}
@@ -2085,7 +2093,9 @@ public class DatabaseHandler {
 	public ArrayList<Integer> getTextAnnotationList() {
 		String sql = "SELECT * FROM textannotation";
 		ArrayList<Integer> tagList = new ArrayList<>();
-		try (Connection conn = openConnection();Statement stmt = conn.createStatement();ResultSet rs = stmt.executeQuery(sql);){
+		try (Connection conn = openConnection();
+				Statement stmt = conn.createStatement();
+				ResultSet rs = stmt.executeQuery(sql);) {
 			while (rs.next()) {
 				tagList.add(rs.getInt("tag"));
 			}
@@ -2096,11 +2106,12 @@ public class DatabaseHandler {
 		return tagList;
 	}
 
-
 	public ArrayList<String> getThemes() {
 		String sql = "select name from theme";
 		ArrayList<String> themeNames = new ArrayList<String>();
-		try (Connection conn = openConnection();Statement stmt = conn.createStatement();ResultSet rs = stmt.executeQuery(sql);){
+		try (Connection conn = openConnection();
+				Statement stmt = conn.createStatement();
+				ResultSet rs = stmt.executeQuery(sql);) {
 			while (rs.next()) {
 				if (!rs.getString("name").equals("System")) {
 					themeNames.add(rs.getString("name"));
@@ -2122,10 +2133,9 @@ public class DatabaseHandler {
 		String sql = "SELECT * FROM IMAGE WHERE FileStoreUrl=?";
 		List<String[]> idsetList = new ArrayList<String[]>();
 		for (int i = 0; i < fileLocs.size(); i++) {
-			try (Connection conn = openConnection();
-					PreparedStatement pstmt = conn.prepareStatement(sql);){
+			try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 				pstmt.setString(1, fileLocs.get(i));
-				try(ResultSet rset = pstmt.executeQuery()){
+				try (ResultSet rset = pstmt.executeQuery()) {
 					if (rset.next()) {
 						String idset[] = new String[4];
 						idset[0] = rset.getString("PatientID");
@@ -2145,7 +2155,7 @@ public class DatabaseHandler {
 
 	private void insertDefaultListenerDetails() {
 		String sql = "insert into listener(aetitle,host,port,storagelocation) values( ? , ? , ? , ?)";
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(sql);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql);) {
 			pstmt.setString(1, defaultAET);
 			pstmt.setString(2, defaultHost);
 			pstmt.setString(3, defaultPort);
@@ -2159,39 +2169,38 @@ public class DatabaseHandler {
 	}
 
 	/**
-	 * countrycode	'JP'	ISO 3166-1 alpha-2 で定義される国コード。
-	 * country	'Japan' または '日本'	国名。
-	 * languagecode	'ja'	ISO 639-1 で定義される言語コード。
-	 * language	'Japanese' または '日本語'	言語名。
-	 * localeid	'ja_JP'	言語コードと国コードを組み合わせたロケールID。
-	 * status	true	このロケールが有効であることを示します。
+	 * countrycode 'JP' ISO 3166-1 alpha-2 で定義される国コード。 country 'Japan' または '日本' 国名。
+	 * languagecode 'ja' ISO 639-1 で定義される言語コード。 language 'Japanese' または '日本語' 言語名。
+	 * localeid 'ja_JP' 言語コードと国コードを組み合わせたロケールID。 status true このロケールが有効であることを示します。
 	 */
 	private void insertDefaultLocales() {
-		//String sql = "insert into locale (countrycode,country,languagecode,language,localeid,status) values('JP','Japan','ja','Japanese','ja_JP',true)";
-		try{
+		// String sql = "insert into locale
+		// (countrycode,country,languagecode,language,localeid,status)
+		// values('JP','Japan','ja','Japanese','ja_JP',true)";
+		try {
 			addNewLocale("ja_JP");
 			addNewLocale("en_GB");
 			addNewLocale("ta_IN");
 			addNewLocale("it_IT");
-		}catch(SQLException e) {
+		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 
 	private void insertDefaultPresets() {
-		
+
 		PresetModel p1 = new PresetModel("CT Abdomen", 350, 40, null, Modality.CT);
 		PresetModel p2 = new PresetModel("CT Lung", 1500, -600, null, Modality.CT);
 		PresetModel p3 = new PresetModel("CT bone", 2500, 400, null, Modality.CT);
 		PresetModel p4 = new PresetModel("CT Brain", 80, 40, null, Modality.CT);
-		PresetModel[] presets = new PresetModel[] {p1,p2,p3,p4};
-		for(PresetModel p : presets) {
+		PresetModel[] presets = new PresetModel[] { p1, p2, p3, p4 };
+		for (PresetModel p : presets) {
 			insertPreset(p);
 		}
 	}
 
 	private void insertDefaultTextAnnotationList() throws SQLException {
-		try(Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			// initial annotations
 			ArrayList<Integer> tags = new ArrayList<>();
 			tags.add(Tag.Patient​ID);
@@ -2216,7 +2225,7 @@ public class DatabaseHandler {
 //				String sql = "insert into textannotation(tag) values(";
 //				sql = sql + String.valueOf(tag) + ")";
 //				conn.createStatement().execute(sql);
-				try(PreparedStatement ps = conn.prepareStatement(sql)){
+				try (PreparedStatement ps = conn.prepareStatement(sql)) {
 					ps.setString(1, String.valueOf(tag));
 					ps.executeUpdate();
 					conn.commit();
@@ -2281,8 +2290,8 @@ public class DatabaseHandler {
 		/* TSUID only can get from dicominputstream... */
 		String tsUID = DicomUtilities.getTransferSyntaxUID(filePath);
 		String sql = "insert into image values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-		
-		try (Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(sql);){
+
+		try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 			insertStmt.setString(1, dataset.getString(Tag.SOP​Instance​UID));
 			insertStmt.setString(2, dataset.getString(Tag.SOP​Class​UID));
 			insertStmt.setInt(3, dataset.getInt(Tag.Instance​Number, 1));
@@ -2315,7 +2324,7 @@ public class DatabaseHandler {
 			insertStmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
-			//auto rollback
+			// auto rollback
 			logger.severe("DatabaseHandler - Unable to save instance information\n" + ex.getMessage());
 			ex.printStackTrace();
 		}
@@ -2323,9 +2332,9 @@ public class DatabaseHandler {
 
 	private void insertLocale(String language, String country, String languagecode, String countrycode, String localeid)
 			throws SQLException {
-		
+
 		String sql = "insert into locale(countrycode,country,languagecode,language,localeid,status) values(?,?,?,?,?,?)";
-		try(Connection conn = openConnection();PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, countrycode);
 			ps.setString(2, country);
 			ps.setString(3, languagecode);
@@ -2341,7 +2350,7 @@ public class DatabaseHandler {
 	private void insertDefaultMiscellaneous() throws SQLException {
 		String sql = "insert into miscellaneous(Loopback,JNLPRetrieveType,AllowDynamicRetrieveType) values(true,'C-GET',false)";
 //		String sql = "insert into miscellaneous(Loopback,JNLPRetrieveType,AllowDynamicRetrieveType) values(true,'C-MOVE',false)";
-		try(Connection conn = openConnection();Statement st = conn.createStatement();){
+		try (Connection conn = openConnection(); Statement st = conn.createStatement();) {
 			st.executeUpdate(sql);
 			conn.commit();
 		}
@@ -2352,7 +2361,7 @@ public class DatabaseHandler {
 			String sql = "insert into patient values(?,?,?,?)";
 			java.util.Date bod = dataset.getDate(Tag.Patient​Birth​Date);
 			java.sql.Date sqlBod = DateUtils.toSQLDateObj(bod);
-			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);){
+			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 				insertStmt.setString(1, dataset.getString(Tag.Patient​ID));
 				insertStmt.setString(2, dataset.getString(Tag.Patient​Name));
 				insertStmt.setDate(3, sqlBod);
@@ -2364,10 +2373,10 @@ public class DatabaseHandler {
 			}
 		}
 	}
-	
+
 	public void insertPreset(PresetModel p) {
 		String sql = "INSERT INTO presets(presetname, windowwidth, windowlevel, lut, modality) VALUES (?, ?, ?, ?, ?)";
-		try(Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, p.getPresetName());
 			ps.setBigDecimal(2, p.getWW());
 			ps.setBigDecimal(3, p.getWL());
@@ -2381,8 +2390,8 @@ public class DatabaseHandler {
 	}
 
 	/**
-	 * insert new roi.
-	 * update if already exists.
+	 * insert new roi. update if already exists.
+	 * 
 	 * @param roiCon
 	 */
 	public synchronized void insertRoi(HashMap<String, Object> roiCon) {
@@ -2390,21 +2399,17 @@ public class DatabaseHandler {
 		 * If you change arguments, also check loadRoiContextFromInstance().
 		 */
 		String jsonProperties = "";
-		if(roiCon.get(ContextKey.RoiMetaProperties.name()) != null) {
+		if (roiCon.get(ContextKey.RoiMetaProperties.name()) != null) {
 			@SuppressWarnings("unchecked")
-			Map<String, String> metaAttributes = (Map<String, String>)roiCon.get(ContextKey.RoiMetaProperties.name());
+			Map<String, String> metaAttributes = (Map<String, String>) roiCon.get(ContextKey.RoiMetaProperties.name());
 			// 3. Gsonを使って Map -> JSON文字列 に変換
-		    Gson gson = new Gson();
-		    jsonProperties = gson.toJson(metaAttributes);
+			Gson gson = new Gson();
+			jsonProperties = gson.toJson(metaAttributes);
 		}
-		insertRoi(
-				(String) roiCon.get(ContextKey.RoiID.name()), 
-				(String) roiCon.get(ContextKey.Name.name()),
+		insertRoi((String) roiCon.get(ContextKey.RoiID.name()), (String) roiCon.get(ContextKey.Name.name()),
 				Integer.parseInt((String) roiCon.get(ContextKey.RoiType.name())),
-				(int) roiCon.get(RoiGeometry.OriginX.name()), 
-				(int) roiCon.get(RoiGeometry.OriginY.name()),
-				(int) roiCon.get(RoiGeometry.Width.name()), 
-				(int) roiCon.get(RoiGeometry.Height.name()),
+				(int) roiCon.get(RoiGeometry.OriginX.name()), (int) roiCon.get(RoiGeometry.OriginY.name()),
+				(int) roiCon.get(RoiGeometry.Width.name()), (int) roiCon.get(RoiGeometry.Height.name()),
 				(double[]) roiCon.get(RoiGeometry.PointX.name()), (double[]) roiCon.get(RoiGeometry.PointY.name()),
 				(double[]) roiCon.get(RoiGeometry.Shape.name()),
 				roiCon.get(ContextKey.InstanceNo.name()) == null ? Integer.MIN_VALUE
@@ -2415,17 +2420,15 @@ public class DatabaseHandler {
 				(String) roiCon.get(ContextKey.Organ.name()), (String) roiCon.get(ContextKey.Description.name()),
 				roiCon.get(ContextKey.StudyDate.name()) == null ? null
 						: DateUtils.toSQLDateObj((String) roiCon.get(ContextKey.StudyDate.name())),
-				(String) roiCon.get(ContextKey.CrossSection.name()), 
-				jsonProperties,
-				(String) roiCon.get("PatientID"),
+				(String) roiCon.get(ContextKey.CrossSection.name()), jsonProperties, (String) roiCon.get("PatientID"),
 				(String) roiCon.get("StudyInstanceUID"), (String) roiCon.get("SeriesInstanceUID"),
 				(String) roiCon.get("SOPInstanceUID"));
 	}
 
 	private void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String desc/* description */, java.sql.Date studyDate, String crossSection,String jsonProperties,
-			String pid, String studyUid, String seriesUid, String sopUid) {
+			String objType, String organ, String desc/* description */, java.sql.Date studyDate, String crossSection,
+			String jsonProperties, String pid, String studyUid, String seriesUid, String sopUid) {
 		if (pointX != null && pointY != null) {
 			if (pointX.length != pointY.length) {
 				throw new IllegalArgumentException(
@@ -2463,7 +2466,7 @@ public class DatabaseHandler {
 			}
 
 			String sql = "insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-			try (Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(sql);){
+			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 				insertStmt.setString(1, roiId);
 				insertStmt.setString(2, name);
 				insertStmt.setInt(3, roiType);
@@ -2498,7 +2501,8 @@ public class DatabaseHandler {
 		} else {// already exists
 			// updation
 			updateRoiInfo(roiId, name, roiType, originX, originY, w, h, pointX, pointY, shapeArray, instNo, roiGroup,
-					roilbl, objType, organ, desc, studyDate, crossSection, jsonProperties, pid,studyUid, seriesUid, sopUid);
+					roilbl, objType, organ, desc, studyDate, crossSection, jsonProperties, pid, studyUid, seriesUid,
+					sopUid);
 		}
 	}
 
@@ -2536,7 +2540,7 @@ public class DatabaseHandler {
 							? dataset.getString(Tag.Body​Part​Examined)
 							: "";
 			String sql = "insert into series values(?,?,?,?,?,?,?,?,?,?,?,?)";
-			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);){
+			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 				insertStmt.setString(1, dataset.getString(Tag.Series​Instance​UID));
 				insertStmt.setString(2, seriesNo);
 				insertStmt.setDate(3, sqlDate);
@@ -2551,8 +2555,10 @@ public class DatabaseHandler {
 				insertStmt.setString(12, studyUid);
 				insertStmt.executeUpdate();
 				conn.commit();
-				//count up num of series in study table. really confuse "NoOfSeries" means num of series...
-				update("study", "NoOfSeries"/*Series number*/, getNumOfSeries(patientId, studyUid)/*already updated*/, "StudyInstanceUID", studyUid);
+				// count up num of series in study table. really confuse "NoOfSeries" means num
+				// of series...
+				update("study", "NoOfSeries"/* Series number */,
+						getNumOfSeries(patientId, studyUid)/* already updated */, "StudyInstanceUID", studyUid);
 			} catch (SQLException ex) {
 				logger.severe("DatabaseHandler - Unable to save series information\n" + ex.getMessage());
 			}
@@ -2561,17 +2567,11 @@ public class DatabaseHandler {
 
 	/**
 	 * 
-	 * pk	管理番号（データベース用）	1, 2, 3...
-	 * logicalname	人間が見るためのあだ名	A病院のCT装置
-	 * aetitle	DICOM通信で使うユニークID	CT_SCANNER_01
-	 * hostname	ネットワーク上の住所（IPアドレス）	192.168.1.10
-	 * port	住所の部屋番号（窓口番号）	104
-	 * ciphers	暗号化の種類	TLS_... (指定があれば暗号化)
-	 * retrievetype	画像の取得方法	C-MOVE, WADO
-	 * wadocontext	Web取得用のURLパス	/wado
-	 * wadoport	Web取得用のポート番号	8080
-	 * wadoprotocol	Web取得用のプロトコル	http
-	 * retrievets	取得する画像のデータ圧縮形式	1.2.840.10008.1.2.1
+	 * pk 管理番号（データベース用） 1, 2, 3... logicalname 人間が見るためのあだ名 A病院のCT装置 aetitle
+	 * DICOM通信で使うユニークID CT_SCANNER_01 hostname ネットワーク上の住所（IPアドレス） 192.168.1.10 port
+	 * 住所の部屋番号（窓口番号） 104 ciphers 暗号化の種類 TLS_... (指定があれば暗号化) retrievetype 画像の取得方法
+	 * C-MOVE, WADO wadocontext Web取得用のURLパス /wado wadoport Web取得用のポート番号 8080
+	 * wadoprotocol Web取得用のプロトコル http retrievets 取得する画像のデータ圧縮形式 1.2.840.10008.1.2.1
 	 * 
 	 * @param nickname
 	 * @param aet
@@ -2584,9 +2584,11 @@ public class DatabaseHandler {
 	 * @param wadoprotocol
 	 * @param retrievets
 	 */
-	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers, String retrievetype, String wadocontext, int wadoport, String wadoprotocol, String retrievets) {
+	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers,
+			String retrievetype, String wadocontext, int wadoport, String wadoprotocol, String retrievets) {
 		String statement = "INSERT INTO SERVERS (pk,logicalname,aetitle,hostname,port,ciphers,retrievetype,wadocontext,wadoport,wadoprotocol,retrievets) VALUES (default,?,?,?,?,?,?,?,?,?,?)";
-		try (Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);){
+		try (Connection conn = openConnection();
+				PreparedStatement insertStmt = conn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);) {
 			insertStmt.setString(1, nickname);
 			insertStmt.setString(2, aet);
 			insertStmt.setString(3, hostname);
@@ -2642,9 +2644,9 @@ public class DatabaseHandler {
 						&& dataset.getString(Tag.Study​ID).length() > 0) ? dataset.getString(Tag.Study​ID) : "";
 				int numOfSeries = getNumOfSeries(patientID, dataset.getString(Tag.Study​Instance​UID)) + 1;
 				int numOfInst = getNumOfInstancesInStudy(dataset.getString(Tag.Study​Instance​UID)) + 1;
-				
+
 				String sql = "insert into study values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-				try(Connection conn = openConnection();PreparedStatement insertStmt = conn.prepareStatement(sql);){
+				try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 					// be careful
 					insertStmt.setString(1, dataset.getString(Tag.Study​Instance​UID));
 					insertStmt.setDate(2, sqlDate);
@@ -2673,7 +2675,7 @@ public class DatabaseHandler {
 
 	public boolean isAlreadyRegisteredServer(String identicalNickname) {
 		if (identicalNickname == null) {
-			throw new NullPointerException("DB:isAlreadyRegisteredServer::Cannot search NULL, "+identicalNickname);
+			throw new NullPointerException("DB:isAlreadyRegisteredServer::Cannot search NULL, " + identicalNickname);
 		}
 		int pk = getCommunicationServerPk(identicalNickname);
 		if (pk == -1) {
@@ -2699,10 +2701,10 @@ public class DatabaseHandler {
 	public boolean isDownloadPending(String studyUid) {
 		boolean pending = false;
 		String sql = "select DownloadStatus from study where StudyInstanceUID=?";
-		try (Connection conn = openConnection();PreparedStatement ps = conn.prepareStatement(sql);){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
 			ps.setString(1, studyUid);
-			try(ResultSet rs = ps.executeQuery()){
-				if(rs.next()) {
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
 					pending = rs.getBoolean("DownloadStatus");
 				}
 			}
@@ -2719,12 +2721,12 @@ public class DatabaseHandler {
 	public boolean isInstanceSavedAsLink(String patID, String studyUID, String seriesUID, String sopUID) {
 		boolean res = false;
 		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUID);
 			pstmt.setString(3, seriesUID);
 			pstmt.setString(4, sopUID);
-			try(ResultSet rset = pstmt.executeQuery()){
+			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					res = rset.getBoolean("isLink");
 				}
@@ -2740,7 +2742,7 @@ public class DatabaseHandler {
 			String accNo, String studyDate, String studyDesc, String modality) {
 		ArrayList<HashMap<String, String>> result = new ArrayList<>();
 		HashMap<String, String> matchingStudies = new HashMap<String, String>();
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			ResultSet matchingInfo = conn.createStatement().executeQuery(
 					"select * from patient inner join study on patient.PatientID=study.PatientID where upper(patient.PatientID) like '"
 							+ patientID + "' and upper(patient.PatientName) like '" + patientName
@@ -2792,9 +2794,9 @@ public class DatabaseHandler {
 	 */
 	public void loadLocalDBLocation() throws Exception {
 		String loc = null;
-		if(derby != null) {
+		if (derby != null) {
 			loc = getListenerDetails()[3];
-		}else {
+		} else {
 			loc = Utils.getGraphyDBLocationFromProp().getAbsolutePath();
 		}
 		if (loc == null) {
@@ -2805,7 +2807,7 @@ public class DatabaseHandler {
 
 	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid,
 			String sopUid) {
-		
+
 		HashMap<String, Object> roiCon = new HashMap<>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
 
@@ -2882,12 +2884,12 @@ public class DatabaseHandler {
 			String sopUid) {
 		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, pid);
 			pstmt.setString(2, studyUid);
 			pstmt.setString(3, seriesUid);
 			pstmt.setString(4, sopUid);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				while (rset.next()) {
 					HashMap<String, Object> roiCon = new HashMap<>();
 					roiCon.put("RoiID", rset.getString("RoiID"));
@@ -2914,11 +2916,12 @@ public class DatabaseHandler {
 						roiCon.put(ContextKey.StudyDate.name(), null);
 					}
 					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
-					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+					if (rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
 						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
 						Gson gson = new Gson();
 						// JSON -> Map に変換
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
+						}.getType();
 						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
 						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
 					}
@@ -2935,16 +2938,16 @@ public class DatabaseHandler {
 		}
 		return set;
 	}
-	
+
 	public ArrayList<HashMap<String, Object>> loadRoiContextFromPatient(String pid) {
-		if(pid == null) {
+		if (pid == null) {
 			return null;
 		}
 		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=?";
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, pid);
-			try(ResultSet rset = pstmt.executeQuery();){
+			try (ResultSet rset = pstmt.executeQuery();) {
 				while (rset.next()) {
 					HashMap<String, Object> roiCon = new HashMap<>();
 					roiCon.put("RoiID", rset.getString("RoiID"));
@@ -2971,11 +2974,12 @@ public class DatabaseHandler {
 						roiCon.put(ContextKey.StudyDate.name(), null);
 					}
 					roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
-					if(rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+					if (rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
 						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
 						Gson gson = new Gson();
 						// JSON -> Map に変換
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>(){}.getType();
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
+						}.getType();
 						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
 						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
 					}
@@ -3008,7 +3012,7 @@ public class DatabaseHandler {
 					modalityInStudy = modalityInStudy + "," + seriesInfo.getString("Modality");
 				}
 			}
-			//update
+			// update
 			studyMaterial.put("ModalitiesInStudy", modalityInStudy);
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -3208,23 +3212,23 @@ public class DatabaseHandler {
 		// ?(e.g,'2006-11-30')
 		ArrayList<DefaultMutableTreeNode> studiesList = new ArrayList<DefaultMutableTreeNode>();
 		String statement = sb.toString();
-		//study level search
-		try (Connection conn = openConnection();PreparedStatement pstmtStudy = conn.prepareStatement(statement);){
+		// study level search
+		try (Connection conn = openConnection(); PreparedStatement pstmtStudy = conn.prepareStatement(statement);) {
 			for (int i = 0; i < keys.size(); i++) {
 				pstmtStudy.setString((i + 1), keys.get(i));
 			}
 			ResultSet studyInfo = pstmtStudy.executeQuery();
-			//loop all study
+			// loop all study
 			while (studyInfo.next()) {
 				String patIDInRecord = studyInfo.getString("PatientID");
 				String studyUID = studyInfo.getString("StudyInstanceUID");
 				/*
-				 * This query will retrieve any patients studies.
-				 * Get patient info one by one from study.
+				 * This query will retrieve any patients studies. Get patient info one by one
+				 * from study.
 				 */
 				ResultSet patientInfo = conn.createStatement()
 						.executeQuery("select * from patient where PatientID='" + patIDInRecord + "'");
-				//get patient info only once
+				// get patient info only once
 				if (patientInfo.next()) {
 					HashMap<String, Object> studyMaterial = loadStudyNodeMaterial(patientInfo, studyInfo);
 					DefaultMutableTreeNode studyNode = new DefaultMutableTreeNode(studyMaterial, true);
@@ -3258,7 +3262,7 @@ public class DatabaseHandler {
 								}
 								imageInfo.close();
 								pstmtImage.close();
-							}//series loop-end
+							} // series loop-end
 							if (studyNode.getChildCount() > 0) {
 								if (!studiesList.contains(studyNode)) {
 									studiesList.add(studyNode);
@@ -3292,7 +3296,7 @@ public class DatabaseHandler {
 							}
 							imageInfo.close();
 							pstmtImage.close();
-						}//series loop-end
+						} // series loop-end
 						if (studyNode.getChildCount() > 0) {
 							studiesList.add(studyNode);
 						}
@@ -3302,11 +3306,11 @@ public class DatabaseHandler {
 				}
 			}
 			studyInfo.close();
-			//pstmtStudy.close(); -> auto closing by try-with-resource
+			// pstmtStudy.close(); -> auto closing by try-with-resource
 			conn.commit();
 		} catch (SQLException e) {
 			e.printStackTrace();
-		} 
+		}
 		return studiesList;// DO NOT return NULL.
 	}
 
@@ -3386,10 +3390,10 @@ public class DatabaseHandler {
 		}
 		ArrayList<DefaultMutableTreeNode> studiesList = new ArrayList<DefaultMutableTreeNode>();
 		String statement = sb.toString();
-		
-		try (Connection conn = openConnection();){
+
+		try (Connection conn = openConnection();) {
 			PreparedStatement psPat = null;
-			
+
 			if (patID == null && patName == null) {
 				return selectStudiesWithSearchKeys(patID, from, to, modalities);
 			} else if (patID != null && patName == null) {
@@ -3404,7 +3408,7 @@ public class DatabaseHandler {
 				psPat.setString(1, patID);
 				psPat.setString(2, patName + "%");
 			}
-			//このロジックの場合、PatientInfoが取得できる
+			// このロジックの場合、PatientInfoが取得できる
 			ResultSet patientInfo = psPat.executeQuery();
 			// あいまい検索を許容する
 			while (patientInfo.next()) {
@@ -3486,8 +3490,8 @@ public class DatabaseHandler {
 	}
 
 	/**
-     * Derbyデータベースと関連サービスを安全にシャットダウンします。
-     */
+	 * Derbyデータベースと関連サービスを安全にシャットダウンします。
+	 */
 	public void shutdownDB() {
 		// シャットダウン対象が何もなければ即時終了
 		if (derby == null && dcmqrscp == null) {
@@ -3528,7 +3532,7 @@ public class DatabaseHandler {
 	}
 
 	public boolean startingUp() throws SQLException {
-		
+
 		try {
 			loadLocalDBLocation();
 			Log.logger.info("Current DB location: " + dbdir);
@@ -3560,7 +3564,7 @@ public class DatabaseHandler {
 				return false;
 			}
 		}
-		
+
 		try {
 			initDicomServer();
 		} catch (IOException | SQLException e) {
@@ -3570,14 +3574,14 @@ public class DatabaseHandler {
 		}
 		return true;
 	}
-	
+
 	public void initDicomServer() throws IOException, SQLException {
-		
-		if(dcmqrscp != null) {
+
+		if (dcmqrscp != null) {
 			dcmqrscp.stop();
 			dcmqrscp = null;
 		}
-		
+
 		// check configuration file
 		File recFac = new File(ConfigInfo.getPath(ConfigInfo.SERVER_RecordFactory_Props));
 		if (!recFac.exists()) {
@@ -3637,12 +3641,13 @@ public class DatabaseHandler {
 
 	/**
 	 * 
-	 * @param pk : primary key position in table. use : getPrimaryKeyIndexInTable().
+	 * @param pk          : primary key position in table. use :
+	 *                    getPrimaryKeyIndexInTable().
 	 * @param presetModel
 	 */
 	public void updatePreset(int pk, PresetModel presetModel) {
 		String sql = "update presets set presetname=?, windowwidth=?, windowlevel=?, lut=?, modality=? where pk=?";
-		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, presetModel.getPresetName());
 			ps.setBigDecimal(2, presetModel.getWW());
 			ps.setBigDecimal(3, presetModel.getWL());
@@ -3665,7 +3670,7 @@ public class DatabaseHandler {
 	 */
 	public void upadateTextAnnotation(ArrayList<Integer> tags) {
 		// first, delete textannotation record
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().execute("delete from textannotation");
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3675,7 +3680,7 @@ public class DatabaseHandler {
 		for (Integer tag : tags) {
 			String sql = "insert into textannotation(tag) values(";
 			sql = sql + String.valueOf(tag) + ")";
-			try (Connection conn = openConnection();){
+			try (Connection conn = openConnection();) {
 				conn.createStatement().execute(sql);
 				conn.commit();
 			} catch (SQLException e) {
@@ -3686,7 +3691,7 @@ public class DatabaseHandler {
 	}
 
 	public void update(String tableName, String fieldName, boolean fieldValue, String whereField, String whereValue) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update " + tableName + " set " + fieldName + "=" + fieldValue
 					+ " where " + whereField + "='" + whereValue + "'");
 			conn.commit();
@@ -3696,7 +3701,7 @@ public class DatabaseHandler {
 	}
 
 	public void update(String tableName, String fieldName, int fieldValue, int whereField, String whereValue) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update " + tableName + " set " + fieldName + "='" + fieldValue
 					+ "' where " + whereField + "='" + whereValue + "'");
 			conn.commit();
@@ -3706,7 +3711,7 @@ public class DatabaseHandler {
 	}
 
 	public void update(String tableName, String fieldName, int fieldValue, String whereField, String whereValue) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update " + tableName + " set " + fieldName + "=" + fieldValue
 					+ " where " + whereField + "='" + whereValue + "'");
 			conn.commit();
@@ -3718,28 +3723,28 @@ public class DatabaseHandler {
 	public void update(String tableName, String fieldName, java.sql.Date fieldDateValue, String whereField,
 			String whereValue) {
 		String statement = "UPDATE " + tableName + " SET " + fieldName + "=?" + " WHERE " + whereField + "=?";
-		try (Connection conn = openConnection();PreparedStatement pstmt = conn.prepareStatement(statement);){
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setDate(1, fieldDateValue);
 			pstmt.setString(2, whereValue);
 			pstmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		} 
+		}
 	}
 
 	public void update(String tableName, String fieldName, String fieldValue, String whereField, String whereValue) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update " + tableName + " set " + fieldName + "='" + fieldValue
 					+ "' where " + whereField + "='" + whereValue + "'");
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
-		} 
+		}
 	}
 
 	public void setCurrentLocale(String localeid) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().execute("update locale set status=false");
 			conn.createStatement().execute("update locale set status=true where localeid='" + localeid + "'");
 			conn.commit();
@@ -3750,10 +3755,10 @@ public class DatabaseHandler {
 
 	public void deletePreset(PresetModel presetModel) {
 		int pk = getPrimaryKeyIndexInTable("presets", "presetname", presetModel.getPresetName());
-		if(pk == -1) {
+		if (pk == -1) {
 			logger.info("This preset is not exists in record.");
 		}
-		try (Connection conn = openConnection()){
+		try (Connection conn = openConnection()) {
 			conn.createStatement().execute("delete from presets where pk=" + pk);
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3762,7 +3767,7 @@ public class DatabaseHandler {
 	}
 
 	public void updateDynamicRetrieveTypeStatus(boolean allow) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update miscellaneous set AllowDynamicRetrieveType=" + allow);
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3772,13 +3777,11 @@ public class DatabaseHandler {
 
 	public void updateImageInfo(DicomObject dataset, String filePath, String patientID, String studyUid,
 			String seriesUid, boolean saveAsLink) throws Exception {
-		
+
 		String statement = "UPDATE IMAGE ";
 		statement = statement + "SET FileStoreUrl=?, isLink=? ";
-		statement = statement
-				+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		try (	Connection conn = openConnection();
-				PreparedStatement pstmt = conn.prepareStatement(statement);){
+		statement = statement + "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, filePath);
 			pstmt.setBoolean(2, saveAsLink);
 			pstmt.setString(3, dataset.getString(Tag.Patient​ID));
@@ -3794,7 +3797,7 @@ public class DatabaseHandler {
 	}
 
 	public void updateJNLPRetrieveType(String retrieveType) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update miscellaneous set JNLPRetrieveType='" + retrieveType + "'");
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3818,21 +3821,21 @@ public class DatabaseHandler {
 
 	/**
 	 * Listener is the GRAPHY DCMQRSCP.
+	 * 
 	 * @param aetitle
 	 * @param host
 	 * @param port
 	 * @param storagelocation
 	 */
 	public void updateListener(String aetitle, String host, String port, String storagelocation) throws SQLException {
-	    
-	    // 1. UPDATE文を修正 (whereの前にカンマは不要)
-	    // 「常に1行」という前提なので、WHERE句なしでテーブル全体(つまりその1行)を更新。
-	    // もし特定の行を更新したい場合は、"WHERE pk = 1" のようにWHERE句を追加してください。
-	    String sql = "UPDATE listener SET aetitle = ?, host = ?, port = ?, storagelocation = ?";
 
-	    // 2. try-with-resources でリソースを管理 (ネストを解消)
-		try (	Connection conn = openConnection(); 
-				PreparedStatement pstmt = conn.prepareStatement(sql)) {
+		// 1. UPDATE文を修正 (whereの前にカンマは不要)
+		// 「常に1行」という前提なので、WHERE句なしでテーブル全体(つまりその1行)を更新。
+		// もし特定の行を更新したい場合は、"WHERE pk = 1" のようにWHERE句を追加してください。
+		String sql = "UPDATE listener SET aetitle = ?, host = ?, port = ?, storagelocation = ?";
+
+		// 2. try-with-resources でリソースを管理 (ネストを解消)
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 			// 3. パラメータを正しい順序でセット
 			pstmt.setString(1, aetitle);
 			pstmt.setString(2, host);
@@ -3856,7 +3859,7 @@ public class DatabaseHandler {
 	}
 
 	public void updateModalitiesStatus(String modality, boolean status) {
-		try(Connection conn = openConnection();) {
+		try (Connection conn = openConnection();) {
 			conn.createStatement()
 					.execute("update modality set status=" + status + " where shortname='" + modality + "'");
 			conn.commit();
@@ -3899,8 +3902,8 @@ public class DatabaseHandler {
 	 */
 	public void updateRoiInfo(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
-			String objType, String organ, String desc, java.sql.Date studyDate, String crossSection, String jsonProperties,
-			String pid, String studyUid, String seriesUid, String sopUid) {
+			String objType, String organ, String desc, java.sql.Date studyDate, String crossSection,
+			String jsonProperties, String pid, String studyUid, String seriesUid, String sopUid) {
 
 		// get as byte
 		byte[] byteArrayX = null;
@@ -3927,7 +3930,7 @@ public class DatabaseHandler {
 			}
 			byteArrayShape = bbS.array();
 		}
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			String statement = "UPDATE ROI ";// need space at end
 			statement = statement
 					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , RoiMetaProperties=?";
@@ -3973,7 +3976,7 @@ public class DatabaseHandler {
 	 */
 	public boolean updateServer(HashMap<String, Object> newServerModelMaterial, String prevNickName) {
 		boolean duplicate = false;
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement()
 					.executeUpdate("update servers set logicalname='" + newServerModelMaterial.get("nickname")
 							+ "',aetitle='" + newServerModelMaterial.get("aet") + "',hostname='"
@@ -3988,12 +3991,12 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 			duplicate = true;// fail safe
-		} 
+		}
 		return duplicate;
 	}
 
 	public void updateStudy(String studyUid) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement()
 					.execute("update study set DownloadStatus=true,NoOfInstances=" + getNumOfInstancesInStudy(studyUid)
 							+ ",NoOfSeries=" + getNumOfInstancesInStudy(studyUid) + " where StudyInstanceUID='"
@@ -4023,7 +4026,7 @@ public class DatabaseHandler {
 	}
 
 	public void updateThumbnailStatus(String studyUid, String seriesUid, String sopUid) {
-		try (Connection conn = openConnection();){
+		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update image set ThumbnailStatus=true where StudyInstanceUID='"
 					+ studyUid + "' and SeriesInstanceUID='" + seriesUid + "' and SOPInstanceUID='" + sopUid + "'");
 			conn.commit();

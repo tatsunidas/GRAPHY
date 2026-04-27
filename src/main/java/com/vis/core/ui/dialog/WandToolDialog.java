@@ -161,7 +161,7 @@ public class WandToolDialog extends JDialog {
             try {
                 instance = new WandToolDialog(owner, title);
             } catch (Exception e) {
-                Log.message(Level.SEVERE, "WandToolDialogの作成に失敗しました。");
+            	Log.logger.log(Level.SEVERE, "WandToolDialogの作成に失敗しました。");
                 return null;
             }
         }
@@ -437,7 +437,7 @@ public class WandToolDialog extends JDialog {
 	private RoiObj createWandRoi(SlideGlass sg, int x, int y) {
 	    ImagePlus imp = sg.getOriginalImage();
 	    if (imp == null) {
-	        Log.message(Level.SEVERE, "Cannot load imageplus from current slideglass... return null.");
+	    	Log.logger.log(Level.SEVERE, "Cannot load imageplus from current slideglass... return null.");
 	        return null;
 	    }
 	    ImageProcessor ip = imp.getProcessor();

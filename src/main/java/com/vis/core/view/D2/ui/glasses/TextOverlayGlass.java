@@ -303,10 +303,21 @@ public class TextOverlayGlass extends JPanel{
 		}
 		//get orientation
 		boolean biped = SubjectOrientation.isBiped(dcm);
-		String xAxis_right_side_orientation = ImageOrientation.getOrientation(row_vec, !biped).substring(0,1);
-		String xAxis_left_side_orientation = ImageOrientation.getImageOrientationOpposite(xAxis_right_side_orientation, !biped);
-		String yAxis_lower_side_orientation = ImageOrientation.getOrientation(col_vec, !biped).substring(0, 1);
-		String yAxis_upper_side_orientation = ImageOrientation.getImageOrientationOpposite(yAxis_lower_side_orientation, !biped);
+		
+		String xAxis_right_side_orientation = ImageOrientation.getOrientation(row_vec, !biped);
+		xAxis_right_side_orientation = xAxis_right_side_orientation.length() > 0 ? xAxis_right_side_orientation.substring(0,1):"";
+		String xAxis_left_side_orientation = "";
+		if(xAxis_right_side_orientation.length() != 0) {
+			xAxis_left_side_orientation = ImageOrientation.getImageOrientationOpposite(xAxis_right_side_orientation, !biped);
+		}
+		
+		String yAxis_lower_side_orientation = ImageOrientation.getOrientation(col_vec, !biped);
+		yAxis_lower_side_orientation = yAxis_lower_side_orientation.length() > 0 ? yAxis_lower_side_orientation.substring(0,1):"";
+		String yAxis_upper_side_orientation = "";
+		if(yAxis_lower_side_orientation.length()!=0) {
+			yAxis_upper_side_orientation = ImageOrientation.getImageOrientationOpposite(yAxis_lower_side_orientation, !biped);
+		}
+		
 		directions = new HashMap<>(4);
 		directions.put("LEFT", new JLabel(xAxis_left_side_orientation));
 		directions.put("RIGHT", new JLabel(xAxis_right_side_orientation));

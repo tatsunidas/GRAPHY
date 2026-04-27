@@ -37,9 +37,11 @@
  */
 package com.vis.core.ui.function;
 
+import java.awt.Cursor;
 import java.util.ArrayList;
 
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
@@ -65,7 +67,7 @@ public class DeleteImage {
 			return;
 		}
 		
-		//delete trreTable rows
+		//delete treeTable rows
 		DICOMTreeTable homeTable = WindowManager.getMainScreen().getLocalTreeTable();
 		for(DICOMNode node : nodeList) {
 			int r = homeTable.rowForNode(node);
@@ -80,16 +82,22 @@ public class DeleteImage {
 		if(deleteInstList == null || deleteInstList.size() <1) {
 			return;
 		}
-		for(String[] infoSet : deleteInstList) {
-			//0:pid,1:studyuid,2:seriesuid,3:sopuid,4:path2img
-			String patID = infoSet[0];
-			String studyUID = infoSet[1];
-			String seriesUID = infoSet[2];
-			String sopUID = infoSet[3];
-			DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
+		try {
+			for (String[] infoSet : deleteInstList) {
+				// 0:pid,1:studyuid,2:seriesuid,3:sopuid,4:path2img
+				String patID = infoSet[0];
+				String studyUID = infoSet[1];
+				String seriesUID = infoSet[2];
+				String sopUID = infoSet[3];
+				DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
+			}
+		}finally {
+			SwingUtilities.invokeLater(()->{
+				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+				WindowManager.getMainScreen().clearPatientInfo();
+				WindowManager.getMainScreen().setCursor(Cursor.DEFAULT_CURSOR);
+			});
 		}
-		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
-		WindowManager.getMainScreen().clearPatientInfo();
 	}
 	
 	public static void deleteImagesByFilePath(ArrayList<String> deleteInstFileLocs){
@@ -107,7 +115,10 @@ public class DeleteImage {
 			reader = null;//free
 			DatabaseHandler.getInstance().deleteInstance(patID, studyUID, seriesUID, sopUID);
 		}
-		WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
-		WindowManager.getMainScreen().clearPatientInfo();
+		SwingUtilities.invokeLater(()->{
+			WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+			WindowManager.getMainScreen().clearPatientInfo();
+			WindowManager.getMainScreen().setCursor(Cursor.DEFAULT_CURSOR);
+		});
 	}
 }

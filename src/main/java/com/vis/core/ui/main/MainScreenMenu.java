@@ -55,6 +55,7 @@ import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
 import com.vis.core.ui.dialog.HelpDialog;
+import com.vis.core.ui.dialog.NIfTIImporter;
 import com.vis.core.ui.function.DeleteImage;
 import com.vis.core.ui.function.PatientInfoEditor;
 import com.vis.core.ui.function.SeriesIntegrator;
@@ -95,16 +96,22 @@ public class MainScreenMenu extends JMenuBar{
 		importItem.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
-					return;
-				}
 				DicomImporterDialog fcd = new  DicomImporterDialog(WindowManager.getMainScreen(),true);
 				fcd.setLocationRelativeTo(WindowManager.getMainScreen());
 				fcd.setVisible(true);
 			}
 		});
 		fileMenu.add(importItem);
+		
+		JMenuItem importNIfTIItem = new JMenuItem("Import NIfTI");
+		importNIfTIItem .addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				new NIfTIImporter(WindowManager.getMainScreen(),true/*modal*/);
+//				fcd.setVisible(true);
+			}
+		});
+		fileMenu.add(importNIfTIItem);
 		
 		JMenuItem mntmExport = new JMenuItem("Export");
 		mntmExport.setToolTipText("Export dicom files selected on HOME TreeTable.");

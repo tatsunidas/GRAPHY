@@ -37,175 +37,92 @@
  */
 package com.vis.core.view.D2.ui.glasses;
 
-import java.awt.Cursor;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.vis.core.log.Log;
-import com.vis.core.util.Utils;
-import com.vis.core.view.D2.roi.RoiObj;
-import com.vis.core.view.D2.roi.TextRoi;
+/**
+ * @author tatsunidas
+ */
+public class SlideGlassKeyListener implements KeyListener {
+    final SlideGlass sg;
+    final Praparat pp;
+    
+    // キーの状態を外部（マウスリスナー）からも参照可能にする
+    private static final Set<Integer> pressedKeys = new HashSet<>();
 
-public class SlideGlassKeyListener implements KeyListener{
-	
-	final SlideGlass sg;
-	final Praparat pp;
-	final Eyepiece prapManager;
-	int viewerToolType;
-	
-	private Set<Integer> pressedKeys = new HashSet<Integer>();
-		
-	public SlideGlassKeyListener(SlideGlass sg) {
-		this.sg = sg;
-		this.pp = sg.getPraparat();
-		this.prapManager = pp.getEyepiece();
-	}
+    public static boolean isKeyPressed(int keyCode) {
+        return pressedKeys.contains(keyCode);
+    }
 
-	@Override
-	public void keyTyped(KeyEvent e) {
-		RoiObj roi = sg.getActiveRoi();
-		//fail safe
-		if(roi instanceof TextRoi) {
-			//DO NOTHING, to avoid TextArea input conflict
-		}else {
-			//do something.
-		}
-	}
+    public SlideGlassKeyListener(SlideGlass sg) {
+        this.sg = sg;
+        this.pp = sg.getPraparat();
+    }
 
-	@Override
-	public void keyPressed(KeyEvent e) {
-		Log.logger.fine("SlideGlassKey::KEY PRESSED !:" + e.getKeyCode());
-		viewerToolType = pp.getViewer2DToolType();
-		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+    @Override
+    public void keyPressed(KeyEvent e) {
+        int k = e.getKeyCode();
+        pressedKeys.add(k);
 
-		int k = e.getKeyCode();
+        // 1. 特殊操作 (Undo/Redo, Reset, Delete)
+        if (handleSpecialKeys(e)) return;
 
-		// add first.
-		pressedKeys.add(k);
-		
-		boolean isCtrlOrCmd = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0
-				|| (e.getModifiersEx() & java.awt.event.InputEvent.META_DOWN_MASK) != 0;
+        // 2. ROI移動操作
+        CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+        if (cg.keyPressed(k, e.getModifiersEx())) {
+            e.consume();
+            return;
+        }
 
-		if (isCtrlOrCmd && e.getKeyCode() == KeyEvent.VK_Z) {
-			if (e.isShiftDown()) {
-				// Ctrl + Shift + Z で Redo
-				sg.redo();
-			} else {
-				// Ctrl + Z で Undo
-				sg.undo();
-			}
-		}
+        // 3. 多次元ページング操作 (矢印キー/上・下キー)
+        handlePaging(k);
+    }
 
-		// reset slide
-		if (e.isControlDown() && e.isShiftDown()) {
-			if (pressedKeys.contains(KeyEvent.VK_R)) {
-				if (Utils.isDebug)
-					System.out.println("reset pressed.");
-				sg.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-				pp.resetView();
-				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-				return;
-			}
-		}
+    private boolean handleSpecialKeys(KeyEvent e) {
+        boolean isCtrlOrCmd = (e.getModifiersEx() & (KeyEvent.CTRL_DOWN_MASK | KeyEvent.META_DOWN_MASK)) != 0;
+        int k = e.getKeyCode();
 
-		/*
-		 * On some keyboards, Fn+BackSpace will result in Delete; be aware of the
-		 * limitations of the Fn key.
-		 */
-		if (pressedKeys.contains(KeyEvent.VK_DELETE) || pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
-			Log.logger.fine("Will delet Roi, " + "Delete pressed");
-			cg.deleteRoi(sg.mouseX, sg.mouseY);
-			return;
-		}
-		
-		//roi move
-		if (pressedKeys.contains(KeyEvent.VK_UP) || pressedKeys.contains(KeyEvent.VK_DOWN) || 
-				pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_RIGHT)) {
-			boolean roiKeyEventDone = cg.keyPressed(e.getKeyCode(), e.getModifiersEx());
-			if(roiKeyEventDone) {
-				e.consume();
-			}
-		}
+        if (isCtrlOrCmd && k == KeyEvent.VK_Z) {
+            if (e.isShiftDown()) sg.redo(); else sg.undo();
+            return true;
+        }
+        if (isCtrlOrCmd && e.isShiftDown() && k == KeyEvent.VK_R) {
+            pp.resetView();
+            return true;
+        }
+        if (k == KeyEvent.VK_DELETE || k == KeyEvent.VK_BACK_SPACE) {
+            ((CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER)).deleteRoi(sg.mouseX, sg.mouseY);
+            return true;
+        }
+        return false;
+    }
 
-		
-		if(e.isConsumed()) return;
-		
-		// paging
-		if (pressedKeys.contains(KeyEvent.VK_LEFT) || pressedKeys.contains(KeyEvent.VK_UP)) {
-			if (cg.activateRoiAt(sg.mouseX, sg.mouseY) == null) {
-				if (!pp.isShowGridViewOn()) {
-					if (prapManager != null) {/* Sync series */
-						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-						if (syncingPraps != null && syncingPraps.size() > 1) {
-							for (Praparat prap : syncingPraps) {
-								int pos = prap.getCurrentSlidePos();
-								pos = pos - 1;
-								if (pos < 0) {
-									pos = prap.getNumberOfImages() - 1;
-								}
-								prap.setImagePositionUsingSlider(pos);// work with slider
-							}
-						} else {
-							int pos = pp.getCurrentSlidePos();
-							pos = pos - 1;
-							if (pos < 0) {
-								pos = pp.getNumberOfImages() - 1;
-							}
-							pp.setImagePositionUsingSlider(pos);// work with slider
-						}
-					} else {
-						int pos = pp.getCurrentSlidePos();
-						pos = pos - 1;
-						if (pos < 0) {
-							pos = pp.getNumberOfImages() - 1;
-						}
-						pp.setImagePositionUsingSlider(pos);// work with slider
-					}
-				}
-			}
-		} else if (pressedKeys.contains(KeyEvent.VK_RIGHT) || pressedKeys.contains(KeyEvent.VK_DOWN)) {
-			if (cg.activateRoiAt(sg.mouseX, sg.mouseY) == null) {
-				if (!pp.isShowGridViewOn()) {
-					if (prapManager != null) {
-						ArrayList<Praparat> syncingPraps = prapManager.getSelectingPraparats();
-						if (syncingPraps.size() > 1) {
-							for (Praparat prap : syncingPraps) {
-								int pos = prap.getCurrentSlidePos();
-								pos += 1;
-								prap.setImagePositionUsingSlider(pos);// work with slider
-							}
-						} else {
-							int pos = pp.getCurrentSlidePos();
-							pos += 1;
-							pp.setImagePositionUsingSlider(pos);// work with slider
-						}
-					} else {
-						int pos = pp.getCurrentSlidePos();
-						pos += 1;
-						pp.setImagePositionUsingSlider(pos);// work with slider
-					}
-				}
-			}
-		}
-	}
+    private void handlePaging(int k) {
+        int step = 0;
+        if (k == KeyEvent.VK_LEFT || k == KeyEvent.VK_UP) step = -1;
+        else if (k == KeyEvent.VK_RIGHT || k == KeyEvent.VK_DOWN) step = 1;
 
-	@Override
-	public void keyReleased(KeyEvent e) {
-		/*
-		 * why ? when input right arrow key(39), then press left key(37),
-		 * multi key code still remain.
-		 * Here, remove all pressedkeys.
-		 */
-//		int numOfKeys = pressedKeys.size();
-//		System.out.println("pressed ! "+e.getKeyCode());
-//		System.out.println(Arrays.toString(pressedKeys.toArray()));
-//		System.out.println("Num of key: "+numOfKeys);
-//		pressedKeys.remove(e.getKeyCode());
-//		System.out.println("num of key after removed "+pressedKeys.size());
-		//force remove
-		pressedKeys.clear();
-	}
+        if (step != 0 && !pp.isShowGridViewOn()) {
+            String targetDim = "Slice"; 
+            if (isKeyPressed(KeyEvent.VK_C)) targetDim = "Channel";
+            else if (isKeyPressed(KeyEvent.VK_T)) targetDim = "Time";
+
+            ArrayList<Praparat> syncingPraps = (pp.getEyepiece() != null) ? pp.getEyepiece().getSelectingPraparats() : null;
+            
+            // ★ 修正：マウスリスナーと同様の判定ロジックに戻す
+            if (syncingPraps != null && syncingPraps.size() > 1) {
+                for (Praparat prap : syncingPraps) {
+                    prap.stepDimension(targetDim, step);
+                }
+            } else {
+                pp.stepDimension(targetDim, step);
+            }
+        }
+    }
+
+    @Override public void keyReleased(KeyEvent e) { pressedKeys.remove(e.getKeyCode()); }
+    @Override public void keyTyped(KeyEvent e) {}
 }

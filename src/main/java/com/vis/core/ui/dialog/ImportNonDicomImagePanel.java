@@ -439,7 +439,7 @@ public class ImportNonDicomImagePanel extends JPanel{
 	}
 	
 	// 1. チェックボックスの状態に合わせて、コンボボックスとテキストフィールドを切り替えるだけの処理
-	private void updateFieldsState() {
+	void updateFieldsState() {
 		boolean isAddToExisting = chckbxAddToExisting.isSelected();
 
 		comboBoxStudies.setEnabled(isAddToExisting);

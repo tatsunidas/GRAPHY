@@ -57,6 +57,7 @@ import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.PhotometricInterpretation;
 import com.vis.imageio.Codec;
 import com.vis.imageio.Decompressor;
+//import com.vis.imageio.OrientationCorrector;
 import com.vis.imageio.PDFReader;
 import com.vis.imageio.PixelDataDecoder;
 
@@ -138,13 +139,32 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	}
 
 	/**
-	 * return imageprocessor (without calibration)
+	 * return imageprocessor (without calibration) oriented to LPS Radiological Convention using iop. 
 	 * if you want calibrated imageplus, see also ImagePlusDicomTagTools.dcmImgToImagePlus. 
 	 * 0 to N-1
 	 */
 	@Override
 	public ImageProcessor getImageProcessor(int frame) {
 		
+		ImageProcessor ip = getRawImageProcessor(frame);
+		
+		//DO NOT UDO THIS.
+		/*
+		 * this process broken to relationship to iop/ipp.
+		 * If inputed data is left-handed stile, must convert before import.
+		 */
+		// 画像を返す直前に、IOPに基づくフリップ補正を行う
+		// Radiological Convention
+//		if (ip != null) { // PDFは対象外
+//			double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
+//			if (iop != null && iop.length == 6) {
+//				OrientationCorrector.correctProcessor(ip, iop);
+//			}
+//		}
+		return ip;
+	}
+	
+	public ImageProcessor getRawImageProcessor(int frame) {
 		if (isPDF()) {
 			PDFReader pdfReader = new PDFReader(new File(filePath));
 			BufferedImage rgb = pdfReader.renderPDFPage(frame);
@@ -172,19 +192,24 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			}
 		}
 		
+		/*
+		 * スライス画像またはMpeg以外のマルチフレーム
+		 */
+		ImageProcessor ip = null;
 		if(Codec.isCompressed(getTSUID())) {
 			Decompressor d = Decompressor.newInstance(this);
 			byte[] decompressed_raw = d.decompress(frame);
 			PixelDataDecoder pdec = new PixelDataDecoder(this);
-			return pdec.decodeDecompressedByte(decompressed_raw);
+			ip = pdec.decodeDecompressedByte(decompressed_raw);
 		}else {
 			byte[] raw = getPixelData(frame);
 			if(raw == null) {
 				return null;
 			}
 			PixelDataDecoder pdec = new PixelDataDecoder(this);
-			return pdec.decode(raw);
+			ip = pdec.decode(raw);
 		}
+		return ip;
 	}
 	
 	@Override

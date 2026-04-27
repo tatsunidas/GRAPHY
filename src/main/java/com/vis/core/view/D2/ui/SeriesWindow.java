@@ -63,8 +63,9 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 	@SuppressWarnings("unused")
 	public static void main(String[] args) {
 		String dir = "/home/tatsunidas/graphy_sample_images/HASSAKU_DCM/T1 AX short";
-		String img = "/home/tatsunidas/crop_test.tif";
-		ImagePlus test = new ImagePlus(img);
+		String dir2 = "/home/tatsunidas/graphy_sample_images/NIfTI-DICOM";
+//		String img = "/home/tatsunidas/crop_test.tif";
+//		ImagePlus test = new ImagePlus(img);
 		
 //		ij.gui.Roi roi = new ij.gui.Roi(50,50,70,60);
 ////		test.setRoi(roi);
@@ -74,7 +75,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 //		Object r = test.getRoi();
 //		System.out.println(r);
 //		test.show();
-		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir), java.awt.Color.CYAN, Praparat.ViewMode.Normal);
+		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir2), java.awt.Color.CYAN, Praparat.ViewMode.Normal);
 //		Praparat prap = new Praparat(test, java.awt.Color.CYAN, Praparat.ViewMode.Normal);
 		new SeriesWindow(prap);
 		

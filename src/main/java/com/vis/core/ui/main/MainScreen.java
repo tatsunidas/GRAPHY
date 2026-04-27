@@ -76,6 +76,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -489,6 +490,14 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		addComponentListener(this);
 	}
 	
+	/*
+	 * type:
+	 * Cursor.DEFAULT_CURSOR, etc
+	 */
+	public void setCursor(int type) {
+		setCursor(new Cursor(type));
+	}
+	
 //	public synchronized void constructHomeTreeTable(DICOMNode root) {
 //		/* 
 //		 * table =treeTable has Adapter.
@@ -602,7 +611,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 	
 	/**
-	 * 実際にBirdsEyeViewへ画像をロードして表示する内部メソッド
+	 * Load and Show images on BirdsEyeView
 	 */
 	private void executeShowImagesOnBirdsEye() {
 		TreeTableDockManager ttdm = getTreeTableDockManager();
@@ -613,7 +622,6 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		DICOMTreeTable tt = homeDock.getDICOMTreeTable();
 		ArrayList<DICOMNode> selectedNodes = tt.getSelectedNodes();
 		
-		// 何も選択されていない場合は画面をクリアして終了
 		if (selectedNodes == null || selectedNodes.isEmpty()) {
 			if (bev != null) bev.resetViews(true);
 			return;
@@ -654,7 +662,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		if (bev != null) {
 			String currentShowingStudyUID = bev.getShowingStudyUID();
 			
-			// ★ ここが重要：別の患者（Study）が選択された場合は、スレッド開始前に即座に画面をクリアする！
+			// 別の患者（Study）が選択された場合は、スレッド開始前に即座に画面をクリアする！
 			if (currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
 				// ★ 画面クリアを強制実行して、古い患者の画像が残るのを防ぐ
 				bev.resetViews(true); 

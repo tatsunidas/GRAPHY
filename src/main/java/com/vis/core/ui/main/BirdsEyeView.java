@@ -341,7 +341,7 @@ public class BirdsEyeView extends JPanel{
 
 		Set<String> addedSeriesUIDs = new HashSet<>();
 		
-		// ★ 修正 2：後でグリッドに表示するためのターゲットを保持する変数を用意
+		// 後でグリッドに表示するためのターゲットを保持する変数を用意
 		Praparat targetThumbnail = null;
 
 		for(String series : allSeriesUIDList) {
@@ -410,6 +410,7 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		boolean isMultiFrame = thumbnail.isMultiFrame();
+		boolean isMultiDimensional = thumbnail.isMultiDimensional();
 		isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
 		boolean isPDF = thumbnail.isPDF();
 		currentSeriesUID = (String)thumbnail.getUIDs()[2];
@@ -443,7 +444,7 @@ public class BirdsEyeView extends JPanel{
 		 */
 		//show same series in single grid view
 //		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
-		if(!isMultiFrame) {
+		if(!isMultiFrame && !isMultiDimensional) {
 			filmGridView.prepareSlideGlasses(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(null);

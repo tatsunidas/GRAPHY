@@ -218,7 +218,7 @@ public class Log extends JFrame{
 	 * @param message message text string
 	 * @return
 	 */
-	public static String message(Level lv, String message) {
+	private static String message(Level lv, String message) {
 		if(message == null || message.length() < 1) {
 			return message;
 		}
