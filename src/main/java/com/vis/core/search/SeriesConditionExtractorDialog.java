@@ -88,6 +88,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
     private JProgressBar progressBar; // 追加
     private JCheckBox chkRenameSequential;
     
+    private SwingWorker<Void, Object> extractionWorker;
+    
     //ADMIN_TAGS is keep empty.
     private static final List<String> ADMIN_TAGS = java.util.Arrays.asList();
 
@@ -114,6 +116,15 @@ public class SeriesConditionExtractorDialog extends JDialog {
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         initUI();
+        
+        this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        this.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+			public void windowClosing(java.awt.event.WindowEvent e) {
+				// もし抽出処理のWorkerが動いていたら、キャンセル命令を出す
+				checkSureInterruption();
+			}
+        });
     }
 
     private void initUI() {
@@ -310,6 +321,29 @@ public class SeriesConditionExtractorDialog extends JDialog {
         conditionPanels.add(panelHolder[0]);
         pnlConditionsContainer.add(panelHolder[0]);
         pnlConditionsContainer.revalidate();
+    }
+    
+    private void checkSureInterruption() {
+        // パターンA: 抽出処理が実行中の場合
+        if (extractionWorker != null && !extractionWorker.isDone()) {
+            String msg = "Would you cancel the current extraction process?\n\n";
+            msg += "[YES] -> Cancel extraction & copy.\n";
+            msg += "[NO] -> Return to window and continue process.";
+            
+            // YES / NO の2択ボタンにする
+            int res = JOptionPane.showConfirmDialog(this, msg, "Confirm Cancel", 
+                    JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            
+            if (res == JOptionPane.YES_OPTION) {
+                extractionWorker.cancel(true); // 即座に割り込み
+                this.dispose(); // キャンセルした場合のみ画面を閉じる
+            }
+            // NOの場合は何もしない（画面は開いたまま、裏の処理も継続される）
+            
+        } else {
+            // パターンB: 抽出処理が動いていない（開始前 or 完了後）場合
+            this.dispose(); // そのまま安全に画面を閉じる
+        }
     }
     
     /**
@@ -557,7 +591,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
         
         txtVerificationResult.append("\n\nStarting extraction and copying...\n");
 
-        SwingWorker<Void, Object> worker = new SwingWorker<>() {
+        extractionWorker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
                 DICOMBackend backend = DICOMBackend.getCurrent();
@@ -566,6 +600,12 @@ public class SeriesConditionExtractorDialog extends JDialog {
 
                 // Phase 1: コピー処理
                 for (int i = 0; i < lastVerificationResult.validTargetFiles.size(); i++) {
+                	
+                	if (isCancelled()) {
+                        publish("Extraction was cancelled by the user.");
+                        return null;
+                    }
+                	
                     File repFile = lastVerificationResult.validTargetFiles.get(i);
                     DicomImage dcm = DicomImage.newDicomImage(repFile.getCanonicalPath(), backend);
                     
@@ -581,6 +621,10 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     // ★微調整: nullチェックを追加し、安全にループを回す
                     if (filesToCopy != null) {
                         for (File srcFile : filesToCopy) {
+                        	if (isCancelled()) {
+                                publish("Extraction was cancelled by the user.");
+                                return null;
+                            }
                             File destFile = new File(seriesDestDir, srcFile.getName());
                             Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         }
@@ -603,6 +647,12 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     try (PrintWriter csvWriter = new PrintWriter(new FileWriter(csvFile))) {
                         csvWriter.println("OriginalFolderName,SequentialFolderName");
                         for (int i = 0; i < copiedUniqueFolders.size(); i++) {
+                        	
+                        	if (isCancelled()) {
+                                publish("Extraction was cancelled by the user.");
+                                return null;
+                            }
+                        	
                             File uniqueDir = copiedUniqueFolders.get(i);
                             String originalName = uniqueDir.getName();
                             String sequentialName = String.format("%03d", i + 1);
@@ -625,6 +675,10 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     try (PrintWriter csvWriter = new PrintWriter(new FileWriter(csvFile))) {
                         csvWriter.println("ExtractedFolderName");
                         for (File uniqueDir : copiedUniqueFolders) {
+                        	if (isCancelled()) {
+                                publish("Extraction was cancelled by the user.");
+                                return null;
+                            }
                             csvWriter.println(uniqueDir.getName());
                         }
                     }
@@ -664,7 +718,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 }
             }
         };
-        worker.execute();
+        extractionWorker.execute();
     }
     
     /**

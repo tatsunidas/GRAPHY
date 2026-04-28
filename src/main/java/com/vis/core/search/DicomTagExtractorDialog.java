@@ -43,6 +43,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.db.DatabaseHandler;
@@ -83,6 +84,9 @@ public class DicomTagExtractorDialog extends JDialog {
 	
 	private javax.swing.Timer searchTimer;
 	
+	private volatile boolean isExporting = false;
+	private volatile boolean cancelRequested = false;
+	
 	// --- 管理用（自動出力）タグの定義 ---
 	private static final List<String> ADMIN_TAGS = java.util.Arrays.asList(
 			"0010,0020 - PatientID",
@@ -115,6 +119,15 @@ public class DicomTagExtractorDialog extends JDialog {
 		setSize(800, 400);
 		setLocationRelativeTo(parent);
 		setLayout(new BorderLayout());
+		
+		setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+		addWindowListener(new java.awt.event.WindowAdapter() {
+			@Override
+			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+				handleClose();
+			}
+		});
+		
 		initUI();
 	}
 
@@ -171,6 +184,23 @@ public class DicomTagExtractorDialog extends JDialog {
 		pnlBottom.add(progressBar, BorderLayout.SOUTH);
 		add(pnlBottom, BorderLayout.SOUTH);
 		
+	}
+	
+	// ★ 追加: ダイアログが閉じられる際の処理
+	private void handleClose() {
+		if (isExporting) {
+			int result = JOptionPane.showConfirmDialog(this,
+					"The export process is currently running. Are you sure you want to cancel and close?",
+					"Confirm Exit", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+			if (result == JOptionPane.YES_OPTION) {
+				cancelRequested = true; // スレッドに中断を要求
+				dispose(); // ダイアログを閉じる
+			}
+			// Noの場合は何もしない（ダイアログは開いたまま処理を継続）
+		} else {
+			dispose(); // 実行中でなければそのまま閉じる
+		}
 	}
 
 	private void executeExport() {
@@ -251,9 +281,13 @@ public class DicomTagExtractorDialog extends JDialog {
 
 		// 2. バックグラウンド処理の開始
 		new Thread(() -> {
+			
+			isExporting = true; // ★ 実行中フラグをON
+			cancelRequested = false; // ★ キャンセルフラグを初期化
+			PrintWriter csvWriter = null;
+			
 			try {
-
-				PrintWriter csvWriter = new PrintWriter(new FileWriter(finalOutputFile));
+				csvWriter = new PrintWriter(new FileWriter(finalOutputFile));
 
 				// --- CSVヘッダーの生成 ---
 				StringBuilder headerStr = new StringBuilder("SeriesSource");
@@ -277,6 +311,14 @@ public class DicomTagExtractorDialog extends JDialog {
 				List<File> targetDicomFiles = getTargetDicomFilesSafe(isTreeTable, selectedNodes, errorLog);
 				final DICOMBackend backend = DICOMBackend.getCurrent();
 				
+				if (cancelRequested) {
+					if(csvWriter != null) {
+						csvWriter.close();
+					}
+					Log.logger.info("Extraction process was interrupted.");
+					return;
+				}
+				
 				// ★追加：プログレスバーの初期化
 				int totalSeries = targetDicomFiles.size();
 				SwingUtilities.invokeLater(() -> {
@@ -286,6 +328,12 @@ public class DicomTagExtractorDialog extends JDialog {
 				});
 
 				for (int i =0; i < totalSeries; i++) {
+					
+					if (cancelRequested) {
+						Log.logger.info("Extraction process was interrupted.");
+						break; // ループを中断
+					}
+					
 					File dcmFile = targetDicomFiles.get(i);
 					StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
 					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(), backend);
@@ -330,8 +378,15 @@ public class DicomTagExtractorDialog extends JDialog {
 					final int currentProgress = i + 1;
 					SwingUtilities.invokeLater(() -> progressBar.setValue(currentProgress));
 				}
-				csvWriter.close();
-
+				
+				/*
+				 *ここまで処理できていたら、ほぼ完了なので、最後まで実行する 
+				 */
+//				if (cancelRequested) {
+//					Log.logger.info("Extraction process was interrupted.");
+//					return;
+//				}
+				
 				// ログの書き出し処理
 				if (!errorLog.isEmpty()) {
 					File logFile = new File(finalOutputFile.getAbsolutePath().replace(".csv", "_log.txt"));
@@ -364,19 +419,26 @@ public class DicomTagExtractorDialog extends JDialog {
 					dispose();
 				});
 			} catch (Exception ex) {
-				ex.printStackTrace();
-				// エラー時はダイアログを閉じず、ロックを解除して再試行できるようにする
-				SwingUtilities.invokeLater(() -> {
-					JOptionPane.showMessageDialog(this, "Error during export: " + ex.getMessage(), "Error",
-							JOptionPane.ERROR_MESSAGE);
-					btnExport.setEnabled(true);
-					btnSelectFolder.setEnabled(true);
-					rbTreeTable.setEnabled(true);
-					rbFolder.setEnabled(true);
-					txtSearch.setEnabled(true);
-					listDict.setEnabled(true);
-					listSelected.setEnabled(true);
-				});
+				if (!cancelRequested) {
+					ex.printStackTrace();
+					SwingUtilities.invokeLater(() -> {
+						JOptionPane.showMessageDialog(this, "Error during export: " + ex.getMessage(), "Error",
+								JOptionPane.ERROR_MESSAGE);
+						btnExport.setEnabled(true);
+						btnSelectFolder.setEnabled(true);
+						rbTreeTable.setEnabled(true);
+						rbFolder.setEnabled(true);
+						txtSearch.setEnabled(true);
+						listDict.setEnabled(true);
+						listSelected.setEnabled(true);
+					});
+				}
+			}finally {
+				// ★ エラー時やキャンセル時でも確実にファイルをクローズし、実行中フラグを下ろす
+				if (csvWriter != null) {
+					try { csvWriter.close(); } catch (Exception ignored) {}
+				}
+				isExporting = false; 
 			}
 		}).start();
 	}
@@ -409,6 +471,7 @@ public class DicomTagExtractorDialog extends JDialog {
     // ★修正: 第二引数を List<File> から Map<String, File> に変更
     private void collectFilesFromTree(List<DICOMNode> nodes, Map<String, File> uniqueSeriesMap, List<String> errorLog) {
         for (DICOMNode node : nodes) {
+        	if (cancelRequested) return;
             if (node.getLevel() == DICOMNode.PATIENT || node.getLevel() == DICOMNode.ROOT) {
                 List<DICOMNode> children = node.getChildren();
                 if (children != null) collectFilesFromTree(children, uniqueSeriesMap, errorLog);
@@ -447,6 +510,7 @@ public class DicomTagExtractorDialog extends JDialog {
 
 	// ローカルフォルダの走査（SeriesInstanceUIDでグルーピング）
 	private void searchDicomFilesInFolder(File dir, Map<String, List<File>> seriesMap, List<String> errorLog) {
+		if (cancelRequested) return;
 		if (dir == null || !dir.isDirectory())
 			return;
 
