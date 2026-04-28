@@ -100,13 +100,17 @@ public class SeriesConditionExtractorDialog extends JDialog {
             if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
                 int res = JOptionPane.showConfirmDialog(this, "No selected series from the TreeTable, would you continue to use choose directory function?");
                 if(res != JOptionPane.YES_OPTION) {
-                    dispose();
+					/*
+					 * ここでそのままdisposeするとフリーズする。 
+					 * 単にreturnするのではなく、画面が表示された直後に閉じるよう予約する
+					 */
+                	SwingUtilities.invokeLater(() -> this.dispose());
                     return;
                 }
             }
         }
         
-        setSize(1100, 750); // パネルが増えたため少し幅を拡張
+        setSize(1000, 750); // パネルが増えたため少し幅を拡張
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         initUI();
@@ -327,7 +331,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 return vr;
             }
         } catch (Exception e) {
-            System.err.println("Failed to determine VR for tag: " + tagPath);
+            Log.logger.log(Level.INFO, "Failed to determine VR for tag (maybe private tag, will use VR=UN): " + tagPath);
+            return "UN";
         }
         return "UN"; // 取得に失敗した場合や不明な場合は "UN" (Unknown) とする
     }

@@ -9,7 +9,7 @@ public enum ConditionOperator {
     CONTAINS("Contains"), // 部分一致 (カンマ区切りで複数キーワードのOR)
     GREATER_THAN_OR_EQUAL(">="), // 以降、以上
     LESS_THAN_OR_EQUAL("<="),    // 以前、以下
-    RANGE("Range");              // 範囲指定 (A 〜 B)
+    RANGE("Range");              // 範囲指定 (A 〜 B)以上・以下
 
     private final String label;
 

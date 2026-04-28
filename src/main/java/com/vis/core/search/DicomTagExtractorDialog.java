@@ -96,14 +96,17 @@ public class DicomTagExtractorDialog extends JDialog {
 	public DicomTagExtractorDialog(JFrame parent) {
 		super(parent, "DICOM Tag Extractor", true);
 		
-		// ★ 追加: ダイアログが生成されフォーカスが移る前に、現在の選択状態を確保しておく！
 		MainScreen mainScreen = (MainScreen) WindowManager.getMainScreen();
 		if (mainScreen != null) {
 			this.cachedSelectedNodes = mainScreen.getSelectedNode();
 			if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
 				int res = JOptionPane.showConfirmDialog(this, "No selected series from the TreeTable, would you continue to use choose directory function?");
 				if(res != JOptionPane.YES_OPTION) {
-					dispose();
+					/*
+					 * ここでそのままdisposeするとフリーズする。 
+					 * 単にreturnするのではなく、画面が表示された直後に閉じるよう予約する
+					 */
+					SwingUtilities.invokeLater(() -> this.dispose());
 					return;
 				}
 			}

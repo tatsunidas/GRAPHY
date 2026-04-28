@@ -64,7 +64,7 @@ public class SeriesConditionEvaluator {
         }
     }
 
- // --- 値の抽出ロジック ---
+    // --- 値の抽出ロジック ---
     private static String extractValueFromHeader(DicomObject header, String tagPath) {
         try {
             String[] pathParts = tagPath.split(" > ");
