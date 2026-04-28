@@ -56,6 +56,7 @@ import javax.swing.SwingUtilities;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.search.DicomTagExtractorDialog;
+import com.vis.core.search.SeriesConditionExtractorDialog;
 import com.vis.core.ui.dialog.BurnerWindow;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
@@ -85,6 +86,7 @@ public class MainScreenToolBar extends JToolBar {
 	private enum Tool {
 		Import, Export, BrowseDB, BurnCD, ImportNoneDcm, Delete, Metadata, Send,
 		TagExtractor,
+		SeriesExporter,
 //		Query,//do not need
 		Viewer, Viewer3D, Settings;
 	}
@@ -134,6 +136,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
 //		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
 		map.put(Tool.TagExtractor, Resources.MenuBarTagExtractor.loadIconFromResource());
+		map.put(Tool.SeriesExporter, Resources.MenuBarConditionalSeriesExtractor.loadIconFromResource());//
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
 		return map;
 	}
@@ -348,6 +351,12 @@ public class MainScreenToolBar extends JToolBar {
 		case TagExtractor:
 		    btn.addActionListener(e -> {
 		        DicomTagExtractorDialog dialog = new DicomTagExtractorDialog(WindowManager.getMainScreen());
+		        dialog.setVisible(true);
+		    });
+		    break;
+		case SeriesExporter:
+		    btn.addActionListener(e -> {
+		        SeriesConditionExtractorDialog dialog = new SeriesConditionExtractorDialog(WindowManager.getMainScreen());
 		        dialog.setVisible(true);
 		    });
 		    break;

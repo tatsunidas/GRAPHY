@@ -10,7 +10,14 @@ import com.vis.core.log.Log;
 /**
  * DICOMのImageOrientationPatient(IOP)を解釈し、 Radiological
  * Convention（読影ルール）に合わせてImageProcessorを反転・回転させるユーティリティ。
+ * 
+ * NIfTIのインポートの際に使うことを検討したが、
+ * そもそも、表示時に変換すること自体ナンセンスだろう。
+ * 仮に、間違って、左手系の空間情報を持つDICOMが入ってきたら、事前に変換するべき。
+ * 都度、このような小手先で変換するのはよくない。
+ * 
  */
+@Deprecated
 public class OrientationCorrector {
 
 	/**

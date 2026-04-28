@@ -53,6 +53,7 @@ public enum Resources {
 	MenuBarSettingsIcon("icon/ic_settings_black_48dp.png"),
 	MenuBarViewer2DIcon("icon/ic_desktop_windows_black_48dp.png"),
 	MenuBarTagExtractor("icon/tag_extractor2_48dp_1F1F1F.png"),
+	MenuBarConditionalSeriesExtractor("icon/ConditionalSeriesExtractor_48dp_1F1F1F.png"),
 	
 	//2d viewer
 	Viewer2DFrameWinIcon("icon/GRAPHY-128.png"),

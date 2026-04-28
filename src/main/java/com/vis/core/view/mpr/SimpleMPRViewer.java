@@ -74,7 +74,6 @@ import com.vis.dicom.Modality;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.image.GDicomTools;
-import com.vis.imageio.OrientationCorrector;
 
 import ij.ImagePlus;
 import ij.ImageStack;

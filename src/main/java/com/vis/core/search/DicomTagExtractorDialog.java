@@ -5,9 +5,10 @@
 package com.vis.core.search;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.io.File;
 import java.io.FileWriter;
@@ -15,6 +16,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -79,6 +81,8 @@ public class DicomTagExtractorDialog extends JDialog {
 	// ★ 追加: ダイアログを開いた時点の選択ノードを保持する変数
 	private List<DICOMNode> cachedSelectedNodes = null;
 	
+	private javax.swing.Timer searchTimer;
+	
 	// --- 管理用（自動出力）タグの定義 ---
 	private static final List<String> ADMIN_TAGS = java.util.Arrays.asList(
 			"0010,0020 - PatientID",
@@ -113,7 +117,7 @@ public class DicomTagExtractorDialog extends JDialog {
 
 	private void initUI() {
 		// 1. 対象データの選択パネル
-		JPanel pnlTarget = new JPanel(new GridLayout(3, 1));
+		JPanel pnlTarget = new JPanel(new BorderLayout());
 		pnlTarget.setBorder(BorderFactory.createTitledBorder("1. Select Target"));
 
 		rbTreeTable = new JRadioButton("Selected Series from TreeTable (HOME)", true);
@@ -125,6 +129,12 @@ public class DicomTagExtractorDialog extends JDialog {
 
 		btnSelectFolder = new JButton("Browse");
 		btnSelectFolder.setEnabled(false);
+		
+        JPanel pnlRadio = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlRadio.add(rbTreeTable);
+        pnlRadio.add(rbFolder);
+        pnlRadio.add(btnSelectFolder);
+        pnlTarget.add(pnlRadio);
 
 		rbFolder.addActionListener(e -> btnSelectFolder.setEnabled(true));
 		rbTreeTable.addActionListener(e -> btnSelectFolder.setEnabled(false));
@@ -138,9 +148,6 @@ public class DicomTagExtractorDialog extends JDialog {
 			}
 		});
 
-		pnlTarget.add(rbTreeTable);
-		pnlTarget.add(rbFolder);
-		pnlTarget.add(btnSelectFolder);
 		add(pnlTarget, BorderLayout.NORTH);
 
 		// 2. タグ入力パネル
@@ -371,79 +378,69 @@ public class DicomTagExtractorDialog extends JDialog {
 		}).start();
 	}
 
-	private List<File> getTargetDicomFilesSafe(boolean isTreeTable, List<DICOMNode> selectedNodes,
-			List<String> errorLog) {
-		List<File> targetFiles = new ArrayList<>();
+	// --- ファイル収集用のヘルパーメソッド群 ---
+    private List<File> getTargetDicomFilesSafe(boolean isTreeTable, List<DICOMNode> selectedNodes, List<String> errorLog) {
+        List<File> targetFiles = new ArrayList<>();
+        if (isTreeTable) {
+            if (db == null) { errorLog.add("Error: Database connection not found."); return targetFiles; }
+            
+            // ★修正: シリーズの重複収集を防ぐためのMapを用意 (SeriesInstanceUID -> 代表ファイル)
+            Map<String, File> uniqueSeriesMap = new LinkedHashMap<>();
+            collectFilesFromTree(selectedNodes, uniqueSeriesMap, errorLog);
+            
+            // Mapに集めた「重複のない代表ファイル」のリストを結果として返す
+            targetFiles.addAll(uniqueSeriesMap.values());
+            
+        } else {
+            Map<String, List<File>> seriesMap = new HashMap<>();
+            searchDicomFilesInFolder(selectedFolder, seriesMap, errorLog);
+            for (Map.Entry<String, List<File>> entry : seriesMap.entrySet()) {
+                File repFile = GDicomTools.getRepresentativeFileOfSeries(entry.getValue(), errorLog);
+                if (repFile != null) targetFiles.add(repFile);
+                else errorLog.add("Error: No valid representative file found for series: " + entry.getKey());
+            }
+        }
+        return targetFiles;
+    }
 
-		if (isTreeTable) {
-			if (db == null) {
-				errorLog.add("Error: Database connection not found.");
-				return targetFiles;
-			}
-			// ツリー展開処理
-			collectFilesFromTree(selectedNodes, targetFiles, errorLog);
-		} else {
-			// ローカルフォルダの走査：SeriesInstanceUIDごとにファイルをグルーピングする
-			Map<String, List<File>> seriesMap = new HashMap<>();
-			searchDicomFilesInFolder(selectedFolder, seriesMap, errorLog);
+    // ★修正: 第二引数を List<File> から Map<String, File> に変更
+    private void collectFilesFromTree(List<DICOMNode> nodes, Map<String, File> uniqueSeriesMap, List<String> errorLog) {
+        for (DICOMNode node : nodes) {
+            if (node.getLevel() == DICOMNode.PATIENT || node.getLevel() == DICOMNode.ROOT) {
+                List<DICOMNode> children = node.getChildren();
+                if (children != null) collectFilesFromTree(children, uniqueSeriesMap, errorLog);
+            } else if (node.getLevel() == DICOMNode.STUDY) {
+                List<DICOMNode> seriesList = node.getChildren();
+                if (seriesList != null) collectFilesFromTree(seriesList, uniqueSeriesMap, errorLog);
+            } else if (node.getLevel() == DICOMNode.SERIES) {
+                String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+                String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+                if (studyUID != null) studyUID = studyUID.trim().replace("\0", "");
+                if (seriesUID != null) seriesUID = seriesUID.trim().replace("\0", "");
 
-			// 各シリーズの中から代表となる1枚を選出
-			for (Map.Entry<String, List<File>> entry : seriesMap.entrySet()) {
-				File repFile = GDicomTools.getRepresentativeFileOfSeries(entry.getValue(), errorLog);
-				if (repFile != null) {
-					targetFiles.add(repFile);
-				} else {
-					errorLog.add("Error: No valid representative file found for series: " + entry.getKey());
-				}
-			}
-		}
-		return targetFiles;
-	}
+                // ★修正: すでにMapに登録済みのシリーズなら、無駄な処理を省いてスキップする
+                if (seriesUID == null || uniqueSeriesMap.containsKey(seriesUID)) {
+                    continue; 
+                }
 
-	// ツリーテーブルからの再帰的なファイル収集
-	private void collectFilesFromTree(List<DICOMNode> nodes, List<File> targetFiles, List<String> errorLog) {
-		for (DICOMNode node : nodes) {
-			// ★修正1: PATIENT階層が選ばれていた場合は、下層（STUDY等）へ潜る
-			if (node.getLevel() == DICOMNode.PATIENT || node.getLevel() == DICOMNode.ROOT) {
-				List<DICOMNode> children = node.getChildren();
-				if (children != null)
-					collectFilesFromTree(children, targetFiles, errorLog);
-
-			} else if (node.getLevel() == DICOMNode.STUDY) {
-				List<DICOMNode> seriesList = node.getChildren();
-				if (seriesList != null)
-					collectFilesFromTree(seriesList, targetFiles, errorLog);
-
-			} else if (node.getLevel() == DICOMNode.SERIES) {
-				String studyUID = node.getData(DICOMNode.StudyInstanceUID);
-				String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
-
-				// ★修正2（最重要）: DICOM特有の見えないパディング（Null文字や空白）を完全に除去してDBの検索ミスを防ぐ
-				if (studyUID != null)
-					studyUID = studyUID.trim().replace("\0", "");
-				if (seriesUID != null)
-					seriesUID = seriesUID.trim().replace("\0", "");
-
-				List<String> seriesFilePaths = db.getFileLocationsSeriesLevel(studyUID, seriesUID);
-
-				if (seriesFilePaths != null && !seriesFilePaths.isEmpty()) {
-					List<File> filesToEvaluate = new ArrayList<>();
-					for (String path : seriesFilePaths)
-						filesToEvaluate.add(new File(path));
-
-					File repFile = GDicomTools.getRepresentativeFileOfSeries(filesToEvaluate, errorLog);
-					if (repFile != null) {
-						targetFiles.add(repFile);
-					} else {
-						errorLog.add("Error: シリーズ内に有効な画像が存在しません (Series=" + seriesUID + ")");
-					}
-				} else {
-					errorLog.add(
-							"Error: DBからファイルパスを取得できませんでした (StudyUID=" + studyUID + ", SeriesUID=" + seriesUID + ")");
-				}
-			}
-		}
-	}
+                List<String> seriesFilePaths = db.getFileLocationsSeriesLevel(studyUID, seriesUID);
+                if (seriesFilePaths != null && !seriesFilePaths.isEmpty()) {
+                    List<File> filesToEvaluate = new ArrayList<>();
+                    for (String path : seriesFilePaths) filesToEvaluate.add(new File(path));
+                    
+                    File repFile = GDicomTools.getRepresentativeFileOfSeries(filesToEvaluate, errorLog);
+                    if (repFile != null) {
+                        // ★修正: 重複チェック用のMapに登録する
+                        uniqueSeriesMap.put(seriesUID, repFile);
+                    } else {
+                        errorLog.add("Error: シリーズ内に有効な画像が存在しません (Series=" + seriesUID + ")");
+                    }
+                } else {
+                    errorLog.add("Error: DBからファイルパスを取得できませんでした");
+                }
+            }
+        }
+    }
 
 	// ローカルフォルダの走査（SeriesInstanceUIDでグルーピング）
 	private void searchDicomFilesInFolder(File dir, Map<String, List<File>> seriesMap, List<String> errorLog) {
@@ -497,27 +494,26 @@ public class DicomTagExtractorDialog extends JDialog {
 
 		// --- 左側：検索＆辞書リスト ---
 		JPanel pnlLeft = new JPanel(new BorderLayout());
-		txtSearch = new JTextField();
-		txtSearch.setToolTipText("Search tags (e.g., *Name, 0010*)");
-
+		pnlLeft.setPreferredSize(new Dimension(300, 0)); 
+        pnlLeft.setMinimumSize(new Dimension(200, 0));
+        
 		dictListModel = new DefaultListModel<>();
 		listDict = new JList<>(dictListModel);
-		loadDicomDictionary(); // ★ここで全てのタグをロード（後述）
-
+		loadDicomDictionary(); // ★ここで全てのタグをロード
+		
+		txtSearch = new JTextField();
+		txtSearch.setToolTipText("Search tags (e.g., *Name, 0010*)");
 		// 検索窓に入力されるたびにリストを絞り込む
-		txtSearch.getDocument().addDocumentListener(new DocumentListener() {
-			public void insertUpdate(DocumentEvent e) {
-				filterList();
-			}
+		// ★ タイマーの初期化 (300ms待ち)
+	    searchTimer = new javax.swing.Timer(300, e -> filterList());
+	    searchTimer.setRepeats(false);
 
-			public void removeUpdate(DocumentEvent e) {
-				filterList();
-			}
-
-			public void changedUpdate(DocumentEvent e) {
-				filterList();
-			}
-		});
+	    // ★ リスナーで直接 filterList を呼ばず、triggerSearch を呼ぶように変更
+	    txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+	        public void insertUpdate(DocumentEvent e) { triggerSearch(); }
+	        public void removeUpdate(DocumentEvent e) { triggerSearch(); }
+	        public void changedUpdate(DocumentEvent e) { triggerSearch(); }
+	    });
 
 		pnlLeft.add(txtSearch, BorderLayout.NORTH);
 		pnlLeft.add(new JScrollPane(listDict), BorderLayout.CENTER);
@@ -624,6 +620,12 @@ public class DicomTagExtractorDialog extends JDialog {
 		splitPane.setResizeWeight(0.5); // 中央で分割
 		splitPane.setContinuousLayout(true); // ★ドラッグ中に中身をリアルタイム描画する（UX向上）
 
+        // 初期ディバイダー位置を 1/3 (0.33) に設定する
+        // invokeLater を使って描画直後に位置を確定させるのが確実です。
+        SwingUtilities.invokeLater(() -> {
+            splitPane.setDividerLocation(0.33);
+        });
+		
 		// 3. 親パネルへ追加
 		pnlTags.add(splitPane, BorderLayout.CENTER);
 
@@ -696,20 +698,47 @@ public class DicomTagExtractorDialog extends JDialog {
 		}
 	}
 
-	// 辞書の絞り込みメソッド
+	// 辞書の絞り込みメソッド (ゼロ幅スペースなどの透明文字にも対応した最終版)
 	private void filterList() {
 		String searchStr = txtSearch.getText();
+		if (searchStr == null)
+			searchStr = "";
+
+		// 1. スペース（半角・全角）に加えて、不可視文字（ゼロ幅スペース \u200B など）も除去
+		String cleanSearch = searchStr.replaceAll("[\\s　\\u200B]+", "").toLowerCase();
+
 		String regex = createRegexFromWildcard(searchStr);
 		Pattern pattern = Pattern.compile(regex);
 
-		dictListModel.clear();
-		// allTagsList は、ロード済みのすべてのタグ文字列を保持しているリスト(List<String>)
+		DefaultListModel<String> newModel = new DefaultListModel<>();
 		for (String tagStr : allTagsList) {
-			if (pattern.matcher(tagStr).matches()) {
-				dictListModel.addElement(tagStr);
+			// 2. 辞書側の文字列からも不可視文字を完全に消し去る
+			String cleanTag = tagStr.replaceAll("[\\s　\\u200B]+", "").toLowerCase();
+
+			boolean containsMatch = cleanTag.contains(cleanSearch);
+			boolean regexMatch = false;
+			try {
+				regexMatch = pattern.matcher(tagStr).matches();
+			} catch (Exception e) {
+			}
+
+			// どちらかの条件に合致すればリストに追加
+			if (containsMatch || regexMatch) {
+				newModel.addElement(tagStr);
 			}
 		}
+
+		listDict.setModel(newModel);
+		dictListModel = newModel;
 	}
+	
+	private void triggerSearch() {
+        if (searchTimer.isRunning()) {
+            searchTimer.restart();
+        } else {
+            searchTimer.start();
+        }
+    }
 
 	private void loadDicomDictionary() {
 		allTagsList.clear();
