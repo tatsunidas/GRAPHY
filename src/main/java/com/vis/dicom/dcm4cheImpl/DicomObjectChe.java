@@ -604,6 +604,18 @@ public class DicomObjectChe extends Attributes implements DicomObject{
 		org.dcm4che3.data.VR vrChe = Interpreter.vrChe(vr);
 		return super.setValue(privateCreator, tag, vrChe, value);
 	}
+	
+	@Override
+	public com.vis.dicom.Sequence newDicomSequence(String privateCreator, int tag, int initioalCapacity) {
+		org.dcm4che3.data.Sequence seq = super.newSequence(privateCreator, tag, initioalCapacity);
+        return new SequenceChe(seq);
+	}
+	
+	@Override
+	public com.vis.dicom.Sequence newDicomSequence(int tag, int initialCapacity) {
+		org.dcm4che3.data.Sequence seq = super.newSequence(tag, initialCapacity);
+        return new SequenceChe(seq);
+	}
 
 	@Override
 	public Object newFragments(int tag, VR vr, int initialCapacity) {

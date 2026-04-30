@@ -4,6 +4,7 @@
  */
 package com.vis.core.search;
 
+import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.dicom.DicomObject;
 import java.util.List;
 
@@ -12,13 +13,28 @@ public class SeriesConditionEvaluator {
     /**
      * DICOMヘッダが指定されたすべての条件（選択・除外）を満たすか評価します。
      */
-    public static boolean evaluate(DicomObject header, List<SearchCondition> conditions) {
-        if (header == null || conditions == null || conditions.isEmpty()) {
+	public static boolean evaluate(DicomObject header, List<SearchCondition> conditions, List<String> allowedPlanes) {
+        if (header == null) {
             return false;
         }
 
+        // --- ★ 追加: 撮影断面(Plane)の評価 ---
+        // allowedPlanes が null でない場合（＝何らかの断面指定がある場合）のみ評価
+        if (allowedPlanes != null && !allowedPlanes.isEmpty()) {
+            String currentPlane = PlanarSupport.planarOf(header);
+            // 現在の断面が、許可されたリストに含まれていない場合は除外 (AND条件の一部として機能)
+            if (!allowedPlanes.contains(currentPlane)) {
+                return false; 
+            }
+        }
+
+        // （※以下は元のロジックのまま）
+        if (conditions == null || conditions.isEmpty()) {
+            // 条件リストが空でも、Planeの条件さえクリアしていれば true を返すように変更
+            return true; 
+        }
+
         // 1. まず「除外基準 (Exclusion)」をチェック
-        // いずれか1つでも当てはまれば、即座に false (除外) を返す
         for (SearchCondition cond : conditions) {
             if (cond.isExclusion()) {
                 if (matchCondition(header, cond)) {
@@ -28,7 +44,6 @@ public class SeriesConditionEvaluator {
         }
 
         // 2. 次に「選択基準 (Inclusion)」をチェック
-        // すべて当てはまらなければならない (AND条件)
         for (SearchCondition cond : conditions) {
             if (!cond.isExclusion()) {
                 if (!matchCondition(header, cond)) {
@@ -37,7 +52,7 @@ public class SeriesConditionEvaluator {
             }
         }
 
-        return true; // 除外されず、すべての選択条件をクリアした
+        return true; 
     }
 
     /**

@@ -26,7 +26,10 @@ public class ConditionVerifier {
         public List<File> validTargetFiles = new ArrayList<>();
     }
 
-    public static VerificationResult verify(List<File> representativeFiles, List<SearchCondition> conditions, DICOMBackend backend, Consumer<Integer> progressCallback) {
+    public static VerificationResult verify(
+    		List<File> representativeFiles, List<SearchCondition> conditions, 
+            List<String> allowedPlanes, DICOMBackend backend, Consumer<Integer> progressCallback) {
+    	
         VerificationResult result = new VerificationResult();
         result.totalEvaluatedSeries = representativeFiles.size();
 
@@ -45,7 +48,7 @@ public class ConditionVerifier {
                 DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), backend);
                 DicomObject header = dcm.getHeader();
 
-                if (SeriesConditionEvaluator.evaluate(header, conditions)) {
+                if (SeriesConditionEvaluator.evaluate(header, conditions, allowedPlanes)) {
                     result.validTargetFiles.add(f);
 
                     String studyUid = header.getString(0x0020000D);

@@ -438,9 +438,9 @@ public interface DicomObject {
 	public Object setValue(String privateCreator, int tag, VR vr, Object value);
 
 	// return Sequence
-	public Object newSequence(int tag, int initialCapacity);
+	public Object newDicomSequence(int tag, int initialCapacity);
 
-	public Object newSequence(String privateCreator, int tag, int initialCapacity);
+	public Object newDicomSequence(String privateCreator, int tag, int initialCapacity);
 
 	public Object ensureSequence(int tag, int initialCapacity);
 

@@ -8,6 +8,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -77,6 +78,9 @@ public class SeriesConditionExtractorDialog extends JDialog {
     private JRadioButton rbTreeTable;
     private JRadioButton rbFolder;
     private JButton btnSelectFolder;
+    
+    private JCheckBox chkAx, chkSag, chkCor, chkPlaneNone;
+    
     private File selectedFolder = null;
     private File destinationFolder = null;
     private List<DICOMNode> cachedSelectedNodes = null;
@@ -247,9 +251,47 @@ public class SeriesConditionExtractorDialog extends JDialog {
         JScrollPane scrollConditions = new JScrollPane(pnlConditionsContainer);
         scrollConditions.setBorder(BorderFactory.createTitledBorder("3. Extraction Conditions"));
         
+        JPanel pnlPlaneSelection = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        pnlPlaneSelection.setBorder(BorderFactory.createTitledBorder("Image Plane (Orientation) - Included in AND logic"));
+
+        chkAx = new JCheckBox("AX");
+        chkSag = new JCheckBox("SAG");
+        chkCor = new JCheckBox("COR");
+        chkPlaneNone = new JCheckBox("None (Not Specified)", true); // 初期値は「指定しない」
+
+        // 排他制御のリスナー
+        ActionListener planeListener = e -> {
+            if (e.getSource() == chkPlaneNone) {
+                if (chkPlaneNone.isSelected()) {
+                    chkAx.setSelected(false);
+                    chkSag.setSelected(false);
+                    chkCor.setSelected(false);
+                }
+            } else {
+                if (chkAx.isSelected() || chkSag.isSelected() || chkCor.isSelected()) {
+                    chkPlaneNone.setSelected(false);
+                } else {
+                    // すべて外れたら「指定しない」に戻す
+                    chkPlaneNone.setSelected(true);
+                }
+            }
+        };
+
+        chkAx.addActionListener(planeListener);
+        chkSag.addActionListener(planeListener);
+        chkCor.addActionListener(planeListener);
+        chkPlaneNone.addActionListener(planeListener);
+
+        pnlPlaneSelection.add(chkAx);
+        pnlPlaneSelection.add(chkSag);
+        pnlPlaneSelection.add(chkCor);
+        pnlPlaneSelection.add(new javax.swing.JLabel("  |  "));
+        pnlPlaneSelection.add(chkPlaneNone);
+        
         JPanel pnlRightContainer = new JPanel(new BorderLayout());
         pnlRightContainer.add(pnlButtons, BorderLayout.WEST);
         pnlRightContainer.add(scrollConditions, BorderLayout.CENTER);
+        pnlRightContainer.add(pnlPlaneSelection, BorderLayout.SOUTH);
 
         // --- SplitPaneで分割 ---
         javax.swing.JSplitPane splitPane = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT, pnlLeft, pnlRightContainer);
@@ -344,6 +386,24 @@ public class SeriesConditionExtractorDialog extends JDialog {
             // パターンB: 抽出処理が動いていない（開始前 or 完了後）場合
             this.dispose(); // そのまま安全に画面を閉じる
         }
+    }
+    
+    /**
+     * UIのチェックボックスから、許可する撮影断面のリストを取得します。
+     * "None" が選択されている場合は null を返します（絞り込みを行わない）。
+     * PlanarSupport.planarOf() が返す CutSurface の name() と一致させます。
+     */
+    private List<String> getAllowedPlanes() {
+        if (chkPlaneNone.isSelected()) {
+            return null; // 指定なし（すべて許可）
+        }
+        
+        List<String> allowedPlanes = new ArrayList<>();
+        if (chkAx.isSelected()) allowedPlanes.add("AXIAL");
+        if (chkSag.isSelected()) allowedPlanes.add("SAGITTAL");
+        if (chkCor.isSelected()) allowedPlanes.add("CORONAL");
+        
+        return allowedPlanes;
     }
     
     /**
@@ -474,8 +534,10 @@ public class SeriesConditionExtractorDialog extends JDialog {
 
     // --- 検証処理 ---
     private void executeVerification() {
-        if (conditionPanels.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please add at least one condition.");
+    	// ★ 修正: 条件リストが空でも、撮影断面が指定されていれば検証を実行できるように緩和する
+        List<String> allowedPlanes = getAllowedPlanes();
+        if (conditionPanels.isEmpty() && (allowedPlanes == null || allowedPlanes.isEmpty())) {
+            JOptionPane.showMessageDialog(this, "Please add at least one condition or select an Image Plane.");
             return;
         }
 
@@ -506,8 +568,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 SwingUtilities.invokeLater(() -> progressBar.setMaximum(targetFiles.size()));
 
                 // Integer(count) を publish
-                return ConditionVerifier.verify(targetFiles, activeConditions, DICOMBackend.getCurrent(), 
-                    count -> publish(count));
+                return ConditionVerifier.verify(targetFiles, activeConditions, allowedPlanes, DICOMBackend.getCurrent(), 
+                        count -> publish(count));
             }
 
             @Override

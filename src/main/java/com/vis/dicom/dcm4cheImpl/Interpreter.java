@@ -73,7 +73,10 @@ public class Interpreter {
 	}
 
 	public static org.dcm4che3.data.VR vrChe(com.vis.dicom.VR vr){
-		return org.dcm4che3.data.VR.valueOf(vr.code());
+		if(vr != null) {
+			return org.dcm4che3.data.VR.valueOf(vr.code());
+		}
+		return null;//ItemDelimitationItem VR is null
 	}
 	
 	static org.dcm4che3.data.VR.Holder vrHolderChe(com.vis.dicom.VR.Holder vr){

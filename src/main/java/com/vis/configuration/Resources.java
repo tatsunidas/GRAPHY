@@ -123,6 +123,9 @@ public enum Resources {
 	RecordFactory("dcmqrscp/RecordFactory.xml"),
 	AE_Properties("dcmqrscp/ae.properties"),
 	STORE_TCS_Properties("dcmqrscp/store-tcs.properties"),
+	PS3_15_TableE1_1("dicom_dict/Table_E1_1_Application_Level_Confidentiality.csv"),
+	PS3_15_TableE3_4_1("dicom_dict/Table_E3_4-1_ApplicationLevelConfidentialityProfileCleanStructuredContentOptionContentItemConceptNameCodes.csv"),
+	PS3_15_TableE3_10_1("dicom_dict/Table_E3_10-1_SafePrivateAttributes.csv"),
 	
 	//LUT
 	LUT_GRAY("luts/gray.lut"),
