@@ -6,6 +6,9 @@ package com.vis.core.anonymize;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+
+import com.vis.core.log.Log;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
@@ -13,6 +16,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.File;
 import java.util.List;
+import java.util.logging.Level;
 
 @SuppressWarnings("serial")
 public class AttributeAnonymizerPanel extends JPanel {
@@ -43,6 +47,8 @@ public class AttributeAnonymizerPanel extends JPanel {
     private JCheckBox chkCleanGraph; 
     
     private JButton btnAdvancedSettings;
+    
+    private JTextField txtRandomSeed;
     
     // 実行とログ・進捗
     private JTextArea txtLogs;
@@ -181,6 +187,13 @@ public class AttributeAnonymizerPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         
         int y_pos = 0;
+        
+        gbc.gridx = 0; gbc.gridy = y_pos++; gbc.weightx = 0;
+        panel.add(new JLabel("Random Seed (Optional):"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtRandomSeed = new JTextField();
+        txtRandomSeed.setToolTipText("Enter a seed value for reproducible anonymization across different batches.");
+        panel.add(txtRandomSeed, gbc);
 
         gbc.gridx = 0; gbc.gridy = y_pos++;
         panel.add(new JLabel("Patient Name:"), gbc);
@@ -262,6 +275,22 @@ public class AttributeAnonymizerPanel extends JPanel {
     }
     
     private void syncUiToConfig() {
+    	
+    	// syncUiToConfig() 内
+    	String seedStr = txtRandomSeed.getText().trim();
+    	if (!seedStr.isEmpty()) {
+    	    try {
+    	        currentConfig.setRandomSeed(Long.parseLong(seedStr));
+    	    } catch (NumberFormatException e) {
+    	        // 文字列のハッシュ値をシードにするなどのフォールバック
+    	    	JOptionPane.showConfirmDialog(this, "No numerical value was inputed, will not randomize studies.");
+    	    	Log.logger.log(Level.WARNING, "No numerical value was inputed, will not use random seed.");
+    	        currentConfig.setRandomSeed(null);
+    	    }
+    	} else {
+    	    currentConfig.setRandomSeed(null); // シードなし
+    	}
+    	
         currentConfig.setReplacePatientName(txtPatientName.getText().trim());
         currentConfig.setReplacePatientId(txtPatientID.getText().trim());
         

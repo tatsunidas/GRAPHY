@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -199,8 +200,20 @@ public class DicomAnonymizerEngine {
 
         boolean isSinglePatient = (patientTree.size() == 1);
         int patientCounter = 1;
+        
+		// ★ 1. HashMapの要素をListに抽出する
+		List<PatientMapping> patientList = new ArrayList<>(patientTree.values());
 
-        for (PatientMapping pMap : patientTree.values()) {
+		// ★ 2. まず元のPatientIDでソートし、順序を確定させる（HashMapの環境依存な揺らぎを完全に排除する）
+		patientList.sort((p1, p2) -> p1.origPatId.compareTo(p2.origPatId));
+
+		// ★ 3. シード値が設定されていれば、そのシードを使ってシャッフルする
+		Number seed = config.getRandomSeed();
+		if (seed != null) {
+			Collections.shuffle(patientList, new java.util.Random(config.getRandomSeed()));
+		}
+
+        for (PatientMapping pMap : patientList) {
             if (isSinglePatient) {
                 pMap.newPatId = prefix;
                 pMap.newPatName = namePrefix;
@@ -209,8 +222,16 @@ public class DicomAnonymizerEngine {
                 pMap.newPatName = namePrefix + "^" + patientCounter;
             }
             patientCounter++;
+            
+			// Studyレベルでも必要であれば同様にソート＆シャッフルが可能です
+			// （通常は患者単位でIDがランダム化されていれば十分なことが多いです）
+			List<StudyMapping> studyList = new ArrayList<>(pMap.studies.values());
+//			studyList.sort((s1, s2) -> s1.origStudyUid.compareTo(s2.origStudyUid));
+//			if (config.getRandomSeed() != null) {
+//				Collections.shuffle(studyList, new java.util.Random(config.getRandomSeed()));
+//			}
 
-            for (StudyMapping stMap : pMap.studies.values()) {
+            for (StudyMapping stMap : studyList) {
                 CsvRecord rec = new CsvRecord();
                 rec.origPatId = pMap.origPatId;
                 rec.origPatName = pMap.origPatName;

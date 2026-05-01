@@ -32,7 +32,16 @@ public class AnonymizeConfig {
     private String replacePatientName = "de-identified";
     private String replacePatientId = "de-identified";
     
-    // ダイアログ上でユーザーが個別に「Retain」したタグのリスト
+    private long randomSeed;
+    
+    public long getRandomSeed() {
+		return randomSeed;
+	}
+	public void setRandomSeed(Long randomSeed) {
+		this.randomSeed = randomSeed;
+	}
+
+	// ダイアログ上でユーザーが個別に「Retain」したタグのリスト
     private Set<Integer> manualRetainTags = new HashSet<>();
     // ダイアログ上でユーザーが手動で設定した「ダミー置換値」
     private Map<Integer, String> customTagReplacements = new HashMap<>();
