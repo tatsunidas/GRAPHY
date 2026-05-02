@@ -64,6 +64,7 @@ import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.mpr.CenterPositionLine;
 import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.Tag;
 
 /**
  *
@@ -628,6 +629,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(roi == null) {
 			return;
 		}
+		
+		/*
+		 * IPP同期
+		 */
+		// ROIが描画されたフレームのIPP（3D空間座標）をプロパティに保持する
+		double[] ipp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
+		if (ipp != null && ipp.length >= 3) {
+			String ippStr = ipp[0] + "," + ipp[1] + "," + ipp[2];
+			roi.setProperty("ReferenceImagePositionPatient", ippStr);
+		}
+		
 		//save as new or update
 		if(DatabaseHandler.getInstance() != null) {
 			DatabaseHandler.getInstance().insertRoi(roi.readContext());
@@ -655,6 +667,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 	
+	
 	public void loadRoiFromDB() {
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db == null) {
@@ -663,33 +676,89 @@ public class CanvasGlass extends javax.swing.JPanel {
 		String pid = sg.getPatientID();
 		String studyUid = sg.getStudyInstanceUID();
 		String seriesUid = sg.getSeriesInstanceUID();
-		String sopUid = sopUID;
+		String sopInstUid = sg.getSOPInstanceUID();
+				
+		// ---------------------------------------------------------
+		// ★ 変更: 現在のSOPだけでなく、Praparatが持つすべてのSOPを対象にする
+		Object[] uids = pp.getUIDs();
+		String[] allSopUIDs = (String[]) uids[3];
+		if (allSopUIDs == null) return;
 		
-		Integer currentInstanceNo = sg.getInstanceNo();
-		
-		ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, sopUid);
-		synchronized(cons) {
-			if(cons != null && cons.size() > 0) {
-				for(int i=0; i<cons.size(); i++) {
-					RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
-					if(roi == null) {
-						continue;
-					}
-					
-					String instNoStr = roi.getProperty(ContextKey.InstanceNo.name());
-					if (instNoStr != null && currentInstanceNo != null) {
-						try {
-							int roiInstNo = Integer.parseInt(instNoStr);
-							if (roiInstNo != currentInstanceNo) {
-								continue; // 別のフレームのROIなのでスキップ
+		// 現在のスライドのIPPを取得
+		double[] currentIpp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
+		// ---------------------------------------------------------
+
+		if(currentIpp != null && currentIpp.length >= 3) {
+			// ★ 追加: 全SOPをループして検索
+			for (String targetSop : allSopUIDs) {
+				ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, targetSop);
+				synchronized(roiset) {
+					if(cons != null && cons.size() > 0) {
+						for(int i=0; i<cons.size(); i++) {
+							RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
+							if(roi == null) {
+								continue;
 							}
-						} catch (NumberFormatException e) {
-							// 数値パースエラー時は安全のためそのまま通過させる
+							
+
+							// ---------------------------------------------------------
+							// ★ 追加: IPPによる空間位置（スライス位置）のフィルタリング
+							String roiIppStr = roi.getProperty("RoiImagePositionPatient");
+							if (roiIppStr != null) {
+								String[] parts = roiIppStr.split(",");
+								if (parts.length == 3) {
+									try {
+										double rx = Double.parseDouble(parts[0]);
+										double ry = Double.parseDouble(parts[1]);
+										double rz = Double.parseDouble(parts[2]);
+										
+										// 3D空間上の距離（ユークリッド距離）を計算
+										double dx = currentIpp[0] - rx;
+										double dy = currentIpp[1] - ry;
+										double dz = currentIpp[2] - rz;
+										double distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+										
+										// 距離が 0.001mm より大きい場合は、別スライスとみなしてスキップ
+										if (distance > 1e-3) {
+											continue; 
+										}
+									} catch (NumberFormatException e) {
+										// パースエラー時はフォールバックとしてそのまま表示（旧データ互換のため）
+									}
+								}
+							} else {
+								// ---------------------------------------------------------
+								// 空間位置が判定できない場合は、「現在のスライド(SOP)に直接描かれたROI」のみを表示する
+								String roiSop = roi.getProperty(ContextKey.SOPInstanceUID.name());
+								String currentSop = sg.getSOPInstanceUID();
+								
+								if (roiSop != null && currentSop != null) {
+									if (!roiSop.equals(currentSop)) {
+										continue; // 別のSOP（他チャンネル・他スライス等）のROIなのでスキップ
+									}
+								}
+							}
+							roi.setSlideGlass(sg);
+							if (!this.roiset.contains(roi)) {
+								roiset.add(roi);
+							}
 						}
 					}
-					roi.setSlideGlass(sg);
-					if (!this.roiset.contains(roi)) {
-						roiset.add(roi);
+				}
+			} // end of for(targetSop)
+		}else {
+			ArrayList<HashMap<String,Object>> cons = db.loadRoiContextFromInstance(pid, studyUid, seriesUid, sopInstUid);
+			synchronized(roiset) {
+				if(cons != null && cons.size() > 0) {
+					for(int i=0; i<cons.size(); i++) {
+						RoiObj roi = new RoiConverter().buildRoiObj(cons.get(i));
+						if(roi == null) {
+							continue;
+						}
+						roi.setSlideGlass(sg);
+						if (!this.roiset.contains(roi)) {
+							roiset.add(roi);
+						}
 					}
 				}
 			}
