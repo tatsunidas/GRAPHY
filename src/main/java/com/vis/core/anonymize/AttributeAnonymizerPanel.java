@@ -20,6 +20,14 @@ import java.util.logging.Level;
 
 @SuppressWarnings("serial")
 public class AttributeAnonymizerPanel extends JPanel {
+	
+	public enum Mode {
+	    BATCH_MODE,        // 従来のフォルダ指定バッチ処理
+	    PIXEL_MODE         // ピクセル匿名化（出力先フォルダ指定のみ）
+	}
+	
+	private Mode mode;
+	private JLabel lblSourceDir; // フィールドに昇格させておく
 
     // 入出力先設定
     private JTextField txtSourceDir;
@@ -59,6 +67,11 @@ public class AttributeAnonymizerPanel extends JPanel {
     private AnonymizeConfig currentConfig = new AnonymizeConfig();
 
     public AttributeAnonymizerPanel() {
+        this(Mode.BATCH_MODE); // デフォルトはバッチモード
+    }
+
+    public AttributeAnonymizerPanel(Mode mode) {
+        this.mode = mode;
         initUI();
     }
 
@@ -155,8 +168,9 @@ public class AttributeAnonymizerPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        lblSourceDir = new JLabel("Source Dir:");
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0;
-        panel.add(new JLabel("Source Dir:"), gbc);
+        panel.add(lblSourceDir, gbc);
         gbc.gridx = 1; gbc.weightx = 1.0;
         txtSourceDir = new JTextField();
         panel.add(txtSourceDir, gbc);
@@ -174,6 +188,15 @@ public class AttributeAnonymizerPanel extends JPanel {
         btnBrowseDest = new JButton("Browse...");
         btnBrowseDest.addActionListener(e -> browseDirectory(txtDestDir));
         panel.add(btnBrowseDest, gbc);
+        
+		// ★ モードによる表示切り替え
+		if (this.mode == Mode.PIXEL_MODE) {
+			lblSourceDir.setVisible(false);
+			txtSourceDir.setVisible(false);
+			btnBrowseSource.setVisible(false);
+			// パネルのタイトルも変更すると親切です
+			panel.setBorder(new TitledBorder("Output Destination"));
+		}
 
         return panel;
     }
@@ -219,6 +242,9 @@ public class AttributeAnonymizerPanel extends JPanel {
         chkCleanDesc            = new JCheckBox("Clean Descriptor", true);
         chkCleanStruct          = new JCheckBox("Clean Structured Content", true);
         chkCleanGraph           = new JCheckBox("Clean Graphics", true);
+        
+        chkCleanPixelData.setToolTipText("If you are anonymizing pixel data, please check this.");
+        chkCleanVisualFeatures.setToolTipText("If you are anonymizing pixel data (e.g., face or capture), please check this.");
 
         JCheckBox[] opts = { chkRetainPrivate, chkRetainUIDs, chkRetainDevice, chkRetainInst, chkRetainPatientChars,
                     chkRetainDatesFull, chkRetainDatesMod, 
@@ -427,5 +453,14 @@ public class AttributeAnonymizerPanel extends JPanel {
         chkCleanDesc.setEnabled(enabled);
         chkCleanStruct.setEnabled(enabled);
         chkCleanGraph.setEnabled(enabled);
+    }
+    
+    public String getDestDirectory() {
+        return txtDestDir.getText().trim();
+    }
+
+    public AnonymizeConfig getCurrentConfig() {
+        syncUiToConfig();
+        return currentConfig;
     }
 }

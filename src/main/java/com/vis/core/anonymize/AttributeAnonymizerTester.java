@@ -24,7 +24,8 @@ public class AttributeAnonymizerTester {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             
             // 先ほど作成したパネルをインスタンス化してウィンドウに追加
-            AttributeAnonymizerPanel panel = new AttributeAnonymizerPanel();
+//            AttributeAnonymizerPanel panel = new AttributeAnonymizerPanel();
+            PixelAnonymizerPanel panel = new PixelAnonymizerPanel();
             frame.getContentPane().add(panel);
             
             // ウィンドウのサイズを設定
