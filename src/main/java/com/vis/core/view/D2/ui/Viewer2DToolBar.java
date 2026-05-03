@@ -120,7 +120,7 @@ public class Viewer2DToolBar extends JToolBar{
 	
 	public final static int Windowing = 1000;
 	public final static int Analysis = 1001;//RoiObjManager
-	public final static int NONE = -1;
+	public final static int NONE = Integer.MIN_VALUE;
 	
 	public final static int[] roiTools = new int[] {
 			RectangleRoi,

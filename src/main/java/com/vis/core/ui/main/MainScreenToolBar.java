@@ -45,6 +45,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -54,7 +55,9 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
+import com.vis.core.anonymize.PixelAnonymizerDialog;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.search.DicomTagExtractorDialog;
 import com.vis.core.search.SeriesConditionExtractorDialog;
 import com.vis.core.ui.dialog.BurnerWindow;
@@ -87,7 +90,7 @@ public class MainScreenToolBar extends JToolBar {
 		Import, Export, BrowseDB, BurnCD, ImportNoneDcm, Delete, Metadata, Send,
 		TagExtractor,
 		SeriesExporter,
-//		Query,//do not need
+		Anonymizer,
 		Viewer, Viewer3D, Settings;
 	}
 
@@ -134,7 +137,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Send, Resources.MenuBarSendIcon.loadIconFromResource());
 //		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
-//		map.put(Tool.Viewer3D, Resources.MenuBarViewer3DIcon.loadIconFromResource());
+		map.put(Tool.Anonymizer, Resources.MenuBarAnonymizer.loadIconFromResource());
 		map.put(Tool.TagExtractor, Resources.MenuBarTagExtractor.loadIconFromResource());
 		map.put(Tool.SeriesExporter, Resources.MenuBarConditionalSeriesExtractor.loadIconFromResource());//
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
@@ -357,6 +360,24 @@ public class MainScreenToolBar extends JToolBar {
 		case SeriesExporter:
 		    btn.addActionListener(e -> {
 		        SeriesConditionExtractorDialog dialog = new SeriesConditionExtractorDialog(WindowManager.getMainScreen());
+		        dialog.setVisible(true);
+		    });
+		    break;
+		case Anonymizer:
+		    btn.addActionListener(e -> {
+		    	ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
+		    	if(selected == null || selected.size() == 0) {
+		    		Log.logger.log(Level.INFO, "No selected study node, cannot start Anonymizer.");
+		    		return;
+		    	}
+		    	DICOMNode target = null;
+		    	for(DICOMNode node : selected) {
+		    		if(node.getLevel()==DICOMNode.STUDY) {
+		    			target = node;
+		    			break;
+		    		}
+		    	}
+		    	PixelAnonymizerDialog dialog = new PixelAnonymizerDialog(WindowManager.getMainScreen(), target);
 		        dialog.setVisible(true);
 		    });
 		    break;

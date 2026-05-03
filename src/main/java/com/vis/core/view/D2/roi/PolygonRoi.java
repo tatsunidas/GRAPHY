@@ -232,7 +232,7 @@ public class PolygonRoi extends RoiObj {
 						g.setColor(fillColor);
 						g.fillPolygon(xp2, yp2, nPoints);
 					} else {
-						g.setColor(color);
+						g.setColor(fillColor);
 						g.fillPolygon(xp2, yp2, nPoints);
 					}
 				} else {
@@ -617,6 +617,7 @@ public class PolygonRoi extends RoiObj {
 		if (type != RoiType.POINT.id())
 			modifyRoi();
 		LineWidthAdjuster.update();
+		setActiveOverlayRoi(true);
 		notifyListeners(RoiObjListener.COMPLETED);
 		Log.logger.fine("Finish Polygon familes Roi Constructing.");
 	}

@@ -60,6 +60,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,11 +77,10 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 
-import com.vis.configuration.ConfigInfo;
-import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.BirdsEyeView;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
@@ -88,6 +88,7 @@ import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
+import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
@@ -162,7 +163,12 @@ public class Praparat extends JPanel {
 
 	private int currentSlice = -1;
 	private javax.swing.Timer scrollDebounceTimer;
+	
+	/*
+	 * ZCT index to handle multi-channel
+	 */
 	private int pendingTargetIndex = -1;
+	
 	private java.util.concurrent.atomic.AtomicInteger latestCacheRequest = new java.util.concurrent.atomic.AtomicInteger(0);
 
 	private int filmGridColumns = 5;
@@ -194,9 +200,9 @@ public class Praparat extends JPanel {
 	private int nFrames = 1; // T: 時間（フレーム）数
 
 	// 現在表示している位置（状態）
-	private int currentC = 0;
-	private int currentZ = 0;
-	private int currentT = 0;
+	private int currentC = 0;//channel, 0-based
+	private int currentZ = 0;//slice position, 0-based
+	private int currentT = 0;//time frame, 0-based
 
 	private ConcurrentHashMap<Integer/* 0 to N-1 */, SlideGlass> slides;
 
@@ -204,6 +210,12 @@ public class Praparat extends JPanel {
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
 
 	final ViewMode mode;
+	
+	/*
+	 * 2D viewerツールタイプ指定
+	 * -1 は「未設定（2D Viewerのグローバル状態に従う）」を意味します
+	 */
+    private int localToolType = -1;
 
 	/**
 	 * Load normal praparat
@@ -219,7 +231,7 @@ public class Praparat extends JPanel {
 		initComponent();
 		String modality_str = GDicomTools.getTag(stack, Tag.Modality);
 		this.modality = Modality.is(modality_str);
-		prepareSlideGlassesUsingImagePlus(stack);
+		loadSeries(stack);
 		if (mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
 		} else {
@@ -244,7 +256,7 @@ public class Praparat extends JPanel {
 		}
 		this.prapManager = manager;
 		initComponent();
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
+		loadSeries(patID, studyUID, seriesUID, sopUIDs, pathToSortedinstNoImages);
 		DicomObject dcm = slides.get(0).getHeader();
 		this.modality = Modality.is(dcm);
 		if (mode != ViewMode.FilmGrid) {
@@ -985,6 +997,10 @@ public class Praparat extends JPanel {
 	public int getCurrentSlidePos() {
 		return currentSlice;
 	}
+	
+	public int getCurrentSlideZCTIndex() {
+		return currentT * (nChannels * nSlices) + currentZ * nChannels + currentC;
+	}
 
 	/**
 	 * check Viewer2D selecting tool.
@@ -992,7 +1008,10 @@ public class Praparat extends JPanel {
 	 * @return
 	 */
 	public int getCurrentViewerToolType() {
-		return Viewer2DScreen.getInstance().getCurrentToolType();
+		if(Viewer2DScreen.getInstance() != null) {
+			return Viewer2DScreen.getInstance().getCurrentToolType();
+		}
+		return Viewer2DToolBar.NONE;
 	}
 
 	public Eyepiece getEyepiece() {
@@ -1307,24 +1326,46 @@ public class Praparat extends JPanel {
 	}
 
 	public int getSlidePosition(SlideGlass slide) {
-		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
-		if (slides == null) {
-			return -1;
-		}
-		for (int p : slides.keySet()) {
-			SlideGlass sg = slides.get(p);
-			if (slide == sg) {
-				return p;
-			}
-		}
-		return -1;
+		int[] zct = getSlidePositionZCTArray(slide);
+		return zct[0];
 	}
+	
+	public int getSlidePositionOnZCTIndex(SlideGlass slide) {
+		int[] zct = getSlidePositionZCTArray(slide);
+		return calcZctIndex(zct);
+	}
+	
+	private int calcZctIndex(int[] zct) {
+		int z = zct[0];
+		int c = zct[1];
+		int t = zct[2];
+		return t * (nChannels * nSlices) + z * nChannels + c;
+	}
+	
+	public int[] getSlidePositionZCTArray(SlideGlass slide) {
+	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
+	    if (slides == null) return new int[]{-1, -1, -1};
 
-//	void saveSeriesSettings() {
-//		winMin = imagePane.currentMin;
-//		winMax = imagePane.currentMax;
-//		//add ...
-//	}
+	    for (Entry<Integer, SlideGlass> entry : slides.entrySet()) {
+	        if (entry.getValue() == slide) {
+	            int zct_index = entry.getKey();
+	            return getSlidePositionZCTArray(zct_index);
+	        }
+	    }
+	    return new int[]{-1, -1, -1};
+	}
+	
+	public int[] getSlidePositionZCTArray(int zct_index) {
+	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
+		// 線形インデックス zct_index を各次元に分解
+		// 公式: zct_index = t * (nChannels * nSlices) + z * nChannels + c
+	    if (slides == null) return new int[]{-1, -1, -1};
+        int c = zct_index % nChannels;
+        int z = (zct_index / nChannels) % nSlices;
+        int t = zct_index / (nChannels * nSlices);
+        
+        return new int[]{z, c, t};
+	}
 
 	/**
 	 * 
@@ -1446,13 +1487,19 @@ public class Praparat extends JPanel {
 		return this.mode;
 	}
 
+	/**
+     * 現在選択されているツールタイプを取得します。
+     * （SlideGlassMouseListener から呼ばれるメソッドです）
+     */
 	public int getViewer2DToolType() {
-		Window win = WindowManager.getWindow(ConfigInfo.D2ViewerWindow.toString());
-		if (win != null) {
-			Viewer2DScreen viewer2d = (Viewer2DScreen) win;
-			return viewer2d.getCurrentToolType();
+		// 1. ローカルツールが設定されていれば、それを最優先する（単独モード）
+		if (this.localToolType != -1) {
+			return this.localToolType;
 		}
-		return -1;// means "None"
+		// 2. 設定されていなければ、従来通りメイン画面のツール状態を取りに行く（通常モード）
+		int type = getCurrentViewerToolType();
+		// 3. どちらも存在しない場合の安全なデフォルト値
+		return type == Viewer2DToolBar.NONE ? Viewer2DToolBar.Windowing : type;
 	}
 
 	public void gridViewOn(boolean showFilmGrid) {
@@ -1684,8 +1731,19 @@ public class Praparat extends JPanel {
 		SlideGlass sg = slides.get(slidePos);
 		sg.addRoi(r);
 	}
-
-	public void prepareSlideGlasses(Praparat p) {
+	
+	public void loadSeries(DICOMNode seriesNode) {
+		if(seriesNode == null || seriesNode.getLevel()!=DICOMNode.SERIES) {
+			Log.logger.log(Level.WARNING,"Cannot prepare slideglasses, no series node is inputed.");
+			return;
+		}
+		String pid = seriesNode.getData(DICOMNode.PatientID);
+		String studyUid = seriesNode.getData(DICOMNode.StudyInstanceUID);
+		String seriesUid = seriesNode.getData(DICOMNode.SeriesInstanceUID);
+		loadSeries(pid, studyUid, seriesUid, null);
+	}
+	
+	public void loadSeries(Praparat p) {
 		if (p == null) {
 			logger.log(Level.SEVERE, "Can not load images from this Praparat.");
 			return;
@@ -1727,16 +1785,18 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, ArrayList<String> sopUIDs,
+	public void loadSeries(String patID, String studyUID, String seriesUID, ArrayList<String> sopUIDs,
 			ArrayList<String> pathToImages) {
 		String[] sopUids = sopUIDs.toArray(new String[sopUIDs.size()]);
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUids, pathToImages);
+		loadSeries(patID, studyUID, seriesUID, sopUids, pathToImages);
 	}
 
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
+	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs) {
 		ArrayList<String> pathToImages = null;
 		DatabaseHandler db = DatabaseHandler.getInstance();// .getDatabase();
 		if (sopUIDs == null || sopUIDs.length < 1) {
+			List<String> sopUIDsList = db.getInstanceUidList(patID, studyUID, seriesUID);
+			sopUIDs = sopUIDsList.toArray(new String[sopUIDsList.size()]);
 			// load all instances in series
 			pathToImages = db.getFileLocationsSeriesLevel(studyUID, seriesUID);
 		} else {
@@ -1751,10 +1811,10 @@ public class Praparat extends JPanel {
 			logger.warning("Cannot find images for loading...");
 			return;
 		}
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs, pathToImages);
+		loadSeries(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 	}
 
-	public void prepareSlideGlasses(String patID, String studyUID, String seriesUID, String[] sopUIDs,
+	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs,
 			List<String> pathToImages) {
 		if (pathToImages == null || pathToImages.size() == 0) {
 			System.out.println("prap needs path to images..., return.");
@@ -1779,7 +1839,7 @@ public class Praparat extends JPanel {
 	 * 
 	 * @param images
 	 */
-	public void prepareSlideGlassesUsingImagePlus(ImagePlus images) {
+	public void loadSeries(ImagePlus images) {
 		if (images == null || images.getStackSize() == 0) {
 			if (Utils.isDebug)
 				System.out.println("praparat needs images..., return.");
@@ -1822,7 +1882,7 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public void prepareSlideGlassesFromDcmObj(List<String> dcm_paths) {
+	public void loadSeries(List<String> dcm_paths) {
 		if (dcm_paths == null || dcm_paths.size() == 0) {
 			if (Utils.isDebug)
 				System.out.println("praparat needs images..., return.");
@@ -1981,6 +2041,17 @@ public class Praparat extends JPanel {
 			}
 		}
 	}
+	
+    // UIから、あるいはユーザー操作でROIが削除された時の処理
+    public void removeRoi(RoiObj roiToRemove) {
+    	boolean deleted = false;
+    	for(SlideGlass sg : slides.values()) {
+    		deleted = sg.deleteRoi(roiToRemove);
+    	}
+        if (deleted) {
+            repaint();
+        }
+    }
 
 	/**
 	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
@@ -2177,7 +2248,7 @@ public class Praparat extends JPanel {
 		if (imp == null) {
 			return;
 		}
-		prepareSlideGlassesUsingImagePlus(imp);
+		loadSeries(imp);
 		if (!isShowGridViewOn()) {
 			doSingleGridLayout();
 		} else {
@@ -2190,7 +2261,7 @@ public class Praparat extends JPanel {
 		if (pp == null) {
 			return;
 		}
-		prepareSlideGlasses(pp);
+		loadSeries(pp);
 		if (!isShowGridViewOn()) {
 			doSingleGridLayout();
 		} else {
@@ -2207,7 +2278,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		// remove current series image and get new series info
-		prepareSlideGlasses(patID, studyUID, seriesUID, sopUIDs);
+		loadSeries(patID, studyUID, seriesUID, sopUIDs);
 		if (!isShowGridViewOn()) {
 			doSingleGridLayout();
 		} else {
@@ -2640,6 +2711,14 @@ public class Praparat extends JPanel {
 		}
 		setImageFileLocations(pathToImages);
 	}
+	
+	/**
+     * Praparat単体で2DViwerツール群を強制設定する場合に使用します（Anonymizer等用）
+     * -1でリセット。
+     */
+    public void setLocalToolType(int toolType) {
+        this.localToolType = toolType;
+    }
 
 	public void setLUT(LUT lut) {
 		this.lut = lut;
@@ -2811,6 +2890,21 @@ public class Praparat extends JPanel {
 			return false;
 		}
 	}
+	
+	public boolean isLoaded(String pid, String studyUid, String seriesUid) {
+		Object uids[] = getUIDs();
+		if(uids == null) {
+			return false;
+		}
+		try {
+			if (uids[0].equals(pid) && uids[1].equals(studyUid) && uids[2].equals(seriesUid)) {
+				return true;
+			}
+		}catch(Exception e) {
+			return false;
+		}
+		return false;
+	}
 
 	public void invert() {
 		if (slides == null || slides.size() == 0) {
@@ -2950,7 +3044,7 @@ public class Praparat extends JPanel {
 		}
 
 		// 1次元インデックスの再計算
-		pendingTargetIndex = currentT * (nChannels * nSlices) + currentZ * nChannels + currentC;
+		pendingTargetIndex = getCurrentSlideZCTIndex();
 		
 		// ★ 高速スクロール時のフリーズを防ぐための遅延実行（Debounce）
 		if (scrollDebounceTimer == null) {

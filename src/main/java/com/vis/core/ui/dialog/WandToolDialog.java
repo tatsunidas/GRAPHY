@@ -423,7 +423,7 @@ public class WandToolDialog extends JDialog {
 
 		// --- 新規作成または更新 ---
 		// 作成したROIをスライドに追加（IDが同じなら更新、なければ新規追加される）
-		newRoi.setSlideGlass(sg);
+		newRoi.setSlideGlass(sg,false);
 		sg.addRoi(newRoi);
 	}
 

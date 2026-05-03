@@ -361,7 +361,7 @@ public class BirdsEyeView extends JPanel{
 			if(sopUidsInSeries != null && sopUidsInSeries.size() > 0) {
 				th = new Praparat(ViewMode.Thumbnail);
 				String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
-				th.prepareSlideGlasses(patId, studyUid, series, sopUids); 
+				th.loadSeries(patId, studyUid, series, sopUids); 
 				th.setTextVisible(false);
 				th.setAnnotationVisible(false);
 				th.doSingleGridLayout();
@@ -421,7 +421,7 @@ public class BirdsEyeView extends JPanel{
 		 * load all images
 		 */
 		if(!isMultiFrame && !isPDF) {
-			singleGridView.prepareSlideGlasses(thumbnail);
+			singleGridView.loadSeries(thumbnail);
 		}else {
 			HashMap<String, Object> info = thumbnail.getInfoSet();
 			String padId = (String)info.get(thumbnail.KEY_PadID);
@@ -429,7 +429,7 @@ public class BirdsEyeView extends JPanel{
 			String seriesUid = (String)info.get(thumbnail.KEY_SeriesUID);
 			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(padId, studyUid, seriesUid);
 			String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
-			singleGridView.prepareSlideGlasses(padId, studyUid, seriesUid, sopUids);
+			singleGridView.loadSeries(padId, studyUid, seriesUid, sopUids);
 		}
 		singleGridView.doSingleGridLayout();
 		singleGridView.showFirstImage();
@@ -445,7 +445,7 @@ public class BirdsEyeView extends JPanel{
 		//show same series in single grid view
 //		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
 		if(!isMultiFrame && !isMultiDimensional) {
-			filmGridView.prepareSlideGlasses(thumbnail);
+			filmGridView.loadSeries(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(null);
 			filmGridView.setTextVisible(false);

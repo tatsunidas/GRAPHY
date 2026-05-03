@@ -202,6 +202,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public void addRoi(RoiObj roi) {
+//		roi.setSlideGlass(this);//DO NOT set here. Should set before this.
 		roiOverlay.addRoi(roi);
 	}
 	
@@ -338,8 +339,8 @@ public class SlideGlass extends JLayeredPane {
 		return cropImp;
 	}
 
-	public void deleteRoi(RoiObj roi) {
-		roiOverlay.deleteRoi(roi);
+	public boolean deleteRoi(RoiObj roi) {
+		return roiOverlay.deleteRoi(roi);
 	}
 
 	/**
@@ -1670,7 +1671,7 @@ public class SlideGlass extends JLayeredPane {
 						"Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(ContextKey.RoiID.name()));
 				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
 				if (revivedRoi != null) {
-					revivedRoi.setSlideGlass(this);
+					revivedRoi.setSlideGlass(this, false);
 					this.addRoi(revivedRoi);
 					restoredCount++;
 					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(ContextKey.RoiID.name()));

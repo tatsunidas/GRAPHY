@@ -164,11 +164,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
         } catch (Exception ex) {}
     }
 
-	// -------------------------------------------------------------
-	// 以下、マウスドラッグ等の処理はご提供いただいたロジックそのままです。
-	// (長くなるため省略なしでそのまま記述しています)
-	// -------------------------------------------------------------
-
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		int x = e.getX();

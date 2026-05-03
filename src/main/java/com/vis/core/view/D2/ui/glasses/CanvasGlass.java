@@ -225,6 +225,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		
 		RoiObj roi = null;
 		RoiType t = RoiType.find(roiType);
+		if (t == null) {
+			System.out.println("This id is not Roi :"+roiType);
+	        return null; // 不明なツールの場合は作成しない
+	    }
 		switch (t) {
 		case RECTANGLE://0
 			roi = new RoiObj(imageX, imageY, 1, 1, 0, sg);
@@ -305,9 +309,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		repaint();
 	}
 	
-	public void deleteRoi(RoiObj roi2remove) {
+	public boolean deleteRoi(RoiObj roi2remove) {
 		if (roiset == null || roiset.size() < 1) {
-			return;
+			return false;
 		}
 		HashMap<ContextKey, String> uids = roi2remove.getUIDs();
 		String patID = uids.get(ContextKey.PatientID);
@@ -318,15 +322,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 		/*
 		 * see, deleteRoiFromDB to notify listener.
 		 */
-		deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+		boolean deleted = deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
 		if(brushTool != null) {
 			brushTool.clearCurrentBrushingRoi();
 		}
+		return deleted;
 	}
 
-	public void deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId) {
+	public boolean deleteRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId) {
 		if (roiset == null || roiset.size() < 1) {
-			return;
+			return false;
 		}
 		/*
 		 * pay attention remove item from list
@@ -363,9 +368,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 		}
 		if(roiset.size() > 0) {
-			roiset.removeAll(roi2Remove);
+			return roiset.removeAll(roi2Remove);
 		}
 		setCurrentRoi2NULL();
+		return false;
 	}
 
 	private void deleteRoiFromDB(RoiObj roi) {
@@ -514,7 +520,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		int sx = e.getX();//slide screen x (praparat view coordinates)
 		int sy = e.getY();//slide screen y (praparat view coordinates)
-		int roiType = pp.getCurrentViewerToolType();
+		int roiType = pp.getViewer2DToolType();
 		CenterPositionLine cenLine = centerPositionLineHereAt(sx,sy);
 		if(cenLine != null) {
 			int handle = cenLine.isHandle(sx, sy);
@@ -738,7 +744,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 									}
 								}
 							}
-							roi.setSlideGlass(sg);
+							roi.setSlideGlass(sg, false);
 							if (!this.roiset.contains(roi)) {
 								roiset.add(roi);
 							}
@@ -755,7 +761,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 						if(roi == null) {
 							continue;
 						}
-						roi.setSlideGlass(sg);
+						roi.setSlideGlass(sg, false);
 						if (!this.roiset.contains(roi)) {
 							roiset.add(roi);
 						}
@@ -846,6 +852,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public void mouseReleased(MouseEvent emr) {
 		if(currentRoi != null) {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
+			//作成終了時
 			if(currentRoi.getState() != RoiObj.CONSTRUCTING) {
 				saveCurrentRoiSate();
 			}

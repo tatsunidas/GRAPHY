@@ -274,10 +274,13 @@ public class OvalRoi extends RoiObj {
 		if (stroke!=null) 
 			g2d.setStroke(getScaledStroke());
 		setRenderingHint(g2d);
+		g2d.drawOval(x1, y1, w, h);
+		
 		if(fill) {
+			g2d.setColor(fillColor);
 			g2d.fillOval(x1, y1, w, h);
 		}
-		g2d.drawOval(x1, y1, w, h);
+		
 		if (clipboard==null && !overlay) {
 			drawHandle(g, x1+w2, y1+h2);
 			drawHandle(g, x3-w2, y1+h2);

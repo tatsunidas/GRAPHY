@@ -226,7 +226,7 @@ public class ShapeRoi extends RoiObj {
         sr.maxerror = maxerror;
         sr.forceAngle = forceAngle;
         sr.forceTrace = forceTrace;
-        sr.setSlideGlass(slide);//update UIDs and set new RoiID
+        sr.setSlideGlass(slide, true);//update UIDs and set new RoiID
         sr.setShape(ShapeRoi.cloneShape(shape));
         return sr;
     }

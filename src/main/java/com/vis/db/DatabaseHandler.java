@@ -2420,9 +2420,9 @@ public class DatabaseHandler {
 				(String) roiCon.get(ContextKey.Organ.name()), (String) roiCon.get(ContextKey.Description.name()),
 				roiCon.get(ContextKey.StudyDate.name()) == null ? null
 						: DateUtils.toSQLDateObj((String) roiCon.get(ContextKey.StudyDate.name())),
-				(String) roiCon.get(ContextKey.CrossSection.name()), jsonProperties, (String) roiCon.get("PatientID"),
-				(String) roiCon.get("StudyInstanceUID"), (String) roiCon.get("SeriesInstanceUID"),
-				(String) roiCon.get("SOPInstanceUID"));
+				(String) roiCon.get(ContextKey.CrossSection.name()), jsonProperties, (String) roiCon.get(ContextKey.PatientID.name()),
+				(String) roiCon.get(ContextKey.StudyInstanceUID.name()), (String) roiCon.get(ContextKey.SeriesInstanceUID.name()),
+				(String) roiCon.get(ContextKey.SOPInstanceUID.name()));
 	}
 
 	private void insertRoi(String roiId, String name, int roiType, int originX, int originY, int w, int h,

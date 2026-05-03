@@ -344,7 +344,7 @@ public class TestPraparat {
 //		}
 		
 		Praparat pp = new Praparat(ViewMode.Normal);
-		pp.prepareSlideGlassesFromDcmObj(paths);
+		pp.loadSeries(paths);
 		pp.doSingleGridLayout();
 		pp.showFirstImage();
 		javax.swing.JFrame f = loadFrame(pp);

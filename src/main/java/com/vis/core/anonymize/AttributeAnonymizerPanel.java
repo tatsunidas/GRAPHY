@@ -101,8 +101,9 @@ public class AttributeAnonymizerPanel extends JPanel {
         btnProceed.setPreferredSize(new Dimension(120, 30));
         btnProceed.addActionListener(this::onProceedClicked);
         bottomPanel.add(btnProceed, BorderLayout.EAST);
-        
-        add(bottomPanel, BorderLayout.SOUTH);
+        if(mode != Mode.PIXEL_MODE) {
+        	add(bottomPanel, BorderLayout.SOUTH);
+        }
     }
 
     // パネルがウィンドウに追加されたときに閉じるイベントをフックする

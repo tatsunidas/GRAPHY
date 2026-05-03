@@ -407,9 +407,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 								r.getSlideGlass().deleteRoi(r);
 
 								// 2. 新しいスライドの情報をセット（ここで SOPInstanceUID や InstanceNo が自動で書き換わります！）
-								r.setSlideGlass(newSg);
+								r.setSlideGlass(newSg, false);
 
-								// 3. 新しいスライドに追加（新しいスライスの画像上で描画され、DBに新規登録されます）
+								// 3. 新しいスライドに追加（新しいスライスの画像上で描画され、DBに上書きされます）
 								newSg.addRoi(r);
 
 								// リストと画面を更新して終了
@@ -466,25 +466,31 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}else {
 			rois = new HashMap<>();//init
 		}
-		StageView stage = Viewer2DScreen.getInstance().getStageViewAt(patID);
-		List<Object[]> prapCons = stage.getAllPraparatContextInfoSet();
-		for (Object[] uids : prapCons) {
-			// get current praparat
-			String studyUID = (String) uids[1];
-			String seriesUID = (String) uids[2];
-			String[] sopUIDSet = (String[]) uids[3];
-			Praparat prap = stage.getEyepiece().getPraparatAt(patID, studyUID, seriesUID, sopUIDSet);
-			ConcurrentHashMap<Integer,SlideGlass> slides = prap.getAllSlides();
-			for (Integer readPos : slides.keySet()) {
-				SlideGlass sg = slides.get(readPos);
-				ArrayList<RoiObj> rois = sg.getRois();
-				if (rois != null && rois.size() > 0) {
-					for(RoiObj r:rois) {
-						addRoiObj(r);//add to manager
+		
+		if(Viewer2DScreen.getInstance() != null) {
+			StageView stage = Viewer2DScreen.getInstance().getStageViewAt(patID);
+			if(stage != null) {
+				List<Object[]> prapCons = stage.getAllPraparatContextInfoSet();
+				for (Object[] uids : prapCons) {
+					// get current praparat
+					String studyUID = (String) uids[1];
+					String seriesUID = (String) uids[2];
+					String[] sopUIDSet = (String[]) uids[3];
+					Praparat prap = stage.getEyepiece().getPraparatAt(patID, studyUID, seriesUID, sopUIDSet);
+					ConcurrentHashMap<Integer,SlideGlass> slides = prap.getAllSlides();
+					for (Integer readPos : slides.keySet()) {
+						SlideGlass sg = slides.get(readPos);
+						ArrayList<RoiObj> rois = sg.getRois();
+						if (rois != null && rois.size() > 0) {
+							for(RoiObj r:rois) {
+								addRoiObj(r);//add to manager
+							}
+						}
 					}
 				}
 			}
 		}
+		
 		if(isVisible()) {
 			list.repaint();
 		}
@@ -566,11 +572,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				if(slide != null) {
 					/*
 					 * save undo
-					 * notify will done in canvas glass.
+					 * notify to listener will done in canvas glass.
 					 */
 					slide.deleteRoi(r);
 				}else {
-					r.notifyListeners(RoiObjListener.DELETED);
 					HashMap<ContextKey, String> uids = r.getUIDs();
 					String patID = uids.get(ContextKey.PatientID);
 					String studyUID = uids.get(ContextKey.StudyInstanceUID);
@@ -578,6 +583,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					String sopUID = uids.get(ContextKey.SOPInstanceUID);
 					String roiID = uids.get(ContextKey.RoiID);
 					DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+					r.notifyListeners(RoiObjListener.DELETED);
 				}
 			}
 		}
@@ -952,7 +958,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			int instNo = -1;
 			if(roiFramePos >= 0) {
 				SlideGlass s = prap.getAllSlides().get(roiFramePos);
-				roiObj.setSlideGlass(s);
+				roiObj.setSlideGlass(s, false);
 				s.addRoi(roiObj);
 			}else {//no consistent roi
 				//escape by InstNo
@@ -972,14 +978,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					for (Integer readingOrder : keys) {
 						SlideGlass s = prap.getAllSlides().get(readingOrder);
 						if (s.getInstanceNo() == instNo) {
-							roiObj.setSlideGlass(s);
+							roiObj.setSlideGlass(s, false);
 							s.addRoi(roiObj);
 						}
 					}
 				}else {
 					//set current slide
 					SlideGlass s = prap.getCurrentSlide();
-					roiObj.setSlideGlass(s);
+					roiObj.setSlideGlass(s, false);
 					s.addRoi(roiObj);
 				}
 			}
@@ -1355,7 +1361,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			if(type == RoiType.RECTANGLE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null);
-				polyRoi.setSlideGlass(s);
+				polyRoi.setSlideGlass(s, false);
 				polyRoi.fitSpline(100);
 				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
 				if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
@@ -1378,14 +1384,14 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 						sparseY[j] = yps[i];
 					}
 					PolygonRoi polyRoi = new PolygonRoi(new Polygon(sparseX, sparseY, newSize), RoiType.POLYGON.id(), null);
-					polyRoi.setSlideGlass(s);
+					polyRoi.setSlideGlass(s,false);
 					polyRoi.fitSpline(100);
 					polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
 					if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
 					continue;
 				}
 				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null);
-				polyRoi.setSlideGlass(s);
+				polyRoi.setSlideGlass(s,false);
 				polyRoi.fitSpline(100);
 				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "true");
 				if(s != null) s.replaceRoi(roi.getUIDs(), polyRoi);
@@ -1425,7 +1431,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			if(type != RoiType.COMPOSITE.id()) {
 				FloatPolygon fpg = roi.getFloatPolygon();
 				PolygonRoi polyRoi = new PolygonRoi(fpg, RoiType.POLYGON.id(), null);
-				polyRoi.setSlideGlass(s);
+				polyRoi.setSlideGlass(s,false);
 				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
 				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}else{
@@ -1435,7 +1441,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				int[] xps = poly.xpoints;
 				int[] yps = poly.ypoints;
 				PolygonRoi polyRoi = new PolygonRoi(new Polygon(xps, yps, num), RoiType.POLYGON.id(), null);
-				polyRoi.setSlideGlass(s);
+				polyRoi.setSlideGlass(s,false);
 				polyRoi.setProperty(RoiMetaContextKey.isSplineFit.name(), "false");
 				s.replaceRoi(roi.getUIDs(), polyRoi);
 			}

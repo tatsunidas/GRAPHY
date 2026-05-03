@@ -342,8 +342,8 @@ public class TextRoi extends RoiObj {
     }
     
     @Override
-    public void setSlideGlass(SlideGlass sg) {
-    	super.setSlideGlass(sg);
+    public void setSlideGlass(SlideGlass sg, boolean updateRoiID) {
+    	super.setSlideGlass(sg, updateRoiID);
     	if(sg != null && textArea != null) {
     		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
     		textArea.setName(getProperty(ContextKey.RoiID.name()));
