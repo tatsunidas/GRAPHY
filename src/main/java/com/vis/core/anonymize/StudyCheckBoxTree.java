@@ -1,9 +1,11 @@
+/**
+ * Copyright visionary imaging services, inc.
+ * @author tatsunidas
+ */
 package com.vis.core.anonymize;
 
 import javax.swing.*;
 import javax.swing.tree.*;
-
-import com.vis.core.view.D2.ui.glasses.Praparat;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -13,7 +15,7 @@ import java.util.HashMap;
 @SuppressWarnings("serial")
 public class StudyCheckBoxTree extends JTree {
 
-	public StudyCheckBoxTree(DefaultMutableTreeNode root, PixelAnonymizerPanel pap, Praparat pp) {
+	public StudyCheckBoxTree(DefaultMutableTreeNode root, PixelAnonymizerPanel pap) {
 		super(root);
 		setCellRenderer(new CheckBoxTreeCellRenderer());
 		// マウスクリックでチェックボックスを切り替えるリスナー (修正版)

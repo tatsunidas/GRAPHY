@@ -629,6 +629,64 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		this.fmi = fmi;
 	}
 	
+//	@Override
+//	public void setPixelData(int frame/*0 base*/, int w, int h, int samples, int bitsPerPixelSample, Object pixels) {
+//		
+//		byte[] pixelsByte = null;
+//		if(pixels instanceof byte[]) {
+//			pixelsByte = (byte[])pixels;
+//		}else if(pixels instanceof short[]) {
+//			short[] pixels_ = (short[])pixels;
+//			pixelsByte = ByteUtils.shortToBytes(pixels_, bigEndian());
+//		}else if(pixels instanceof float[]) {
+//			float[] pixels_ = (float[])pixels;
+//			pixelsByte = ByteUtils.floatToBytes(pixels_, bigEndian());
+//		}else if(pixels instanceof double[]) {
+//			double[] pixels_ = (double[])pixels;
+//			pixelsByte = ByteUtils.doubleToBytes(pixels_, bigEndian());
+//		}else if(pixels instanceof int[] && samples == 3) {//RGB
+//			int[] pixels_ = (int[])pixels;
+//			pixelsByte = ByteUtils.intToBytes(pixels_, true/*ignore alpha*/);
+//		}
+//		
+//		if(frame < 0 || frame > getNumOfFrames()) {
+//			throw new IllegalArgumentException("num of frames is invalid...");
+//		}
+//		if(w != getWidth() || h != getHeight() || samples != getSamples()) {
+//			throw new IllegalArgumentException("num of pixels does not match...");
+//		}
+//		
+//		int bitsAllocated = getBitsAllocated();
+//		
+//		Object bulk = null;
+//		// load from original bitsAllocated
+//		if(bitsAllocated == 32 && samples == 1) {
+//			bulk = header.getValue(Tag.FloatPixelData);
+//		}else if(bitsAllocated == 64 && samples == 1) {
+//			bulk = header.getValue(Tag.DoubleFloatPixelData);
+//		}else {
+//			bulk = header.getValue(Tag.PixelData);
+//		}
+//
+//		if (bulk instanceof Fragments) {
+//			Fragments frags = (Fragments) bulk;
+//			Object frag = frags.get(frame + 1);// frame number count from 1
+//			if (frag instanceof byte[]) {
+//				frags.set(frame + 1, pixels);
+//			}
+//		} else if (bulk instanceof byte[] || bulk == null/* from scratch */) {
+//			if (bitsAllocated == 32 && samples == 1) {
+//				header.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
+//			} else if (bitsAllocated == 64 && samples == 1) {
+//				header.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
+//			} else if (bitsAllocated > 8 && bitsAllocated <= 16) {
+//				header.setBytes(Tag.PixelData, VR.OW, pixelsByte);
+//			} else {
+//				header.setBytes(Tag.PixelData, VR.OB, pixelsByte);
+//			}
+//		}
+//	}
+	
 	@Override
 	public void setPixelData(int frame/*0 base*/, int w, int h, int samples, int bitsPerPixelSample, Object pixels) {
 		
@@ -649,7 +707,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			pixelsByte = ByteUtils.intToBytes(pixels_, true/*ignore alpha*/);
 		}
 		
-		if(frame < 0 || frame > getNumOfFrames()) {
+		if(frame < 0 || frame >= getNumOfFrames()) {
 			throw new IllegalArgumentException("num of frames is invalid...");
 		}
 		if(w != getWidth() || h != getHeight() || samples != getSamples()) {
@@ -658,33 +716,65 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		
 		int bitsAllocated = getBitsAllocated();
 		
-		Object bulk = null;
-		// load from original bitsAllocated
+		int tag = Tag.PixelData;
+		VR vr = (bitsAllocated > 8 && bitsAllocated <= 16) ? VR.OW : VR.OB;
+		
 		if(bitsAllocated == 32 && samples == 1) {
-			bulk = header.getValue(Tag.FloatPixelData);
-		}else if(bitsAllocated == 64 && samples == 1) {
-			bulk = header.getValue(Tag.DoubleFloatPixelData);
-		}else {
-			bulk = header.getValue(Tag.PixelData);
+			tag = Tag.FloatPixelData;
+			vr = VR.OF;
+		} else if(bitsAllocated == 64 && samples == 1) {
+			tag = Tag.DoubleFloatPixelData;
+			vr = VR.OD;
 		}
+
+		Object bulk = header.getValue(tag);
 
 		if (bulk instanceof Fragments) {
 			Fragments frags = (Fragments) bulk;
-			Object frag = frags.get(frame + 1);// frame number count from 1
-			if (frag instanceof byte[]) {
-				frags.set(frame + 1, pixels);
+			if (frame + 1 < frags.size()) {
+				frags.set(frame + 1, pixelsByte);
 			}
-		} else if (bulk instanceof byte[] || bulk == null/* from scratch */) {
-			if (bitsAllocated == 32 && samples == 1) {
-				header.setBytes(Tag.FloatPixelData, VR.OF, pixelsByte);
-			} else if (bitsAllocated == 64 && samples == 1) {
-				header.setBytes(Tag.DoubleFloatPixelData, VR.OD, pixelsByte);
-			} else if (bitsAllocated > 8 && bitsAllocated <= 16) {
-				header.setBytes(Tag.PixelData, VR.OW, pixelsByte);
+		} else {
+			// ★ BulkDataやキャッシュ状態に関わらず、確実に byte[] として上書きセットする
+			int numFrames = getNumOfFrames();
+			if (numFrames == 1) {
+				// 単一スライスならそのまま上書き
+				header.setBytes(tag, vr, pixelsByte);
 			} else {
-				header.setBytes(Tag.PixelData, VR.OB, pixelsByte);
+				// マルチフレーム(非圧縮)の場合は全データを展開して該当フレームを差し替え
+				byte[] allPixels = getNativePixelDataAll(tag, bulk);
+				if (allPixels != null) {
+					int frameLength = pixelsByte.length;
+					int offset = frame * frameLength;
+					System.arraycopy(pixelsByte, 0, allPixels, offset, frameLength);
+					header.setBytes(tag, vr, allPixels);
+				} else {
+				    byte[] newAllPixels = new byte[pixelsByte.length * numFrames];
+				    System.arraycopy(pixelsByte, 0, newAllPixels, frame * pixelsByte.length, pixelsByte.length);
+				    header.setBytes(tag, vr, newAllPixels);
+				}
 			}
 		}
+	}
+	
+	/**
+	 * BulkDataなどの参照からすべての生ピクセルデータを抽出するヘルパーメソッド
+	 */
+	private byte[] getNativePixelDataAll(int tag, Object bulk) {
+		if (bulk instanceof byte[]) {
+			return (byte[]) bulk;
+		} else if (bulk instanceof BulkData) {
+			try {
+				return ((BulkData) bulk).toBytes(((Attributes)this.header).getVR(tag), bigEndian());
+			} catch (IOException e) {
+				e.printStackTrace();
+				return null;
+			}
+		}
+		byte[] allPixels = ((Attributes)this.header).getSafeBytes(tag);
+		if (allPixels != null) return allPixels;
+		
+		return null;
 	}
 	
 	@Override

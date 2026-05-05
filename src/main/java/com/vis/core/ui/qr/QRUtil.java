@@ -167,11 +167,10 @@ public class QRUtil {
 	
 	public static boolean inLocalInstance(DICOMNode qrInstNode) {
 		DatabaseHandler db = DatabaseHandler.getInstance();
-		String patID = qrInstNode.getData("PatientID");
 		String studyIUID = qrInstNode.getData("StudyInstanceUID");
 		String seriesIUID = qrInstNode.getData("SeriesInstanceUID");
 		String sopIUID = qrInstNode.getData("SOPInstanceUID");
-		boolean imageFound = db.checkImageRecordExists(patID, studyIUID, seriesIUID,sopIUID);
+		boolean imageFound = db.checkImageRecordExists(studyIUID, seriesIUID,sopIUID);
 		if(!imageFound) {
 			return false;
 		}

@@ -189,12 +189,11 @@ public class DatabaseHandler {
 	}
 
 	public boolean checkCanImport(DicomObject ds) {
-		String patID = ds.getString(Tag.Patient​ID);
 		String studyUID = ds.getString(Tag.Study​Instance​UID);
 		String seriesUID = ds.getString(Tag.Series​Instance​UID);
 		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
-		if (checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
+		if (checkImageRecordExists(studyUID, seriesUID, sopUID)) {
 			return false;
 		} else {
 			return true;
@@ -237,13 +236,12 @@ public class DatabaseHandler {
 		// このメソッドはそれをキャッチせず、そのまま呼び出し元にスローします。
 	}
 
-	public boolean checkImageRecordExists(String patID, String studyIUID, String seriesIUID, String sopIUID) {
-		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+	public boolean checkImageRecordExists(String studyIUID, String seriesIUID, String sopIUID) {
+		String statement = "SELECT * FROM IMAGE WHERE StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
-			pstmt.setString(1, patID);
-			pstmt.setString(2, studyIUID);
-			pstmt.setString(3, seriesIUID);
-			pstmt.setString(4, sopIUID);
+			pstmt.setString(1, studyIUID);
+			pstmt.setString(2, seriesIUID);
+			pstmt.setString(3, sopIUID);
 			try (ResultSet rset = pstmt.executeQuery();) {
 				if (rset.next()) {
 					conn.commit();
@@ -2718,14 +2716,13 @@ public class DatabaseHandler {
 	/*
 	 * get saveAsLink information from instance
 	 */
-	public boolean isInstanceSavedAsLink(String patID, String studyUID, String seriesUID, String sopUID) {
+	public boolean isInstanceSavedAsLink(String studyUID, String seriesUID, String sopUID) {
 		boolean res = false;
-		String statement = "SELECT * FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
+		String statement = "SELECT * FROM IMAGE WHERE StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
-			pstmt.setString(1, patID);
-			pstmt.setString(2, studyUID);
-			pstmt.setString(3, seriesUID);
-			pstmt.setString(4, sopUID);
+			pstmt.setString(1, studyUID);
+			pstmt.setString(2, seriesUID);
+			pstmt.setString(3, sopUID);
 			try (ResultSet rset = pstmt.executeQuery()) {
 				if (rset.next()) {
 					res = rset.getBoolean("isLink");
@@ -3117,14 +3114,13 @@ public class DatabaseHandler {
 	}
 
 	public boolean overWriteSavedAsLinkRecord(DicomObject ds, boolean saveAsLinkWillImport) {
-		String patID = ds.getString(Tag.Patient​ID);
 		String studyUID = ds.getString(Tag.Study​Instance​UID);
 		String seriesUID = ds.getString(Tag.Series​Instance​UID);
 		String sopUID = ds.getString(Tag.SOP​Instance​UID);
 		/* check already exists */
-		if (checkImageRecordExists(patID, studyUID, seriesUID, sopUID)) {
+		if (checkImageRecordExists(studyUID, seriesUID, sopUID)) {
 			/* check existing data is savedAsLink? */
-			if (isInstanceSavedAsLink(patID, studyUID, seriesUID, sopUID)) {
+			if (isInstanceSavedAsLink(studyUID, seriesUID, sopUID)) {
 				/* Is this import try to save local? */
 				if (!saveAsLinkWillImport) {
 					return true;

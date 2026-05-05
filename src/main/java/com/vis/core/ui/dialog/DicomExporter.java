@@ -179,7 +179,7 @@ public class DicomExporter extends JFrame implements Task {
 			String studyIUID = uidInfoSet[1];
 			String seriesIUID = uidInfoSet[2];
 			String sopIUID = uidInfoSet[3];
-			if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+			if (!db.checkImageRecordExists(studyIUID, seriesIUID, sopIUID)) {
 				continue;
 			}
 			if (patID == null || patID.equals("") || patID.contentEquals(" ")) {
@@ -302,7 +302,7 @@ public class DicomExporter extends JFrame implements Task {
 						/*
 						 * here, drop instance which does not have accurate UID combination. 
 						 */
-						if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+						if (!db.checkImageRecordExists(studyIUID, seriesIUID, sopIUID)) {
 							continue;
 						}
 						candidate.add(new String[] {patID, studyIUID, seriesIUID, sopIUID});
@@ -456,7 +456,7 @@ public class DicomExporter extends JFrame implements Task {
 							/*
 							 * here, drop instance which does not have accurate UID combination.
 							 */
-							if (!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+							if (!db.checkImageRecordExists(studyIUID, seriesIUID, sopIUID)) {
 								continue;
 							}
 							if (patID == null || patID.equals("") || patID.contentEquals(" "/* full-width */)) {

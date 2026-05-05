@@ -32,9 +32,9 @@ public class AnonymizeConfig {
     private String replacePatientName = "de-identified";
     private String replacePatientId = "de-identified";
     
-    private long randomSeed;
+    private Long randomSeed;
     
-    public long getRandomSeed() {
+    public Long getRandomSeed() {
 		return randomSeed;
 	}
 	public void setRandomSeed(Long randomSeed) {

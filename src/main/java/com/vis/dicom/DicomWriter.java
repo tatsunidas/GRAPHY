@@ -37,8 +37,13 @@
  */
 package com.vis.dicom;
 
+import java.io.IOException;
+
 import com.vis.dicom.dcm4cheImpl.DicomWriterChe;
 
+/**
+ * @author tatsunidas
+ */
 public interface DicomWriter {
 	
 	public static DicomWriter newDicomWriter() {
@@ -66,5 +71,25 @@ public interface DicomWriter {
 	public void write(DicomObject dataset, String tsUID, String dest);
 	public void write(DicomObject dataset, String dest, String tsUID, boolean withDcmExtension);
 	public void writeDicomImage(DicomObject core, DicomObject fmi, String dest, boolean withDcmExtension); 
+	
+	// =========================================================================
+    // マルチフレーム ストリーム書き出し用 API
+    // =========================================================================
+    
+    /**
+     * マルチフレーム出力のためのストリームを開き、ヘッダー情報を書き込みます。
+     */
+    public void openStream(DicomObject core, DicomObject fmi, String dest, String tsUID, 
+                           int numFrames, int bitsAllocated, int samples, int width, int height) throws IOException;
+    
+    /**
+     * 1フレーム分のピクセルデータをストリームに追記します。
+     */
+    public void writeFrame(byte[] frameBytes) throws IOException;
+    
+    /**
+     * ストリームを閉じます。
+     */
+    public void closeStream() throws IOException;
 
 }

@@ -794,4 +794,43 @@ public class DicomObjectChe extends Attributes implements DicomObject{
                     + ",eeee).");
         
     }
+
+	// ==========================================================
+    // カプセル化ピクセルデータ（MPEG等）用のI/O実装
+    // ==========================================================
+    @Override
+    public byte[] getEncapsulatedPixelData() {
+        Object bulk = super.getValue(org.dcm4che3.data.Tag.PixelData);
+        if (bulk instanceof org.dcm4che3.data.Fragments) {
+            org.dcm4che3.data.Fragments frags = (org.dcm4che3.data.Fragments) bulk;
+            // 0番目はBasic Offset Tableなので、1番目以降が実際のデータ
+            if (frags.size() > 1) {
+                Object frag = frags.get(1);
+                if (frag instanceof byte[]) return (byte[]) frag;
+                if (frag instanceof org.dcm4che3.data.BulkData) {
+                    try { return ((org.dcm4che3.data.BulkData) frag).toBytes(org.dcm4che3.data.VR.OB, false); }
+                    catch (Exception e) { e.printStackTrace(); }
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void setEncapsulatedPixelData(byte[] data) {
+        Object bulk = super.getValue(org.dcm4che3.data.Tag.PixelData);
+        if (bulk instanceof org.dcm4che3.data.Fragments) {
+            org.dcm4che3.data.Fragments frags = (org.dcm4che3.data.Fragments) bulk;
+            if (frags.size() > 1) {
+                // DICOM仕様: Fragmentは必ず偶数バイト長でなければならない
+                if (data.length % 2 != 0) {
+                    byte[] padded = new byte[data.length + 1];
+                    System.arraycopy(data, 0, padded, 0, data.length);
+                    padded[data.length] = 0x00; // パディング追加
+                    data = padded;
+                }
+                frags.set(1, data);
+            }
+        }
+    }
 }

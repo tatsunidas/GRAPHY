@@ -1,3 +1,7 @@
+/**
+ * Copyright visionary imaging services, inc.
+ * @author tatsunidas
+ */
 package com.vis.core.anonymize;
 
 import java.awt.BorderLayout;

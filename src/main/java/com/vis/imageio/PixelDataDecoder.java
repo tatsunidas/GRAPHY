@@ -362,112 +362,10 @@ public class PixelDataDecoder {
 		}
 	}
 
-	/*
-	 * old code
-	 */
-//	@Deprecated
-//	private ImagePlus read() {
-//		ImageStack is = new ImageStack(w, h);
-//		for (int i = 0; i < frames; i++) {
-//			byte[] pixels = (byte[]) dcm.getPixelData(i);
-//			ImageProcessor ip = null;
-//			if (samplesPerPixel == 1 && bitsAllocated == 8) {
-//				if (pixels.length == w * h * 2) {
-//					// decompressed pixel
-//					short[] spix = new short[pixels.length / 2];
-//					com.vis.core.util.ByteUtils.bytesToShorts(pixels, spix, 0, spix.length,
-//							dcm.getHeader().bigEndian());
-//					ShortProcessor sp = new ShortProcessor(w, h);
-//					sp.setPixels(spix);
-//					ip = new ByteProcessor(w, h);
-//					ip.setPixels(sp.convertToByteProcessor());
-//					continue;
-//				}
-//				ByteBuffer buffer = null;
-//				if (bigEndian) {
-//					buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//				} else {
-//					buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//				}
-//				ip = new ByteProcessor(w, h);
-//				ip.setPixels(buffer.array());
-//			} else if (samplesPerPixel == 1 && bitsAllocated == 16) {
-//				short[] pixelsShort = toShortArray((byte[]) pixels);
-//				ip = new ShortProcessor(w, h);
-//				ip.setPixels(pixelsShort);
-//			} else if (samplesPerPixel == 1 && bitsAllocated == 32) {
-//				float[] pixelsFloat = toFloatArray((byte[]) pixels);
-//				ip = new FloatProcessor(w, h);
-//				ip.setPixels(pixelsFloat);
-//			} else if (samplesPerPixel == 1 && bitsAllocated == 64) {
-//				/*
-//				 * return 32 bit float.
-//				 */
-//				double[] pixelsDouble = toDoubleArray((byte[]) pixels);
-//				float[] pixelsFloat = doubleArray2floatArray(pixelsDouble);
-//				ip = new FloatProcessor(w, h);
-//				ip.setPixels(pixelsFloat);
-//			}
-//
-//			if (samplesPerPixel == 3) {
-//				ip = transformRGB2Processor(w, h, pixels);
-//			}
-//			is.addSlice(String.valueOf((i + 1)), ip, i);
-//		}
-//		ImagePlus imp = new ImagePlus("", is);
-//		return imp;
-//	}
-//
-//	private short[] toShortArray(byte[] pixels) {
-//		
-//		short[] shortArray = new short[pixels.length / 2];
-//		ByteBuffer buffer = null;
-//		if (bigEndian) {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//		} else {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//		}
-//		buffer.asShortBuffer().get(shortArray);
-//		if (!signed) {// unsigned
-//			/*
-//			 * If unsigned, just auto-boxing as short. (short)org_pix.
-//			 */
-//			return shortArray;
-//		} else {// signed
-//			/*
-//			 * see also slideglass::initImageInfo() that adjust image pixel density.
-//			 */
-//			convertToUnsigned(shortArray);
-//			return shortArray;
-//		}
-//	}
-//
-//	private float[] toFloatArray(byte[] pixels) {
-//		ByteBuffer buffer = ByteBuffer.wrap(pixels);
-//		if (bigEndian) {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//		} else {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//		}
-//		FloatBuffer fb = buffer.asFloatBuffer();// .get(floatArray);
-//		float[] floatArray = new float[fb.remaining()];
-//		fb.get(floatArray);
-//		return floatArray;
-//	}
-//
-//	private double[] toDoubleArray(byte[] pixels) {
-//		ByteBuffer buffer = ByteBuffer.wrap(pixels);
-//		if (bigEndian) {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.BIG_ENDIAN);
-//		} else {
-//			buffer = ByteBuffer.wrap(pixels).order(ByteOrder.LITTLE_ENDIAN);
-//		}
-//		DoubleBuffer db = buffer.asDoubleBuffer();
-//		double[] doubleArray = new double[db.remaining()];
-//		db.get(doubleArray);
-//		return doubleArray;
-//	}
 
+	/*
+	 * imp's imageprocessor is always unsigned.
+	 */
 	public byte[] pixel2Byte(ImagePlus imp) {
 		int bits = imp.getBitDepth();
 		int sample = imp.getChannel();
@@ -521,6 +419,73 @@ public class PixelDataDecoder {
 		}
 		return blob;
 	}
+	
+	/**
+     * ImageProcessorのピクセルを、DICOMの形式（エンディアン、符号、RGB順など）に合わせてByte配列にエンコードする
+     */
+    public byte[] encodeImageProcessorToBytes(ij.process.ImageProcessor ip, com.vis.dicom.image.DicomImage dcm) {
+        int bits = dcm.getBitsAllocated();
+        int samples = dcm.getSamples();
+        Object pixels = ip.getPixels();
+        int w = ip.getWidth();
+        int h = ip.getHeight();
+        int length = w * h * samples * (bits / 8);
+        byte[] blob = new byte[length];
+        
+        boolean isBigEndian = dcm.getHeader().bigEndian();
+        
+        if (bits == 8 && samples == 1) {
+            byte[] pix = (byte[]) pixels;
+            if (dcm.isSigned()) {
+                for(int i=0; i<pix.length; i++) {
+                	int unsignedVal = pix[i] & 0xFF;
+                	byte signedVal = (byte)(unsignedVal - 128);
+                	blob[i] = signedVal;
+                }
+            } else {
+                System.arraycopy(pix, 0, blob, 0, pix.length);
+            }
+        } else if (bits == 16 && samples == 1) {
+            short[] pix = (short[]) pixels;
+            boolean signed = dcm.isSigned();
+            java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(length);
+            if (isBigEndian) buffer.order(java.nio.ByteOrder.BIG_ENDIAN);
+            else buffer.order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            for (int i=0;i<pix.length; i++) {
+                if (signed) {
+                	int unsignedVal = pix[i] & 0xFFFF;
+                	short signedVal = (short)(unsignedVal - 32768);
+                	buffer.putShort(signedVal);
+                }else {
+                	buffer.putShort(pix[i]);
+                }
+            }
+            blob = buffer.array();
+        } else if (bits == 32 && samples == 1) {
+            float[] pix = (float[]) pixels;
+            java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(length);
+            if (isBigEndian) buffer.order(java.nio.ByteOrder.BIG_ENDIAN);
+            else buffer.order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            for (float p : pix) buffer.putFloat(p);
+            blob = buffer.array();
+        } else if (bits == 8 && samples == 3) {
+            int[] pix = (int[]) pixels;
+            int loc = 0;
+            if (dcm.isBanded()) { // RRR...GGG...BBB
+                int size = w * h;
+                for (int i=0; i<size; i++) blob[i] = (byte)((pix[i] >> 16) & 0xFF);
+                for (int i=0; i<size; i++) blob[size + i] = (byte)((pix[i] >> 8) & 0xFF);
+                for (int i=0; i<size; i++) blob[size*2 + i] = (byte)(pix[i] & 0xFF);
+            } else {              // RGBRGBRGB
+                for (int rgb : pix) {
+                    blob[loc++] = (byte) ((rgb >> 16) & 0xFF);
+                    blob[loc++] = (byte) ((rgb >> 8) & 0xFF);
+                    blob[loc++] = (byte) (rgb & 0xFF);
+                }
+            }
+        }
+        return blob;
+    }
 
 	// int[] to RGB imageplus
 	/**

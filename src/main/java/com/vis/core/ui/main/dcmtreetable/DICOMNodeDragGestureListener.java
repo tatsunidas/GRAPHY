@@ -104,7 +104,7 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 			for(String studyIUID:studyIUIDs) {
 				for(String seriesIUID:seriesIUIDs) {
 					for(String sopIUID:sopIUIDs) {
-						if(!db.checkImageRecordExists(patID, studyIUID, seriesIUID, sopIUID)) {
+						if(!db.checkImageRecordExists(studyIUID, seriesIUID, sopIUID)) {
 							continue;
 						}
 						String baseDest = ConfigInfo.getPath(ConfigInfo.TemporalDirName);

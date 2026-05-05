@@ -78,6 +78,10 @@ public interface DicomObject {
 	public boolean containsTagInRange(int firstTag, int lastTag);
 
 	public String privateCreatorOf(int tag);
+	
+	public byte[] getEncapsulatedPixelData();
+	
+	public void setEncapsulatedPixelData(byte[] data);
 
 	public Object getValue(int tag);
 

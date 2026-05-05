@@ -122,4 +122,16 @@ public class DeleteFolder {
 		Path path = Paths.get(filePath);
 		return Files.exists(path) && Files.isWritable(path);
 	}
+	
+    public static void deleteDirectoryRecursively(File dir) {
+        if (dir.isDirectory()) {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    deleteDirectoryRecursively(file);
+                }
+            }
+        }
+        dir.delete();
+    }
 }

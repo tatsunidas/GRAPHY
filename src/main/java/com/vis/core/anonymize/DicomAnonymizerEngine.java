@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +37,16 @@ public class DicomAnonymizerEngine {
     // 高速検索用のルールマップ (O(1) でのルール検索用)
     // =========================================================================
     private static final Map<Integer, DicomTagRule> RULE_MAP = new HashMap<>();
+    
+    // ★ 追加: 匿名化の対象外とする（絶対に保護する）DICOM必須UIDのリスト
+    private static final Set<Integer> PROTECTED_UIDS = new HashSet<>(Arrays.asList(
+            Tag.TransferSyntaxUID,          // (0002,0010)
+            Tag.MediaStorageSOPClassUID,    // (0002,0002)
+            Tag.ImplementationClassUID,     // (0002,0012)
+            Tag.SOPClassUID,                // (0008,0016)
+            Tag.RelatedGeneralSOPClassUID,  // (0008,001A)
+            Tag.OriginalSpecializedSOPClassUID // (0008,001B)
+    ));
     
     static {
         // クラスロード時にTAG_RULESをHashMapに変換しておく
@@ -417,9 +429,23 @@ public class DicomAnonymizerEngine {
 				continue;
 			}
 
-			// UIDの一律置換
+			// UIDの安全な置換処理
 			if (vr == VR.UI) {
-				if (rule == null || !config.isRetain(rule)) {
+				// 1. ファイルの構造や形式を示す「必須UID」は絶対に置換せずスキップする
+				if (PROTECTED_UIDS.contains(tag)) {
+					continue;
+				}
+
+				// 2. Table E.1-1 に記載がある場合は、ルールに従う
+				if (rule != null && !config.isRetain(rule)) {
+					if (rule.getDefaultAction() == DicomTagRule.Action.U) {
+						replaceUidGlobally(dataset, tag, vr, globalUidMap);
+					} else {
+						applyTagAction(dataset, tag, vr, rule, config, pMap);
+					}
+				}
+				// 3. Tableに記載がない謎のUIDは、PS3.15の安全方針に則り、Retainオプションが無ければ置換する
+				else if (rule == null && !config.hasOption(AnonymizeConfig.Option.RetainUIDs)) {
 					replaceUidGlobally(dataset, tag, vr, globalUidMap);
 				}
 				continue;
