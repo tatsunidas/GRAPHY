@@ -60,6 +60,7 @@ public enum ConfigInfo {
 	D3ViewerWindow("GRAPHY 3D Window"),
 	ResultWindow("Result Window"),
 	MPRWindow("GRAPHY MPR Window"),
+	SlicerWindow("GRAPHY Slicer Window"),
 	
 	// subfolders
 	ConfDirName("conf"),
@@ -114,7 +115,7 @@ public enum ConfigInfo {
 		
 	public static String getPath(ConfigInfo name) {
 		if(name == LogFileName || name == LogFilePath) {
-			Log.logger.warning("ConfigInfo return null when Log file ...");
+			Log.logger.warning("ConfigInfo return null if Log file ...");
 			return null;
 		}
 		return "./" + name.toString();

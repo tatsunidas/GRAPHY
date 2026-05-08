@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -69,9 +69,9 @@ import ij.util.DicomTools;
  *
  */
 @SuppressWarnings("serial")
-public class MPRMenuBar extends JMenuBar implements ActionListener{
+public class SlicerMenuBar extends JMenuBar implements ActionListener{
 	
-	MPRViewerWindow mpr_win;
+	SlicerWindow mpr_win;
 	
 	private final String patIDTag = "0010,0020";
 	private final String studyUIDTag = "0020,000D";
@@ -82,7 +82,7 @@ public class MPRMenuBar extends JMenuBar implements ActionListener{
 //	private final String ipp = "0020,0032";//image position patient
 //	private final String iop = "0020,0037";//image orientation patient
 	
-	public MPRMenuBar(MPRViewerWindow win) {
+	public SlicerMenuBar(SlicerWindow win) {
 		
 		this.mpr_win = win;
 		

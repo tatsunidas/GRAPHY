@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.Color;
 import java.awt.Graphics;

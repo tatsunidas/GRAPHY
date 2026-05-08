@@ -36,7 +36,7 @@
  * ***** END LICENSE BLOCK *****
  */
 
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -58,6 +58,7 @@ import org.joml.Vector3d;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -89,7 +90,39 @@ import ij.process.ImageProcessor;
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class MPRViewerWindow extends JFrame {
+public class SlicerWindow extends JFrame {
+	
+	/*
+	 * debug
+	 */
+	public static void main(String[] args) {
+		//axi src
+//		ImagePlus ax = FolderOpener.open(
+//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		
+		ImagePlus ax2 = FolderOpener.open("D:\\HCC-TACE-Seg\\HCC-TACE-Seg\\HCC_001\\04-21-2000-NA-CT ABDPEL WC-49771\\3.000000-Recon 2 PRE LIVER-07012");
+		
+		Praparat xy_prap = new Praparat(ax2, null, ViewMode.MPR);
+		SeriesWindow se = new SeriesWindow(xy_prap);
+		se.setVisible(true);
+//		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
+//		new SlicerWindow(ax2, null);
+		
+		//cor src
+//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
+//		ImagePlus xz = FolderOpener.open(corDir);
+//		new MPRViewerWindow(xz, null);
+		
+		//sag src
+//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
+//		ImagePlus yz = FolderOpener.open(sagDir);
+//		new MPRViewerWindow(yz, null);
+		
+		//other
+//		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
+//		ImagePlus o = FolderOpener.open(otherDir);
+//		new MPRViewerWindow(o, null);
+	}
 
 	//praparat position
 	public static final int XY = 0;
@@ -97,16 +130,12 @@ public class MPRViewerWindow extends JFrame {
 	public static final int YZ = 2;
 	public static final int RECON = 3;
 
-	public static final int CROSS_MODE = 0;//ORTHO
-	public static final int SLICE_MODE = 1;//RESLICE
-
-	final MPRViewerWindow own;
+	final SlicerWindow own;
 
 	/*
 	 * https://forum.image.sc/t/rotate-line-roi-via-rotating-point-coordinates/8323
 	 */
-	private MPRControlPanel contP;
-	private int currentViewType = CROSS_MODE;
+	private SlicerControlPanel contP;
 
 	private ImagePlus imp;// src imp, to backup.
 
@@ -130,50 +159,21 @@ public class MPRViewerWindow extends JFrame {
 
 	boolean starting = true;
 	boolean standalone = false;
-	public boolean crossViewMode = true;
-	public boolean showCrossLine = false;
 
 	int reconResolution = 5; // keep odd value.
 	private final String reconNotReady = "NOT-READY";
 
 	private Logger logger = Log.logger;
 
-	/*
-	 * debug
-	 */
-	public static void main(String[] args) {
-		//axi src
-		ImagePlus ax = FolderOpener.open(
-				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		
-//		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
-		new MPRViewerWindow(ax, null);
-		
-		//cor src
-//		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
-//		ImagePlus xz = FolderOpener.open(corDir);
-//		new MPRViewerWindow(xz, null);
-		
-		//sag src
-//		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-//		ImagePlus yz = FolderOpener.open(sagDir);
-//		new MPRViewerWindow(yz, null);
-		
-		//other
-//		String otherDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/HASSAKU_3DT1 GEIR/";
-//		ImagePlus o = FolderOpener.open(otherDir);
-//		new MPRViewerWindow(o, null);
-	}
-
 	/**
 	 * See also, D3.ui.GatryTiltCorrector
 	 * @param prap
 	 */
-	public MPRViewerWindow(Praparat prap) {
+	public SlicerWindow(Praparat prap) {
 		this(prap.getImagePlus(), prap.getStudyColor());
 	}
 
-	public MPRViewerWindow(ImagePlus imp, Color studyColor) {
+	public SlicerWindow(ImagePlus imp, Color studyColor) {
 		if (imp == null || imp.getStackSize() < 1) {
 			throw new IllegalArgumentException("Number of images not enough.");
 		}
@@ -237,43 +237,15 @@ public class MPRViewerWindow extends JFrame {
 		return contP.getNumberOfSlices();
 	}
 	
-	public int getCurrentViewType() {
-		return currentViewType;
-	}
-	
 	public ImagePlus getSrcImage() {
 		return imp;
-	}
-
-	public void crossViewModeOn(boolean on) {
-		crossViewMode = on;
-		eye.crossViewMode = on;
-		if (!crossViewMode) {
-			// disable crosslines
-			xy_prap.clearCrossLines();
-			xz_prap.clearCrossLines();
-			yz_prap.clearCrossLines();
-			xy_prap.setShowCrossLineMode(false);
-			xz_prap.setShowCrossLineMode(false);
-			yz_prap.setShowCrossLineMode(false);
-			xy_prap.repaint();
-			xz_prap.repaint();
-			yz_prap.repaint();
-		} else {
-			initCrosses(showCrossLine);
-		}
-	}
-
-	public void showCrossLine(boolean show) {
-		showCrossLine = show;
-		initCrosses(show);
 	}
 
 	private void init() {
 		srcCutSurface = ImageOrientation.getCutSurface(imp);
 		initImages();// create orthogonal images
 		buildGUI();
-		initCrosses(showCrossLine);
+		initReslice();
 		revalidate();
 		setVisible(true);
 	}
@@ -284,8 +256,8 @@ public class MPRViewerWindow extends JFrame {
 			return;
 		}
 		// init view
-		setTitle(ConfigInfo.MPRWindow.toString());
-		setName(ConfigInfo.MPRWindow.toString());
+		setTitle(ConfigInfo.SlicerWindow.toString());
+		setName(ConfigInfo.SlicerWindow.toString());
 		setSize(new Dimension(1200, 800));
 
 		WindowAdapter ada = new WindowAdapter() {
@@ -300,10 +272,10 @@ public class MPRViewerWindow extends JFrame {
 		add(eye, BorderLayout.CENTER);
 
 		// menubar
-		MPRMenuBar bar = new MPRMenuBar(this);
+		SlicerMenuBar bar = new SlicerMenuBar(this);
 		setJMenuBar(bar);
 		// control panel
-		contP = new MPRControlPanel(this);
+		contP = new SlicerControlPanel(this);
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
 
@@ -320,27 +292,22 @@ public class MPRViewerWindow extends JFrame {
 		eye.addPraparat(xz_prap);
 		eye.addPraparat(yz_prap);
 		eye.addPraparat(recon_prap);
-
-		eye.crossViewMode = this.crossViewMode;
-
-		new Thread(new Runnable() {
+		
+		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
+				// TODO Auto-generated method stub
+				xy_prap.adjustContrastAuto();
+				yz_prap.adjustContrastAuto();
+				xz_prap.adjustContrastAuto();
 				xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2 - 1);
 				xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2 - 1);
 				yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2 - 1);
 				recon_prap.setImagePositionUsingSlider(0);
 			}
-		}).start();
+		});
 		eye.autoLayout();// 2 * 2 grid layout
 		setLocationRelativeTo(null);
-	}
-
-	/*
-	 * 0:ortho 1:reslice
-	 */
-	public void setCurrentViewType(int viewType) {
-		this.currentViewType = viewType;
 	}
 	
 	ImagePlus getSliceTargetImage(CutSurface axis) {
@@ -518,9 +485,10 @@ public class MPRViewerWindow extends JFrame {
 		calHolder.setYUnit(cal.getYUnit());
 		calHolder.setZUnit(cal.getZUnit());
 		xy.setCalibration(calHolder);
-		if (src.getProcessor().isSigned16Bit()) {
-			xy.getCalibration().setSigned16BitCalibration();
-		}
+//		if (src.getProcessor().isSigned16Bit()) {
+//			xy.getCalibration().setSigned16BitCalibration();
+//		}
+		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
 		return xy;
 	}
 
@@ -542,18 +510,26 @@ public class MPRViewerWindow extends JFrame {
 			stack.addSlice(xz_.getProcessor());
 			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 		}
-		orthTool = null;
-		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
-		calHolder.pixelWidth = cal.pixelWidth;
-		calHolder.pixelHeight = cal.pixelHeight;
-		calHolder.pixelDepth = cal.pixelDepth;
-		calHolder.setXUnit(cal.getXUnit());
-		calHolder.setYUnit(cal.getYUnit());
-		calHolder.setZUnit(cal.getZUnit());
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
-		xz_imp.setCalibration(calHolder);
+		xz_imp.setCalibration(cal);
 		if (src.getProcessor().isSigned16Bit()) {
 			xz_imp.getCalibration().setSigned16BitCalibration();
+		}
+		// ▼ コントラストを引き継ぐ（追加）
+		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+
+		// ▼ XZ断面に正しい空間座標タグ(IPP, IOP)を付与する（追加）
+		double[] srcIop = GDicomTools.getImageOrientationPatient(src, 1);
+		if (srcIop != null) {
+			Vector3d rX = new Vector3d(srcIop[0], srcIop[1], srcIop[2]);
+			Vector3d rY = new Vector3d(srcIop[3], srcIop[4], srcIop[5]);
+			Vector3d rZ = new Vector3d(rX).cross(rY).normalize();
+			double[] corIop = new double[] { rX.x, rX.y, rX.z, rZ.x, rZ.y, rZ.z };
+			for (int z = 1; z <= xz_imp.getNSlices(); z++) {
+				Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(src, 0, z - 1, 1);
+				GDicomTools.setImagePositionPatient(xz_imp, z, ipp);
+				GDicomTools.setImageOrientationPatient(xz_imp, z, corIop);
+			}
 		}
 		return xz_imp;
 	}
@@ -576,18 +552,26 @@ public class MPRViewerWindow extends JFrame {
 			stack.addSlice(yz_.getProcessor());
 			stack.setSliceLabel(yz_.getInfoProperty(), w + 1);
 		}
-		orthTool = null;
-		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
-		calHolder.pixelWidth = cal.pixelWidth;
-		calHolder.pixelHeight = cal.pixelHeight;
-		calHolder.pixelDepth = cal.pixelDepth;
-		calHolder.setXUnit(cal.getXUnit());
-		calHolder.setYUnit(cal.getYUnit());
-		calHolder.setZUnit(cal.getZUnit());
 		ImagePlus yz_imp = new ImagePlus("YZ", stack);
-		yz_imp.setCalibration(calHolder);
+		yz_imp.setCalibration(cal);
 		if (src.getProcessor().isSigned16Bit()) {
 			yz_imp.getCalibration().setSigned16BitCalibration();
+		}
+		// ▼ コントラストを引き継ぐ（追加）
+		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+
+		// ▼ YZ断面に正しい空間座標タグ(IPP, IOP)を付与する（追加）
+		double[] srcIop = GDicomTools.getImageOrientationPatient(src, 1);
+		if (srcIop != null) {
+			Vector3d rX = new Vector3d(srcIop[0], srcIop[1], srcIop[2]);
+			Vector3d rY = new Vector3d(srcIop[3], srcIop[4], srcIop[5]);
+			Vector3d rZ = new Vector3d(rX).cross(rY).normalize();
+			double[] sagIop = new double[] { rY.x, rY.y, rY.z, rZ.x, rZ.y, rZ.z };
+			for (int z = 1; z <= yz_imp.getNSlices(); z++) {
+				Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(src, z - 1, 0, 1);
+				GDicomTools.setImagePositionPatient(yz_imp, z, ipp);
+				GDicomTools.setImageOrientationPatient(yz_imp, z, sagIop);
+			}
 		}
 		return yz_imp;
 	}
@@ -734,20 +718,6 @@ public class MPRViewerWindow extends JFrame {
 		repaint();
 	}
 
-	void initCrosses(boolean showCrossLine) {
-		refLines = null;
-		// set cross line mode for praps
-		xy_prap.setShowCrossLineMode(showCrossLine);
-		xz_prap.setShowCrossLineMode(showCrossLine);
-		yz_prap.setShowCrossLineMode(showCrossLine);
-		xy_prap.clearCrossLines();
-		xz_prap.clearCrossLines();
-		yz_prap.clearCrossLines();
-		xy_prap.setReferenceLineMPR(null);
-		xz_prap.setReferenceLineMPR(null);
-		yz_prap.setReferenceLineMPR(null);
-	}
-
 	void initReslice() {
 		xy_prap.setShowCrossLineMode(false);
 		xz_prap.setShowCrossLineMode(false);
@@ -872,17 +842,17 @@ public class MPRViewerWindow extends JFrame {
 	
 	private int reconMode() {
 		String reconType = contP.getReconType();
-		if(reconType.equals(MPRControlPanel.reconType[0])) {
+		if(reconType.equals(SlicerControlPanel.reconType[0])) {
 			return Slicer.SLICECUT;
-		}else if(reconType.equals(MPRControlPanel.reconType[1])) {
+		}else if(reconType.equals(SlicerControlPanel.reconType[1])) {
 			return Slicer.MEAN;
-		}else if(reconType.equals(MPRControlPanel.reconType[2])) {
+		}else if(reconType.equals(SlicerControlPanel.reconType[2])) {
 			return Slicer.MAX;
-		}else if(reconType.equals(MPRControlPanel.reconType[3])) {
+		}else if(reconType.equals(SlicerControlPanel.reconType[3])) {
 			return Slicer.MIN;
-		}else if(reconType.equals(MPRControlPanel.reconType[4])) {
+		}else if(reconType.equals(SlicerControlPanel.reconType[4])) {
 			return Slicer.MEDIAN;
-		}else if(reconType.equals(MPRControlPanel.reconType[5])) {
+		}else if(reconType.equals(SlicerControlPanel.reconType[5])) {
 			return Slicer.MODE;
 		}else {
 			return Slicer.SLICECUT;
@@ -930,32 +900,5 @@ public class MPRViewerWindow extends JFrame {
 			//do nothing
 		}
 		getContentPane().repaint();
-	}
-
-	public void initState(int newViewType) {
-		if (newViewType == currentViewType) {
-			Log.logger.fine("Same viewType, return");
-			return;
-		}
-		setCurrentViewType(newViewType);
-		if (currentViewType == MPRViewerWindow.CROSS_MODE) {
-			initCrosses(showCrossLine);
-			Log.logger.fine("init Cross mode");
-		} else if (currentViewType == MPRViewerWindow.SLICE_MODE) {
-			initReslice();
-			Log.logger.fine("init reslice mode");
-		} else if (currentViewType == 2) {
-			//add more
-		}
-		xy_prap.repaint();
-		xz_prap.repaint();
-		yz_prap.repaint();
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				revalidate();
-				repaint();
-			}
-		});
 	}
 }

@@ -1,4 +1,4 @@
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -39,7 +39,7 @@ import ij.measure.Calibration;
  */
 public class ReferenceLineMPR {
 		
-	MPRViewerWindow mprWin;
+	SlicerWindow mprWin;
 	
 	final Praparat xy_prap;
 	final ImagePlus xy;
@@ -81,7 +81,7 @@ public class ReferenceLineMPR {
 	final int MOVING_LINE = RoiObj.MOVING_HANDLE;//4, for line move.
 	final int ROTATE = 5;
 	
-	public ReferenceLineMPR(MPRViewerWindow mprWin) {
+	public ReferenceLineMPR(SlicerWindow mprWin) {
 		this.mprWin = mprWin;
 		xy_prap = mprWin.getPraparatAt(CutSurface.AXIAL);
 		xy = mprWin.xyImage();
@@ -134,17 +134,24 @@ public class ReferenceLineMPR {
 	}
 	
 	Graphics2D screenCoordinate(Graphics g, SlideGlass sg) {
-		AffineTransform aTx = new AffineTransform();
-		Graphics2D g2d = (Graphics2D)g;
-		double mag = sg.getMagnification();
-		double scaleXY[] = sg.getScaleFactor();
-		Point offset = sg.getDisplayImageOriginXY();
-		//First, translate image origin without mag and component scale.
-		aTx.translate(offset.x, offset.y);
-		//Second, scale Roi graphics
-		aTx.scale(mag*scaleXY[0],mag*scaleXY[1]);
-		g2d.setTransform(aTx);
-		return g2d;
+	    // 描画設定が他に波及しないようにGraphicsオブジェクトを複製する
+	    Graphics2D g2d = (Graphics2D)g.create();
+	    
+	    // 真っさらなものではなく、現在の変換行列（HiDPI情報込み）を取得する
+	    AffineTransform aTx = g2d.getTransform();
+	    
+	    double mag = sg.getMagnification();
+	    double scaleXY[] = sg.getScaleFactor();
+	    Point offset = sg.getDisplayImageOriginXY();
+	    
+	    // First, translate image origin without mag and component scale.
+	    aTx.translate(offset.x, offset.y);
+	    // Second, scale Roi graphics
+	    aTx.scale(mag*scaleXY[0], mag*scaleXY[1]);
+	    
+	    // 既存の行列に上乗せしたものをセット
+	    g2d.setTransform(aTx);
+	    return g2d;
 	}
 	
 	void showSliceLinesAsLocalizer(Graphics g,String cutSurfaceName) {
@@ -184,6 +191,7 @@ public class ReferenceLineMPR {
 		g2.setColor(axisColor());
 		g2.setStroke(new BasicStroke(1));
 		g2.draw(path);
+		g2.dispose();
 	}
 	
 	private void addSliceLine(GeneralPath path, List<Point2D> localizerGeo) {
@@ -222,15 +230,15 @@ public class ReferenceLineMPR {
 		if(state == MOVING) {
 			if(pp.getName().equals("XY")) {
 				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.AXIAL);
-				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				cpl.mouseDrag(offX, offY, flags); // dragSX, dragSY から offX, offY に変更
 				slab.moveSlab(shiftX, shiftY, 0);
 			}else if(pp.getName().equals("XZ")) {
 				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.CORONAL);
-				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				cpl.mouseDrag(offX, offY, flags); // 同上
 				slab.moveSlab(shiftX, 0, -1*shiftY);
 			}else if(pp.getName().equals("YZ")) {
 				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.SAGITTAL);
-				cpl.mouseDrag(dragSX, dragSY, flags);//Line
+				cpl.mouseDrag(offX, offY, flags); // 同上
 				slab.moveSlab(0, shiftX, -1*shiftY);
 			}else {
 				return;
@@ -255,7 +263,15 @@ public class ReferenceLineMPR {
 			/*
 			 * Line objects can be moved in MOVE_HANDLE mode.
 			 */
-			currentCenterLine.mouseDownInHandle(2/*center*/, dragSX, dragSY);
+			// ▼ 追加：オフスクリーン座標に変換して渡す
+			SlideGlass sg = pp.getCurrentSlide();
+			Point p = null;
+			try {
+				p = sg.offScreenCoordinate(dragSX, dragSY);
+			} catch (Exception e) {
+			}
+			currentCenterLine.mouseDownInHandle(2/*center*/, p.x, p.y);
+//			currentCenterLine.mouseDownInHandle(2/*center*/, dragSX, dragSY);
 		}else if(isPeripheralArea(pp, dragSX, dragSY)) {
 			state = ROTATE;
 		}else {
@@ -341,7 +357,9 @@ public class ReferenceLineMPR {
 		boolean found = false;
 		CenterPositionLine cenLine = centerPositionLineFrom(pp);
 		cenLine.setActiveOverlayRoi(false);// reset activate
-		handle = cenLine.isHandle(screenX, screenY);
+		// 修正前：handle = cenLine.isHandle(screenX, screenY);
+		// 修正後：取得した内部座標 (p.x, p.y) を使用する
+		handle = cenLine.isHandle(p.x, p.y);
 		if (handle == 2) {
 			cenLine.setActiveOverlayRoi(true);
 			found = true;
@@ -487,6 +505,7 @@ public class ReferenceLineMPR {
 		for(int i=0; i<numOfSlice;i++) {
 			addSlicePlane(centers[i], targetVolume, iop, slices, half_x, half_y, voxelSize, thickness);
 		}
+		
 		double rotateX = 0;
 		double rotateY = 0;
 		double rotateZ = 0;
@@ -598,11 +617,16 @@ public class ReferenceLineMPR {
 			Double thickness) {
 		//pre rotation
 		double[] iop = refIop;
+		
+		int slicePos = (int)(center.z) + 1;
+		if (slicePos < 1) slicePos = 1;
+		if (slicePos > refVolume.getNSlices()) slicePos = refVolume.getNSlices();
+		
 		Vector3d centerIPP = PlanarSupport.getNewImagePositionPatient2D(
 				refVolume, 
 				(int)(center.x), 
 				(int)(center.y),
-				(int)(center.z));
+				slicePos);
 		
 		int h = (int)Math.round(half_y*2);
 		int w = (int)Math.round(half_x*2);

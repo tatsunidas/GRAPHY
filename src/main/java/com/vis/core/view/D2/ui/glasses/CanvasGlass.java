@@ -56,13 +56,13 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.ContextKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.slicer.CenterPositionLine;
+import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.util.Platform;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
-import com.vis.core.view.mpr.CenterPositionLine;
-import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.Tag;
 

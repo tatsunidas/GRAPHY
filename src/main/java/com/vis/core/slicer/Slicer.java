@@ -1,4 +1,4 @@
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import ij.*;
 import ij.process.*;

@@ -1,4 +1,4 @@
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -9,10 +9,8 @@ import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.text.NumberFormat;
-import java.util.Arrays;
 
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
@@ -22,7 +20,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.NumberFormatter;
 
-import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.dicom.image.GDicomTools;
@@ -30,14 +27,8 @@ import com.vis.dicom.image.GDicomTools;
 import ij.util.Tools;
 
 @SuppressWarnings("serial")
-public class MPRControlPanel extends JPanel implements ItemListener, KeyListener{
+public class SlicerControlPanel extends JPanel implements ItemListener, KeyListener{
 	
-	//mode (Match with MPRViewerWindow viewType index.)
-	final static String[] modeType = new String[] {"Orthogonal","Reslice"};
-	String currentMode = modeType[0];
-	//functions of Orthogonal mode
-	final String crossViewMode = "Cross View Mode";
-	final String showCrossLineMode = "Show Cross Lines";
 	//recon mode : See also Slicer's mode.
 	final static String[] reconType = new String[] {"SLICECUT","MEAN", "MAX", "MIN", "MEDIAN","MODE"};
 	String currentReconType = reconType[0];
@@ -51,8 +42,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	JFormattedTextField snText;//num of slice, 1 >=
 	JComboBox<String> reconSelect;//names "RECON"
 	JComboBox<String> targetSlicePlaneSelect;
-	JCheckBox crossViewChk;
-	JCheckBox showCrossLineChk;
 	double defaultGap = 0;
 	double currentFOV_H;
 	double currentFOV_W;
@@ -60,66 +49,16 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	double currentGap;
 	int currentNumOfSlice = 1;
 	
-	MPRViewerWindow mprWin;
+	SlicerWindow mprWin;
 	
-	public MPRControlPanel(MPRViewerWindow mprWin) {
+	public SlicerControlPanel(SlicerWindow mprWin) {
 		this.mprWin = mprWin;
 		setContents();
 	}
 	
 	void setContents() {
 		setLayout(new BorderLayout());
-		JComboBox<String> modeSelect = new JComboBox<>(modeType);
-		modeSelect.setSize(100, 12);
-		modeSelect.setSelectedIndex(0);
-		modeSelect.setName("MODE_SELECT");
-		modeSelect.addItemListener(this);
-		add(modeSelect, BorderLayout.WEST);
-		add(constructSettingsPanel((String)modeSelect.getSelectedItem()), BorderLayout.CENTER);
-	}
-	
-	/**
-	 * change control panel
-	 * @param mode
-	 * @return
-	 */
-	JPanel constructSettingsPanel(String mode) {
-		if(mode.equals(modeType[MPRViewerWindow.CROSS_MODE])) {
-			return createOrthogonalSettings();
-		}else if(mode.equals(modeType[MPRViewerWindow.SLICE_MODE])) {
-			return createResliceSettings();
-		}else {
-			return new JPanel();
-		}
-	}
-	
-	JPanel createOrthogonalSettings() {
-		/*
-		 * TODO interpolation mode enable: select interpolation method to reslice.
-		 */
-		JPanel p = new JPanel();
-		FlowLayout layout = (FlowLayout) p.getLayout();
-		layout.setAlignment(FlowLayout.LEFT );
-		/*
-		 * Enable auto slice position mouse dragging auto 
-		 */
-		crossViewChk = new JCheckBox(crossViewMode);
-		crossViewChk.setName(crossViewMode);
-		crossViewChk.setSelected(mprWin.crossViewMode);
-		crossViewChk.addItemListener(this);
-		p.add(crossViewChk);
-		
-		showCrossLineChk = new JCheckBox(showCrossLineMode);
-		showCrossLineChk.setName(showCrossLineMode);
-		showCrossLineChk.setSelected(mprWin.showCrossLine);//false
-		showCrossLineChk.addItemListener(this);
-		/*
-		 * 20241106
-		 * Not use show cross line as default.
-		 */
-		showCrossLineChk.setEnabled(false);
-		p.add(showCrossLineChk);
-		return p;
+		add(createResliceSettings(), BorderLayout.CENTER);
 	}
 	
 	JPanel createResliceSettings() {
@@ -304,27 +243,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		return new JPanel();
 	}
 	
-	void updateSettingsPanel(String mode) {
-		if(mode.equals(currentMode)) {
-			return;
-		}
-		BorderLayout layout = (BorderLayout)getLayout();
-		remove(layout.getLayoutComponent(BorderLayout.CENTER));
-		add(constructSettingsPanel(mode), BorderLayout.CENTER);
-		currentMode = mode;
-		currentThickness = getSliceThickness();
-		currentGap = getSliceGap();
-		currentNumOfSlice = getNumberOfSlices();
-		mprWin.initState(Arrays.asList(modeType).indexOf(mode));
-		Log.logger.fine(""+Arrays.asList(modeType).indexOf(mode));
-		Log.logger.fine("ViewMode changed: "+mode);
-		/*
-		 * I know, revalidate and repaint were already done in updateSate.
-		 * But sometimes not repainting, re-run it.
-		 */
-		revalidate();
-		repaint();
-	}
 	
 	void updateSliceTargetPlane() {
 		mprWin.updateReferenceLineMPR();
@@ -379,9 +297,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 	}
 	
 	String getReconType() {
-		if(reconSelect == null || !currentMode.equals(modeType[1])) {
-			return null;
-		}
 		return (String)reconSelect.getSelectedItem();
 	}
 	
@@ -389,9 +304,7 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 		return targetSlicePlane;
 	}
 		
-	public String getCurrentMode() {
-		return currentMode;
-	}
+	public String getCurrentMode() { return "Reslice"; }
 	
 	JFormattedTextField createDoubleField() {
 		NumberFormat format = NumberFormat.getInstance();
@@ -428,9 +341,7 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 			@SuppressWarnings("unchecked")
 			JComboBox<String> cb = (JComboBox<String>)obj;
 			String name = cb.getName();
-			if(name.equals("MODE_SELECT")) {
-				updateSettingsPanel((String)cb.getSelectedItem());
-			}else if(name.equals("RECON")){
+			if(name.equals("RECON")){
 				String reconType = (String)cb.getSelectedItem();
 				this.currentReconType = reconType;
 			}else if(name.equals("TargetSlicePlaneSelect")) {
@@ -444,14 +355,6 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 				}
 				updateSliceTargetPlane();
 			}
-		}else if(obj instanceof JCheckBox) {
-			JCheckBox cb = (JCheckBox)obj;
-			String name = cb.getName();
-			if(name.equals(crossViewMode)) {
-				mprWin.crossViewModeOn(cb.isSelected());
-			}else if(name.equals(showCrossLineMode)) {
-				mprWin.showCrossLine(cb.isSelected());
-			}
 		}
 	}
 
@@ -460,11 +363,9 @@ public class MPRControlPanel extends JPanel implements ItemListener, KeyListener
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if(e.getKeyCode() == KeyEvent.VK_ENTER){
-			if(currentMode.equals(modeType[1])) {
-				mprWin.updateReferenceLineMPR();
-			}
-        }
+		if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+			mprWin.updateReferenceLineMPR();
+		}
 	}
 
 	@Override

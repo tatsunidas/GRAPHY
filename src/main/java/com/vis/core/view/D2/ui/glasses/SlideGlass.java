@@ -65,6 +65,7 @@ import org.joml.Vector3d;
 
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
+import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.util.MathUtils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -75,7 +76,6 @@ import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.SubjectOrientation;
-import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.image.DicomImage;

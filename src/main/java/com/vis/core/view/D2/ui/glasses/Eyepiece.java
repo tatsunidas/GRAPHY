@@ -80,7 +80,7 @@ public class Eyepiece extends JPanel{
 	GridLayout gridLayout = new GridLayout(1, 0, gap, gap);
 	
 	//MPR functions
-	public boolean crossViewMode;//
+	public boolean MPRViewMode;
 	
 	private Component draggingComponent = null; // 現在ドラッグ中のコンポーネント
 	private int insertionIndex = -1; // ドロップ予定のインデックス

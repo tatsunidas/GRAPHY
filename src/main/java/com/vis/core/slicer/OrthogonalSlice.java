@@ -35,7 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.image.ColorModel;
 
@@ -235,14 +235,13 @@ public class OrthogonalSlice {
 			GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
 			GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
 		}
-		Calibration cal_xz = new Calibration();
-		cal_xz.setXUnit(xunit);
-		cal_xz.setYUnit(zunit);
-		cal_xz.setZUnit(yunit);
-		cal_xz.pixelWidth = src_px;
-		cal_xz.pixelHeight = src_pz / az;
-		cal_xz.pixelDepth = src_py;
-		xz_image.setCalibration(cal_xz);
+		cal.setXUnit(xunit);
+		cal.setYUnit(zunit);
+		cal.setZUnit(yunit);
+		cal.pixelWidth = src_px;
+		cal.pixelHeight = src_pz / az;
+		cal.pixelDepth = src_py;
+		xz_image.setCalibration(cal);
 		return xz_image;
 	}
 	
@@ -380,14 +379,13 @@ public class OrthogonalSlice {
 			GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
 			GDicomTools.setImageOrientationPatient(yz_image, 1, iop);
 		}
-		Calibration cal_yz = new Calibration();
-		cal_yz.setXUnit(yunit);
-		cal_yz.setYUnit(zunit);
-		cal_yz.setZUnit(xunit);
-		cal_yz.pixelWidth = src_py;
-		cal_yz.pixelHeight = src_pz / az;
-		cal_yz.pixelDepth = src_px;
-		yz_image.setCalibration(cal_yz);
+		cal.setXUnit(yunit);
+		cal.setYUnit(zunit);
+		cal.setZUnit(xunit);
+		cal.pixelWidth = src_py;
+		cal.pixelHeight = src_pz / az;
+		cal.pixelDepth = src_px;
+		yz_image.setCalibration(cal);
 		return yz_image;
 	}
 	
@@ -491,14 +489,13 @@ public class OrthogonalSlice {
 			xy_stack.addSlice(xy_slice.getStack().getSliceLabel(1),xy_slice.getProcessor());
 		}
 		ImagePlus xy = new ImagePlus("XY", xy_stack);
-		Calibration cal_xy = new Calibration();
-		cal_xy.setXUnit(xunit);
-		cal_xy.setYUnit(zunit);
-		cal_xy.setZUnit(yunit);
-		cal_xy.pixelWidth = src_px;
-		cal_xy.pixelHeight = src_pz / az;
-		cal_xy.pixelDepth = src_py;
-		xy.setCalibration(cal_xy);
+		cal.setXUnit(xunit);
+		cal.setYUnit(zunit);
+		cal.setZUnit(yunit);
+		cal.pixelWidth = src_px;
+		cal.pixelHeight = src_pz / az;
+		cal.pixelDepth = src_py;
+		xy.setCalibration(cal);
 		return xy;
 	}
 	
@@ -600,14 +597,13 @@ public class OrthogonalSlice {
 			xy_stack.addSlice(xy_slice.getStack().getSliceLabel(1),xy_slice.getProcessor());
 		}
 		ImagePlus xy = new ImagePlus("XY", xy_stack);
-		Calibration cal_xy = new Calibration();
-		cal_xy.setXUnit(zunit);
-		cal_xy.setYUnit(xunit);
-		cal_xy.setZUnit(yunit);
-		cal_xy.pixelWidth = src_pz / az;
-		cal_xy.pixelHeight = src_px;
-		cal_xy.pixelDepth = src_py;
-		xy.setCalibration(cal_xy);
+		cal.setXUnit(zunit);
+		cal.setYUnit(xunit);
+		cal.setZUnit(yunit);
+		cal.pixelWidth = src_pz / az;
+		cal.pixelHeight = src_px;
+		cal.pixelDepth = src_py;
+		xy.setCalibration(cal);
 		return xy;
 	}
 	

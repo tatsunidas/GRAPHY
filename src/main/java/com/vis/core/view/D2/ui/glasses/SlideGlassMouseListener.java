@@ -51,7 +51,6 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.awt.geom.NoninvertibleTransformException;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,15 +64,15 @@ import javax.swing.Timer;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.slicer.CenterPositionLine;
+import com.vis.core.slicer.SlicerWindow;
+import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
-import com.vis.core.view.mpr.CenterPositionLine;
-import com.vis.core.view.mpr.MPRViewerWindow;
-import com.vis.core.view.mpr.ReferenceLineMPR;
 
 /**
  * @author tatsunidas
@@ -174,33 +173,15 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			Eyepiece eye = pp.getEyepiece();
 			if (eye != null) {
 				java.awt.Window w = SwingUtilities.getWindowAncestor(eye);
-				MPRViewerWindow mprwin = null;
-				if (w instanceof MPRViewerWindow) mprwin = (MPRViewerWindow) w;
+				SlicerWindow mprwin = null;
+				if (w instanceof SlicerWindow) mprwin = (SlicerWindow) w;
 				
 				if (mprwin != null) {
-					if (mprwin.getCurrentViewType() == MPRViewerWindow.CROSS_MODE) {
-						if (eye.crossViewMode && pp.isShowCrossLineMode()) {
-							Point p = null;
-							try { p = slide.offScreenCoordinate(x, y); } 
-							catch (NoninvertibleTransformException nte) { nte.printStackTrace(); }
-							mprwin.updateCrossSectionViews(pp, p.x, p.y);
-							return;
-						} else if (eye.crossViewMode && !pp.isShowCrossLineMode()) {
-							Point p = null;
-							try { p = slide.offScreenCoordinate(x, y); } 
-							catch (NoninvertibleTransformException nte) { nte.printStackTrace(); }
-							mprwin.updateCrossSectionViews(pp, p.x, p.y);
-							return;
-						} else if (!eye.crossViewMode && pp.isShowCrossLineMode()) {
-							return;
-						}
-					} else if (mprwin.getCurrentViewType() == MPRViewerWindow.SLICE_MODE) {
-						ReferenceLineMPR refLines = pp.getReferenceLineMPR();
-						if(refLines != null && refLines.getState() != RoiObj.NORMAL) {
-							refLines.mouseDragged(pp, x, y, e.getModifiersEx());
-							slide.lastDraggedX = x; slide.lastDraggedY = y;
-							return;
-						}
+					ReferenceLineMPR refLines = pp.getReferenceLineMPR();
+					if(refLines != null && refLines.getState() != RoiObj.NORMAL) {
+						refLines.mouseDragged(pp, x, y, e.getModifiersEx());
+						slide.lastDraggedX = x; slide.lastDraggedY = y;
+						return;
 					}
 				}
 			}
@@ -339,7 +320,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			if(pp.mode == ViewMode.MPR) {
 				Eyepiece eye = pp.getEyepiece();
-				if(eye != null && eye.crossViewMode) {
+				if(eye != null && eye.MPRViewMode) {
 					List<Praparat> praps = eye.getAllPraparat();
 					for(Praparat prap : praps) {
 						if(prap.getViewMode() == Praparat.ViewMode.MPR) {
@@ -394,7 +375,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		if (pp.mode == ViewMode.MPR) {
 			Eyepiece eye = pp.getEyepiece();
-			if (eye != null && eye.crossViewMode) {
+			if (eye != null && eye.MPRViewMode) {
 				List<Praparat> praps = eye.getAllPraparat();
 				for (Praparat prap : praps) {
 					if (prap.getViewMode() == Praparat.ViewMode.MPR) prap.clearCrossLines();

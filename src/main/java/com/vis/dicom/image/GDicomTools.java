@@ -68,12 +68,12 @@ import ij.util.Tools;
  * @author tatsunidas
  *
  */
-public class GDicomTools extends ij.util.DicomTools{
-	
+public class GDicomTools extends ij.util.DicomTools {
+
 	/**
 	 * ★ 追加：HyperStack（多次元）の場合に、スライス番号から正確な 1D インデックスを算出する
 	 */
-	public static int getRealIndex(ImagePlus imp, int slicePos/*1 to N*/) {
+	public static int getRealIndex(ImagePlus imp, int slicePos/* 1 to N */) {
 		if (imp != null && imp.isHyperStack()) {
 			int c = imp.getChannel() > 0 ? imp.getChannel() : 1;
 			int t = imp.getFrame() > 0 ? imp.getFrame() : 1;
@@ -82,26 +82,28 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 		return slicePos;
 	}
-	
+
 	/**
 	 * ImageJ標準の DicomTools.getTag はヘッダの厳格なバリデーション（PixelDataタグの有無など）を行い、
 	 * 不正とみなすと強制的に1枚目のInfoを返すというバグがあるため、使用を禁止し独自パーサーに迂回させる。
 	 */
-	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
-		if (imp == null) return null;
+	public static String getTag(ImagePlus imp, String tag/* gggg,eeee */) {
+		if (imp == null)
+			return null;
 		// カレントスライスを取得し、独自パーサーへ
 		int pos = imp.getCurrentSlice();
-		return getTag(imp, pos, new String[]{tag});
+		return getTag(imp, pos, new String[] { tag });
 	}
-	
-	public static String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
-		if (imp == null) return null;
+
+	public static String getTag(ImagePlus imp, int pos/* 1 to N */, String tag/* gggg,eeee */) {
+		if (imp == null)
+			return null;
 		// ★ imp.setSlice(pos) による無駄な再描画とフリーズを防ぎつつ、独自パーサーへ直行
-		return getTag(imp, pos, new String[]{tag});
+		return getTag(imp, pos, new String[] { tag });
 	}
-	
+
 //	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
-		//SliceLabelの先頭に改行がないとInfoプロパティしか返さない。
+	// SliceLabelの先頭に改行がないとInfoプロパティしか返さない。
 //		String v = ij.util.DicomTools.getTag(imp, tag);
 //		if(v != null) {
 //			v = v.trim();
@@ -113,7 +115,7 @@ public class GDicomTools extends ij.util.DicomTools{
 //		imp.setPosition(getRealIndex(imp, pos));
 //		return getTag(imp, tag);
 //	}
-	
+
 	/**
 	 * 階層（シーケンス）のパスを指定してDICOMタグの値を取得する
 	 * 
@@ -131,7 +133,7 @@ public class GDicomTools extends ij.util.DicomTools{
 //		if (tags.length == 1) {
 //			return getTag(imp, pos, tags[0]);
 //		}
-		
+
 		int realPos = getRealIndex(imp, pos);
 
 		// 1. スライス固有のラベル、または全体プロパティのInfoからテキストを取得
@@ -201,13 +203,12 @@ public class GDicomTools extends ij.util.DicomTools{
 
 		return null; // 結局見つからなかった場合
 	}
-	
-	
+
 	/**
-     * @param imp ImagePlus
-     * @param tag 32-bit DICOM Tag  (e.g.,: 0x00080060)
-     * @return value string or null
-     */
+	 * @param imp ImagePlus
+	 * @param tag 32-bit DICOM Tag (e.g.,: 0x00080060)
+	 * @return value string or null
+	 */
 	public static String getTag(ImagePlus imp, int tag) {
 		// 上位16ビット（グループ番号）を抽出
 		int group = (tag >> 16) & 0xFFFF;
@@ -218,36 +219,36 @@ public class GDicomTools extends ij.util.DicomTools{
 		String tagString = String.format("%04x,%04x", group, element);
 		return getTag(imp, tagString);
 	}
-	
-	public static Double getDouble(ImagePlus imp, int pos/*1 to N*/, String tag) {
+
+	public static Double getDouble(ImagePlus imp, int pos/* 1 to N */, String tag) {
 		String value = getTag(imp, pos, tag);
-		if (value==null) return Double.NaN;
+		if (value == null)
+			return Double.NaN;
 		int index3 = value.indexOf("\\");
-		if (index3>0)
+		if (index3 > 0)
 			value = value.substring(0, index3);
 		return Tools.parseDouble(value);
 	}
-	
-	public static double[] getDoubles(ImagePlus imp, int pos/*1 to N*/, String tag) {
+
+	public static double[] getDoubles(ImagePlus imp, int pos/* 1 to N */, String tag) {
 		String res = getTag(imp, pos, tag);
-		if (res == null) return null;
+		if (res == null)
+			return null;
 		String[] xyz = res.split("\\\\");
-		if(xyz == null || xyz.length < 1) {
+		if (xyz == null || xyz.length < 1) {
 			return null;
 		}
 		double[] arr = new double[xyz.length];
-		for(int i=0;i<xyz.length;i++) {
-			arr[i] = Tools.parseDouble(xyz[i]);//can keep minus in case of -0.0.
+		for (int i = 0; i < xyz.length; i++) {
+			arr[i] = Tools.parseDouble(xyz[i]);// can keep minus in case of -0.0.
 		}
 		return arr;
 	}
-	
+
 	public static double[] getDoubles(ImagePlus imp, String tag) {
-		return getDoubles(imp, imp.getCurrentSlice(),tag);
+		return getDoubles(imp, imp.getCurrentSlice(), tag);
 	}
-	
-	
-	
+
 //	/**
 //	 * Add / update meta data in ImagePlus.
 //	 * Sequence tag are ignored.
@@ -343,30 +344,34 @@ public class GDicomTools extends ij.util.DicomTools{
 //			imp.setProperty("Info", hdr);
 //		}
 //	}
-	
+
 	/**
 	 * 既存コードとの互換性用（ルート階層のタグの更新・追加）
 	 */
-	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag/*only one tag*/, String value) {
-		setTag(imp, pos, new String[]{tag}, value);
+	public static void setTag(ImagePlus imp, int pos/* 1 to N */, String tag/* only one tag */, String value) {
+		setTag(imp, pos, new String[] { tag }, value);
 	}
 
 	/**
 	 * 階層（シーケンス）のパスを指定してDICOMタグの値を更新・追加する（完全版）
-	 * @param imp ImagePlus
-	 * @param pos スライス番号 (1 to N)
-	 * @param tags タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
+	 * 
+	 * @param imp   ImagePlus
+	 * @param pos   スライス番号 (1 to N)
+	 * @param tags  タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
 	 * @param value セットしたい値
 	 */
 	public static void setTag(ImagePlus imp, int pos, String[] tags, String value) {
-		if (imp == null || tags == null || tags.length == 0) return;
+		if (imp == null || tags == null || tags.length == 0)
+			return;
 		int realPos = getRealIndex(imp, pos);
 		boolean isStack = imp.getStackSize() > 1;
 		String hdr = isStack ? imp.getStack().getSliceLabel(realPos) : (String) imp.getProperty("Info");
-		
-		if (hdr == null) hdr = "";
+
+		if (hdr == null)
+			hdr = "";
 		// 先頭の余分な改行をクリーンアップ
-		if (hdr.startsWith("\n")) hdr = hdr.substring(1);
+		if (hdr.startsWith("\n"))
+			hdr = hdr.substring(1);
 
 		String newHdr;
 		if (tags.length == 1) {
@@ -391,8 +396,9 @@ public class GDicomTools extends ij.util.DicomTools{
 		boolean found = false;
 
 		for (String line : lines) {
-			if (line.trim().isEmpty()) continue;
-			
+			if (line.trim().isEmpty())
+				continue;
+
 			// '>' で始まる行（シーケンス内のタグ）は無視し、ルート階層だけを対象にする
 			if (!found && !line.trim().startsWith(">") && line.trim().startsWith(targetTag)) {
 				sb.append(targetTag).append(": ").append(value).append("\n");
@@ -415,13 +421,14 @@ public class GDicomTools extends ij.util.DicomTools{
 	private static String updateOrAddTagSequence(String headerText, String[] tags, String value) {
 		String[] lines = headerText.split("\n");
 		StringBuilder sb = new StringBuilder();
-		
+
 		int currentTargetIndex = 0;
 		int[] sequenceDepths = new int[tags.length];
 		boolean found = false;
 
 		for (String line : lines) {
-			if (line.trim().isEmpty()) continue;
+			if (line.trim().isEmpty())
+				continue;
 
 			int depth = 0;
 			while (depth < line.length() && line.charAt(depth) == '>') {
@@ -434,9 +441,11 @@ public class GDicomTools extends ij.util.DicomTools{
 				if (currentTargetIndex == tags.length - 1) {
 					// ここでタグを挿入する！
 					String indent = "";
-					for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++) indent += ">";
-					if (!indent.isEmpty()) indent += " ";
-					
+					for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++)
+						indent += ">";
+					if (!indent.isEmpty())
+						indent += " ";
+
 					sb.append(indent).append(tags[currentTargetIndex]).append(": ").append(value).append("\n");
 					found = true;
 				}
@@ -451,7 +460,7 @@ public class GDicomTools extends ij.util.DicomTools{
 			// --- 目的のタグ（または中継するシーケンスタグ）の探索と【上書き】処理 ---
 			if (!found && currentTargetIndex < tags.length) {
 				String targetTag = tags[currentTargetIndex];
-				
+
 				if (lineContent.startsWith(targetTag)) {
 					if (currentTargetIndex == tags.length - 1) {
 						// 目的の最終タグを発見！行を新しい値で上書きする
@@ -474,15 +483,19 @@ public class GDicomTools extends ij.util.DicomTools{
 			if (currentTargetIndex == tags.length - 1) {
 				// 親シーケンス内に入ったままテキストが終了した場合
 				String indent = "";
-				for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++) indent += ">";
-				if (!indent.isEmpty()) indent += " ";
+				for (int j = 0; j < sequenceDepths[currentTargetIndex - 1] + 1; j++)
+					indent += ">";
+				if (!indent.isEmpty())
+					indent += " ";
 				sb.append(indent).append(tags[currentTargetIndex]).append(": ").append(value).append("\n");
 			} else {
 				// そもそも親のシーケンスすら存在しなかった場合、末尾にシーケンス構造ごと新規作成する
 				for (int i = currentTargetIndex; i < tags.length; i++) {
 					String indent = "";
-					for (int j = 0; j < i; j++) indent += ">";
-					if (!indent.isEmpty()) indent += " ";
+					for (int j = 0; j < i; j++)
+						indent += ">";
+					if (!indent.isEmpty())
+						indent += " ";
 
 					if (i == tags.length - 1) {
 						sb.append(indent).append(tags[i]).append(": ").append(value).append("\n");
@@ -496,99 +509,100 @@ public class GDicomTools extends ij.util.DicomTools{
 
 		return sb.toString();
 	}
-	
+
 	public static void setDoubles(ImagePlus imp, int pos, String tag, double[] values) {
 		String arr = "";
-		for(double v : values) {
+		for (double v : values) {
 			arr += String.valueOf(v) + "\\";
 		}
-		//delete end of "\\"
+		// delete end of "\\"
 		arr = arr.substring(0, arr.lastIndexOf('\\'));
 		setTag(imp, pos, tag, arr);
 	}
-	
+
 	public static double getVoxelDepth(DicomObject header) {
 		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, Double.NaN);
 		double sliceThickness = header.getDouble(Tag.Slice​Thickness, Double.NaN);
 		if (!Double.isNaN(spacingBetweenSlices)) {
-			return spacingBetweenSlices;//prior
+			return spacingBetweenSlices;// prior
 		}
-		if (!Double.isNaN(sliceThickness)){
+		if (!Double.isNaN(sliceThickness)) {
 			return sliceThickness;
 		}
 		return 1d;
 	}
-	
+
 	public static double getVoxelDepth(ImagePlus imp) {
 		double z = imp.getCalibration().pixelDepth;
 		double spacingBetweenSlices = getDouble(imp, 1, "0018,0088");
 		double sliceThickness = getDouble(imp, 1, "0018,0050");
-		
-		if(imp.getNSlices() > 1) {
+
+		if (imp.getNSlices() > 1) {
 			double[] ipp1 = getImagePositionPatient(imp, 1);
 			double[] ipp2 = getImagePositionPatient(imp, 2);
-			double[] iop = getImageOrientationPatient(imp,1);
-			
-	        if (iop == null || iop.length != 6) {
-	            throw new IllegalArgumentException("ImageOrientationPatient must be a non-null 6-element array.");
-	        }
-	        if (ipp1 == null || ipp1.length != 3) {
-	            throw new IllegalArgumentException("ImagePositionPatient1 must be a non-null 3-element array.");
-	        }
-	        if (ipp2 == null || ipp2.length != 3) {
-	            throw new IllegalArgumentException("ImagePositionPatient2 must be a non-null 3-element array.");
-	        }
-	        
-	        Vector3d rowVector = new Vector3d(iop[0], iop[1], iop[2]);
-	        Vector3d colVector = new Vector3d(iop[3], iop[4], iop[5]);
-	        
-	        Vector3d normalVector = new Vector3d();
-	        rowVector.cross(colVector, normalVector); // normalVector = rowVector x colVector
+			double[] iop = getImageOrientationPatient(imp, 1);
 
-	        double norm = normalVector.length();
+			if (iop == null || iop.length != 6) {
+				throw new IllegalArgumentException("ImageOrientationPatient must be a non-null 6-element array.");
+			}
+			if (ipp1 == null || ipp1.length != 3) {
+				throw new IllegalArgumentException("ImagePositionPatient1 must be a non-null 3-element array.");
+			}
+			if (ipp2 == null || ipp2.length != 3) {
+				throw new IllegalArgumentException("ImagePositionPatient2 must be a non-null 3-element array.");
+			}
 
-	        // JOML default error
-	        final double EPSILON = 1e-9;
-	        if (norm < EPSILON) {
-	             throw new ArithmeticException(
-	                 "Normal vector derived from ImageOrientationPatient is close to zero (length < " + EPSILON + "). Cannot calculate distance reliably."
-	             );
-	        }
+			Vector3d rowVector = new Vector3d(iop[0], iop[1], iop[2]);
+			Vector3d colVector = new Vector3d(iop[3], iop[4], iop[5]);
 
-	        Vector3d pos1 = new Vector3d(ipp1);
-	        Vector3d pos2 = new Vector3d(ipp2);
+			Vector3d normalVector = new Vector3d();
+			rowVector.cross(colVector, normalVector); // normalVector = rowVector x colVector
 
-	        //  (P2 - P1)
-	        Vector3d positionDifferenceVector = new Vector3d();
-	        pos2.sub(pos1, positionDifferenceVector); // positionDifferenceVector = pos2 - pos1
+			double norm = normalVector.length();
 
-	        double dotProduct = positionDifferenceVector.dot(normalVector);
+			// JOML default error
+			final double EPSILON = 1e-9;
+			if (norm < EPSILON) {
+				throw new ArithmeticException(
+						"Normal vector derived from ImageOrientationPatient is close to zero (length < " + EPSILON
+								+ "). Cannot calculate distance reliably.");
+			}
 
-	        // |(P2 - P1)・N| / |N|
-	        double distance = Math.abs(dotProduct) / norm;
-	        
-	        //if zero, output error message
-	        if(distance <= EPSILON) {
-	        	String msg = "Voxel depth is close to zero (distance < " + distance + "). Please check Image orientation patient slice by slice.";
-	        	msg += "ipp1:"+Arrays.toString(ipp1)+"\n";
-	        	msg += "ipp2:"+Arrays.toString(ipp2)+"\n";
-	        	msg += "Now, will return spacingBetweenSlices instead.";
-	        	Log.logger.log(Level.WARNING, msg);
-	        	return spacingBetweenSlices;
-	        }
-	        
-	        return distance;
+			Vector3d pos1 = new Vector3d(ipp1);
+			Vector3d pos2 = new Vector3d(ipp2);
+
+			// (P2 - P1)
+			Vector3d positionDifferenceVector = new Vector3d();
+			pos2.sub(pos1, positionDifferenceVector); // positionDifferenceVector = pos2 - pos1
+
+			double dotProduct = positionDifferenceVector.dot(normalVector);
+
+			// |(P2 - P1)・N| / |N|
+			double distance = Math.abs(dotProduct) / norm;
+
+			// if zero, output error message
+			if (distance <= EPSILON) {
+				String msg = "Voxel depth is close to zero (distance < " + distance
+						+ "). Please check Image orientation patient slice by slice.";
+				msg += "ipp1:" + Arrays.toString(ipp1) + "\n";
+				msg += "ipp2:" + Arrays.toString(ipp2) + "\n";
+				msg += "Now, will return spacingBetweenSlices instead.";
+				Log.logger.log(Level.WARNING, msg);
+				return spacingBetweenSlices;
+			}
+
+			return distance;
 		}
-		
+
 		if (!Double.isNaN(spacingBetweenSlices)) {
-			return spacingBetweenSlices;//prior
+			return spacingBetweenSlices;// prior
 		}
-		if (!Double.isNaN(sliceThickness)){
+		if (!Double.isNaN(sliceThickness)) {
 			return sliceThickness;
 		}
 		return z;
 	}
-	
+
 	/**
 	 * 
 	 * @param stack
@@ -607,28 +621,27 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 		return hdr;
 	}
-	
+
 	public static void headerCopy(ImagePlus from, ImagePlus to) {
-		if(from.getNSlices() != to.getNSlices()) {
+		if (from.getNSlices() != to.getNSlices()) {
 			Log.logger.info("Can not copy header, not matching stack sizes.");
 			return;
 		}
-		if(from.getNSlices() == 1) {
+		if (from.getNSlices() == 1) {
 			to.setProperty("Info", from.getInfoProperty());
-		}else {
+		} else {
 			int size = from.getNSlices();
-			for(int i=1;i<=size;i++) {
+			for (int i = 1; i <= size; i++) {
 				int index = getRealIndex(from, i);
 				String hdr = from.getStack().getSliceLabel(index);
 				to.getStack().setSliceLabel(hdr, index);
 			}
 		}
 	}
-	
+
 	/**
-	 * old codes
-     * DicomObjectからImageJ形式("gggg,eeee: value\n")の文字列を一括生成する
-     */
+	 * old codes DicomObjectからImageJ形式("gggg,eeee: value\n")の文字列を一括生成する
+	 */
 //    private static String getDicomHeaderString(DicomObject header) {
 //        StringBuilder sb = new StringBuilder();
 //        int[] tags = header.tags();
@@ -679,7 +692,7 @@ public class GDicomTools extends ij.util.DicomTools{
 //        }
 //        return sb.toString();
 //    }
-    
+
 	public static String getHeaderAsString(DicomObject header, StringBuilder sb, int depth) {
 
 		if (header == null)
@@ -710,7 +723,7 @@ public class GDicomTools extends ij.util.DicomTools{
 				// シーケンスの場合：タグ名だけ出力して中身を再帰処理
 				sb.append(indent).append(tagStr).append("  SQ (Sequence)\n");
 				DicomObject seq = header.getNestedDataset(tag);
-				if(seq != null) {
+				if (seq != null) {
 					for (int i = 0; i < seq.tags().length; i++) {
 						sb.append(indent).append(" Item #").append(i + 1).append("\n");
 						getHeaderAsString(seq, sb, depth + 1);
@@ -744,7 +757,7 @@ public class GDicomTools extends ij.util.DicomTools{
 		}
 		return sb.toString();
 	}
-    
+
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
 		if (!dcmImg.isMultiFrame()) {
 			// --- Single Frame ---
@@ -752,7 +765,7 @@ public class GDicomTools extends ij.util.DicomTools{
 
 			// ヘッダー情報の文字列を一括生成
 			String headerInfo = getHeaderAsString(dcmImg.getHeader(), new StringBuilder(), 0);
-			
+
 			// プロパティにセット (これで getInfoProperty() で取得できるようになります)
 			if (headerInfo.length() > 0) {
 				imp.setProperty("Info", headerInfo);
@@ -802,32 +815,32 @@ public class GDicomTools extends ij.util.DicomTools{
 			return newImp;
 		}
 	}
-	
+
 	public static ImagePlus dcmImgToImagePlusOld(DicomImage dcmImg, Calibration cal) {
-		if(!dcmImg.isMultiFrame()) {
-			ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(0).duplicate());
+		if (!dcmImg.isMultiFrame()) {
+			ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(0).duplicate());
 			DicomObject header = dcmImg.getHeader();
 			int[] tags = header.tags();
-			for(int t : tags) {
-				if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+			for (int t : tags) {
+				if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
 					continue;
 				}
 				com.vis.dicom.VR vr = header.getVROn(t);
-			    if (vr == com.vis.dicom.VR.SQ) {
-			        continue;
-			    }
-				
-				String ts = TagUtils.toDicomToolsString(t);
-				String vmString = TagDict.vmOf(t);
-				if(vmString == null) { // maybe private tag
+				if (vr == com.vis.dicom.VR.SQ) {
 					continue;
 				}
-				if(vmString.equals("1")) {
+
+				String ts = TagUtils.toDicomToolsString(t);
+				String vmString = TagDict.vmOf(t);
+				if (vmString == null) { // maybe private tag
+					continue;
+				}
+				if (vmString.equals("1")) {
 					String val = header.getString(t);
-			        if (val != null) {
-			            setTag(imp, 1, ts, val);
-			        }
-				}else {
+					if (val != null) {
+						setTag(imp, 1, ts, val);
+					}
+				} else {
 					String[] vals = header.getStrings(t);
 					if (vals != null && vals.length > 0) {
 						// 文字列連結をStringBuilderに変更（高速化・効率化）
@@ -842,38 +855,38 @@ public class GDicomTools extends ij.util.DicomTools{
 					}
 				}
 			}
-			if(cal != null) {
+			if (cal != null) {
 				imp.setCalibration(cal);
 			}
 			return imp;
-		}else {
+		} else {
 			int size = dcmImg.getNumOfFrames();
 			ImageStack stack = new ImageStack();
-			for(int i=0; i<size; i++) {
-				/*single frame imp*/
-				ImagePlus imp = new ImagePlus("",dcmImg.getImageProcessor(i));
+			for (int i = 0; i < size; i++) {
+				/* single frame imp */
+				ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(i));
 				DicomObject header = dcmImg.getHeader();
 				int[] tags = header.tags();
-				for(int t : tags) {
-					if(t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
+				for (int t : tags) {
+					if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
 						continue;
 					}
 					com.vis.dicom.VR vr = header.getVROn(t);
-				    if (vr == com.vis.dicom.VR.SQ) {
-				        continue;
-				    }
-					
-					String ts = TagUtils.toDicomToolsString(t);
-					String vmString = TagDict.vmOf(t);
-					if(vmString == null) { // maybe private tag
+					if (vr == com.vis.dicom.VR.SQ) {
 						continue;
 					}
-					if(vmString.equals("1")) {
+
+					String ts = TagUtils.toDicomToolsString(t);
+					String vmString = TagDict.vmOf(t);
+					if (vmString == null) { // maybe private tag
+						continue;
+					}
+					if (vmString.equals("1")) {
 						String val = header.getString(t);
-				        if (val != null) {
-				            setTag(imp, 1, ts, val);
-				        }
-					}else {
+						if (val != null) {
+							setTag(imp, 1, ts, val);
+						}
+					} else {
 						String[] vals = header.getStrings(t);
 						if (vals != null && vals.length > 0) {
 							// 文字列連結をStringBuilderに変更（高速化・効率化）
@@ -888,16 +901,16 @@ public class GDicomTools extends ij.util.DicomTools{
 						}
 					}
 				}
-				setTag(imp,(i+1),TagUtils.toDicomToolsString(Tag.Instance​Number),String.valueOf(i+1));
+				setTag(imp, (i + 1), TagUtils.toDicomToolsString(Tag.Instance​Number), String.valueOf(i + 1));
 				stack.addSlice(imp.getProcessor());
-				stack.setSliceLabel(imp.getInfoProperty(), i+1);
+				stack.setSliceLabel(imp.getInfoProperty(), i + 1);
 			}
-			ImagePlus newImp = new ImagePlus("",stack);
+			ImagePlus newImp = new ImagePlus("", stack);
 			newImp.setCalibration(cal);
 			return newImp;
 		}
 	}
-	
+
 	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
 		if (imp == null) {
 			return null;
@@ -907,29 +920,32 @@ public class GDicomTools extends ij.util.DicomTools{
 		int h = imp.getHeight();
 		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
 		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
-		
-		int s = imp.getNSlices(); 
-		
+
+		int s = imp.getNSlices();
+
 		boolean signed16 = imp.getProcessor().isSigned16Bit();
-		
+
 		for (int i = 0; i < s; i++) {
 			DicomObject core = DicomObject.newDicomObject();
-			
+
 			// 注意: addAttributes 内で imp.setSlice(i + 1) をしている場合、
 			// 多次元ImagePlusでは「現在のCとT」におけるZスライスが切り替わるだけになることがあります。
 			// 先ほど GDicomTools で実装した getRealIndex などを活用し、
 			// 1Dインデックス(i + 1)から正確なスライスのメタデータを引き出せるようにしてください。
 			addAttributes(core, i, imp, dealWithSecondaryCapture);
-			
-			DicomImage dcmImg = DicomImage.newDicomImage(null/*file path*/, core, null/*fmi null-able*/, UID.ImplicitVRLittleEndian);
-			imp.setSlice(GDicomTools.getRealIndex(imp, i+1));
+
+			DicomImage dcmImg = DicomImage.newDicomImage(null/* file path */, core, null/* fmi null-able */,
+					UID.ImplicitVRLittleEndian);
+			imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
 			Object pix = imp.getProcessor().getPixels();
 			if (signed16) {
-				short[] pixels = (short[]) pix;
-				for (int k = 0; k < pixels.length; k++) {
-					pixels[k] = (short) (pixels[k] - (short) 32768);
+				short[] originalPixels = (short[]) pix;
+				// ★ 元の配列を汚さないように、新しい配列を生成してコピー＆計算する
+				short[] copiedPixels = new short[originalPixels.length];
+				for (int k = 0; k < originalPixels.length; k++) {
+					copiedPixels[k] = (short) (originalPixels[k] - (short) 32768);
 				}
-				pix = pixels;
+				pix = copiedPixels; // コピーした方をDICOMにセットする
 			}
 			dcmImg.setPixelData(0, w, h, samples, bits, pix);
 			images.put(i, dcmImg);
@@ -1100,8 +1116,24 @@ public class GDicomTools extends ij.util.DicomTools{
 		if (pixelRepresentationString == null) {
 			pixelRepresentationString = imp.getProcessor().isSigned16Bit() ? "1" : "0";
 		}
+		
+		//Dicom tag is prefer.
 		String intercept = GDicomTools.getTag(imp, "0028,1052");
 		String slope = GDicomTools.getTag(imp, "0028,1053");
+		
+		if(intercept==null || slope==null) {
+			Calibration cal = imp.getCalibration();
+			double[] coeffs = cal.getCoefficients();
+			if (coeffs != null) {
+				if(imp.getProcessor().isSigned16Bit()) {
+					coeffs[0] += 32768;//remove -32768 from intercept.
+				}
+				intercept = String.valueOf(coeffs[0]);
+				slope = String.valueOf(coeffs[1]);
+			}
+		}
+		
+		
 		setInt(dcm, Tag.Samples​Per​Pixel, samplesPerPixel);
 		
 		if (samplesPerPixel == 3) {
@@ -1210,9 +1242,10 @@ public class GDicomTools extends ij.util.DicomTools{
 		v = v.trim();
 		dcm.setString(tag, TagDict.vrType(tag)[0], v);
 	}
-	
+
 	/**
 	 * See, SlideGlass:initCalibrationAndLUT
+	 * 
 	 * @param imp
 	 * @param header
 	 */
@@ -1305,61 +1338,59 @@ public class GDicomTools extends ij.util.DicomTools{
 //			}
 //		}
 //	}
-	
-	
+
 	/**
 	 * 
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImagePositionPatient(ImagePlus dcms, int pos, Vector3d ipp){
-		if(ipp == null) {
+	public static void setImagePositionPatient(ImagePlus dcms, int pos, Vector3d ipp) {
+		if (ipp == null) {
 			Log.logger.info("ImagePositionPatient must have 3 component x,y,z...");
 			return;
 		}
-		setImagePositionPatient(dcms, pos, new double[] {ipp.x(),ipp.y(),ipp.z()});
+		setImagePositionPatient(dcms, pos, new double[] { ipp.x(), ipp.y(), ipp.z() });
 	}
-	
+
 	/**
 	 * 
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImagePositionPatient(ImagePlus dcms, int pos, double[] ipp){
-		if(ipp == null || ipp.length != 3) {
+	public static void setImagePositionPatient(ImagePlus dcms, int pos, double[] ipp) {
+		if (ipp == null || ipp.length != 3) {
 			Log.logger.info("ImagePositionPatient must have 3 component x,y,z...");
 			return;
 		}
 		setDoubles(dcms, pos, "0020,0032", ipp);
 	}
-	
+
 	/**
 	 * 
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImageOrientationPatient(ImagePlus dcms, int pos, double[] iop){
-		if(iop == null || iop.length != 6) {
+	public static void setImageOrientationPatient(ImagePlus dcms, int pos, double[] iop) {
+		if (iop == null || iop.length != 6) {
 			Log.logger.info("ImageOrientationPatient must have 6 component y axis(Row) : xyz, x axis(Col) : xyz");
 			return;
 		}
 		setDoubles(dcms, pos, "0020,0037", iop);
 	}
-	
-	public static void setImageOrientationPatient(ImagePlus dcms, int pos, Vector3d row, Vector3d col){
-		setImageOrientationPatient(dcms, pos, new double[] {row.x, row.y, row.z,col.x, col.y, col.z});
+
+	public static void setImageOrientationPatient(ImagePlus dcms, int pos, Vector3d row, Vector3d col) {
+		setImageOrientationPatient(dcms, pos, new double[] { row.x, row.y, row.z, col.x, col.y, col.z });
 	}
-	
-	public static double[] getImagePositionPatient(ImagePlus imp, int pos/*1 to N*/) {
+
+	public static double[] getImagePositionPatient(ImagePlus imp, int pos/* 1 to N */) {
 		double[] ipp = getDoubles(imp, pos, "0020,0032");
 		return ipp;
 	}
-	
-	public static double[] getImageOrientationPatient(ImagePlus imp, int pos/*1 to N*/) {
+
+	public static double[] getImageOrientationPatient(ImagePlus imp, int pos/* 1 to N */) {
 		double[] iop = getDoubles(imp, pos, "0020,0037");
 		return iop;
 	}
-	
 
 //	/**
 //	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。
@@ -1409,38 +1440,44 @@ public class GDicomTools extends ij.util.DicomTools{
 //		// 有効なDICOMファイルが1つもなかった場合
 //		return null;
 //	}
-	
+
 	/**
 	 * SOP Class UID をもとに、Secondary Capture や 非画像データ(KO, PR, SR等) であるかを判定する。
 	 */
 	public static boolean isSecondaryCaptureOrNonImage(File f) {
 		String sopClassUID = DicomUtilities.getSOPClassUID(f.getAbsolutePath());
-		if (sopClassUID == null) return true; // UIDが読めない場合は非正規として扱う
+		if (sopClassUID == null)
+			return true; // UIDが読めない場合は非正規として扱う
 		sopClassUID = sopClassUID.trim();
 
 		// 代表的な非画像・SC系のSOP Class UIDプレフィックス
-		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.7")) return true;  // SC (Secondary Capture)
-		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.88")) return true; // SR, KO (Key Object)
-		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.11")) return true; // PR (Presentation State)
-		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.104")) return true;// Encapsulated PDF
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.7"))
+			return true; // SC (Secondary Capture)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.88"))
+			return true; // SR, KO (Key Object)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.11"))
+			return true; // PR (Presentation State)
+		if (sopClassUID.startsWith("1.2.840.10008.5.1.4.1.1.104"))
+			return true;// Encapsulated PDF
 
 		return false; // 上記以外は標準画像とみなす
 	}
 
 	/**
-	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。
-	 * ・SCやKOが通常画像と混ざっている場合は、通常画像を優先して返す。
+	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。 ・SCやKOが通常画像と混ざっている場合は、通常画像を優先して返す。
 	 * ・SCやKOしか存在しない場合は、それを代表ファイルとして返す。
 	 */
-	public static File getRepresentativeFileOfSeries(java.util.List<File> seriesFiles, java.util.List<String> errorLog) {
-		
+	public static File getRepresentativeFileOfSeries(java.util.List<File> seriesFiles,
+			java.util.List<String> errorLog) {
+
 		File fallbackFile = null;
 
 		for (File f : seriesFiles) {
 			// SCやKOなどの非標準画像かどうかのチェック
 			if (isSecondaryCaptureOrNonImage(f)) {
 				// SC/KOしかない場合の保険として、最初の1つをキープしておく
-				if (fallbackFile == null) fallbackFile = f;
+				if (fallbackFile == null)
+					fallbackFile = f;
 				continue;
 			}
 

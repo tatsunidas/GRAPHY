@@ -1,4 +1,4 @@
-package com.vis.core.view.mpr;
+package com.vis.core.slicer;
 
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;

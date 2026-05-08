@@ -78,6 +78,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 
 import com.vis.core.log.Log;
+import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.main.BirdsEyeView;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
@@ -93,7 +94,6 @@ import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.IntersectVolume;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
-import com.vis.core.view.mpr.ReferenceLineMPR;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
@@ -616,7 +616,7 @@ public class Praparat extends JPanel {
 		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
-			sg.imageSpecimen.setOriginalCalibration(cal);
+//			sg.imageSpecimen.setOriginalCalibration(cal);
 			slides.put(i, sg);
 		}
 
