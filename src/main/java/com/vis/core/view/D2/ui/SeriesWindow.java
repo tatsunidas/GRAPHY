@@ -45,6 +45,7 @@ import java.awt.event.WindowEvent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.SwingUtilities;
 
 import com.vis.core.ui.dialog.SaveImage;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -100,7 +101,12 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 		/*
 		 * here, must be run to show single image.
 		 */
-		prap.doSingleGridLayout();
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				prap.doSingleGridLayout();
+			}
+		});
 	}
 
 	private void setMenu() {

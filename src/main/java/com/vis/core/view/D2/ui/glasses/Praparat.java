@@ -1227,7 +1227,7 @@ public class Praparat extends JPanel {
 
 			ImagePlus sliceImp = GDicomTools.dcmImgToImagePlus(dcmImg, orgCal);
 			
-			System.out.println("SLICE IPP:"+GDicomTools.getTag(sliceImp, Tag.ImagePositionPatient));
+//			System.out.println("SLICE IPP:"+GDicomTools.getTag(sliceImp, Tag.ImagePositionPatient));
 			
 			String sliceLabel = sliceImp.getStack().getSliceLabel(1/*always*/);
 			
@@ -1251,7 +1251,7 @@ public class Praparat extends JPanel {
 		
 		for(int i=0; i< replica.getNSlices(); i++) {
 			replica.setPosition(GDicomTools.getRealIndex(replica, i+1));
-			System.out.println("replica IPP:"+GDicomTools.getTag(replica, Tag.ImagePositionPatient));
+//			System.out.println("replica IPP:"+GDicomTools.getTag(replica, Tag.ImagePositionPatient));
 		}
 
 		return replica;

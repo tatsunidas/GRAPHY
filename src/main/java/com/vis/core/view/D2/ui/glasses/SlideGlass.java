@@ -818,7 +818,6 @@ public class SlideGlass extends JLayeredPane {
 		if(imageSpecimen == null) {
 			return;
 		}
-		
 		pp.setAndShowPixelValue(this, 0, 0);
 	}
 

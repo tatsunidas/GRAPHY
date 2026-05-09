@@ -64,6 +64,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.plugin.FolderOpener;
@@ -364,13 +365,18 @@ public class TestPraparat {
 //		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 		ImagePlus imp = new ImagePlus("/home/tatsunidas/graphy-workspace3/graphy/src/test/resources/dicom_samples/JIRA_DICOM/MR_LEE_IR87a.dcm");
 		short[] spix = (short[])((ShortProcessor)(imp.getProcessor())).getPixels();
-		System.out.println("org isSigned16Bit: "+imp.getProcessor().isSigned16Bit());//true
+		//DO NOT USE "imp.getProcessor().isSigned16Bit()"
+//		System.out.println("org isSigned16Bit: "+imp.getProcessor().isSigned16Bit());//true
+		
+		System.out.println("org isSigned16Bit: "+GDicomTools.isSignedImagePlus(imp));
+		
 		/*
 		 * back to imp
 		 */
 		ImageProcessor ip = new ShortProcessor(imp.getWidth(), imp.getHeight(), spix, null);
-		new ImagePlus("",ip).show();
-		System.out.println("replica isSigned16Bit "+ip.isSigned16Bit());//false
+		ImagePlus re = new ImagePlus("",ip);
+		re.show();
+		System.out.println("replica isSigned16Bit "+GDicomTools.isSignedImagePlus(re));//false
 		
 		@SuppressWarnings("unused")
 		ij.plugin.DICOM dicom;//reference
@@ -388,7 +394,8 @@ public class TestPraparat {
 		
 		ImageProcessor ip2 = new ShortProcessor(imp.getWidth(), imp.getHeight(), shortArray, null);
 		new ImagePlus("",ip2).show();
-		System.out.println("replica2 isSigned16Bit "+ip2.isSigned16Bit());//false
+		//DO NOT USE "imp.getProcessor().isSigned16Bit()"
+//		System.out.println("replica2 isSigned16Bit "+ip2.isSigned16Bit());//false
 	}
 	
 	static void borderTest() {

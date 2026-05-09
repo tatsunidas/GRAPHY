@@ -77,9 +77,6 @@ public class Slicer {
 					}
 					ref.setSlice((int)pixPos.z+1);
 					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
-					if(ip.isSigned16Bit()) {
-						pixels[i] += (short)32768;
-					}
 				}
 				ShortProcessor sp = new ShortProcessor(w, h);
 				sp.setPixels(pixels);

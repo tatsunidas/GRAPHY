@@ -100,11 +100,10 @@ public class SlicerWindow extends JFrame {
 //		ImagePlus ax = FolderOpener.open(
 //				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 		
-		ImagePlus ax2 = FolderOpener.open("D:\\HCC-TACE-Seg\\HCC-TACE-Seg\\HCC_001\\04-21-2000-NA-CT ABDPEL WC-49771\\3.000000-Recon 2 PRE LIVER-07012");
+		ImagePlus ax2 = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 		
 		Praparat xy_prap = new Praparat(ax2, null, ViewMode.MPR);
 		SeriesWindow se = new SeriesWindow(xy_prap);
-		se.setVisible(true);
 //		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
 //		new SlicerWindow(ax2, null);
 		
@@ -512,8 +511,9 @@ public class SlicerWindow extends JFrame {
 		}
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
 		xz_imp.setCalibration(cal);
-		if (src.getProcessor().isSigned16Bit()) {
-			xz_imp.getCalibration().setSigned16BitCalibration();
+		if (GDicomTools.isSignedImagePlus(src)) {
+			Calibration srcCal = src.getCalibration();
+			xz_imp.getCalibration().setFunction(srcCal.getFunction(), srcCal.getCoefficients(), srcCal.getUnit());
 		}
 		// ▼ コントラストを引き継ぐ（追加）
 		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
@@ -556,6 +556,10 @@ public class SlicerWindow extends JFrame {
 		yz_imp.setCalibration(cal);
 		if (src.getProcessor().isSigned16Bit()) {
 			yz_imp.getCalibration().setSigned16BitCalibration();
+		}
+		if (GDicomTools.isSignedImagePlus(src)) {
+			Calibration srcCal = src.getCalibration();
+			yz_imp.getCalibration().setFunction(srcCal.getFunction(), srcCal.getCoefficients(), srcCal.getUnit());
 		}
 		// ▼ コントラストを引き継ぐ（追加）
 		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());

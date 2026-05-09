@@ -911,46 +911,155 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 	}
 
+//	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
+//		if (imp == null) {
+//			return null;
+//		}
+//		HashMap<Integer, DicomImage> images = new HashMap<>();
+//		int w = imp.getWidth();
+//		int h = imp.getHeight();
+//		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
+//		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
+//
+//		int s = imp.getNSlices();
+//
+//		
+//		boolean signed = isSignedImagePlus(imp);
+//
+//		for (int i = 0; i < s; i++) {
+//			DicomObject core = DicomObject.newDicomObject();
+//
+//			// 注意: addAttributes 内で imp.setSlice(i + 1) をしている場合、
+//			// 多次元ImagePlusでは「現在のCとT」におけるZスライスが切り替わるだけになることがあります。
+//			// 先ほど GDicomTools で実装した getRealIndex などを活用し、
+//			// 1Dインデックス(i + 1)から正確なスライスのメタデータを引き出せるようにしてください。
+//			addAttributes(core, i, imp, dealWithSecondaryCapture);
+//
+//			DicomImage dcmImg = DicomImage.newDicomImage(null/* file path */, core, null/* fmi null-able */,
+//					UID.ImplicitVRLittleEndian);
+//			imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
+//			Object pix = imp.getProcessor().getPixels();
+//			if (signed) {
+//				short[] originalPixels = (short[]) pix;
+//				// ★ 元の配列を汚さないように、新しい配列を生成してコピー＆計算する
+//				short[] copiedPixels = new short[originalPixels.length];
+//				for (int k = 0; k < originalPixels.length; k++) {
+//					//short processorで+32768されていた値を戻す
+//					copiedPixels[k] = (short) (originalPixels[k] - (short) 32768);
+//				}
+//				pix = copiedPixels; // コピーした方をDICOMにセットする
+//			}
+//			dcmImg.setPixelData(0, w, h, samples, bits, pix);
+//			images.put(i, dcmImg);
+//		}
+//		return images;
+//	}
+	
 	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
-		if (imp == null) {
-			return null;
-		}
-		HashMap<Integer, DicomImage> images = new HashMap<>();
-		int w = imp.getWidth();
-		int h = imp.getHeight();
-		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
-		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
+	    if (imp == null) {
+	        return null;
+	    }
+	    HashMap<Integer, DicomImage> images = new HashMap<>();
+	    int w = imp.getWidth();
+	    int h = imp.getHeight();
+	    int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
+	    int bits = imp.isRGB() ? 8 : imp.getBitDepth();
+	    int s = imp.getNSlices();
 
-		int s = imp.getNSlices();
+	    // 先ほど作成した独自の判定メソッドを使用する
+	    boolean isSigned = isSignedImagePlus(imp);
 
-		boolean signed16 = imp.getProcessor().isSigned16Bit();
+	    for (int i = 0; i < s; i++) {
+	        DicomObject core = DicomObject.newDicomObject();
+	        addAttributes(core, i, imp, dealWithSecondaryCapture);
 
-		for (int i = 0; i < s; i++) {
-			DicomObject core = DicomObject.newDicomObject();
+	        DicomImage dcmImg = DicomImage.newDicomImage(null, core, null, UID.ImplicitVRLittleEndian);
+	        imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
+	        
+	        Object pix = imp.getProcessor().getPixels();
 
-			// 注意: addAttributes 内で imp.setSlice(i + 1) をしている場合、
-			// 多次元ImagePlusでは「現在のCとT」におけるZスライスが切り替わるだけになることがあります。
-			// 先ほど GDicomTools で実装した getRealIndex などを活用し、
-			// 1Dインデックス(i + 1)から正確なスライスのメタデータを引き出せるようにしてください。
-			addAttributes(core, i, imp, dealWithSecondaryCapture);
+	        // 符号付き(Signed)の場合のみ、データ破壊を防ぐためにコピーして逆シフトする
+	        if (isSigned) {
+	            if (pix instanceof short[]) {
+	                // --- 16 bit Signed の場合 (-32768シフトを戻す) ---
+	                short[] originalPixels = (short[]) pix;
+	                short[] copiedPixels = new short[originalPixels.length];
+	                for (int k = 0; k < originalPixels.length; k++) {
+	                    copiedPixels[k] = (short) (originalPixels[k] ^ 0x8000); // XORで安全に反転
+	                }
+	                pix = copiedPixels;
+	                
+	            } else if (pix instanceof byte[]) {
+	                // --- 8 bit Signed の場合 (-128シフトを戻す) ---
+	                byte[] originalPixels = (byte[]) pix;
+	                byte[] copiedPixels = new byte[originalPixels.length];
+	                for (int k = 0; k < originalPixels.length; k++) {
+	                    copiedPixels[k] = (byte) (originalPixels[k] ^ 0x80); // XOR 0x80 で最上位ビットを反転
+	                }
+	                pix = copiedPixels;
+	            }
+	        }
 
-			DicomImage dcmImg = DicomImage.newDicomImage(null/* file path */, core, null/* fmi null-able */,
-					UID.ImplicitVRLittleEndian);
-			imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
-			Object pix = imp.getProcessor().getPixels();
-			if (signed16) {
-				short[] originalPixels = (short[]) pix;
-				// ★ 元の配列を汚さないように、新しい配列を生成してコピー＆計算する
-				short[] copiedPixels = new short[originalPixels.length];
-				for (int k = 0; k < originalPixels.length; k++) {
-					copiedPixels[k] = (short) (originalPixels[k] - (short) 32768);
-				}
-				pix = copiedPixels; // コピーした方をDICOMにセットする
-			}
-			dcmImg.setPixelData(0, w, h, samples, bits, pix);
-			images.put(i, dcmImg);
-		}
-		return images;
+	        // ※ Unsigned（符号なし）の場合はシフトされていないため、
+	        // コピーせずに pix の参照をそのまま渡してOKです（Javaのbyteがマイナス値として扱ってもビット列は正しい）
+
+	        dcmImg.setPixelData(0, w, h, samples, bits, pix);
+	        images.put(i, dcmImg);
+	    }
+	    return images;
+	}
+	
+	public static boolean isSignedImagePlus(ImagePlus imp) {
+		// タグ (0028,0103) Pixel Representation を取得
+	    String pixelRep = com.vis.dicom.image.GDicomTools.getTag(imp, "0028,0103");
+	    if(pixelRep != null) {
+			// "1" であれば Signed（符号付き）
+			return "1".equals(pixelRep);
+	    }
+	    if(imp.getBitDepth()==8) {
+	    	return isEffectivelySigned8Bit(imp);
+	    }else if(imp.getBitDepth()==16) {
+	    	return isEffectivelySigned16Bit(imp);
+	    }
+	    return false;
+	}
+	
+	private static boolean isEffectivelySigned16Bit(ImagePlus imp) {
+	    // 16 bit 画像でなければ false
+	    if (imp.getBitDepth() != 16) return false;
+
+	    ij.measure.Calibration cal = imp.getCalibration();
+	    if (cal == null) return false;
+
+	    // キャリブレーションが「Straight Line (y = a + bx)」であることを確認
+	    if (cal.getFunction() == ij.measure.Calibration.STRAIGHT_LINE) {
+	        double[] coefficients = cal.getCoefficients();
+	        if (coefficients != null && coefficients.length >= 1) {
+	            // 切片 (coefficients[0]) が -32768.0 以下であれば、
+	            // ImageJ内部で Signed 16-bit 用に +32768 のシフトが行われていると判断できる
+	            return coefficients[0] <= -32768.0;
+	        }
+	    }
+	    return false;
+	}
+	
+	private static boolean isEffectivelySigned8Bit(ImagePlus imp) {
+	    // 8 bit 画像でなければ false
+	    if (imp.getBitDepth() != 8) return false;
+
+	    ij.measure.Calibration cal = imp.getCalibration();
+	    if (cal == null) return false;
+
+	    // キャリブレーションが「Straight Line (y = a + bx)」であることを確認
+	    if (cal.getFunction() == ij.measure.Calibration.STRAIGHT_LINE) {
+	        double[] coefficients = cal.getCoefficients();
+	        if (coefficients != null && coefficients.length >= 1) {
+	            // 切片 (coefficients[0]) が -128.0 以下であれば、
+	            // ImageJ内部で Signed 8-bit 用に +128 のシフトが行われていると判断できる
+	            return coefficients[0] <= -128.0;
+	        }
+	    }
+	    return false;
 	}
 
 	/**
@@ -1112,10 +1221,8 @@ public class GDicomTools extends ij.util.DicomTools {
 		int bitsAllocated = samplesPerPixel == 1 ? imp.getBitDepth():8;// GDicomTools.getTag(imp, "0028,0100");
 		String bitsStored = GDicomTools.getTag(imp, "0028,0101");
 		String highBit = GDicomTools.getTag(imp, "0028,0102");
-		String pixelRepresentationString = GDicomTools.getTag(imp, "0028,0103");
-		if (pixelRepresentationString == null) {
-			pixelRepresentationString = imp.getProcessor().isSigned16Bit() ? "1" : "0";
-		}
+		boolean signed = isSignedImagePlus(imp);
+		String pixelRepresentationString = signed ? "1" : "0";
 		
 		//Dicom tag is prefer.
 		String intercept = GDicomTools.getTag(imp, "0028,1052");
@@ -1125,14 +1232,13 @@ public class GDicomTools extends ij.util.DicomTools {
 			Calibration cal = imp.getCalibration();
 			double[] coeffs = cal.getCoefficients();
 			if (coeffs != null) {
-				if(imp.getProcessor().isSigned16Bit()) {
+				if(signed) {
 					coeffs[0] += 32768;//remove -32768 from intercept.
 				}
 				intercept = String.valueOf(coeffs[0]);
 				slope = String.valueOf(coeffs[1]);
 			}
 		}
-		
 		
 		setInt(dcm, Tag.Samples​Per​Pixel, samplesPerPixel);
 		
