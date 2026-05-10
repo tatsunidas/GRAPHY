@@ -5,7 +5,6 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
@@ -59,6 +58,11 @@ public class ReferenceLineMPR {
 	Color xyColor = Color.RED;// X coordinates color
 	Color xzColor = Color.BLUE;// Z coordinates color
 	Color yzColor = Color.GREEN;// Y coordinates color
+
+	// ★ 追加: 常に絶対的な中心座標を保持する(Model)
+	private double currentCx = -1;
+	private double currentCy = -1;
+	private double currentCz = -1;
 
 	boolean antiAlias = true;
 	int sliceLineStrokeWidth = 1;
@@ -187,7 +191,7 @@ public class ReferenceLineMPR {
 		Praparat pp = parent.getPraparatAt(surface);
 		List<SlicePlane> slices = slab.getSlicePlanes();
 		SlideGlass sg = pp.getCurrentSlide();
-		
+
 		Graphics2D g2 = screenCoordinate(g, sg);
 		GeneralPath path = new GeneralPath();
 		for (SlicePlane sp : slices) {
@@ -215,6 +219,80 @@ public class ReferenceLineMPR {
 		path.lineTo(p0_leftUpper.getX(), p0_leftUpper.getY());
 	}
 
+//	public void mouseDragged(Praparat pp, int dragSX, int dragSY, int flags) {
+//		if (slab == null || slab.size() < 1) {
+//			return;
+//		}
+//		SlideGlass sg = pp.getCurrentSlide();
+//
+//		Point p = null;
+//		Point pl = null;
+//		try {
+//			p = sg.offScreenCoordinate(dragSX, dragSY);
+//			pl = sg.offScreenCoordinate(sg.lastDraggedX, sg.lastDraggedY);
+//		} catch (NoninvertibleTransformException nte) {
+//			nte.printStackTrace();
+//			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+//		}
+//
+//		int offX = p.x;
+//		int offY = p.y;
+//		int lastOffX = pl.x;
+//		int lastOffY = pl.y;
+//		int shiftX = offX - lastOffX, shiftY = offY - lastOffY;
+//		if (state == MOVING) {
+//			if (pp.getName().equals("XY")) {
+//				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.AXIAL);
+//				cpl.mouseDrag(offX, offY, flags); // dragSX, dragSY から offX, offY に変更
+//				slab.moveSlab(shiftX, shiftY, 0);
+//			} else if (pp.getName().equals("XZ")) {
+//				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.CORONAL);
+//				cpl.mouseDrag(offX, offY, flags); // 同上
+//				slab.moveSlab(shiftX, 0, -1 * shiftY);
+//			} else if (pp.getName().equals("YZ")) {
+//				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.SAGITTAL);
+//				cpl.mouseDrag(offX, offY, flags); // 同上
+//				slab.moveSlab(0, shiftX, -1 * shiftY);
+//			} else {
+//				return;
+//			}
+//		} else if (state == ROTATE) {
+//			if (pp.getName().equals("XY")) {
+//				slab.rotateSlab(0, 0, shiftX * 0.5);
+//			} else if (pp.getName().equals("XZ")) {
+//				slab.rotateSlab(0, shiftX * 0.5, 0);
+//			} else if (pp.getName().equals("YZ")) {
+//				slab.rotateSlab(shiftX * 0.5, 0, 0);
+//			} else {
+//				return;
+//			}
+//		}
+//	}
+
+	public void mousePressed(Praparat pp, int dragSX, int dragSY) {
+		currentCenterLine = centerPositionLineHereAt(pp, dragSX, dragSY);
+		if (currentCenterLine != null) {
+			state = MOVING;// slab state
+			/*
+			 * Line objects can be moved in MOVE_HANDLE mode.
+			 */
+			currentCenterLine.mouseDownInHandle(2/* center */, dragSX, dragSY);
+		} else if (isPeripheralArea(pp, dragSX, dragSY)) {
+			state = ROTATE;
+		} else {
+			state = NORMAL;
+		}
+	}
+
+//	public void mouseReleased() {
+//		state = NORMAL;
+//		if (currentCenterLine != null) {
+//			currentCenterLine.setState(NORMAL);
+//		}
+//		// re-calculate center line positions
+//		calculateCenterPositionsAndMove();
+//	}
+
 	public void mouseDragged(Praparat pp, int dragSX, int dragSY, int flags) {
 		if (slab == null || slab.size() < 1) {
 			return;
@@ -227,64 +305,42 @@ public class ReferenceLineMPR {
 			p = sg.offScreenCoordinate(dragSX, dragSY);
 			pl = sg.offScreenCoordinate(sg.lastDraggedX, sg.lastDraggedY);
 		} catch (NoninvertibleTransformException nte) {
-			nte.printStackTrace();
-			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
+			return;
 		}
 
 		int offX = p.x;
 		int offY = p.y;
-		int lastOffX = pl.x;
-		int lastOffY = pl.y;
-		int shiftX = offX - lastOffX, shiftY = offY - lastOffY;
+		int shiftX = offX - pl.x;
+		int shiftY = offY - pl.y;
+
 		if (state == MOVING) {
+			// ★ 修正: moveSlabを廃止。絶対座標(Model)だけを更新し、Slabを安全に再構築する
 			if (pp.getName().equals("XY")) {
-				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.AXIAL);
-				cpl.mouseDrag(offX, offY, flags); // dragSX, dragSY から offX, offY に変更
-				slab.moveSlab(shiftX, shiftY, 0);
+				currentCx += shiftX;
+				currentCy += shiftY;
 			} else if (pp.getName().equals("XZ")) {
-				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.CORONAL);
-				cpl.mouseDrag(offX, offY, flags); // 同上
-				slab.moveSlab(shiftX, 0, -1 * shiftY);
+				currentCx += shiftX;
+				// XZ画面のY座標から、AxialのZスライス位置を逆算
+				currentCz = (xz.getHeight() - 1 - offY) * (double) xy.getNSlices() / xz.getHeight();
 			} else if (pp.getName().equals("YZ")) {
-				CenterPositionLine cpl = centerPositionLineFrom(CutSurface.SAGITTAL);
-				cpl.mouseDrag(offX, offY, flags); // 同上
-				slab.moveSlab(0, shiftX, -1 * shiftY);
-			} else {
-				return;
+				currentCy += shiftX;
+				// YZ画面のY座標から、AxialのZスライス位置を逆算
+				currentCz = (yz.getHeight() - 1 - offY) * (double) xy.getNSlices() / yz.getHeight();
 			}
+
+			// 座標が更新されたので、SlabとUI(十字線)をリアルタイムに作り直す
+			initReslicePlanes();
+
 		} else if (state == ROTATE) {
+			// 回転は既存のままでOK
 			if (pp.getName().equals("XY")) {
 				slab.rotateSlab(0, 0, shiftX * 0.5);
 			} else if (pp.getName().equals("XZ")) {
 				slab.rotateSlab(0, shiftX * 0.5, 0);
 			} else if (pp.getName().equals("YZ")) {
 				slab.rotateSlab(shiftX * 0.5, 0, 0);
-			} else {
-				return;
 			}
-		}
-	}
-
-	public void mousePressed(Praparat pp, int dragSX, int dragSY) {
-		currentCenterLine = centerPositionLineHereAt(pp, dragSX, dragSY);
-		if (currentCenterLine != null) {
-			state = MOVING;// slab state
-			/*
-			 * Line objects can be moved in MOVE_HANDLE mode.
-			 */
-			// ▼ 追加：オフスクリーン座標に変換して渡す
-			SlideGlass sg = pp.getCurrentSlide();
-			Point p = null;
-			try {
-				p = sg.offScreenCoordinate(dragSX, dragSY);
-			} catch (Exception e) {
-			}
-			currentCenterLine.mouseDownInHandle(2/* center */, p.x, p.y);
-//			currentCenterLine.mouseDownInHandle(2/*center*/, dragSX, dragSY);
-		} else if (isPeripheralArea(pp, dragSX, dragSY)) {
-			state = ROTATE;
-		} else {
-			state = NORMAL;
+			calculateCenterPositionsAndMove();
 		}
 	}
 
@@ -293,8 +349,8 @@ public class ReferenceLineMPR {
 		if (currentCenterLine != null) {
 			currentCenterLine.setState(NORMAL);
 		}
-		// re-calculate center line positions
-		calculateCenterPositionsAndMove();
+		// マウスを離したときもSlabを確定させる
+		initReslicePlanes();
 	}
 
 	private Color axisColor() {
@@ -324,7 +380,7 @@ public class ReferenceLineMPR {
 ////		// yZCenterLine (SAGITTAL上のライン: 水平) 幅20の線
 ////		if (yZCenterLine != null) yZCenterLine.setLocation((yz.getWidth() / 2) - 10, yz.getHeight() / 2);
 //	}
-	
+
 //	public void calculateCenterPositionsAndMove() {
 //		if(slab == null || slab.size()<1) {
 //			return;
@@ -351,26 +407,26 @@ public class ReferenceLineMPR {
 //			cYZ.setLocation(coordsYZ[0] - 10, coordsYZ[1]);
 //		}
 //	}
-	
+
 	public void calculateCenterPositionsAndMove() {
-		if(slab == null || slab.size()<1) {
+		if (slab == null || slab.size() < 1) {
 			return;
 		}
-		
+
 		// Axial上の中心線 (水平線：幅20) -> 左上の座標は (X-10, Y)
 		double[] coordsXY = slab.getCenterOfVolumeInPixelCoords2(xy);
 		CenterPositionLine cXY = centerPositionLineFrom(CutSurface.AXIAL);
 		if (cXY != null) {
 			cXY.setLocation(coordsXY[0] - 10, coordsXY[1]);
 		}
-		
+
 		// Coronal上の中心線 (垂直線：高さ20) -> 左上の座標は (X, Y-10)
 		double[] coordsXZ = slab.getCenterOfVolumeInPixelCoords2(xz);
 		CenterPositionLine cXZ = centerPositionLineFrom(CutSurface.CORONAL);
 		if (cXZ != null) {
 			cXZ.setLocation(coordsXZ[0], coordsXZ[1] - 10);
 		}
-		
+
 		// Sagittal上の中心線 (水平線：幅20) -> 左上の座標は (X-10, Y)
 		double[] coordsYZ = slab.getCenterOfVolumeInPixelCoords2(yz);
 		CenterPositionLine cYZ = centerPositionLineFrom(CutSurface.SAGITTAL);
@@ -415,23 +471,39 @@ public class ReferenceLineMPR {
 			nte.printStackTrace();
 			Log.logger.log(Level.SEVERE, "Can not translate offscreen coordinates...");
 		}
-		int handle = -1;
-		boolean found = false;
+
 		CenterPositionLine cenLine = centerPositionLineFrom(pp);
-		cenLine.setActiveOverlayRoi(false);// reset activate
-		handle = cenLine.isHandle(p.x, p.y);
+		if (cenLine == null)
+			return null;
+
+		// ★ 追加: CPL が古い変換行列を使わないよう、常に最新の SlideGlass をセットしてあげる！
+		cenLine.setSlideGlass(sg, false);
+
+		// --- デバッグログ: 入力座標と変換後座標 ---
+//		Log.logger.info(String.format("[MPR_DEBUG] Mouse Screen(%d, %d) -> OffScreen(%d, %d) | Plane: %s", screenX,
+//				screenY, (p != null ? p.x : -1), (p != null ? p.y : -1), pp.getName()));
+
+		cenLine.setActiveOverlayRoi(false);
+
+		// --- ハンドル判定のログ ---
+		int handle = cenLine.isHandle(screenX, screenY);
+//		Log.logger.info("[MPR_DEBUG] isHandle result: " + handle);
 
 		if (handle == 2) {
 			cenLine.setActiveOverlayRoi(true);
-			found = true;
-		} else if (cenLine.contains(p.x, p.y)) {
-			cenLine.setActiveOverlayRoi(true);
-			found = true;
-		}
-		if (found) {
-			Log.logger.fine("Find center !!");
 			return cenLine;
 		}
+
+		// --- 線分自体の包含判定のログ ---
+		boolean contains = cenLine.contains(p.x, p.y);
+//		Log.logger.info(String.format("[MPR_DEBUG] contains(%d, %d) result: %b", p.x, p.y, contains));
+
+		if (contains) {
+			cenLine.setActiveOverlayRoi(true);
+			Log.logger.fine("Find center (by contains) !!");
+			return cenLine;
+		}
+
 		return null;
 	}
 
@@ -439,20 +511,21 @@ public class ReferenceLineMPR {
 	 * Slabが生成・移動された際に、十字のハンドル(CenterPositionLine)をSlabの中心に追従させます。
 	 */
 	public void syncHandlesToSlabCenter() {
-		if (slab == null || xy == null || xz == null || yz == null) return;
-		
+		if (slab == null || xy == null || xz == null || yz == null)
+			return;
+
 		double[] centerArr = slab.getCenterOfVolumeInPixelCoords2(xy);
 		double cx = centerArr[0];
 		double cy = centerArr[1];
 		double cz = centerArr[2]; // Zはスライス番号
-		
+
 		// 1. Axial (XY) ハンドルの更新
 		if (xYCenterLine != null) {
 			double width = xYCenterLine.x2d - xYCenterLine.x1d;
 			// ★専用メソッドで座標を更新する
 			xYCenterLine.updateCoordinates(cx - width / 2.0, cy, cx + width / 2.0, cy);
 		}
-		
+
 		// 2. CORONAL (XZ) ハンドルの更新
 		if (xZCenterLine != null) {
 			int maxZ = xy.getNSlices();
@@ -461,7 +534,7 @@ public class ReferenceLineMPR {
 			// ★専用メソッドで座標を更新する
 			xZCenterLine.updateCoordinates(cx, corY - height / 2.0, cx, corY + height / 2.0);
 		}
-		
+
 		// 3. SAGITTAL (YZ) ハンドルの更新
 		if (yZCenterLine != null) {
 			int maxZ = xy.getNSlices();
@@ -616,8 +689,14 @@ public class ReferenceLineMPR {
 		} else if (currentTarget == CutSurface.SAGITTAL) {
 			targetVolume = yz;
 		}
+		
+		// ★ デバッグ：現在のスタックの1枚目に付随している生メタデータを確認
+//		String rawInfo = (String) targetVolume.getStack().getSliceLabel(1);
+//		Log.logger.info("[IOP_DEBUG] Raw Metadata in targetVolume: " + rawInfo);
 
 		double[] iop = GDicomTools.getImageOrientationPatient(targetVolume, 1);
+		Log.logger.info(String.format("[IOP_DEBUG] Parsed IOP: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f]", iop[0], iop[1],
+				iop[2], iop[3], iop[4], iop[5]));
 
 		// 2. ターゲットのボクセルサイズ（FOVのピクセル換算用）
 		double px = targetVolume.getCalibration().pixelWidth;
@@ -668,33 +747,57 @@ public class ReferenceLineMPR {
 		}
 		slab = new Slab(slices, gap);
 		slab.rotateSlab(rotateX, rotateY, rotateZ);
-		
+
 		calculateCenterPositionsAndMove();
 	}
 
 	/**
 	 * 現在のセンターラインのUI座標から、3D空間上の中心座標(IPP)を算出します。
 	 */
+//	private Vector3d getCenterIppFromLines() {
+//		// 十字線の交点 (x, y) を取得
+//		double cx = (xYCenterLine.x1d + xYCenterLine.x2d) / 2.0;
+//		double cy = (xYCenterLine.y1d + xYCenterLine.y2d) / 2.0;
+//
+//		// 現在の Axial スライス位置を取得
+//		int sliceZ = xy_prap.getCurrentSlidePos();
+//
+//		// ★ 修正: 起動時（slabがまだ生成されていない場合）は、
+//		// UIの状態に関わらずボリュームのちょうど真ん中のスライスをターゲットにする
+//		if (slab == null) {
+//			sliceZ = xy.getNSlices() / 2;
+//		}
+//
+//		// 指定したピクセル座標 (cx, cy, sliceZ) に対応する 3D空間座標 (IPP) を取得
+//		Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(xy, cx, cy, sliceZ + 1);
+//
+//		if (ipp == null) {
+//			double[] ippArr = GDicomTools.getImagePositionPatient(xy, 1);
+//			return new Vector3d(ippArr[0], ippArr[1], ippArr[2]);
+//		}
+//		return ipp;
+//	}
+
 	private Vector3d getCenterIppFromLines() {
-		// 十字線の交点 (x, y) を取得
-		double cx = (xYCenterLine.x1d + xYCenterLine.x2d) / 2.0;
-		double cy = (xYCenterLine.y1d + xYCenterLine.y2d) / 2.0;
-
-		// 現在の Axial スライス位置を取得
-		int sliceZ = xy_prap.getCurrentSlidePos();
-
-		// ★ 修正: 起動時（slabがまだ生成されていない場合）は、
-		// UIの状態に関わらずボリュームのちょうど真ん中のスライスをターゲットにする
-		if (slab == null) {
-			sliceZ = xy.getNSlices() / 2;
+		// 初回起動時のみ、ボリュームの中央にセットする
+		if (currentCx < 0) {
+			currentCx = xy.getWidth() / 2.0;
+			currentCy = xy.getHeight() / 2.0;
+			currentCz = xy.getNSlices() / 2.0;
 		}
 
-		// 指定したピクセル座標 (cx, cy, sliceZ) に対応する 3D空間座標 (IPP) を取得
-		Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(xy, cx, cy, sliceZ + 1);
+		int sliceZ = (int) Math.round(currentCz);
+		if (sliceZ < 0)
+			sliceZ = 0;
+		if (sliceZ >= xy.getNSlices())
+			sliceZ = xy.getNSlices() - 1;
+
+		// 保持しているピクセル座標から、正確な3D空間座標(IPP)を算出
+		Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(xy, currentCx, currentCy, sliceZ + 1);
 
 		if (ipp == null) {
-			double[] ippArr = GDicomTools.getImagePositionPatient(xy, 1);
-			return new Vector3d(ippArr[0], ippArr[1], ippArr[2]);
+			double[] d = GDicomTools.getImagePositionPatient(xy, 1);
+			return new Vector3d(d[0], d[1], d[2]);
 		}
 		return ipp;
 	}
@@ -726,6 +829,7 @@ public class ReferenceLineMPR {
 		}
 	}
 
+	@SuppressWarnings("unused")
 	private void addSlicePlane(Vector3d center, ImagePlus refVolume, double[] refIop, List<SlicePlane> slices,
 			double half_x, double half_y, // in pixel unit
 			double[] voxelSize, Double thickness) {

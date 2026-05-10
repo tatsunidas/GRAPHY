@@ -49,10 +49,10 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 	double currentGap;
 	int currentNumOfSlice = 1;
 	
-	SlicerWindow mprWin;
+	SlicerWindow parent;
 	
 	public SlicerControlPanel(SlicerWindow mprWin) {
-		this.mprWin = mprWin;
+		this.parent = mprWin;
 		setContents();
 	}
 	
@@ -88,13 +88,13 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		fovWText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 			@Override
 			public void removeUpdate(DocumentEvent e) {}
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 		});
 		fovWText.addKeyListener(this);
@@ -110,13 +110,13 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		fovHText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 			@Override
 			public void removeUpdate(DocumentEvent e) {}
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 		});
 		fovHText.addKeyListener(this);
@@ -134,7 +134,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		stText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 
 			@Override
@@ -142,7 +142,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 		});
 		stText.addKeyListener(this);
@@ -160,7 +160,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		sgText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 
 			@Override
@@ -168,7 +168,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 		});
 		sgText.addKeyListener(this);
@@ -185,7 +185,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		snText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 
 			@Override
@@ -193,7 +193,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				mprWin.updateReferenceLineMPR();
+				parent.updateReferenceLineMPR();
 			}
 		});
 		snText.addKeyListener(this);
@@ -203,7 +203,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		resliceBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				mprWin.resliceAndShow();
+				parent.resliceAndShow();
 			}
 		});
 		p.add(resliceBtn);
@@ -218,21 +218,21 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 	}
 	
 	private double defaultFOV_H() {
-		int h = mprWin.xyImage().getHeight();
-		double py = mprWin.xyImage().getCalibration().pixelHeight;
+		int h = parent.xyImage().getHeight();
+		double py = parent.xyImage().getCalibration().pixelHeight;
 		double fov_in_axi_h = PlanarSupport.truncate(h * py, 0);
 		return fov_in_axi_h;
 	}
 	
 	private double defaultFOV_W() {
-		int w = mprWin.xyImage().getWidth();
-		double px = mprWin.xyImage().getCalibration().pixelWidth;
+		int w = parent.xyImage().getWidth();
+		double px = parent.xyImage().getCalibration().pixelWidth;
 		double fov_in_axi_w = PlanarSupport.truncate(w * px, 0);
 		return fov_in_axi_w;
 	}
 	
 	private double defaultThickness() {
-		double pz = GDicomTools.getVoxelDepth(mprWin.xyImage());
+		double pz = GDicomTools.getVoxelDepth(parent.xyImage());
 		if(pz <= 0) {
 			pz = 1;
 		}
@@ -244,7 +244,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 	}
 	
 	void updateSliceTargetPlane() {
-		mprWin.updateReferenceLineMPR();
+		parent.updateReferenceLineMPR();
 	}
 	
 	public Double getFOV() {
@@ -363,7 +363,7 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-			mprWin.updateReferenceLineMPR();
+			parent.updateReferenceLineMPR();
 		}
 	}
 

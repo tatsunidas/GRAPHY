@@ -44,6 +44,7 @@ import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.geom.GeneralPath;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 
@@ -110,27 +111,63 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 		this.pz = cal.pixelDepth;
 	}
 	
+//	@Override
+//	public int isHandle(int screenX, int screenY) {
+//		
+//		int sx = screenX;
+//		int sy = screenY;
+//		
+//		int size = HANDLE_SIZE+5;
+//		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
+//		int halfSize = size/2;
+//		
+//		Point sp1 = slide.slideglassCoordinateFromOffScreen(getXBase()+x1R, getYBase()+y1R);
+//		Point sp2 = slide.slideglassCoordinateFromOffScreen(getXBase()+x2R, getYBase()+y2R);
+//		
+//		int sx1 = sp1.x - halfSize;
+//		int sy1 = sp1.y - halfSize;
+//		int sx2 = sp2.x - halfSize;
+//		int sy2 = sp2.y - halfSize;
+//		int sx3 = sx1 + (sx2-sx1)/2-1;
+//		int sy3 = sy1 + (sy2-sy1)/2-1;
+//		
+////		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
+////		if (sx>=sx2&&sx<=sx2+size&&sy>=sy2&&sy<=sy2+size) return 1;
+//		// only use center.
+//		if (sx>=sx3&&sx<=sx3+size+2&&sy>=sy3&&sy<=sy3+size+2) return 2;
+//		return -1;
+//	}
+	
 	@Override
 	public int isHandle(int sx, int sy) {
-		int size = HANDLE_SIZE+5;
-		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
-		int halfSize = size/2;
-		
-		Point sp1 = slide.slideglassCoordinateFromOffScreen(getXBase()+x1R, getYBase()+y1R);
-		Point sp2 = slide.slideglassCoordinateFromOffScreen(getXBase()+x2R, getYBase()+y2R);
-		
-		int sx1 = sp1.x - halfSize;
-		int sy1 = sp1.y - halfSize;
-		int sx2 = sp2.x - halfSize;
-		int sy2 = sp2.y - halfSize;
-		int sx3 = sx1 + (sx2-sx1)/2-1;
-		int sy3 = sy1 + (sy2-sy1)/2-1;
-		
-//		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
-//		if (sx>=sx2&&sx<=sx2+size&&sy>=sy2&&sy<=sy2+size) return 1;
-		// only use center.
-		if (sx>=sx3&&sx<=sx3+size+2&&sy>=sy3&&sy<=sy3+size+2) return 2;
-		return -1;
+	    int size = HANDLE_SIZE + 5;
+	    if (getStrokeWidth() > 1) size += (int)Math.log(getStrokeWidth());
+	    int halfSize = size / 2;
+	    
+	    // ROIのベース座標と相対座標をログ
+//	    Log.logger.info(String.format("[CPL_DEBUG] Base(%.1f, %.1f) | x1R:%.1f, y1R:%.1f, x2R:%.1f, y2R:%.1f", 
+//	        getXBase(), getYBase(), x1R, y1R, x2R, y2R));
+
+	    Point sp1 = slide.slideglassCoordinateFromOffScreen(getXBase() + x1R, getYBase() + y1R);
+	    Point sp2 = slide.slideglassCoordinateFromOffScreen(getXBase() + x2R, getYBase() + y2R);
+	    
+	    int sx1 = sp1.x - halfSize;
+	    int sy1 = sp1.y - halfSize;
+	    int sx2 = sp2.x - halfSize;
+	    int sy2 = sp2.y - halfSize;
+	    int sx3 = sx1 + (sx2 - sx1) / 2 - 1;
+	    int sy3 = sy1 + (sy2 - sy1) / 2 - 1;
+	    
+	    // --- デバッグログ: 画面上のハンドル判定領域 ---
+	    // マウス(sx, sy)が、中心ハンドル(sx3, sy3)から (size) の範囲内にあるかを確認
+//	    Log.logger.info(String.format("[CPL_DEBUG] MouseScreen(%d, %d) | CenterHandle BoundingBox: x[%d to %d], y[%d to %d]",
+//	        sx, sy, sx3, sx3 + size + 2, sy3, sy3 + size + 2));
+	    
+	    if (sx >= sx3 && sx <= sx3 + size + 2 && sy >= sy3 && sy <= sy3 + size + 2) {
+	        Log.logger.info("[CPL_DEBUG] Handle 2 (Center) DETECTED!");
+	        return 2;
+	    }
+	    return -1;
 	}
 	
 	public void draw(Graphics g) {

@@ -701,31 +701,108 @@ public class SlicerWindow extends JFrame {
 	/*
 	 * TODO, byte, float, RGB
 	 */
+//	protected void resliceAndShow() {
+//		
+//		if (refLines == null) {
+//			return;
+//		}
+//		
+//		Slab slab = refLines.getSlab();
+//		
+//		if(slab == null || slab.size() < 1) {
+//			return; // or set blank image ?
+//		}
+//		
+//		//TODO 20241126
+////		boolean excessAngle = false;
+////		try {
+//			//do something ??
+////		}
+//
+//		ImageStack stack = new ImageStack();
+//		/*
+//		 *IMPORTANT, Keep using axial for reference volume. 
+//		 */
+//		ImagePlus mainPlane = xyImage();
+//		double min = mainPlane.getDisplayRangeMin();
+//		double max = mainPlane.getDisplayRangeMax();
+//		int count = 1;
+//		int reconMode = reconMode();
+//		List<SlicePlane> planes = slab.getSlicePlanes();
+//		Slicer slicer = new Slicer(mainPlane);
+//		
+//		for (int i=0; i<planes.size();i++) {
+//			SlicePlane plane = planes.get(i);
+//			Vector3d ipp = plane.getGeometryOfSlice().getTLHC();
+//			Vector3d row_v = plane.getGeometryOfSlice().getRow();
+//			Vector3d col_v = plane.getGeometryOfSlice().getColumn();
+//			ImageProcessor resliceIp = slicer.slice(plane, reconMode);
+//			resliceIp.setMinAndMax(min, max);
+//			ImagePlus temp = new ImagePlus("", resliceIp);
+//			GDicomTools.setImagePositionPatient(temp, 1, ipp);
+//			GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
+//			stack.addSlice(temp.getProcessor());
+//			stack.setSliceLabel(temp.getInfoProperty(), count++);
+//		}
+//		
+//		// construct imageplus
+//		recon_image = new ImagePlus("reslice", stack);
+//		Calibration calHolder = mainPlane.getCalibration();
+//		SlicePlane plane = planes.get(0);
+//		Vector3d voxelSize = plane.getGeometryOfSlice().getVoxelSpacing();
+//		double px = voxelSize.x;//voxelSize.y ? to DICOM ?
+//		double py = voxelSize.y;
+//		double pz = voxelSize.z;
+//		calHolder.pixelWidth = px;
+//		calHolder.pixelHeight = py;
+//		calHolder.pixelDepth = pz;
+//		recon_image.setCalibration(calHolder);
+//		String seUID = UIDUtils.createUID();
+//		for(int i=1; i<= recon_image.getNSlices(); i++) {
+//			addUIDs(recon_image, i, seUID);
+//		}
+//		SwingUtilities.invokeLater(() -> {
+//			recon_prap.reloadSlideGlasses(recon_image);
+//		});
+//	}
+	
 	protected void resliceAndShow() {
+		Log.logger.info("[RESLICE_DEBUG] --- resliceAndShow Start ---");
 		
 		if (refLines == null) {
+			Log.logger.warning("[RESLICE_DEBUG] refLines is null. Aborting.");
 			return;
 		}
 		
 		Slab slab = refLines.getSlab();
 		
 		if(slab == null || slab.size() < 1) {
+			Log.logger.warning("[RESLICE_DEBUG] slab is null or empty. Aborting.");
 			return; // or set blank image ?
 		}
 		
-		//TODO 20241126
-//		boolean excessAngle = false;
-//		try {
-			//do something ??
-//		}
+		Log.logger.info("[RESLICE_DEBUG] Slab size (number of slices): " + slab.size());
 
 		ImageStack stack = new ImageStack();
 		/*
 		 *IMPORTANT, Keep using axial for reference volume. 
 		 */
 		ImagePlus mainPlane = xyImage();
+		if (mainPlane == null) {
+			Log.logger.warning("[RESLICE_DEBUG] mainPlane (xyImage) is null. Aborting.");
+			return;
+		}
+
 		double min = mainPlane.getDisplayRangeMin();
 		double max = mainPlane.getDisplayRangeMax();
+		Log.logger.info(String.format("[RESLICE_DEBUG] mainPlane Info: W=%d, H=%d, Slices=%d, DispMin=%.2f, DispMax=%.2f", 
+			mainPlane.getWidth(), mainPlane.getHeight(), mainPlane.getNSlices(), min, max));
+			
+		double[] mainIpp = GDicomTools.getImagePositionPatient(mainPlane, 1);
+		if (mainIpp != null) {
+			Log.logger.info(String.format("[RESLICE_DEBUG] mainPlane IPP (Slice 1): [%.2f, %.2f, %.2f]", mainIpp[0], mainIpp[1], mainIpp[2]));
+		}
+
 		int count = 1;
 		int reconMode = reconMode();
 		List<SlicePlane> planes = slab.getSlicePlanes();
@@ -736,31 +813,62 @@ public class SlicerWindow extends JFrame {
 			Vector3d ipp = plane.getGeometryOfSlice().getTLHC();
 			Vector3d row_v = plane.getGeometryOfSlice().getRow();
 			Vector3d col_v = plane.getGeometryOfSlice().getColumn();
+			Vector3d voxelSize = plane.getGeometryOfSlice().getVoxelSpacing();
+			Vector3d dim = plane.getGeometryOfSlice().getDimensions();
+			
+			Log.logger.info(String.format("[RESLICE_DEBUG] Slice %d - Geometry:", i));
+			Log.logger.info(String.format("  TLHC (IPP): [%.3f, %.3f, %.3f]", ipp.x, ipp.y, ipp.z));
+			Log.logger.info(String.format("  Row: [%.3f, %.3f, %.3f]", row_v.x, row_v.y, row_v.z));
+			Log.logger.info(String.format("  Col: [%.3f, %.3f, %.3f]", col_v.x, col_v.y, col_v.z));
+			Log.logger.info(String.format("  VoxelSpacing: [%.3f, %.3f, %.3f]", voxelSize.x, voxelSize.y, voxelSize.z));
+			Log.logger.info(String.format("  Dimensions: W=%.0f, H=%.0f", dim.x, dim.y));
+
 			ImageProcessor resliceIp = slicer.slice(plane, reconMode);
-			resliceIp.setMinAndMax(min, max);
-			ImagePlus temp = new ImagePlus("", resliceIp);
-			GDicomTools.setImagePositionPatient(temp, 1, ipp);
-			GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
-			stack.addSlice(temp.getProcessor());
-			stack.setSliceLabel(temp.getInfoProperty(), count++);
+			
+			if (resliceIp != null) {
+				// ★抽出された画像の中身(ピクセル値の統計)を確認します。真っ黒なら全て0付近のはずです。
+				ij.process.ImageStatistics stats = resliceIp.getStatistics();
+				Log.logger.info(String.format("[RESLICE_DEBUG] Slice %d - Processor Stats: Min=%.2f, Max=%.2f, Mean=%.2f", 
+					i, stats.min, stats.max, stats.mean));
+				
+				resliceIp.setMinAndMax(min, max);
+				ImagePlus temp = new ImagePlus("", resliceIp);
+				GDicomTools.setImagePositionPatient(temp, 1, ipp);
+				GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
+				stack.addSlice(temp.getProcessor());
+				stack.setSliceLabel(temp.getInfoProperty(), count++);
+			} else {
+				Log.logger.warning(String.format("[RESLICE_DEBUG] Slice %d - Slicer returned null ImageProcessor!", i));
+			}
 		}
 		
+		if (stack.getSize() == 0) {
+			Log.logger.warning("[RESLICE_DEBUG] Resulting ImageStack is empty. Aborting reconstruction.");
+			return;
+		}
+
 		// construct imageplus
 		recon_image = new ImagePlus("reslice", stack);
-		Calibration calHolder = mainPlane.getCalibration();
+		Calibration calHolder = mainPlane.getCalibration().copy(); // ★元のCalibrationを汚染しないようにcopy()
 		SlicePlane plane = planes.get(0);
-		double px = plane.getGeometryOfSlice().getVoxelSpacing().y;
-		double py = plane.getGeometryOfSlice().getVoxelSpacing().x;
-		double pz = plane.getGeometryOfSlice().getVoxelSpacing().z;
+		Vector3d voxelSize = plane.getGeometryOfSlice().getVoxelSpacing();
+		double px = voxelSize.x;
+		double py = voxelSize.y;
+		double pz = voxelSize.z;
 		calHolder.pixelWidth = px;
 		calHolder.pixelHeight = py;
 		calHolder.pixelDepth = pz;
 		recon_image.setCalibration(calHolder);
+		
+		Log.logger.info(String.format("[RESLICE_DEBUG] recon_image created: W=%d, H=%d, Slices=%d", 
+			recon_image.getWidth(), recon_image.getHeight(), recon_image.getNSlices()));
+
 		String seUID = UIDUtils.createUID();
 		for(int i=1; i<= recon_image.getNSlices(); i++) {
 			addUIDs(recon_image, i, seUID);
 		}
 		SwingUtilities.invokeLater(() -> {
+			Log.logger.info("[RESLICE_DEBUG] Reloading recon slide glasses on EDT...");
 			recon_prap.reloadSlideGlasses(recon_image);
 		});
 	}
