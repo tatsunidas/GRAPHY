@@ -59,22 +59,6 @@ import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 
 /**
- * The horizontal and vertical planes are cut from the input axial volume. The origin
- * of the upper left corner of the plane to be cut is reversed depending on the
- * patient's position (head first, feet first). In the case of head first, the
- * origin is the upper left corner of the slice with the largest Image Position
- * Patient Z value. In the case of feet first, the origin is the upper left
- * corner of the slice with the smallest Image Position Patient Z value.
- * 
- * TODO
- * - COR head first + prone + P->A slicing to Axial
- * - COR head first + prone + A->P slicing to Axial -> Clear
- * - COR feet first + prone + P->A slicing to Axial
- * - COR feet first + prone + A->P slicing to Axial
- * - SAG head first + L->R slicing to Axial -> Clear
- * - SAG head first + R->L slicing to Axial
- * - SAG feet first + L->R slicing to Axial
- * - SAG feet first + R->L slicing to Axial
  *  
  * @author tatsunidas
  *
@@ -115,499 +99,571 @@ public class OrthogonalSlice {
 	}
 	
 	/**
-	 * @param src: axial
-	 * @param y_cutPoint
-	 * @return
+	 * @param standardizedOrientSrc: Axial(Z- to Z+ order), standardized slicing by PlanarSupport.standardizeStackOrientation
+	 * @param y_cutPoint: 0-based Y coordinate to cut horizontally
+	 * @return XZ (Coronal) ImagePlus
 	 */
-	public ImagePlus cutHorizontally(ImagePlus src, int y_cutPoint) {
-		if (PlanarSupport.planarOf(src) != CutSurface.AXIAL) {
+	public ImagePlus cutHorizontally(ImagePlus standardizedOrientSrc, int y_cutPoint) {
+		if (PlanarSupport.planarOf(standardizedOrientSrc) != CutSurface.AXIAL) {
 			throw new IllegalArgumentException("Need axial src volume");
 		}
-		ImageStack is = getStack(src);
-		int width = is.getWidth();
-		int size = is.getSize();
-		ImageProcessor ip = is.getProcessor(1);
-		boolean rgb = (ip instanceof ColorProcessor);
-		ColorModel cm = rgb ? null : src.getProcessor().getColorModel();
-		double min = src.getDisplayRangeMin();
-		double max = src.getDisplayRangeMax();
-		Calibration cal = src.getCalibration().copy();
-		String xunit = cal.getXUnit();
-		String yunit = cal.getYUnit();
-		String zunit = cal.getZUnit();
-		double src_pz = GDicomTools.getVoxelDepth(src);
-		double src_py = cal.pixelHeight;
-		double src_px = cal.pixelWidth;
-		double az = src_pz / src_px;
-		/*
-		 * x and y are zero-based.
-		 */
-		int y = y_cutPoint;
-		if (y_cutPoint < 0) {
-			y = 0;
-		} else if (y_cutPoint > src.getHeight()) {
-			y = src.getHeight() - 1;
-		}
-		Object newpix = null;
-		ImageProcessor xz_ip = null;
-		ImagePlus xz_image = new ImagePlus();
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(src);
-		boolean isSlicingToUpperZ = PlanarSupport.isSlicingToUpperZSide(src);
-		if (ip instanceof ShortProcessor) {
-			newpix = new short[width * size];
-		} else if (ip instanceof ByteProcessor) {
-			newpix = new byte[width * size];
-		} else if (ip instanceof FloatProcessor) {
-			newpix = new float[width * size];
-		} else if (ip instanceof ColorProcessor) {
-			newpix = new int[width * size];
-		}
-		// copy lines to newPixel
-		for (int i = 0; i < size; i++) {
-			Object pixels = is.getPixels(i + 1);
-			/* scroll to upper and head */
-			if (isHeadFirst && isSlicingToUpperZ) {
-				/* from last to start */
-				System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
-			} else if (isHeadFirst && !isSlicingToUpperZ) {
-				/* from start to last */
-				System.arraycopy(pixels, width * y, newpix, width * i, width);
-			} else if (!isHeadFirst && isSlicingToUpperZ) {
-				/* from start to last */
-				System.arraycopy(pixels, width * y, newpix, width * i, width);
-			} else if (!isHeadFirst && !isSlicingToUpperZ) {
-				/* from last to start */
-				System.arraycopy(pixels, width * y, newpix, width * (size - i - 1), width);
-			}
-		}
-		if (ip instanceof ShortProcessor) {
-			xz_ip = new ShortProcessor(width, size, (short[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof ByteProcessor) {
-			xz_ip = new ByteProcessor(width, size, (byte[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof FloatProcessor) {
-			xz_ip = new FloatProcessor(width, size, (float[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof ColorProcessor) {
-			xz_ip = new ColorProcessor(width, size, (int[]) newpix);
-		}
+
+		ImageStack srcStack = getStack(standardizedOrientSrc);
+		int width = srcStack.getWidth();
+		int height = srcStack.getHeight();
+		int nSlices = srcStack.getSize();
+
+		int y = Math.max(0, Math.min(y_cutPoint, height - 1));
+
+		ImageProcessor templateIp = srcStack.getProcessor(1);
+		ImageProcessor xzProcessor = extractCoronalProcessor(srcStack, width, nSlices, y, templateIp);
+
+		Calibration srcCal = standardizedOrientSrc.getCalibration().copy();
+		double pixelWidth = srcCal.pixelWidth;
+		double pixelHeight = srcCal.pixelHeight;
+		double voxelDepth = GDicomTools.getVoxelDepth(standardizedOrientSrc);
 		
-		if (cm != null && xz_ip != null && (ip instanceof ColorProcessor)) {
-			xz_ip.setColorModel(cm);
+		double aspectRatio = voxelDepth / pixelWidth;
+		int resizedHeight = (int) Math.ceil(xzProcessor.getHeight() * aspectRatio);
+		
+		if (resizedHeight < 1) {
+			throw new IllegalArgumentException("Cannot create XZ plane: resulting height is < 1.");
 		}
 
-		int width2 = xz_ip.getWidth();
-		int height2 = (int) Math.ceil(xz_ip.getHeight() * az);
-		if (height2 < 1) {
-			throw new IllegalArgumentException("Can not create XZ plane...");
+		if (width != xzProcessor.getWidth() || resizedHeight != xzProcessor.getHeight()) {
+			xzProcessor.setInterpolationMethod(ImageProcessor.NONE);
+			xzProcessor = xzProcessor.resize(width, resizedHeight);
 		}
-		if (width2 != xz_ip.getWidth() || height2 != xz_ip.getHeight()) {
-			xz_ip.setInterpolationMethod(ImageProcessor.NONE);
-			xz_ip = xz_ip.resize(width2, height2);
-		}
-		if (!rgb) {
-			xz_ip.setMinAndMax(min, max);
-		}
-		xz_image.setProcessor(""+y, xz_ip);
+
+		boolean isRGB = (templateIp instanceof ColorProcessor);
+		double min = standardizedOrientSrc.getDisplayRangeMin();
+		double max = standardizedOrientSrc.getDisplayRangeMax();
 		
-		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(src, 0/*x*/, y, pos_z);
-		double[] iop = null;
-		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
-		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
-		double[] colY = new double[]{axi_iop[3],axi_iop[4],axi_iop[5]};
-		Vector3d zVec = PlanarSupport.calculateNormal(new Vector3d(rowX), new Vector3d(colY), true);
-		if(isHeadFirst) {
-			if(zVec.z > 0.0) {
-				zVec.x *= -1;
-				zVec.y *= -1;
-				zVec.z *= -1;
-			}
-			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec.x, zVec.y,zVec.z};
-		}else {
-			if(zVec.z < 0.0) {
-				zVec.x *= -1;
-				zVec.y *= -1;
-				zVec.z *= -1;
-			}
-			iop = new double[] {rowX[0],rowX[1],rowX[2],zVec.x, zVec.y,zVec.z};
+		if (!isRGB) {
+			xzProcessor.setMinAndMax(min, max);
 		}
-		if (ipp_vec != null && iop !=null) {
-			double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-			GDicomTools.setImagePositionPatient(xz_image, 1, ipp);
-			GDicomTools.setImageOrientationPatient(xz_image, 1, iop);
+		
+		ColorModel cm = isRGB ? null : standardizedOrientSrc.getProcessor().getColorModel();
+		if (cm != null && !(templateIp instanceof ColorProcessor)) {
+			xzProcessor.setColorModel(cm);
 		}
-		cal.setXUnit(xunit);
-		cal.setYUnit(zunit);
-		cal.setZUnit(yunit);
-		cal.pixelWidth = src_px;
-		cal.pixelHeight = src_pz / az;
-		cal.pixelDepth = src_py;
-		xz_image.setCalibration(cal);
-		return xz_image;
+
+		ImagePlus xzImage = new ImagePlus(String.valueOf(y), xzProcessor);
+
+		double[] axiIop = GDicomTools.getImageOrientationPatient(standardizedOrientSrc, 1);
+		if (axiIop != null) {
+			Vector3d rowX = new Vector3d(axiIop[0], axiIop[1], axiIop[2]);
+			Vector3d colY = new Vector3d(axiIop[3], axiIop[4], axiIop[5]);
+			// ★修正: CoronalのColベクトルは頭から足(-Z)へ向かうため、colY x rowX の外積にする
+			Vector3d zVec = PlanarSupport.crossProduct(colY, rowX, true);
+			double[] corIop = new double[] { rowX.x, rowX.y, rowX.z, zVec.x, zVec.y, zVec.z };
+
+			// ★修正: 新しい画像の一番上(row 0)は頭(一番大きいZ)なので、IPPは nSlices 番目のスライスから取得する
+			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedOrientSrc, 0, y, nSlices);
+			if (ippVec != null) {
+				double[] ipp = new double[] { ippVec.x(), ippVec.y(), ippVec.z() };
+				GDicomTools.setImagePositionPatient(xzImage, 1, ipp);
+				GDicomTools.setImageOrientationPatient(xzImage, 1, corIop);
+			}
+		}
+
+		Calibration newCal = srcCal.copy();
+		newCal.setXUnit(srcCal.getXUnit());
+		newCal.setYUnit(srcCal.getZUnit());
+		newCal.setZUnit(srcCal.getYUnit());
+		newCal.pixelWidth = pixelWidth;
+		newCal.pixelHeight = voxelDepth / aspectRatio; 
+		newCal.pixelDepth = pixelHeight;
+		xzImage.setCalibration(newCal);
+
+		xzImage.setDisplayRange(min, max);
+		if (standardizedOrientSrc.getLuts() != null && standardizedOrientSrc.getLuts().length > 0) {
+			xzImage.setLut(standardizedOrientSrc.getLuts()[0]);
+		}
+
+		return xzImage;
+	}
+
+	private ImageProcessor extractCoronalProcessor(ImageStack srcStack, int width, int nSlices, int y, ImageProcessor templateIp) {
+		if (templateIp instanceof ShortProcessor) {
+			short[] newPix = new short[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				short[] srcPix = (short[]) srcStack.getPixels(i + 1);
+				// ★修正: 足(1)〜頭(N)のデータを、画像の下〜上に逆順にマッピングする
+				int targetRow = (nSlices - 1) - i;
+				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
+			}
+			return new ShortProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ByteProcessor) {
+			byte[] newPix = new byte[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				byte[] srcPix = (byte[]) srcStack.getPixels(i + 1);
+				int targetRow = (nSlices - 1) - i;
+				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
+			}
+			return new ByteProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof FloatProcessor) {
+			float[] newPix = new float[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				float[] srcPix = (float[]) srcStack.getPixels(i + 1);
+				int targetRow = (nSlices - 1) - i;
+				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
+			}
+			return new FloatProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ColorProcessor) {
+			int[] newPix = new int[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				int[] srcPix = (int[]) srcStack.getPixels(i + 1);
+				int targetRow = (nSlices - 1) - i;
+				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
+			}
+			return new ColorProcessor(width, nSlices, newPix);
+		}
+		throw new IllegalArgumentException("Unsupported ImageProcessor type");
+	}
+
+	
+	/**
+	 * Create a sagittal section for the input stack.
+	 * * @param standardizedOrientSrc : Axial, standardized slicing by PlanarSupport.standardizeStackOrientation
+	 * @param x_cutPoint: 0 to width-1
+	 * @return YZ (Sagittal) ImagePlus
+	 */
+	public ImagePlus cutVertically(ImagePlus standardizedOrientSrc, int x_cutPoint) {
+		if (PlanarSupport.planarOf(standardizedOrientSrc) != CutSurface.AXIAL) {
+			throw new IllegalArgumentException("Need axial src volume");
+		}
+
+		ImageStack srcStack = getStack(standardizedOrientSrc);
+		int width = srcStack.getWidth();
+		int height = srcStack.getHeight();
+		int nSlices = srcStack.getSize();
+
+		int x = Math.max(0, Math.min(x_cutPoint, width - 1));
+
+		ImageProcessor templateIp = srcStack.getProcessor(1);
+		ImageProcessor yzProcessor = extractSagittalProcessor(srcStack, width, height, nSlices, x, templateIp);
+
+		Calibration srcCal = standardizedOrientSrc.getCalibration().copy();
+		double pixelWidth = srcCal.pixelWidth;
+		double pixelHeight = srcCal.pixelHeight;
+		double voxelDepth = GDicomTools.getVoxelDepth(standardizedOrientSrc);
+
+		double aspectRatio = voxelDepth / pixelWidth;
+		int resizedHeight = (int) Math.ceil(yzProcessor.getHeight() * aspectRatio);
+
+		if (resizedHeight < 1) {
+			throw new IllegalArgumentException("Cannot create YZ plane: resulting height is < 1.");
+		}
+
+		if (yzProcessor.getWidth() != yzProcessor.getWidth() || resizedHeight != yzProcessor.getHeight()) {
+			yzProcessor.setInterpolationMethod(ImageProcessor.NONE);
+			yzProcessor = yzProcessor.resize(yzProcessor.getWidth(), resizedHeight);
+		}
+
+		boolean isRGB = (templateIp instanceof ColorProcessor);
+		double min = standardizedOrientSrc.getDisplayRangeMin();
+		double max = standardizedOrientSrc.getDisplayRangeMax();
+
+		if (!isRGB) {
+			yzProcessor.setMinAndMax(min, max);
+		}
+
+		ColorModel cm = isRGB ? null : standardizedOrientSrc.getProcessor().getColorModel();
+		if (cm != null && !(templateIp instanceof ColorProcessor)) {
+			yzProcessor.setColorModel(cm);
+		}
+
+		ImagePlus yzImage = new ImagePlus(String.valueOf(x), yzProcessor);
+
+		double[] axiIop = GDicomTools.getImageOrientationPatient(standardizedOrientSrc, 1);
+		if (axiIop != null) {
+			Vector3d rowX = new Vector3d(axiIop[0], axiIop[1], axiIop[2]);
+			Vector3d colY = new Vector3d(axiIop[3], axiIop[4], axiIop[5]);
+			// ★修正: SagittalのColベクトルも頭から足(-Z)へ向かうため、colY x rowX の外積にする
+			Vector3d zVec = PlanarSupport.crossProduct(colY, rowX, true);
+			double[] sagIop = new double[] { colY.x, colY.y, colY.z, zVec.x, zVec.y, zVec.z };
+
+			// ★修正: 新しい画像の一番上(row 0)は頭なので、IPPは nSlices 番目のスライスから取得する
+			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedOrientSrc, x, 0, nSlices);
+			if (ippVec != null) {
+				double[] ipp = new double[] { ippVec.x(), ippVec.y(), ippVec.z() };
+				GDicomTools.setImagePositionPatient(yzImage, 1, ipp);
+				GDicomTools.setImageOrientationPatient(yzImage, 1, sagIop);
+			}
+		}
+
+		Calibration newCal = srcCal.copy();
+		newCal.setXUnit(srcCal.getYUnit());
+		newCal.setYUnit(srcCal.getZUnit());
+		newCal.setZUnit(srcCal.getXUnit());
+		newCal.pixelWidth = pixelHeight;
+		newCal.pixelHeight = voxelDepth / aspectRatio;
+		newCal.pixelDepth = pixelWidth;
+		yzImage.setCalibration(newCal);
+
+		yzImage.setDisplayRange(min, max);
+		if (standardizedOrientSrc.getLuts() != null && standardizedOrientSrc.getLuts().length > 0) {
+			yzImage.setLut(standardizedOrientSrc.getLuts()[0]);
+		}
+
+		return yzImage;
+	}
+
+	private ImageProcessor extractSagittalProcessor(ImageStack srcStack, int width, int height, int nSlices, int x, ImageProcessor templateIp) {
+		if (templateIp instanceof ShortProcessor) {
+			short[] newPix = new short[height * nSlices];
+			for (int z = 0; z < nSlices; z++) {
+				short[] srcPix = (short[]) srcStack.getPixels(z + 1);
+				// ★修正: 足(1)〜頭(N)のデータを、画像の下〜上に逆順にマッピングする
+				int targetRow = (nSlices - 1) - z;
+				for (int y = 0; y < height; y++) {
+					newPix[targetRow * height + y] = srcPix[x + y * width];
+				}
+			}
+			return new ShortProcessor(height, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ByteProcessor) {
+			byte[] newPix = new byte[height * nSlices];
+			for (int z = 0; z < nSlices; z++) {
+				byte[] srcPix = (byte[]) srcStack.getPixels(z + 1);
+				int targetRow = (nSlices - 1) - z;
+				for (int y = 0; y < height; y++) {
+					newPix[targetRow * height + y] = srcPix[x + y * width];
+				}
+			}
+			return new ByteProcessor(height, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof FloatProcessor) {
+			float[] newPix = new float[height * nSlices];
+			for (int z = 0; z < nSlices; z++) {
+				float[] srcPix = (float[]) srcStack.getPixels(z + 1);
+				int targetRow = (nSlices - 1) - z;
+				for (int y = 0; y < height; y++) {
+					newPix[targetRow * height + y] = srcPix[x + y * width];
+				}
+			}
+			return new FloatProcessor(height, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ColorProcessor) {
+			int[] newPix = new int[height * nSlices];
+			for (int z = 0; z < nSlices; z++) {
+				int[] srcPix = (int[]) srcStack.getPixels(z + 1);
+				int targetRow = (nSlices - 1) - z;
+				for (int y = 0; y < height; y++) {
+					newPix[targetRow * height + y] = srcPix[x + y * width];
+				}
+			}
+			return new ColorProcessor(height, nSlices, newPix);
+		}
+		throw new IllegalArgumentException("Unsupported ImageProcessor type");
+	}
+	
+	
+	/**
+	 * CoronalスタックからAxialスタック全体を再構成します。
+	 * * @param standardizedSrcCor : Coronal, standardized slicing (Y- to Y+, Anterior to Posterior)
+	 * @return XY (Axial) ImagePlus stack
+	 */
+	public ImagePlus coronalToAxial(ImagePlus standardizedSrcCor) {
+		if (PlanarSupport.planarOf(standardizedSrcCor) != CutSurface.CORONAL) {
+			throw new IllegalArgumentException("Need COR stack volume");
+		}
+
+		ImageStack srcStack = getStack(standardizedSrcCor);
+		int width = srcStack.getWidth();
+		int height = srcStack.getHeight(); // Coronalの高さ = Axialのスライス枚数(Z)
+		int nSlices = srcStack.getSize();  // Coronalの枚数 = Axialの高さ(Y)
+
+		ImageProcessor templateIp = srcStack.getProcessor(1);
+		boolean isRGB = templateIp instanceof ColorProcessor;
+		double min = standardizedSrcCor.getDisplayRangeMin();
+		double max = standardizedSrcCor.getDisplayRangeMax();
+		Calibration srcCal = standardizedSrcCor.getCalibration().copy();
+
+		// 1. アスペクト比に基づくリサイズ計算
+		double voxelDepth = GDicomTools.getVoxelDepth(standardizedSrcCor);
+		double pixelWidth = srcCal.pixelWidth;
+		double pixelHeight = srcCal.pixelHeight;
+		
+		double aspectRatio = voxelDepth / pixelWidth; // ZとXの比率
+		int resizedHeight = (int) Math.ceil(nSlices * aspectRatio);
+		
+		if (resizedHeight < 1) {
+			throw new IllegalArgumentException("Cannot create XY plane: resulting height is < 1.");
+		}
+
+		// 2. Axialスタック共通の IOP (Image Orientation Patient) を計算
+		// Coronalの Row(X) と Col(Z) の外積から、Axialの Col(Y) を算出する
+		double[] corIop = GDicomTools.getImageOrientationPatient(standardizedSrcCor, 1);
+		double[] axiIop = null;
+		if (corIop != null) {
+			Vector3d rowX = new Vector3d(corIop[0], corIop[1], corIop[2]);
+			Vector3d colZ = new Vector3d(corIop[3], corIop[4], corIop[5]);
+			// Head Firstを前提に標準化されているため、そのまま外積でPosterior(Y)方向が出る
+			Vector3d colY = PlanarSupport.crossProduct(rowX, colZ, true);
+			colY = PlanarSupport.truncate(colY, 6);
+			axiIop = new double[] { rowX.x, rowX.y, rowX.z, colY.x, colY.y, colY.z };
+		}
+
+		// 3. 新しいAxialスタックの初期化
+		ImageStack axiStack = new ImageStack(width, resizedHeight);
+
+		// 4. Coronalの高さ(Z軸)に沿ってループし、各Axialスライス(XY面)を生成
+		for (int y = 0; y < height; y++) {
+			// ヘルパーメソッドでピクセルを抽出し、ImageProcessorを生成
+			ImageProcessor axiIp = extractAxialProcessorFromCoronal(srcStack, width, nSlices, y, templateIp);
+
+			// リサイズ処理 (アスペクト比の調整)
+			if (width != axiIp.getWidth() || resizedHeight != axiIp.getHeight()) {
+				axiIp.setInterpolationMethod(ImageProcessor.NONE);
+				axiIp = axiIp.resize(width, resizedHeight);
+			}
+
+			// メタデータ(IPP/IOP)を付与するための一時的なImagePlus
+			ImagePlus tempSlice = new ImagePlus(String.valueOf(y), axiIp);
+			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedSrcCor, 0, y, 1);
+
+			if (ippVec != null && axiIop != null) {
+				double[] ipp = new double[] { ippVec.x(), ippVec.y(), ippVec.z() };
+				GDicomTools.setImagePositionPatient(tempSlice, 1, ipp);
+				GDicomTools.setImageOrientationPatient(tempSlice, 1, axiIop);
+			}
+
+			// スライスラベル（メタデータ文字列）ごとスタックに追加
+			axiStack.addSlice(tempSlice.getStack().getSliceLabel(1), axiIp);
+		}
+
+		// 5. 最終的なImagePlusの構築
+		ImagePlus axiImage = new ImagePlus("XY", axiStack);
+
+		// 6. ColorModel と コントラスト(Min/Max) の適用
+		if (!isRGB) {
+			axiImage.setDisplayRange(min, max);
+			axiImage.getProcessor().setMinAndMax(min, max);
+		}
+		
+		ColorModel cm = isRGB ? null : standardizedSrcCor.getProcessor().getColorModel();
+		if (cm != null && !(templateIp instanceof ColorProcessor)) {
+			// スタック全体にColorModelを適用する場合は通常Lutをセットする
+			if (standardizedSrcCor.getLuts() != null && standardizedSrcCor.getLuts().length > 0) {
+				axiImage.setLut(standardizedSrcCor.getLuts()[0]);
+			}
+		}
+
+		// 7. 新しい Calibration (単位と解像度のマッピング) の設定
+		Calibration newCal = srcCal.copy();
+		newCal.setXUnit(srcCal.getXUnit());
+		newCal.setYUnit(srcCal.getZUnit());
+		newCal.setZUnit(srcCal.getYUnit());
+		newCal.pixelWidth = pixelWidth;
+		newCal.pixelHeight = voxelDepth / aspectRatio; // = pixelWidth になるはずです
+		newCal.pixelDepth = pixelHeight;               // Coronalの縦ピクセルサイズが、Axialのスライス間隔になる
+		axiImage.setCalibration(newCal);
+
+		return axiImage;
+	}
+
+	/**
+	 * Coronalスタックの指定したY座標（高さ）から1行ずつピクセルを抽出し、Axial面用のImageProcessorを作成します。
+	 */
+	private ImageProcessor extractAxialProcessorFromCoronal(ImageStack srcStack, int width, int nSlices, int y, ImageProcessor templateIp) {
+		// Axial面(XY)の幅は元の幅(X)、高さはCoronalのスライス枚数(Y: 前後方向)になります
+		if (templateIp instanceof ShortProcessor) {
+			short[] newPix = new short[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				short[] srcPix = (short[]) srcStack.getPixels(i + 1);
+				System.arraycopy(srcPix, width * y, newPix, width * i, width);
+			}
+			return new ShortProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ByteProcessor) {
+			byte[] newPix = new byte[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				byte[] srcPix = (byte[]) srcStack.getPixels(i + 1);
+				System.arraycopy(srcPix, width * y, newPix, width * i, width);
+			}
+			return new ByteProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof FloatProcessor) {
+			float[] newPix = new float[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				float[] srcPix = (float[]) srcStack.getPixels(i + 1);
+				System.arraycopy(srcPix, width * y, newPix, width * i, width);
+			}
+			return new FloatProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ColorProcessor) {
+			int[] newPix = new int[width * nSlices];
+			for (int i = 0; i < nSlices; i++) {
+				int[] srcPix = (int[]) srcStack.getPixels(i + 1);
+				System.arraycopy(srcPix, width * y, newPix, width * i, width);
+			}
+			return new ColorProcessor(width, nSlices, newPix);
+		}
+		
+		throw new IllegalArgumentException("Unsupported ImageProcessor type");
 	}
 	
 	/**
-	 * 
-	 * Create a sagittal section for the input stack.
-	 * 
-	 * @param src : axial
-	 * @param x_cutPoint: 0 to w-1
-	 * @return
+	 * SagittalスタックからAxialスタック全体を再構成します。
+	 * @param standardizedSrcSag : Sagittal, standardized slicing (X- to X+, Right to Left)
+	 * @return XY (Axial) ImagePlus stack
 	 */
-	public ImagePlus cutVirtically(ImagePlus src, int x_cutPoint) {
+	public ImagePlus sagittalToAxial(ImagePlus standardizedSrcSag) {
+		if (PlanarSupport.planarOf(standardizedSrcSag) != CutSurface.SAGITTAL) {
+			throw new IllegalArgumentException("Need SAG stack volume");
+		}
+
+		ImageStack srcStack = getStack(standardizedSrcSag);
+		int sagWidth = srcStack.getWidth();   // Sagittalの幅(Y: 前後方向) = Axialの高さ
+		int sagHeight = srcStack.getHeight(); // Sagittalの高さ(Z: 頭足方向) = Axialのスライス枚数
+		int nSlices = srcStack.getSize();     // Sagittalの枚数(X: 左右方向) = Axialの幅
+
+		ImageProcessor templateIp = srcStack.getProcessor(1);
+		boolean isRGB = templateIp instanceof ColorProcessor;
+		double min = standardizedSrcSag.getDisplayRangeMin();
+		double max = standardizedSrcSag.getDisplayRangeMax();
+		Calibration srcCal = standardizedSrcSag.getCalibration().copy();
+
+		// 1. アスペクト比に基づくリサイズ計算
+		double voxelDepth = GDicomTools.getVoxelDepth(standardizedSrcSag);
+		double pixelWidth = srcCal.pixelWidth;
+		double pixelHeight = srcCal.pixelHeight;
 		
-		if(PlanarSupport.planarOf(src) != CutSurface.AXIAL) {
-        	throw new IllegalArgumentException("Need axial src volume");
-        }
-		ImageStack is = getStack(src);
-		ImageProcessor ip = is.getProcessor(1);
-		int width = is.getWidth();
-		int height = is.getHeight();
-		int size = is.getSize();
-		boolean rgb = ip instanceof ColorProcessor;
-		ColorModel cm = rgb ? null : src.getProcessor().getColorModel();
-		double min = src.getDisplayRangeMin();
-		double max = src.getDisplayRangeMax();
-		Calibration cal = src.getCalibration().copy();
-		String xunit = cal.getXUnit();
-		String yunit = cal.getYUnit();
-		String zunit = cal.getZUnit();
-		double src_pz = GDicomTools.getVoxelDepth(src);
-		double src_py = cal.pixelHeight;
-		double src_px = cal.pixelWidth;
-		double az = src_pz / src_px;// keep z/x relationship
-
-		ImageProcessor yz_ip = null;
-		ImagePlus yz_image = new ImagePlus();
-		/*
-		 * x and y is zero-based.
-		 */
-		int x = x_cutPoint;
-		if (x < 0) {
-			x = 0;
-		} else if (x >= width) {
-			x = width - 1;
-		}
-		Object newpix = null;
+		double aspectRatio = voxelDepth / pixelWidth; // X(枚数) と Y(幅) の比率
+		int resizedWidth = (int) Math.ceil(nSlices * aspectRatio);
 		
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(src);
-		boolean isSlicingToUpperZ = PlanarSupport.isSlicingToUpperZSide(src);
-		if (ip instanceof ShortProcessor) {
-			newpix = new short[height * size];
-		} else if (ip instanceof ByteProcessor) {
-			newpix = new byte[height * size];
-		} else if (ip instanceof FloatProcessor) {
-			newpix = new float[height * size];
-		} else if (ip instanceof ColorProcessor) {
-			newpix = new int[height * size];
-		}
-		// copy lines to newPixel
-		for (int i = 0; i < size; i++) {
-			Object pixels = is.getPixels(i + 1);
-			/* scroll to upper and head */
-			if (isHeadFirst && isSlicingToUpperZ) {
-				/* from last to start */
-				for (int j = 0; j < height; j++) {
-					System.arraycopy(pixels, x + j * width, newpix, (size - i - 1) * height + j, 1);
-				}
-			} else if (isHeadFirst && !isSlicingToUpperZ) {
-				/* from start to last */
-				for (int j = 0; j < height; j++) {
-					System.arraycopy(pixels, x + j * width, newpix, i * height + j, 1);
-				}
-			} else if (!isHeadFirst && isSlicingToUpperZ) {
-				/* from start to last */
-				for (int j = 0; j < height; j++) {
-					System.arraycopy(pixels, x + j * width, newpix, i * height + j, 1);
-				}
-			} else if (!isHeadFirst && !isSlicingToUpperZ) {
-				/* from last to start */
-				for (int j = 0; j < height; j++) {
-					System.arraycopy(pixels, x + j * width, newpix, (size - i - 1) * height + j, 1);
-				}
-			}
-		}
-		if (ip instanceof ShortProcessor) {
-			yz_ip = new ShortProcessor(height, size, (short[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof ByteProcessor) {
-			yz_ip = new ByteProcessor(height, size,(byte[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof FloatProcessor) {
-			yz_ip = new FloatProcessor(height, size,(float[]) newpix, ip.getCurrentColorModel());
-		} else if (ip instanceof ColorProcessor) {
-			yz_ip = new ColorProcessor(height, size,(int[]) newpix);
+		if (resizedWidth < 1) {
+			throw new IllegalArgumentException("Cannot create XY plane: resulting width is < 1.");
 		}
 
-		if (cm != null && yz_ip != null && yz_ip.getBitDepth() != 24) {
-			yz_ip.setColorModel(cm);
+		// 2. Axialスタック共通の IOP (Image Orientation Patient) を計算
+		// Sagittalの Col(Z) と Row(Y) の外積から、Axialの Row(X) を算出する
+		double[] sagIop = GDicomTools.getImageOrientationPatient(standardizedSrcSag, 1);
+		double[] axiIop = null;
+		if (sagIop != null) {
+			Vector3d rowY = new Vector3d(sagIop[0], sagIop[1], sagIop[2]); // A -> P
+			Vector3d colZ = new Vector3d(sagIop[3], sagIop[4], sagIop[5]); // S -> I
+			// 標準LPS座標において、S->I(col) と A->P(row) の外積は R->L(+X) になる
+			Vector3d rowX = PlanarSupport.crossProduct(colZ, rowY, true); 
+			rowX = PlanarSupport.truncate(rowX, 6);
+			axiIop = new double[] { rowX.x, rowX.y, rowX.z, rowY.x, rowY.y, rowY.z };
 		}
 
-		int width2 = yz_ip.getWidth();
-		int height2 = (int) Math.ceil(yz_ip.getHeight() * az);
-		if (width2 != yz_ip.getWidth() || height2 != yz_ip.getHeight()) {
-			yz_ip.setInterpolationMethod(ImageProcessor.NONE);
-			yz_ip = yz_ip.resize(width2, height2);
-		} 
-		if (!rgb)
-			yz_ip.setMinAndMax(min, max);
-		yz_image.setProcessor("", yz_ip);
-		// to YZ
-		double col = x;// x direction
-		double row = 0;// y direction
-		int pos_z = PlanarSupport.getOriginSlicePosition(size,isSlicingToUpperZ,isHeadFirst);
-		Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(src, x, 0/*y*/, pos_z);
-		double[] iop = null;
-		double[] axi_iop = GDicomTools.getImageOrientationPatient(src, 1);
-		double[] rowX = new double[]{axi_iop[0],axi_iop[1],axi_iop[2]};
-		double[] colY = new double[]{axi_iop[3],axi_iop[4],axi_iop[5]};
-		Vector3d zVec = PlanarSupport.calculateNormal(new Vector3d(rowX), new Vector3d(colY), true);
-		if(isHeadFirst) {
-			if(zVec.z > 0.0) {
-				zVec.x *= -1;
-				zVec.y *= -1;
-				zVec.z *= -1;
+		// 3. 新しいAxialスタックの初期化 (幅: resizedWidth, 高さ: sagWidth)
+		ImageStack axiStack = new ImageStack(resizedWidth, sagWidth);
+
+		// 4. Sagittalの高さ(Z軸)に沿ってループし、各Axialスライス(XY面)を生成
+		for (int y = 0; y < sagHeight; y++) {
+			// ヘルパーメソッドでピクセルを抽出し、ImageProcessorを生成
+			ImageProcessor axiIp = extractAxialProcessorFromSagittal(srcStack, sagWidth, sagHeight, nSlices, y, templateIp);
+
+			// リサイズ処理 (アスペクト比の調整)
+			if (nSlices != axiIp.getWidth() || sagWidth != axiIp.getHeight()) {
+				axiIp.setInterpolationMethod(ImageProcessor.NONE);
+				axiIp = axiIp.resize(resizedWidth, sagWidth);
 			}
-			iop = new double[] {colY[0],colY[1],colY[2],zVec.x, zVec.y,zVec.z};
-		}else {
-			if(zVec.z < 0.0) {
-				zVec.x *= -1;
-				zVec.y *= -1;
-				zVec.z *= -1;
+
+			// メタデータ(IPP/IOP)を付与するための一時的なImagePlus
+			ImagePlus tempSlice = new ImagePlus(String.valueOf(y), axiIp);
+			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedSrcSag, 0, y, 1);
+
+			if (ippVec != null && axiIop != null) {
+				double[] ipp = new double[] { ippVec.x(), ippVec.y(), ippVec.z() };
+				GDicomTools.setImagePositionPatient(tempSlice, 1, ipp);
+				GDicomTools.setImageOrientationPatient(tempSlice, 1, axiIop);
 			}
-			iop = new double[] {colY[0],colY[1],colY[2],zVec.x, zVec.y,zVec.z};
+
+			// スライスラベル（メタデータ文字列）ごとスタックに追加
+			axiStack.addSlice(tempSlice.getStack().getSliceLabel(1), axiIp);
 		}
-		if (ipp_vec != null && iop !=null) {
-			double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-			GDicomTools.setImagePositionPatient(yz_image, 1, ipp);
-			GDicomTools.setImageOrientationPatient(yz_image, 1, iop);
+
+		// 5. 最終的なImagePlusの構築
+		ImagePlus axiImage = new ImagePlus("XY", axiStack);
+
+		// 6. ColorModel と コントラスト(Min/Max) の適用
+		if (!isRGB) {
+			axiImage.setDisplayRange(min, max);
+			axiImage.getProcessor().setMinAndMax(min, max);
 		}
-		cal.setXUnit(yunit);
-		cal.setYUnit(zunit);
-		cal.setZUnit(xunit);
-		cal.pixelWidth = src_py;
-		cal.pixelHeight = src_pz / az;
-		cal.pixelDepth = src_px;
-		yz_image.setCalibration(cal);
-		return yz_image;
+		
+		ColorModel cm = isRGB ? null : standardizedSrcSag.getProcessor().getColorModel();
+		if (cm != null && !(templateIp instanceof ColorProcessor)) {
+			if (standardizedSrcSag.getLuts() != null && standardizedSrcSag.getLuts().length > 0) {
+				axiImage.setLut(standardizedSrcSag.getLuts()[0]);
+			}
+		}
+
+		// 7. 新しい Calibration (単位と解像度のマッピング) の設定
+		Calibration newCal = srcCal.copy();
+		newCal.setXUnit(srcCal.getZUnit());
+		newCal.setYUnit(srcCal.getXUnit());
+		newCal.setZUnit(srcCal.getYUnit());
+		newCal.pixelWidth = voxelDepth / aspectRatio; // = srcCal.pixelWidth になるはずです
+		newCal.pixelHeight = pixelWidth;              // Sagittalの幅方向のピクセルサイズ
+		newCal.pixelDepth = pixelHeight;              // Sagittalの縦方向(Z)がAxialの深さになる
+		axiImage.setCalibration(newCal);
+
+		return axiImage;
+	}
+
+	/**
+	 * Sagittalスタックの指定したY座標（高さ）から1行ずつピクセルを抽出し、Axial面用のImageProcessorを作成します。
+	 */
+	private ImageProcessor extractAxialProcessorFromSagittal(ImageStack srcStack, int sagWidth, int sagHeight, int nSlices, int y, ImageProcessor templateIp) {
+		// Axial面(XY)の幅は元のスライス枚数(X)、高さは元のSagittal幅(Y)になります
+		int axiWidth = nSlices;
+		int axiHeight = sagWidth;
+		
+		if (templateIp instanceof ShortProcessor) {
+			short[] newPix = new short[axiWidth * axiHeight];
+			for (int z = 0; z < nSlices; z++) { // z は Sagittal のスライス番号 (Axial の X になる)
+				short[] srcPix = (short[]) srcStack.getPixels(z + 1);
+				for (int x = 0; x < sagWidth; x++) { // x は Sagittal の横座標 (Axial の Y になる)
+					newPix[x * axiWidth + z] = srcPix[y * sagWidth + x];
+				}
+			}
+			return new ShortProcessor(axiWidth, axiHeight, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ByteProcessor) {
+			byte[] newPix = new byte[axiWidth * axiHeight];
+			for (int z = 0; z < nSlices; z++) {
+				byte[] srcPix = (byte[]) srcStack.getPixels(z + 1);
+				for (int x = 0; x < sagWidth; x++) {
+					newPix[x * axiWidth + z] = srcPix[y * sagWidth + x];
+				}
+			}
+			return new ByteProcessor(axiWidth, axiHeight, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof FloatProcessor) {
+			float[] newPix = new float[axiWidth * axiHeight];
+			for (int z = 0; z < nSlices; z++) {
+				float[] srcPix = (float[]) srcStack.getPixels(z + 1);
+				for (int x = 0; x < sagWidth; x++) {
+					newPix[x * axiWidth + z] = srcPix[y * sagWidth + x];
+				}
+			}
+			return new FloatProcessor(axiWidth, axiHeight, newPix, templateIp.getCurrentColorModel());
+			
+		} else if (templateIp instanceof ColorProcessor) {
+			int[] newPix = new int[axiWidth * axiHeight];
+			for (int z = 0; z < nSlices; z++) {
+				int[] srcPix = (int[]) srcStack.getPixels(z + 1);
+				for (int x = 0; x < sagWidth; x++) {
+					newPix[x * axiWidth + z] = srcPix[y * sagWidth + x];
+				}
+			}
+			return new ColorProcessor(axiWidth, axiHeight, newPix);
+		}
+		
+		throw new IllegalArgumentException("Unsupported ImageProcessor type");
 	}
 	
-	public ImagePlus coronalToAxial(ImagePlus srcStack) {
-		if(ImageOrientation.getCutSurface(srcStack) != CutSurface.CORONAL) {
-        	throw new IllegalArgumentException("Need COR stack volume");
-        }
-		ImageStack is = getStack(srcStack);
-		ImageProcessor ip = is.getProcessor(1);
-		int width = is.getWidth();
-		int height = is.getHeight();
-		int size = is.getSize();
-		boolean rgb = ip instanceof ColorProcessor;
-		ColorModel cm = rgb ? null : srcStack.getProcessor().getColorModel();
-		double min = srcStack.getDisplayRangeMin();
-		double max = srcStack.getDisplayRangeMax();
-		Calibration cal = srcStack.getCalibration().copy();
-		String xunit = cal.getXUnit();
-		String yunit = cal.getYUnit();
-		String zunit = cal.getZUnit();
-		double src_pz = GDicomTools.getVoxelDepth(srcStack);
-		double src_py = cal.pixelHeight;
-		double src_px = cal.pixelWidth;
-		double az = src_pz / src_px;// keep z/x relationship
-		int newH = (int) Math.ceil(size * az);
-		if (newH < 1) {
-			throw new IllegalArgumentException("Can not create XY plane...");
-		}
-		ImageStack xy_stack = new ImageStack(width, newH);
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(srcStack);
-		int pos_z = 1;//1 to N, always 1.
-		double[] cor_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
-		double[] rowVec = new double[] {cor_iop[0],cor_iop[1],cor_iop[2]};//X
-		double[] colVec = new double[] {cor_iop[3],cor_iop[4],cor_iop[5]};//Z
-		Vector3d yVec = null;
-		/*
-		 * In Coronal case, calculate cross product with row.cross(col) in head first.
-		 * In Sagittal case, with col.cross(row).
-		 */
-		if(isHeadFirst) {
-			yVec = PlanarSupport.calculateNormal(new Vector3d(rowVec), new Vector3d(colVec), true);
-		}else {
-			yVec = PlanarSupport.calculateNormal(new Vector3d(colVec), new Vector3d(rowVec), true);
-		}
-		yVec = PlanarSupport.truncate(yVec, 6);
-		double[] iop = new double[] {rowVec[0], rowVec[1], rowVec[2], yVec.x, yVec.y, yVec.z};
-		
-		for(int y =0; y<height; y++) {
-			Object newpix = null;
-			ImageProcessor xy_ip = null;
-			if (ip instanceof ShortProcessor) {
-				newpix = new short[width * size];
-			} else if (ip instanceof ByteProcessor) {
-				newpix = new byte[width * size];
-			} else if (ip instanceof FloatProcessor) {
-				newpix = new float[width * size];
-			} else if (ip instanceof ColorProcessor) {
-				newpix = new int[width * size];
-			}
-			// copy lines to newPixel
-			for (int i = 0; i < size; i++) {
-				Object pixels = is.getPixels(i + 1);
-				System.arraycopy(pixels, width * y, newpix, width * i, width);
-			}
-			if (ip instanceof ShortProcessor) {
-				xy_ip = new ShortProcessor(width, size, (short[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof ByteProcessor) {
-				xy_ip = new ByteProcessor(width, size, (byte[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof FloatProcessor) {
-				xy_ip = new FloatProcessor(width, size, (float[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof ColorProcessor) {
-				xy_ip = new ColorProcessor(width, size, (int[]) newpix);
-			}
-			
-			if (cm != null && xy_ip != null && (ip instanceof ColorProcessor)) {
-				xy_ip.setColorModel(cm);
-			}
-
-			int width2 = xy_ip.getWidth();
-			int height2 = newH;
-			if (width2 != xy_ip.getWidth() || height2 != xy_ip.getHeight()) {
-				xy_ip.setInterpolationMethod(ImageProcessor.NONE);
-				xy_ip = xy_ip.resize(width2, height2);
-			}
-			if (!rgb) {
-				xy_ip.setMinAndMax(min, max);
-			}
-			/*
-			 * To adding iop and ipp.
-			 */
-			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
-			
-			Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z);
-			
-			if (ipp_vec != null && iop !=null) {
-				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-//				System.out.println("CORONAL ImagePosition: " + Arrays.toString(ipp));
-				GDicomTools.setImagePositionPatient(xy_slice, 1, ipp);
-				GDicomTools.setImageOrientationPatient(xy_slice, 1, iop);
-			}
-			xy_stack.addSlice(xy_slice.getStack().getSliceLabel(1),xy_slice.getProcessor());
-		}
-		ImagePlus xy = new ImagePlus("XY", xy_stack);
-		cal.setXUnit(xunit);
-		cal.setYUnit(zunit);
-		cal.setZUnit(yunit);
-		cal.pixelWidth = src_px;
-		cal.pixelHeight = src_pz / az;
-		cal.pixelDepth = src_py;
-		xy.setCalibration(cal);
-		return xy;
-	}
-	
-	public ImagePlus sagittalToAxial(ImagePlus srcStack) {
-		if(ImageOrientation.getCutSurface(srcStack) != CutSurface.SAGITTAL) {
-        	throw new IllegalArgumentException("Need SAG stack volume");
-        }
-		ImageStack is = getStack(srcStack);
-		ImageProcessor ip = is.getProcessor(1);
-		int width = is.getWidth();//newH
-		int height = is.getHeight();//newDepth
-		int size = is.getSize();//newW
-		boolean rgb = ip instanceof ColorProcessor;
-		ColorModel cm = rgb ? null : srcStack.getProcessor().getColorModel();
-		double min = srcStack.getDisplayRangeMin();
-		double max = srcStack.getDisplayRangeMax();
-		Calibration cal = srcStack.getCalibration().copy();
-		String xunit = cal.getXUnit();
-		String yunit = cal.getYUnit();
-		String zunit = cal.getZUnit();
-		double src_pz = GDicomTools.getVoxelDepth(srcStack);
-		double src_py = cal.pixelHeight;
-		double src_px = cal.pixelWidth;
-		double az = src_pz / src_px;// keep z/x relationship
-		int newW = (int) Math.ceil(size * az);
-		if (newW < 1) {
-			throw new IllegalArgumentException("Can not create XY plane...");
-		}
-		ImageStack xy_stack = new ImageStack(newW, width);
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(srcStack);
-		
-		int pos_z = 1; // always 1
-		double[] sag_iop = GDicomTools.getImageOrientationPatient(srcStack, pos_z);
-		Vector3d sag_rowVec = new Vector3d(sag_iop[0],sag_iop[1],sag_iop[2]);
-		Vector3d sag_colVec = new Vector3d(sag_iop[3],sag_iop[4],sag_iop[5]);
-		Vector3d xVec = null;
-		/*
-		 * In Sagittal case, with col.cross(row) in head first.
-		 */
-		if(isHeadFirst) {
-			xVec = PlanarSupport.calculateNormal(sag_colVec, sag_rowVec, true);
-		}else {
-			xVec = PlanarSupport.calculateNormal(sag_rowVec, sag_colVec, true);
-		}
-		double[] iop = new double[] {xVec.x, xVec.y, xVec.z, sag_rowVec.x, sag_rowVec.y, sag_rowVec.z};
-
-		for(int y =0; y<height; y++) {//num of slices in axial
-			Object newpix = null;
-			ImageProcessor xy_ip = null;
-			if (ip instanceof ShortProcessor) {
-				newpix = new short[width * size];
-			} else if (ip instanceof ByteProcessor) {
-				newpix = new byte[width  * size];
-			} else if (ip instanceof FloatProcessor) {
-				newpix = new float[width  * size];
-			} else if (ip instanceof ColorProcessor) {
-				newpix = new int[width  * size];
-			}
-			// copy lines to newPixel
-			for (int x = 0; x < width; x++) {
-				for (int z = 0; z < size; z++) {
-					Object pixels = is.getPixels(z + 1);
-					System.arraycopy(pixels, y * width + x, newpix, x * size + z, 1);
-				}
-			}
-			if (ip instanceof ShortProcessor) {
-				xy_ip = new ShortProcessor(size, width, (short[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof ByteProcessor) {
-				xy_ip = new ByteProcessor(size, width, (byte[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof FloatProcessor) {
-				xy_ip = new FloatProcessor(size, width, (float[]) newpix, ip.getCurrentColorModel());
-			} else if (ip instanceof ColorProcessor) {
-				xy_ip = new ColorProcessor(size, width, (int[]) newpix);
-			}
-			
-			if (cm != null && xy_ip != null && (ip instanceof ColorProcessor)) {
-				xy_ip.setColorModel(cm);
-			}
-
-			int width2 = newW;
-			int height2 = width;
-			if (width2 != xy_ip.getWidth() || height2 != xy_ip.getHeight()) {
-				xy_ip.setInterpolationMethod(ImageProcessor.NONE);
-				xy_ip = xy_ip.resize(width2, height2);
-			}
-			if (!rgb) {
-				xy_ip.setMinAndMax(min, max);
-			}
-			/*
-			 * add iop and ipp.
-			 */
-			ImagePlus xy_slice = new ImagePlus(""+y, xy_ip);
-			Vector3d ipp_vec = PlanarSupport.getNewImagePositionPatient2D(srcStack, 0/*x*/, y, pos_z/*1*/);
-			if (ipp_vec != null && iop !=null) {
-				double[] ipp = new double[] { ipp_vec.x(), ipp_vec.y(), ipp_vec.z() };
-				GDicomTools.setImagePositionPatient(xy_slice, 1, ipp);
-				GDicomTools.setImageOrientationPatient(xy_slice, 1, iop);
-			}
-			xy_stack.addSlice(xy_slice.getStack().getSliceLabel(1),xy_slice.getProcessor());
-		}
-		ImagePlus xy = new ImagePlus("XY", xy_stack);
-		cal.setXUnit(zunit);
-		cal.setYUnit(xunit);
-		cal.setZUnit(yunit);
-		cal.pixelWidth = src_pz / az;
-		cal.pixelHeight = src_px;
-		cal.pixelDepth = src_py;
-		xy.setCalibration(cal);
-		return xy;
-	}
-	
-	public ImageStack getStack(ImagePlus imp) {
+	private ImageStack getStack(ImagePlus imp) {
 		if (imp.isHyperStack()) {
 			int slices = imp.getNSlices();
 			int c = imp.getChannel();
@@ -638,17 +694,10 @@ public class OrthogonalSlice {
 				}
 			}
 			// reset position
-			if (rgb) {
-				imp.setPosition(c, z, t);
-			} else {
-				imp.setPosition(1);
-			}
+			imp.setPosition(c, z, t);
 			return stack2;
 		} else {
 			return imp.getStack();
 		}
 	}
-	
-	
-
 }

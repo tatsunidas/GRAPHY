@@ -58,7 +58,6 @@ import org.joml.Vector3d;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.ui.SeriesWindow;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -79,7 +78,6 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.NewImage;
 import ij.measure.Calibration;
-import ij.plugin.Duplicator;
 import ij.plugin.FolderOpener;
 import ij.process.ImageProcessor;
 
@@ -97,15 +95,18 @@ public class SlicerWindow extends JFrame {
 	 */
 	public static void main(String[] args) {
 		//axi src
-//		ImagePlus ax = FolderOpener.open(
-//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		ImagePlus ax = FolderOpener.open(
+				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 		
-		ImagePlus ax2 = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
+//		ImagePlus ax2 = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 		
-		Praparat xy_prap = new Praparat(ax2, null, ViewMode.MPR);
-		SeriesWindow se = new SeriesWindow(xy_prap);
+//		ImagePlus ct = new ImagePlus("/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/CT_LEE_IR87a.dcm");
+		
+//		Praparat xy_prap = new Praparat(ax, null, ViewMode.MPR);
+//		SeriesWindow se = new SeriesWindow(xy_prap);
+		
 //		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
-//		new SlicerWindow(ax2, null);
+		new SlicerWindow(ax, null);
 		
 		//cor src
 //		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
@@ -242,11 +243,28 @@ public class SlicerWindow extends JFrame {
 
 	private void init() {
 		srcCutSurface = ImageOrientation.getCutSurface(imp);
-		initImages();// create orthogonal images
+		initImages();
 		buildGUI();
-		initReslice();
+		initReslice(); // 上記の修正により、ここで中央に Slab が作られます
 		revalidate();
 		setVisible(true);
+
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				// 各断面の表示を自動調整
+				xy_prap.applyGlobalAutoWindow();
+				yz_prap.applyGlobalAutoWindow();
+				xz_prap.applyGlobalAutoWindow();
+
+				// ★ ここでスライダーを中央に移動（画像表示と Slab の位置を同期させる）
+				if (xy_image != null) xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2);
+				if (xz_image != null) xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2);
+				if (yz_image != null) yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2);
+				
+				recon_prap.setImagePositionUsingSlider(0);
+			}
+		});
 	}
 
 	private void buildGUI() {
@@ -277,11 +295,14 @@ public class SlicerWindow extends JFrame {
 		contP = new SlicerControlPanel(this);
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
+		
+		Log.logger.log(Level.FINE, "IOP axial:"+GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
+		System.out.println("IOP axial:"+GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
 
-		xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR);
-		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR);
-		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR);
-		recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal);
+		xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR, true);
+		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, true);
+		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR, true);
+		recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal, false);
 
 		xy_prap.setName("XY");//IMPORTANT
 		xz_prap.setName("XZ");
@@ -292,19 +313,6 @@ public class SlicerWindow extends JFrame {
 		eye.addPraparat(yz_prap);
 		eye.addPraparat(recon_prap);
 		
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				// TODO Auto-generated method stub
-				xy_prap.adjustContrastAuto();
-				yz_prap.adjustContrastAuto();
-				xz_prap.adjustContrastAuto();
-				xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2 - 1);
-				xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2 - 1);
-				yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2 - 1);
-				recon_prap.setImagePositionUsingSlider(0);
-			}
-		});
 		eye.autoLayout();// 2 * 2 grid layout
 		setLocationRelativeTo(null);
 	}
@@ -408,26 +416,24 @@ public class SlicerWindow extends JFrame {
 	 * @return
 	 */
 	private void initImages() {
+		if(imp == null) {
+			return;
+		}
+		PlanarSupport.standardizeStackOrientation(imp);
+		Calibration cal = imp.getCalibration();
+		cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
 		if (srcCutSurface == CutSurface.AXIAL) {
-			xy_image = new Duplicator().run(imp);
-			//see also, com.vis.core.util.ImageUtils.sort(xy_image, true/*reverse order*/, ImageUtils.SORT_BY_Z);
-			xy_image = PlanarSupport.loadAndSortDicomImages(xy_image);
-			Calibration cal = imp.getCalibration();
-			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			xy_image = imp;//new Duplicator().run(imp);
 			xy_image.setCalibration(cal);
 			xz_image = constructXZ(xy_image);
 			yz_image = constructYZ(xy_image);
 		} else if (srcCutSurface == CutSurface.CORONAL) {
-			xz_image = new Duplicator().run(imp);
-			Calibration cal = imp.getCalibration();
-			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			xz_image = imp;
 			xz_image.setCalibration(cal);
 			xy_image = constructXY(xz_image);
 			yz_image = constructYZ(xy_image);
 		} else if (srcCutSurface == CutSurface.SAGITTAL){
-			yz_image = new Duplicator().run(imp);
-			Calibration cal = imp.getCalibration();
-			cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+			yz_image = imp;
 			yz_image.setCalibration(cal);
 			xy_image = constructXY(yz_image);
 			xz_image = constructXZ(xy_image);
@@ -484,9 +490,6 @@ public class SlicerWindow extends JFrame {
 		calHolder.setYUnit(cal.getYUnit());
 		calHolder.setZUnit(cal.getZUnit());
 		xy.setCalibration(calHolder);
-//		if (src.getProcessor().isSigned16Bit()) {
-//			xy.getCalibration().setSigned16BitCalibration();
-//		}
 		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
 		return xy;
 	}
@@ -497,9 +500,9 @@ public class SlicerWindow extends JFrame {
 		}
 		OrthogonalSlice orthTool = new OrthogonalSlice();
 		ImageStack stack = new ImageStack();
-		Calibration cal = null;
 		String seriesUID = UIDUtils.createUID();
 		int size = src.getHeight();
+		Calibration cal = null;
 		for (int y = 0; y < size; y++) {
 			ImagePlus xz_ = orthTool.cutHorizontally(src, y);
 			if(cal == null) {
@@ -507,30 +510,15 @@ public class SlicerWindow extends JFrame {
 			}
 			addUIDs(xz_, 1, seriesUID);
 			stack.addSlice(xz_.getProcessor());
+			/*
+			 * xz_ is non-stack image plus.
+			 * Tags set to properties.
+			 */
 			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 		}
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
 		xz_imp.setCalibration(cal);
-		if (GDicomTools.isSignedImagePlus(src)) {
-			Calibration srcCal = src.getCalibration();
-			xz_imp.getCalibration().setFunction(srcCal.getFunction(), srcCal.getCoefficients(), srcCal.getUnit());
-		}
-		// ▼ コントラストを引き継ぐ（追加）
 		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-
-		// ▼ XZ断面に正しい空間座標タグ(IPP, IOP)を付与する（追加）
-		double[] srcIop = GDicomTools.getImageOrientationPatient(src, 1);
-		if (srcIop != null) {
-			Vector3d rX = new Vector3d(srcIop[0], srcIop[1], srcIop[2]);
-			Vector3d rY = new Vector3d(srcIop[3], srcIop[4], srcIop[5]);
-			Vector3d rZ = new Vector3d(rX).cross(rY).normalize();
-			double[] corIop = new double[] { rX.x, rX.y, rX.z, rZ.x, rZ.y, rZ.z };
-			for (int z = 1; z <= xz_imp.getNSlices(); z++) {
-				Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(src, 0, z - 1, 1);
-				GDicomTools.setImagePositionPatient(xz_imp, z, ipp);
-				GDicomTools.setImageOrientationPatient(xz_imp, z, corIop);
-			}
-		}
 		return xz_imp;
 	}
 
@@ -544,7 +532,7 @@ public class SlicerWindow extends JFrame {
 		String seriesUID = UIDUtils.createUID();
 		int width = src.getWidth();
 		for (int w = 0; w < width; w++) {
-			ImagePlus yz_ = orthTool.cutVirtically(src, w);
+			ImagePlus yz_ = orthTool.cutVertically(src, w);
 			if (cal == null) {
 				cal = yz_.getCalibration();
 			}
@@ -554,29 +542,7 @@ public class SlicerWindow extends JFrame {
 		}
 		ImagePlus yz_imp = new ImagePlus("YZ", stack);
 		yz_imp.setCalibration(cal);
-		if (src.getProcessor().isSigned16Bit()) {
-			yz_imp.getCalibration().setSigned16BitCalibration();
-		}
-		if (GDicomTools.isSignedImagePlus(src)) {
-			Calibration srcCal = src.getCalibration();
-			yz_imp.getCalibration().setFunction(srcCal.getFunction(), srcCal.getCoefficients(), srcCal.getUnit());
-		}
-		// ▼ コントラストを引き継ぐ（追加）
 		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-
-		// ▼ YZ断面に正しい空間座標タグ(IPP, IOP)を付与する（追加）
-		double[] srcIop = GDicomTools.getImageOrientationPatient(src, 1);
-		if (srcIop != null) {
-			Vector3d rX = new Vector3d(srcIop[0], srcIop[1], srcIop[2]);
-			Vector3d rY = new Vector3d(srcIop[3], srcIop[4], srcIop[5]);
-			Vector3d rZ = new Vector3d(rX).cross(rY).normalize();
-			double[] sagIop = new double[] { rY.x, rY.y, rY.z, rZ.x, rZ.y, rZ.z };
-			for (int z = 1; z <= yz_imp.getNSlices(); z++) {
-				Vector3d ipp = PlanarSupport.getNewImagePositionPatient2D(src, z - 1, 0, 1);
-				GDicomTools.setImagePositionPatient(yz_imp, z, ipp);
-				GDicomTools.setImageOrientationPatient(yz_imp, z, sagIop);
-			}
-		}
 		return yz_imp;
 	}
 
@@ -757,7 +723,6 @@ public class SlicerWindow extends JFrame {
 		/*
 		 *IMPORTANT, Keep using axial for reference volume. 
 		 */
-//		ImagePlus mainPlane = getSliceTargetImage(getSliceTargetPlane());
 		ImagePlus mainPlane = xyImage();
 		double min = mainPlane.getDisplayRangeMin();
 		double max = mainPlane.getDisplayRangeMax();

@@ -108,6 +108,7 @@ import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.GDicomTools;
 import com.vis.imageio.PDFReader;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
@@ -223,7 +224,7 @@ public class Praparat extends JPanel {
 	 * @param stack
 	 * @param studyColor
 	 */
-	public Praparat(ImagePlus stack, Color studyColor, ViewMode mode) {
+	public Praparat(ImagePlus stack, Color studyColor, ViewMode mode, boolean sortCZT) {
 		this.mode = mode;
 		if (studyColor != null) {
 			this.studyColor = studyColor;
@@ -231,7 +232,7 @@ public class Praparat extends JPanel {
 		initComponent();
 		String modality_str = GDicomTools.getTag(stack, Tag.Modality);
 		this.modality = Modality.is(modality_str);
-		loadSeries(stack);
+		loadSeries(stack, sortCZT);
 		if (mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
 		} else {
@@ -320,8 +321,7 @@ public class Praparat extends JPanel {
 	}
 
 	/**
-	 * スタック全体の最適な表示レンジ（Min/Max）からWindow CenterとWindow Widthを算出し、
-	 * すべてのスライスのDICOMタグに統一して書き込みます。
+	 * スタック全体の最適な表示レンジ（Min/Max）からWindow CenterとWindow Widthを算出し表示します。
 	 */
 	public void applyGlobalAutoWindow() {
 		if (slides == null || slides.isEmpty())
@@ -363,7 +363,7 @@ public class Praparat extends JPanel {
 				globalMax = globalMin + 1.0;
 			}
 
-			// 4. 全スライドに一括適用（異常なDICOMタグもこれで上書きして綺麗にします）
+			// 4. 全スライドに一括適用
 			adjustContrastByMinMax(globalMin, globalMax);
 		}
 	}
@@ -596,7 +596,7 @@ public class Praparat extends JPanel {
 	 * This method is only used for
 	 * single pop-up view or test purpose. Dicom attributes keeps minimally.
 	 */
-	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
+	private void constructSlideGlassesFromImagePlus(ImagePlus images, boolean sortCZT) {
 		if (images == null || images.getStackSize() < 1) {
 			throw new IllegalArgumentException(
 					"Images is null or empty, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
@@ -611,21 +611,23 @@ public class Praparat extends JPanel {
 			secondaryUse = true;
 		}
 		
-		Calibration cal = images.getCalibration();
-
 		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
-//			sg.imageSpecimen.setOriginalCalibration(cal);
 			slides.put(i, sg);
 		}
 
 		/*
 		 * sort images via IOP and IPP.
 		 */
-		if (slides != null && slides.size() > 1) {
+		if (slides != null && slides.size() > 1 && sortCZT) {
 			List<SlideGlass> slideList = new ArrayList<>(slides.values());
 			organizeMultiDimensionalSlides(slideList);
+		}else {
+			this.nChannels = images.getNChannels();
+			this.nSlices = images.getNSlices();
+			this.nFrames = images.getNFrames();
+			
 		}
 
 		loadRoisFromDB();
@@ -780,7 +782,7 @@ public class Praparat extends JPanel {
 	}
 
 	/**
-	 * NIfTIやマルチエコーMRIなどの多次元スライスを解析し、次元(C,Z)の自動算出と1D配列への再配置を行う
+	 * NIfTIやマルチエコーMRIなどの多次元スライスを解析し、次元(C,Z,T)の自動算出と1D配列への再配置を行う
 	 */
 	private void organizeMultiDimensionalSlides(List<SlideGlass> slideList) {
 		if (slideList == null || slideList.isEmpty())
@@ -817,7 +819,6 @@ public class Praparat extends JPanel {
 		for (int i = 0; i < slideList.size(); i++) {
 			SlideGlass sg = slideList.get(i);
 			double[] ipp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
-			System.out.println(Arrays.toString(ipp));
 			double pos = 0;
 			if (ipp != null && ipp.length >= 3) {
 				pos = (ipp[0] * nx) + (ipp[1] * ny) + (ipp[2] * nz);
@@ -1255,6 +1256,44 @@ public class Praparat extends JPanel {
 		}
 
 		return replica;
+	}
+	
+	public ImageStack getStack(ImagePlus imp) {
+		if (imp.isHyperStack()) {
+			int slices = imp.getNSlices();
+			int c = imp.getChannel();
+			int z = imp.getSlice();
+			int t = imp.getFrame();
+			int mode = imp.getCompositeMode();
+			boolean rgb = mode == IJ.COMPOSITE;
+			ImageStack stack = imp.getStack();
+			ImageStack stack2 = new ImageStack(imp.getWidth(), imp.getHeight());
+			if (slices == 1) {
+				String hdr = imp.getInfoProperty();
+				if (rgb) {
+					imp.setPositionWithoutUpdate(c, 1, t);
+					stack2.addSlice(hdr, new ColorProcessor(imp.getImage()));
+				} else {
+					int index = imp.getStackIndex(c, 1, t);
+					stack2.addSlice(hdr, stack.getProcessor(index));
+				}
+			} else {
+				for (int i = 1; i <= slices; i++) {
+					if (rgb) {
+						imp.setPositionWithoutUpdate(c, i, t);
+						stack2.addSlice(stack.getSliceLabel(i), new ColorProcessor(imp.getImage()));
+					} else {
+						int index = imp.getStackIndex(c, i, t);
+						stack2.addSlice(stack.getSliceLabel(i), stack.getProcessor(index));
+					}
+				}
+			}
+			// reset position
+			imp.setPosition(c, z, t);
+			return stack2;
+		} else {
+			return imp.getStack();
+		}
 	}
 
 	/**
@@ -1839,7 +1878,7 @@ public class Praparat extends JPanel {
 	 * 
 	 * @param images
 	 */
-	public void loadSeries(ImagePlus images) {
+	public void loadSeries(ImagePlus images, boolean sortCZT) {
 		if (images == null || images.getStackSize() == 0) {
 			if (Utils.isDebug)
 				System.out.println("praparat needs images..., return.");
@@ -1873,7 +1912,7 @@ public class Praparat extends JPanel {
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/* keep null file paths */);
 
-		constructSlideGlassesFromImagePlus(images);
+		constructSlideGlassesFromImagePlus(images, sortCZT);
 		applyGlobalAutoWindow(images);// before slider.initContext
 		updateSlidersVisibility();
 
@@ -1954,7 +1993,7 @@ public class Praparat extends JPanel {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					Praparat prap = new Praparat(crop, getStudyColor(), mode);
+					Praparat prap = new Praparat(crop, getStudyColor(), mode, false);
 					new SeriesWindow(prap);
 				}
 			});
@@ -1997,7 +2036,7 @@ public class Praparat extends JPanel {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
-					Praparat prap = new Praparat(cut, getStudyColor(), mode);
+					Praparat prap = new Praparat(cut, getStudyColor(), mode, false);
 					new SeriesWindow(prap);
 				}
 			});
@@ -2248,7 +2287,7 @@ public class Praparat extends JPanel {
 		if (imp == null) {
 			return;
 		}
-		loadSeries(imp);
+		loadSeries(imp, false/*AS-IS order*/);
 		if (!isShowGridViewOn()) {
 			doSingleGridLayout();
 		} else {

@@ -76,7 +76,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 //		Object r = test.getRoi();
 //		System.out.println(r);
 //		test.show();
-		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir2), java.awt.Color.CYAN, Praparat.ViewMode.Normal);
+		Praparat prap = new Praparat(ij.plugin.FolderOpener.open(dir2), java.awt.Color.CYAN, Praparat.ViewMode.Normal, true);
 //		Praparat prap = new Praparat(test, java.awt.Color.CYAN, Praparat.ViewMode.Normal);
 		new SeriesWindow(prap);
 		
@@ -105,6 +105,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 			@Override
 			public void run() {
 				prap.doSingleGridLayout();
+				prap.applyGlobalAutoWindow();
 			}
 		});
 	}

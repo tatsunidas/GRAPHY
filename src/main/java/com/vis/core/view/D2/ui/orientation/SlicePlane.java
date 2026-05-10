@@ -142,7 +142,7 @@ public class SlicePlane {
 	public Vector3d computeNearestIPP(Vector3d baseIPP, double[] baseIOP, double sliceThickness) {
 		Vector3d row = new Vector3d(baseIOP[0], baseIOP[1], baseIOP[2]);
 		Vector3d col = new Vector3d(baseIOP[3], baseIOP[4], baseIOP[5]);
-		Vector3d normal = PlanarSupport.calculateNormal(row, col, false);
+		Vector3d normal = PlanarSupport.crossProduct(row, col, false);
 		return computeNearestIPP(geo.getTLHC(), baseIPP, normal, sliceThickness);
 	}
 
@@ -162,7 +162,7 @@ public class SlicePlane {
 	public Vector3d computeNearestIPP(Vector3d virtualIPP, Vector3d baseIPP, double[] baseIOP, double sliceThickness) {
 		Vector3d row = new Vector3d(baseIOP[0], baseIOP[1], baseIOP[2]);
 		Vector3d col = new Vector3d(baseIOP[3], baseIOP[4], baseIOP[5]);
-		Vector3d normal = PlanarSupport.calculateNormal(row, col, false);
+		Vector3d normal = PlanarSupport.crossProduct(row, col, false);
 		return computeNearestIPP(virtualIPP, baseIPP, normal, sliceThickness);
 	}
 

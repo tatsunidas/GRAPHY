@@ -243,7 +243,6 @@ public class SlicerControlPanel extends JPanel implements ItemListener, KeyListe
 		return new JPanel();
 	}
 	
-	
 	void updateSliceTargetPlane() {
 		mprWin.updateReferenceLineMPR();
 	}

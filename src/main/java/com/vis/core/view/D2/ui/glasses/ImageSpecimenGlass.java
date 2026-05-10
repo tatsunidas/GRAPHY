@@ -47,6 +47,7 @@ import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.IndexColorModel;
@@ -411,6 +412,8 @@ public class ImageSpecimenGlass extends JPanel{
 			//update transform
 			sg.calculateCurrentAffineTransform();
 			
+			AffineTransform finalTransform = new AffineTransform(sg.getCurrentTransform());
+			
 			sg.imgProcess.applyLUT(dup, sg.currentLUT);
 			
 			//adjust contrast to current
@@ -449,11 +452,11 @@ public class ImageSpecimenGlass extends JPanel{
 	            // AffineTransformOpの作成
 				AffineTransformOp op = null;
 				if(sg.INTERPOLATION_METHOD == ImageProcessor.BILINEAR) {
-					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_BILINEAR);
+					op = new AffineTransformOp(finalTransform, AffineTransformOp.TYPE_BILINEAR);
 				}else if(sg.INTERPOLATION_METHOD == ImageProcessor.BICUBIC) {
-					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_BICUBIC);
+					op = new AffineTransformOp(finalTransform, AffineTransformOp.TYPE_BICUBIC);
 				}else {
-					op = new AffineTransformOp(sg.getCurrentTransform(), AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+					op = new AffineTransformOp(finalTransform, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
 				}
 				op.filter(srcImg, this.display);
 

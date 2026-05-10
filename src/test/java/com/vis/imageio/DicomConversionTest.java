@@ -42,7 +42,7 @@ public class DicomConversionTest {
 		System.out.println("     isSigned16Bit: " + originalImp.getCalibration().isSigned16Bit());
 
 		// 2. Praparat に通す (表示などによりデータが破壊されないかのシミュレート)
-		Praparat prap = new Praparat(originalImp, Color.DARK_GRAY, Praparat.ViewMode.Normal);
+		Praparat prap = new Praparat(originalImp, Color.DARK_GRAY, Praparat.ViewMode.Normal, false);
 		ImagePlus prapImp = prap.getImagePlus(); // または prap.getOriginalImage() 等
 
 		// 3. ImagePlus -> DicomImage への変換（先ほど議論したXORによる安全な変換を使用）

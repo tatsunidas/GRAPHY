@@ -35,9 +35,6 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-/* ***** BEGIN LICENSE BLOCK ***** * Version: MPL 1.1/GPL 2.0/LGPL 2.1 
- * * (ライセンスヘッダは省略せずそのまま使用してください)
- * * ***** END LICENSE BLOCK ***** */
 package com.vis.core.view.mpr;
 
 import java.awt.BorderLayout;
@@ -46,7 +43,6 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
-import java.util.Arrays;
 import java.util.logging.Level;
 
 import javax.swing.BorderFactory;
@@ -82,7 +78,7 @@ import ij.plugin.FolderOpener;
 import ij.process.ImageProcessor;
 
 /**
- * * * @author tatsunidas
+ * @author tatsunidas
  */
 public class SimpleMPRViewer extends JFrame {
 
@@ -92,11 +88,11 @@ public class SimpleMPRViewer extends JFrame {
 		String ax_path = "/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151";
 		String mra = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/MRA";
 		String sag_path = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
-//		ImagePlus imp = FolderOpener.open(ax_path);
-		ImagePlus imp = FolderOpener.open(sag_path);
+		ImagePlus imp = FolderOpener.open(ax_path);
+//		ImagePlus imp = FolderOpener.open(sag_path);
 //		ImagePlus imp = FolderOpener.open(mra);
 		// 実際の処理に沿わせる
-		Praparat p = new Praparat(imp, Color.YELLOW, ViewMode.SingleGrid);
+		Praparat p = new Praparat(imp, Color.YELLOW, ViewMode.SingleGrid, false);
 		ImagePlus replica = p.getImagePlus();
 		new SimpleMPRViewer(replica);
 	}
@@ -146,44 +142,6 @@ public class SimpleMPRViewer extends JFrame {
 
 		init();
 	}
-
-//	private void init() {
-//		
-//		/*
-//		 * Tilt check
-//		 */
-//		Modality m = Modality.is(GDicomTools.getTag(this.baseVolume, Tag.Modality));
-//		CutSurface plane = PlanarSupport.planarOf(this.baseVolume);
-//		if (m == Modality.CT && plane == CutSurface.AXIAL) {
-//			GantryTiltCorrector gtc = new GantryTiltCorrector();
-//			double tiltAngle = GDicomTools.getDouble(this.baseVolume, 1, "0018,1120"/* Gantry/Detector Tilt */);
-//			double pixelSpacingY = this.baseVolume.getCalibration().pixelHeight;
-//			double sliceSpacing = GDicomTools.getVoxelDepth(this.baseVolume);
-//			double reconSliceSpacing = sliceSpacing < 1d ? sliceSpacing : 1d;
-//			this.baseVolume = gtc.correctVolume3D(this.baseVolume/*16-bit image required*/, tiltAngle, pixelSpacingY, sliceSpacing,
-//					reconSliceSpacing);
-//		}
-//		
-//		this.basePlane = determineBasePlane(baseVolume);
-//		System.out.println("Base volume slice plane is " + basePlane);
-//
-//		checkSpatialCalibration();
-//
-//		standardizeStackOrientation();
-//		
-//		convertBaseVolumeToFloat();
-//
-//		// 1. 各断面のImagePlusを生成（ボクセルサイズを考慮したマトリクス生成）
-//		reconstructCenterOrthogonal();
-//
-//		// 2. GUIの構築（メニューと4パネル）
-//		buildGUI();
-//
-//		// 3. マウスイベントの登録
-//		setupMouseListeners();
-//
-//		setVisible(true);
-//	}
 	
 	private void init() {
 		// --- 1. モダンなスプラッシュスクリーン（プログレスダイアログ）の作成 ---
@@ -244,7 +202,7 @@ public class SimpleMPRViewer extends JFrame {
 				checkSpatialCalibration();
 
 				publish("60:Standardizing Stack Orientation...");
-				standardizeStackOrientation();
+				PlanarSupport.standardizeStackOrientation(baseVolume);
 
 				publish("70:Converting Base Volume to 32-bit Float...");
 				convertBaseVolumeToFloat();
@@ -595,120 +553,6 @@ public class SimpleMPRViewer extends JFrame {
 		return targetBlank;
 	}
 
-//	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py,
-//			double pz) {
-//		String pid = GDicomTools.getTag(base, "0010,0020");
-//		String studyUid = GDicomTools.getTag(base, "0020,000D");
-//		String seriesUid = UIDUtils.createUID();
-//		String sopUid = UIDUtils.createUID();
-//
-//		double[] baseIop = GDicomTools.getImageOrientationPatient(base, 1);
-//		org.joml.Vector3d baseRow = new org.joml.Vector3d(baseIop[0], baseIop[1], baseIop[2]);
-//		org.joml.Vector3d baseCol = new org.joml.Vector3d(baseIop[3], baseIop[4], baseIop[5]);
-//
-//		double[] ipp1Arr = GDicomTools.getImagePositionPatient(base, 1);
-//		org.joml.Vector3d ipp1 = new org.joml.Vector3d(ipp1Arr[0], ipp1Arr[1], ipp1Arr[2]);
-//		org.joml.Vector3d stackDir = new org.joml.Vector3d();
-//
-//		if (base.getNSlices() > 1) {
-//			double[] ipp2Arr = GDicomTools.getImagePositionPatient(base, 2);
-//			org.joml.Vector3d ipp2 = new org.joml.Vector3d(ipp2Arr[0], ipp2Arr[1], ipp2Arr[2]);
-//			stackDir.set(ipp2).sub(ipp1).normalize();
-//		} else {
-//			baseRow.cross(baseCol, stackDir).normalize();
-//		}
-//
-//		org.joml.Vector3d ipp = new org.joml.Vector3d();
-//		double[] iop = new double[6];
-//		Calibration baseCal = base.getCalibration();
-//
-//		// 9パターンのメタデータマッピング
-//		if (basePlane == CutSurface.AXIAL) {
-//			if (reconPlane == CutSurface.AXIAL) {
-//				ipp.set(ipp1);
-//				iop = baseIop.clone();
-//			} else if (reconPlane == CutSurface.SAGITTAL) {
-//				iop[0] = baseCol.x;
-//				iop[1] = baseCol.y;
-//				iop[2] = baseCol.z;
-//				iop[3] = stackDir.x;
-//				iop[4] = stackDir.y;
-//				iop[5] = stackDir.z;
-//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
-//			} else if (reconPlane == CutSurface.CORONAL) {
-//				iop[0] = baseRow.x;
-//				iop[1] = baseRow.y;
-//				iop[2] = baseRow.z;
-//				iop[3] = stackDir.x;
-//				iop[4] = stackDir.y;
-//				iop[5] = stackDir.z;
-//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
-//			}
-//		} else if (basePlane == CutSurface.SAGITTAL) {
-//			if (reconPlane == CutSurface.SAGITTAL) {
-//				ipp.set(ipp1);
-//				iop = baseIop.clone();
-//			} else if (reconPlane == CutSurface.AXIAL) {
-//				iop[0] = stackDir.x;
-//				iop[1] = stackDir.y;
-//				iop[2] = stackDir.z;
-//				iop[3] = baseRow.x;
-//				iop[4] = baseRow.y;
-//				iop[5] = baseRow.z;
-//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
-//			} else if (reconPlane == CutSurface.CORONAL) {
-//				iop[0] = stackDir.x;
-//				iop[1] = stackDir.y;
-//				iop[2] = stackDir.z;
-//				iop[3] = baseCol.x;
-//				iop[4] = baseCol.y;
-//				iop[5] = baseCol.z;
-//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
-//			}
-//		} else if (basePlane == CutSurface.CORONAL) {
-//			if (reconPlane == CutSurface.CORONAL) {
-//				ipp.set(ipp1);
-//				iop = baseIop.clone();
-//			} else if (reconPlane == CutSurface.AXIAL) {
-//				iop[0] = baseRow.x;
-//				iop[1] = baseRow.y;
-//				iop[2] = baseRow.z;
-//				iop[3] = stackDir.x;
-//				iop[4] = stackDir.y;
-//				iop[5] = stackDir.z;
-//				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight).add(ipp1);
-//			} else if (reconPlane == CutSurface.SAGITTAL) {
-//				iop[0] = stackDir.x;
-//				iop[1] = stackDir.y;
-//				iop[2] = stackDir.z;
-//				iop[3] = baseCol.x;
-//				iop[4] = baseCol.y;
-//				iop[5] = baseCol.z;
-//				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth).add(ipp1);
-//			}
-//		}
-//		
-//		for (int i = 0; i < 6; i++) {
-//	        if (Math.abs(iop[i]) < 1e-4) iop[i] = 0.0;
-//	        else if (Math.abs(iop[i] - 1.0) < 1e-4) iop[i] = 1.0;
-//	        else if (Math.abs(iop[i] + 1.0) < 1e-4) iop[i] = -1.0;
-//	    }
-//
-//		GDicomTools.setTag(recon, 1, "0010,0020", pid);
-//		GDicomTools.setTag(recon, 1, "0020,000D", studyUid);
-//		GDicomTools.setTag(recon, 1, "0020,000E", seriesUid);
-//		GDicomTools.setTag(recon, 1, "0008,0018", sopUid);
-//		GDicomTools.setDoubles(recon, 1, "0020,0032", new double[] { ipp.x, ipp.y, ipp.z });
-//		GDicomTools.setDoubles(recon, 1, "0020,0037", iop);
-//		GDicomTools.setDoubles(recon, 1, "0028,0030", new double[] { py, px });
-//		GDicomTools.setTag(recon, 1, "0018,0050", String.valueOf(pz));
-//
-//		Calibration reconCal = base.getCalibration().copy();
-//		reconCal.pixelWidth = px;
-//		reconCal.pixelHeight = py;
-//		reconCal.pixelDepth = pz;
-//		recon.setCalibration(reconCal);
-//	}
 	
 	private void copyImageMetaInformation(ImagePlus base, ImagePlus recon, CutSurface reconPlane, double px, double py, double pz) {
 		String pid = GDicomTools.getTag(base, "0010,0020");
@@ -720,11 +564,22 @@ public class SimpleMPRViewer extends JFrame {
 		Vector3d baseRow = new Vector3d(baseIop[0], baseIop[1], baseIop[2]);
 		Vector3d baseCol = new Vector3d(baseIop[3], baseIop[4], baseIop[5]);
 
-		// 法線ベクトル（Z軸：足 -> 頭）
-		Vector3d stackDir = PlanarSupport.calculateNormal(baseRow, baseCol, true);
-
 		double[] ipp1Arr = GDicomTools.getImagePositionPatient(base, 1);
 		Vector3d ipp1 = new Vector3d(ipp1Arr[0], ipp1Arr[1], ipp1Arr[2]);
+
+		// ★修正1: stackDir (スタック進行方向) を外積ではなく、実際のIPPの差分から正確に算出する
+		Vector3d stackDir = new Vector3d();
+		if (base.getNSlices() > 1) {
+			double[] ipp2Arr = GDicomTools.getImagePositionPatient(base, 2);
+			Vector3d ipp2 = new Vector3d(ipp2Arr[0], ipp2Arr[1], ipp2Arr[2]);
+			stackDir.set(ipp2).sub(ipp1).normalize();
+		} else {
+			// スライスが1枚しかない場合のフォールバック
+			if (basePlane == CutSurface.AXIAL) stackDir.set(0, 0, 1);
+			else if (basePlane == CutSurface.CORONAL) stackDir.set(0, 1, 0);
+			else if (basePlane == CutSurface.SAGITTAL) stackDir.set(1, 0, 0);
+			else stackDir = PlanarSupport.crossProduct(baseRow, baseCol, true);
+		}
 		
 		Vector3d ipp = new Vector3d();
 		Vector3d row = new Vector3d();
@@ -739,17 +594,13 @@ public class SimpleMPRViewer extends JFrame {
 			} else if (reconPlane == CutSurface.SAGITTAL) {
 				row.set(baseCol); 
 				col.set(stackDir).negate(); // ★ 上が頭、下が足なので -Z方向
-				// ★ 原点を X軸現在地 ＋ Z軸終端（頭側） へ正確にシフト
 				ipp.set(baseRow).mul(currentX * baseCal.pixelWidth)
-				   .add(ipp1)
-				   .add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
+				   .add(ipp1).add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
 			} else if (reconPlane == CutSurface.CORONAL) {
 				row.set(baseRow); 
 				col.set(stackDir).negate(); // ★ 上が頭、下が足なので -Z方向
-				// ★ 原点を Y軸現在地 ＋ Z軸終端（頭側） へ正確にシフト
 				ipp.set(baseCol).mul(currentY * baseCal.pixelHeight)
-				   .add(ipp1)
-				   .add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
+				   .add(ipp1).add(new Vector3d(stackDir).mul(maxZ * baseCal.pixelDepth));
 			}
 		} else if (basePlane == CutSurface.SAGITTAL) {
 			if (reconPlane == CutSurface.SAGITTAL) {
@@ -773,7 +624,7 @@ public class SimpleMPRViewer extends JFrame {
 			}
 		}
 
-		// ★ 共有いただいた強力なツールで誤差を完全にクレンジング
+		// 誤差クレンジングとタグの書き込み
 		PlanarSupport.normalizeAndOrthogonalize(row, col);
 		row = PlanarSupport.truncate(row, 6);
 		col = PlanarSupport.truncate(col, 6);
@@ -781,7 +632,6 @@ public class SimpleMPRViewer extends JFrame {
 
 		double[] iop = new double[] { row.x, row.y, row.z, col.x, col.y, col.z };
 
-		// タグの書き込み
 		GDicomTools.setTag(recon, 1, "0010,0020", pid);
 		GDicomTools.setTag(recon, 1, "0020,000D", studyUid);
 		GDicomTools.setTag(recon, 1, "0020,000E", seriesUid);
@@ -817,9 +667,9 @@ public class SimpleMPRViewer extends JFrame {
 		JPanel mainPanel = new JPanel(new GridLayout(2, 2, 5, 5));
 		mainPanel.setBackground(Color.BLACK);
 
-		axialCanvas = new Praparat(axialImp, Color.BLUE, ViewMode.MPR);
-		sagittalCanvas = new Praparat(sagittalImp, Color.GREEN, ViewMode.MPR);
-		coronalCanvas = new Praparat(coronalImp, Color.RED, ViewMode.MPR);
+		axialCanvas = new Praparat(axialImp, Color.BLUE, ViewMode.MPR, false);
+		sagittalCanvas = new Praparat(sagittalImp, Color.GREEN, ViewMode.MPR, false);
+		coronalCanvas = new Praparat(coronalImp, Color.RED, ViewMode.MPR, false);
 
 		axialCanvas.setShowCrossLineMode(true);
 		sagittalCanvas.setShowCrossLineMode(true);
@@ -891,43 +741,38 @@ public class SimpleMPRViewer extends JFrame {
 						int d = baseVolume.getNSlices();
 
 						if (pp == getBaseCanvas()) {
-							// ベースキャンバスは複数スライスを持つため、cz が奥行きとして使える
-							newX = cx;
-							newY = cy;
-							newZ = cz;
+							newX = cx; newY = cy; newZ = cz;
 						} else {
-							// 再構成キャンバスの場合、czは常に0なので使わず、見えない軸は現在値を維持する
+							// ★ Axialベースの時はZ軸が画面と反転しているため、trueを渡す
 							if (basePlane == CutSurface.AXIAL) {
 								if (pp == sagittalCanvas) {
 									newY = cx;
-									newZ = unscaleZForDisplay(cy, d, sagittalImp.getHeight());
-									newX = currentX; // Sagittalでは左右(X)が見えないので維持
+									newZ = unscaleZForDisplay(cy, d, sagittalImp.getHeight(), true);
+									newX = currentX;
 								} else if (pp == coronalCanvas) {
 									newX = cx;
-									newZ = unscaleZForDisplay(cy, d, coronalImp.getHeight());
-									newY = currentY; // Coronalでは前後(Y)が見えないので維持
+									newZ = unscaleZForDisplay(cy, d, coronalImp.getHeight(), true);
+									newY = currentY; 
 								}
 							} else if (basePlane == CutSurface.CORONAL) {
-								// CORONAL Base: X=左右, Y=上下(Z), Z=前後(スライス)
 								if (pp == axialCanvas) {
 									newX = cx;
-									newZ = unscaleZForDisplay(cy, d, axialImp.getHeight());
-									newY = currentY; // Axialでは上下(Y)が見えないので維持
+									newZ = unscaleZForDisplay(cy, d, axialImp.getHeight(), false);
+									newY = currentY;
 								} else if (pp == sagittalCanvas) {
-									newZ = unscaleZForDisplay(cx, d, sagittalImp.getWidth());
+									newZ = unscaleZForDisplay(cx, d, sagittalImp.getWidth(), false);
 									newY = cy;
-									newX = currentX; // Sagittalでは左右(X)が見えないので維持
+									newX = currentX;
 								}
 							} else if (basePlane == CutSurface.SAGITTAL) {
-								// SAGITTAL Base: X=前後, Y=上下(Z), Z=左右(スライス)
 								if (pp == axialCanvas) {
-									newZ = unscaleZForDisplay(cx, d, axialImp.getWidth());
+									newZ = unscaleZForDisplay(cx, d, axialImp.getWidth(), false);
 									newX = cy;
-									newY = currentY; // Axialでは上下(Y)が見えないので維持
+									newY = currentY;
 								} else if (pp == coronalCanvas) {
-									newZ = unscaleZForDisplay(cx, d, coronalImp.getWidth());
+									newZ = unscaleZForDisplay(cx, d, coronalImp.getWidth(), false);
 									newY = cy;
-									newX = currentX; // Coronalでは前後(X)が見えないので維持
+									newX = currentX;
 								}
 							}
 						}
@@ -1022,43 +867,33 @@ public class SimpleMPRViewer extends JFrame {
 		getBaseCanvas().setImagePositionUsingSlider(currentZ);
 	}
 
+	// --- updateCrosslineDisplay() の内部 ---
 	private void updateCrosslineDisplay() {
 		int axX = 0, axY = 0, sagX = 0, sagY = 0, corX = 0, corY = 0;
-
-		// 奥行き(スライス数)のみスケール変換の基準として使用する
 		int d = baseVolume.getNSlices();
 
 		if (basePlane == CutSurface.AXIAL) {
-			// Axial(ベース): 面内はそのまま
 			axX = currentX;
 			axY = currentY;
-			// Sagittal: 横軸=前後(Y), 縦軸=頭足(Zスライスをスケール)
 			sagX = currentY;
-			sagY = scaleZForDisplay(currentZ, d, sagittalImp.getHeight());
-			// Coronal: 横軸=左右(X), 縦軸=頭足(Zスライスをスケール)
+			sagY = scaleZForDisplay(currentZ, d, sagittalImp.getHeight(), true); // ★反転
 			corX = currentX;
-			corY = scaleZForDisplay(currentZ, d, coronalImp.getHeight());
+			corY = scaleZForDisplay(currentZ, d, coronalImp.getHeight(), true); // ★反転
 
 		} else if (basePlane == CutSurface.CORONAL) {
-			// Coronal(ベース): 面内はそのまま
 			corX = currentX;
 			corY = currentY;
-			// Axial: 横軸=左右(X), 縦軸=前後(Zスライスをスケール)
 			axX = currentX;
-			axY = scaleZForDisplay(currentZ, d, axialImp.getHeight());
-			// Sagittal: 横軸=前後(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
-			sagX = scaleZForDisplay(currentZ, d, sagittalImp.getWidth());
+			axY = scaleZForDisplay(currentZ, d, axialImp.getHeight(), false);
+			sagX = scaleZForDisplay(currentZ, d, sagittalImp.getWidth(), false);
 			sagY = currentY;
 
 		} else if (basePlane == CutSurface.SAGITTAL) {
-			// Sagittal(ベース): 面内はそのまま
 			sagX = currentX;
 			sagY = currentY;
-			// Axial: 横軸=左右(Zスライスをスケール), 縦軸=前後(Xは面内なのでそのまま)
-			axX = scaleZForDisplay(currentZ, d, axialImp.getWidth());
+			axX = scaleZForDisplay(currentZ, d, axialImp.getWidth(), false);
 			axY = currentX;
-			// Coronal: 横軸=左右(Zスライスをスケール), 縦軸=頭足(Yは面内なのでそのまま)
-			corX = scaleZForDisplay(currentZ, d, coronalImp.getWidth());
+			corX = scaleZForDisplay(currentZ, d, coronalImp.getWidth(), false);
 			corY = currentY;
 		}
 
@@ -1078,113 +913,26 @@ public class SimpleMPRViewer extends JFrame {
 		}
 	}
 
+	// ★修正2: invertフラグを追加
 	// スケール逆算（Canvas上のピクセル -> baseVolumeのZインデックス）
-	private int unscaleZForDisplay(int scaledPos, int originalMax, int scaledMax) {
+	private int unscaleZForDisplay(int scaledPos, int originalMax, int scaledMax, boolean invertZ) {
 		if (scaledMax == 0)
 			return 0;
-		return (int) Math.round((double) scaledPos * originalMax / scaledMax);
+		int unscaled = (int) Math.round((double) scaledPos * originalMax / scaledMax);
+		if (invertZ) {
+			unscaled = (originalMax - 1) - unscaled;
+		}
+		return Math.max(0, Math.min(unscaled, originalMax - 1));
 	}
 
 	// スケール計算（baseVolumeのZインデックス -> Canvas上のピクセル）
-	private int scaleZForDisplay(int originalPos, int originalMax, int scaledMax) {
+	private int scaleZForDisplay(int originalPos, int originalMax, int scaledMax, boolean invertZ) {
 		if (originalMax == 0)
 			return 0;
-		return (int) Math.round((double) originalPos * scaledMax / originalMax);
-	}
-
-//	private void standardizeStackOrientation() {
-//		int nSlices = baseVolume.getNSlices();
-//		if (nSlices < 2)
-//			return;
-//
-//		boolean isHeadFirst = PlanarSupport.isHeadFirst(baseVolume);
-//
-//		double[] ipp1 = GDicomTools.getImagePositionPatient(baseVolume, 1);
-//		double[] ippN = GDicomTools.getImagePositionPatient(baseVolume, nSlices);
-//		if (ipp1 == null || ippN == null)
-//			return;
-//
-//		boolean needsReversal = false;
-//
-//		if (basePlane == CutSurface.AXIAL || basePlane == CutSurface.OBLIQUE) {
-//			boolean isCurrentlyDescending = ippN[2] < ipp1[2];
-//			boolean targetDescending = isHeadFirst;
-//			if (isCurrentlyDescending != targetDescending) {
-//				needsReversal = true;
-//			}
-//		} else if (basePlane == CutSurface.CORONAL) {
-//			boolean isCurrentlyAscending = ippN[1] > ipp1[1];
-//			boolean targetAscending = isHeadFirst;
-//			if (isCurrentlyAscending != targetAscending) {
-//				needsReversal = true;
-//			}
-//		} else if (basePlane == CutSurface.SAGITTAL) {
-//			boolean isCurrentlyAscending = ippN[0] > ipp1[0];
-//			boolean targetAscending = isHeadFirst;
-//			if (isCurrentlyAscending != targetAscending) {
-//				needsReversal = true;
-//			}
-//		}
-//
-//		if (needsReversal) {
-//			reverseStack(baseVolume);
-//			System.out.println("Stack order reversed to match standard anatomical orientation.");
-//		}
-//	}
-	
-	/**
-	 * 入力された Raw スタックを、解剖学的な標準順序（LPS）に強制的に並び替えます。
-	 */
-	private void standardizeStackOrientation() {
-	    int nSlices = baseVolume.getNSlices();
-	    if (nSlices < 2) return;
-
-	    double[] ipp1 = GDicomTools.getImagePositionPatient(baseVolume, 1);
-	    double[] ippN = GDicomTools.getImagePositionPatient(baseVolume, nSlices);
-	    
-	    System.out.println(Arrays.toString(ipp1));
-	    System.out.println(Arrays.toString(ippN));
-	    
-	    if (ipp1 == null || ippN == null) return;
-
-	    boolean needsReversal = false;
-
-	    // LPS空間（Radiological Convention）に基づく標準的な順序判定
-	    // Axial: 劣位(足) -> 優位(頭) つまり IPP[2] が増加する順
-	    // Coronal: 前方(顔) -> 後方(後頭部) つまり IPP[1] が減少する順
-	    // Sagittal: 右 -> 左 つまり IPP[0] が減少する順
-	    
-	    if (basePlane == CutSurface.AXIAL) {
-	        if (ipp1[2] > ippN[2]) needsReversal = true;
-	    } else if (basePlane == CutSurface.CORONAL) {
-	        if (ipp1[1] < ippN[1]) needsReversal = true;
-	    } else if (basePlane == CutSurface.SAGITTAL) {
-	        if (ipp1[0] < ippN[0]) needsReversal = true;
-	    } else if (basePlane == CutSurface.OBLIQUE) {
-	        // 斜位の場合は、最も支配的な軸の変化方向で判定
-	        double dz = Math.abs(ippN[2] - ipp1[2]);
-	        double dy = Math.abs(ippN[1] - ipp1[1]);
-	        double dx = Math.abs(ippN[0] - ipp1[0]);
-	        if (dz > dy && dz > dx) { // 垂直に近い
-	            if (ipp1[2] > ippN[2]) needsReversal = true;
-	        }
-	    }
-
-	    if (needsReversal) {
-	        reverseStack(baseVolume);
-	        Log.logger.log(Level.INFO,"Stack order normalized to LPS standard orientation.");
-	    }
-	}
-
-	private void reverseStack(ImagePlus imp) {
-		ImageStack stack = imp.getStack();
-		int n = stack.getSize();
-		ImageStack reversedStack = new ImageStack(stack.getWidth(), stack.getHeight());
-
-		for (int i = n; i >= 1; i--) {
-			reversedStack.addSlice(stack.getSliceLabel(i), stack.getProcessor(i));
+		if (invertZ) {
+			originalPos = (originalMax - 1) - originalPos;
 		}
-		imp.setStack(reversedStack);
+		return (int) Math.round((double) originalPos * scaledMax / originalMax);
 	}
 	
 	/**

@@ -27,7 +27,7 @@ public class Line extends RoiObj {
 
 	public int x1, y1, x2, y2; // the line
 	public double x1d, y1d, x2d, y2d; // the line using sub-pixel coordinates
-	protected double x1R, y1R, x2R, y2R; // the line, relative to base of bounding rect
+	public double x1R, y1R, x2R, y2R; // the line, relative to base of bounding rect
 	protected double startxd, startyd;
 	static boolean widthChanged;
 	private boolean dragged;

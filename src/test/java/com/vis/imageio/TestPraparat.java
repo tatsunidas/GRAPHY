@@ -243,7 +243,7 @@ public class TestPraparat {
 	
 	static void testNormalMode_LoadFromImagePlus() {
 		ImagePlus imp = FolderOpener.open("/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		Praparat pp = new Praparat(imp, null, ViewMode.Normal);
+		Praparat pp = new Praparat(imp, null, ViewMode.Normal, true);
 		javax.swing.JFrame f = loadFrame(pp);
 		f.setSize(300,300);
 		f.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);

@@ -3,9 +3,8 @@ package com.vis.core.view.D2.ui.orientation;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
@@ -20,8 +19,10 @@ import com.vis.dicom.image.GDicomTools;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
-import ij.process.ImageProcessor;
 
+/**
+ * @author tatsunidas
+ */
 public class PlanarSupport {
 
 	//debug
@@ -389,7 +390,10 @@ public class PlanarSupport {
 	}
 	
 	/**
-	 * If true with HFS/HFP position, it slicing Foot->Head direction in RCS (Brain images case).
+	 * DICOM RCS-LPS space coordinates is oriented by patient position.
+	 * Z+ means direction to head side. Z- is foot side.
+	 * Y+ means direction to posterior, Y- is anterior.
+	 * X+ means direction to left side, X- is right side.
 	 * @param imp
 	 * @return
 	 */
@@ -401,41 +405,41 @@ public class PlanarSupport {
 		int prev_pos = axialImp.getCurrentSlice();
 		if(size > 1) {
 			double[] ipp1 = GDicomTools.getImagePositionPatient(axialImp, 1);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(axialImp, 2);
-			if(ipp1 != null && ipp2 != null) {
+			double[] ippN = GDicomTools.getImagePositionPatient(axialImp, size);
+			if(ipp1 != null && ippN != null) {
 				//back to prev pos
 				axialImp.setSlice(prev_pos);
-				return ipp1[2] < ipp2[2];
+				return ipp1[2] < ippN[2];
 			}
 		}
 		return false;
 	}
 	
 	/**
-	 * If true with HFS position, it slicing A->P direction in RCS.
+	 * Check slicing A->P direction in RCS.
 	 * @param imp
 	 * @return
 	 */
-	public static boolean isSlicingToUpperYSide(ImagePlus imp) {
-		if(ImageOrientation.getCutSurface(imp) != CutSurface.CORONAL) {
+	public static boolean isSlicingToUpperYSide(ImagePlus corImp) {
+		if(ImageOrientation.getCutSurface(corImp) != CutSurface.CORONAL) {
 			throw new IllegalArgumentException("This images are not CORONAL...");
 		}
-		int size = imp.getNSlices();
-		int prev_pos = imp.getCurrentSlice();
+		int size = corImp.getNSlices();
+		int prev_pos = corImp.getCurrentSlice();
 		if(size > 1) {
-			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
-			if(ipp1 != null && ipp2 != null) {
+			double[] ipp1 = GDicomTools.getImagePositionPatient(corImp, 1/*slice pos*/);
+			double[] ippN = GDicomTools.getImagePositionPatient(corImp, size/*slice pos*/);
+			if(ipp1 != null && ippN != null) {
 				//back to prev pos
-				imp.setSlice(prev_pos);
-				return ipp1[1] < ipp2[1];
+				corImp.setSlice(prev_pos);
+				return ipp1[1] < ippN[1];
 			}
 		}
 		return false;
 	}
 	
 	/**
-	 * If true with HFS position, it slicing R->L direction in RCS.
+	 * Check slicing R->L direction in RCS.
 	 * @param imp
 	 * @return
 	 */
@@ -447,148 +451,133 @@ public class PlanarSupport {
 		int prev_pos = imp.getCurrentSlice();
 		if(size > 1) {
 			double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1/*slice pos*/);
-			double[] ipp2 = GDicomTools.getImagePositionPatient(imp, 2/*slice pos*/);
-			if(ipp1 != null && ipp2 != null) {
+			double[] ippN = GDicomTools.getImagePositionPatient(imp, size/*slice pos*/);
+			if(ipp1 != null && ippN != null) {
 				//back to prev pos
 				imp.setSlice(prev_pos);
-				return ipp1[0] < ipp2[0];
+				return ipp1[0] < ippN[0];
 			}
 		}
 		return false;
 	}
-	
-	public static ImagePlus loadAndSortDicomImages(ImagePlus imp) {
-	    List<SortableSlice> slices = new ArrayList<>();
-	    ImageStack originalStack = imp.getStack();
-	    // ファイルリストなどから読み込むループ (例)
-		for (int i = 0; i < imp.getNSlices(); i++) {
-			double[] ipp = GDicomTools.getImagePositionPatient(imp, i + 1/* slice pos */);
-			double[] iop = GDicomTools.getImageOrientationPatient(imp, i + 1/* slice pos */);
-
-			imp.setSlice(i + 1);
-			// 2. リストに追加
-			slices.add(new SortableSlice(
-					originalStack.getProcessor(i + 1).duplicate(), /* be safe */
-					originalStack.getSliceLabel(i + 1), 
-					ipp,
-					iop));
-		}
-	    
-	    boolean isHeadFirstPosition = isHeadFirst(imp);
-
-	    // 3. ソート実行
-	    ImageStack sortedStack = createSortedStack(slices, isHeadFirstPosition);
-
-	    return new ImagePlus("Sorted Head-to-Feet", sortedStack);
-	}
-	
+		
 	/**
-	 * 画像データと位置情報をセットにした内部クラス
+	 * 入力された Raw スタックを、解剖学的な標準順序（LPS）に基づき、3D/MPR用に並び替えます。
+	 * Axial: Z+ -> Z- (Head to Foot), to decrease
+	 * Coronal: Y- -> Y+ (A to P), to increase
+	 * Sagittal: X- -> X+ (R to L), to increase
 	 */
-	public static class SortableSlice {
-		public ImageProcessor processor;
-		public String label; // スライス名などを保持したい場合
-		public double[] ipp; // Image Position Patient {x, y, z}
-		public double[] iop; // Image Orientation Patient {rx, ry, rz, cx, cy, cz}
+    public static void standardizeStackOrientation(ImagePlus imp) {
+        if (imp == null) return;
+        int nSlices = imp.getNSlices();
+        if (nSlices < 2) return;
 
-		public SortableSlice(ImageProcessor processor, String label, double[] ipp, double[] iop) {
-			this.processor = processor;
-			this.label = label;
-			this.ipp = ipp;
-			this.iop = iop;
-		}
-	}
+        double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1);
+        double[] ippN = GDicomTools.getImagePositionPatient(imp, nSlices);
+        if (ipp1 == null || ippN == null) return;
 
-    /**
-     * SortableSliceのリストを受け取り、Head-to-Feetにソートして
-     * 新しいImageStackを返します。
-     *
-     * @param sliceList 画像と位置情報のリスト
-     * @return ソート済みのImageStack
-     */
-	private static ImageStack createSortedStack(List<SortableSlice> sliceList, boolean isHeadFirstPosition) {
-		if (sliceList == null || sliceList.isEmpty()) {
-			return null;
-		}
+        boolean needsReversal = false;
+        CutSurface basePlane = ImageOrientation.getCutSurface(imp);
 
-		// --- 1. 空間的ソート (Normal Vector & Projection) ---
-		// 基準となるIOPを取得（最初の画像）
-		double[] baseIop = sliceList.get(0).iop;
-		if (baseIop == null)
-			return buildStackFromList(sliceList); // 情報がない場合はそのまま返す
+        if (basePlane == CutSurface.AXIAL) {
+            // 目標: Z増加 (-100 -> 100)。 現在が Z減少 (100 -> -100) なら反転。
+            if (ipp1[2] > ippN[2]) needsReversal = true;
+        } else if (basePlane == CutSurface.CORONAL) {
+            // 目標: Y増加 (-100 -> 100)。 現在が Y減少 (100 -> -100) なら反転。
+            if (ipp1[1] > ippN[1]) needsReversal = true;
+        } else if (basePlane == CutSurface.SAGITTAL) {
+            // 目標: X増加 (-100 -> 100)。 現在が X減少 (100 -> -100) なら反転。
+            if (ipp1[0] > ippN[0]) needsReversal = true;
+        } else if (basePlane == CutSurface.OBLIQUE) {
+            // 斜位の場合: 最も変化量の大きい軸で判断
+            double dx = Math.abs(ippN[0] - ipp1[0]);
+            double dy = Math.abs(ippN[1] - ipp1[1]);
+            double dz = Math.abs(ippN[2] - ipp1[2]);
 
-		double[] rowVec = { baseIop[0], baseIop[1], baseIop[2] };
-		double[] colVec = { baseIop[3], baseIop[4], baseIop[5] };
-		final double[] normalVec = crossProduct(rowVec, colVec);
-
-		// 距離計算でソート
-		Collections.sort(sliceList, new Comparator<SortableSlice>() {
-			@Override
-			public int compare(SortableSlice s1, SortableSlice s2) {
-				double dist1 = dotProduct(normalVec, s1.ipp);
-				double dist2 = dotProduct(normalVec, s2.ipp);
-				return Double.compare(dist1, dist2);
-			}
-		});
-
-		// --- 2. Head-to-Feet (頭->足) の順序保証 ---
-
-		double zFirst = sliceList.get(0).ipp[2];
-		double zLast = sliceList.get(sliceList.size() - 1).ipp[2];
-
-		// Z軸において「先頭 < 末尾」になっている場合、
-		// 足側(Z小)から頭側(Z大)に並んでいることになるため、反転させる。
-		if (isHeadFirstPosition && zFirst < zLast) {
-			Collections.reverse(sliceList);
-			// FeetFirstPositionの場合で、Z軸において「先頭 > 末尾」になっている場合、
-			// 足側(Z大)から頭側(Z小)に並んでいることになるため、反転させる。
-		} else if (!isHeadFirstPosition && zFirst > zLast) {
-			Collections.reverse(sliceList);
-		}
-		// --- 3. 新しいImageStackの構築 ---
-		return buildStackFromList(sliceList);
-	}
-
-    // リストからImageStackを組み立てるヘルパー
-    private static ImageStack buildStackFromList(List<SortableSlice> list) {
-        if (list.isEmpty()) return null;
-        
-        int width = list.get(0).processor.getWidth();
-        int height = list.get(0).processor.getHeight();
-        
-        ImageStack sortedStack = new ImageStack(width, height);
-        
-        for (SortableSlice slice : list) {
-            sortedStack.addSlice(slice.label, slice.processor);
+            if (dz >= dx && dz >= dy) { // Axial寄り
+                if (ipp1[2] > ippN[2]) needsReversal = true;
+            } else if (dy >= dx && dy >= dz) { // Coronal寄り
+                if (ipp1[1] > ippN[1]) needsReversal = true;
+            } else { // Sagittal寄り
+                if (ipp1[0] > ippN[0]) needsReversal = true;
+            }
         }
-        return sortedStack;
+
+        if (needsReversal) {
+            reverseStack(imp);
+            Log.logger.log(Level.INFO, "Stack order reversed to LPS standard: " + basePlane);
+        }
     }
+
+    private static void reverseStack(ImagePlus imp) {
+        ImageStack stack = imp.getStack();
+        int n = stack.getSize();
+        ImageStack reversedStack = new ImageStack(stack.getWidth(), stack.getHeight());
+
+        for (int i = n; i >= 1; i--) {
+            // 重要: getSliceLabel(i) を渡すことで、IPPやIOP等のメタデータ文字列が
+            // そのまま新しい位置のスライスに引き継がれます。
+            reversedStack.addSlice(stack.getSliceLabel(i), stack.getProcessor(i));
+        }
+        
+        // 元のスタックに設定されていたCalibrationをコピーして適用
+        Calibration cal = imp.getCalibration().copy();
+        imp.setStack(reversedStack);
+        imp.setCalibration(cal);
+    }
+    
 
     /**
      * ベクトルの外積（Cross Product）を計算
      */
-    private static double[] crossProduct(double[] v1, double[] v2) {
-        return new double[] {
-            v1[1] * v2[2] - v1[2] * v2[1], // x
-            v1[2] * v2[0] - v1[0] * v2[2], // y
-            v1[0] * v2[1] - v1[1] * v2[0]  // z
-        };
+    public static double[] crossProduct(double[] v1, double[] v2) {
+    	Vector3d v1_ = new Vector3d(v1);
+    	Vector3d v2_ = new Vector3d(v2);
+    	Vector3d cross = crossProduct(v1_, v2_, true);
+    	return new double[] {cross.x(), cross.y(), cross.z()};
+//        return new double[] {
+//            v1[1] * v2[2] - v1[2] * v2[1], // x
+//            v1[2] * v2[0] - v1[0] * v2[2], // y
+//            v1[0] * v2[1] - v1[1] * v2[0]  // z
+//        };
     }
+    
+	/**
+	 * This will return v1.cross(v2).
+	 * 
+	 * E.g.,
+	 * Row=(1,0,0),Col=(0,1,0)
+	 * Row.cross(Col)=(0,0,1)
+	 * Col.cross(Row)=(0,0,−1)
+	 * 
+	 * @param v1 = vector 1
+	 * @param v2 = vector 2
+	 * @param normalize
+	 * @return
+	 */
+	public static Vector3d crossProduct(Vector3d v1, Vector3d v2, boolean normalize) {
+		Vector3d norm = new Vector3d();
+		v1.cross(v2, norm);//keep col cross row.
+		if(normalize) {
+			norm = norm.normalize();
+		}
+		return norm;
+	}
 
     /**
      * ベクトルの内積（Dot Product）を計算
      */
-    private static double dotProduct(double[] v1, double[] v2) {
+    public static double dotProduct(double[] v1, double[] v2) {
         return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
     }
 	
-	public static int getOriginSlicePosition(int totalSliceSize, boolean isSlicingIncreaseAxisCoord, boolean isHeadFirst) {
-		if (isHeadFirst && isSlicingIncreaseAxisCoord) return totalSliceSize;
-		if (!isHeadFirst && isSlicingIncreaseAxisCoord) return 1;
-		if (isHeadFirst && !isSlicingIncreaseAxisCoord) return 1;
-		if (!isHeadFirst && !isSlicingIncreaseAxisCoord) return totalSliceSize;
-		return 1;
-	}
+//	public static int getOriginSlicePosition(int totalSliceSize, boolean isSlicingIncreaseAxisCoord, boolean isHeadFirst) {
+//		if (isHeadFirst && isSlicingIncreaseAxisCoord) return totalSliceSize;
+//		if (!isHeadFirst && isSlicingIncreaseAxisCoord) return 1;
+//		if (isHeadFirst && !isSlicingIncreaseAxisCoord) return 1;
+//		if (!isHeadFirst && !isSlicingIncreaseAxisCoord) return totalSliceSize;
+//		return 1;
+//	}
 	
 	public static double truncate(double value, int places) {
 		if (places < 0)
@@ -612,28 +601,6 @@ public class PlanarSupport {
 		v.y = truncate(v.y, places);
 		v.z = truncate(v.z, places);
 		return v;
-	}
-	
-	/**
-	 * This will return v1.cross(v2).
-	 * 
-	 * E.g.,
-	 * Row=(1,0,0),Col=(0,1,0)
-	 * Row.cross(Col)=(0,0,1)
-	 * Col.cross(Row)=(0,0,−1)
-	 * 
-	 * @param v1 = vector 1
-	 * @param v2 = vector 2
-	 * @param normalize
-	 * @return
-	 */
-	public static Vector3d calculateNormal(Vector3d v1, Vector3d v2, boolean normalize) {
-		Vector3d norm = new Vector3d();
-		v1.cross(v2, norm);//keep col cross row.
-		if(normalize) {
-			norm = norm.normalize();
-		}
-		return norm;
 	}
 	
 	public static double[] v2d(Vector3d vec) {
