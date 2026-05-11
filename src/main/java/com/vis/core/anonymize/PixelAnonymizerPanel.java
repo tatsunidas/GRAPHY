@@ -17,6 +17,7 @@ import com.vis.core.util.DeleteFolder;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiType;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
+import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
@@ -828,49 +829,124 @@ public class PixelAnonymizerPanel extends JPanel {
         
     }
     
+//    protected void loadSeriesToPraparat(HashMap<String, String> seriesInfo) {
+//        // 1. Praparat にシリーズの画像データをセットする
+//    	String seriesUid = seriesInfo.get(ContextKey.SeriesInstanceUID.name());
+//        Praparat targetPrap = praparatMap.get(seriesUid);
+//        if (targetPrap != null && targetPrap != currentActivePraparat) {
+//        	
+//        	// ★ 追加: もしプレビューがONなら、強制的にOFFにしてクリーンアップを実行する
+//        	if (btnTogglePreview != null && btnTogglePreview.isSelected()) {
+//                btnTogglePreview.doClick(); // クリックしたことにしてOFFの処理を走らせる
+//            }
+//        	
+//            currentActivePraparat = targetPrap;
+//            
+//            // 画面の差し替え
+//            for(Component c : seriesDisplayPanel.getComponents()) {
+//            	if(c instanceof Praparat) {
+//            		seriesDisplayPanel.remove(c);
+//            	}
+//            }
+//            
+//            seriesDisplayPanel.add(currentActivePraparat, BorderLayout.CENTER);
+//            // ツールバーもここで再配置するか、既存のものに現在のPraparatを紐付ける処理が必要です
+//            seriesDisplayPanel.revalidate();
+//            seriesDisplayPanel.repaint();
+//            
+//            SwingUtilities.invokeLater(() -> {
+//                // 表示されたタイミングで最初の画像のピクセルをロード＆描画
+//            	currentActivePraparat.doSingleGridLayout();
+//            	currentActivePraparat.loadRoisFromDB();
+//                currentActivePraparat.setImagePositionUsingSlider(0); 
+//            });
+//        }
+//        
+//        // 2. ロード直後はツールをデフォルト（ポインターなど）に戻す
+//        toolButtonGroup.clearSelection();
+//        setSelectedState4Toggles("Pointer");
+//        
+//         currentActivePraparat.setLocalToolType(Viewer2DToolBar.Windowing);
+//        
+//        // 3. （オプション）以前描画したROIがこのシリーズ用にあればリストを更新する
+//         updateMaskRoiListForCurrentSeries();
+//    }
+    
     protected void loadSeriesToPraparat(HashMap<String, String> seriesInfo) {
-        // 1. Praparat にシリーズの画像データをセットする
-    	String seriesUid = seriesInfo.get(ContextKey.SeriesInstanceUID.name());
-        Praparat targetPrap = praparatMap.get(seriesUid);
-        if (targetPrap != null && targetPrap != currentActivePraparat) {
-        	
-        	// ★ 追加: もしプレビューがONなら、強制的にOFFにしてクリーンアップを実行する
-        	if (btnTogglePreview != null && btnTogglePreview.isSelected()) {
-                btnTogglePreview.doClick(); // クリックしたことにしてOFFの処理を走らせる
-            }
-        	
-            currentActivePraparat = targetPrap;
-            
-            // 画面の差し替え
-            for(Component c : seriesDisplayPanel.getComponents()) {
-            	if(c instanceof Praparat) {
-            		seriesDisplayPanel.remove(c);
-            	}
-            }
-            
-            seriesDisplayPanel.add(currentActivePraparat, BorderLayout.CENTER);
-            // ツールバーもここで再配置するか、既存のものに現在のPraparatを紐付ける処理が必要です
-            seriesDisplayPanel.revalidate();
-            seriesDisplayPanel.repaint();
-            
-            SwingUtilities.invokeLater(() -> {
-                // 表示されたタイミングで最初の画像のピクセルをロード＆描画
-            	currentActivePraparat.doSingleGridLayout();
-            	currentActivePraparat.loadRoisFromDB();
-                currentActivePraparat.setImagePositionUsingSlider(0); 
-            });
-        }
-        
-        // 2. ロード直後はツールをデフォルト（ポインターなど）に戻す
-        toolButtonGroup.clearSelection();
-        setSelectedState4Toggles("Pointer");
-        
-         currentActivePraparat.setLocalToolType(Viewer2DToolBar.Windowing);
-        
-        // 3. （オプション）以前描画したROIがこのシリーズ用にあればリストを更新する
-         updateMaskRoiListForCurrentSeries();
-        
-    }
+		// 1. Praparat にシリーズの画像データをセットする
+		String pid = seriesInfo.get(ContextKey.PatientID.name());
+		String studyUid = seriesInfo.get(ContextKey.StudyInstanceUID.name());
+		String seriesUid = seriesInfo.get(ContextKey.SeriesInstanceUID.name());
+		Praparat targetPrap = praparatMap.get(seriesUid);
+
+		if (targetPrap != null && targetPrap != currentActivePraparat) {
+
+			// ★ 追加: もしプレビューがONなら、強制的にOFFにしてクリーンアップを実行する
+			if (btnTogglePreview != null && btnTogglePreview.isSelected()) {
+				btnTogglePreview.doClick(); // クリックしたことにしてOFFの処理を走らせる
+			}
+
+			currentActivePraparat = targetPrap;
+
+			// 画面の差し替え
+			for (Component c : seriesDisplayPanel.getComponents()) {
+				if (c instanceof Praparat) {
+					seriesDisplayPanel.remove(c);
+				}
+			}
+
+			seriesDisplayPanel.add(currentActivePraparat, BorderLayout.CENTER);
+			currentActivePraparat.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+			seriesDisplayPanel.revalidate();
+			seriesDisplayPanel.repaint();
+
+		}
+
+		// 2. SwingWorkerによるバックグラウンド処理の定義
+		SwingWorker<Void, Void> loadWorker = new SwingWorker<Void, Void>() {
+
+			@Override
+			protected Void doInBackground() throws Exception {
+				// ▼ ここはバックグラウンドスレッドで実行されるため、UIはフリーズしません
+				// 内部の future.get() が終わるまで、このスレッドはしっかり待機します
+				currentActivePraparat.loadSeries(pid, studyUid, seriesUid, null);
+				currentActivePraparat.doSingleGridLayout();
+				currentActivePraparat.loadRoisFromDB();
+				return null;
+			}
+
+			@Override
+			protected void done() {
+				// ▼ doInBackground() が完全に終わった後、UIスレッドで自動的に呼ばれます
+				try {
+					get(); // 万が一ロード中に例外が起きていればここでキャッチできる
+
+					// 3. ロードが「確実に」終わったので、安全に最初の画像を表示
+					currentActivePraparat.showFirstImage();
+
+					// 2. ロード直後はツールをデフォルト（ポインター）に戻す
+					toolButtonGroup.clearSelection();
+					setSelectedState4Toggles("Pointer");
+
+					currentActivePraparat.setLocalToolType(Viewer2DToolBar.Windowing);
+
+					// 3. （オプション）以前描画したROIがこのシリーズ用にあればリストを更新する
+					updateMaskRoiListForCurrentSeries();
+
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
+							"Failed to load series: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+				} finally {
+					// マウスカーソル等を元に戻す
+					currentActivePraparat.setCursor(Cursor.getDefaultCursor());
+				}
+			}
+		};
+
+		// 3. 処理を実行！
+		loadWorker.execute();
+	}
 
     // ツリーをすべて展開するヘルパーメソッド
     private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
@@ -1285,9 +1361,18 @@ public class PixelAnonymizerPanel extends JPanel {
                 maskRoiListPanel.repaint();
                 tempRois.remove(panel.getAttachedRoi());
                 
-                // ★ 追加：パネルが削除されたら記憶していた設定も消す
+                // パネルが削除されたら記憶していた設定も消す
                 roiModeMap.remove(panel.getAttachedRoi());
                 roiCustomTextMap.remove(panel.getAttachedRoi());
+                
+                // ROI削除後も表示されてしまわないように念押し
+                SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						currentActivePraparat.repaint();
+					}
+                });
+                
             }
             @Override
             public void onRangeChanged(MaskRoiPanel panel) {

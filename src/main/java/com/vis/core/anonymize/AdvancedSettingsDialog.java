@@ -23,8 +23,8 @@ public class AdvancedSettingsDialog extends JDialog {
     private static final int COL_ACTION = 3;
     private static final int COL_VALUE = 4;
 
-    public AdvancedSettingsDialog(Frame owner, AnonymizeConfig currentConfig) {
-        super(owner, "Advanced Tag Settings", true); // モーダルダイアログ
+    public AdvancedSettingsDialog(Window owner, AnonymizeConfig currentConfig) {
+        super(owner, "Advanced Tag Settings");
         this.config = currentConfig;
         initUI();
         loadDataToTable();
