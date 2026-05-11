@@ -43,6 +43,203 @@ public class Slicer {
 		this.ref =imp;
 	}
 	
+//	public ImageProcessor slice(SlicePlane slicePlane, int mode/*reconstruction mode*/) {
+//		if(mode == SLICECUT) {
+//			
+//			int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;//column size
+//			int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;//row size
+//			
+//			int parent_w = ref.getWidth();
+//			int parent_h = ref.getHeight();
+//			int parent_s = ref.getNSlices();
+//			List<Vector3d> pixCoord = slicePlane.computeVoxelCoordinatesInPixelCoords(ref);
+//			
+//			// === 座標変換のデバッグログ START ===
+//			int centerIdx = (h / 2) * w + (w / 2);
+//			if (pixCoord != null && pixCoord.size() > centerIdx) {
+//				Vector3d first = pixCoord.get(0);
+//				Vector3d center = pixCoord.get(centerIdx);
+//				Vector3d last = pixCoord.get(pixCoord.size() - 1);
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Ref Volume limits: W=%d, H=%d, Slices=%d", parent_w, parent_h, parent_s));
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] First pixel (0,0) mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", first.x, first.y, first.z));
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Center pixel mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", center.x, center.y, center.z));
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Last pixel mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", last.x, last.y, last.z));
+//			} else {
+//				com.vis.core.log.Log.logger.severe("[SLICER_PIX_DEBUG] pixCoord is null or empty!");
+//			}
+//			// === 座標変換のデバッグログ END ===
+//
+//			ImageProcessor ip = ref.getProcessor();
+//			int oobCount = 0;
+//			int nanCount = 0;
+//
+//			if(ip instanceof ByteProcessor) {
+//				byte[] pixels = new byte[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+//						pixels[i] = (byte)raw_min;
+//						nanCount++;
+//						continue;
+//					}
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (byte)raw_min;
+//						oobCount++;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ByteProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
+//				return new ByteProcessor(w, h, pixels);
+//				
+//			}else if(ip instanceof ShortProcessor) {
+//				short[] pixels = new short[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					// ★ 追加: NaNによる座標破壊を防ぐ
+//					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+//						pixels[i] = (short)raw_min;
+//						nanCount++;
+//						continue;
+//					}
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (short)raw_min;
+//						oobCount++;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ShortProcessor Result -> Total: %d, OOB: %d, NaN: %d", (w*h), oobCount, nanCount));
+//				ShortProcessor sp = new ShortProcessor(w, h);
+//				sp.setPixels(pixels);
+//				return sp;
+//				
+//			}else if(ip instanceof FloatProcessor) {
+//				float[] pixels = new float[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+//						pixels[i] = (float)raw_min;
+//						nanCount++;
+//						continue;
+//					}
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (float)raw_min;
+//						oobCount++;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] FloatProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
+//				return new FloatProcessor(w, h, pixels);
+//				
+//			}else if(ip instanceof ColorProcessor) {
+//				int[] pixels = new int[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+//						pixels[i] = (int)raw_min;
+//						nanCount++;
+//						continue;
+//					}
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (int)raw_min;
+//						oobCount++;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ColorProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
+//				return new ColorProcessor(w, h, pixels);
+//			}
+//		}else {
+//			return createSlice(slicePlane, ref, mode);
+//		}
+//		return null;
+//	}
+//	
+//	public ImageProcessor createSlice(SlicePlane slicePlane, ImagePlus ref, int mode) {
+//		
+//		double refZ = GDicomTools.getVoxelDepth(ref);
+//		double resolution = slicePlane.getGeometryOfSlice().getVoxelSpacing().z/refZ;
+//		int numOfSubSlice = (int)Math.round(resolution);
+//		if(numOfSubSlice <= 2/*see, PlanarSupport.divideSlice*/) {
+//			return slice(slicePlane, SLICECUT);
+//		}
+//		
+//		int w = (int)slicePlane.getGeometryOfSlice().getDimensions().y;
+//		int h = (int)slicePlane.getGeometryOfSlice().getDimensions().x;
+//		
+//		int parent_w = ref.getWidth();
+//		int parent_h = ref.getHeight();
+//		int parent_s = ref.getNSlices();
+//		ImageProcessor ip = ref.getProcessor();
+//		
+//		List<SlicePlane> subPlanes = PlanarSupport.divideSlice(slicePlane.getGeometryOfSlice(), numOfSubSlice);
+//		
+//		ImageStack subStack = new ImageStack((int)slicePlane.getGeometryOfSlice().getDimensions().y, (int)slicePlane.getGeometryOfSlice().getDimensions().x);
+//		
+//		for(SlicePlane sub: subPlanes) {
+//			List<Vector3d> pixCoord = sub.computeVoxelCoordinatesInPixelCoords(ref);
+//			if(ip instanceof ByteProcessor) {
+//				byte[] pixels = new byte[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (byte)raw_min;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				subStack.addSlice(new ByteProcessor(w, h, pixels));
+//			}else if(ip instanceof ShortProcessor) {
+//				short[] pixels = new short[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (short)raw_min;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				ShortProcessor sp = new ShortProcessor(w, h);
+//				sp.setPixels(pixels);
+//				subStack.addSlice(sp);
+//			}else if(ip instanceof FloatProcessor) {
+//				float[] pixels = new float[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (short)raw_min;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				subStack.addSlice(new FloatProcessor(w, h, pixels));
+//			}else if(ip instanceof ColorProcessor) {
+//				int[] pixels = new int[w*h];
+//				for(int i=0;i<w*h;i++) {
+//					Vector3d pixPos = pixCoord.get(i);
+//					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+//						pixels[i] = (short)raw_min;
+//						continue;
+//					}
+//					ref.setSlice((int)pixPos.z+1);
+//					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+//				}
+//				subStack.addSlice(new ColorProcessor(w, h, pixels));
+//			}
+//		}
+//		return applyCalculateMode(subStack, mode);
+//	}
+	
 	public ImageProcessor slice(SlicePlane slicePlane, int mode/*reconstruction mode*/) {
 		if(mode == SLICECUT) {
 			
@@ -54,109 +251,87 @@ public class Slicer {
 			int parent_s = ref.getNSlices();
 			List<Vector3d> pixCoord = slicePlane.computeVoxelCoordinatesInPixelCoords(ref);
 			
-			// === 座標変換のデバッグログ START ===
-			int centerIdx = (h / 2) * w + (w / 2);
-			if (pixCoord != null && pixCoord.size() > centerIdx) {
-				Vector3d first = pixCoord.get(0);
-				Vector3d center = pixCoord.get(centerIdx);
-				Vector3d last = pixCoord.get(pixCoord.size() - 1);
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Ref Volume limits: W=%d, H=%d, Slices=%d", parent_w, parent_h, parent_s));
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] First pixel (0,0) mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", first.x, first.y, first.z));
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Center pixel mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", center.x, center.y, center.z));
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Last pixel mapped to Ref(x,y,z): [%.2f, %.2f, %.2f]", last.x, last.y, last.z));
-			} else {
-				com.vis.core.log.Log.logger.severe("[SLICER_PIX_DEBUG] pixCoord is null or empty!");
+			// ★ 超高速化: UI更新を伴う setSlice() を避けるため、全スライスのプロセッサをキャッシュする
+			ImageStack stack = ref.getStack();
+			ImageProcessor[] cachedProcs = new ImageProcessor[parent_s];
+			for (int s = 0; s < parent_s; s++) {
+				cachedProcs[s] = stack.getProcessor(s + 1);
 			}
-			// === 座標変換のデバッグログ END ===
-
+			
 			ImageProcessor ip = ref.getProcessor();
-			int oobCount = 0;
-			int nanCount = 0;
-
+			
 			if(ip instanceof ByteProcessor) {
 				byte[] pixels = new byte[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
 					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (byte)raw_min;
-						nanCount++;
 						continue;
 					}
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
 						pixels[i] = (byte)raw_min;
-						oobCount++;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					// ★ キャッシュから直接値を取得
+					pixels[i] = (byte) cachedProcs[z].get(x, y);
 				}
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ByteProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
 				return new ByteProcessor(w, h, pixels);
 				
-			}else if(ip instanceof ShortProcessor) {
+			} else if(ip instanceof ShortProcessor) {
 				short[] pixels = new short[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					// ★ 追加: NaNによる座標破壊を防ぐ
 					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (short)raw_min;
-						nanCount++;
 						continue;
 					}
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
 						pixels[i] = (short)raw_min;
-						oobCount++;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					pixels[i] = (short) cachedProcs[z].get(x, y);
 				}
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ShortProcessor Result -> Total: %d, OOB: %d, NaN: %d", (w*h), oobCount, nanCount));
 				ShortProcessor sp = new ShortProcessor(w, h);
 				sp.setPixels(pixels);
 				return sp;
 				
-			}else if(ip instanceof FloatProcessor) {
+			} else if(ip instanceof FloatProcessor) {
 				float[] pixels = new float[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
 					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (float)raw_min;
-						nanCount++;
 						continue;
 					}
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
 						pixels[i] = (float)raw_min;
-						oobCount++;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					pixels[i] = (float) cachedProcs[z].get(x, y);
 				}
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] FloatProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
 				return new FloatProcessor(w, h, pixels);
 				
-			}else if(ip instanceof ColorProcessor) {
+			} else if(ip instanceof ColorProcessor) {
 				int[] pixels = new int[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
 					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (int)raw_min;
-						nanCount++;
 						continue;
 					}
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
 						pixels[i] = (int)raw_min;
-						oobCount++;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					pixels[i] = (int) cachedProcs[z].get(x, y);
 				}
-				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] ColorProcessor Result -> OOB: %d, NaN: %d", oobCount, nanCount));
 				return new ColorProcessor(w, h, pixels);
 			}
-		}else {
+		} else {
 			return createSlice(slicePlane, ref, mode);
 		}
 		return null;
@@ -179,60 +354,86 @@ public class Slicer {
 		int parent_s = ref.getNSlices();
 		ImageProcessor ip = ref.getProcessor();
 		
-		List<SlicePlane> subPlanes = PlanarSupport.divideSlice(slicePlane.getGeometryOfSlice(), numOfSubSlice);
+		// ★ 超高速化: createSlice側もキャッシュする
+		ImageStack stack = ref.getStack();
+		ImageProcessor[] cachedProcs = new ImageProcessor[parent_s];
+		for (int s = 0; s < parent_s; s++) {
+			cachedProcs[s] = stack.getProcessor(s + 1);
+		}
 		
+		List<SlicePlane> subPlanes = PlanarSupport.divideSlice(slicePlane.getGeometryOfSlice(), numOfSubSlice);
 		ImageStack subStack = new ImageStack((int)slicePlane.getGeometryOfSlice().getDimensions().y, (int)slicePlane.getGeometryOfSlice().getDimensions().x);
 		
 		for(SlicePlane sub: subPlanes) {
 			List<Vector3d> pixCoord = sub.computeVoxelCoordinatesInPixelCoords(ref);
+			
 			if(ip instanceof ByteProcessor) {
 				byte[] pixels = new byte[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (byte)raw_min;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (byte) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
+						pixels[i] = (byte)raw_min;
+						continue;
+					}
+					pixels[i] = (byte) cachedProcs[z].get(x, y);
 				}
 				subStack.addSlice(new ByteProcessor(w, h, pixels));
-			}else if(ip instanceof ShortProcessor) {
+				
+			} else if(ip instanceof ShortProcessor) {
 				short[] pixels = new short[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
+					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
 						pixels[i] = (short)raw_min;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (short) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
+						pixels[i] = (short)raw_min;
+						continue;
+					}
+					pixels[i] = (short) cachedProcs[z].get(x, y);
 				}
 				ShortProcessor sp = new ShortProcessor(w, h);
 				sp.setPixels(pixels);
 				subStack.addSlice(sp);
-			}else if(ip instanceof FloatProcessor) {
+				
+			} else if(ip instanceof FloatProcessor) {
 				float[] pixels = new float[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
-						pixels[i] = (short)raw_min;
+					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+						pixels[i] = (float)raw_min;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (float) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
+						pixels[i] = (float)raw_min;
+						continue;
+					}
+					pixels[i] = (float) cachedProcs[z].get(x, y);
 				}
 				subStack.addSlice(new FloatProcessor(w, h, pixels));
-			}else if(ip instanceof ColorProcessor) {
+				
+			} else if(ip instanceof ColorProcessor) {
 				int[] pixels = new int[w*h];
 				for(int i=0;i<w*h;i++) {
 					Vector3d pixPos = pixCoord.get(i);
-					if ((pixPos.x < 0 || pixPos.y < 0 || pixPos.z < 0)||(pixPos.x > parent_w - 1 || pixPos.y > parent_h - 1 || pixPos.z > parent_s - 1)) {
-						pixels[i] = (short)raw_min;
+					if (Double.isNaN(pixPos.x) || Double.isNaN(pixPos.y) || Double.isNaN(pixPos.z)) {
+						pixels[i] = (int)raw_min;
 						continue;
 					}
-					ref.setSlice((int)pixPos.z+1);
-					pixels[i] = (int) ref.getProcessor().get((int)pixPos.x, (int)pixPos.y);
+					int x = (int)pixPos.x; int y = (int)pixPos.y; int z = (int)pixPos.z;
+					if (x < 0 || y < 0 || z < 0 || x >= parent_w || y >= parent_h || z >= parent_s) {
+						pixels[i] = (int)raw_min;
+						continue;
+					}
+					pixels[i] = (int) cachedProcs[z].get(x, y);
 				}
 				subStack.addSlice(new ColorProcessor(w, h, pixels));
 			}
@@ -245,17 +446,17 @@ public class Slicer {
 		return slicer.getSlice(imp, roi);
 	}
 	
-	private ImageProcessor applyCalculateMode(ImageStack stack, int mode) {
-		int w = stack.getWidth();
-		int h = stack.getHeight();
-		int s = stack.getSize();
-		float[] res = new float[stack.getWidth()*stack.getHeight()];
+	private ImageProcessor applyCalculateMode(ImageStack subPlanes, int mode) {
+		int w = subPlanes.getWidth();
+		int h = subPlanes.getHeight();
+		int s = subPlanes.getSize();
+		float[] res = new float[subPlanes.getWidth()*subPlanes.getHeight()];
 		int itr = 0;
 		for(int y=0; y< h; y++) {
 			for(int x=0; x<w; x++) {
 				int[] v = new int[s];
 				for(int z=0; z<s; z++) {
-					ImageProcessor ip = stack.getProcessor(z+1);
+					ImageProcessor ip = subPlanes.getProcessor(z+1);
 					v[z] = ip.get(x, y);
 				}
 				float pix = (float)min;
@@ -273,7 +474,7 @@ public class Slicer {
 				res[itr++] = pix;
 			}
 		}
-		ImageProcessor ip = stack.getProcessor(1);
+		ImageProcessor ip = subPlanes.getProcessor(1);
 		ImageProcessor ip_res = null;
 		if(ip instanceof ByteProcessor) {
 			byte[] arr = toByte(res);

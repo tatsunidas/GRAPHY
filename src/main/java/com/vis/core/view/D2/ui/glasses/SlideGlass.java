@@ -533,7 +533,7 @@ public class SlideGlass extends JLayeredPane {
 		
 		synchronized(org) {
 			if (!isRGB()) {
-				System.out.println(Arrays.toString(org.getCalibration().getCoefficients()));
+//				System.out.println(Arrays.toString(org.getCalibration().getCoefficients()));
 				double pix_raw = org.getProcessor().get(orgImageX, orgImageY);
 				double pix_cal = org.getProcessor().getPixelValue(orgImageX, orgImageY);
 				if (dcmImg.getBitsAllocated() == 32) {

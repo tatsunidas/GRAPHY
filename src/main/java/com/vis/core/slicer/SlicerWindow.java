@@ -878,7 +878,6 @@ public class SlicerWindow extends JFrame {
 			ImageProcessor resliceIp = slicer.slice(plane, reconMode);
 
 			if (resliceIp != null) {
-				// ★抽出された画像の中身(ピクセル値の統計)を確認します。真っ黒なら全て0付近のはずです。
 				ij.process.ImageStatistics stats = resliceIp.getStatistics();
 				Log.logger
 						.info(String.format("[RESLICE_DEBUG] Slice %d - Processor Stats: Min=%.2f, Max=%.2f, Mean=%.2f",
@@ -888,6 +887,13 @@ public class SlicerWindow extends JFrame {
 				ImagePlus temp = new ImagePlus("", resliceIp);
 				GDicomTools.setImagePositionPatient(temp, 1, ipp);
 				GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
+				//set pixel representation
+				GDicomTools.setTag(temp, 1, "0028,0103", isSigned ? "1" : "0");
+				//set SOPClassUID
+				String sopClassUID = GDicomTools.getTag(imp, Tag.SOPClassUID);
+				//Secondary Capture Image Storage 1.2.840.10008.5.1.4.1.1.7
+				sopClassUID = sopClassUID == null ? "1.2.840.10008.5.1.4.1.1.7":sopClassUID;
+				GDicomTools.setTag(temp, 1, "0080,0016", sopClassUID);
 				stack.addSlice(temp.getProcessor());
 				stack.setSliceLabel(temp.getInfoProperty(), count++);
 			} else {
