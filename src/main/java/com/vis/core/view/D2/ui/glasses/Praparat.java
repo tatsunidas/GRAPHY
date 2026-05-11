@@ -2132,7 +2132,6 @@ public class Praparat extends JPanel {
 			double backupMin = sg.currentMin;
 			double backupMax = sg.currentMax;
 
-			// common (ここでDICOMタグが再読み込みされ、異常値に上書きされる可能性がある)
 			sg.initCalibrationAndLUT();
 
 			// ★ バックアップのリストア: 初期値（0と255）から変更されていた場合は、
@@ -2467,13 +2466,12 @@ public class Praparat extends JPanel {
 			return;
 		}
 		if (!currentSlide.isRGB()) {
-			Double[] pixelRawAndCalibrated = (Double[]) currentSlide.getPixelValueFromOriginal(pointOnOrg.x,
-					pointOnOrg.y);
+			Double[] pixelRawAndCalibrated = (Double[]) val;
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
 			updateInfoLabel(pointOnOrg, calibrated_v + "(" + raw_v + ")", scaleXY, mag, rotate);
 		} else {
-			String[] rgbAndColor = (String[]) currentSlide.getPixelValueFromOriginal(pointOnOrg.x, pointOnOrg.y);
+			String[] rgbAndColor = (String[]) val;
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];

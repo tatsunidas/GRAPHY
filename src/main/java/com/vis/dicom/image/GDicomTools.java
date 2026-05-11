@@ -1232,7 +1232,7 @@ public class GDicomTools extends ij.util.DicomTools {
 			Calibration cal = imp.getCalibration();
 			double[] coeffs = cal.getCoefficients();
 			if (coeffs != null) {
-				if(signed) {
+				if(signed && coeffs[0]<=-32768) {
 					coeffs[0] += 32768;//remove -32768 from intercept.
 				}
 				intercept = String.valueOf(coeffs[0]);

@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -532,6 +533,7 @@ public class SlideGlass extends JLayeredPane {
 		
 		synchronized(org) {
 			if (!isRGB()) {
+				System.out.println(Arrays.toString(org.getCalibration().getCoefficients()));
 				double pix_raw = org.getProcessor().get(orgImageX, orgImageY);
 				double pix_cal = org.getProcessor().getPixelValue(orgImageX, orgImageY);
 				if (dcmImg.getBitsAllocated() == 32) {
@@ -796,6 +798,8 @@ public class SlideGlass extends JLayeredPane {
 					double[] coeff = { intercept - (32768.0 * slope), slope };
 					cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
 				} else {
+					//intercept=-32768
+					//slope=1
 					cal.setSigned16BitCalibration();
 				}
 			}

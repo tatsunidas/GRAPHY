@@ -272,11 +272,6 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		if(img != null) {
 			if(img.getType() == orgImg.getType() && img.getWidth() == orgCols && img.getHeight() == orgRows) {
-				/*
-				 * imp.getNChannels() may return 1 even if RGB images. reproduce code String url
-				 * = "https://imagej.net/ij/images/flybrain.zip"; ImagePlus image =
-				 * IJ.openImage(url); sysout(image.getNChannels());//return 1
-				 */
 				int samples = img.getProcessor() instanceof ColorProcessor ? 3 : 1;
 				this.dcmImg.setPixelData(0/*0 base*/, orgCols, orgRows, samples, img.getBitDepth(), img.getProcessor().getPixels());
 				this.orgImg = new ImagePlus(sopUID, dcmImg.getImageProcessor(0/*always 0*/));
@@ -307,8 +302,6 @@ public class ImageSpecimenGlass extends JPanel{
 			
 			int w=  img.getWidth();
 			int h=  img.getHeight();
-			
-			System.out.println();
 			
 			if(imgSamples == samples && img.getWidth() == orgCols && img.getHeight() == orgRows) {
 				this.orgImg = img;

@@ -45,6 +45,7 @@ import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.LocalizerPoster;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
+import com.vis.dicom.Tag;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.IJ;
@@ -85,7 +86,7 @@ public class OrthogonalSlice {
 		
 		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
 		ImagePlus xz = FolderOpener.open(corDir);
-		ImagePlus xy = slicer.coronalToAxial(xz);
+		ImagePlus xy = slicer.coronalToAxial(xz, GDicomTools.getTag(xz, Tag.PixelRepresentation).equals("1"));
 		xy.show();
 		
 //		String sagDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/3D-FLAIR";
@@ -368,7 +369,7 @@ public class OrthogonalSlice {
 	 * * @param standardizedSrcCor : Coronal, standardized slicing (Y- to Y+, Anterior to Posterior)
 	 * @return XY (Axial) ImagePlus stack
 	 */
-	public ImagePlus coronalToAxial(ImagePlus standardizedSrcCor) {
+	public ImagePlus coronalToAxial(ImagePlus standardizedSrcCor, boolean isSigned) {
 		if (PlanarSupport.planarOf(standardizedSrcCor) != CutSurface.CORONAL) {
 			throw new IllegalArgumentException("Need COR stack volume");
 		}
@@ -432,6 +433,8 @@ public class OrthogonalSlice {
 				GDicomTools.setImagePositionPatient(tempSlice, 1, ipp);
 				GDicomTools.setImageOrientationPatient(tempSlice, 1, axiIop);
 			}
+			
+			GDicomTools.setTag(tempSlice, 1, "0028,0103", isSigned ? "1":"0");
 
 			// スライスラベル（メタデータ文字列）ごとスタックに追加
 			axiStack.addSlice(tempSlice.getStack().getSliceLabel(1), axiIp);
@@ -513,7 +516,7 @@ public class OrthogonalSlice {
 	 * @param standardizedSrcSag : Sagittal, standardized slicing (X- to X+, Right to Left)
 	 * @return XY (Axial) ImagePlus stack
 	 */
-	public ImagePlus sagittalToAxial(ImagePlus standardizedSrcSag) {
+	public ImagePlus sagittalToAxial(ImagePlus standardizedSrcSag, boolean isSigned) {
 		if (PlanarSupport.planarOf(standardizedSrcSag) != CutSurface.SAGITTAL) {
 			throw new IllegalArgumentException("Need SAG stack volume");
 		}
@@ -577,6 +580,8 @@ public class OrthogonalSlice {
 				GDicomTools.setImagePositionPatient(tempSlice, 1, ipp);
 				GDicomTools.setImageOrientationPatient(tempSlice, 1, axiIop);
 			}
+			
+			GDicomTools.setTag(tempSlice, 1, "0028,0103", isSigned ? "1":"0");
 
 			// スライスラベル（メタデータ文字列）ごとスタックに追加
 			axiStack.addSlice(tempSlice.getStack().getSliceLabel(1), axiIp);

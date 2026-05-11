@@ -148,19 +148,6 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		
 		ImageProcessor ip = getRawImageProcessor(frame);
 		
-		//DO NOT UDO THIS.
-		/*
-		 * this process broken to relationship to iop/ipp.
-		 * If inputed data is left-handed stile, must convert before import.
-		 */
-		// 画像を返す直前に、IOPに基づくフリップ補正を行う
-		// Radiological Convention
-//		if (ip != null) { // PDFは対象外
-//			double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
-//			if (iop != null && iop.length == 6) {
-//				OrientationCorrector.correctProcessor(ip, iop);
-//			}
-//		}
 		return ip;
 	}
 	
