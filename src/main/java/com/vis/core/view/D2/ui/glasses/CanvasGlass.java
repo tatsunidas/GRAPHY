@@ -337,6 +337,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		 * pay attention remove item from list
 		 * see, https://stackoverflow.com/questions/8104692/how-to-avoid-java-util-concurrentmodificationexception-when-iterating-through-an
 		 */
+		RoiObjManager rom = RoiObjManager.getInstance();
 		Iterator<RoiObj> itr = roiset.iterator();
 		ArrayList<RoiObj> roi2Remove = new ArrayList<>();
 		while(itr.hasNext()){
@@ -355,7 +356,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 				}
 				deleteRoiFromDB(roi);
 				roi2Remove.add(roi);
-				
 				break;
 			} else if (studyUID == null && seriesUID == null && sopUID == null) {
 				// SliceLine or temporal roi
@@ -367,11 +367,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 				roi2Remove.add(roi);
 			}
 		}
-		if(roiset.size() > 0) {
-			return roiset.removeAll(roi2Remove);
-		}
+		boolean res = roiset.removeAll(roi2Remove);
 		setCurrentRoi2NULL();
-		return false;
+		if (rom != null) {
+	        rom.updateState(); 
+	    }
+		return res;
 	}
 
 	private void deleteRoiFromDB(RoiObj roi) {
