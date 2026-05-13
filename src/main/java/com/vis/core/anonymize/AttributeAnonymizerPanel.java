@@ -291,15 +291,27 @@ public class AttributeAnonymizerPanel extends JPanel {
         }
     }
 
-    private void openAdvancedSettings() {
-        syncUiToConfig();
-        Window parentFrame = SwingUtilities.getWindowAncestor(this);
-        AdvancedSettingsDialog dialog = new AdvancedSettingsDialog(parentFrame, currentConfig);
-        dialog.setVisible(true);
+	private void openAdvancedSettings() {
+		syncUiToConfig();
 
-        // ダイアログ内で変更された可能性があるため、確認後にログを出す
-        appendLog("Advanced settings updated.", false);
-    }
+		// AdvanceOptionを開く処理の箇所
+		Window parentWindow = SwingUtilities.getWindowAncestor(this);
+
+		AdvancedSettingsDialog dialog;
+		if (parentWindow instanceof Frame) {
+			dialog = new AdvancedSettingsDialog((Frame) parentWindow, currentConfig);
+		} else if (parentWindow instanceof Dialog) {
+			dialog = new AdvancedSettingsDialog((Dialog) parentWindow, currentConfig);
+		} else {
+			// どちらでもない場合のフォールバック
+			dialog = new AdvancedSettingsDialog((Frame) null, currentConfig);
+		}
+
+		dialog.setVisible(true);
+
+		// ダイアログ内で変更された可能性があるため、確認後にログを出す
+		appendLog("Advanced settings updated.", false);
+	}
     
     private void syncUiToConfig() {
     	

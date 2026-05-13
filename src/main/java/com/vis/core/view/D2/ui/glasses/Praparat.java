@@ -166,7 +166,7 @@ public class Praparat extends JPanel {
 	private javax.swing.Timer scrollDebounceTimer;
 	
 	/*
-	 * ZCT index to handle multi-channel
+	 * CZT index to handle multi-channel
 	 */
 	private int pendingTargetIndex = -1;
 	
@@ -1375,8 +1375,8 @@ public class Praparat extends JPanel {
 	}
 	
 	private int calcCztIndex(int[] czt) {
-		int z = czt[1];
 		int c = czt[0];
+		int z = czt[1];
 		int t = czt[2];
 		return t * (nChannels * nSlices) + z * nChannels + c;
 	}
@@ -1387,26 +1387,21 @@ public class Praparat extends JPanel {
 
 	    for (Entry<Integer, SlideGlass> entry : slides.entrySet()) {
 	        if (entry.getValue() == slide) {
-	            int czt_index = entry.getKey();
-	            return getSlidePositionCZTArray(czt_index);
+	            int index = entry.getKey();
+	            return getSlidePositionCZTArray(index);
 	        }
 	    }
 	    return new int[]{-1, -1, -1};
 	}
 	
-	/**
-	 * もしImagePlusのAPIに直接渡すための値が必要なら、
-	 * return new int[]{c + 1, z + 1, t + 1}; としてください。
-	 * @param czt_index
-	 * @return
-	 */
-	public int[] getSlidePositionCZTArray(int czt_index) {
+	public int[] getSlidePositionCZTArray(int index) {
 	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
+		// 線形インデックス czt_index を各次元に分解
 		// 公式: czt_index = t * (nChannels * nSlices) + z * nChannels + c
 	    if (slides == null) return new int[]{-1, -1, -1};
-        int c = czt_index % nChannels;
-        int z = (czt_index / nChannels) % nSlices;
-        int t = czt_index / (nChannels * nSlices);
+        int c = index % nChannels;
+        int z = (index / nChannels) % nSlices;
+        int t = index / (nChannels * nSlices);
         
         return new int[]{c, z, t};
 	}

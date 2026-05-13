@@ -42,22 +42,27 @@ public class AdvancedSettingsDialog extends JDialog {
                 return col == COL_RETAIN ? Boolean.class : String.class;
             }
 
-			@Override
-			public boolean isCellEditable(int row, int column) {
-				DicomTagRule rule = AnonymizeTagDictionary.TAG_RULES.get(row);
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                DicomTagRule rule = AnonymizeTagDictionary.TAG_RULES.get(row);
 
-				// アプローチ1: マスターオプションで自動保持されるタグは編集不可（ロック）にする
-				if (column == COL_RETAIN) {
-					return !config.isAutoRetain(rule);
-				}
+                // 今のオプション設定による「本来のアクション」を取得
+                DicomTagRule.Action baseAction = config.getActionByOptionsAndDefault(rule);
 
-				// Value列は、Retainされておらず、かつアクションがD(ダミー置換)の場合のみ編集可能
-				if (column == COL_VALUE) {
-					boolean isRetained = (Boolean) getValueAt(row, COL_RETAIN);
-					return !isRetained && rule.getDefaultAction() == DicomTagRule.Action.D;
-				}
-				return false;
-			}
+                if (column == COL_RETAIN) {
+                    // 本来のアクションが既に 'K' (Keep) になるタグは、強制保持の必要がないためロックする
+                    return baseAction != DicomTagRule.Action.K;
+                }
+
+                if (column == COL_VALUE) {
+                    boolean isRetained = (Boolean) getValueAt(row, COL_RETAIN);
+                    // 【強力な新仕様】
+                    // Retainチェックが入っていなければ、元のActionに関わらず
+                    // 任意のタグにカスタムダミー値を書き込んで「強制Dアクション化」できる
+                    return !isRetained;
+                }
+                return false;
+            }
         };
 
         table = new JTable(tableModel);
@@ -67,7 +72,6 @@ public class AdvancedSettingsDialog extends JDialog {
         table.getColumnModel().getColumn(COL_ACTION).setPreferredWidth(100);
         table.getColumnModel().getColumn(COL_VALUE).setPreferredWidth(150);
 
-        // チェックボックスの状態が変わったら即座にUIを再描画して、テキストフィールドの編集状態などを反映させる
         table.getModel().addTableModelListener(e -> {
             if (e.getColumn() == COL_RETAIN) {
                 table.repaint();
@@ -96,11 +100,15 @@ public class AdvancedSettingsDialog extends JDialog {
         List<DicomTagRule> rules = AnonymizeTagDictionary.TAG_RULES;
         for (DicomTagRule rule : rules) {
             String tagHex = String.format("(%04X,%04X)", rule.getTag() >>> 16, rule.getTag() & 0xFFFF);
-            String actionStr = rule.getDefaultAction().name() + " (" + rule.getDefaultAction().getLabel() + ")";
+            
+            // UI上のBase Action表示は「本来どうなるはずか」を見せる
+            DicomTagRule.Action baseAction = config.getActionByOptionsAndDefault(rule);
+            String actionStr = baseAction.name() + " (" + baseAction.getLabel() + ")";
+            
             String customVal = config.getCustomTagReplacements().getOrDefault(rule.getTag(), "");
 
-            // ConfigからRetain状態を判定
-            boolean shouldRetain = config.isRetain(rule);
+            // チェックボックスは「手動で保持設定されている」または「元々Kになる予定」の時にONにする
+            boolean shouldRetain = config.getManualRetainTags().contains(rule.getTag()) || (baseAction == DicomTagRule.Action.K);
 
             tableModel.addRow(new Object[]{shouldRetain, tagHex, rule.getName(), actionStr, customVal});
         }
@@ -115,12 +123,14 @@ public class AdvancedSettingsDialog extends JDialog {
             boolean isChecked = (Boolean) tableModel.getValueAt(i, COL_RETAIN);
             String customVal = (String) tableModel.getValueAt(i, COL_VALUE);
 
-            // 自動Retainではないのにチェックが入っている場合は、個別の手動Retainリストへ追加
-            if (isChecked && !config.isAutoRetain(rule)) {
+            DicomTagRule.Action baseAction = config.getActionByOptionsAndDefault(rule);
+
+            // 本来は 'K' ではないのに、ユーザーがチェックを入れた場合のみ「手動Retain(上書き)」として登録
+            if (isChecked && baseAction != DicomTagRule.Action.K) {
                 config.getManualRetainTags().add(rule.getTag());
             }
 
-            // Dummy値が設定されていれば保持
+            // チェックが入っておらず、値が入力されている場合のみ「カスタムダミー(上書き)」として登録
             if (!isChecked && customVal != null && !customVal.trim().isEmpty()) {
                 config.getCustomTagReplacements().put(rule.getTag(), customVal.trim());
             }

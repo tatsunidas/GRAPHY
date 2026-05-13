@@ -82,11 +82,11 @@ public class DicomAnonymizerEngine {
         Map<String, SeriesMapping> series = new HashMap<>();
     }
 
-    private static class PatientMapping {
-        String origPatId;
-        String origPatName;
-        String newPatId;
-        String newPatName;
+    public static class PatientMapping {
+    	public String origPatId;
+    	public String origPatName;
+    	public String newPatId;
+    	public String newPatName;
         Map<String, StudyMapping> studies = new HashMap<>();
     }
 
@@ -312,7 +312,15 @@ public class DicomAnonymizerEngine {
 		}
 	}
     
-	private void deidentify(DicomObject dataset, AnonymizeConfig config, PatientMapping pMap,
+	/**
+	 * 非可逆的な変更を加えます。必ずコピーした上で操作してください。
+	 * 
+	 * @param dataset
+	 * @param config
+	 * @param pMap
+	 * @param globalUidMap
+	 */
+	public void deidentify(DicomObject dataset, AnonymizeConfig config, PatientMapping pMap,
 			Map<String, String> globalUidMap) {
 		deidentifyRecursive(dataset, config, pMap, globalUidMap);
 
@@ -395,31 +403,35 @@ public class DicomAnonymizerEngine {
 			VR vr = vrTypes[0];
 
 			DicomTagRule rule = RULE_MAP.get(tag); // ★ O(1)で高速検索
-
+			
 			// ==========================================================
-			// ★ Clean Structured Content Option の処理
+			// ★ ステップ1: タグに対する「最終アクション」を確定する
 			// ==========================================================
-			if (vr == VR.SQ && config.hasOption(AnonymizeConfig.Option.CleanStructuredContent)) {
-				if (tag == Tag.ContentSequence || tag == Tag.AcquisitionContextSequence
-						|| tag == Tag.SpecimenPreparationSequence) {
-
-					cleanStructuredContentSequence(dataset, tag, config, pMap, globalUidMap);
-					continue; // 構造化コンテンツ専用の処理を行ったので、通常のSQ処理はスキップ
-				}
+			DicomTagRule.Action targetAction = null; 
+			if (rule != null) {
+			    // configに聞くだけで、全ての優先順位とアクションが確定する！
+			    targetAction = config.determineFinalAction(rule);
 			}
 
-			// シーケンス(SQ)の再帰処理
+			// ==========================================================
+			// ★ シーケンス(SQ)の処理
+			// ==========================================================
 			if (vr == VR.SQ) {
-				if (rule != null && !config.isRetain(rule)) {
-					if (rule.getDefaultAction() == DicomTagRule.Action.X) {
-						dataset.remove(tag);
-						continue;
-					} else if (rule.getDefaultAction() == DicomTagRule.Action.Z) {
-						dataset.setNull(tag, vr);
-						continue;
-					}
+				// アクションが「C (Clean)」で、かつ構造化コンテンツ系のタグの場合
+				if (targetAction == DicomTagRule.Action.C && 
+					(tag == Tag.ContentSequence || tag == Tag.AcquisitionContextSequence || tag == Tag.SpecimenPreparationSequence)) {
+					cleanStructuredContentSequence(dataset, tag, config, pMap, globalUidMap);
+					continue;
 				}
-
+				// 削除(X) または 空(Z) の指定がある場合
+				if (targetAction == DicomTagRule.Action.X) {
+					dataset.remove(tag);
+					continue;
+				} else if (targetAction == DicomTagRule.Action.Z) {
+					dataset.setNull(tag, vr);
+					continue;
+				}
+				// それ以外（K や U など）は、内部のItemを再帰的に処理する
 				// ★ 注意: getNestedDataset が単一のDicomObjectではなく、複数のItemを返すような仕様の場合は
 				// ここで配列やリストを受け取って、全Itemに対してループで deidentifyRecursive を呼ぶ必要があります。
 				DicomObject sq = dataset.getNestedDataset(tag);
@@ -429,7 +441,9 @@ public class DicomAnonymizerEngine {
 				continue;
 			}
 
-			// UIDの安全な置換処理
+			// ==========================================================
+			// ★ ステップ3: UID(UI)の安全な置換処理
+			// ==========================================================
 			if (vr == VR.UI) {
 				// 1. ファイルの構造や形式を示す「必須UID」は絶対に置換せずスキップする
 				if (PROTECTED_UIDS.contains(tag)) {
@@ -437,23 +451,30 @@ public class DicomAnonymizerEngine {
 				}
 
 				// 2. Table E.1-1 に記載がある場合は、ルールに従う
-				if (rule != null && !config.isRetain(rule)) {
-					if (rule.getDefaultAction() == DicomTagRule.Action.U) {
-						replaceUidGlobally(dataset, tag, vr, globalUidMap);
+				if (targetAction != null) {
+					if (targetAction == DicomTagRule.Action.K) {
+						continue; // 保持指定なら何もしない
+					} else if (targetAction == DicomTagRule.Action.U) {
+						replaceUidGlobally(dataset, tag, vr, globalUidMap); // UID置換
 					} else {
-						applyTagAction(dataset, tag, vr, rule, config, pMap);
+						// UIDに対してXやZなどのアクションが指定されている場合
+						applyTagAction(dataset, tag, vr, targetAction, rule, config, pMap);
 					}
 				}
 				// 3. Tableに記載がない謎のUIDは、PS3.15の安全方針に則り、Retainオプションが無ければ置換する
-				else if (rule == null && !config.hasOption(AnonymizeConfig.Option.RetainUIDs)) {
+				else if (!config.hasOption(AnonymizeConfig.Option.RetainUIDs)) {
 					replaceUidGlobally(dataset, tag, vr, globalUidMap);
 				}
 				continue;
 			}
 
-			// その他のタグ
-			if (rule != null && !config.isRetain(rule)) {
-				applyTagAction(dataset, tag, vr, rule, config, pMap);
+			// ==========================================================
+			// ★ ステップ4: その他の通常タグの処理
+			// ==========================================================
+			// ルールが存在し、かつアクションが「K (保持)」以外の場合に処理を適用
+			if (targetAction != null && targetAction != DicomTagRule.Action.K) {
+				// ★注意: applyTagAction メソッドの引数に、確定した targetAction を渡すように変更します
+				applyTagAction(dataset, tag, vr, targetAction, rule, config, pMap);
 			}
 		}
 	}
@@ -584,33 +605,64 @@ public class DicomAnonymizerEngine {
 		}
 		return false;
 	}
+    
+	private void applyTagAction(DicomObject dataset, int tag, VR vr, DicomTagRule.Action action, DicomTagRule rule,
+			AnonymizeConfig config, PatientMapping pMap) {
+		String customVal = config.getCustomTagReplacements().get(tag);
+		switch (action) {
+		case X:
+			dataset.remove(tag);
+			break;
+		case Z:
+			dataset.setNull(tag, vr);
+			break;
+		case D:
+		case C:
+			if (tag == Tag.PatientID) {
+				dataset.setString(tag, vr, pMap.newPatId);
+			} else if (tag == Tag.PatientName) {
+				dataset.setString(tag, vr, pMap.newPatName);
+			} else if (customVal != null) {
+				// ★ ユーザーのカスタム値をセットする前に、VR違反がないかサニタイズ（安全化）する
+				dataset.setString(tag, vr, sanitizeCustomValueForVR(customVal.trim(), vr));
+			} else {
+				dataset.setString(tag, vr, getDefaultDummyValue(vr));
+			}
+			break;
+		default:
+			break;
+		}
+	}
 
-    private void applyTagAction(DicomObject dataset, int tag, VR vr, DicomTagRule rule, AnonymizeConfig config, PatientMapping pMap) {
-        String customVal = config.getCustomTagReplacements().get(tag);
-        
-        switch (rule.getDefaultAction()) {
-            case X:
-                dataset.remove(tag);
-                break;
-            case Z:
-            	dataset.setNull(tag, vr); 
-                break;
-            case D:
-            case C:
-                if (tag == Tag.PatientID) {
-                	dataset.setString(tag, vr, pMap.newPatId);
-                } else if (tag == Tag.PatientName) {
-                	dataset.setString(tag, vr, pMap.newPatName);
-                } else if (customVal != null && !customVal.trim().isEmpty()) {
-                	dataset.setString(tag, vr, customVal.trim());
-                } else {
-                	dataset.setString(tag, vr, getDefaultDummyValue(vr));
-                }
-                break;
-            default:
-                break;
-        }
-    }
+	// ==========================================
+	// ★ 追加するサニタイズ用ヘルパーメソッド
+	// ==========================================
+	private String sanitizeCustomValueForVR(String value, VR vr) {
+		if (value == null) return "";
+		
+		// AS (Age String): 4バイト (例: "045Y")
+		if (vr == VR.AS) {
+			if (value.matches("\\d{3}[DWMY]")) return value;
+			return "000Y"; // フォーマット違反の場合は安全なデフォルト値へ強制
+		}
+		
+		// DA (Date): 8バイト (YYYYMMDD)
+		if (vr == VR.DA) {
+			if (value.matches("\\d{8}")) return value;
+			return "19000101"; 
+		}
+		
+		// CS (Code String), SH (Short String), LO (Long String) などは文字数制限がある
+		if (vr == VR.CS || vr == VR.SH) {
+			return value.length() > 16 ? value.substring(0, 16) : value; // 16文字で切り捨て
+		}
+		if (vr == VR.LO) {
+			return value.length() > 64 ? value.substring(0, 64) : value; // 64文字で切り捨て
+		}
+		
+		// その他はそのまま返す
+		return value;
+	}
 
     private void replaceUidGlobally(DicomObject dataset, int tag, VR vr, Map<String, String> globalUidMap) {
         String origUid = dataset.getString(tag);

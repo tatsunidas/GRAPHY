@@ -13,11 +13,13 @@ import java.util.Set;
 public class AnonymizeConfig {
 
     public enum Option {
+    	//clean opt
         CleanPixelData, // 113101
         CleanRecognizableVisualFeatures, // 113102
         CleanGraphics,// 113103
         CleanStructuredContent,// 113104
         CleanDescriptors,// 113105
+        //retain opt
     	RetainLongitudinalTemporalInformationFullDates,// 113106
         RetainLongitudinalTemporalInformationModifiedDates,// 113107
         RetainPatientCharacteristics,// 113108
@@ -60,19 +62,45 @@ public class AnonymizeConfig {
     public void setReplacePatientId(String id) { this.replacePatientId = id; }
 
     /**
-     * マスターオプションによって自動的にRetainされるタグかどうかを判定する
+     * 手動オーバーライド(Manual Retain, Custom Dummy)を【除外】した、
+     * オプションとデフォルト設定のみによる本来のアクションを計算します。
+     * （AdvancedSettingsDialog でのロック状態やベースアクションの表示に使用）
      */
-    public boolean isAutoRetain(DicomTagRule rule) {
-        for (Option opt : rule.getRetainOptions()) {
-            if (options.contains(opt)) return true;
+    public DicomTagRule.Action getActionByOptionsAndDefault(DicomTagRule rule) {
+        DicomTagRule.Action targetAction = null;
+
+        // ONになっているオプションの中で、ルールに定義されたアクションを探す
+        for (Option opt : options) {
+            if (rule.getOptionActions().containsKey(opt)) {
+                DicomTagRule.Action actFromOpt = rule.getOptionActions().get(opt);
+                // 加工や削除（C, X）は保持（K）よりも優先する安全ロジック
+                if (targetAction == null || actFromOpt == DicomTagRule.Action.C || actFromOpt == DicomTagRule.Action.X) {
+                    targetAction = actFromOpt;
+                }
+            }
         }
-        return false;
+
+        if (targetAction != null) {
+            return targetAction;
+        }
+        return rule.getDefaultAction();
     }
 
     /**
-     * 最終的にこのタグをRetainするかどうか（自動Retain + 手動Retain）
+     * エンジンが最終的に実行するアクションを決定する（完全版）
      */
-    public boolean isRetain(DicomTagRule rule) {
-        return isAutoRetain(rule) || manualRetainTags.contains(rule.getTag());
+    public DicomTagRule.Action determineFinalAction(DicomTagRule rule) {
+        // 1. UIからの手動保持 (Manual Retain) が最優先
+        if (manualRetainTags.contains(rule.getTag())) {
+            return DicomTagRule.Action.K;
+        }
+
+        // 2. UIからのカスタムダミー値が設定されていれば 'D' (Dummy)
+        if (customTagReplacements.containsKey(rule.getTag())) {
+            return DicomTagRule.Action.D;
+        }
+
+        // 3. 上記のオーバーライドがなければ、オプションとデフォルトによるアクション
+        return getActionByOptionsAndDefault(rule);
     }
 }

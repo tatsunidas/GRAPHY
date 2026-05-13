@@ -201,25 +201,29 @@ public class AnonymizeTagDictionary {
         }
     }
 	
-	private static void applyOptions(DicomTagRule rule, String[] cols) {
-	    if (isRetain(cols[5])) rule.getRetainOptions().add(Option.RetainSafePrivate);
-	    if (isRetain(cols[6])) rule.getRetainOptions().add(Option.RetainUIDs);
-	    if (isRetain(cols[7])) rule.getRetainOptions().add(Option.RetainDeviceIdentity);
-	    if (isRetain(cols[8])) rule.getRetainOptions().add(Option.RetainInstitutionIdentity);
-	    if (isRetain(cols[9])) rule.getRetainOptions().add(Option.RetainPatientCharacteristics);
-	    if (isRetain(cols[10])) rule.getRetainOptions().add(Option.RetainLongitudinalTemporalInformationFullDates);
-	    if (isRetain(cols[11])) rule.getRetainOptions().add(Option.RetainLongitudinalTemporalInformationModifiedDates);
-	    if (isRetain(cols[12])) rule.getRetainOptions().add(Option.CleanDescriptors);
-	    if (isRetain(cols[13])) rule.getRetainOptions().add(Option.CleanStructuredContent);
-	    if (isRetain(cols[14])) rule.getRetainOptions().add(Option.CleanGraphics);
+    private static void applyOptions(DicomTagRule rule, String[] cols) {
+	    applyOptionIfPresent(rule, cols[5], Option.RetainSafePrivate);
+	    applyOptionIfPresent(rule, cols[6], Option.RetainUIDs);
+	    applyOptionIfPresent(rule, cols[7], Option.RetainDeviceIdentity);
+	    applyOptionIfPresent(rule, cols[8], Option.RetainInstitutionIdentity);
+	    applyOptionIfPresent(rule, cols[9], Option.RetainPatientCharacteristics);
+	    applyOptionIfPresent(rule, cols[10], Option.RetainLongitudinalTemporalInformationFullDates);
+	    applyOptionIfPresent(rule, cols[11], Option.RetainLongitudinalTemporalInformationModifiedDates);
+	    applyOptionIfPresent(rule, cols[12], Option.CleanDescriptors);
+	    applyOptionIfPresent(rule, cols[13], Option.CleanStructuredContent);
+	    applyOptionIfPresent(rule, cols[14], Option.CleanGraphics);
 	}
-
-    private static boolean isRetain(String colValue) {
+    
+    private static void applyOptionIfPresent(DicomTagRule rule, String colValue, Option option) {
         String val = colValue.replace("\"", "").trim();
-        // K (Keep), C (Clean), U (Unique) 等が入っていればオプション対象とする
-        return val.equals("K") || val.equals("C") || val.equals("U");
+        if (!val.isEmpty()) {
+            Action act = mapAction(val); // 既存の安全なマッピング処理を再利用
+            if (act != null) {
+                rule.addOptionAction(option, act);
+            }
+        }
     }
-
+    
     private static Action mapAction(String rawAction) {
         String act = rawAction.replace("\"", "").trim();
         

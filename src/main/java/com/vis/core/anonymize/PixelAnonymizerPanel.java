@@ -420,9 +420,9 @@ public class PixelAnonymizerPanel extends JPanel {
 
 		} else {
 			// 単一スライスのファイル群の処理
-			Map<String, Integer> sopToZctMap = new HashMap<>();
+			Map<String, Integer> sopToCztMap = new HashMap<>();
 			for (Map.Entry<Integer, SlideGlass> entry : prap.getAllSlides().entrySet()) {
-				sopToZctMap.put(entry.getValue().getSOPInstanceUID(), entry.getKey());
+				sopToCztMap.put(entry.getValue().getSOPInstanceUID(), entry.getKey());
 			}
 
 			List<String> filePaths = prap.getImageFileLocations();
@@ -448,12 +448,12 @@ public class PixelAnonymizerPanel extends JPanel {
 				DicomObject dcm = reader.getHeader();
 				com.vis.dicom.DicomObject fmi = reader.getFileMetaInfomation();
 				String sop = dcm.getString(com.vis.dicom.Tag.SOPInstanceUID);
-				Integer zctIdx = sopToZctMap.get(sop);
+				Integer cztIdx = sopToCztMap.get(sop);
 				com.vis.dicom.UID tsuid = reader.checkTSUID();
 
-				if (zctIdx == null)
+				if (cztIdx == null)
 					continue;
-				List<RoiObj> rois = masksPerSlice.get(zctIdx);
+				List<RoiObj> rois = masksPerSlice.get(cztIdx);
 
 				if (rois != null && !rois.isEmpty()) {
 					reader.read(filePath, true);
@@ -714,7 +714,7 @@ public class PixelAnonymizerPanel extends JPanel {
 	}
 
 	/**
-	 * ROIの設定(Mode, CustomRange)から、対象となるZCTインデックスの配列を非UIスレッドで算出する
+	 * ROIの設定(Mode, CustomRange)から、対象となるCZTインデックスの配列を非UIスレッドで算出する
 	 */
 	private int[] calculateTargetCztIndices(Praparat prap, RoiObj roi) {
 		int mode = roiModeMap.getOrDefault(roi, 1);
@@ -858,8 +858,6 @@ public class PixelAnonymizerPanel extends JPanel {
         expandAllNodes(studyTree, 0, studyTree.getRowCount());
         
     }
-    
-    
 
 	protected void loadSeriesToPraparat(HashMap<String, String> seriesInfo) {
 		// 1. Praparat にシリーズの画像データをセットする
@@ -935,43 +933,6 @@ public class PixelAnonymizerPanel extends JPanel {
 		// 3. 処理を実行！
 		loadWorker.execute();
 	}
-
-//    // ツリーをすべて展開するヘルパーメソッド
-//    private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
-//        for (int i = startingIndex; i < rowCount; ++i) {
-//            tree.expandRow(i);
-//        }
-//        if (tree.getRowCount() != rowCount) {
-//            expandAllNodes(tree, rowCount, tree.getRowCount());
-//        }
-//    }
-//    
-//    /**
-//     * ROIツールバーのボタンを作成するヘルパーメソッド
-//     */
-//=======
-//			// ツールバーもここで再配置するか、既存のものに現在のPraparatを紐付ける処理が必要です
-//			seriesDisplayPanel.revalidate();
-//			seriesDisplayPanel.repaint();
-//
-//			SwingUtilities.invokeLater(() -> {
-//				// 表示されたタイミングで最初の画像のピクセルをロード＆描画
-//				currentActivePraparat.doSingleGridLayout();
-//				currentActivePraparat.loadRoisFromDB();
-//				currentActivePraparat.setImagePositionUsingSlider(0);
-//			});
-//		}
-//
-//		// 2. ロード直後はツールをデフォルト（ポインターなど）に戻す
-//		toolButtonGroup.clearSelection();
-//		setSelectedState4Toggles("Pointer");
-//
-//		currentActivePraparat.setLocalToolType(Viewer2DToolBar.Windowing);
-//
-//		// 3. （オプション）以前描画したROIがこのシリーズ用にあればリストを更新する
-//		updateMaskRoiListForCurrentSeries();
-//
-//	}
 
 	// ツリーをすべて展開するヘルパーメソッド
 	private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
@@ -1120,7 +1081,7 @@ public class PixelAnonymizerPanel extends JPanel {
 						MaskRoiPanel panel = (MaskRoiPanel) comp;
 						RoiObj originalRoi = panel.getAttachedRoi();
 
-						// パネルから対象となるZCTインデックスの配列を取得
+						// パネルから対象となるCZTインデックスの配列を取得
 						int[] targetIndices = panel.getTargetSliceIndices(currentActivePraparat);
 
 						SlideGlass originalSg = originalRoi.getSlideGlass();
@@ -1376,7 +1337,7 @@ public class PixelAnonymizerPanel extends JPanel {
         if (sNo == null) sNo = "Unknown";
         String seriesLabel = "Series " + sNo + (sDesc != null ? ": " + sDesc : "");
         
-		// 座標(ZCT)から現在のスライス番号を取得 (先程のサブタスクを活用)
+		// 座標(CZT)から現在のスライス番号を取得 (先程のサブタスクを活用)
 		int currentSlice = pp.getCurrentSlideCZTIndex();
 		// 改良した MaskRoiPanel を生成
 		MaskRoiPanel roiPanel = new MaskRoiPanel(targetRoi, pp, seriesLabel, currentSlice,

@@ -189,13 +189,11 @@ public class MaskRoiPanel extends JPanel {
 		return txtCustomRange.getText().trim();
 	}
 
-	// --- 修正: モードに応じた対象スライス（ZCTインデックス）を取得するメソッド ---
-
 	/**
 	 * コンボボックスの選択モードに応じて、対象となるスライスのZCTインデックス配列を返す。
 	 * マルチチャンネル・マルチタイムフレームの場合は、対象Z位置の全C・Tのインデックスを含む。
 	 * 
-	 * @return ZCTインデックスの配列
+	 * @return CZTインデックスの配列
 	 */
 	public int[] getTargetSliceIndices(Praparat ownerPraparat) {
 		if (ownerPraparat == null || attachedRoi == null) {

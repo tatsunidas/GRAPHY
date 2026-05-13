@@ -95,10 +95,14 @@ public class SlicerWindow extends JFrame {
 	 */
 	public static void main(String[] args) {
 		// axi src
-//		ImagePlus ax = FolderOpener.open(
-//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-
-		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
+		ImagePlus ax = FolderOpener.open(
+				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+		new SlicerWindow(ax, null);
+		
+//		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
+//		new SlicerWindow(ax2, null);
+		
+//		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 
 //		ImagePlus ct = new ImagePlus("/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/CT_LEE_IR87a.dcm");
 
@@ -106,7 +110,7 @@ public class SlicerWindow extends JFrame {
 //		SeriesWindow se = new SeriesWindow(xy_prap);
 
 //		ImagePlus ax = FolderOpener.open("/home/tatsunidas/デスクトップ/LUNG1-246");
-		new SlicerWindow(ax, null);
+//		new SlicerWindow(ax, null);
 
 		// cor src
 //		String corDir = "/home/tatsunidas/graphy_sample_images/dicom_samples/3DFLAIR/T1COR";
