@@ -45,7 +45,6 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.orientation.GeometryOfSlice;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
 import com.vis.core.view.D2.ui.orientation.SlicePlane;
-import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 
@@ -56,11 +55,11 @@ import ij.ImagePlus;
  */
 public class Slab {
 	
-	int rotateX =0; // rotation in YZ space
-	int rotateY =0; // rotation in XZ space
-	int rotateZ =0; // rotation in XY space
+	int rotateX = 0; // rotation in YZ space
+	int rotateY = 0; // rotation in XZ space
+	int rotateZ = 0; // rotation in XY space
 	
-	SlicePlane boundingBox;//cover of all slices.
+	SlicePlane boundingBox; // cover of all slices.
 	private List<SlicePlane> reslicePlanes;
 	private double gap;
 	
@@ -75,7 +74,7 @@ public class Slab {
 	}
 	
 	public int size() {
-		if(this.reslicePlanes == null) {
+		if (this.reslicePlanes == null) {
 			return 0;
 		}
 		return this.reslicePlanes.size();
@@ -86,232 +85,141 @@ public class Slab {
 	}
 	
 	public void initBoundingBox(List<SlicePlane> reslicePlanes) {
-		//get first slice
 		GeometryOfSlice geo = reslicePlanes.get(0).getGeometryOfSlice();
 		Vector3d voxelSize = geo.getVoxelSpacing();
 		double thickness = geo.getSliceThickness();
-		double slabDepth = 0;
 		int numOfSlices = reslicePlanes.size();
-		if(Double.isNaN(thickness)) {
-			slabDepth =  (voxelSize.z*numOfSlices)+(gap*(numOfSlices-1));
-		}else {
-			slabDepth =  (thickness*numOfSlices)+(gap*(numOfSlices-1));
+		
+		double slabDepth = Double.isNaN(thickness) 
+				? (voxelSize.z * numOfSlices) + (gap * (numOfSlices - 1))
+				: (thickness * numOfSlices) + (gap * (numOfSlices - 1));
+		
+		Vector3d tlhc;
+		if (numOfSlices % 2 == 0) { // even
+			Vector3d planeTLHC1 = reslicePlanes.get(numOfSlices / 2 - 1).getGeometryOfSlice().getTLHC();
+			Vector3d planeTLHC2 = reslicePlanes.get(numOfSlices / 2).getGeometryOfSlice().getTLHC();
+			// ★ JOMLを利用して中点座標を美しく計算
+			tlhc = new Vector3d(planeTLHC1).add(planeTLHC2).mul(0.5); 
+		} else {
+			int centerPos = numOfSlices / 2; // 0 base
+			tlhc = reslicePlanes.get(centerPos).getGeometryOfSlice().getTLHC();
 		}
-		if(numOfSlices%2 == 0/*even*/) {
-			Vector3d planeTLHC1 = reslicePlanes.get(numOfSlices/2-1).getGeometryOfSlice().getTLHC();
-			Vector3d planeTLHC2 = reslicePlanes.get(numOfSlices/2).getGeometryOfSlice().getTLHC();
-			Vector3d tlhc = new Vector3d(
-					new double[] {
-							(planeTLHC1.x+planeTLHC2.x)/2,
-							(planeTLHC1.y+planeTLHC2.y)/2,
-							(planeTLHC1.z+planeTLHC2.z)/2
-							}); 
-			boundingBox = new SlicePlane(
-					(int)geo.getDimensions().x, 
-					(int)geo.getDimensions().y, 
-					geo.getImageOrientationPatient(),
-					PlanarSupport.v2d(tlhc),
-					new double[] {voxelSize.x, voxelSize.y, slabDepth},
-					slabDepth);
-		}else {
-			int centerPos = (int)Math.floor(numOfSlices/2);//0 base
-			boundingBox = new SlicePlane(
-					(int)geo.getDimensions().x, 
-					(int)geo.getDimensions().y, 
-					geo.getImageOrientationPatient(),
-					PlanarSupport.v2d(reslicePlanes.get(centerPos).getGeometryOfSlice().getTLHC()),
-					new double[] {voxelSize.x, voxelSize.y, slabDepth},
-					slabDepth);
-		}
+		
+		boundingBox = new SlicePlane(
+				(int) geo.getDimensions().x, 
+				(int) geo.getDimensions().y, 
+				geo.getImageOrientationPatient(),
+				PlanarSupport.v2d(tlhc),
+				new double[] {voxelSize.x, voxelSize.y, slabDepth},
+				slabDepth);
 	}
 	
-	/**
-	 * Rotate slices by slab center from current rotation status.
-	 * @param rx
-	 * @param ry
-	 * @param rz
-	 */
 	public void rotateSlab(double rx, double ry, double rz) {
 		double[] center = boundingBox.getCubeCenter();
 		boundingBox.rotateCube(center, rx, true, false, false);
 		boundingBox.rotateCube(center, ry, false, true, false);
 		boundingBox.rotateCube(center, rz, false, false, true);
-		for(SlicePlane sp : reslicePlanes) {
+		
+		for (SlicePlane sp : reslicePlanes) {
 			sp.rotateCube(center, rx, true, false, false);
 			sp.rotateCube(center, ry, false, true, false);
 			sp.rotateCube(center, rz, false, false, true);
 		}
-		rotateX += (int)rx;
-		rotateY += (int)ry;
-		rotateZ += (int)rz;
+		
+		rotateX += (int) rx;
+		rotateY += (int) ry;
+		rotateZ += (int) rz;
 	}
 		
-	public boolean isBoundingBox(Praparat pp/*on mouse*/, Vector3d ippOnMouse) {
-		//OBB : Oriented Bounding Box
-		//AABB : Axis Aligned Bounding Box
-		//First, convert all points to AABB state.
-		Vector3d cubeVertices[] = boundingBox.cubeVertices;
-		Vector3d aabbVertices[] = new Vector3d[8];
-		int i =0;
-		for(Vector3d v: cubeVertices) {
-			aabbVertices[i++] = PlanarSupport.rotateVector(v, -1*rotateX, -1*rotateY, -1*rotateZ);
-		}
-		Vector3d aabb_P = PlanarSupport.rotateVector(ippOnMouse, -1*rotateX, -1*rotateY, -1*rotateZ);
-		
-		Vector3d center = new Vector3d(0,0,0);
-		for(Vector3d v : aabbVertices) {
-			center.x += v.x;
-			center.y += v.y;
-			center.z += v.z;
-		}
-		center.x /= 8;
-		center.y /= 8;
-		center.z /= 8;
-		
-		int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
-		int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
-
-		for (Vector3d vertex : aabbVertices) {
-			int x = (int) vertex.x;
-			int y = (int) vertex.y;
-			int z = (int) vertex.z;
-			minX = Math.min(minX, x);
-			minY = Math.min(minY, y);
-			minZ = Math.min(minZ, z);
-			maxX = Math.max(maxX, x);
-			maxY = Math.max(maxY, y);
-			maxZ = Math.max(maxZ, z);
-		}
-		
-		boolean isInside = aabb_P.x >= minX && aabb_P.x <= maxX &&
-				aabb_P.y >= minY && aabb_P.y <= maxY &&
-						aabb_P.z >= minZ && aabb_P.z <= maxZ;
-		return isInside;
+	public boolean isBoundingBox(Praparat pp, Vector3d ippOnMouse) {
+		return checkAABB(ippOnMouse, false);
 	}
 	
-	public boolean isPointInShrinkedBox(Praparat pp/*on mouse*/, Vector3d ippOnMouse) {
-		Vector3d cubeVertices[] = boundingBox.cubeVertices;
-		Vector3d aabbVertices[] = new Vector3d[8];
-		int i =0;
-		for(Vector3d v: cubeVertices) {
-			aabbVertices[i++] = PlanarSupport.rotateVector(v, -1*rotateX, -1*rotateY, -1*rotateZ);
-		}
-		Vector3d aabb_P = PlanarSupport.rotateVector(ippOnMouse, -1*rotateX, -1*rotateY, -1*rotateZ);
+	public boolean isPointInShrinkedBox(Praparat pp, Vector3d ippOnMouse) {
+		return checkAABB(ippOnMouse, true);
+	}
+	
+	/**
+	 * ★ AABB判定の共通ヘルパーメソッド
+	 * isBoundingBox と isPointInShrinkedBox の重複処理を統合し、無駄なcenter計算を削除。
+	 */
+	private boolean checkAABB(Vector3d ippOnMouse, boolean checkShrinked) {
+		Vector3d[] cubeVertices = boundingBox.cubeVertices;
 		
-		Vector3d center = new Vector3d(0,0,0);
-		for(Vector3d v : aabbVertices) {
-			center.x += v.x;
-			center.y += v.y;
-			center.z += v.z;
-		}
-		center.x /= 8;
-		center.y /= 8;
-		center.z /= 8;
-		
-		int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
-		int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+		double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
+		double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
 
-		for (Vector3d vertex : aabbVertices) {
-			int x = (int) vertex.x;
-			int y = (int) vertex.y;
-			int z = (int) vertex.z;
-			minX = Math.min(minX, x);
-			minY = Math.min(minY, y);
-			minZ = Math.min(minZ, z);
-			maxX = Math.max(maxX, x);
-			maxY = Math.max(maxY, y);
-			maxZ = Math.max(maxZ, z);
+		for (Vector3d vertex : cubeVertices) {
+			Vector3d aabbV = PlanarSupport.rotateVector(new Vector3d(vertex), -rotateX, -rotateY, -rotateZ);
+			minX = Math.min(minX, aabbV.x);
+			minY = Math.min(minY, aabbV.y);
+			minZ = Math.min(minZ, aabbV.z);
+			maxX = Math.max(maxX, aabbV.x);
+			maxY = Math.max(maxY, aabbV.y);
+			maxZ = Math.max(maxZ, aabbV.z);
 		}
+		
+		Vector3d aabb_P = PlanarSupport.rotateVector(new Vector3d(ippOnMouse), -rotateX, -rotateY, -rotateZ);
 		
 		boolean isInside = aabb_P.x >= minX && aabb_P.x <= maxX &&
-				aabb_P.y >= minY && aabb_P.y <= maxY &&
-						aabb_P.z >= minZ && aabb_P.z <= maxZ;
+				           aabb_P.y >= minY && aabb_P.y <= maxY &&
+				           aabb_P.z >= minZ && aabb_P.z <= maxZ;
+		
+		if (!checkShrinked) {
+			return isInside;
+		}
 		
 		double[] sizeInRCS = boundingBox.sizeInRCS();
-		
-		boolean isOutsideShrinked = false;
-		
-		// 内部領域の範囲を計算
 		double shrinkFactor = 1.0 / 3.0;
 		double halfWidth = sizeInRCS[1] * shrinkFactor / 2.0;
 		double halfHeight = sizeInRCS[0] * shrinkFactor / 2.0;
 		double halfDepth = sizeInRCS[2] * shrinkFactor / 2.0;
 		
-		isOutsideShrinked = 
-				(aabb_P.x <= minX+halfWidth) || (aabb_P.x >= maxX-halfWidth) ||
-        		(aabb_P.y <= minY+halfHeight) || (aabb_P.y >= maxY-halfHeight) ||
-        		(aabb_P.z <= minZ+halfDepth) || (aabb_P.z >= maxZ-halfDepth);
+		boolean isOutsideShrinked = 
+				(aabb_P.x <= minX + halfWidth) || (aabb_P.x >= maxX - halfWidth) ||
+				(aabb_P.y <= minY + halfHeight) || (aabb_P.y >= maxY - halfHeight) ||
+				(aabb_P.z <= minZ + halfDepth) || (aabb_P.z >= maxZ - halfDepth);
 		
        return isInside && isOutsideShrinked;
-    }
+	}
 	
 	public Vector3d getRotations() {
 		return new Vector3d(rotateX, rotateY, rotateZ);
 	}
 	
-	@Deprecated
+	/**
+	 * ★ getCenterOfVolumeInPixelCoords2 を正規名に昇格し、古いDeprecatedロジックを削除。
+	 * SlicePlane で最適化された toPixelCoordinates を活用。
+	 */
 	public double[] getCenterOfVolumeInPixelCoords(ImagePlus referenceVolume) {
 		Vector3d[] rcsCoords = boundingBox.cubeVertices;
-		Vector3d[] nearestSliceIPPOfEachPoint = new Vector3d[rcsCoords.length];/*各座標が属する面のIPP*/
-		double[] baseIPP = GDicomTools.getImagePositionPatient(referenceVolume, 1);
-		double[] baseIOP = GDicomTools.getImageOrientationPatient(referenceVolume, 1);
-		double thickness = GDicomTools.getVoxelDepth(referenceVolume);
-		for(int i=0;i<rcsCoords.length; i++) {
-			nearestSliceIPPOfEachPoint[i] = boundingBox.computeNearestIPP(rcsCoords[i], PlanarSupport.d2v(baseIPP), baseIOP, thickness);
-		}
-		double[] iop = GDicomTools.getImageOrientationPatient(referenceVolume, 1);
-		Vector3d pixelSpacingInReference = new Vector3d();
-		pixelSpacingInReference.x = referenceVolume.getCalibration().pixelWidth;
-		pixelSpacingInReference.y = referenceVolume.getCalibration().pixelHeight;
-		pixelSpacingInReference.z = GDicomTools.getVoxelDepth(referenceVolume);
-		Vector3d[] pixelCoords = boundingBox.getCubeVerticesInOffScreenPixelUnit(rcsCoords, nearestSliceIPPOfEachPoint, iop, pixelSpacingInReference);
-		double[] center = { 0, 0, 0 };
-		int c = 0;
-		for (Vector3d vertex : pixelCoords) {
-			if (vertex==null) continue;
-			center[0] += vertex.x;
-			center[1] += vertex.y;
-			center[2] += vertex.z;
-			c++;
-		}
-		center[0] /= c;
-		center[1] /= c;
-		center[2] /= c;
-		return center;
-	}
-	
-	public double[] getCenterOfVolumeInPixelCoords2(ImagePlus referenceVolume) {
-		Vector3d[] rcsCoords = boundingBox.cubeVertices;
 		Vector3d[] pixelCoords = new Vector3d[8];
+		
 		for (int i = 0; i < 8; i++) {
 			pixelCoords[i] = boundingBox.toPixelCoordinates(rcsCoords[i], referenceVolume);
 		}
+		
 		double[] center = { 0, 0, 0 };
-		int c = 0;
+		int validCount = 0;
 		for (Vector3d vertex : pixelCoords) {
-			if (vertex == null)
-				continue;
+			if (vertex == null) continue;
 			center[0] += vertex.x;
 			center[1] += vertex.y;
 			center[2] += vertex.z;
-			c++;
+			validCount++;
 		}
-		center[0] /= c;
-		center[1] /= c;
-		center[2] /= c;
+		
+		if (validCount > 0) {
+			center[0] /= validCount;
+			center[1] /= validCount;
+			center[2] /= validCount;
+		}
 		return center;
 	}
 	
-	
-	/**
-	 * OffScreen pixel unit
-	 * @param x
-	 * @param y
-	 * @param z
-	 */
 	public void moveSlab(int x, int y, int z) {
 		boundingBox.move(x, y, z);
-		for(SlicePlane sp : reslicePlanes) {
+		for (SlicePlane sp : reslicePlanes) {
 			sp.move(x, y, z);
 		}
 	}

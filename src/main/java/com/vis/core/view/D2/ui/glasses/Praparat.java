@@ -603,7 +603,7 @@ public class Praparat extends JPanel {
 	 * This method is only used for
 	 * single pop-up view or test purpose. Dicom attributes keeps minimally.
 	 */
-	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
+	private void constructSlideGlassesFromImagePlus(ImagePlus images, boolean sortCZT) {
 		if (images == null || images.getStackSize() < 1) {
 			throw new IllegalArgumentException(
 					"Images is null or empty, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
@@ -635,7 +635,13 @@ public class Praparat extends JPanel {
 		    /*
 			 * sort images via IOP and IPP.
 			 */
-			organizeMultiDimensionalSlides(slideList);
+		    if (sortCZT) {
+				organizeMultiDimensionalSlides(slideList);
+		    } else {
+				this.nChannels = images.getNChannels();
+				this.nSlices = images.getNSlices();
+				this.nFrames = images.getNFrames();
+		    }
 		}else {
 			this.nChannels = images.getNChannels();
 			this.nSlices = images.getNSlices();
@@ -799,9 +805,51 @@ public class Praparat extends JPanel {
 	private void organizeMultiDimensionalSlides(List<SlideGlass> slideList) {
 		if (slideList == null || slideList.isEmpty())
 			return;
-
-		// 1. 最初のスライスのIOPを取得し、外積から法線ベクトル（スタック進行方向）を算出
+		
+		// ★ 追加: すべてのスライスでIOPが一致するかチェック（回転MIP対応）
 		double[] iop = slideList.get(0).getHeader().getDoubles(Tag.ImageOrientationPatient);
+		boolean isIopConsistent = true;
+		if (iop != null && iop.length == 6) {
+			for (int i = 1; i < slideList.size(); i++) {
+				double[] currentIop = slideList.get(i).getHeader().getDoubles(Tag.ImageOrientationPatient);
+				if (currentIop == null || currentIop.length != 6) {
+					isIopConsistent = false;
+					break;
+				}
+				// 誤差(1e-4)を許容してIOPの変化を検知
+				for (int j = 0; j < 6; j++) {
+					if (Math.abs(iop[j] - currentIop[j]) > 1e-4) {
+						isIopConsistent = false;
+						break;
+					}
+				}
+				if (!isIopConsistent)
+					break;
+			}
+		} else {
+			isIopConsistent = false;
+		}
+
+		// ★ 追加: IOPが異なる（回転している）場合は、Z座標でのグループ化を諦め、連番で並べる
+		if (!isIopConsistent) {
+			Log.logger.info("Inconsistent IOP detected. Treating as standard sequential slices (e.g., Rotating MIP).");
+			slideList.sort((sg1, sg2) -> {
+				int inst1 = sg1.getHeader().getInt(Tag.InstanceNumber, 0);
+				int inst2 = sg2.getHeader().getInt(Tag.InstanceNumber, 0);
+				return Integer.compare(inst1, inst2);
+			});
+			slides.clear();
+			for (int i = 0; i < slideList.size(); i++) {
+				slides.put(i, slideList.get(i));
+			}
+			this.nSlices = slideList.size();
+			this.nChannels = 1;
+			this.nFrames = 1;
+			SwingUtilities.invokeLater(() -> updateSlidersVisibility());
+			return;
+		}
+
+		// 1. 最初のスライスのIOPを用いて、外積から法線ベクトル（スタック進行方向）を算出
 //		System.out.println(Arrays.toString(iop));
 		final double nx, ny, nz;
 		if (iop != null && iop.length == 6) {
@@ -1936,7 +1984,7 @@ public class Praparat extends JPanel {
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/* keep null file paths */);
 
-		constructSlideGlassesFromImagePlus(images);
+		constructSlideGlassesFromImagePlus(images, sortCZT);
 		applyGlobalAutoWindow(images);// before slider.initContext
 		updateSlidersVisibility();
 

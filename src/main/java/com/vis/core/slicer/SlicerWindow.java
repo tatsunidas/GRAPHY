@@ -95,12 +95,12 @@ public class SlicerWindow extends JFrame {
 	 */
 	public static void main(String[] args) {
 		// axi src
-		ImagePlus ax = FolderOpener.open(
-				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
-		new SlicerWindow(ax, null);
+//		ImagePlus ax = FolderOpener.open(
+//				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
+//		new SlicerWindow(ax, null);
 		
-//		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
-//		new SlicerWindow(ax2, null);
+		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
+		new SlicerWindow(ax2, null);
 		
 //		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 
@@ -347,8 +347,8 @@ public class SlicerWindow extends JFrame {
 		System.out.println("IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
 
 		xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR, true);
-		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, true);
-		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR, true);
+		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, false);
+		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR, false);
 		recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal, false);
 
 		xy_prap.setName("XY");// IMPORTANT
@@ -591,8 +591,7 @@ public class SlicerWindow extends JFrame {
 			GDicomTools.setTag(yz_, 1, "0028,0103", isSigned ? "1" : "0");
 			
 			addUIDs(yz_, 1, seriesUID);
-			stack.addSlice(yz_.getProcessor());
-			stack.setSliceLabel(yz_.getInfoProperty(), w + 1);
+			stack.addSlice(yz_.getInfoProperty(), yz_.getProcessor());
 		}
 		ImagePlus yz_imp = new ImagePlus("YZ", stack);
 		yz_imp.setCalibration(cal);

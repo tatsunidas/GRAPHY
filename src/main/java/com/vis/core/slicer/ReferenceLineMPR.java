@@ -414,21 +414,21 @@ public class ReferenceLineMPR {
 		}
 
 		// Axial上の中心線 (水平線：幅20) -> 左上の座標は (X-10, Y)
-		double[] coordsXY = slab.getCenterOfVolumeInPixelCoords2(xy);
+		double[] coordsXY = slab.getCenterOfVolumeInPixelCoords(xy);
 		CenterPositionLine cXY = centerPositionLineFrom(CutSurface.AXIAL);
 		if (cXY != null) {
 			cXY.setLocation(coordsXY[0] - 10, coordsXY[1]);
 		}
 
 		// Coronal上の中心線 (垂直線：高さ20) -> 左上の座標は (X, Y-10)
-		double[] coordsXZ = slab.getCenterOfVolumeInPixelCoords2(xz);
+		double[] coordsXZ = slab.getCenterOfVolumeInPixelCoords(xz);
 		CenterPositionLine cXZ = centerPositionLineFrom(CutSurface.CORONAL);
 		if (cXZ != null) {
 			cXZ.setLocation(coordsXZ[0], coordsXZ[1] - 10);
 		}
 
 		// Sagittal上の中心線 (水平線：幅20) -> 左上の座標は (X-10, Y)
-		double[] coordsYZ = slab.getCenterOfVolumeInPixelCoords2(yz);
+		double[] coordsYZ = slab.getCenterOfVolumeInPixelCoords(yz);
 		CenterPositionLine cYZ = centerPositionLineFrom(CutSurface.SAGITTAL);
 		if (cYZ != null) {
 			cYZ.setLocation(coordsYZ[0] - 10, coordsYZ[1]);
@@ -514,7 +514,7 @@ public class ReferenceLineMPR {
 		if (slab == null || xy == null || xz == null || yz == null)
 			return;
 
-		double[] centerArr = slab.getCenterOfVolumeInPixelCoords2(xy);
+		double[] centerArr = slab.getCenterOfVolumeInPixelCoords(xy);
 		double cx = centerArr[0];
 		double cy = centerArr[1];
 		double cz = centerArr[2]; // Zはスライス番号

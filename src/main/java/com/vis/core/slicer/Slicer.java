@@ -251,6 +251,23 @@ public class Slicer {
 			int parent_s = ref.getNSlices();
 			List<Vector3d> pixCoord = slicePlane.computeVoxelCoordinatesInPixelCoords(ref);
 			
+			// === ★ 検証用デバッグログ START ===
+			int centerIdx = (h / 2) * w + (w / 2);
+			if (pixCoord != null && pixCoord.size() > centerIdx) {
+				Vector3d first = pixCoord.get(0);
+				Vector3d center = pixCoord.get(centerIdx);
+				Vector3d last = pixCoord.get(pixCoord.size() - 1);
+				com.vis.core.log.Log.logger.info(String.format("[SLICER_PIX_DEBUG] Ref Volume: W=%d, H=%d, Slices=%d",
+						parent_w, parent_h, parent_s));
+				com.vis.core.log.Log.logger.info(String.format(
+						"[SLICER_PIX_DEBUG] First(0,0) -> Ref(x,y,z): [%.2f, %.2f, %.2f]", first.x, first.y, first.z));
+				com.vis.core.log.Log.logger.info(String.format(
+						"[SLICER_PIX_DEBUG] Center -> Ref(x,y,z): [%.2f, %.2f, %.2f]", center.x, center.y, center.z));
+				com.vis.core.log.Log.logger.info(String
+						.format("[SLICER_PIX_DEBUG] Last -> Ref(x,y,z): [%.2f, %.2f, %.2f]", last.x, last.y, last.z));
+			}
+			// === ★ 検証用デバッグログ END ===
+			
 			// ★ 超高速化: UI更新を伴う setSlice() を避けるため、全スライスのプロセッサをキャッシュする
 			ImageStack stack = ref.getStack();
 			ImageProcessor[] cachedProcs = new ImageProcessor[parent_s];
