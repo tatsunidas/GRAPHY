@@ -9,6 +9,8 @@ import javax.swing.border.TitledBorder;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
+import org.dcm4che3.data.UID;
+
 import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
@@ -565,6 +567,15 @@ public class PixelAnonymizerPanel extends JPanel {
 		java.nio.file.Files.write(tempIn.toPath(), mpegBytes);
 
 		String filter = buildFFmpegFilter(masksPerSlice);
+		
+		// ==========================================================
+		// ★ 追加検証1: Javaが生成したフィルター構文を強制的にログ出力する
+		// ==========================================================
+		Log.logger.info("==========================================================");
+		Log.logger.info(" [VERIFY] Generated FFmpeg Filter: ");
+		Log.logger.info(" " + filter);
+		Log.logger.info("==========================================================");
+		
 		byte[] outBytes = mpegBytes;
 
 		// 2. FFmpegによるマスキングと高画質再エンコード
@@ -591,14 +602,18 @@ public class PixelAnonymizerPanel extends JPanel {
 
 				// ★ FFmpegの標準出力を裏で読み捨てて、出力バッファ詰まりによるフリーズ（デッドロック）を完全に防ぐ
 				try (java.io.BufferedReader reader = new java.io.BufferedReader(
-						new java.io.InputStreamReader(p.getInputStream()))) {
+						new java.io.InputStreamReader(p.getErrorStream()))) {
 					String line = "";
 					while ((line = reader.readLine()) != null) {
 						if (worker.isCancelled()) {
 							p.destroy();
 							break;
 						}
-						Log.logger.fine(line); // 処理が詳細に流れるため、デバッグ以外ではコメントアウトを推奨
+						// ==========================================================
+						// ★ 変更検証2: fine だとコンソール設定によっては隠れてしまうため、
+						// テスト時のみ INFO レベルで出力し、接頭辞をつけて見やすくする
+						// ==========================================================
+						Log.logger.info("[FFmpeg-LOG] " + line);
 					}
 				}
 
@@ -629,7 +644,7 @@ public class PixelAnonymizerPanel extends JPanel {
 		// 4. あとは通常の DicomWriter で書き出すだけ
 		File tempFile = new File(tempDir, header.getString(com.vis.dicom.Tag.SOPInstanceUID) + ".dcm");
 		com.vis.dicom.DicomWriter writer = com.vis.dicom.DicomWriter.newDicomWriter();
-		writer.writeDicomImage(header, fmi, tempFile.getAbsolutePath(), false);
+		writer.write(header, UID.MPEG4HP41, tempFile.getAbsolutePath());
 
 		// 一時ファイルの削除
 		tempIn.delete();
@@ -665,24 +680,27 @@ public class PixelAnonymizerPanel extends JPanel {
 					int curr = frames.get(i);
 					if (curr != prev + 1) {
 						if (start == prev)
-							enableConditions.add(String.format("eq(n\\,%d)", start));
+							// ProcessBuilderではシングルクォーテーションで囲む場合、カンマのエスケープ(\\)は不要
+							enableConditions.add(String.format("eq(n,%d)", start));
 						else
-							enableConditions.add(String.format("between(n\\,%d\\,%d)", start, prev));
+							enableConditions.add(String.format("between(n,%d,%d)", start, prev));
 						start = curr;
 					}
 					prev = curr;
 				}
 				if (start == prev)
-					enableConditions.add(String.format("eq(n\\,%d)", start));
+					enableConditions.add(String.format("eq(n,%d)", start));
 				else
-					enableConditions.add(String.format("between(n\\,%d\\,%d)", start, prev));
-
+					enableConditions.add(String.format("between(n,%d,%d)", start, prev));
+				
+				// 複数条件を論理和(+)で結合
 				String enableExpr = String.join("+", enableConditions);
 
 				if (sb.length() > 0)
 					sb.append(",");
-				sb.append(String.format("drawbox=x=%d:y=%d:w=%d:h=%d:color=black:t=fill:enable='%s'", bounds.x,
-						bounds.y, bounds.width, bounds.height, enableExpr));
+				// ★ enableをシングルクォーテーションで囲み、安全にFFmpegに渡す
+				sb.append(String.format("drawbox=x=%d:y=%d:w=%d:h=%d:color=black:t=fill:enable='%s'", 
+						bounds.x, bounds.y, bounds.width, bounds.height, enableExpr));
 			}
 		}
 		return sb.toString();

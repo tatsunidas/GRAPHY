@@ -816,21 +816,36 @@ public class DicomObjectChe extends Attributes implements DicomObject{
         return null;
     }
 
-    @Override
-    public void setEncapsulatedPixelData(byte[] data) {
-        Object bulk = super.getValue(org.dcm4che3.data.Tag.PixelData);
-        if (bulk instanceof org.dcm4che3.data.Fragments) {
-            org.dcm4che3.data.Fragments frags = (org.dcm4che3.data.Fragments) bulk;
-            if (frags.size() > 1) {
-                // DICOM仕様: Fragmentは必ず偶数バイト長でなければならない
-                if (data.length % 2 != 0) {
-                    byte[] padded = new byte[data.length + 1];
-                    System.arraycopy(data, 0, padded, 0, data.length);
-                    padded[data.length] = 0x00; // パディング追加
-                    data = padded;
-                }
-                frags.set(1, data);
-            }
-        }
-    }
+	@Override
+	public void setEncapsulatedPixelData(byte[] data) {
+		Object bulk = super.getValue(org.dcm4che3.data.Tag.PixelData);
+
+		if (bulk instanceof org.dcm4che3.data.Fragments) {
+			org.dcm4che3.data.Fragments frags = (org.dcm4che3.data.Fragments) bulk;
+			if (frags.size() > 1) {
+				// DICOM仕様: Fragmentは必ず偶数バイト長でなければならない
+				if (data.length % 2 != 0) {
+					byte[] padded = new byte[data.length + 1];
+					System.arraycopy(data, 0, padded, 0, data.length);
+					padded[data.length] = 0x00; // パディング追加
+					data = padded;
+				}
+				// 1. リストの中身を新しい動画に書き換える
+				frags.set(1, data);
+				//super.setValue(org.dcm4che3.data.Tag.PixelData, org.dcm4che3.data.VR.OB, frags);
+			}
+		} else {
+			// 万が一 Fragments じゃなかった場合（別のファイルなど）の安全なフォールバック
+			if (data.length % 2 != 0) {
+				byte[] padded = new byte[data.length + 1];
+				System.arraycopy(data, 0, padded, 0, data.length);
+				padded[data.length] = 0x00;
+				data = padded;
+			}
+			org.dcm4che3.data.Fragments newFrags = new org.dcm4che3.data.Fragments(org.dcm4che3.data.VR.OB, false, 2);
+			newFrags.add(new byte[0]);
+			newFrags.add(data);
+//			super.setValue(org.dcm4che3.data.Tag.PixelData, org.dcm4che3.data.VR.OB, newFrags);
+		}
+	}
 }

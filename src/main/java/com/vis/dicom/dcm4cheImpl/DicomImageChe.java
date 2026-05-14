@@ -144,14 +144,14 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	 * 0 to N-1
 	 */
 	@Override
-	public ImageProcessor getImageProcessor(int frame) {
+	public ImageProcessor getImageProcessor(int frame/*0 to N-1*/) {
 		
 		ImageProcessor ip = getRawImageProcessor(frame);
 		
 		return ip;
 	}
 	
-	public ImageProcessor getRawImageProcessor(int frame) {
+	public ImageProcessor getRawImageProcessor(int frame/*0 to N-1*/) {
 		if (isPDF()) {
 			PDFReader pdfReader = new PDFReader(new File(filePath));
 			BufferedImage rgb = pdfReader.renderPDFPage(frame);

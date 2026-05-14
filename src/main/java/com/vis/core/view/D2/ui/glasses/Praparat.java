@@ -2965,7 +2965,11 @@ public class Praparat extends JPanel {
 	public void showFirstImage() {
 		// position range is 0 to n-1
 		currentSlice = -1;
-		setImagePosition(0);
+		if(slider != null) {
+			setImagePositionUsingSlider(0);
+		}else {
+			setImagePosition(0);
+		}
 	}
 
 	private void updateInfoLabel(Point p, String value, double[] scaleXY, double mag, double rotate) {

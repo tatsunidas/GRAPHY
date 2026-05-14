@@ -220,7 +220,6 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 						// ★ キャッシュの確認（2回目以降は必ずここを通るため、処理時間ゼロになります）
 						if (globalMpegStackCache.containsKey(cacheKey)) {
 							this.mpegVirtualStack = globalMpegStackCache.get(cacheKey);
-							// ログも出さず、無音・爆速で使い回す
 						} else {
 							// 初回のみ VideoReader で重い初期化処理を行い、キャッシュに保存する
 							VideoReader vReader = VideoReader.load(this.tempMpegFile);
@@ -271,7 +270,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 	
 	/**
 	 * MPEG DICOMのフラグメントから、動画データを一時MP4ファイルとして抽出します。
-	 * ★ 抽出済みの場合はキャッシュを即座に返却します。
+	 * ★ キャッシュの罠を防止するため、常に現在のピクセルデータから再抽出（強制上書き）を行います。
 	 */
 	private File extractMpegToTempFile() throws IOException {
 		if (pixeldataFragments == null || pixeldataFragments.size() < 2) {
@@ -282,13 +281,21 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 		String sop = dataset.getString(Tag.SOPInstanceUID, "unknown_sop");
 		File tempMp4 = new File(System.getProperty("java.io.tmpdir"), "graphy_mpeg_" + sop + ".mp4");
 
-		// ★ 2. 既に抽出済みの場合は、再抽出せずに即座に返す（超重要！）
-		if (tempMp4.exists() && tempMp4.length() > 0) {
-			Log.logger.fine("キャッシュされたMP4ファイルを再利用します: " + tempMp4.getName());
-			return tempMp4;
+		// ==========================================================
+		// ★ 2. 強制リフレッシュ：既存のファイルは削除し、現在のFragmentsから再抽出する
+		// ==========================================================
+		if (tempMp4.exists()) {
+			// 前回の処理や古いセッションの残骸を確実に消去する
+			boolean deleted = tempMp4.delete();
+			if (!deleted) {
+				Log.logger.warning("一時ファイルの削除に失敗しました。上書きを試みます: " + tempMp4.getName());
+			}
 		}
 
-		Log.logger.info("MPEGストリームを一時MP4ファイルに抽出しています... (初回のみ数秒かかります)");
+		Log.logger.info("MPEGストリームを一時MP4ファイルに抽出しています... (最新の状態を反映)");
+		
+		// FileOutputStream のコンストラクタで append=false (デフォルト) にすることで、
+		// 常にファイルの中身をゼロから書き込みます。
 		try (FileOutputStream fos = new FileOutputStream(tempMp4);
 			 ImageInputStream iis = createImageInputStream();
 			 SegmentedInputImageStream siis = new SegmentedInputImageStream(iis, pixeldataFragments, 0)) {
@@ -299,6 +306,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 			while ((bytesRead = siis.read(buffer)) != -1) {
 				fos.write(buffer, 0, bytesRead);
 			}
+			fos.flush(); // 確実にディスクに書き込む
 		}
 		
 		// 3. アプリケーション終了時にOSに自動削除を任せる
@@ -394,7 +402,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 	 * MPEG動画から直接ImageProcessor(ColorProcessor)を抽出して返します。
 	 * byte[]へのシリアライズとPixelDataDecoderでの再構築をスキップする高速ルートです。
 	 */
-	public ImageProcessor getImageProcessorFromMpeg(int frameIndex) {
+	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/*0 to - N-1*/) {
 		if (isMpeg && mpegVirtualStack != null) {
 			mpegVirtualStack.setSlice(frameIndex + 1);
 			ImageProcessor ip = mpegVirtualStack.getProcessor();
