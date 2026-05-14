@@ -64,8 +64,14 @@ public class PraparatShelf {
 	}
 	
 	private void addPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs, String refUID, Praparat pp) {
-		if(patID==null || studyUID==null || seriesUID==null || sopUIDs==null || refUID==null || pp==null) {
-			Log.logger.warning("UIDs do not allow null.");
+		if(pp == null) {
+			Log.logger.warning("Praparat is null, cannnot add to shelf.");
+			return;
+		}
+		if(patID==null || studyUID==null || seriesUID==null || sopUIDs==null) {
+			String msg = "ID/UIDs do not allow null.\n";
+			msg += "pid="+patID+","+"studyUID="+studyUID+","+"seriesUID="+seriesUID+","+"sopUIDs="+sopUIDs+","+"refUID="+refUID;
+			Log.logger.warning(msg);
 			return;
 		}
 		//add new or replace

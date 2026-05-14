@@ -77,6 +77,7 @@ import com.vis.core.plugin.PlugIn;
 import com.vis.core.plugin.PluginShelf;
 import com.vis.core.plugin.ToolbarPlugIn;
 import com.vis.core.radiomics.RadiomicsWindow;
+import com.vis.core.slicer.SlicerWindow;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.ui.dialog.WandToolDialog;
@@ -694,7 +695,26 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
-		case "cut":
+//		case "cut":
+//			btn.addActionListener(new ActionListener() {
+//				@Override
+//				public void actionPerformed(ActionEvent arg0) {
+//					Viewer2DScreen own = Viewer2DScreen.getInstance();
+//					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
+//					if(selectedPraps != null && selectedPraps.size() == 0) {
+//						return;
+//					}
+//					
+//					for(Praparat pp:selectedPraps) {
+//						pp.processCut(true);//cut current roi area
+//						break;//only perform first selected prap
+//					}
+//					currentTool = Windowing;
+//					setSelectedToolBackground();
+//				}
+//			});
+//			break;
+		case "slicer":
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
@@ -703,11 +723,12 @@ public class Viewer2DToolBar extends JToolBar{
 					if(selectedPraps != null && selectedPraps.size() == 0) {
 						return;
 					}
-					
-					for(Praparat pp:selectedPraps) {
-						pp.processCut(true);//cut current roi area
-						break;//only perform first selected prap
+					Praparat pp = selectedPraps.get(0);
+					if(pp.isMultiDimensional() || pp.isMultiFrame()) {
+						JOptionPane.showConfirmDialog(WindowManager.getWindow(ConfigInfo.D2ViewerWindow), "Slicer cannot load multiframe/multichannel images...");
+						return;
 					}
+					new SlicerWindow(selectedPraps.get(0));
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}
@@ -881,7 +902,8 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("window", Resources.WindowContrastIcon);
 		map.put("analysis", Resources.RoiObjManagerWinIcon);
 		map.put("crop", Resources.CropIcon);
-		map.put("cut", Resources.CutIcon);
+//		map.put("cut", Resources.CutIcon);
+		map.put("slicer", Resources.SlicerIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
 		map.put("radiomics", Resources.RadiomicsJIcon);

@@ -100,7 +100,8 @@ public class SlicerWindow extends JFrame {
 //		new SlicerWindow(ax, null);
 		
 		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
-		new SlicerWindow(ax2, null);
+		Praparat pp = new Praparat(ax2, null, ViewMode.SingleGrid, false);
+		new SlicerWindow(pp);
 		
 //		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 
@@ -343,8 +344,8 @@ public class SlicerWindow extends JFrame {
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
 
-		Log.logger.log(Level.FINE, "IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
-		System.out.println("IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
+//		Log.logger.log(Level.FINE, "IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
+//		System.out.println("IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
 
 		xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR, true);
 		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, false);
@@ -398,10 +399,10 @@ public class SlicerWindow extends JFrame {
 	private void addUIDs(ImagePlus imp, int pos /* 1 to N */, String seriesUID) {
 		imp.setPosition(pos);
 		// SOPClassUID
-		GDicomTools.setTag(imp, pos, "0008,0016", sopClassUID);
-		GDicomTools.setTag(imp, pos, "0010,0020", patID);
-		GDicomTools.setTag(imp, pos, "0020,000D", studyUID);
-		GDicomTools.setTag(imp, pos, "0020,000E", seriesUID);
+		GDicomTools.setTag(imp, pos, Tag.SOPInstanceUID, sopClassUID);
+		GDicomTools.setTag(imp, pos, Tag.PatientID, patID);
+		GDicomTools.setTag(imp, pos, Tag.StudyInstanceUID, studyUID);//lower case
+		GDicomTools.setTag(imp, pos, Tag.SeriesInstanceUID, seriesUID);//lower case
 		GDicomTools.setTag(imp, pos, "0020,0052", refUID);
 		// SOPInstUID
 		GDicomTools.setTag(imp, pos, "0008,0018", UIDUtils.createUID());

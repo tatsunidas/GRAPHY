@@ -115,6 +115,22 @@ public class GDicomTools extends ij.util.DicomTools {
 //		imp.setPosition(getRealIndex(imp, pos));
 //		return getTag(imp, tag);
 //	}
+	
+	/**
+	 * @param imp ImagePlus
+	 * @param tag 32-bit DICOM Tag (e.g.,: 0x00080060)
+	 * @return value string or null
+	 */
+	public static String getTag(ImagePlus imp, int tag) {
+		// 上位16ビット（グループ番号）を抽出
+		int group = (tag >> 16) & 0xFFFF;
+		// 下位16ビット（エレメント番号）を抽出
+		int element = tag & 0xFFFF;
+		// "gggg,eeee" のフォーマットに変換（それぞれ4桁の16進数でゼロ埋め、小文字）
+		// ※ ImageJのDicomToolsは小文字・大文字どちらでも大抵動きますが、念のため小文字の %04x にしています。
+		String tagString = String.format("%04x,%04x", group, element);
+		return getTag(imp, tagString);
+	}
 
 	/**
 	 * 階層（シーケンス）のパスを指定してDICOMタグの値を取得する
@@ -202,22 +218,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 
 		return null; // 結局見つからなかった場合
-	}
-
-	/**
-	 * @param imp ImagePlus
-	 * @param tag 32-bit DICOM Tag (e.g.,: 0x00080060)
-	 * @return value string or null
-	 */
-	public static String getTag(ImagePlus imp, int tag) {
-		// 上位16ビット（グループ番号）を抽出
-		int group = (tag >> 16) & 0xFFFF;
-		// 下位16ビット（エレメント番号）を抽出
-		int element = tag & 0xFFFF;
-		// "gggg,eeee" のフォーマットに変換（それぞれ4桁の16進数でゼロ埋め、小文字）
-		// ※ ImageJのDicomToolsは小文字・大文字どちらでも大抵動きますが、念のため小文字の %04x にしています。
-		String tagString = String.format("%04x,%04x", group, element);
-		return getTag(imp, tagString);
 	}
 
 	public static Double getDouble(ImagePlus imp, int pos/* 1 to N */, String tag) {
@@ -344,6 +344,21 @@ public class GDicomTools extends ij.util.DicomTools {
 //			imp.setProperty("Info", hdr);
 //		}
 //	}
+	
+	public static void setTag(ImagePlus imp, int pos/* 1 to N */, int tag/* only one tag */, String value) {
+		// 上位16ビット（グループ番号）を抽出
+		int group = (tag >> 16) & 0xFFFF;
+		// 下位16ビット（エレメント番号）を抽出
+		int element = tag & 0xFFFF;
+		// "gggg,eeee" のフォーマットに変換（それぞれ4桁の16進数でゼロ埋め、小文字）
+		// ※ ImageJのDicomToolsは小文字・大文字どちらでも大抵動きますが、念のため小文字の %04x にしています。
+		/*
+		 * 小文字統一
+		 */
+		String tagString = String.format("%04x,%04x", group, element);
+//		String tagStr = TagUtils.toString(tag);
+		setTag(imp, pos, tagString, value);
+	}
 
 	/**
 	 * 既存コードとの互換性用（ルート階層のタグの更新・追加）

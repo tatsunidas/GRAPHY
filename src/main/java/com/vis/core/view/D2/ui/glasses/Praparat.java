@@ -1959,14 +1959,14 @@ public class Praparat extends JPanel {
 		currentSlice = -1;
 		updateInfoLabel(-1, -1, "-1", new double[] { -1, -1 }, -1, -1);
 
-		String patID = GDicomTools.getTag(images, "0010,0020");
-		String studyUID = GDicomTools.getTag(images, "0020,000D");
-		String seriesUID = GDicomTools.getTag(images, "0020,000E");
+		String patID = GDicomTools.getTag(images, Tag.PatientID);
+		String studyUID = GDicomTools.getTag(images, Tag.StudyInstanceUID);
+		String seriesUID = GDicomTools.getTag(images, Tag.SeriesInstanceUID);
 		String[] sopUIDs = new String[images.getNSlices()];
 //		List<String> paths = new ArrayList<>();
 		for (int i = 1; i <= images.getNSlices(); i++) {
 			images.setSlice(GDicomTools.getRealIndex(images, i));
-			String sopInstUid = GDicomTools.getTag(images, "0008,0018");
+			String sopInstUid = GDicomTools.getTag(images, Tag.SOPInstanceUID);
 			if (sopInstUid == null || sopInstUid.trim().length() == 0) {
 				sopInstUid = UIDUtils.createUID();
 			} else {
