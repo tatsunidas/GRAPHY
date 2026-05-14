@@ -9,6 +9,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -156,6 +158,10 @@ public class DicomAnonymizerEngine {
                     Log.logger.log(Level.WARNING, "Skipping file missing necessary UIDs: " + f.getName());
                     continue;
                 }
+                
+                boolean retainStudyUid = config.determineFinalAction(RULE_MAP.get(Tag.StudyInstanceUID)) == DicomTagRule.Action.K;
+                boolean retainSeriesUid = config.determineFinalAction(RULE_MAP.get(Tag.SeriesInstanceUID)) == DicomTagRule.Action.K;
+                boolean retainSopUid = config.determineFinalAction(RULE_MAP.get(Tag.SOPInstanceUID)) == DicomTagRule.Action.K;
 
                 // Patient レベル
                 PatientMapping pMap = patientTree.computeIfAbsent(origPatId, k -> {
@@ -170,6 +176,9 @@ public class DicomAnonymizerEngine {
                 if (stMap == null) {
                     stMap = new StudyMapping();
                     stMap.origStudyUid = origStudyUid;
+                    // 保持(K)ならオリジナルUIDをそのまま使い、それ以外なら新規発行する
+                    stMap.newStudyUid = globalUidMap.computeIfAbsent(origStudyUid, 
+                            k -> retainStudyUid ? origStudyUid : UIDUtils.createUID());
                     stMap.newStudyUid = globalUidMap.computeIfAbsent(origStudyUid, k -> UIDUtils.createUID());
                     stMap.studyDate = dataset.getString(Tag.StudyDate);
                     stMap.studyTime = dataset.getString(Tag.StudyTime);
@@ -182,7 +191,8 @@ public class DicomAnonymizerEngine {
                 if (seMap == null) {
                     seMap = new SeriesMapping();
                     seMap.origSeriesUid = origSeriesUid;
-                    seMap.newSeriesUid = globalUidMap.computeIfAbsent(origSeriesUid, k -> UIDUtils.createUID());
+                    seMap.newSeriesUid = globalUidMap.computeIfAbsent(origSeriesUid, 
+                            k -> retainSeriesUid ? origSeriesUid : UIDUtils.createUID());
                     stMap.series.put(origSeriesUid, seMap);
                 }
 
@@ -194,7 +204,8 @@ public class DicomAnonymizerEngine {
 
                 InstanceMapping iMap = new InstanceMapping();
                 iMap.origSopUid = origSopUid;
-                iMap.newSopUid = globalUidMap.computeIfAbsent(origSopUid, k -> UIDUtils.createUID());
+                iMap.newSopUid = globalUidMap.computeIfAbsent(origSopUid, 
+                        k -> retainSopUid ? origSopUid : UIDUtils.createUID());
                 iMap.sourceFile = f;
                 seMap.instances.put(origSopUid, iMap);
 
@@ -672,21 +683,60 @@ public class DicomAnonymizerEngine {
         dataset.setString(tag, vr, newUid);
     }
 
-    private void writeCsvMapping(File destDir, List<CsvRecord> records) {
-        File csvFile = new File(destDir, "Anonymize_Mapping.csv");
-        try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(csvFile), "UTF-8"))) {
-            pw.write('\ufeff'); // BOM
-            pw.println("Original PatientID,Original PatientName,StudyDate,StudyTime,Modality,Original StudyInstUID,New PatientName,New PatientID,New StudyInstUID");
-            
-            for (CsvRecord r : records) {
-                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
-                        r.origPatId, r.origPatName, r.studyDate, r.studyTime, r.modality, r.origStudyUid,
-                        r.newPatName, r.newPatId, r.newStudyUid);
-            }
-        } catch (IOException e) {
-            Log.logger.log(Level.SEVERE, "Failed to write CSV mapping.", e);
-        }
-    }
+	private void writeCsvMapping(File destDir, List<CsvRecord> records) {
+		String baseName = "Anonymize_Mapping";
+		String extension = ".csv";
+
+		// まずはデフォルトのファイル名でFileオブジェクトを作成
+		File csvFile = new File(destDir, baseName + extension);
+
+		// ★追加: ファイルが既に存在するかチェック
+		if (csvFile.exists()) {
+			// 現在の日時を取得 (例: "20260514_114501")
+			DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+			String timestamp = LocalDateTime.now().format(dtf);
+
+			// 日時を付与した新しいファイル名を生成
+			csvFile = new File(destDir, baseName + "_" + timestamp + extension);
+
+			// 万が一、1秒以内に連続で処理が実行されて同じ秒数のファイルが既に存在した場合の絶対安全策
+			int counter = 1;
+			while (csvFile.exists()) {
+				csvFile = new File(destDir, baseName + "_" + timestamp + "_" + counter + extension);
+				counter++;
+			}
+		}
+
+		try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(csvFile), "UTF-8"))) {
+			pw.write('\ufeff'); // BOM
+			pw.println(
+					"Original PatientID,Original PatientName,StudyDate,StudyTime,Modality,Original StudyInstUID,New PatientName,New PatientID,New StudyInstUID");
+
+			for (CsvRecord r : records) {
+				pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n", r.origPatId,
+						r.origPatName, r.studyDate, r.studyTime, r.modality, r.origStudyUid, r.newPatName, r.newPatId,
+						r.newStudyUid);
+			}
+		} catch (IOException e) {
+			Log.logger.log(Level.SEVERE, "Failed to write CSV mapping.", e);
+		}
+	}
+
+//    private void writeCsvMapping(File destDir, List<CsvRecord> records) {
+//        File csvFile = new File(destDir, "Anonymize_Mapping.csv");
+//        try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(csvFile), "UTF-8"))) {
+//            pw.write('\ufeff'); // BOM
+//            pw.println("Original PatientID,Original PatientName,StudyDate,StudyTime,Modality,Original StudyInstUID,New PatientName,New PatientID,New StudyInstUID");
+//            
+//            for (CsvRecord r : records) {
+//                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+//                        r.origPatId, r.origPatName, r.studyDate, r.studyTime, r.modality, r.origStudyUid,
+//                        r.newPatName, r.newPatId, r.newStudyUid);
+//            }
+//        } catch (IOException e) {
+//            Log.logger.log(Level.SEVERE, "Failed to write CSV mapping.", e);
+//        }
+//    }
 
     private List<File> findAllDicomFiles(File dir) {
         List<File> results = new ArrayList<>();

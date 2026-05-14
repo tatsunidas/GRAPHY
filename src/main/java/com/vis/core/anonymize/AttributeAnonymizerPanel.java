@@ -219,12 +219,18 @@ public class AttributeAnonymizerPanel extends JPanel {
         txtRandomSeed.setToolTipText("Enter a seed value for reproducible anonymization across different batches.");
         panel.add(txtRandomSeed, gbc);
 
+        /*
+         * pnameはデフォルトアクションがZ（ZeroLengh）
+         */
         gbc.gridx = 0; gbc.gridy = y_pos++;
         panel.add(new JLabel("Patient Name:"), gbc);
         gbc.gridx = 1; gbc.weightx = 1.0;
-        txtPatientName = new JTextField("de-identified");
+        txtPatientName = new JTextField("");//zero length
         panel.add(txtPatientName, gbc);
 
+        /*
+         * pidのデフォルトアクションはD（Dummy）
+         */
         gbc.gridx = 0; gbc.gridy = y_pos++; gbc.weightx = 0;
         panel.add(new JLabel("Patient ID:"), gbc);
         gbc.gridx = 1; gbc.weightx = 1.0;
@@ -293,24 +299,22 @@ public class AttributeAnonymizerPanel extends JPanel {
 
 	private void openAdvancedSettings() {
 		syncUiToConfig();
-
-		// AdvanceOptionを開く処理の箇所
-		Window parentWindow = SwingUtilities.getWindowAncestor(this);
-
-		AdvancedSettingsDialog dialog;
-		if (parentWindow instanceof Frame) {
-			dialog = new AdvancedSettingsDialog((Frame) parentWindow, currentConfig);
-		} else if (parentWindow instanceof Dialog) {
-			dialog = new AdvancedSettingsDialog((Dialog) parentWindow, currentConfig);
-		} else {
-			// どちらでもない場合のフォールバック
-			dialog = new AdvancedSettingsDialog((Frame) null, currentConfig);
-		}
-
-		dialog.setVisible(true);
-
-		// ダイアログ内で変更された可能性があるため、確認後にログを出す
-		appendLog("Advanced settings updated.", false);
+		setUiEnabled(false);
+		// 親ウィンドウを取得してダイアログを生成
+        AdvancedSettingsDialog dialog = new AdvancedSettingsDialog(
+            SwingUtilities.getWindowAncestor(this), 
+            currentConfig
+        );
+        
+        // ここで実行が止まり、ダイアログが閉じるまで待機します
+        dialog.setVisible(true);
+        
+        // ダイアログが閉じられた後にここが実行される
+        if (dialog.isConfirmed()) {
+            // OKが押された場合の処理（必要に応じてログ出力など）
+        	appendLog("Advanced settings updated.", false);
+        }
+        setUiEnabled(true);
 	}
     
     private void syncUiToConfig() {
@@ -416,6 +420,8 @@ public class AttributeAnonymizerPanel extends JPanel {
                     JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this, "Error occurred:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setUiEnabled(true);
+                    progressBar.setValue(0);
+                    progressBar.setString("Ready"); // または空文字 "" にする
                     currentWorker = null;
                 }
             }
@@ -466,6 +472,7 @@ public class AttributeAnonymizerPanel extends JPanel {
         chkCleanDesc.setEnabled(enabled);
         chkCleanStruct.setEnabled(enabled);
         chkCleanGraph.setEnabled(enabled);
+        repaint();
     }
     
     public String getDestDirectory() {

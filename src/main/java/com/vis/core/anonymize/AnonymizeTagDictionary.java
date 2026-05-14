@@ -36,7 +36,14 @@ import com.vis.core.anonymize.DicomTagRule.Action;
  */
 public class AnonymizeTagDictionary {
 
+	/*
+	 * 順序を保証するためのタグリスト
+	 */
 	public static final List<DicomTagRule> TAG_RULES = new ArrayList<>();
+	/*
+	 * 検証用のMAP
+	 */
+	public static final Map<Integer, DicomTagRule> RULE_MAP = new HashMap<>();
 	
 	// SR Clean Content用辞書: Key = "CodingScheme:CodeValue" (例: "DCM:121008")
     public static final Set<String> SR_CLEAN_CODES = new HashSet<>();
@@ -121,6 +128,7 @@ public class AnonymizeTagDictionary {
 					        DicomTagRule rule = new DicomTagRule(tag, attrName + " (Group " + String.format("%02X", i) + ")", defaultAction);
 					        applyOptions(rule, cols);
 					        TAG_RULES.add(rule);
+					        RULE_MAP.put(tag, rule); // ★追加
 					    }
 					} else {
 					    // 通常のタグ
@@ -130,6 +138,7 @@ public class AnonymizeTagDictionary {
 					    DicomTagRule rule = new DicomTagRule(tag, attrName, defaultAction);
 					    applyOptions(rule, cols);
 					    TAG_RULES.add(rule);
+					    RULE_MAP.put(tag, rule); // ★追加
 					}
 				}
 			}

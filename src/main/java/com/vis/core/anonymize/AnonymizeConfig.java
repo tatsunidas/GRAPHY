@@ -36,6 +36,30 @@ public class AnonymizeConfig {
     
     private Long randomSeed;
     
+    /**
+     * デフォルトコンストラクタ
+     */
+    public AnonymizeConfig() {}
+
+    /**
+     * 【新規】コピーコンストラクタ（ディープコピー）
+     */
+    public AnonymizeConfig(AnonymizeConfig other) {
+    	copyFrom(other);
+    }
+
+    /**
+     * 【新規】別のConfigオブジェクトから状態をコピーする
+     */
+    public void copyFrom(AnonymizeConfig source) {
+        this.options = EnumSet.copyOf(source.options);
+        this.replacePatientName = source.replacePatientName;
+        this.replacePatientId = source.replacePatientId;
+        this.randomSeed = source.randomSeed;
+        this.manualRetainTags = new HashSet<>(source.manualRetainTags);
+        this.customTagReplacements = new HashMap<>(source.customTagReplacements);
+    }
+    
     public Long getRandomSeed() {
 		return randomSeed;
 	}
@@ -90,6 +114,24 @@ public class AnonymizeConfig {
      * エンジンが最終的に実行するアクションを決定する（完全版）
      */
     public DicomTagRule.Action determineFinalAction(DicomTagRule rule) {
+    	
+    	// =========================================================
+        // 患者IDと患者名の特別ルール（Advanced Settingsを無視して最優先）
+        // =========================================================
+        if (rule.getTag() == 0x00100020) { 
+            // PatientID (0010,0020) は常に置換(D)
+            return DicomTagRule.Action.D;
+        }
+        
+        if (rule.getTag() == 0x00100010) { 
+            // PatientName (0010,0010) は、テキストボックスが空なら空(Z)、入力があれば置換(D)
+            if (replacePatientName != null && !replacePatientName.isEmpty()) {
+                return DicomTagRule.Action.D;
+            } else {
+                return DicomTagRule.Action.Z;
+            }
+        }
+    	
         // 1. UIからの手動保持 (Manual Retain) が最優先
         if (manualRetainTags.contains(rule.getTag())) {
             return DicomTagRule.Action.K;

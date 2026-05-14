@@ -326,6 +326,9 @@ public class PixelAnonymizerPanel extends JPanel {
 					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this, "Error occurred:\n" + ex.getMessage(),
 							"Error", JOptionPane.ERROR_MESSAGE);
 					ex.printStackTrace();
+				}finally {
+					progressBar.setValue(0);
+                    progressBar.setString("Ready"); // または空文字 "" にする
 				}
 			}
 		};
