@@ -120,7 +120,6 @@ public class PixelAnonymizerPanel extends JPanel {
 		rightSplit.setRightComponent(roiPanel);
 
 		mainSplit.setRightComponent(rightSplit);
-//        add(mainSplit, BorderLayout.CENTER);
 
 		// ==========================================
 		// 下部 (South): 属性匿名化パネル ＆ 実行パネル
@@ -588,8 +587,10 @@ public class PixelAnonymizerPanel extends JPanel {
 				Log.logger.info("Using JAVE2 bundled FFMPEG: " + javeFfmpegPath);
 
 				ProcessBuilder pb = new ProcessBuilder(javeFfmpegPath, "-y", "-i", tempIn.getAbsolutePath(), "-vf",
-						filter, "-c:v", "libx264", "-preset", "medium", "-crf", "18", // ★ 高画質を維持するオプション
-						"-c:a", "copy", tempOut.getAbsolutePath());
+				        filter, "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+				        "-bf", "0",                  // Bフレームを無効化し、表示順とデコード順を完全に一致させる
+				        "-movflags", "+faststart",   // MP4の再生タイミング情報(moovアトム)をファイルの先頭に配置する
+				        "-c:a", "copy", tempOut.getAbsolutePath());
 				Process p = pb.start();
 
 				// ★ UIを「不確定(Indeterminate)モード」にして、動画処理中であることをユーザーに知らせる
@@ -929,7 +930,7 @@ public class PixelAnonymizerPanel extends JPanel {
 					get(); // 万が一ロード中に例外が起きていればここでキャッチできる
 
 					// 3. ロードが「確実に」終わったので、安全に最初の画像を表示
-					currentActivePraparat.showFirstImage();
+					currentActivePraparat.setImagePositionUsingSlider(0);
 
 					// 2. ロード直後はツールをデフォルト（ポインター）に戻す
 					toolButtonGroup.clearSelection();

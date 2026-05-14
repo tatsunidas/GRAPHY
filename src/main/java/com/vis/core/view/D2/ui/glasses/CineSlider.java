@@ -174,6 +174,10 @@ public class CineSlider extends JPanel implements ActionListener {
 			if (initializing) return;
 			
 			JSlider source = (JSlider) e.getSource();
+			/*
+			 * if (!source.getValueIsAdjusting()) { ... } の判定を削除してもよいが、
+			 * 動画のときに以上に重いので、つけておく
+			 */
 			if (!source.getValueIsAdjusting()) {
 				int val = source.getValue();
 				updateLabel(val, getMaximum());

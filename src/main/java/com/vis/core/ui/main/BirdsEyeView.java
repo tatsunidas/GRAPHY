@@ -59,6 +59,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.SwingUtilities;
 
 import com.vis.core.log.Log;
 import com.vis.core.ui.MissingIcon;
@@ -224,8 +225,13 @@ public class BirdsEyeView extends JPanel{
 		filmGridPane.add(waitingPanel1);
 		singleGridPane.add(waitingPanel2);
 		
-		Insets ins = seriesListView.getInsets();
-		birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom);
+//		Insets ins = seriesListView.getInsets();
+//		birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom);
+		
+		SwingUtilities.invokeLater(()->{
+			birdsEyeSplit.setDividerLocation(getOptimalThumbnailHeight());
+		});
+		
 		int w = filmAndSingleGridSplit.getWidth();
 		filmAndSingleGridSplit.setDividerLocation(w-(int)(w/3));
 		revalidate();
@@ -240,22 +246,33 @@ public class BirdsEyeView extends JPanel{
 		filmGridPane.add(waitingPanel1);
 	}
 	
+//	private void keepDividerInPlace() {
+//		int h = birdsEyeSplit.getLastDividerLocation();
+//		Insets ins = seriesListView.getInsets();
+//		int gap = seriesListView.getVGap();
+////		System.out.println("divider loc : "+h);
+//		/*
+//		 * Originally, twice the Gap would be correct. However, the size does not match.
+//		 * Maybe it is due to the Insets relationship of the component. Here, we adjust
+//		 * the size by 4 times.
+//		 */
+//		if(h < thumbnailSize+ins.top+ins.bottom+gap*4) {
+//			birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom+gap*4);
+//			birdsEyeSplit.repaint();
+////			System.out.println("new divider size "+(thumbnailSize+ins.top+ins.bottom+gap*4));
+////			System.out.println("series list view size:"+seriesListView.getHeight());
+//		}
+//	}
+	
+	// BirdsEyeView.java の keepDividerInPlace() メソッド内
 	private void keepDividerInPlace() {
-		int h = birdsEyeSplit.getLastDividerLocation();
-		Insets ins = seriesListView.getInsets();
-		int gap = seriesListView.getVGap();
-//		System.out.println("divider loc : "+h);
-		/*
-		 * Originally, twice the Gap would be correct. However, the size does not match.
-		 * Maybe it is due to the Insets relationship of the component. Here, we adjust
-		 * the size by 4 times.
-		 */
-		if(h < thumbnailSize+ins.top+ins.bottom+gap*4) {
-			birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom+gap*4);
-			birdsEyeSplit.repaint();
-//			System.out.println("new divider size "+(thumbnailSize+ins.top+ins.bottom+gap*4));
-//			System.out.println("series list view size:"+seriesListView.getHeight());
-		}
+	    int h = birdsEyeSplit.getLastDividerLocation();
+	    int optimalHeight = getOptimalThumbnailHeight();
+	    // 【修正】高さを新しい最適サイズと比較する
+	    if(h < optimalHeight) {
+	        birdsEyeSplit.setDividerLocation(optimalHeight);
+	        birdsEyeSplit.repaint();
+	    }
 	}
 	
 	public void setPatientInfo(HashMap<String,String> infoset) {
@@ -395,9 +412,16 @@ public class BirdsEyeView extends JPanel{
 			javax.swing.SwingUtilities.invokeLater(() -> {
 				if (myTaskId == renderTaskId.get()) {
 					highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
-					birdsEyeSplit.setDividerLocation(thumbnailSize);
+					birdsEyeSplit.setDividerLocation(getOptimalThumbnailHeight());
 				}
+				setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
 			});
+		}else {
+			javax.swing.SwingUtilities.invokeLater(() -> {
+                setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
+            });
 		}
 	}
 	
@@ -512,11 +536,30 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		showImagesFromThumbnailAction(seriesListView.getThumbnail(currentSeriesUID));
-		highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
+		javax.swing.SwingUtilities.invokeLater(() -> {
+            highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
+            setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+            MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
+        });
 	}
 	
 	public void addSeries(Object praparat) {
 		seriesListView.addSeries((Praparat)praparat);
+	}
+	
+	/**
+	 * サムネイル領域の最適な高さを計算します。
+	 * サムネイルサイズ + 余白 + 横スクロールバーの高さ を考慮します。
+	 */
+	private int getOptimalThumbnailHeight() {
+	    Insets ins = seriesListView.getInsets();
+	    int gap = seriesListView.getVGap();
+	    // JScrollPane の横スクロールバーの標準的な高さを取得(およそ16〜18px)
+	    int scrollBarHeight = javax.swing.UIManager.getInt("ScrollBar.width");
+	    if (scrollBarHeight == 0) scrollBarHeight = 18; // 取得できない場合のフォールバック
+	    
+	    // 上下のInsetとGap、スクロールバーの分を合算して返す
+	    return thumbnailSize + ins.top + ins.bottom + (gap * 2) + scrollBarHeight;
 	}
 	
 	public String getShowingStudyUID() {

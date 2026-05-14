@@ -267,49 +267,65 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 		}
 	}
 	
-	
 	/**
 	 * MPEG DICOMのフラグメントから、動画データを一時MP4ファイルとして抽出します。
-	 * ★ キャッシュの罠を防止するため、常に現在のピクセルデータから再抽出（強制上書き）を行います。
+	 * ★ スマートキャッシュ機構：SOPInstanceUID + ピクセルデータサイズのハイブリッドキーで
+	 * 高速なシークと、変更検知（マスキング後の確実な上書き）を両立します。
 	 */
 	private File extractMpegToTempFile() throws IOException {
 		if (pixeldataFragments == null || pixeldataFragments.size() < 2) {
 			return null;
 		}
 
-		// 1. SOPInstanceUIDを使って一意のファイル名を作成
+		// 1. キャッシュキーの生成: SOPInstanceUID ＋ ピクセルデータの総バイト数
 		String sop = dataset.getString(Tag.SOPInstanceUID, "unknown_sop");
-		File tempMp4 = new File(System.getProperty("java.io.tmpdir"), "graphy_mpeg_" + sop + ".mp4");
+		long pixelSize = 0;
+		for (Object frag : pixeldataFragments) {
+		    if (frag instanceof byte[]) {
+		        pixelSize += ((byte[]) frag).length;
+		    } else if (frag instanceof org.dcm4che3.data.BulkData) {
+		        // ★ 追加: BulkData（ファイル参照）の場合も長さを取得する
+		        pixelSize += ((org.dcm4che3.data.BulkData) frag).length();
+		    }
+		}
+		
+		// ファイル名例: graphy_mpeg_1.2.3.4_10485760.mp4 (SOP + バイト数)
+		String cacheFileName = "graphy_mpeg_" + sop + "_" + pixelSize + ".mp4";
+		File tempMp4 = new File(System.getProperty("java.io.tmpdir"), cacheFileName);
 
-		// ==========================================================
-		// ★ 2. 強制リフレッシュ：既存のファイルは削除し、現在のFragmentsから再抽出する
-		// ==========================================================
-		if (tempMp4.exists()) {
-			// 前回の処理や古いセッションの残骸を確実に消去する
-			boolean deleted = tempMp4.delete();
-			if (!deleted) {
-				Log.logger.warning("一時ファイルの削除に失敗しました。上書きを試みます: " + tempMp4.getName());
+		// 2. 爆速キャッシュリターン：ファイルが存在し、サイズ(内容)が変わっていなければ即座に返す
+		if (tempMp4.exists() && tempMp4.length() > 0) {
+			// スライダー操作時などはここを通過するため、I/O負荷ゼロで高速に動きます
+			// Log.logger.fine("キャッシュを再利用します: " + tempMp4.getName()); // ログがうるさければ消してください
+			return tempMp4;
+		}
+
+		// 3. 古いキャッシュのお掃除（同じSOPだけどバイト数が違う＝マスキング前の古いファイル）
+		File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+		File[] oldCaches = tmpDir.listFiles((dir, name) -> 
+				name.startsWith("graphy_mpeg_" + sop + "_") && !name.equals(cacheFileName));
+		if (oldCaches != null) {
+			for (File old : oldCaches) {
+				old.delete(); // 古い動画キャッシュを安全に削除
 			}
 		}
 
-		Log.logger.info("MPEGストリームを一時MP4ファイルに抽出しています... (最新の状態を反映)");
+		Log.logger.info("新しいMPEGストリームを抽出しています... (変更検知: " + tempMp4.getName() + ")");
 		
-		// FileOutputStream のコンストラクタで append=false (デフォルト) にすることで、
-		// 常にファイルの中身をゼロから書き込みます。
+		// 4. 初回、またはデータ変更時のみ抽出処理を行う
 		try (FileOutputStream fos = new FileOutputStream(tempMp4);
 			 ImageInputStream iis = createImageInputStream();
 			 SegmentedInputImageStream siis = new SegmentedInputImageStream(iis, pixeldataFragments, 0)) {
 			
-			// バッファを1MBに拡大して爆速でコピーする
 			byte[] buffer = new byte[1048576]; 
 			int bytesRead;
 			while ((bytesRead = siis.read(buffer)) != -1) {
 				fos.write(buffer, 0, bytesRead);
 			}
-			fos.flush(); // 確実にディスクに書き込む
+			fos.flush();
 		}
 		
-		// 3. アプリケーション終了時にOSに自動削除を任せる
+		// アプリケーション終了時にOSに自動削除を任せる
 		tempMp4.deleteOnExit();
 		return tempMp4;
 	}
@@ -402,16 +418,34 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 	 * MPEG動画から直接ImageProcessor(ColorProcessor)を抽出して返します。
 	 * byte[]へのシリアライズとPixelDataDecoderでの再構築をスキップする高速ルートです。
 	 */
-	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/*0 to - N-1*/) {
+//	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/*0 to - N-1*/) {
+//		if (isMpeg && mpegVirtualStack != null) {
+//			mpegVirtualStack.setSlice(frameIndex + 1);
+//			ImageProcessor ip = mpegVirtualStack.getProcessor();
+//			
+//			// 万が一白黒判定されても、強制的にColorProcessorの器に包み直す
+//			if (!(ip instanceof ColorProcessor)) {
+//				return new ColorProcessor(ip.getBufferedImage());
+//			}
+//			return ip;
+//		}
+//		return null;
+//	}
+	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/* 0 to - N-1 */) {
 		if (isMpeg && mpegVirtualStack != null) {
-			mpegVirtualStack.setSlice(frameIndex + 1);
-			ImageProcessor ip = mpegVirtualStack.getProcessor();
-			
-			// 万が一白黒判定されても、強制的にColorProcessorの器に包み直す
-			if (!(ip instanceof ColorProcessor)) {
-				return new ColorProcessor(ip.getBufferedImage());
+			// ★修正1: 複数スレッド(先読みと描画)からの同時アクセスによる競合を防ぐ
+			synchronized (mpegVirtualStack) {
+				// ★修正2: setSlice() はUIイベントを誘発して重いため、Stackから直接取得する
+				ImageProcessor ip = mpegVirtualStack.getStack().getProcessor(frameIndex + 1);
+				// ★修正3(最重要): VirtualStackは同じインスタンスを使い回すため、必ず複製(duplicate)する。
+				// これをしないと全フレームが最後に読み込んだ画像に上書きされてしまいます。
+				ImageProcessor copyIp = ip.duplicate();
+				// 万が一白黒判定されても、強制的にColorProcessorの器に包み直す
+				if (!(copyIp instanceof ColorProcessor)) {
+					return new ColorProcessor(copyIp.getBufferedImage());
+				}
+				return copyIp;
 			}
-			return ip;
 		}
 		return null;
 	}

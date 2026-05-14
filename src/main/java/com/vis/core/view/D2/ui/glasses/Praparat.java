@@ -205,6 +205,9 @@ public class Praparat extends JPanel {
 	private int currentZ = 0;//slice position, 0-based
 	private int currentT = 0;//time frame, 0-based
 
+	/*
+	 * 順序は保証しない
+	 */
 	private ConcurrentHashMap<Integer/* 0 to N-1 */, SlideGlass> slides;
 
 	private final int PREFETCH_RANGE = 3;
@@ -581,12 +584,16 @@ public class Praparat extends JPanel {
 			reader = null;
 		}
 
-		/*
-		 * sort images via IOP and IPP.
-		 */
 		if (slides != null && slides.size() > 1) {
-			List<SlideGlass> slideList = new ArrayList<>(slides.values());
-			// ★ 古いソート処理をすべて消し、多次元解析メソッドを呼び出す！
+			List<Integer> keys = new ArrayList<>(slides.keySet());
+		    java.util.Collections.sort(keys);
+		    List<SlideGlass> slideList = new ArrayList<>();
+		    for(Integer k : keys) {
+		        slideList.add(slides.get(k));
+		    }
+			/*
+			 * sort images via IOP and IPP.
+			 */
 			organizeMultiDimensionalSlides(slideList);
 		}
 	}
@@ -596,7 +603,7 @@ public class Praparat extends JPanel {
 	 * This method is only used for
 	 * single pop-up view or test purpose. Dicom attributes keeps minimally.
 	 */
-	private void constructSlideGlassesFromImagePlus(ImagePlus images, boolean sortCZT) {
+	private void constructSlideGlassesFromImagePlus(ImagePlus images) {
 		if (images == null || images.getStackSize() < 1) {
 			throw new IllegalArgumentException(
 					"Images is null or empty, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
@@ -617,17 +624,22 @@ public class Praparat extends JPanel {
 			slides.put(i, sg);
 		}
 
-		/*
-		 * sort images via IOP and IPP.
-		 */
-		if (slides != null && slides.size() > 1 && sortCZT) {
-			List<SlideGlass> slideList = new ArrayList<>(slides.values());
+		if (slides != null && slides.size() > 1) {
+			// ConcurrentHashMapの値をそのままリスト化せず、キー順に並び替える
+		    List<Integer> keys = new ArrayList<>(slides.keySet());
+		    java.util.Collections.sort(keys);
+		    List<SlideGlass> slideList = new ArrayList<>();
+		    for(Integer k : keys) {
+		        slideList.add(slides.get(k));
+		    }
+		    /*
+			 * sort images via IOP and IPP.
+			 */
 			organizeMultiDimensionalSlides(slideList);
 		}else {
 			this.nChannels = images.getNChannels();
 			this.nSlices = images.getNSlices();
 			this.nFrames = images.getNFrames();
-			
 		}
 
 		loadRoisFromDB();
@@ -824,9 +836,11 @@ public class Praparat extends JPanel {
 				pos = (ipp[0] * nx) + (ipp[1] * ny) + (ipp[2] * nz);
 //				System.out.println("IOP dot : "+pos);
 			} else {
-				// ★ 追加: IPPが存在しないデータの場合、全てが pos=0 となり「チャンネル」と誤認されるのを防ぐため、
+				// 動画マルチフレーム用
+				// IPPが存在しないデータの場合、全てが pos=0 となり「チャンネル」と誤認されるのを防ぐため、
 				// 元の並び順（インデックス i ）を仮想のZ座標として割り当てる
-				pos = i; 
+		        // 意図的に設定されているInstanceNumberを仮想Z座標(pos)として利用する
+		        pos = sg.getHeader().getInt(Tag.InstanceNumber, i);
 			}
 			int instNo = sg.getHeader().getInt(Tag.InstanceNumber, 0);
 			spList.add(new SlidePos(sg, pos, instNo));
@@ -1745,6 +1759,16 @@ public class Praparat extends JPanel {
 	public boolean isShowing2DViewerOn() {
 		return prapManager != null;
 	}
+	
+	// Praparat.java 内に追加
+	private void setWaitCursor(boolean isWait) {
+	    if (isWait) {
+	        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+	    } else {
+	        // ユーザーの要望通りクロスヘアに戻す
+	        setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+	    }
+	}
 
 	public void loadRoiToCurrentSlideGlass() {
 		SlideGlass sg = getCurrentSlide();
@@ -1912,7 +1936,7 @@ public class Praparat extends JPanel {
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/* keep null file paths */);
 
-		constructSlideGlassesFromImagePlus(images, sortCZT);
+		constructSlideGlassesFromImagePlus(images);
 		applyGlobalAutoWindow(images);// before slider.initContext
 		updateSlidersVisibility();
 
@@ -2576,52 +2600,92 @@ public class Praparat extends JPanel {
 			currentSlice = sliceIndex;
 			return;
 		}
+		
+		// ★ 1. 処理開始前にWAITにする
+	    setWaitCursor(true);
+	    
+	    try {
+	    	// set image first time
+			if (currentSlice == -1) {
+				currentSlice = sliceIndex;
+				// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
+				Double syncMag = 1.0;
+				Double syncRot = 0.0;
+				Double syncMin = null;
+				Double syncMax = null;
+				Point syncOrigin = null;
+				realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
-		// set image first time
-		if (currentSlice == -1) {
+				SlideGlass currentGlass = this.slides.get(currentSlice);
+				if (currentGlass == null)
+					return;
+
+				// init all slide//already loaded (ImagePlus pattern)
+				// move, zoom, rotate, windowing
+				for (int i = 0; i < slides.size(); i++) {
+					SlideGlass sg = slides.get(i);
+					if (syncMag != null && Double.isFinite(syncMag))
+						sg.zoom(syncMag, false/* dummy */);
+					if (syncRot != null && Double.isFinite(syncRot))
+						sg.rotate(syncRot);
+					if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
+						sg.changeWindowingByMinMax(syncMin, syncMax);
+					} else if (sg.currentMin != sg.currentMax) {
+						// initGlobalContrast() で設定済みの値をそのまま適用
+						sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
+					}
+					// finally set origin
+					if (syncOrigin != null)
+						sg.setDisplayOrigin(syncOrigin);
+				}
+
+				boolean sizeChanged = (currentGlass.getWidth() != viewPanel.getWidth()
+						|| currentGlass.getHeight() != viewPanel.getHeight());
+
+				viewPanel.removeAll();
+				viewPanel.add(currentGlass, 0);
+
+				if (sizeChanged) {
+					currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+					viewPanel.revalidate(); // サイズが変わった時だけ重い処理をする
+				}
+				viewPanel.repaint(); // 画面の更新だけならrepaintで十分
+
+				// 2. 前後の先読みを開始（バックグラウンドスレッド）
+				manageCache(currentSlice);
+
+				currentGlass.updateDisplayImage();
+				currentGlass.repaint();
+				currentGlass.requestFocus();
+				currentGlass.setFocusGained(true);// for key listener
+				return;
+			}
+
+			if (currentSlice == sliceIndex) {
+				return;
+			}
+
 			currentSlice = sliceIndex;
 			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
-			Double syncMag = 1.0;
-			Double syncRot = 0.0;
-			Double syncMin = null;
-			Double syncMax = null;
-			Point syncOrigin = null;
-			realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
-
 			SlideGlass currentGlass = this.slides.get(currentSlice);
 			if (currentGlass == null)
 				return;
 
-			// init all slide//already loaded (ImagePlus pattern)
-			// move, zoom, rotate, windowing
-			for (int i = 0; i < slides.size(); i++) {
-				SlideGlass sg = slides.get(i);
-				if (syncMag != null && Double.isFinite(syncMag))
-					sg.zoom(syncMag, false/* dummy */);
-				if (syncRot != null && Double.isFinite(syncRot))
-					sg.rotate(syncRot);
-				if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
-					sg.changeWindowingByMinMax(syncMin, syncMax);
-				} else if (sg.currentMin != sg.currentMax) {
-					// initGlobalContrast() で設定済みの値をそのまま適用
-					sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
-				}
-				// finally set origin
-				if (syncOrigin != null)
-					sg.setDisplayOrigin(syncOrigin);
-			}
-
-			boolean sizeChanged = (currentGlass.getWidth() != viewPanel.getWidth()
-					|| currentGlass.getHeight() != viewPanel.getHeight());
+			double syncMag = currentGlass.getMagnification();
+			double syncRot = currentGlass.getRotateAngle();
+			Double syncMin = currentGlass.currentMin;
+			Double syncMax = currentGlass.currentMax;
+			Point syncOrigin = currentGlass.getDisplayImageOriginXY();
+			realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
 			viewPanel.removeAll();
 			viewPanel.add(currentGlass, 0);
 
-			if (sizeChanged) {
-				currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
-				viewPanel.revalidate(); // サイズが変わった時だけ重い処理をする
-			}
-			viewPanel.repaint(); // 画面の更新だけならrepaintで十分
+			currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+
+			// 親パネルにレイアウトの再計算と再描画を強制する
+			viewPanel.revalidate();
+			viewPanel.repaint();
 
 			// 2. 前後の先読みを開始（バックグラウンドスレッド）
 			manageCache(currentSlice);
@@ -2630,42 +2694,9 @@ public class Praparat extends JPanel {
 			currentGlass.repaint();
 			currentGlass.requestFocus();
 			currentGlass.setFocusGained(true);// for key listener
-			return;
-		}
-
-		if (currentSlice == sliceIndex) {
-			return;
-		}
-
-		currentSlice = sliceIndex;
-		// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
-		SlideGlass currentGlass = this.slides.get(currentSlice);
-		if (currentGlass == null)
-			return;
-
-		double syncMag = currentGlass.getMagnification();
-		double syncRot = currentGlass.getRotateAngle();
-		Double syncMin = currentGlass.currentMin;
-		Double syncMax = currentGlass.currentMax;
-		Point syncOrigin = currentGlass.getDisplayImageOriginXY();
-		realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
-
-		viewPanel.removeAll();
-		viewPanel.add(currentGlass, 0);
-
-		currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
-
-		// 親パネルにレイアウトの再計算と再描画を強制する
-		viewPanel.revalidate();
-		viewPanel.repaint();
-
-		// 2. 前後の先読みを開始（バックグラウンドスレッド）
-		manageCache(currentSlice);
-
-		currentGlass.updateDisplayImage();
-		currentGlass.repaint();
-		currentGlass.requestFocus();
-		currentGlass.setFocusGained(true);// for key listener
+	    }finally {
+	    	setWaitCursor(false);
+	    }
 	}
 
 	public void setImagePositionTo(SlideGlass sg) {
@@ -3092,6 +3123,8 @@ public class Praparat extends JPanel {
 			scrollDebounceTimer = new javax.swing.Timer(40, e -> {
 				setImagePosition(pendingTargetIndex);
 				callBackLocalizer();
+				// fail safe : 画像のセットが終わったらクロスヘアに戻す
+	            setWaitCursor(false);
 			});
 			scrollDebounceTimer.setRepeats(false); // 1回だけ実行
 		}

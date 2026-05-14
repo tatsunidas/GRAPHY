@@ -94,7 +94,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class MainScreen extends JFrame implements WindowListener, ComponentListener{
+public class MainScreen extends JFrame implements WindowListener, ComponentListener {
 
 	// singleton
 	private static MainScreen mainScreen;
@@ -107,7 +107,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	private TreeTableDockManager tabDockManager;
 	private DICOMTreeTable homeTreeTable;// local treetable
 	public final String home = TreeTableDockManager.homeTabName;
-	
+
 	/* Main menu */
 	MainScreenMenu mainMenu;
 	/* Main ToolBar */
@@ -118,9 +118,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	JToolBar treeTableDock;// dockable treetable
 	BirdsEyeView bev;
 	JSplitPane treeTbaleAndBirdsEyeSplitPane;
-	
+
 	InformationBar statusBar;
-	
+
 	public int progressValue = 0;
 
 	public JPanel activeViewPanel;
@@ -133,15 +133,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	DragSourceListener sourceListener;
 
 	DragSource dragSource;
-	
-	
 
 	Logger logger = Log.logger;
-	
+
 	/* Guard to cancel stale BirdsEyeView update threads */
 	private final AtomicLong birdsEyeRequestId = new AtomicLong(0);
 	private javax.swing.Timer birdsEyeDelayTimer;
-	
+
 	/**
 	 * singleton
 	 */
@@ -151,20 +149,21 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		setContents();
 		setLastScreenState();
 	}
-	
+
 	public static MainScreen getInstance() {
 		if (mainScreen == null) {
 			mainScreen = new MainScreen();
 		}
 		return mainScreen;
 	}
-	
+
 	private static GraphicsConfiguration loadLastGraphicConfiguration() {
 		GraphicsDevice[] screenDevices = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
-		String lastMainScreenDeviceID = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(), GraphyProp.MainScreenDeviceID.name());
-		if(screenDevices != null && (lastMainScreenDeviceID != null && lastMainScreenDeviceID.length()!=0)) {
-			for(GraphicsDevice gd:screenDevices) {
-				if(gd.getIDstring().equals(lastMainScreenDeviceID)) {
+		String lastMainScreenDeviceID = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props.toString(),
+				GraphyProp.MainScreenDeviceID.name());
+		if (screenDevices != null && (lastMainScreenDeviceID != null && lastMainScreenDeviceID.length() != 0)) {
+			for (GraphicsDevice gd : screenDevices) {
+				if (gd.getIDstring().equals(lastMainScreenDeviceID)) {
 					Log.logger.fine("MainScreen::GraphicsConfiguration: " + gd.getDefaultConfiguration());
 					return gd.getDefaultConfiguration();
 				}
@@ -172,35 +171,38 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		}
 		return null;
 	}
-	
+
 	public void clearPatientInfo() {
 		bev.resetViews(true);
 	}
 
 	@Override
-	public void componentHidden(ComponentEvent e) {}
-	
+	public void componentHidden(ComponentEvent e) {
+	}
+
 	@Override
-	public void componentMoved(ComponentEvent e) {}
-	
+	public void componentMoved(ComponentEvent e) {
+	}
+
 	@Override
-	public void componentResized(ComponentEvent e) {}
-	
+	public void componentResized(ComponentEvent e) {
+	}
+
 	@Override
 	public void componentShown(ComponentEvent e) {
-		if(bev !=null) {
+		if (bev != null) {
 			bev.resetViews(true);
 		}
-		if(treeTbaleAndBirdsEyeSplitPane !=null) {
-			int h =treeTbaleAndBirdsEyeSplitPane.getHeight();
-			treeTbaleAndBirdsEyeSplitPane.setDividerLocation(h-(h/2));
+		if (treeTbaleAndBirdsEyeSplitPane != null) {
+			int h = treeTbaleAndBirdsEyeSplitPane.getHeight();
+			treeTbaleAndBirdsEyeSplitPane.setDividerLocation(h - (h / 2));
 		}
 	}
-	
+
 	public TreeTableDockManager getTreeTableDockManager() {
 		return this.tabDockManager;
 	}
-	
+
 	public DICOMTreeTable getLocalTreeTable() {
 		return homeTreeTable;
 	}
@@ -211,29 +213,29 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	public JMenuBar getMainMenuBar() {
 		return this.mainMenu;
 	}
-	
+
 	public SearchToolBar getMainSearchToolBar() {
 		return this.searchToolBar;
 	}
-	
+
 	public ArrayList<DICOMNode> getSelectedNode() {
 		return homeTreeTable.getSelectedNodes();
 	}
-	
+
 	public boolean isHomeTop() {
 		return tabDockManager.isHomeTop();
 	}
-	
+
 	public void ignoreRepaintBirdsEye(boolean ignore) {
 		bev.ignoreRepaintAllSlides(ignore);
 	}
-	
-	private void initHomeTreeTables(){
+
+	private void initHomeTreeTables() {
 		// Local/QR TreeTables Manager
-		tabDockManager = new TreeTableDockManager();//TabbedPane
+		tabDockManager = new TreeTableDockManager();// TabbedPane
 		/* Local(HOME) TreeTable */
 		DICOMTreeTableModel model = new DICOMTreeTableModel(new DICOMNode(true, new ArrayList<DICOMNode>()));
-		homeTreeTable = new DICOMTreeTable(model,false,null);
+		homeTreeTable = new DICOMTreeTable(model, false, null);
 		try {
 			tabDockManager.addTreeTable(true, home, homeTreeTable);
 		} catch (URISyntaxException e) {
@@ -245,22 +247,24 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		}
 	}
-	
+
 	private void initQRTreeTables() {
 		/* QR TreeTables */
 		ArrayList<DicomCommunicationNode> servers = DatabaseHandler.getInstance().loadServerList();
-		if(servers != null && !servers.isEmpty()) {
-			//show top ? if no, set HOME to Top.
-			String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
-			for(DicomCommunicationNode svr:servers) {
-				//constructQRTreeTables
+		if (servers != null && !servers.isEmpty()) {
+			// show top ? if no, set HOME to Top.
+			String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props,
+					GraphyProp.MainTreeTableKeepTopTitle);
+			for (DicomCommunicationNode svr : servers) {
+				// constructQRTreeTables
 				boolean svrReady = DimseUtilities.echo(svr);
-				if(!svrReady) {
+				if (!svrReady) {
 					continue;
 				}
-				//set today's nodes.
-				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToday(svr));
-				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true,svr);
+				// set today's nodes.
+				DICOMTreeTableModel modelQR = new DICOMTreeTableModel(
+						new QueryRetrieve(true/* queryOnly */).queryToday(svr));
+				DICOMTreeTable qrTreeTable = new DICOMTreeTable(modelQR, true, svr);
 				try {
 					tabDockManager.addTreeTable(false, svr.getNickname(), qrTreeTable);
 					tabDockManager.getDock(svr.getNickname()).updateTreeTableStatus();
@@ -268,27 +272,28 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 					e.printStackTrace();
 				}
 			}
-			if(keepTopTitle != null && !keepTopTitle.isEmpty()) {
+			if (keepTopTitle != null && !keepTopTitle.isEmpty()) {
 				tabDockManager.setToTopTab(keepTopTitle);
 			}
 			tabDockManager.startRefreshQRTableTimer();
 		}
 	}
-	
+
 	public void loadLocalStudiesBySearchKey() {
 		HashMap<String, Object> keys = getMainSearchToolBar().getCurrentSearchConditions();
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		@SuppressWarnings("unchecked")
-		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeys2((String)keys.get("PatientID"), (String)keys.get("PatientName"), (String)keys.get("From"), (String)keys.get("To"),
-				(ArrayList<String>)keys.get("Modalities"));
-		if(selectedStudies == null) {
+		ArrayList<DefaultMutableTreeNode> selectedStudies = db.selectStudiesWithSearchKeys2(
+				(String) keys.get("PatientID"), (String) keys.get("PatientName"), (String) keys.get("From"),
+				(String) keys.get("To"), (ArrayList<String>) keys.get("Modalities"));
+		if (selectedStudies == null) {
 			selectedStudies = new ArrayList<>();
 		}
 		DICOMNodeBuilder builder = new DICOMNodeBuilder();
 		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(selectedStudies);
 		this.tabDockManager.getHomeDock().updateTreeTableStatus(newRoot);
 	}
-	
+
 	/**
 	 * do it starting-up
 	 */
@@ -311,9 +316,9 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 //		DICOMNode newRoot = builder.buildRootNodeUsingTreeNodes(localStudies);
 //		this.tabDockManager.getHomeDock().updateTreeTable(newRoot);
 //	}
-	
+
 	public void maximizeWindow() {
-		if(!isVisible()) {
+		if (!isVisible()) {
 			return;
 		}
 		SwingUtilities.invokeLater(new Runnable() {
@@ -325,14 +330,14 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			}
 		});
 	}
-	
+
 	/**
 	 * mimic method, but easy to use for me.
 	 */
 	public void refleshAnchorTreeTable() {
 		searchCurrentConditions();
 	}
-	
+
 	/**
 	 * reflesh laf
 	 */
@@ -340,7 +345,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		LookAndFeels laf = ApplicationFacade.getLookAndFeels();
 		laf.updateLookAndFeels(mainScreen);
 	}
-	
+
 	private void saveCurrentScreenState() {
 		String lastMainScreenDeviceID = getGraphicsConfiguration().getDevice().getIDstring();
 		String lastMainScreenX = String.valueOf(getLocationOnScreen().x);
@@ -353,33 +358,33 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenWidth, lastMainScreenW);
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenHeight, lastMainScreenH);
 	}
-	
+
 	/**
-	 * to avoid mimic method confusion for me. 
+	 * to avoid mimic method confusion for me.
 	 */
-	public void searchCurrentConditions(){
+	public void searchCurrentConditions() {
 		queryAndUpadateTreeTable();
 	}
-	
-	public void queryAndUpadateTreeTable(){
+
+	public void queryAndUpadateTreeTable() {
 		HashMap<String, Object> keys = searchToolBar.getCurrentSearchConditions();
-		String patID = (String)keys.get("PatientID");
-		String patName = (String)keys.get("PatientName");
-		String from = (String)keys.get("From");
-		String to = (String)keys.get("To");
+		String patID = (String) keys.get("PatientID");
+		String patName = (String) keys.get("PatientName");
+		String from = (String) keys.get("From");
+		String to = (String) keys.get("To");
 		@SuppressWarnings("unchecked")
-		ArrayList<String> m = (ArrayList<String>)keys.get("Modalities");
+		ArrayList<String> m = (ArrayList<String>) keys.get("Modalities");
 		boolean ignoreNullSearchKeyWarning = Utils.ignoreNullSearchKeyWarning();
-		if(Utils.isDebug) {
+		if (Utils.isDebug) {
 			Log.logger.log(Level.FINE, "Ignore null search key warning when DEBUG mode.");
 			ignoreNullSearchKeyWarning = true;
 		}
 		queryAndUpadateTreeTable(patID, patName, from, to, m, ignoreNullSearchKeyWarning);
 	}
-	
+
 	/**
-	 * update current treetable.
-	 * If all docks are floating, update all.
+	 * update current treetable. If all docks are floating, update all.
+	 * 
 	 * @param patID
 	 * @param patName
 	 * @param from
@@ -389,115 +394,117 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 */
 	public void queryAndUpadateTreeTable(String patID, String patName, String from, String to,
 			ArrayList<String> modalities, boolean ignoreNullSearchKey) {
-		if(!ignoreNullSearchKey) {
-			if(searchToolBar.nullSearchKeys()) {
-				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys", "Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-				if(res != JOptionPane.OK_OPTION) {
+		if (!ignoreNullSearchKey) {
+			if (searchToolBar.nullSearchKeys()) {
+				int res = PopUpMessage.showDialog(WindowManager.getMainScreen(), "No search keys",
+						"Do you want to show all datasets in DB/REMOTE ?? (It is not recommended as usual.)",
+						JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				if (res != JOptionPane.OK_OPTION) {
 					return;
 				}
 			}
 		}
 		TabDock dock = tabDockManager.getCurrentTopDockStayInTabbedPane();
-		if(dock == null /*floating all docks*/) {
-			//update all dock ?
+		if (dock == null /* floating all docks */) {
+			// update all dock ?
 //			for(String nickName : tabDockManager.getAllNicknamesFromDocks()) {
 //				TabDock d = tabDockManager.getDock(nickName);
 //				queryAndUpadateTreeTable(d, patID, patName, from, to, modalities);
 //			}
 			String anchorNickName = tabDockManager.getCurrentAnchorTitle();
 			TabDock anchor = tabDockManager.getDock(anchorNickName);
-			new Thread(()->{
+			new Thread(() -> {
 				queryAndUpadateTreeTable(anchor, patID, patName, from, to, modalities);
 			}).start();
-		}else {
-			new Thread(()->{
+		} else {
+			new Thread(() -> {
 				queryAndUpadateTreeTable(dock, patID, patName, from, to, modalities);
 			}).start();
 		}
 	}
-	
-	private void queryAndUpadateTreeTable(TabDock dock, String patID, String patName, String from, String to, ArrayList<String> modalities) {
+
+	private void queryAndUpadateTreeTable(TabDock dock, String patID, String patName, String from, String to,
+			ArrayList<String> modalities) {
 		if (dock.getName().equals(home)) {
-			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + home+"]");
+			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + home + "]");
 			ArrayList<DefaultMutableTreeNode> selectedStudiesMaterials = DatabaseHandler.getInstance()
 					.selectStudiesWithSearchKeys2(patID, patName, from, to, modalities);
 			DICOMNode newRoot = new DICOMNodeBuilder().buildRootNodeUsingTreeNodes(selectedStudiesMaterials);
 			SwingUtilities.invokeLater(() -> dock.updateTreeTableStatus(newRoot));
 		} else {
-			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName()+"]");
+			Log.logger.fine("QueryAndUpadateTreeTable : TreeTableDock [" + dock.getName() + "]");
 			/* root */
-			DICOMNode queryResults = new QueryRetrieve(true/*queryOnly*/).querySimpleSearchKeys(dock.getName(), patID, patName, from, to,
-					modalities);
+			DICOMNode queryResults = new QueryRetrieve(true/* queryOnly */).querySimpleSearchKeys(dock.getName(), patID,
+					patName, from, to, modalities);
 			SwingUtilities.invokeLater(() -> dock.updateTreeTableStatus(queryResults));
 		}
 	}
-	
+
 	private void setContents() {
-		//Menubar
+		// Menubar
 		mainMenu = new MainScreenMenu();
 		setJMenuBar(mainMenu);
-		
+
 		/*
 		 * North Component
 		 */
 		JPanel mainNorthPanel = new JPanel();
 		mainNorthPanel.setLayout(new BorderLayout());
-		
-		//Toolbar under to north panel
+
+		// Toolbar under to north panel
 		mainToolBar = new MainScreenToolBar();
-		mainNorthPanel.add(mainToolBar,BorderLayout.NORTH);
-		
+		mainNorthPanel.add(mainToolBar, BorderLayout.NORTH);
+
 		/* SearchToolBar */
 		searchToolBar = new SearchToolBar(this);
-		mainNorthPanel.add(searchToolBar,BorderLayout.CENTER);
+		mainNorthPanel.add(searchToolBar, BorderLayout.CENTER);
 		add(mainNorthPanel, BorderLayout.NORTH);
-		
+
 		/*
 		 * Center Component
 		 */
-		//treetable and bird's eye view
+		// treetable and bird's eye view
 		treeTbaleAndBirdsEyeSplitPane = new JSplitPane();
 		treeTbaleAndBirdsEyeSplitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		treeTbaleAndBirdsEyeSplitPane.setOneTouchExpandable(true);
-		
-		//treeTables
+
+		// treeTables
 		initHomeTreeTables();
-		
-		//Next, update QRTables.
+
+		// Next, update QRTables.
 		/*
-		 * do not use main threads.　To avoid freeze during QR.
+		 * do not use main threads. To avoid freeze during QR.
 		 */
 		new Thread(() -> {
 			initQRTreeTables();
 		}).start();
-		
+
 		treeTbaleAndBirdsEyeSplitPane.setLeftComponent(tabDockManager);
-		
-		//birds eye view
+
+		// birds eye view
 		bev = new BirdsEyeView();
 		treeTbaleAndBirdsEyeSplitPane.setRightComponent(bev);
-		
+
 		add(treeTbaleAndBirdsEyeSplitPane, BorderLayout.CENTER);
-		
+
 		/*
-		 * South Component 
+		 * South Component
 		 */
-		//triangle bar
+		// triangle bar
 		statusBar = new InformationBar();
 		getContentPane().add(statusBar, BorderLayout.SOUTH);
-		
+
 		addWindowListener(this);
 		addComponentListener(this);
 	}
-	
+
 	/*
-	 * type:
-	 * Cursor.DEFAULT_CURSOR, etc
+	 * type: Cursor.DEFAULT_CURSOR, etc
 	 */
 	public void setCursor(int type) {
 		setCursor(new Cursor(type));
 	}
-	
+
 //	public synchronized void constructHomeTreeTable(DICOMNode root) {
 //		/* 
 //		 * table =treeTable has Adapter.
@@ -524,7 +531,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 //		}
 //		localTreeTable.setLastColumnOrder();
 //	}
-	
+
 //	public synchronized void constructQRTreeTable(DICOMTreeTable qrTreeTable, DICOMNode root) {
 //		((DICOMTreeTableModel) qrTreeTable.getTree().getModel()).setRoot((Object)root);
 //		((DICOMTreeTableModel) qrTreeTable.getTree().getModel()).reload(root);
@@ -533,16 +540,16 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 //		/* set column order to same localTreeTable*/
 //		qrTreeTable.setLastColumnOrder();
 //	}
-	
+
 	private void setDefaultScreenLocation() {
-		//first, set size
+		// first, set size
 		setSize(new Dimension(1200, 700));
 		setPreferredSize(new Dimension(1200, 700));
 		setLocationRelativeTo(null);
-		setBounds(getX(),getY(),1200,700);//important		
+		setBounds(getX(), getY(), 1200, 700);// important
 	}
-	
-	public void setInfoToPatientPanel(HashMap<String,String> infoset) {
+
+	public void setInfoToPatientPanel(HashMap<String, String> infoset) {
 		bev.setPatientInfo(infoset);
 	}
 
@@ -554,10 +561,11 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		String lastMainScreenY = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenY);
 		String lastMainScreenW = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenWidth);
 		String lastMainScreenH = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainScreenHeight);
-		if(lastMainScreenX == null || lastMainScreenY == null || lastMainScreenW == null || lastMainScreenH == null) {
+		if (lastMainScreenX == null || lastMainScreenY == null || lastMainScreenW == null || lastMainScreenH == null) {
 			setDefaultScreenLocation();
 			return;
-		}else if(lastMainScreenX.equals("") || lastMainScreenY.equals("") || lastMainScreenW.equals("") || lastMainScreenH.equals("")) {
+		} else if (lastMainScreenX.equals("") || lastMainScreenY.equals("") || lastMainScreenW.equals("")
+				|| lastMainScreenH.equals("")) {
 			setDefaultScreenLocation();
 			return;
 		}
@@ -567,24 +575,23 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		int w = Integer.parseInt(lastMainScreenW);
 		int h = Integer.parseInt(lastMainScreenH);
 		setPreferredSize(new Dimension(w, h));
-		setBounds(x,y,w,h);//important
+		setBounds(x, y, w, h);// important
 
 		/*
-		 * do not perform here.
-		 * setVisible(true);//see facade
+		 * do not perform here. setVisible(true);//see facade
 		 */
 	}
-	
+
 	private void setSettings() {
 		setName(ConfigInfo.MainScreen.toString());
 		setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
-		//set window title
+		// set window title
 		if (!isDebug) {
-			setTitle(ConfigInfo.AppName.toString()+" "+ApplicationFacade.version);
+			setTitle(ConfigInfo.AppName.toString() + " " + ApplicationFacade.version);
 		} else {
-			setTitle(ConfigInfo.AppName.toString()+" "+ApplicationFacade.version+" -debug mode-");
+			setTitle(ConfigInfo.AppName.toString() + " " + ApplicationFacade.version + " -debug mode-");
 		}
-		//set icon
+		// set icon
 		setIconImage(Resources.MainWindowIcon.loadIconFromResource().getImage());
 	}
 
@@ -609,7 +616,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		birdsEyeDelayTimer.start();
 
 	}
-	
+
 	/**
 	 * Load and Show images on BirdsEyeView
 	 */
@@ -621,12 +628,13 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 		TabDock homeDock = ttdm.getHomeDock();
 		DICOMTreeTable tt = homeDock.getDICOMTreeTable();
 		ArrayList<DICOMNode> selectedNodes = tt.getSelectedNodes();
-		
+
 		if (selectedNodes == null || selectedNodes.isEmpty()) {
-			if (bev != null) bev.resetViews(true);
+			if (bev != null)
+				bev.resetViews(true);
 			return;
 		}
-		
+
 		// もし複数スタディが選択されている場合は表示しない
 		int studyCount = 0;
 		for (DICOMNode n : selectedNodes) {
@@ -638,7 +646,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			logger.fine("showImagesOnBirdsEye(): Can not show multi studies on Bird's eye view.");
 			return;
 		}
-		
+
 		ArrayList<String> selectedSeriesUIDs = new ArrayList<>();
 		HashMap<String, ArrayList<String>> selectedImageUIDs = new HashMap<>();
 		for (DICOMNode n : selectedNodes) {
@@ -651,37 +659,49 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 					uids.add(n.getData(DICOMNode.SOPInstanceUID));
 					selectedImageUIDs.put(n.getData(DICOMNode.SeriesInstanceUID), uids);
 				} else {
-					selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID)).add(n.getData(DICOMNode.SOPInstanceUID));
+					selectedImageUIDs.get(n.getData(DICOMNode.SeriesInstanceUID))
+							.add(n.getData(DICOMNode.SOPInstanceUID));
 				}
 			}
 		}
-		
+
 		String patID = selectedNodes.get(0).getData(DICOMNode.PatientID);
 		String studyUID = selectedNodes.get(0).getData(DICOMNode.StudyInstanceUID);
-		
+
 		if (bev != null) {
 			String currentShowingStudyUID = bev.getShowingStudyUID();
-			
+
 			// 別の患者（Study）が選択された場合は、スレッド開始前に即座に画面をクリアする！
 			if (currentShowingStudyUID == null || !currentShowingStudyUID.equals(studyUID)) {
 				// ★ 画面クリアを強制実行して、古い患者の画像が残るのを防ぐ
-				bev.resetViews(true); 
-				
+				bev.resetViews(true);
 				final long reqId = birdsEyeRequestId.incrementAndGet();
+
+				setCursor(Cursor.WAIT_CURSOR);
+
 				new Thread(() -> {
-					// 自分が最新のタスクでなければ即終了
-					if (reqId != birdsEyeRequestId.get()) return;
+					if (reqId != birdsEyeRequestId.get()) {
+						// 自分が最新のタスクでなければ即終了
+						// カーソルは戻す
+						SwingUtilities.invokeLater(() -> setCursor(Cursor.DEFAULT_CURSOR));
+						return;
+					}
 					bev.showImages(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
-				
+
 			} else if (currentShowingStudyUID.equals(studyUID)) {
 				if (selectedSeriesUIDs.size() == 0 && selectedImageUIDs.size() == 0) {
 					return;
 				}
 				final long reqId = birdsEyeRequestId.incrementAndGet();
+				setCursor(Cursor.WAIT_CURSOR);
 				new Thread(() -> {
 					// 自分が最新のタスクでなければ即終了
-					if (reqId != birdsEyeRequestId.get()) return;
+					if (reqId != birdsEyeRequestId.get()) {
+	                    // キャンセル時はすぐにデフォルトに戻す
+	                    SwingUtilities.invokeLater(() -> setCursor(Cursor.DEFAULT_CURSOR));
+	                    return;
+	                }
 					bev.updateViews(patID, studyUID, selectedSeriesUIDs, selectedImageUIDs);
 				}).start();
 			}
@@ -691,7 +711,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	public void showImagesOnBirdsEye(Praparat thumbnailedParap) {
 		bev.showImagesFromThumbnailAction(thumbnailedParap);
 	}
-	
+
 	/**
 	 * The state of the ROI may change after editing in 2Dviewer; if a patient
 	 * handled in 2DViewer was opened in BEV, reset it once.
@@ -699,59 +719,61 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	 * @param patIDs
 	 */
 	public void resetBirdsEyeView(String[] patIDs) {
-		if(patIDs == null) {
-			//see, referencing by treeTableDockManager.
+		if (patIDs == null) {
+			// see, referencing by treeTableDockManager.
 			bev.resetViews(true);
 			return;
 		}
-		HashMap<String,String> pInfo = bev.getPatientInfo();
-		if(pInfo == null) {
+		HashMap<String, String> pInfo = bev.getPatientInfo();
+		if (pInfo == null) {
 			return;
 		}
-		for(String patID : patIDs) {
-			if(patID.equals(pInfo.get(ContextKey.PatientID.name()))) {
+		for (String patID : patIDs) {
+			if (patID.equals(pInfo.get(ContextKey.PatientID.name()))) {
 				bev.resetViews(true);
 			}
 		}
 	}
 
-	public void updateQRTreeTables(){
-		//get serverlist
+	public void updateQRTreeTables() {
+		// get serverlist
 		ArrayList<DicomCommunicationNode> remoteServers = DatabaseHandler.getInstance().loadServerList();
-		String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.MainTreeTableKeepTopTitle);
-		for(DicomCommunicationNode svr:remoteServers) {
-			//constructQRTreeTables
+		String keepTopTitle = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props,
+				GraphyProp.MainTreeTableKeepTopTitle);
+		for (DicomCommunicationNode svr : remoteServers) {
+			// constructQRTreeTables
 			boolean svrReady = DimseUtilities.echo(svr);
-			if(!svrReady) {
+			if (!svrReady) {
 				/*
 				 * if remote svr in non-communicate still stay in docks, remove it.
 				 */
 				tabDockManager.removeDockAt(svr.getNickname());
 				continue;
 			}
-			//check already on tabDock
+			// check already on tabDock
 			boolean found = false;
-			for(String nickname:tabDockManager.getAllNicknamesFromDocks()) {
-				if(nickname.equals(home)) {//is this dead code ?? home is not including remote. 
+			for (String nickname : tabDockManager.getAllNicknamesFromDocks()) {
+				if (nickname.equals(home)) {// is this dead code ?? home is not including remote.
 					continue;
 				}
-				if(nickname.equals(svr.getNickname())) {
+				if (nickname.equals(svr.getNickname())) {
 					found = true;
 					break;
 				}
 			}
 			DICOMTreeTable qrTreeTable = null;
-			if(found) {
-				//update tree
-				//get prev root node
+			if (found) {
+				// update tree
+				// get prev root node
 				TabDock prevDock = tabDockManager.getDock(svr.getNickname());
 				DICOMTreeTable prevTreeTable = prevDock.getDICOMTreeTable();
 				DICOMNode root = (DICOMNode) prevTreeTable.getTree().getModel().getRoot();
-				//create new TabDock and set tabDockManager
+				// create new TabDock and set tabDockManager
 				DICOMTreeTableModel model = new DICOMTreeTableModel(root);
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
-			}else{//addNew
-				DICOMTreeTableModel model = new DICOMTreeTableModel(new QueryRetrieve(true/*queryOnly*/).queryToday(svr));
+			} else {// addNew
+				DICOMTreeTableModel model = new DICOMTreeTableModel(
+						new QueryRetrieve(true/* queryOnly */).queryToday(svr));
 				qrTreeTable = new DICOMTreeTable(model, true, svr);
 				/* add or update Dock */
 				try {
@@ -760,45 +782,44 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 					e.printStackTrace();
 				}
 			}
-			if(keepTopTitle.equals(svr.getNickname())){
+			if (keepTopTitle.equals(svr.getNickname())) {
 				tabDockManager.setToTopTab(keepTopTitle);
 			}
 		}
 		tabDockManager.startRefreshQRTableTimer();
 	}
-	
+
 	public void startProgressBar(int taskSizeTotal) {
 		statusBar.initProgressBar(taskSizeTotal);
 		statusBar.showProgressBar(true);
 	}
-	
+
 	public void setProgressValue(int v) {
 		statusBar.setProgressValue(v);
 	}
-	
+
 	public void removeProgressBar() {
 		statusBar.showProgressBar(false);
 	}
 
 	@Override
-	public void windowActivated(WindowEvent e) {}
+	public void windowActivated(WindowEvent e) {
+	}
 
 	@Override
-	public void windowClosed(WindowEvent e) {}
+	public void windowClosed(WindowEvent e) {
+	}
 
 	@Override
 	public void windowClosing(WindowEvent e) {
 		saveCurrentScreenState();
-		//close all window(2d,3d, etc)
+		// close all window(2d,3d, etc)
 		/*
-		 * 1. shutdown db
-		 * 2. shutdown qrscp
-		 * 3. delete tmp dir contents
-		 * 4. system.exit(0)
+		 * 1. shutdown db 2. shutdown qrscp 3. delete tmp dir contents 4. system.exit(0)
 		 */
 		try {
 			boolean close = ApplicationFacade.readyToClose(Level.INFO, "Shutting down graphy...");
-			if(!close) {
+			if (!close) {
 				return;
 			}
 		} catch (Throwable e1) {
@@ -808,15 +829,18 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	}
 
 	@Override
-	public void windowDeactivated(WindowEvent e) {}
+	public void windowDeactivated(WindowEvent e) {
+	}
 
 	@Override
-	public void windowDeiconified(WindowEvent e) {}
+	public void windowDeiconified(WindowEvent e) {
+	}
 
 	@Override
-	public void windowIconified(WindowEvent e) {}
+	public void windowIconified(WindowEvent e) {
+	}
 
 	@Override
-	public void windowOpened(WindowEvent e) {}
+	public void windowOpened(WindowEvent e) {
+	}
 }
-
