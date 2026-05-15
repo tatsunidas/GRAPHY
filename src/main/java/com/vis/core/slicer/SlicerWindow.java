@@ -99,11 +99,13 @@ public class SlicerWindow extends JFrame {
 //				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		new SlicerWindow(ax, null);
 		
-		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
-		Praparat pp = new Praparat(ax2, null, ViewMode.SingleGrid, false);
-		new SlicerWindow(pp);
+//		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
+//		Praparat pp = new Praparat(ax2, null, ViewMode.SingleGrid, false);
+//		new SlicerWindow(pp);
 		
-//		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
+		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
+		Praparat pp = new Praparat(ax, null, ViewMode.SingleGrid, false);
+		new SlicerWindow(pp);
 
 //		ImagePlus ct = new ImagePlus("/home/tatsunidas/graphy_sample_images/dicom_samples/JIRA_DICOM/CT_LEE_IR87a.dcm");
 
@@ -568,6 +570,7 @@ public class SlicerWindow extends JFrame {
 			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
 		}
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
+//		String header = xz_imp.getStack().getSliceLabel(1);
 		xz_imp.setCalibration(cal);
 		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
 		return xz_imp;

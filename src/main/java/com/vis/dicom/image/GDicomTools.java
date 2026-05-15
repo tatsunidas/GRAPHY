@@ -83,10 +83,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		return slicePos;
 	}
 
-	/**
-	 * ImageJ標準の DicomTools.getTag はヘッダの厳格なバリデーション（PixelDataタグの有無など）を行い、
-	 * 不正とみなすと強制的に1枚目のInfoを返すというバグがあるため、使用を禁止し独自パーサーに迂回させる。
-	 */
 	public static String getTag(ImagePlus imp, String tag/* gggg,eeee */) {
 		if (imp == null)
 			return null;
@@ -122,13 +118,8 @@ public class GDicomTools extends ij.util.DicomTools {
 	 * @return value string or null
 	 */
 	public static String getTag(ImagePlus imp, int tag) {
-		// 上位16ビット（グループ番号）を抽出
-		int group = (tag >> 16) & 0xFFFF;
-		// 下位16ビット（エレメント番号）を抽出
-		int element = tag & 0xFFFF;
-		// "gggg,eeee" のフォーマットに変換（それぞれ4桁の16進数でゼロ埋め、小文字）
-		// ※ ImageJのDicomToolsは小文字・大文字どちらでも大抵動きますが、念のため小文字の %04x にしています。
-		String tagString = String.format("%04x,%04x", group, element);
+		String tagString = TagUtils.toString(tag);
+		tagString = tagString.substring(1,10);
 		return getTag(imp, tagString);
 	}
 
@@ -346,18 +337,15 @@ public class GDicomTools extends ij.util.DicomTools {
 //	}
 	
 	public static void setTag(ImagePlus imp, int pos/* 1 to N */, int tag/* only one tag */, String value) {
-		// 上位16ビット（グループ番号）を抽出
-		int group = (tag >> 16) & 0xFFFF;
-		// 下位16ビット（エレメント番号）を抽出
-		int element = tag & 0xFFFF;
-		// "gggg,eeee" のフォーマットに変換（それぞれ4桁の16進数でゼロ埋め、小文字）
-		// ※ ImageJのDicomToolsは小文字・大文字どちらでも大抵動きますが、念のため小文字の %04x にしています。
 		/*
-		 * 小文字統一
+		 * DICOM tag is hex, be keep upper case.
 		 */
-		String tagString = String.format("%04x,%04x", group, element);
-//		String tagStr = TagUtils.toString(tag);
-		setTag(imp, pos, tagString, value);
+		String tagStr = TagUtils.toString(tag);
+		if(tagStr != null) {
+			//(gggg,eeee)
+			tagStr = tagStr.substring(1, 10);
+			setTag(imp, pos, tagStr, value);
+		}
 	}
 
 	/**
@@ -729,9 +717,10 @@ public class GDicomTools extends ij.util.DicomTools {
 				indent += ">";
 			if (depth > 0)
 				indent += " ";
-
-			// タグを "gggg,eeee" 形式に変換（上位16ビットと下位16ビットをそれぞれ4桁の16進数でゼロ埋め）
-			String tagStr = String.format("%04x,%04x", (tag >> 16) & 0xFFFF, tag & 0xFFFF);
+			
+			String tagStr = TagUtils.toString(tag);
+			if(tagStr == null) continue;
+			tagStr = tagStr.substring(1,10);
 
 			VR vr = header.getVROn(tag);
 			if (vr == VR.SQ) {
@@ -1365,102 +1354,6 @@ public class GDicomTools extends ij.util.DicomTools {
 	}
 
 	/**
-	 * See, SlideGlass:initCalibrationAndLUT
-	 * 
-	 * @param imp
-	 * @param header
-	 */
-//	public static void calibrate(ImagePlus imp/*No calibrated imageplus*/, DicomObject header) {
-//		if(imp == null) {
-//			throw new NullPointerException();
-//		}
-//		if(header == null) {
-//			return;
-//		}
-//		/*No calibrated imageplus*/
-//		Calibration originalCal = imp.getCalibration();
-//		boolean isRGB = imp.getType() == ImagePlus.COLOR_RGB;
-//		if(isRGB) {
-//			imp.getProcessor().snapshot();
-//		}
-//		/*
-//		 * Spatial calibrations
-//		 */
-//		// x-y-z
-//		double pixelSpacingX = 1.0;
-//		double pixelSpacingY = 1.0;
-//		double pixelSpacingZ = 1.0;
-//		// Pixel Spacing = Row Spacing [PY] \ Column Spacing [PX] = 0.30\0.25.
-//		double[] pixelSpacing = header.getDoubles(Tag.Pixel​Spacing);
-//		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, -1);
-//		if (pixelSpacing != null && pixelSpacing != ByteUtils.EMPTY_DOUBLES) {
-//			pixelSpacingX = pixelSpacing[1];// column
-//			pixelSpacingY = pixelSpacing[0];// row
-//			if (spacingBetweenSlices != -1) {
-//				pixelSpacingZ = spacingBetweenSlices;
-//			} else {
-//				double sliceThickness = header.getDouble(Tag.Slice​Thickness, -1);
-//				if (sliceThickness != -1) {
-//					pixelSpacingZ = sliceThickness;
-//				}
-//			}
-//			/*
-//			 * Units is mm, that is dicom default. see, Pixel Spacing Attribute (0028,0030)
-//			 * definition.
-//			 */
-//			originalCal.setUnit("mm");//
-//		}
-//		// then, set to cal
-//		originalCal.pixelWidth = pixelSpacingX;
-//		originalCal.pixelHeight = pixelSpacingY;
-//		originalCal.pixelDepth = pixelSpacingZ;
-//		
-//		/*
-//		 * density calibration
-//		 */
-//		Double slope = header.getDouble(Tag.Rescale​Slope, Double.NaN);
-//		Double intercept = header.getDouble(Tag.Rescale​Intercept, Double.NaN);
-//		String modality = header.getString(Tag.Modality);
-//		boolean isSigned = header.getInt(Tag.Pixel​Representation, 0) != 0;
-//		if (header.getInt(Tag.Bits​Allocated, -1) == 16 && isSigned) {
-//			if (!intercept.isNaN() && !slope.isNaN()) {
-//				//y = a + bx
-//				double[] coeff = new double[2];//[a,b]
-//				coeff[0] = intercept - 32768*slope;
-//				coeff[1] = slope;
-//				originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//				//add another modalities unit...
-//				//...
-//			}else {
-//				originalCal.setSigned16BitCalibration();
-//			}
-//			if(modality != null && modality.equals("CT")) {
-//				originalCal.setValueUnit("HU");
-//			}
-//		}else if (!intercept.isNaN() && !slope.isNaN()) {
-//			double[] coeff = new double[2];
-//			coeff[0] = intercept;
-//			coeff[1] = slope;
-//			originalCal.setFunction(Calibration.STRAIGHT_LINE, coeff, "Gray Value");
-//		}
-//		imp.setCalibration(originalCal);
-//		// adjust WW/WL
-//		int WL = header.getInt(Tag.Window​Center, Integer.MIN_VALUE);
-//		int WW = header.getInt(Tag.Window​Width, Integer.MIN_VALUE);	
-//		if (WL == Integer.MIN_VALUE || WW == Integer.MIN_VALUE) {
-//			// do nothing
-//		}else {
-//			double newMin = WL - (.5 * WW);
-//			double newMax = WL + (.5 * WW);
-//			if (newMin > newMax) {
-//				Log.logger.log(Level.WARNING,"SlideGlass::changeWindow() problem occured :" + newMin + " " + newMax);
-//			}else {
-//				imp.setDisplayRange(newMin, newMax);
-//			}
-//		}
-//	}
-
-	/**
 	 * 
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
@@ -1512,55 +1405,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		double[] iop = getDoubles(imp, pos, "0020,0037");
 		return iop;
 	}
-
-//	/**
-//	 * シリーズを構成するファイルのリストから、代表となる1ファイルを選出する。
-//	 * ・DICOMDIR は除外
-//	 * ・非DICOMファイルは除外
-//	 * ・SCやKOが通常画像と混ざっている場合は、通常画像を優先して返す。
-//	 * ・SCやKOしか存在しない場合は、それを代表ファイルとして返す。
-//	 * * @param seriesFiles 同じシリーズに属するファイルのリスト
-//	 * @param errorLog エラーやスキップ情報を記録するリスト
-//	 * @return 代表ファイル（有効なファイルがない場合は null）
-//	 */
-//	public static File getRepresentativeFileOfSeries(List<File> seriesFiles, List<String> errorLog) {
-//		File fallbackFile = null;
-//
-//		for (File f : seriesFiles) {
-//			if (!f.exists() || f.isDirectory()) continue;
-//			
-//			// 1. DICOMDIR は除外
-//			if (DicomUtilities.isDICOMDIR(f)) {
-//				if (com.vis.core.util.Utils.isDebug) errorLog.add("Skipped DICOMDIR: " + f.getAbsolutePath());
-//				continue;
-//			}
-//			
-//			// 2. DICOMファイルかどうかのチェック
-//			if (!DicomUtilities.isDicomFile(f)) {
-//				errorLog.add("Not a DICOM file: " + f.getAbsolutePath());
-//				continue;
-//			}
-//
-//			// 3. SCやKOなどの非標準画像かどうかのチェック
-//			if (isSecondaryCaptureOrNonImage(f)) {
-//				// SC/KOしかない場合の保険として、最初の1つをキープしておく
-//				if (fallbackFile == null) fallbackFile = f;
-//				continue;
-//			}
-//
-//			// 4. ここに到達したということは、「純粋な標準画像（CT/MR等）」！これを最優先で返す。
-//			return f;
-//		}
-//
-//		// 標準画像が1枚も見つからなかったが、SC/KOは存在した場合（「それしかない」パターン）
-//		if (fallbackFile != null) {
-//			errorLog.add("Note: Series contains only Secondary Capture or Non-Image data. Using as representative: " + fallbackFile.getAbsolutePath());
-//			return fallbackFile;
-//		}
-//
-//		// 有効なDICOMファイルが1つもなかった場合
-//		return null;
-//	}
 
 	/**
 	 * SOP Class UID をもとに、Secondary Capture や 非画像データ(KO, PR, SR等) であるかを判定する。
