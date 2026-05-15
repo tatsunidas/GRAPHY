@@ -234,7 +234,15 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		int h = getHeight();
 		int samples = getSamples();
 		int bits = getBitsAllocated();
-		int frameLength = w * h * samples * (bits / 8);
+		
+		// for SEG file
+		int frameLength;
+		if (bits == 1) {
+		    // 8ピクセルで1バイトを消費するため、切り上げ計算を行う
+		    frameLength = (w * h * samples + 7) / 8;
+		} else {
+		    frameLength = w * h * samples * (bits / 8);
+		}
 		
 		if(frame < 0 || frame > getNumOfFrames()) {
 			return null;
@@ -722,25 +730,37 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 				frags.set(frame + 1, pixelsByte);
 			}
 		} else {
-			// ★ BulkDataやキャッシュ状態に関わらず、確実に byte[] として上書きセットする
-			int numFrames = getNumOfFrames();
-			if (numFrames == 1) {
-				// 単一スライスならそのまま上書き
-				header.setBytes(tag, vr, pixelsByte);
-			} else {
-				// マルチフレーム(非圧縮)の場合は全データを展開して該当フレームを差し替え
-				byte[] allPixels = getNativePixelDataAll(tag, bulk);
-				if (allPixels != null) {
-					int frameLength = pixelsByte.length;
-					int offset = frame * frameLength;
-					System.arraycopy(pixelsByte, 0, allPixels, offset, frameLength);
-					header.setBytes(tag, vr, allPixels);
-				} else {
-				    byte[] newAllPixels = new byte[pixelsByte.length * numFrames];
-				    System.arraycopy(pixelsByte, 0, newAllPixels, frame * pixelsByte.length, pixelsByte.length);
-				    header.setBytes(tag, vr, newAllPixels);
-				}
-			}
+		    // ★ BulkDataやキャッシュ状態に関わらず、確実に byte[] として上書きセットする
+		    int numFrames = getNumOfFrames();
+		    if (numFrames == 1) {
+		        // 単一スライスならそのまま上書き
+		        header.setBytes(tag, vr, pixelsByte);
+		    } else {
+		        // マルチフレーム(非圧縮)の場合は全データを展開して該当フレームを差し替え
+		        byte[] allPixels = getNativePixelDataAll(tag, bulk);
+		        
+		        // ★フレーム長の計算を外出しして共通化する
+		        int frameLength;
+		        if (bitsAllocated == 1) {
+		            // 8ピクセルで1バイトを消費するため、切り上げ計算を行う (SEG等用)
+		            frameLength = (w * h * samples + 7) / 8;
+		        } else {
+		            // 通常の8bit, 16bit, 32bit用
+		            frameLength = w * h * samples * (bitsAllocated / 8);
+		        }
+
+		        if (allPixels != null) {
+		            int offset = frame * frameLength;
+		            // 念のため、コピーする長さは frameLength と pixelsByte.length の小さい方にするなどするとより安全です
+		            System.arraycopy(pixelsByte, 0, allPixels, offset, Math.min(frameLength, pixelsByte.length));
+		            header.setBytes(tag, vr, allPixels);
+		        } else {
+		            // 新規作成時は、正しい計算に基づいた全フレーム分の総容量を確保する
+		            byte[] newAllPixels = new byte[frameLength * numFrames];
+		            System.arraycopy(pixelsByte, 0, newAllPixels, frame * frameLength, Math.min(frameLength, pixelsByte.length));
+		            header.setBytes(tag, vr, newAllPixels);
+		        }
+		    }
 		}
 	}
 	

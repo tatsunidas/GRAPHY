@@ -689,13 +689,9 @@ public class ReferenceLineMPR {
 		} else if (currentTarget == CutSurface.SAGITTAL) {
 			targetVolume = yz;
 		}
-		
-		// ★ デバッグ：現在のスタックの1枚目に付随している生メタデータを確認
-//		String rawInfo = (String) targetVolume.getStack().getSliceLabel(1);
-//		Log.logger.info("[IOP_DEBUG] Raw Metadata in targetVolume: " + rawInfo);
 
 		double[] iop = GDicomTools.getImageOrientationPatient(targetVolume, 1);
-		Log.logger.info(String.format("[IOP_DEBUG] Parsed IOP: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f]", iop[0], iop[1],
+		Log.logger.fine(String.format("[IOP_DEBUG] Parsed IOP: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f]", iop[0], iop[1],
 				iop[2], iop[3], iop[4], iop[5]));
 
 		// 2. ターゲットのボクセルサイズ（FOVのピクセル換算用）

@@ -197,7 +197,7 @@ public class NIfTIToDicomConverter {
                             outputDir, sopClassUID, patientId, patientName, studyUID, seriesUID, studyDate,
                             seriesNumber, instNo, isColor, BitsAllocated, w, h, isSigned,
                             rescaleIntercept, rescaleSlope, ipp, iop, spacingYX, sliceThickness,
-                            pixelDataBytes, metaMap);
+                            pixelDataBytes,t, metaMap);
                     
                     if (listener != null) {
                         listener.onProgress(instNo, totalImages, "Converting...");
@@ -229,7 +229,7 @@ public class NIfTIToDicomConverter {
             String patientId, String patientName, String studyUID, String seriesUID, java.util.Date studyDate,
             int seriesNumber, int instanceNumber, boolean isColor, int BitsAllocated, int width, int height,
             boolean isSigned, double rescaleIntercept, double rescaleSlope, double[] ipp, double[] iop,
-            double[] spacing, double sliceThickness, byte[] pixelDataBytes, Map<String, Object> metaMap) {
+            double[] spacing, double sliceThickness, byte[] pixelDataBytes, int timeFrame, Map<String, Object> metaMap) {
         
         try {
             File outDir = new File(outputDirPath);
@@ -249,6 +249,9 @@ public class NIfTIToDicomConverter {
             ds.setString(Tag.Modality, VR.CS, "MR");
             ds.setInt(Tag.SeriesNumber, VR.IS, seriesNumber);
             ds.setInt(Tag.InstanceNumber, VR.IS, instanceNumber);
+            
+            //TimeFramePhase(5D)
+            ds.setInt(Tag.TemporalPositionIndex, VR.IS, timeFrame);
 
             // ★ JSONマップからメタデータを転記
 //            if (metaMap != null) {

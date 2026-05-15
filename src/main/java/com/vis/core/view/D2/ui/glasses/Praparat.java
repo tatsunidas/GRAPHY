@@ -806,13 +806,14 @@ public class Praparat extends JPanel {
 		if (slideList == null || slideList.isEmpty())
 			return;
 		
-		// ★ 追加: すべてのスライスでIOPが一致するかチェック（回転MIP対応）
-		double[] iop = slideList.get(0).getHeader().getDoubles(Tag.ImageOrientationPatient);
+		int firstFrameIdx = slideList.get(0).getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+		double[] iop = getSafeIOP(slideList.get(0).getHeader(), firstFrameIdx);
 		boolean isIopConsistent = true;
 		if (iop != null && iop.length == 6) {
-			for (int i = 1; i < slideList.size(); i++) {
-				double[] currentIop = slideList.get(i).getHeader().getDoubles(Tag.ImageOrientationPatient);
-				if (currentIop == null || currentIop.length != 6) {
+		    for (int i = 1; i < slideList.size(); i++) {
+		        int currentFrameIdx = slideList.get(i).getHeader().getInt(Tag.InstanceNumber, i + 1) - 1;
+		        double[] currentIop = getSafeIOP(slideList.get(i).getHeader(), currentFrameIdx);
+		        if (currentIop == null || currentIop.length != 6) {
 					isIopConsistent = false;
 					break;
 				}
@@ -877,9 +878,12 @@ public class Praparat extends JPanel {
 
 		List<SlidePos> spList = new ArrayList<>();
 		for (int i = 0; i < slideList.size(); i++) {
-			SlideGlass sg = slideList.get(i);
-			double[] ipp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
-			double pos = 0;
+		    SlideGlass sg = slideList.get(i);
+		    
+		    int frameIdx = sg.getHeader().getInt(Tag.InstanceNumber, i + 1) - 1;
+		    double[] ipp = getSafeIPP(sg.getHeader(), frameIdx);
+		    
+		    double pos = 0;
 			if (ipp != null && ipp.length >= 3) {
 				pos = (ipp[0] * nx) + (ipp[1] * ny) + (ipp[2] * nz);
 //				System.out.println("IOP dot : "+pos);
@@ -919,14 +923,44 @@ public class Praparat extends JPanel {
 		}
 
 		// ★ 次元の確定
-		this.nSlices = sliceGroups.size(); // ユニークな空間位置の数がそのままスライス数になる
-		this.nChannels = 1;
-		this.nFrames = 1; // 現状は時間をチャンネルとして吸収させる
-
-		for (List<SlideGlass> group : sliceGroups) {
-			if (group.size() > this.nChannels) {
-				this.nChannels = group.size(); // 同じ位置に重なっている最大枚数をチャンネル数とする
+		this.nSlices = sliceGroups.size();
+		this.nFrames = 1;
+		
+		boolean isSegmentation = false;
+		int maxSegNum = -1;
+		int maxTempPos = 1; // 最大のTimeFrameインデックスを探す
+		
+		for (SlidePos sp : spList) {
+			int frameIdx = sp.sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+			// SEGのチェック
+			int segNum = getSegmentNumber(sp.sg.getHeader(), frameIdx);
+			if (segNum > 0) {
+				isSegmentation = true;
+				if (segNum > maxSegNum) {
+					maxSegNum = segNum;
+				}
 			}
+			// ★ TimeFrame（T）のチェック
+		    int tIdx = sp.sg.getHeader().getInt(Tag.TemporalPositionIndex, 1);
+		    if (tIdx > maxTempPos) {
+		        maxTempPos = tIdx;
+		    }
+		}
+
+		this.nFrames = maxTempPos; // ★ 取得したTimeの最大値をT次元にセット
+
+		if (isSegmentation && maxSegNum > 0) {
+		    this.nChannels = maxSegNum;
+		} else {
+		    // 既存の「重なり枚数」ロジックから、Timeフレーム分を割って純粋なチャンネル数を出す
+		    this.nChannels = 1;
+		    for (List<SlideGlass> group : sliceGroups) {
+		        int overlappingImages = group.size();
+		        int channels = overlappingImages / this.nFrames; // Tで割る
+		        if (channels > this.nChannels) {
+		            this.nChannels = channels;
+		        }
+		    }
 		}
 
 		Log.logger.info("Auto-detected Dimensions -> Slices: " + nSlices + ", Channels: " + nChannels);
@@ -963,10 +997,27 @@ public class Praparat extends JPanel {
 				return 0; // 完全に同一とみなす
 			});
 
-			for (int c = 0; c < group.size(); c++) {
-				// Index = t * (nChannels * nSlices) + sliceIdx * nChannels + c
-				int index = (0 * (this.nChannels * this.nSlices)) + (sliceIdx * this.nChannels) + c;
-				slides.put(index, group.get(c));
+			for (int i = 0; i < group.size(); i++) {
+				SlideGlass sg = group.get(i);
+				
+				int tIdx = sg.getHeader().getInt(Tag.TemporalPositionIndex, 1) - 1; // 0ベースに変換
+				if (tIdx < 0) tIdx = 0; // フォールバック
+
+				int c = i; // デフォルトはリストの順番
+				if (isSegmentation) {
+					int frameIdx = sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+					int segNum = getSegmentNumber(sg.getHeader(), frameIdx);
+					if (segNum > 0) {
+						c = segNum - 1; // 1ベースのSegmentNumberを0ベースのチャンネルIndexに変換
+					}
+				} else if (this.nFrames > 1) {
+					// ★ 汎用5D対応: Timeが存在する場合、残りの重なり順(i)をチャンネルとして分配
+					c = i % this.nChannels;
+				}
+
+//				int index = (tIdx * (this.nChannels * this.nSlices)) + (sliceIdx * this.nChannels) + c;
+				int index = calcCztIndex(new int[] {c, sliceIdx, tIdx});
+				slides.put(index, sg);
 			}
 		}
 		// 最後に次元情報をUIに反映させる
@@ -1556,6 +1607,62 @@ public class Praparat extends JPanel {
 
 	public Modality getModality() {
 		return this.modality;
+	}
+	
+	private double[] getSafeIOP(DicomObject header, int frameIndex) {
+	    // 1. まずルート階層をチェック
+	    double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
+	    if (iop != null && iop.length == 6) return iop;
+
+	    // 2. SharedFunctionalGroupsSequence をチェック (Enhanced DICOM共通)
+	    DicomObject sharedSeq = header.getNestedDataset(Tag.SharedFunctionalGroupsSequence, 0);
+	    if (sharedSeq != null) {
+	        DicomObject planeOriSeq = sharedSeq.getNestedDataset(Tag.PlaneOrientationSequence, 0);
+	        if (planeOriSeq != null) {
+	            iop = planeOriSeq.getDoubles(Tag.ImageOrientationPatient);
+	            if (iop != null && iop.length == 6) return iop;
+	        }
+	    }
+
+	    // 3. PerFrameFunctionalGroupsSequence をチェック
+	    DicomObject perFrameSeq = header.getNestedDataset(Tag.PerFrameFunctionalGroupsSequence, frameIndex);
+	    if (perFrameSeq != null) {
+	        DicomObject planeOriSeq = perFrameSeq.getNestedDataset(Tag.PlaneOrientationSequence, 0);
+	        if (planeOriSeq != null) {
+	            return planeOriSeq.getDoubles(Tag.ImageOrientationPatient);
+	        }
+	    }
+	    return null;
+	}
+
+	private double[] getSafeIPP(DicomObject header, int frameIndex) {
+	    // 1. ルート階層をチェック
+	    double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
+	    if (ipp != null && ipp.length == 3) return ipp;
+
+	    // 2. PerFrameFunctionalGroupsSequence をチェック (SEG等のフレーム固有位置)
+	    DicomObject perFrameSeq = header.getNestedDataset(Tag.PerFrameFunctionalGroupsSequence, frameIndex);
+	    if (perFrameSeq != null) {
+	        DicomObject planePosSeq = perFrameSeq.getNestedDataset(Tag.PlanePositionSequence, 0);
+	        if (planePosSeq != null) {
+	            return planePosSeq.getDoubles(Tag.ImagePositionPatient);
+	        }
+	    }
+	    return null;
+	}
+	
+	private int getSegmentNumber(DicomObject header, int frameIndex) {
+	    // 0x52009230: PerFrameFunctionalGroupsSequence
+	    DicomObject perFrameSeq = header.getNestedDataset(Tag.PerFrameFunctionalGroupsSequence, frameIndex);
+	    if (perFrameSeq != null) {
+	        // 0x0062000A: SegmentIdentificationSequence
+	        DicomObject segIdentSeq = perFrameSeq.getNestedDataset(Tag.SegmentIdentificationSequence, 0);
+	        if (segIdentSeq != null) {
+	            // 0x0062000B: ReferencedSegmentNumber
+	            return segIdentSeq.getInt(Tag.ReferencedSegmentNumber, -1);
+	        }
+	    }
+	    return -1;
 	}
 
 	private String concatenationOfUIDStrings() {
@@ -2167,12 +2274,16 @@ public class Praparat extends JPanel {
 	/**
 	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
 	 */
-	private void realizeImage(int index /* 0 to N-1 */, boolean processSeries, Double syncMag, Double syncRot,
+	private void realizeImage(int index /* czt */, boolean processSeries, Double syncMag, Double syncRot,
 			Double syncMin, Double syncMax, Point syncOrigin) {
 		if (index < 0 || index >= slides.size()) {
 			return;
 		}
 		SlideGlass sg = slides.get(index);
+		// ★ 該当座標にSEGマスクが存在しない（スパースデータの空きマス）場合はスキップ
+		if (sg == null) {
+			return;
+		}
 		DicomImage dcmimg = sg.getDicomImage();
 		isMultiFrame = dcmimg.isMultiFrame();
 		isMultiFrame = isPDF == true ? true : isMultiFrame;
@@ -2182,7 +2293,11 @@ public class Praparat extends JPanel {
 			 * multi frame file has only one file path.
 			 */
 			int file_pos = isMultiFrame ? 0 : index;
-			int frame_pos = isMultiFrame ? index : 0;
+//			int frame_pos = isMultiFrame ? index : 0;
+			/*
+			 * DICOMのピクセルデータはCZT並びではないため
+			 */
+			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
 			if (hasFileSource(file_pos)) {
 				// 1. ファイルからピクセルを読み込む
 				if (dcmimg.ensurePixelDataLoaded()) {
@@ -2257,17 +2372,28 @@ public class Praparat extends JPanel {
 			if (requestId != latestCacheRequest.get()) {
 				return;
 			}
-
-			int totalSize = slides.size();
+			
+			// ★ 修正: totalSizeではなく全体容量(capacity)を使ってリングバッファを回す
+			int capacity = nChannels * nSlices * nFrames;
 
 			// 1. 周回を考慮した範囲の画像をロード
 			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
-				// ★ 処理中にも新しいリクエスト（次のスクロール）が来たら即座に中断
-				if (requestId != latestCacheRequest.get()) return;
-
-				int targetIndex = (currentIndex + i + totalSize) % totalSize;
+				if (requestId != latestCacheRequest.get())
+					return;
+				int targetIndex = (currentIndex + i + capacity) % capacity;
 				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			}
+
+//			int totalSize = slides.size();
+//
+//			// 1. 周回を考慮した範囲の画像をロード
+//			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
+//				// ★ 処理中にも新しいリクエスト（次のスクロール）が来たら即座に中断
+//				if (requestId != latestCacheRequest.get()) return;
+//
+//				int targetIndex = (currentIndex + i + totalSize) % totalSize;
+//				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
+//			}
 
 			// ロード完了後、SlideGlassに再描画を促す（最新リクエストの時のみ）
 			if (requestId == latestCacheRequest.get()) {
@@ -2281,9 +2407,10 @@ public class Praparat extends JPanel {
 			}
 
 			// 2. メモリ解放（範囲外の画像をアンロード）
-			if (totalSize > (PREFETCH_RANGE * 2 + 1) && requestId == latestCacheRequest.get()) {
-				for (int j = 0; j < totalSize; j++) {
-					if (!isWithinCircularRange(j, currentIndex, totalSize, PREFETCH_RANGE)) {
+			if (capacity > (PREFETCH_RANGE * 2 + 1) && requestId == latestCacheRequest.get()) {
+				// ★ 修正: keysetで回すことで、存在する要素だけを安全に解放
+				for (Integer j : slides.keySet()) {
+					if (!isWithinCircularRange(j, currentIndex, capacity, PREFETCH_RANGE)) {
 						unloadImage(j);
 					}
 				}
@@ -2665,8 +2792,15 @@ public class Praparat extends JPanel {
 				realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
 				SlideGlass currentGlass = this.slides.get(currentSlice);
-				if (currentGlass == null)
+				if (currentGlass == null) {
+					// このZ座標に現在の部位(チャンネル)のマスクが存在しない場合、画面をクリアする
+					viewPanel.removeAll();
+					viewPanel.setBackground(Color.BLACK); // ゼロ（黒）パディングを視覚化
+					viewPanel.revalidate();
+					viewPanel.repaint();
+					updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1); // ラベルのクリア
 					return;
+				}
 
 				// init all slide//already loaded (ImagePlus pattern)
 				// move, zoom, rotate, windowing
@@ -2716,8 +2850,15 @@ public class Praparat extends JPanel {
 			currentSlice = sliceIndex;
 			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
 			SlideGlass currentGlass = this.slides.get(currentSlice);
-			if (currentGlass == null)
+			if (currentGlass == null) {
+				// このZ座標に現在の部位(チャンネル)のマスクが存在しない場合、画面をクリアする
+				viewPanel.removeAll();
+				viewPanel.setBackground(Color.BLACK); // ゼロ（黒）パディングを視覚化
+				viewPanel.revalidate();
+				viewPanel.repaint();
+				updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1); // ラベルのクリア
 				return;
+			}
 
 			double syncMag = currentGlass.getMagnification();
 			double syncRot = currentGlass.getRotateAngle();

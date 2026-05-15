@@ -135,6 +135,9 @@ public class CineSlider extends JPanel implements ActionListener {
 			if (total <= 0) return;
 			initializing = true;
 			
+			// ★ 修正箇所: NPEを回避するため、一時的にラベル描画をオフにする
+		    setPaintLabels(false);
+		    
 			setLabelTable(null);
 			setMinimum(1);
 			setMaximum(total);
@@ -145,7 +148,7 @@ public class CineSlider extends JPanel implements ActionListener {
 
 			createLabelTableAndSet(majorTickSpacing, total);
 			setPaintTicks(true);
-			setPaintLabels(true);
+			setPaintLabels(true); // ★ 修正箇所: テーブルをセットしてからオンに戻す
 			setSnapToTicks(true);
 			
 			initializing = false;

@@ -296,7 +296,7 @@ public class SlideGlass extends JLayeredPane {
 		lastMax = currentMax; 
 		currentMin = newMin;
 		currentMax = newMax;
-		logger.fine("change ww/wl : newMin " + newMin + " newMax " + newMax);
+		//logger.fine("change ww/wl : newMin " + newMin + " newMax " + newMax);
 		imageSpecimen.updateDisplayImage();
 	}
 

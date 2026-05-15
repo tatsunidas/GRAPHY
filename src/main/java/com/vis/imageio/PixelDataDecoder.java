@@ -243,23 +243,46 @@ public class PixelDataDecoder {
 	}
 	
 	private ImageProcessor decodeGrayscale(byte[] bytes) {
-		ByteBuffer buffer = ByteBuffer.wrap(bytes).order(bigEndian ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
-		switch (bitsAllocated) {
-		case 8:
-			return processByte(buffer);
-		case 16:
-			return processShort(buffer);
-		case 32:
-			return processFloat(buffer);
-		case 64:
-			return processDouble(buffer);
-		default:
-			logger.warning("Unsupported BitsAllocated: " + bitsAllocated);
-			return null;
+	    ByteBuffer buffer = ByteBuffer.wrap(bytes).order(bigEndian ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
+	    switch (bitsAllocated) {
+	        case 1:
+	            return processBit(bytes); // for SEG
+	        case 8:
+	            return processByte(buffer);
+	        case 16:
+	            return processShort(buffer);
+	        case 32:
+	            return processFloat(buffer);
+	        case 64:
+	            return processDouble(buffer);
+	        default:
+	            logger.warning("Unsupported BitsAllocated: " + bitsAllocated);
+	            return null;
+	    }
+	}
+	
+	// --- 1-bit 専用の高速プロセッサ ---
+	private ImageProcessor processBit(byte[] bytes) {
+		byte[] pixels = new byte[w * h];
+		int pixelIndex = 0;
+
+		for (int i = 0; i < bytes.length && pixelIndex < w * h; i++) {
+			byte b = bytes[i];
+
+			// DICOMの仕様: 1バイト内のピクセル順序は LSB (Bit 0) から MSB (Bit 7) の順
+			for (int bit = 0; bit < 8 && pixelIndex < w * h; bit++) {
+				// 対象ビットが立っているか（1か）判定
+				boolean isSet = (b & (1 << bit)) != 0;
+
+				// マスク画像を視覚化するため、1なら白(255)、0なら黒(0)にマッピングする
+				pixels[pixelIndex++] = (byte) (isSet ? 255 : 0);
+			}
 		}
+
+		// ImageJは1bit画像を直接持てないため、8bitのByteProcessorとして返す
+		return new ByteProcessor(w, h, pixels);
 	}
 
-	// --- 各型専用の高速プロセッサ ---
 	private ImageProcessor processByte(ByteBuffer buffer) {
 		byte[] pixels = new byte[w * h];
 		/*
