@@ -254,13 +254,22 @@ public class SlicePlane {
 		Vector3d centerVec = new Vector3d(center[0], center[1], center[2]);
 		Matrix3d rotMatrix = new Matrix3d();
 		
-		if (rotateZ) rotMatrix.rotateZ(angle);
-		if (rotateY) rotMatrix.rotateY(angle);
-		if (rotateX) rotMatrix.rotateX(angle);
+//		if (rotateZ) rotMatrix.rotateZ(angle);
+//		if (rotateY) rotMatrix.rotateY(angle);
+//		if (rotateX) rotMatrix.rotateX(angle);
+//
+//		for (Vector3d vertex : cubeVertices) {
+//			vertex.sub(centerVec).mul(rotMatrix).add(centerVec);
+//		}
+		
+		// JOMLはラジアンを期待するため、Math.toRadians() を追加
+	    if (rotateZ) rotMatrix.rotateZ(Math.toRadians(angle));
+	    if (rotateY) rotMatrix.rotateY(Math.toRadians(angle));
+	    if (rotateX) rotMatrix.rotateX(Math.toRadians(angle));
 
-		for (Vector3d vertex : cubeVertices) {
-			vertex.sub(centerVec).mul(rotMatrix).add(centerVec);
-		}
+	    for (Vector3d vertex : cubeVertices) {
+	        vertex.sub(centerVec).mul(rotMatrix).add(centerVec);
+	    }
 
 		if (rotateX) {
 			updateIOPAfterRotateFromCenter(angle, 0, 0);

@@ -55,9 +55,9 @@ import ij.ImagePlus;
  */
 public class Slab {
 	
-	int rotateX = 0; // rotation in YZ space
-	int rotateY = 0; // rotation in XZ space
-	int rotateZ = 0; // rotation in XY space
+	double rotateX = 0; // rotation in YZ space
+	double rotateY = 0; // rotation in XZ space
+	double rotateZ = 0; // rotation in XY space
 	
 	SlicePlane boundingBox; // cover of all slices.
 	private List<SlicePlane> reslicePlanes;
@@ -125,10 +125,10 @@ public class Slab {
 			sp.rotateCube(center, ry, false, true, false);
 			sp.rotateCube(center, rz, false, false, true);
 		}
-		
-		rotateX += (int) rx;
-		rotateY += (int) ry;
-		rotateZ += (int) rz;
+		// (int) キャストを削除し、double のまま加算する
+		rotateX += rx;
+		rotateY += ry;
+		rotateZ += rz;
 	}
 		
 	public boolean isBoundingBox(Praparat pp, Vector3d ippOnMouse) {
