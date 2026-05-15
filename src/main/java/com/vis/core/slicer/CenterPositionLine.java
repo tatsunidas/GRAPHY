@@ -48,9 +48,6 @@ import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 
-import ij.ImagePlus;
-import ij.measure.Calibration;
-
 /**
  * 
  * @author tatsunidas
@@ -62,14 +59,6 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 	Color sliceLineColor = Color.CYAN;
 	Color center_support_line_color;//vertical line
 	int sliceLineStrokeWidth = 1;
-	
-	int imgW;
-	int imgH;
-	int imgS;
-	
-	double px;//pixel width to reference stack
-	double py;//pixel height
-	double pz;//pizel depth
 	
 	CutSurface plane;//Praparat plane
 	
@@ -98,45 +87,7 @@ public class CenterPositionLine extends com.vis.core.view.D2.roi.Line{
 				throw new IllegalArgumentException("Seems not suitable line for Sagittal");
 			}
 		}
-		setSpacialInfo(slide.getOriginalImage());
 	}
-	
-	private void setSpacialInfo(ImagePlus imp) {
-		this.imgW = imp.getWidth();
-		this.imgH = imp.getHeight();
-		this.imgS = imp.getNSlices();
-		Calibration cal = imp.getCalibration().copy();
-		this.px = cal.pixelWidth;
-		this.py = cal.pixelHeight;
-		this.pz = cal.pixelDepth;
-	}
-	
-//	@Override
-//	public int isHandle(int screenX, int screenY) {
-//		
-//		int sx = screenX;
-//		int sy = screenY;
-//		
-//		int size = HANDLE_SIZE+5;
-//		if (getStrokeWidth()>1) size += (int)Math.log(getStrokeWidth());
-//		int halfSize = size/2;
-//		
-//		Point sp1 = slide.slideglassCoordinateFromOffScreen(getXBase()+x1R, getYBase()+y1R);
-//		Point sp2 = slide.slideglassCoordinateFromOffScreen(getXBase()+x2R, getYBase()+y2R);
-//		
-//		int sx1 = sp1.x - halfSize;
-//		int sy1 = sp1.y - halfSize;
-//		int sx2 = sp2.x - halfSize;
-//		int sy2 = sp2.y - halfSize;
-//		int sx3 = sx1 + (sx2-sx1)/2-1;
-//		int sy3 = sy1 + (sy2-sy1)/2-1;
-//		
-////		if (sx>=sx1&&sx<=sx1+size&&sy>=sy1&&sy<=sy1+size) return 0;
-////		if (sx>=sx2&&sx<=sx2+size&&sy>=sy2&&sy<=sy2+size) return 1;
-//		// only use center.
-//		if (sx>=sx3&&sx<=sx3+size+2&&sy>=sy3&&sy<=sy3+size+2) return 2;
-//		return -1;
-//	}
 	
 	@Override
 	public int isHandle(int sx, int sy) {
