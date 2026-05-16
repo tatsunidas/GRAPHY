@@ -53,11 +53,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.tree.DefaultMutableTreeNode;
 
 import com.vis.configuration.Resources;
 import com.vis.core.anonymize.PixelAnonymizerDialog;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.search.DicomTagExtractorDialog;
 import com.vis.core.search.SeriesConditionExtractorDialog;
 import com.vis.core.ui.dialog.BurnerWindow;
@@ -91,6 +93,7 @@ public class MainScreenToolBar extends JToolBar {
 		TagExtractor,
 		SeriesExporter,
 		Anonymizer,
+		Radiomics,
 		Viewer, Viewer3D, Settings;
 	}
 
@@ -137,6 +140,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Send, Resources.MenuBarSendIcon.loadIconFromResource());
 //		map.put("query", "/icon" + sep + "ic_import_export_black_48dp.png");
 		map.put(Tool.Viewer, Resources.MenuBarViewer2DIcon.loadIconFromResource());
+		map.put(Tool.Radiomics, Resources.RadiomicsJIcon.loadIconFromResource());
 		map.put(Tool.Anonymizer, Resources.MenuBarAnonymizer.loadIconFromResource());
 		map.put(Tool.TagExtractor, Resources.MenuBarTagExtractor.loadIconFromResource());
 		map.put(Tool.SeriesExporter, Resources.MenuBarConditionalSeriesExtractor.loadIconFromResource());//
@@ -381,6 +385,36 @@ public class MainScreenToolBar extends JToolBar {
 		        dialog.setVisible(true);
 		    });
 		    break;
+		case Radiomics:
+			btn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent arg) {
+					ArrayList<DICOMNode> selected = WindowManager.getMainScreen().getSelectedNode();
+					if(selected == null || selected.size() == 0) {
+					    Log.logger.log(Level.INFO, "No selected study node, cannot start Radiomics.");
+					    return;
+					}
+
+					DICOMNode target = null;
+					for(DICOMNode node : selected) {
+					    if(node.getLevel() == DICOMNode.STUDY) {
+					        target = node;
+					        break;
+					    }
+					}
+
+					// ターゲットとなるSTUDYノードが見つかった場合のみ処理
+					if (target != null) {
+					    // ★ここがポイント：元のオブジェクトを壊さないよう、SERIESレベルまでを安全にディープコピー（IMAGEは自動除外）
+					    final DICOMNode study = target.cloneUpToLevel(DICOMNode.SERIES);
+					    
+					    SwingUtilities.invokeLater(() -> {
+					        new RadiomicsWindow(study);
+					    });
+					}
+				}
+			});
+			break;
 		default:
 		}
 	}

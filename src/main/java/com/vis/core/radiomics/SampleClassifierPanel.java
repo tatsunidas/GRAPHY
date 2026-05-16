@@ -97,7 +97,7 @@ import weka.gui.GUIChooserApp;
 import weka.gui.GenericObjectEditor;
 import weka.gui.PropertyPanel;
 
-public class RadiomicsPanel extends JPanel{
+public class SampleClassifierPanel extends JPanel{
 	
 	/**
 	 * 
@@ -153,7 +153,7 @@ public class RadiomicsPanel extends JPanel{
 	
 	ImagePlus pred;
 	
-	public RadiomicsPanel(RadiomicsWindow radW) {
+	public SampleClassifierPanel(RadiomicsWindow radW) {
 		this.radWin = radW;
 		setPipeline(radW.getPipeline());
 		initBtns();

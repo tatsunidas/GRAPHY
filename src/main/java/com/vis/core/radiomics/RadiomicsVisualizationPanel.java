@@ -57,7 +57,6 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -71,21 +70,32 @@ import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.dicom.DicomObject;
+import com.vis.dicom.Tag;
+import com.vis.dicom.VR;
+import com.vis.dicom.image.DicomImage;
+import com.vis.dicom.image.GDicomTools;
 
-import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.ImageRoi;
 import ij.io.FileSaver;
 import ij.io.Opener;
+import ij.measure.Calibration;
+import ij.measure.Measurements;
 import ij.plugin.FolderOpener;
 import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import ij.process.LUT;
+import ij.process.ShortProcessor;
 import ij.process.StackStatistics;
 import io.github.tatsunidas.radiomics.features.RadiomicsFeature;
 import io.github.tatsunidas.radiomics.main.FeatureCalculator;
@@ -137,7 +147,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	// --- UI Components ---
 	// LEFT configuration
 	private JButton loadImageButton, loadMaskButton;
-	private JButton loadImageFromDbButton, loadMaskFromDbButton;
+//	private JButton loadImageFromDbButton, loadMaskFromDbButton;
 	private JComboBox<String> featureComboBox;
 	private JSpinner filterSizeSpinner;
 	private JButton executeSliceButton, executeAllButton;
@@ -173,7 +183,6 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		
 		this.setLayout(new BorderLayout());
 		
-		
 		// left side panel: configuration panel
 		JPanel configPanel = new JPanel();
        configPanel.setLayout(new GridBagLayout());
@@ -198,14 +207,14 @@ public class RadiomicsVisualizationPanel extends JPanel {
        configPanel.add(loadFilePanel, gbc);
 		
 		// select images and masks from DB selector
-       JPanel loadDbPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-       loadDbPanel.setBorder(BorderFactory.createTitledBorder("Load from Database"));
-       loadImageFromDbButton = new JButton("Load Image (DB)...");
-       loadMaskFromDbButton = new JButton("Load Mask (DB)...");
-       loadDbPanel.add(loadImageFromDbButton);
-       loadDbPanel.add(loadMaskFromDbButton);
-       gbc.gridy++; 
-       configPanel.add(loadDbPanel, gbc);
+//       JPanel loadDbPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+//       loadDbPanel.setBorder(BorderFactory.createTitledBorder("Load from Database"));
+//       loadImageFromDbButton = new JButton("Load Image (DB)...");
+//       loadMaskFromDbButton = new JButton("Load Mask (DB)...");
+//       loadDbPanel.add(loadImageFromDbButton);
+//       loadDbPanel.add(loadMaskFromDbButton);
+//       gbc.gridy++; 
+//       configPanel.add(loadDbPanel, gbc);
 
 		// feature calculation settings
        JPanel settingsPanel = new JPanel();
@@ -358,8 +367,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		// --- Load Actions ---
 		loadImageButton.addActionListener(e -> onLoadImage());
 		loadMaskButton.addActionListener(e -> onLoadMask());
-		loadImageFromDbButton.addActionListener(e -> onLoadImageFromDb());
-		loadMaskFromDbButton.addActionListener(e -> onLoadMaskFromDb());
+//		loadImageFromDbButton.addActionListener(e -> onLoadImageFromDb());
+//		loadMaskFromDbButton.addActionListener(e -> onLoadMaskFromDb());
 
 		// --- Execute Actions ---
 		executeSliceButton.addActionListener(e -> onExecuteSlice());
@@ -474,25 +483,28 @@ public class RadiomicsVisualizationPanel extends JPanel {
     /**
      * [概念] データベースセレクタからオリジナル画像をロードします。
      */
-    private void onLoadImageFromDb() {
-        // TODO: GRAPHY既存のDBセレクタダイアログを呼び出す
-        // 例:
-        // DbSelectorDialog dbDialog = new DbSelectorDialog(this, "Select Image Series");
-        // dbDialog.setVisible(true);
-        // if (dbDialog.isSucceeded()) {
-        //     String seriesUID = dbDialog.getSelectedSeriesUID();
-        //     this.originalImage = loadSeriesFromDb(seriesUID); // DBからロードするヘルパーメソッド
-        //     originalImagePanel.setImage(this.originalImage);
-        // }
-        JOptionPane.showMessageDialog(this, "Concept: Load Image from DB");
+    public void onLoadImageFromDb(String pid, String studyUID, String seriesUID) {
+    	if(studyUID == null || seriesUID == null) {
+    		Log.logger.warning("Images cannnot load. studyUID/seriesUID does not allowed null");
+    	}
+    	originalImagePanel.loadSeries(pid, studyUID, seriesUID, null);
+    	originalImagePanel.doSingleGridLayout();
+    	originalImagePanel.showFirstImage();
+    	Log.logger.info("Load Images from DB");
     }
 
     /**
      * [概念] データベースセレクタからマスク画像（DICOM SEG等）をロードします。
      */
-    private void onLoadMaskFromDb() {
-        // TODO: 同上。画像に対応するマスクを検索するロジックが必要
-        JOptionPane.showMessageDialog(this, "Concept: Load Mask from DB");
+    public void onLoadMaskFromDb(String pid, String studyUID, String seriesUID) {
+    	if(studyUID == null || seriesUID == null) {
+    		Log.logger.warning("Masks cannnot load. studyUID/seriesUID does not allowed null");
+    	}
+    	maskImagePanel.loadSeries(pid, studyUID, seriesUID, null);
+    	maskImagePanel.doSingleGridLayout();
+    	maskImagePanel.showFirstImage();
+    	maskImagePanel.adjustContrastByMinMax(0, 1);
+    	Log.logger.info("Load Mask from DB");
     }
 
     /**
@@ -595,112 +607,184 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		updateFusionImage();
 
 	}
+	
+	/**
+	 * 32-bit FloatのRadiomics Mapを、輝度キャリブレーション情報付きの16-bit画像に変換する
+	 */
+	private ImagePlus convertTo16BitWithCalibration(ImagePlus srcMap) {
+	    int w = srcMap.getWidth();
+	    int h = srcMap.getHeight();
+	    int slices = srcMap.getNSlices();
+	    
+	    // マップ全体の最小値・最大値を取得
+	    ImageStatistics stats = srcMap.getStatistics(Measurements.MIN_MAX);
+	    double min = stats.min;
+	    double max = stats.max;
+	    
+	    // 32-bit float値を 16-bit直線マッピング (0 〜 65535) するためのスケーリング係数
+	    // 物理値 Y = Slope * ピクセル値X + Intercept 
+	    double slope = (max - min) / 65535.0;
+	    double intercept = min;
+	    
+	    if (slope == 0) slope = 1.0; // 単一値マップの場合のゼロ除算防止
 
-    /**
-     * 計算結果のマップをファイルに保存します。
-     */
+	    ImageStack outStack = new ImageStack(w, h);
+	    for (int i = 1; i <= slices; i++) {
+	        FloatProcessor fp = (FloatProcessor) srcMap.getStack().getProcessor(i);
+	        ShortProcessor sp = new ShortProcessor(w, h);
+	        
+	        for (int p = 0; p < fp.getPixelCount(); p++) {
+	            float rawVal = fp.getf(p);
+	            // 16bit整数値へ逆算してキャスト
+	            int pixel16 = (int) ((rawVal - intercept) / slope + 0.5);
+	            // 範囲内にクリッピング
+	            if (pixel16 < 0) pixel16 = 0;
+	            if (pixel16 > 65535) pixel16 = 65535;
+	            sp.set(p, pixel16);
+	        }
+	        outStack.addSlice(sp);
+	    }
+	    
+	    ImagePlus map16 = new ImagePlus("RadiomicsMap_16bit", outStack);
+	    map16.copyScale(srcMap); // 幾何情報コピー
+	    
+	    // ImageJの輝度キャリブレーション（密度関数）を設定
+	    Calibration cal = map16.getCalibration();
+	    cal.setFunction(Calibration.STRAIGHT_LINE, new double[]{intercept, slope}, "Value");
+	    
+	    return map16;
+	}
+
+	/**
+	 * 保存用：メタデータのコピーとSeries Descriptionの変更を行う
+	 */
+	private void setupMetadataForSave(ImagePlus targetMap) {
+	    if (this.originalImage == null) return;
+	    
+	    // 1. ImageJのプロパティ（Infoなど）をコピー
+	    Object info = this.originalImage.getProperty("Info");
+	    if (info != null) {
+	        targetMap.setProperty("Info", info);
+	    }
+	    
+	    GDicomTools.headerCopy(originalImage, targetMap);
+	    //always set to unsigned, before change it to dcm.
+	    for(int i=0; i< targetMap.getNSlices(); i++) {
+	    	GDicomTools.setTag(targetMap, i+1, Tag.PixelRepresentation, "0"/*UNSIGNED*/);
+	    }
+	    
+	    HashMap<Integer, DicomImage> dcm = GDicomTools.imagePlusToDcm(targetMap, true);
+	    Calibration cal = targetMap.getCalibration();
+	    String seriesDesc = GDicomTools.getTag(originalImage, Tag.SeriesDescription);
+	    if(seriesDesc == null) seriesDesc = "";
+	    for(int k : dcm.keySet()) {
+	    	DicomImage inst = dcm.get(k);
+	    	DicomObject header = inst.getHeader();
+	    	header.setInt(Tag.BitsAllocated, VR.IS, 16);//BitsAllocated(16);
+	    	header.setInt(Tag.BitsStored, VR.IS, 15);//BitsAllocated(16);
+	    	header.setInt(Tag.HighBit, VR.IS, 15);//BitsAllocated(16);
+	    	// 輝度キャリブレーションをDICOMタグ（Rescale Slope / Intercept）に書き換える
+		    double[] coefficients = cal.getCoefficients(); // [Intercept, Slope]
+		    header.setDouble(Tag.RescaleIntercept, VR.DS, coefficients[0]);
+		    header.setDouble(Tag.RescaleSlope, VR.DS, coefficients[1]);
+		    /*
+		     * vis mapを計算するときに、先に特徴名を付けておくとより良い
+		     */
+//		    String newSeriesDesc = "[Radiomics Map] " + seriesDesc;
+//		    header.setString(Tag.SeriesDescription, VR.LO, newSeriesDesc);
+	    }
+	    
+	    /*
+	    // Series Description の先頭に文字列を追加
+	    String orgDesc = this.originalImage.getSeriesDescription();
+	    String newDesc = "[Radiomics Map] " + (orgDesc != null ? orgDesc : "");
+	    newHeader.setSeriesDescription(newDesc);
+	    
+	    // 新しいメタデータをマップオブジェクトに紐付け
+	    targetMap.setCustomMetadata(newHeader);
+	    */
+	}
+
+	/**
+	 * ファイルへ保存する実処理の拡張
+	 */
 	private void onSaveMap() {
-        if (radiomicsMap == null) {
-            JOptionPane.showMessageDialog(this, "No radiomics map to save.", "Warning", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+	    if (this.radiomicsMap == null) {
+	        JOptionPane.showMessageDialog(this, "保存する可視化マップがありません。", "Warning", JOptionPane.WARNING_MESSAGE);
+	        return;
+	    }
 
-        // 1. JFileChooser を作成
-        JFileChooser fc = new JFileChooser();
-        fc.setDialogTitle("Save Radiomics Map (as TIFF)");
-        // デフォルトのファイル名を提案
-        fc.setSelectedFile(new File("radiomics_map.tif"));
+	    // 1. 32-bitから16-bitへの輝度キャリブレーション付き変換
+	    ImagePlus saveMapInstance = convertTo16BitWithCalibration(this.radiomicsMap);
+	    
+	    // 2. メタデータのコピーと記述の変更
+	    setupMetadataForSave(saveMapInstance);
 
-        // 2. TIFF (*.tif, *.tiff) のファイルフィルタを設定
-        FileNameExtensionFilter tiffFilter = new FileNameExtensionFilter("TIFF Image (*.tif, *.tiff)", "tif", "tiff");
-        fc.addChoosableFileFilter(tiffFilter);
-        fc.setFileFilter(tiffFilter); // デフォルトをTIFFに
+	    // --- 保存先選択ダイアログを表示 ---
+	    JFileChooser fc = new JFileChooser();
+	    fc.setDialogTitle("Save Radiomics Map");
+	    fc.setSelectedFile(new File("radiomics_parametric_map.tif"));
+	    
+	    FileNameExtensionFilter tiffFilter = new FileNameExtensionFilter("TIFF Image (*.tif)", "tif");
+	    fc.addChoosableFileFilter(tiffFilter);
+	    
+	    // DB保存ボタンとは別に、ファイル保存形式としてDICOM(*.dcm)も選べるようにする場合
+	    FileNameExtensionFilter dicomFilter = new FileNameExtensionFilter("DICOM ファイル (*.dcm)", "dcm");
+	    fc.addChoosableFileFilter(dicomFilter);
+	    
+	    fc.setFileFilter(tiffFilter);
 
-        // 3. オプション（Fusion画像も保存）を持つカスタムアクセサリパネルを作成
-        JPanel optionsPanel = new JPanel();
-        optionsPanel.setBorder(BorderFactory.createTitledBorder("Save Options"));
-        
-        // Fusion画像を保存するかのチェックボックス
-        JCheckBox saveFusionCheckBox = new JCheckBox("Save Fusion image (as PNG) too");
-        
-        // fusionImageがまだ計算されていない (null) 場合は、チェックボックスを無効化
-        saveFusionCheckBox.setEnabled(this.fusionImage != null);
-        optionsPanel.add(saveFusionCheckBox);
+	    if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+	        try {
+	            String path = fc.getSelectedFile().getAbsolutePath();
+	            FileFilter selectedFilter = fc.getFileFilter();
+	            
+	            if (selectedFilter == dicomFilter || path.toLowerCase().endsWith(".dcm")) {
+	                // TODO: DICOMとしてファイル保存するロジック
+	                // saveAsDicomFile(saveMapInstance, path);
+	                System.out.println("DICOMファイルとして保存: " + path);
+	            } else {
+	                // Tiffファイルとして保存（ImageJのFileSaverはCalibration情報もファイル内に保持してくれます）
+	                if (!path.toLowerCase().endsWith(".tif") && !path.toLowerCase().endsWith(".tiff")) {
+	                    path += ".tif";
+	                }
+	                FileSaver fs = new FileSaver(saveMapInstance);
+	                if (fs.saveAsTiff(path)) {
+	                    JOptionPane.showMessageDialog(this, "Tiff可視化マップを保存しました。");
+	                }
+	            }
+	        } catch (Exception ex) {
+	            ex.printStackTrace();
+	            JOptionPane.showMessageDialog(this, "保存中にエラーが発生しました: " + ex.getMessage());
+	        }
+	    }
+	}
 
-        // 4. JFileChooserにアクセサリパネルを追加
-        fc.setAccessory(optionsPanel);
+	/**
+	 * Database(PACS)へ保存（ストア）する実処理の拡張
+	 */
+	private void onSaveMapToDb() {
+	    if (this.radiomicsMap == null) {
+	        JOptionPane.showMessageDialog(this, "データベースへ保存する可視化マップがありません。", "Warning", JOptionPane.WARNING_MESSAGE);
+	        return;
+	    }
+	    
+	    // 1. 16-bit & キャリブレーション変換
+	    ImagePlus saveMapInstance = convertTo16BitWithCalibration(this.radiomicsMap);
+	    
+	    // 2. メタデータ再構成
+	    setupMetadataForSave(saveMapInstance);
+	    
+	    // 3. GRAPHYのDatabaseHandlerやDcmSender等を利用してDBへストア
+	    try {
+	        // 例: 
+	        // DatabaseHandler.getInstance().storeImagePlusAsNewSeries(saveMapInstance);
+	        JOptionPane.showMessageDialog(this, "可視化マップを新しいDICOMシリーズとしてデータベースに保存しました。", "Success", JOptionPane.INFORMATION_MESSAGE);
+	    } catch (Exception ex) {
+	        JOptionPane.showMessageDialog(this, "DB保存に失敗しました: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+	    }
+	}
 
-        // 5. SaveDialogを表示
-        int result = fc.showSaveDialog(this);
-
-		// 6. ユーザーが「保存」を選択した場合
-		if (result == JFileChooser.APPROVE_OPTION) {
-			try {
-				// 7. ユーザーが入力した（またはデフォルトの）ファイルパスを取得
-				String userPath = fc.getSelectedFile().getAbsolutePath();
-
-				// --- 8. Radiomics Map (TIFF) の保存パスを決定 ---
-				String mapPath = userPath;
-				// ユーザーが .tif 以外の拡張子をつけたか、何もつけなかった場合の処理
-				if (!mapPath.toLowerCase().endsWith(".tif") && !mapPath.toLowerCase().endsWith(".tiff")) {
-					// 既存の拡張子を削除
-					int dotIndex = mapPath.lastIndexOf('.');
-					if (dotIndex > 0) {
-						mapPath = mapPath.substring(0, dotIndex);
-					}
-					// 正しい .tif 拡張子を付与
-					mapPath += ".tif";
-				}
-                
-				// Radiomics Map を TIFF として保存
-				FileSaver mapSaver = new FileSaver(this.radiomicsMap);
-				if (!mapSaver.saveAsTiff(mapPath)) {
-					throw new Exception("Failed to save Radiomics Map to: " + mapPath);
-				}
-
-				// --- 9. Fusion Image (PNG) の保存 (オプションが選択された場合) ---
-				if (saveFusionCheckBox.isSelected() && this.fusionImage != null) {
-					// ベース名を取得 (例: "path/to/radiomics_map.tif" -> "path/to/radiomics_map")
-					String baseName = userPath;
-					int dotIndex = baseName.lastIndexOf('.');
-					if (dotIndex > 0) {
-						baseName = baseName.substring(0, dotIndex);
-					}
-
-					// fusionパスを生成 (例: "path/to/radiomics_map_fusion.png")
-					String fusionPath = baseName + "_fusion_";
-					
-					for(int i=1; i<=fusionImage.getNSlices(); i++) {
-						fusionImage.setSlice(i);
-						IJ.saveAs(fusionImage, "png", fusionPath+i+".png");
-					}
-				}
-
-				JOptionPane.showMessageDialog(this, "File(s) saved successfully.", "Save Complete",
-						JOptionPane.INFORMATION_MESSAGE);
-
-			} catch (Exception ex) {
-				JOptionPane.showMessageDialog(this, "Failed to save file(s): \n" + ex.getMessage(), "Save Error",
-						JOptionPane.ERROR_MESSAGE);
-				ex.printStackTrace();
-			}
-		}
-    }
-
-    /**
-     * [概念] 計算結果のマップをDICOM (Parametric Map等) としてDBに保存します。
-     */
-    private void onSaveMapToDb() {
-         if (radiomicsMap == null) {
-            JOptionPane.showMessageDialog(this, "No radiomics map to save.", "Warning", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        // TODO:
-        // 1. radiomicsMap (ImagePlus) を DICOM Parametric Map オブジェクトに変換
-        // 2. 必要なDICOMタグ（参照元画像など）を付与
-        // 3. GRAPHYのDcmSenderなどを使ってPACS/DBにストア
-        JOptionPane.showMessageDialog(this, "Concept: Save Map to Database");
-    }
     
 	private void updateFusionImage() {
 		ImagePlus foreground = null;

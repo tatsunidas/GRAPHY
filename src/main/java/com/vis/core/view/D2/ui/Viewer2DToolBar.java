@@ -76,7 +76,6 @@ import com.vis.core.log.Log;
 import com.vis.core.plugin.PlugIn;
 import com.vis.core.plugin.PluginShelf;
 import com.vis.core.plugin.ToolbarPlugIn;
-import com.vis.core.radiomics.RadiomicsWindow;
 import com.vis.core.slicer.SlicerWindow;
 import com.vis.core.ui.dialog.OptionDialog;
 import com.vis.core.ui.dialog.PopUpMessage;
@@ -855,18 +854,18 @@ public class Viewer2DToolBar extends JToolBar{
 				}
 			});
 			break;
-		case "radiomics":
-			btn.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent arg) {
-					new Thread(() -> {
-						new RadiomicsWindow();
-			        }).start();
-					currentTool = Windowing;
-					setSelectedToolBackground();
-				}
-			});
-			break;
+//		case "radiomics":
+//			btn.addActionListener(new ActionListener() {
+//				@Override
+//				public void actionPerformed(ActionEvent arg) {
+//					new Thread(() -> {
+//						new RadiomicsWindow();
+//			        }).start();
+//					currentTool = Windowing;
+//					setSelectedToolBackground();
+//				}
+//			});
+//			break;
 		default:
 			currentTool = Windowing;
 			setSelectedToolBackground();
@@ -906,7 +905,7 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("slicer", Resources.SlicerIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
-		map.put("radiomics", Resources.RadiomicsJIcon);
+//		map.put("radiomics", Resources.RadiomicsJIcon);
 		return map;
 	}
 	

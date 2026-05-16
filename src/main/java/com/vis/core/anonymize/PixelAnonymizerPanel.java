@@ -835,8 +835,7 @@ public class PixelAnonymizerPanel extends JPanel {
 		if (db.getNumOfSeries(pid, studyUID) <= 0) {
 			Log.logger.log(Level.SEVERE, "This study does not have any series... please check DB records !");
 			return;
-		}
-		;
+		};
 
 		// 1. Rootノードを作成（UI上は非表示にします）
 		DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");

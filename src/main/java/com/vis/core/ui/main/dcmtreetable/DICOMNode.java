@@ -140,6 +140,25 @@ public class DICOMNode extends DefaultMutableTreeNode{
         }
 	}
 	
+	/**
+	 * コピーコンストラクタ (単一ノードのデータのみを複製。子ノードは空で初期化)
+	 */
+	public DICOMNode(DICOMNode source) {
+		this.level = source.level;
+		this.isRoot = source.isRoot;
+		this.isMultiframe = source.isMultiframe;
+		this.isVideo = source.isVideo;
+		this.instanceUIDIfMultiframe = source.instanceUIDIfMultiframe;
+		
+		// Mapの複製（内部の参照を完全に切り離す）
+		if (source.map != null) {
+			this.map = new java.util.HashMap<>(source.map);
+		}
+		
+		// 元のツリーの親子関係を壊さないよう、childrenは新しく空のリストで生成
+		this.children = new java.util.ArrayList<>();
+	}
+	
 	private void setData(String pname, String pid, String studyDate, String seriesDate,
 			String studyTime, String acquisitiontime, String studyDesc, String seriesDesc, String modality, String sex,
 			String bod, String age, String institution, String modelName, String seriesNumber, String acquisitionNumber,
@@ -372,5 +391,63 @@ public class DICOMNode extends DefaultMutableTreeNode{
 			// 数値でない文字列が含まれている場合は、通常の文字列比較にフォールバック
 			return s1.compareTo(s2);
 		}
+	}
+	
+	/**
+	 * 指定した最大レベル（maxLevel）まで、子ノード階層を安全にディープコピーします。
+	 * 指定したレベルより下のノード（例: IMAGEレベル）は自動的に除外されます。
+	 * @param maxLevel 含めたい最大のレベル (例: DICOMNode.SERIES)
+	 * @return IMAGEノードが除外され、完全に独立した新しいDICOMNode（STUDY）
+	 */
+	public DICOMNode cloneUpToLevel(int maxLevel) {
+		// 1. 自分自身（STUDY等）のデータコピーを作成
+		DICOMNode clonedSelf = new DICOMNode(this);
+		
+		// 2. 現在のレベルが最大レベル未満、かつ子ノードが存在する場合のみ、さらに下の階層をコピー
+		if (this.level < maxLevel && this.children != null) {
+			for (DICOMNode child : this.children) {
+				// 子ノード（SERIES等）に対しても再帰的にこのメソッドを呼び出し、複製された子を自分に追加
+				clonedSelf.addChild(child.cloneUpToLevel(maxLevel));
+			}
+		}
+		
+		// 3. 自分のレベルが maxLevel に達している場合（例: SERIES）、
+		//    上記の if 文に入らないため、子ノード（IMAGE）はコピーされず、空の状態で返されます。
+		return clonedSelf;
+	}
+	
+	// --- JTree対応のためのオーバーライド ---
+
+	@Override
+	public javax.swing.tree.TreeNode getChildAt(int index) {
+		return this.children.get(index);
+	}
+
+	@Override
+	public int getIndex(javax.swing.tree.TreeNode node) {
+		return this.children.indexOf(node);
+	}
+
+	@Override
+	public boolean isLeaf() {
+		return (this.children == null || this.children.isEmpty());
+	}
+	
+	@Override
+	public String toString() {
+		// ツリーに表示したい文字列をレベルに応じて返す
+		if (level == STUDY) {
+			String desc = getData(StudyDescription);
+			return "Study: " + getData(StudyDate) + (desc != null ? " - " + desc : "");
+		} else if (level == SERIES) {
+			String mod = getData(Modality);
+			String desc = getData(SeriesDescription);
+			return "Series " + getData(SeriesNumber) + " [" + mod + "] " + (desc != null ? desc : "");
+		} else if (level == IMAGE) {
+			return "Image " + getData(InstanceNumber);
+		} else if (level == PATIENT) {
+			return getData(PatientName) + " (" + getData(PatientID) + ")";
+		}
+		return "Root";
 	}
 }

@@ -38,47 +38,49 @@
 package com.vis.core.radiomics;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
+import java.util.logging.Level;
 
 import javax.swing.JFrame;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTree;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 
 import com.vis.configuration.Resources;
+import com.vis.core.anonymize.StudyCheckBoxTree;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
+import com.vis.core.ui.main.dcmtreetable.DICOMNode;
+import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.db.DatabaseHandler;
 
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
 
 /**
  * 
- * 1. radiomics classifier
- * - dataset is built-up from roi by roi.
- * 
- * 2. radiomics segmentation
- * - dataset is built-up from pixel by pixel.
- * 
  * @author tatsunidas
  *
  */
 public class RadiomicsWindow extends JFrame{
-/**
-	 * 
-	 */
+
 	private static final long serialVersionUID = -8494940884028066246L;
-/*
- * future work
- * 
- * 1.calculate features on praparat level and save it as csv
- * 2.settings of each features
- * 3.show parametric images and fusion view and saveAsNewSeries or saveAsTif
- * 4.Pipe to WEKA.
- * - work with color features
- * - work on whole Stack 
- * - change training image
- * - output probability and define threshold to mask
- */
+	
+	/*
+	 * load a study.
+	 */
+	private JTree seriesTree;
+    private JSplitPane mainSplitPane;
 	
 	static RadiomicsJ radiomics = new RadiomicsJ();
-	RadiomicsPanel panel;
+//	SampleClassifierPanel panel;
 	RadiomicsSettings textureParams;
 	RadiomicsBatchModePanel batchPanel;
 	RadiomicsPipeline pipeline;
@@ -91,20 +93,40 @@ public class RadiomicsWindow extends JFrame{
 	
 	public RadiomicsWindow() {
 		pipeline = new RadiomicsPipeline();
-		buildGUI();
+		buildGUI(null);
 	}
 	
-	private void buildGUI() {
+	public RadiomicsWindow(DICOMNode study) {
+		pipeline = new RadiomicsPipeline();
+		buildGUI(study);
+	}
+	
+	private void buildGUI(DICOMNode study/*null-able*/) {
+		
+		loadStudyDataAndBuildTree(study);
+		
 		JTabbedPane tabPane = new JTabbedPane();
-		panel = new RadiomicsPanel(this);
-		tabPane.addTab("Operation",panel);
+		JScrollPane treeScrollPane = new JScrollPane(seriesTree);
+        treeScrollPane.setPreferredSize(new Dimension(200, 600));
+        
+		//Machine learning sample
+//		panel = new SampleClassifierPanel(this);
+//		tabPane.addTab("Operation",panel);
+		
 		textureParams = new RadiomicsSettings();
 		tabPane.addTab("TextureParams", textureParams);
+		
 		batchPanel = new RadiomicsBatchModePanel(textureParams);
 		tabPane.addTab("Batch Execution", batchPanel);
+		
 		visPanel = new RadiomicsVisualizationPanel(textureParams);
 		tabPane.addTab("Visualization Map", visPanel);
-		add(tabPane, BorderLayout.CENTER);
+		
+        // 全体をJSplitPaneで左右に分割
+        mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScrollPane, tabPane);
+        mainSplitPane.setDividerLocation(200);
+        
+        add(mainSplitPane, BorderLayout.CENTER);
 		pack();
 		if(WindowManager.getMainScreen() == null) {
 			setLocationRelativeTo(null);
@@ -132,5 +154,72 @@ public class RadiomicsWindow extends JFrame{
 	
 	public void loadRadiomicsSettings(Properties prop) {
 		textureParams.loadSettings(prop);
+	}
+	
+	/**
+	 * DBなどから取得したスタディ情報を受け取り、ツリーを構築する
+	 * 
+	 * @param study 入力された1つのスタディ
+	 */
+	private void loadStudyDataAndBuildTree(DICOMNode study) {
+		if (study == null) {
+			Log.logger.info("Study is null...");
+			return;
+		}
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null) {
+			Log.logger.log(Level.SEVERE, "Graphy DB cannot found !");
+			return;
+		}
+		if(study.getLevel() != DICOMNode.STUDY){
+			Log.logger.info("This selected node is not StudyNode. Series cannot be loaded...");
+			return;
+		}
+
+		String pid = study.getData(DICOMNode.PatientID);
+		String studyUID = study.getData(DICOMNode.StudyInstanceUID);
+
+		if (db.getNumOfSeries(pid, studyUID) <= 0) {
+			Log.logger.log(Level.SEVERE, "This study does not have any series... please check DB records !");
+			return;
+		};
+		// 4. ツリーモデルを更新
+        DefaultTreeModel model = new DefaultTreeModel(study);
+        seriesTree = new JTree(model);
+        seriesTree.addTreeSelectionListener(new TreeSelectionListener() {
+            @Override
+            public void valueChanged(TreeSelectionEvent e) {
+                DICOMNode node = (DICOMNode) seriesTree.getLastSelectedPathComponent();
+                if (node == null || node.isRoot()) return;
+                if(node.getLevel() != DICOMNode.SERIES) {
+                	return;
+                }
+                String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+                String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+                // show images to visPanel
+                String modality = node.getData(DICOMNode.Modality);
+                if(modality != null && modality.contains("SEG")) {
+                	visPanel.onLoadMaskFromDb(pid, studyUID, seriesUID);
+                }else {
+                	visPanel.onLoadImageFromDb(pid, studyUID, seriesUID);
+                }
+            }
+        });
+
+        seriesTree.setRootVisible(true);
+        seriesTree.setShowsRootHandles(true);
+
+        // 全ノードを展開状態にする
+        expandAllNodes(seriesTree, 0, seriesTree.getRowCount());
+        
+    }
+	
+	private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
+		for (int i = startingIndex; i < rowCount; ++i) {
+			tree.expandRow(i);
+		}
+		if (tree.getRowCount() != rowCount) {
+			expandAllNodes(tree, rowCount, tree.getRowCount());
+		}
 	}
 }

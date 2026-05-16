@@ -33,7 +33,7 @@ public class StudyCheckBoxTree extends JTree {
 					if (isCheckBoxClicked(path, cbNode, e.getX(), e.getY())) {
 						boolean newState = !cbNode.isSelected();
 						cbNode.setSelected(newState);
-						// 【おまけ】親(スタディ)のチェックを変えたら、子(シリーズ)も連動させる
+						// 親(スタディ)のチェックを変えたら、子(シリーズ)も連動させる
 						if (cbNode.getChildCount() > 0) {
 							for (int i = 0; i < cbNode.getChildCount(); i++) {
 								Object child = cbNode.getChildAt(i);

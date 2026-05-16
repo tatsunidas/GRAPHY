@@ -642,60 +642,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 	}
 
-	/**
-	 * old codes DicomObjectからImageJ形式("gggg,eeee: value\n")の文字列を一括生成する
-	 */
-//    private static String getDicomHeaderString(DicomObject header) {
-//        StringBuilder sb = new StringBuilder();
-//        int[] tags = header.tags();
-//        
-//        for (int t : tags) {
-//            // 除外タグ
-//            if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
-//                continue;
-//            }
-//            com.vis.dicom.VR vr = header.getVROn(t);
-//            if (vr == com.vis.dicom.VR.SQ) {
-//                continue;
-//            }
-//            
-//            if(t == Tag.DiffusionBValue) {
-//            	System.out.println();
-//            }
-//
-//            String vmString = TagDict.vmOf(t);
-//            if (vmString == null) { // private tag
-//                continue;
-//            }
-//
-//            String ts = TagUtils.toDicomToolsString(t); // "0008,0010" 形式
-//            String valueStr = "";
-//
-//            if (vmString.equals("1")) {
-//                String val = header.getString(t);
-//                if (val != null) valueStr = val;
-//            } else {
-//                String[] vals = header.getStrings(t);
-//                if (vals != null && vals.length > 0) {
-//                    StringBuilder valSb = new StringBuilder();
-//                    for (int k = 0; k < vals.length; k++) {
-//                        valSb.append(vals[k]);
-//                        if (k < vals.length - 1) {
-//                            valSb.append("\\");
-//                        }
-//                    }
-//                    valueStr = valSb.toString();
-//                }
-//            }
-//
-//            // ImageJのInfoプロパティ形式 "gggg,eeee: value\n" を構築
-//            if (!valueStr.isEmpty()) {
-//                sb.append(ts).append(": ").append(valueStr).append("\n");
-//            }
-//        }
-//        return sb.toString();
-//    }
-
 	public static String getHeaderAsString(DicomObject header, StringBuilder sb, int depth) {
 
 		if (header == null)
