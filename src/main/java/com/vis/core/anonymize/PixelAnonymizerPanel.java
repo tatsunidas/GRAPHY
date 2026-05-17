@@ -756,11 +756,11 @@ public class PixelAnonymizerPanel extends JPanel {
 		} else if (mode == 1) { // Current
 			SlideGlass sg = roi.getSlideGlass();
 			if (sg != null) {
-				int[] currentZct = prap.getSlidePositionZCTArray(sg);
+				int[] currentZct = prap.getZCTArray(sg);
 				int currentZ = currentZct[0];
 				java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 				for (Integer idx : slides.keySet()) {
-					if (prap.getSlidePositionZCTArray(idx)[0] == currentZ) {
+					if (prap.calcZCTArrayFromIndex(idx)[0] == currentZ) {
 						targetIndices.add(idx);
 					}
 				}
@@ -772,7 +772,7 @@ public class PixelAnonymizerPanel extends JPanel {
 			java.util.Set<Integer> targetZSet = parseCustomRangeToZ(customTxt);
 			java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 			for (Integer idx : slides.keySet()) {
-				if (targetZSet.contains(prap.getSlidePositionZCTArray(idx)[0])) {
+				if (targetZSet.contains(prap.calcZCTArrayFromIndex(idx)[0])) {
 					targetIndices.add(idx);
 				}
 			}
@@ -1053,7 +1053,7 @@ public class PixelAnonymizerPanel extends JPanel {
 						int selectedMode = panel.getSelectedRangeMode(); // 例: 2 (Custom Range)
 						String customRangeText = panel.getCustomRangeText(); // 例: "2,4,6"
 
-						int zctIdx = currentActivePraparat.getSlidePositionOnZCTIndex(sg);
+						int zctIdx = currentActivePraparat.getZCTIndex(sg);
 						RoiObj clonedRoi = (RoiObj) originalRoi.clone();
 						// 2. 所属するUIDsをターゲットのものに書き換え,DBに保存
 						SlideGlass sg2 = se.getAllSlides().get(zctIdx);
@@ -1108,7 +1108,7 @@ public class PixelAnonymizerPanel extends JPanel {
 						SlideGlass originalSg = originalRoi.getSlideGlass();
 						if (currentActivePraparat != null && targetIndices != null && originalSg != null) {
 
-							int originalZctIdx = currentActivePraparat.getSlidePositionOnZCTIndex(originalSg);
+							int originalZctIdx = currentActivePraparat.getZCTIndex(originalSg);
 							boolean containsOriginal = false;
 							for (int idx : targetIndices) {
 								if (idx == originalZctIdx) {

@@ -224,12 +224,12 @@ public class MaskRoiPanel extends JPanel {
 			// 同じZ位置を持つ全チャンネル・タイムフレームのインデックスを返す
 			com.vis.core.view.D2.ui.glasses.SlideGlass sg = attachedRoi.getSlideGlass();
 			if (sg != null) {
-				int[] currentZct = ownerPraparat.getSlidePositionZCTArray(sg);
+				int[] currentZct = ownerPraparat.getZCTArray(sg);
 				int currentZ = currentZct[0]; // Z位置を取得
 
 				java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 				for (Integer idx : slides.keySet()) {
-					int[] zct = ownerPraparat.getSlidePositionZCTArray(idx);
+					int[] zct = ownerPraparat.calcZCTArrayFromIndex(idx);
 					if (zct[0] == currentZ) {
 						targetIndices.add(idx);
 					}
@@ -247,7 +247,7 @@ public class MaskRoiPanel extends JPanel {
 
 			java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 			for (Integer idx : slides.keySet()) {
-				int[] zct = ownerPraparat.getSlidePositionZCTArray(idx);
+				int[] zct = ownerPraparat.calcZCTArrayFromIndex(idx);
 				// そのZCTインデックスのZ位置が、ユーザーが指定したZの範囲に含まれているか
 				if (targetZSet.contains(zct[0])) {
 					targetIndices.add(idx);

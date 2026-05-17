@@ -73,9 +73,11 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import com.vis.core.fusion.ImagePairingEngine;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
 import com.vis.dicom.VR;
@@ -144,15 +146,16 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
 
 	// --- UI Components ---
-	// LEFT configuration
 //	private JButton loadImageButton, loadMaskButton;
 	private JComboBox<String> featureComboBox;
 	private JSpinner filterSizeSpinner;
 	private JSpinner strideSpinner;
 	private JButton executeSliceButton, executeAllButton;
 	private JButton saveMapButton, saveMapToDbButton;
+	
+	private JPanel configPanel;
+	private JSplitPane splitPane;
 
-	// RIGHT ("Praparats")
 	private Praparat originalImagePanel;
 	private Praparat maskImagePanel;
 	private Praparat radiomicsMapPanel;
@@ -162,10 +165,12 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 	// --- Data Holders ---
 	private ImagePlus originalImage;
-	private ImagePlus maskImage;
+	private ImagePlus maskImage;//not aligned
+	
+	private ImagePlus calcImage;//calculate original images stack for feature calculation
+	private ImagePlus alignedMask;//calculate aligned mask stack for feature calculation
 	private ImagePlus radiomicsMap;
 	private ImagePlus fusionImage;
-	private ImagePlus fusionBackground;// base image
 
 	RadiomicsSettings radSetting;
 
@@ -183,7 +188,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		this.setLayout(new BorderLayout());
 
 		// configuration panel
-		JPanel configPanel = new JPanel();
+		configPanel = new JPanel();
 		configPanel.setLayout(new GridBagLayout());
 
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -240,6 +245,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		strideSpinner.setEditor(new JSpinner.NumberEditor(strideSpinner, "#"));
 		strideSpinner.setPreferredSize(new Dimension(60, 25));
 		filterPanel.add(strideSpinner);
+		
+		/*
+		 * TODO
+		 */
+		strideSpinner.setEnabled(false);
 
 		settingsPanel.add(filterPanel);
 		
@@ -353,8 +363,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		visualizationPanel.setMinimumSize(new Dimension(30,30));
 
 		// --- Split Pane ---
-		JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, visualizationPanel, configScrollPane);
-		splitPane.setDividerLocation(350); // 設定パネルの初期幅
+		splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, visualizationPanel, configScrollPane);
+		splitPane.setResizeWeight(1.0);
 		splitPane.setOneTouchExpandable(true);
 
 		this.add(splitPane, BorderLayout.CENTER);
@@ -363,6 +373,35 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		 * This is just memo. please ignore. TEST: roi etc functions are ignored.(such
 		 * functions are available in the common viewer. )
 		 */
+	}
+	
+	/**
+	 * 下部の設定パネルの推奨サイズに合わせて、SplitPaneのDivider位置を動的にフィットさせます。
+	 */
+	public void adjustDividerLocation() {
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				if (splitPane != null && splitPane.getHeight() > 0 && configPanel != null) {
+					// グリッドバッグで組まれた中身（configPanel）の実際に必要な高さを取得
+					int preferredConfigHeight = configPanel.getPreferredSize().height;
+					
+					// ボーダーやスクロールバーの余白を考慮したわずかなバッファ（25ピクセル程度）
+					int padding = 25;
+					
+					// 計算：全体の高さ - (設定パネルに必要な高さ + Dividerの厚み + 余白)
+					int targetLocation = splitPane.getHeight() - (preferredConfigHeight + splitPane.getDividerSize() + padding);
+					
+					// 計算結果がウィンドウ内に収まる妥当な範囲かチェックして適用
+					if (targetLocation > 50 && targetLocation < splitPane.getHeight() - 50) {
+						splitPane.setDividerLocation(targetLocation);
+					} else {
+						// 万が一計算が破綻した場合の安全なフォールバック（下部を全体の35%にする）
+						splitPane.setDividerLocation((int)(splitPane.getHeight() * 0.65));
+					}
+				}
+			}
+		});
 	}
 
 	private void addListeners() {
@@ -381,14 +420,19 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		saveMapToDbButton.addActionListener(e -> onSaveMapToDb());
 
 		// --- Fusion Actions ---
-		ActionListener fusionTargetListener = e -> updateFusionImage();
+		ActionListener fusionMaskTargetListener = e -> updateFusionImage(this.calcImage, this.alignedMask);
+		ActionListener fusionTargetListener = e -> updateFusionImage(this.calcImage, this.radiomicsMap);
 		fusionMapRadio.addActionListener(fusionTargetListener);
-		fusionMaskRadio.addActionListener(fusionTargetListener);
+		fusionMaskRadio.addActionListener(fusionMaskTargetListener);
 		transparencySlider.addChangeListener(e -> {
 			JSlider slider = (JSlider) e.getSource();
 			// マウスを離した時だけ更新したい場合は以下を有効にする
 			if (!slider.getValueIsAdjusting()) {
-				updateFusionImage();
+				if(fusionMapRadio.isSelected()) {
+					updateFusionImage(this.calcImage, this.alignedMask);
+				}else {
+					updateFusionImage(this.calcImage, this.radiomicsMap);
+				}
 			}
 		});
 	}
@@ -517,9 +561,43 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		if (!validateInputs()) {
 			return;
 		}
+		
+		// 2. 現在画面に表示されているオリジナル画像の [Z, C, T] 座標を取得
+		SlideGlass sg = originalImagePanel.getCurrentSlide();
+		int[] orgZct = originalImagePanel.getZCTArray(sg);
+		int orgZ = orgZct[0];
+		int orgC = orgZct[1];
+		int orgT = orgZct[2];
+		
+		// 3. 表示中のチャンネル(C)・時相(T)に対応するオリジナル画像の純粋なZスタックを抽出
+		ImagePlus calcImage = originalImagePanel.getImagePlus(orgC, orgT);
+		
+		// 4. マスク画像（SEG）のペアリング処理
+		ImagePlus calcMask = null;
+		if (maskImagePanel != null && maskImagePanel.getAllSlides() != null) {
+			// 現在画面に表示されているマスクの [C, T] を取得（表示中のセグメント部位を対象とする）
+			int maskCurrentIdx = maskImagePanel.getCurrentSlidePos();
+			int[] maskZct = maskImagePanel.calcZCTArrayFromIndex(maskCurrentIdx);
+			int maskC = maskZct[1];
+			int maskT = maskZct[2];
+
+			// 【新機能の呼び出し】オリジナル画像の空間に完全にアライメントされたマスクを生成（枚数違いを自動パディング）
+			calcMask = com.vis.core.fusion.ImagePairingEngine.alignMaskToOriginalSpace(
+					originalImagePanel,orgC, orgT,
+					maskImagePanel, maskC, maskT);
+		}
+
+		// 5. 要件：マスクが空の場合はフルフェイスマスク（画像全体を対象）を自動生成
+		if (calcMask == null) {
+			calcMask = createFullFaceMask(calcImage);
+		}
+		
 		String featureClass = (String) featureComboBox.getSelectedItem();
 		String familyAndFeature[] = featureClass.split("_");
 		int filterSize = (int) filterSizeSpinner.getValue();
+		/*
+		 * TODO
+		 */
 		int stride = (int) strideSpinner.getValue();
 
 		// build settings from radSetting
@@ -540,8 +618,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		/*
 		 * slice = -1 means calculate all.
 		 */
-		int slice = originalImagePanel.getCurrentSlidePos() + 1;// to 1 to N
-		this.radiomicsMap = FeatureVisualizationMap.generateFeatureMap(this.originalImage, this.maskImage, slice,
+		int slice = orgZ + 1;
+		/*
+		 * TODO : use with stride, since radiomicsj 2.1.18
+		 */
+		this.radiomicsMap = FeatureVisualizationMap.generateFeatureMap(calcImage, calcMask, slice,
 				calculator, filterSize, d2_mode);
 		long endTime = System.currentTimeMillis();
 		System.out.println("--> Generation took " + (endTime - startTime) + " ms.");
@@ -553,11 +634,15 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			JOptionPane.showConfirmDialog(this, "Radiomics map was not created... Please check logs. ");
 		}
 
-		fusionBackground = new ImagePlus(this.originalImage.getStack().getSliceLabel(slice),
-				this.originalImage.getStack().getProcessor(slice));
+		// 表示中スライスの背景画像を抽出してフュージョン用に保持
+		ImagePlus fusionBackground = new ImagePlus(calcImage.getStack().getSliceLabel(slice),
+				calcImage.getStack().getProcessor(slice));
+		
+//		ImagePlus fusionMaskForeground = new ImagePlus(calcMask.getStack().getSliceLabel(slice),
+//				calcMask.getStack().getProcessor(slice));
 
 		// Fusion画像を更新
-		updateFusionImage();
+		updateFusionImage(fusionBackground, radiomicsMap);
 	}
 
 	/**
@@ -594,6 +679,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		 */
 		int slice = -1;
 
+		/*
+		 * TODO : use with stride, since radiomicsj 2.1.18
+		 */
 		this.radiomicsMap = FeatureVisualizationMap.generateFeatureMap(this.originalImage, this.maskImage, slice,
 				calculator, filterSize, d2_mode);
 		long endTime = System.currentTimeMillis();
@@ -611,6 +699,34 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		// Fusion画像を更新
 		updateFusionImage();
 
+	}
+	
+	/**
+	 * マスクがロードされていない場合に、画像全体をカバーするフルフェイスマスクを動的に生成するヘルパーメソッド
+	 * (RadiomicsVisualizationPanelクラスの末尾などに追記してください)
+	 */
+	private ImagePlus createFullFaceMask(ImagePlus srcImg) {
+		int w = srcImg.getWidth();
+		int h = srcImg.getHeight();
+		int slices = srcImg.getNSlices();
+		
+		Properties settingsProp = radSetting.currentSettings();
+		int label = 1;
+		try {
+			label = Integer.parseInt(settingsProp.getProperty(SettingsContext.MASK_LABEL, "1"));
+		} catch (NumberFormatException e) { /* default to 1 */ }
+
+		ImageStack maskStack = new ImageStack(w, h);
+		for (int i = 1; i <= slices; i++) {
+			ByteProcessor bp = new ByteProcessor(w, h);
+			bp.setValue(label);
+			bp.fill(); // 全ピクセルをターゲットラベル値で埋める
+			maskStack.addSlice(bp);
+		}
+		
+		ImagePlus fullFaceMask = new ImagePlus("FullFaceMask", maskStack);
+		fullFaceMask.copyScale(srcImg);
+		return fullFaceMask;
 	}
 
 	/**
@@ -795,75 +911,75 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		}
 	}
 
-	private void updateFusionImage() {
-		ImagePlus foreground = null;
-		ImagePlus background = null;
-		LUT fLUT = null;// means keep AS-IS.
-//		LUT fLUT = Resources.LUT_FIRE.loadLUT();
-		if (fusionMapRadio.isSelected() && radiomicsMap != null && fusionBackground != null) {
-			foreground = radiomicsMap;
-			background = fusionBackground;
-			fLUT = radiomicsMapPanel.getLUT();
-		} else if (fusionMaskRadio.isSelected() && maskImage != null) {
-			/*
-			 * マスクラベルが小さい場合、Fusionしても見えないので、255にスケール。
-			 */
-			StackStatistics stats = new StackStatistics(maskImage);
-			double globalMin = stats.min;
-			double globalMax = stats.max;
-			double scale = 255.0;
-			if (globalMax - globalMin > 0) {
-				scale = 255.0 / (globalMax - globalMin);
-			}
-
-			ImageStack stack = new ImageStack(maskImage.getWidth(), maskImage.getHeight());
-			for (int i = 1; i <= maskImage.getNSlices(); i++) {
-				ImageProcessor ip = maskImage.getStack().getProcessor(i);
-				ByteProcessor bp = new ByteProcessor(ip.getWidth(), ip.getHeight());
-				byte[] bpPixels = (byte[]) bp.getPixels();
-				// ピクセルごとにスケーリング
-				for (int k = 0; k < ip.getPixelCount(); k++) {
-					double val = ip.getf(k); // 元の値
-					int scaledVal = (int) ((val - globalMin) * scale + 0.5); // +0.5は四捨五入
-					// 値を 0-255 の範囲にクリッピング
-					if (scaledVal < 0)
-						scaledVal = 0;
-					if (scaledVal > 255)
-						scaledVal = 255;
-					bpPixels[k] = (byte) scaledVal;
-				}
-				stack.addSlice(bp);
-			}
-			foreground = new ImagePlus("scaled 8-bit mask", stack);
-			foreground.copyAttributes(maskImage);
-			/**
-			 * IMPORTANT
-			 */
-			background = originalImagePanel.getImagePlus(-1, -1);
-			// update original image contrast
-			double[] dispWinMinMax = originalImagePanel.getCurrentSlide().getCurrentWindowMinMax();
-			double min = dispWinMinMax[0];
-			double max = dispWinMinMax[1];
-			int pos = background.getCurrentSlice();
-			for (int i = 1; i <= background.getNSlices(); i++) {
-				background.setSlice(i);
-				background.setDisplayRange(min, max);
-				background.updateAndDraw();
-				System.out.println("before min and max:" + min + "," + max);
-			}
-			background.setSlice(pos);
-		}
-
-		if (foreground == null || background == null) {
-			this.fusionImage = null;
-		} else {
-			// --- Fusion実行 ---
-			int opacity_percent = transparencySlider.getValue();
-			double opacity = opacity_percent * 0.01d;
-			this.fusionImage = fusion(foreground, background, opacity, fLUT);
-		}
-		fusionImagePanel.reloadSlideGlasses(this.fusionImage);
-	}
+//	private void updateFusionImage() {
+//		ImagePlus foreground = null;
+//		ImagePlus background = null;
+//		LUT fLUT = null;// means keep AS-IS.
+////		LUT fLUT = Resources.LUT_FIRE.loadLUT();
+//		if (fusionMapRadio.isSelected() && radiomicsMap != null && fusionBackground != null) {
+//			foreground = radiomicsMap;
+//			background = fusionBackground;
+//			fLUT = radiomicsMapPanel.getLUT();
+//		} else if (fusionMaskRadio.isSelected() && maskImage != null) {
+//			/*
+//			 * マスクラベルが小さい場合、Fusionしても見えないので、255にスケール。
+//			 */
+//			StackStatistics stats = new StackStatistics(maskImage);
+//			double globalMin = stats.min;
+//			double globalMax = stats.max;
+//			double scale = 255.0;
+//			if (globalMax - globalMin > 0) {
+//				scale = 255.0 / (globalMax - globalMin);
+//			}
+//
+//			ImageStack stack = new ImageStack(maskImage.getWidth(), maskImage.getHeight());
+//			for (int i = 1; i <= maskImage.getNSlices(); i++) {
+//				ImageProcessor ip = maskImage.getStack().getProcessor(i);
+//				ByteProcessor bp = new ByteProcessor(ip.getWidth(), ip.getHeight());
+//				byte[] bpPixels = (byte[]) bp.getPixels();
+//				// ピクセルごとにスケーリング
+//				for (int k = 0; k < ip.getPixelCount(); k++) {
+//					double val = ip.getf(k); // 元の値
+//					int scaledVal = (int) ((val - globalMin) * scale + 0.5); // +0.5は四捨五入
+//					// 値を 0-255 の範囲にクリッピング
+//					if (scaledVal < 0)
+//						scaledVal = 0;
+//					if (scaledVal > 255)
+//						scaledVal = 255;
+//					bpPixels[k] = (byte) scaledVal;
+//				}
+//				stack.addSlice(bp);
+//			}
+//			foreground = new ImagePlus("scaled 8-bit mask", stack);
+//			foreground.copyAttributes(maskImage);
+//			/**
+//			 * IMPORTANT
+//			 */
+//			background = originalImagePanel.getImagePlus(-1, -1);
+//			// update original image contrast
+//			double[] dispWinMinMax = originalImagePanel.getCurrentSlide().getCurrentWindowMinMax();
+//			double min = dispWinMinMax[0];
+//			double max = dispWinMinMax[1];
+//			int pos = background.getCurrentSlice();
+//			for (int i = 1; i <= background.getNSlices(); i++) {
+//				background.setSlice(i);
+//				background.setDisplayRange(min, max);
+//				background.updateAndDraw();
+//				System.out.println("before min and max:" + min + "," + max);
+//			}
+//			background.setSlice(pos);
+//		}
+//
+//		if (foreground == null || background == null) {
+//			this.fusionImage = null;
+//		} else {
+//			// --- Fusion実行 ---
+//			int opacity_percent = transparencySlider.getValue();
+//			double opacity = opacity_percent * 0.01d;
+//			this.fusionImage = fusion(foreground, background, opacity, fLUT);
+//		}
+//		fusionImagePanel.reloadSlideGlasses(this.fusionImage);
+//	}
 
 	/**
 	 * 
@@ -873,38 +989,67 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	 *                   opaque.
 	 * @return
 	 */
-	private ImagePlus fusion(ImagePlus foreground, ImagePlus background, double opacity, LUT foregroundLUT) {
+//	private ImagePlus fusion(ImagePlus foreground, ImagePlus background, double opacity, LUT foregroundLUT) {
+//
+//		if (foreground.getNSlices() != background.getNSlices()) {
+//			System.out.println("Invalid stack size foreground and background, cannot create fusion.");
+//			return null;
+//		}
+//		int s = foreground.getNSlices();
+//		ImageStack stack = new ImageStack(background.getWidth(), background.getHeight());
+//		for (int i = 1; i <= s; i++) {
+//			ImageProcessor ip = foreground.getStack().getProcessor(i).duplicate();
+//			if (foregroundLUT != null) {
+//				ip.setLut(foregroundLUT);
+//			}
+//			// ImageRoi を作成
+//			ImageRoi roi = new ImageRoi(0, 0, ip);
+//			// Roiに透明度を設定
+//			roi.setOpacity(opacity);
+//			// 背景画像に ImageRoi をオーバーレイとしてセット
+//			background.setSlice(i);
+//			// "flatten" (焼き付け)
+//			// スタックの場合、1枚目のみに適応されてしまうので取り出す。
+//			ImagePlus flatten = new ImagePlus(i + "", background.getProcessor().duplicate());
+////			flatten.setOverlay(roi, getForeground(), 1/* stroke */, getBackground());
+//			flatten.setRoi(roi);// also OK.
+//			flatten = flatten.flatten();// 1 slice.
+//			flatten.updateAndDraw();
+//			stack.addSlice(flatten.getProcessor());
+//			background.deleteRoi();
+//		}
+//		// RGB images
+//		ImagePlus fusionImage = new ImagePlus("fusion", stack);
+//		return fusionImage;
+//	}
+	
+	private void updateFusionImage(ImagePlus calcImage, ImagePlus alignMask) {
+	    ImagePlus foreground = null;
+	    ImagePlus background = this.fusionBackground;
+	    LUT fLUT = null;
 
-		if (foreground.getNSlices() != background.getNSlices()) {
-			System.out.println("Invalid stack size foreground and background, cannot create fusion.");
-			return null;
-		}
-		int s = foreground.getNSlices();
-		ImageStack stack = new ImageStack(background.getWidth(), background.getHeight());
-		for (int i = 1; i <= s; i++) {
-			ImageProcessor ip = foreground.getStack().getProcessor(i).duplicate();
-			if (foregroundLUT != null) {
-				ip.setLut(foregroundLUT);
-			}
-			// ImageRoi を作成
-			ImageRoi roi = new ImageRoi(0, 0, ip);
-			// Roiに透明度を設定
-			roi.setOpacity(opacity);
-			// 背景画像に ImageRoi をオーバーレイとしてセット
-			background.setSlice(i);
-			// "flatten" (焼き付け)
-			// スタックの場合、1枚目のみに適応されてしまうので取り出す。
-			ImagePlus flatten = new ImagePlus(i + "", background.getProcessor().duplicate());
-//			flatten.setOverlay(roi, getForeground(), 1/* stroke */, getBackground());
-			flatten.setRoi(roi);// also OK.
-			flatten = flatten.flatten();// 1 slice.
-			flatten.updateAndDraw();
-			stack.addSlice(flatten.getProcessor());
-			background.deleteRoi();
-		}
-		// RGB images
-		ImagePlus fusionImage = new ImagePlus("fusion", stack);
-		return fusionImage;
+	    if (fusionMapRadio.isSelected() && radiomicsMap != null) {
+	        foreground = radiomicsMap;
+	        fLUT = radiomicsMapPanel.getLUT();
+	    } else if (fusionMaskRadio.isSelected() && maskImagePanel != null) {
+	        // マスクをフュージョンする場合も、必ずアライメント済みのものを前景にする
+	    	int zct[] = maskImagePanel.getZCTArray(maskImagePanel.getCurrentSlide());
+	        int maskC = zct[1];
+	        int maskT = zct[2];
+	        foreground = ImagePairingEngine.alignMaskToOriginalSpace(originalImagePanel, maskImagePanel, maskC, maskT);
+	        
+	        // (必要に応じて0-255へのスケーリング処理をここに挟む)
+	    }
+
+	    if (foreground != null && background != null) {
+	        double opacity = transparencySlider.getValue() * 0.01;
+	        // Fusionパッケージを利用してスッキリ一行で生成
+	        this.fusionImage = FusionDisplay.createFusionImage(foreground, background, opacity, fLUT);
+	    } else {
+	        this.fusionImage = null;
+	    }
+	    
+	    fusionImagePanel.reloadSlideGlasses(this.fusionImage);
 	}
 
 	private boolean validateInputs() {

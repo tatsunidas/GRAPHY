@@ -134,6 +134,7 @@ public class RadiomicsWindow extends JFrame{
 		setSize(1200, 1000);
 		setVisible(true);
 		textureParams.adjustDividerLocation();
+		visPanel.adjustDividerLocation();
 	}
 	
 	public RadiomicsPipeline getPipeline() {

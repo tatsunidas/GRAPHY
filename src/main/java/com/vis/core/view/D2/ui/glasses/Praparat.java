@@ -162,7 +162,7 @@ public class Praparat extends JPanel {
 	private Color studyColor = Color.CYAN;
 	private LUT lut;// null-able
 
-	private int currentSlice = -1;
+	private int currentSliceZCT = -1;
 	private javax.swing.Timer scrollDebounceTimer;
 	
 	/*
@@ -708,7 +708,7 @@ public class Praparat extends JPanel {
 			return;
 		}
 		// init
-		removeSlide(currentSlice);
+		removeSlide(currentSliceZCT);
 		this.slides = new ConcurrentHashMap<Integer, SlideGlass>();
 
 		isMultiFrame = p.isMultiFrame();
@@ -1161,7 +1161,7 @@ public class Praparat extends JPanel {
 	 */
 	public SlideGlass getCurrentSlide() {
 		if (slides == null || slides.isEmpty()) return null;
-		if (currentSlice == -1) {
+		if (currentSliceZCT == -1) {
 			for (SlideGlass sg : slides.values()) {
 				if (sg != null) return sg;
 			}
@@ -1169,7 +1169,7 @@ public class Praparat extends JPanel {
 		/*
 		 * Explicit code.
 		 */
-		SlideGlass sg = slides.get(currentSlice);
+		SlideGlass sg = slides.get(currentSliceZCT);
 		if(sg != null) {
 			return sg;
 		}else {
@@ -1178,7 +1178,7 @@ public class Praparat extends JPanel {
 	}
 
 	public int getCurrentSlidePos() {
-		return currentSlice;
+		return currentSliceZCT;
 	}
 	
 	public int getCurrentSlideZCTIndex() {
@@ -1684,38 +1684,51 @@ public class Praparat extends JPanel {
 	JPanel getViewPanel() {
 		return viewPanel;
 	}
+	
+	public SlideGlass getSlideGlassAt(int zctInd) {
+		if(this.slides == null || this.slides.isEmpty()) {
+			return null;
+		}
+		int capacity = nChannels * nSlices * nFrames;
+		if (zctInd < 0 || zctInd >= capacity) {
+			return null;
+		}
+		// null-able
+		SlideGlass sg = this.slides.get(zctInd);
+		return sg;
+	}
 
 	public int getSlidePosition(SlideGlass slide) {
-		int[] zct = getSlidePositionZCTArray(slide);
+		int[] zct = getZCTArray(slide);
 		return zct[0];
 	}
 	
-	public int getSlidePositionOnZCTIndex(SlideGlass slide) {
-		int[] zct = getSlidePositionZCTArray(slide);
+	public int getZCTIndex(SlideGlass slide) {
+		int[] zct = getZCTArray(slide);
 		return calcZctIndex(zct);
 	}
 	
-	private int calcZctIndex(int[] zct) {
+	public int calcZctIndex(int[] zct) {
 		int z = zct[0];
 		int c = zct[1];
 		int t = zct[2];
 		return t * (nChannels * nSlices) + z * nChannels + c;
 	}
 	
-	public int[] getSlidePositionZCTArray(SlideGlass slide) {
+	public int[] getZCTArray(SlideGlass slide) {
 	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 	    if (slides == null) return new int[]{-1, -1, -1};
 
 	    for (Entry<Integer, SlideGlass> entry : slides.entrySet()) {
 	        if (entry.getValue() == slide) {
 	            int index = entry.getKey();
-	            return getSlidePositionZCTArray(index);
+	            return calcZCTArrayFromIndex(index);
 	        }
 	    }
 	    return new int[]{-1, -1, -1};
 	}
 	
-	public int[] getSlidePositionZCTArray(int index) {
+	public int[] calcZCTArrayFromIndex(int index/*zct*/) {
 	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 		// 線形インデックス zct_index を各次元に分解
 		// 公式: zct_index = t * (nChannels * nSlices) + z * nChannels + c
@@ -2068,7 +2081,7 @@ public class Praparat extends JPanel {
 		if (slides == null || slides.size() == 0) {
 			return;
 		}
-		SlideGlass target = slides.get(currentSlice);
+		SlideGlass target = slides.get(currentSliceZCT);
 		if (target != null) {
 			target.setSize(w, h);
 			target.repaint();
@@ -2207,11 +2220,11 @@ public class Praparat extends JPanel {
 
 		constructSlideGlassesFromPraparat(p);
 		applyGlobalAutoWindow();// before slider.initContext
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		
 		constructSlideGlassesFromPraparat(p);
 		applyGlobalAutoWindow();// before slider.initContext
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		updateSlidersVisibility();
 		if (Utils.isDebug) {
 			System.out.println(slides.size() + " images loaded.");
@@ -2260,7 +2273,7 @@ public class Praparat extends JPanel {
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		constructSlideGlassesFromDicom(pathToImages);
 		applyGlobalAutoWindow();// before slider.initContext
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		updateSlidersVisibility();
 		if (Utils.isDebug) {
 			System.out.println(slides.size() + " images loaded.");
@@ -2278,7 +2291,7 @@ public class Praparat extends JPanel {
 				System.out.println("praparat needs images..., return.");
 			return;
 		}
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		updateInfoLabel(-1, -1, "-1", new double[] { -1, -1 }, -1, -1);
 
 		String patID = GDicomTools.getTag(images, Tag.PatientID);
@@ -2324,7 +2337,7 @@ public class Praparat extends JPanel {
 
 		// check multi frame
 
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		updateInfoLabel(-1, -1, "-1", new double[] { -1, -1 }, -1, -1);
 
 		String pid = null;
@@ -3045,13 +3058,13 @@ public class Praparat extends JPanel {
 	 * 
 	 * @param sliceIndex:number of slice index, 0 to n-1
 	 */
-	void setImagePosition(int sliceIndex) {
+	void setImagePosition(int sliceZctIndex) {
 		if (slides == null) { // do not include pathToImages
 			return;
 		}
 		if (isShowGridViewOn()) {
 			// to get current slice
-			currentSlice = sliceIndex;
+			currentSliceZCT = sliceZctIndex;
 			return;
 		}
 		
@@ -3060,17 +3073,17 @@ public class Praparat extends JPanel {
 	    
 	    try {
 	    	// set image first time
-			if (currentSlice == -1) {
-				currentSlice = sliceIndex;
+			if (currentSliceZCT == -1) {
+				currentSliceZCT = sliceZctIndex;
 				// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
 				Double syncMag = 1.0;
 				Double syncRot = 0.0;
 				Double syncMin = null;
 				Double syncMax = null;
 				Point syncOrigin = null;
-				realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
+				realizeImage(currentSliceZCT, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
-				SlideGlass currentGlass = this.slides.get(currentSlice);
+				SlideGlass currentGlass = this.slides.get(currentSliceZCT);
 				if (currentGlass == null) {
 					viewPanel.removeAll();
 					viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
@@ -3113,7 +3126,7 @@ public class Praparat extends JPanel {
 				viewPanel.repaint(); // 画面の更新だけならrepaintで十分
 
 				// 2. 前後の先読みを開始（バックグラウンドスレッド）
-				manageCache(currentSlice);
+				manageCache(currentSliceZCT);
 
 				currentGlass.updateDisplayImage();
 				currentGlass.repaint();
@@ -3122,13 +3135,13 @@ public class Praparat extends JPanel {
 				return;
 			}
 
-			if (currentSlice == sliceIndex) {
+			if (currentSliceZCT == sliceZctIndex) {
 				return;
 			}
 
-			currentSlice = sliceIndex;
+			currentSliceZCT = sliceZctIndex;
 			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
-			SlideGlass currentGlass = this.slides.get(currentSlice);
+			SlideGlass currentGlass = this.slides.get(currentSliceZCT);
 			if (currentGlass == null) {
 				viewPanel.removeAll();
 				viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
@@ -3143,7 +3156,7 @@ public class Praparat extends JPanel {
 			Double syncMin = currentGlass.currentMin;
 			Double syncMax = currentGlass.currentMax;
 			Point syncOrigin = currentGlass.getDisplayImageOriginXY();
-			realizeImage(currentSlice, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
+			realizeImage(currentSliceZCT, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
 			viewPanel.removeAll();
 			viewPanel.add(currentGlass, 0);
@@ -3155,7 +3168,7 @@ public class Praparat extends JPanel {
 			viewPanel.repaint();
 
 			// 2. 前後の先読みを開始（バックグラウンドスレッド）
-			manageCache(currentSlice);
+			manageCache(currentSliceZCT);
 
 			currentGlass.updateDisplayImage();
 			currentGlass.repaint();
@@ -3473,7 +3486,7 @@ public class Praparat extends JPanel {
 
 	public void showFirstImage() {
 		// position range is 0 to n-1
-		currentSlice = -1;
+		currentSliceZCT = -1;
 		if(slider != null) {
 			setImagePositionUsingSlider(0);
 		}else {
