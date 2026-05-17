@@ -261,21 +261,23 @@ public class PixelDataDecoder {
 	    }
 	}
 	
-	// --- 1-bit 専用の高速プロセッサ ---
+	// --- 1-bit 専用の高速プロセッサ:DICOM SEG ---
 	private ImageProcessor processBit(byte[] bytes) {
 		byte[] pixels = new byte[w * h];
 		int pixelIndex = 0;
 
 		for (int i = 0; i < bytes.length && pixelIndex < w * h; i++) {
 			byte b = bytes[i];
-
 			// DICOMの仕様: 1バイト内のピクセル順序は LSB (Bit 0) から MSB (Bit 7) の順
 			for (int bit = 0; bit < 8 && pixelIndex < w * h; bit++) {
 				// 対象ビットが立っているか（1か）判定
 				boolean isSet = (b & (1 << bit)) != 0;
-
 				// マスク画像を視覚化するため、1なら白(255)、0なら黒(0)にマッピングする
-				pixels[pixelIndex++] = (byte) (isSet ? 255 : 0);
+//				pixels[pixelIndex++] = (byte) (isSet ? 255 : 0);
+				/*
+				 * keep label to be 1
+				 */
+				pixels[pixelIndex++] = (byte) (isSet ? 1 : 0);
 			}
 		}
 

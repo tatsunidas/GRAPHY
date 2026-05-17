@@ -193,7 +193,7 @@ public class MaskRoiPanel extends JPanel {
 	 * コンボボックスの選択モードに応じて、対象となるスライスのZCTインデックス配列を返す。
 	 * マルチチャンネル・マルチタイムフレームの場合は、対象Z位置の全C・Tのインデックスを含む。
 	 * 
-	 * @return CZTインデックスの配列
+	 * @return ZCTインデックスの配列
 	 */
 	public int[] getTargetSliceIndices(Praparat ownerPraparat) {
 		if (ownerPraparat == null || attachedRoi == null) {
@@ -224,13 +224,13 @@ public class MaskRoiPanel extends JPanel {
 			// 同じZ位置を持つ全チャンネル・タイムフレームのインデックスを返す
 			com.vis.core.view.D2.ui.glasses.SlideGlass sg = attachedRoi.getSlideGlass();
 			if (sg != null) {
-				int[] currentCzt = ownerPraparat.getSlidePositionCZTArray(sg);
-				int currentZ = currentCzt[1]; // Z位置を取得
+				int[] currentZct = ownerPraparat.getSlidePositionZCTArray(sg);
+				int currentZ = currentZct[0]; // Z位置を取得
 
 				java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 				for (Integer idx : slides.keySet()) {
-					int[] czt = ownerPraparat.getSlidePositionCZTArray(idx);
-					if (czt[1] == currentZ) {
+					int[] zct = ownerPraparat.getSlidePositionZCTArray(idx);
+					if (zct[0] == currentZ) {
 						targetIndices.add(idx);
 					}
 				}
@@ -247,9 +247,9 @@ public class MaskRoiPanel extends JPanel {
 
 			java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 			for (Integer idx : slides.keySet()) {
-				int[] czt = ownerPraparat.getSlidePositionCZTArray(idx);
-				// そのCZTインデックスのZ位置が、ユーザーが指定したZの範囲に含まれているか
-				if (targetZSet.contains(czt[1])) {
+				int[] zct = ownerPraparat.getSlidePositionZCTArray(idx);
+				// そのZCTインデックスのZ位置が、ユーザーが指定したZの範囲に含まれているか
+				if (targetZSet.contains(zct[0])) {
 					targetIndices.add(idx);
 				}
 			}

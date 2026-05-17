@@ -814,8 +814,14 @@ public class Viewer2DToolBar extends JToolBar{
 
 							javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
 								if (frame.canvas != null) {
-									frame.canvas.render(); // これが呼ばれると paintGL() が動く
-									frame.canvas.repaint();
+									/*
+									 * Countermeasure:
+									 * Caused by: java.awt.AWTException: JAWT_DrawingSurface_Lock() failed
+									 */
+									if (frame.canvas.isDisplayable() && frame.canvas.isShowing()) {
+										frame.canvas.render();// これが呼ばれると paintGL() が動く
+										frame.canvas.repaint();
+									}
 								}
 							});
 							timer.setRepeats(true);
@@ -826,7 +832,6 @@ public class Viewer2DToolBar extends JToolBar{
 								frame.canvas.setVolumeData(vol); // ← これを使う
 							}
 						});
-//						JOptionPane.showConfirmDialog(null, "GRAPHY 3D Viewer is under development. Please use ImageJ's Volume Viewer graphy plugin !");
 					}).start();
 
 					currentTool = Windowing;

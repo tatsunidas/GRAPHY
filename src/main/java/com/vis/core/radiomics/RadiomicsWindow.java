@@ -39,8 +39,6 @@ package com.vis.core.radiomics;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 
@@ -51,15 +49,12 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTree;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
-import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
 import com.vis.configuration.Resources;
-import com.vis.core.anonymize.StudyCheckBoxTree;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
-import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
 import io.github.tatsunidas.radiomics.main.RadiomicsJ;
@@ -80,7 +75,6 @@ public class RadiomicsWindow extends JFrame{
     private JSplitPane mainSplitPane;
 	
 	static RadiomicsJ radiomics = new RadiomicsJ();
-//	SampleClassifierPanel panel;
 	RadiomicsSettings textureParams;
 	RadiomicsBatchModePanel batchPanel;
 	RadiomicsPipeline pipeline;
@@ -112,6 +106,9 @@ public class RadiomicsWindow extends JFrame{
 		//Machine learning sample
 //		panel = new SampleClassifierPanel(this);
 //		tabPane.addTab("Operation",panel);
+        
+        visPanel = new RadiomicsVisualizationPanel(textureParams);
+		tabPane.addTab("Visualization Map", visPanel);
 		
 		textureParams = new RadiomicsSettings();
 		tabPane.addTab("TextureParams", textureParams);
@@ -119,10 +116,9 @@ public class RadiomicsWindow extends JFrame{
 		batchPanel = new RadiomicsBatchModePanel(textureParams);
 		tabPane.addTab("Batch Execution", batchPanel);
 		
-		visPanel = new RadiomicsVisualizationPanel(textureParams);
-		tabPane.addTab("Visualization Map", visPanel);
-		
-        // 全体をJSplitPaneで左右に分割
+		// divider movable
+        treeScrollPane.setMinimumSize(new Dimension(50, 0));
+        tabPane.setMinimumSize(new Dimension(100, 0));
         mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScrollPane, tabPane);
         mainSplitPane.setDividerLocation(200);
         
@@ -135,7 +131,7 @@ public class RadiomicsWindow extends JFrame{
 		}
 		setTitle("Machine Learning & Radimics Feature Calculator");
 		setIconImage(Resources.RadiomicsJIcon.loadIconFromResource().getImage());
-		setSize(900, 600);
+		setSize(1200, 1000);
 		setVisible(true);
 		textureParams.adjustDividerLocation();
 	}

@@ -166,7 +166,7 @@ public class Praparat extends JPanel {
 	private javax.swing.Timer scrollDebounceTimer;
 	
 	/*
-	 * CZT index to handle multi-channel
+	 * ZCT index to handle multi-channel
 	 */
 	private int pendingTargetIndex = -1;
 	
@@ -208,7 +208,7 @@ public class Praparat extends JPanel {
 	/*
 	 * 順序は保証しない
 	 */
-	private ConcurrentHashMap<Integer/* 0 to N-1 */, SlideGlass> slides;
+	private ConcurrentHashMap<Integer/* ZCT */, SlideGlass> slides;
 
 	private final int PREFETCH_RANGE = 3;
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
@@ -220,6 +220,8 @@ public class Praparat extends JPanel {
 	 * -1 は「未設定（2D Viewerのグローバル状態に従う）」を意味します
 	 */
     private int localToolType = -1;
+    
+    private JPanel emptyGlassPanel;
 
 	/**
 	 * Load normal praparat
@@ -227,7 +229,7 @@ public class Praparat extends JPanel {
 	 * @param stack
 	 * @param studyColor
 	 */
-	public Praparat(ImagePlus stack, Color studyColor, ViewMode mode, boolean sortCZT) {
+	public Praparat(ImagePlus stack, Color studyColor, ViewMode mode, boolean sortZCT) {
 		this.mode = mode;
 		if (studyColor != null) {
 			this.studyColor = studyColor;
@@ -235,7 +237,7 @@ public class Praparat extends JPanel {
 		initComponent();
 		String modality_str = GDicomTools.getTag(stack, Tag.Modality);
 		this.modality = Modality.is(modality_str);
-		loadSeries(stack, sortCZT);
+		loadSeries(stack, sortZCT);
 		if (mode != ViewMode.FilmGrid) {
 			doSingleGridLayout();
 		} else {
@@ -331,8 +333,12 @@ public class Praparat extends JPanel {
 			return;
 
 		// 1. 真ん中のスライスを代表として選ぶ
-		int midIndex = slides.size() / 2;
-		SlideGlass midSlide = slides.get(midIndex);
+		// ★ 修正: ZCT対応。実際に存在するキーをソートし、その中央値を取得することで空きマスを確実に回避
+		List<Integer> keys = new ArrayList<>(slides.keySet());
+		java.util.Collections.sort(keys);
+		int midKey = keys.get(keys.size() / 2);
+		
+		SlideGlass midSlide = slides.get(midKey);
 		if (midSlide == null)
 			return;
 
@@ -341,19 +347,18 @@ public class Praparat extends JPanel {
 			return;
 
 		// 2. ピクセルデータを「確実に」ロードする
-		int file_pos = isMultiFrame() ? 0 : midIndex;
-		if (hasFileSource(file_pos)) {
+		// ★ 修正: hasFileSource には取得したZCTインデックス(midKey)を渡す
+		if (hasFileSource(midKey)) {
 			dcm.ensurePixelDataLoaded();
 		}
 
 		// 3. ImageProcessorを取得
-		int frame_pos = isMultiFrame() ? midIndex : 0;
+		// ★ 修正: realizeImage と同様に、マルチフレームの場合はInstanceNumberからフレーム位置を逆算
+		int frame_pos = isMultiFrame() ? (midSlide.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
 		ImageProcessor ip = dcm.getImageProcessor(frame_pos);
 
 		if (ip != null) {
-			// ★ 究極の修正：ImageJのヒストグラム解析を使用する！
-			// 上下0.5%の外れ値（ノイズや異常に明るいピクセル）を除外して、
-			// 医療画像として最も自然なコントラスト幅を自動計算させます。
+			// 上下0.5%の外れ値を除外して、医療画像として最も自然なコントラスト幅を自動計算
 			ij.plugin.ContrastEnhancer ce = new ij.plugin.ContrastEnhancer();
 			ce.stretchHistogram(ip, 0.5);
 
@@ -436,9 +441,25 @@ public class Praparat extends JPanel {
 			coverGlass.addMouseWheelListener(l);
 		}
 	}
+	
+	public void addRoi(int slidePos, RoiObj r) {
+		// ★ 修正：slides.size() ではなく、全体容量(capacity)か、Mapにキーが存在するかで判定
+		int capacity = nChannels * nSlices * nFrames;
+		if (slidePos < 0 || slidePos >= capacity) {
+			Log.logger.warning("Praparat: this slide position invalid...cannot addRoi().");
+			return;
+		}
+		SlideGlass sg = slides.get(slidePos);
+		if (sg != null) {
+			sg.addRoi(r);
+		}
+	}
 
 	public List<Point2D> calcLocalizer(GeometryOfSlice bePostedCurrentSlide) {
 		SlideGlass sg = getCurrentSlide();
+		if(sg == null || bePostedCurrentSlide == null) {
+			return null;
+		}
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice(sg.getHeader());
 		GeometryOfSlice postImageGeometry = bePostedCurrentSlide;
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
@@ -447,6 +468,9 @@ public class Praparat extends JPanel {
 	}
 
 	private List<Point2D> calcLocalizer(SlideGlass src/* will draw */, SlideGlass target/* be posted */) {
+		if(src == null || target == null) {
+			return null;
+		}
 		GeometryOfSlice localizerGeometry = new GeometryOfSlice(src.getHeader());
 		GeometryOfSlice postImageGeometry = new GeometryOfSlice(target.getHeader());
 		LocalizerPoster localizerPoster = new IntersectVolume(localizerGeometry);
@@ -480,6 +504,7 @@ public class Praparat extends JPanel {
 		return shape;
 	}
 
+	
 	public void callBackLocalizer() {
 		// ref-study-uid
 		Eyepiece eye = getEyepiece();
@@ -492,23 +517,35 @@ public class Praparat extends JPanel {
 		String refUid = (String) con.getContextUIDs()[4];
 		// get praps which have same ref-uid
 		List<Praparat> praps = eye.getAllPraparatByFrameOfReferenceUID(patID, studyUID, refUid);
-		// remove previous localizers
+		// 1. remove previous localizers
 		for (Praparat p : praps) {
-			ConcurrentHashMap<Integer, SlideGlass> slides = p.slides;
-			for (Integer k : slides.keySet()) {
-				SlideGlass s = slides.get(k);
-				s.drawLocalizer(null);
-				s.repaintCanvasGlass();
+			ConcurrentHashMap<Integer, SlideGlass> targetSlides = p.getAllSlides();
+			if (targetSlides != null) {
+				// null guard
+				for (SlideGlass s : targetSlides.values()) {
+					if (s != null) {
+						s.drawLocalizer(null);
+						s.repaintCanvasGlass();
+					}
+				}
 			}
 		}
-		// show localizer on slideglass
+		// 2. show localizer on slideglass
 		SlideGlass from = getCurrentSlide();
+		// If slideglass is null (NO IMAGE), process end.
+		if (from == null) {
+			return; 
+		}
 		for (Praparat p : praps) {
 			// if self, skip
 			if (p == this) {
 				continue;
 			}
 			SlideGlass to = p.getCurrentSlide();
+			// If slideglass is null (NO IMAGE), process skip.
+			if (to == null) {
+				continue; 
+			}
 			List<Point2D> loca_geo = null;
 			try {
 				loca_geo = calcLocalizer(to, from);
@@ -603,7 +640,7 @@ public class Praparat extends JPanel {
 	 * This method is only used for
 	 * single pop-up view or test purpose. Dicom attributes keeps minimally.
 	 */
-	private void constructSlideGlassesFromImagePlus(ImagePlus images, boolean sortCZT) {
+	private void constructSlideGlassesFromImagePlus(ImagePlus images, boolean sortZCT) {
 		if (images == null || images.getStackSize() < 1) {
 			throw new IllegalArgumentException(
 					"Images is null or empty, Praparat::constructSeriesGlassesAsLayerUsingImagePlus");
@@ -621,6 +658,10 @@ public class Praparat extends JPanel {
 		HashMap<Integer, DicomImage> ds = ImageUtils.imagePlusToDcm(images, secondaryUse);
 		for (int i = 0; i < ds.size(); i++) {
 			SlideGlass sg = new SlideGlass(this, ds.get(i));
+			/*
+			 * 一旦、slidesは連番で埋めておき、
+			 * 後の、organizeMultiDimensionalSlidesでZCTにマップし直す
+			 */
 			slides.put(i, sg);
 		}
 
@@ -635,7 +676,7 @@ public class Praparat extends JPanel {
 		    /*
 			 * sort images via IOP and IPP.
 			 */
-		    if (sortCZT) {
+		    if (sortZCT) {
 				organizeMultiDimensionalSlides(slideList);
 		    } else {
 				this.nChannels = images.getNChannels();
@@ -705,6 +746,10 @@ public class Praparat extends JPanel {
 		futures.add(executor.submit(task));
 		for (Future<SlideGlass> future : futures) {
 			try {
+				/*
+				 * 一旦、slidesは連番で埋めておき、
+				 * 後の、organizeMultiDimensionalSlidesでZCTにマップし直す
+				 */
 				slides.put(slides.size(), future.get());
 			} catch (InterruptedException | ExecutionException e) {
 				e.printStackTrace();
@@ -897,6 +942,17 @@ public class Praparat extends JPanel {
 			int instNo = sg.getHeader().getInt(Tag.InstanceNumber, 0);
 			spList.add(new SlidePos(sg, pos, instNo));
 		}
+		
+		// ★ 追加：デバッグ用ログ出力
+		Log.logger.fine("--- Slide Position Debug Log ---");
+		for (SlidePos sp : spList) {
+			int fIdx = sp.sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+			double[] debugIpp = getSafeIPP(sp.sg.getHeader(), fIdx);
+			int segNum = getSegmentNumber(sp.sg.getHeader(), fIdx);
+			Log.logger.fine(String.format("InstNo: %3d | Seg: %2d | Pos: %8.4f | IPP: %s", sp.instNo, segNum, sp.pos,
+					java.util.Arrays.toString(debugIpp)));
+		}
+		Log.logger.fine("--------------------------------");
 
 		// 3. 空間位置（法線ベクトル方向の距離）で昇順ソートする（スライダを進めると法線ベクトルの方向へ進む）
 		spList.sort((o1, o2) -> Double.compare(o1.pos, o2.pos));
@@ -1016,7 +1072,7 @@ public class Praparat extends JPanel {
 				}
 
 //				int index = (tIdx * (this.nChannels * this.nSlices)) + (sliceIdx * this.nChannels) + c;
-				int index = calcCztIndex(new int[] {c, sliceIdx, tIdx});
+				int index = calcZctIndex(new int[] {sliceIdx, c, tIdx});
 				slides.put(index, sg);
 			}
 		}
@@ -1098,21 +1154,34 @@ public class Praparat extends JPanel {
 		return pvcp;
 	}
 
+	/**
+	 * If it is multichannel/timeframe mode, praparat may have few blank slideglasses.
+	 * If slideglass is blank{NO IMAGE}, return null.
+	 * @return
+	 */
 	public SlideGlass getCurrentSlide() {
-		if (slides == null) {
+		if (slides == null || slides.isEmpty()) return null;
+		if (currentSlice == -1) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) return sg;
+			}
+		}
+		/*
+		 * Explicit code.
+		 */
+		SlideGlass sg = slides.get(currentSlice);
+		if(sg != null) {
+			return sg;
+		}else {
 			return null;
 		}
-		if (currentSlice == -1) {
-			return slides.get(0);
-		}
-		return slides.get(currentSlice);
 	}
 
 	public int getCurrentSlidePos() {
 		return currentSlice;
 	}
 	
-	public int getCurrentSlideCZTIndex() {
+	public int getCurrentSlideZCTIndex() {
 		return currentT * (nChannels * nSlices) + currentZ * nChannels + currentC;
 	}
 
@@ -1131,111 +1200,61 @@ public class Praparat extends JPanel {
 	public Eyepiece getEyepiece() {
 		return prapManager;
 	}
+	
+	/**
+	 * NO IMAGE background panel
+	 */
+	private JPanel getEmptyGlassPanel() {
+		if (emptyGlassPanel == null) {
+			emptyGlassPanel = new JPanel(new BorderLayout()) {
+				@Override
+				protected void paintComponent(Graphics g) {
+					super.paintComponent(g);
+					// 背景を黒に
+					g.setColor(Color.BLACK);
+					g.fillRect(0, 0, getWidth(), getHeight());
+					// 中央にNO IMAGEのテキストを描画
+					g.setColor(Color.DARK_GRAY);
+					String msg = "NO IMAGE";
+					int stringWidth = g.getFontMetrics().stringWidth(msg);
+					g.drawString(msg, (getWidth() - stringWidth) / 2, getHeight() / 2);
+				}
+			};
+			emptyGlassPanel.setBackground(Color.BLACK);
+			
+			// ★ 最重要：空きマスでもマウスホイールでのスライス送りを可能にする
+			emptyGlassPanel.addMouseWheelListener(e -> {
+				if (e.getWheelRotation() > 0) {
+					stepDimension("Slice", 1); // 下スクロールで次へ
+				} else {
+					stepDimension("Slice", -1); // 上スクロールで前へ
+				}
+			});
+			
+			// ★ 新規追加: Shift ＋ 左クリックでPraparatを選択状態にする
+			// ==========================================================
+			emptyGlassPanel.addMouseListener(new java.awt.event.MouseAdapter() {
+				@Override
+				public void mouseClicked(java.awt.event.MouseEvent e) {
+					// Shiftキーが押されていて、かつ左クリック(ボタン1)の場合
+					if (e.isShiftDown() && SwingUtilities.isLeftMouseButton(e)) {
+						// 現在の選択状態の「逆」を新しい状態とする（トグル）
+						boolean nextState = !isSelected();
+						// Praparatの選択状態は、内部のSlideGlassの選択状態に依存しているが、
+						// NO IMAGEの場合は、直接Praparatの選択状態を更新する。
+						// Praparat自体の選択フラグを更新して境界線（ボーダー）を再描画
+						selected = nextState;
+						showBorder(isFocusGained());
+					}
+				}
+			});
+		}
+		return emptyGlassPanel;
+	}
 
 	public List<String> getImageFileLocations() {
 		return this.pathToImages;
 	}
-
-	/**
-	 * return slides as imageplus.
-	 * 
-	 * ImagePlus (全体のコンテナ) ├── Calibration (全体共通の単位・スケール) ├── Properties
-	 * (全体のメタデータ：DICOMヘッダーなど) └── ImageStack (スライスの集合体) ├── Slice 1 │ ├──
-	 * ImageProcessor (ピクセルデータ + 表示Min/Max) │ └── Slice Label (このスライス固有のメタデータ文字列)
-	 * ├── Slice 2 │ ├── ImageProcessor ... │ └── Slice Label ... └── Slice N ...
-	 * 
-	 * 
-	 * @return imageplus
-	 */
-//	public ImagePlus getImagePlus() {
-//
-//		if (slides == null || slides.size() < 1) {
-//			return null;
-//		}
-//
-//		if (isMultiFrame()) {
-//			logger.info("This series multi frame. Will you continue convert to imageplus ? It will take a long time...");
-//			int res = JOptionPane.showConfirmDialog(this,
-//					"This series is multi-frame. Take long time converting to imageplus. Still will you continue ?");
-//			if (res != JOptionPane.OK_OPTION) {
-//				return null;
-//			}
-//		}
-//
-//		ImagePlus replica = null;
-//		ImageStack stack = new ImageStack();
-//		String info = "";
-//
-//		// 1. スライドをインデックス順にソートして処理する
-//		List<Integer> sortedIndices = new ArrayList<>(slides.keySet());
-//		Collections.sort(sortedIndices);
-//
-//		if (!isMultiFrame()) {
-//			Calibration orgCal = null;
-//			for (int index : sortedIndices) {
-//				SlideGlass sg = slides.get(index);
-//				DicomImage frame = sg.getDicomImage();
-//				if (orgCal == null) {
-//					orgCal = sg.getOriginalCalibration();
-//				}
-//				if (hasFileSource(index)) {
-//					if (!frame.ensurePixelDataLoaded()) {
-//						continue;
-//					}
-//				}
-//
-//				ImagePlus imp = GDicomTools.dcmImgToImagePlus(frame, orgCal);
-//				ImageProcessor ip = imp.getProcessor();
-//				if (ip instanceof ColorProcessor) {
-//					ip.snapshot();// keep original pixels
-//				}
-//				/*
-//				 * In this case, always only one slice. It case use getInfoProperty().
-//				 */
-//				String headerInfo = imp.getInfoProperty();
-//				String sliceLabel = imp.getStack().getSliceLabel(1);
-//
-//				// 1スライスしかない場合に備えて、最初の1枚目のヘッダー情報を全体の代表プロパティ用に保持しておく
-//				if (info.isEmpty() && headerInfo != null) {
-//					info = headerInfo;
-//				}
-//
-//				/*
-//				 * if header has "\n" in head (at index 0), DicomTools.getTag() return null.
-//				 */
-//				// header = imp.getStack().getSliceLabel(1);
-//				stack.addSlice(sliceLabel, imp.getProcessor());
-//			}
-//			replica = new ImagePlus("stack", stack);
-//			/*
-//			 * if ImagePlus has only one slice, header is updated by setProp("Info", hdr).
-//			 */
-////			if (replica.getNSlices() == 1) {
-////				replica.setProp("Info", info);
-////			}
-//			if (!info.isEmpty()) {
-//				replica.setProperty("Info", info);
-//			}
-//			/*
-//			 * TODO Now, fail safe ? But this is not suitable for EnhancedMultiFrame DICOM.
-//			 */
-//			replica.setCalibration(orgCal);
-//			return replica;
-//		} else {
-//			if (hasFileSource(0)) {
-//				Calibration orgCal = getCurrentSlide().getOriginalCalibration();
-//				String path = getImageFileLocations().get(0);
-//				DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
-//				reader.read(path, false);
-//				DicomObject header = reader.getHeader();
-//				DicomImage dcm = DicomImage.newDicomImage(path, header, reader.getFileMetaInfomation(),
-//						reader.checkTSUID(), DICOMBackend.getCurrent());
-//				ImagePlus imp = GDicomTools.dcmImgToImagePlus(dcm, orgCal);
-//				return imp;
-//			}
-//		}
-//		return null;
-//	}
 	
 	/**
 	 * return slides as imageplus.
@@ -1253,8 +1272,75 @@ public class Praparat extends JPanel {
 		
 		if(!isMultiFrame()) {
 			ImageStack stack = new ImageStack();
-			Calibration orgCal = slides.get(0).getOriginalCalibration();
+			// 確実に存在するSlideGlassから、共通の縦横サイズを安全に取得する
+			SlideGlass representative = null;
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null && sg.getHeader() != null) {
+					representative = sg;
+					break;
+				}
+			}
+			if (representative == null)
+				return null; // ガード
+
+			int w = representative.getOriginalImageSize().width;
+			int h = representative.getOriginalImageSize().height;
+			Calibration orgCal = representative.getOriginalCalibration();
 			String globalInfo = "";
+
+			// =====================================================================
+			// ★1. [シリーズ共通属性ドナーの事前探索] チャンネル×タイムフレームごとにスキャン
+			// =====================================================================
+			String[][] baseLabels = new String[nFrames][nChannels];
+			boolean[][] isColorFlags = new boolean[nFrames][nChannels];
+			int[][] bitDepths = new int[nFrames][nChannels];
+
+			for (int t = 0; t < nFrames; t++) {
+				for (int c = 0; c < nChannels; c++) {
+					baseLabels[t][c] = "Empty";
+					isColorFlags[t][c] = false;
+					bitDepths[t][c] = 8;
+					for (int z = 0; z < nSlices; z++) {
+						int idx = t * (nChannels * nSlices) + z * nChannels + c;
+						SlideGlass sg = slides.get(idx);
+						if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
+							if (sg.getDicomImage().ensurePixelDataLoaded()) {
+								ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
+								if (donorImp != null && donorImp.getStackSize() > 0) {
+									baseLabels[t][c] = donorImp.getStack().getSliceLabel(1);
+									isColorFlags[t][c] = sg.isRGB(); // ★カラー画像属性の取得
+									bitDepths[t][c] = sg.getDicomImage().getBitsAllocated();
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// =====================================================================
+			// ★2. [空間位置ドナーの事前探索] Z座標ごとにスキャン
+			// =====================================================================
+			String[] zSpaceLabels = new String[nSlices];
+			for (int z = 0; z < nSlices; z++) {
+				zSpaceLabels[z] = "Empty";
+				for (int t = 0; t < nFrames; t++) {
+					for (int c = 0; c < nChannels; c++) {
+						int idx = t * (nChannels * nSlices) + z * nChannels + c;
+						SlideGlass sg = slides.get(idx);
+						if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
+							if (sg.getDicomImage().ensurePixelDataLoaded()) {
+								ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
+								if (donorImp != null && donorImp.getStackSize() > 0) {
+									zSpaceLabels[z] = donorImp.getStack().getSliceLabel(1);
+									break;
+								}
+							}
+						}
+					}
+					if (!zSpaceLabels[z].equals("Empty")) break;
+				}
+			}
 
 			// ImageJ dimension order: C -> Z -> T
 			for (int t = 0; t < nFrames; t++) {
@@ -1262,7 +1348,39 @@ public class Praparat extends JPanel {
 					for (int c = 0; c < nChannels; c++) {
 						int index = t * (nChannels * nSlices) + z * nChannels + c;
 						SlideGlass sg = slides.get(index);
-						if (sg == null) continue;
+						
+						// ★ 修正: 空きマス（null）パディングの完全最適化
+						if (sg == null || !hasFileSource(index) || !sg.getDicomImage().ensurePixelDataLoaded()) {
+							boolean isColor = isColorFlags[t][c];
+							int bits = bitDepths[t][c];
+							
+							// 本来のシリーズ属性と、同Zの空間座標をテキストレベルで安全にマージ
+							String mergedLabel = mergeDicomMetaLabels(baseLabels[t][c], zSpaceLabels[z]);
+
+							ImageProcessor dummyIp;
+							if (isColor) {
+								// ★ カラー画像対応：ColorProcessorを生成
+								dummyIp = new ij.process.ColorProcessor(w, h);
+							} else {
+								// モノクロ画像対応：ビット深度を一致させる
+								switch (bits) {
+									case 16:
+										dummyIp = new ij.process.ShortProcessor(w, h);
+										break;
+									case 32:
+										dummyIp = new ij.process.FloatProcessor(w, h);
+										break;
+									case 8:
+									case 1:
+									default:
+										dummyIp = new ij.process.ByteProcessor(w, h);
+										break;
+								}
+							}
+							stack.addSlice(mergedLabel, dummyIp);
+							continue;
+						}
+
 						DicomImage dcmImg = sg.getDicomImage();
 						if (hasFileSource(index)) {
 							if (!dcmImg.ensurePixelDataLoaded()) {
@@ -1322,16 +1440,100 @@ public class Praparat extends JPanel {
 
 		if (targetC < 0 || targetC >= nChannels) targetC = currentC;
 		if (targetT < 0 || targetT >= nFrames) targetT = currentT;
+		
+		SlideGlass representative = null;
+		for (SlideGlass sg : slides.values()) {
+			if (sg != null && sg.getHeader() != null) {
+				representative = sg;
+				break;
+			}
+		}
+		if (representative == null) return null;
 
+		int w = representative.getOriginalImageSize().width;
+		int h = representative.getOriginalImageSize().height;
+		Calibration orgCal = representative.getOriginalCalibration();
 		ImageStack stack = new ImageStack();
-		Calibration orgCal = slides.get(0).getOriginalCalibration();
 		String globalInfo = "";
+
+		// =====================================================================
+		// ★1. [本来のターゲットシリーズ共通属性の取得]
+		// =====================================================================
+		String targetBaseLabel = "Empty";
+		boolean isColor = false;
+		int bitDepth = 8;
+		for (int z = 0; z < nSlices; z++) {
+			int idx = targetT * (nChannels * nSlices) + z * nChannels + targetC;
+			SlideGlass sg = slides.get(idx);
+			if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
+				if (sg.getDicomImage().ensurePixelDataLoaded()) {
+					ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
+					if (donorImp != null && donorImp.getStackSize() > 0) {
+						targetBaseLabel = donorImp.getStack().getSliceLabel(1);
+						isColor = sg.isRGB();
+						bitDepth = sg.getDicomImage().getBitsAllocated();
+						break;
+					}
+				}
+			}
+		}
+
+		// =====================================================================
+		// ★2. [空間位置ドナーの事前探索] Z座標ごとにスキャン
+		// =====================================================================
+		String[] zSpaceLabels = new String[nSlices];
+		for (int z = 0; z < nSlices; z++) {
+			zSpaceLabels[z] = "Empty";
+			for (int t = 0; t < nFrames; t++) {
+				for (int c = 0; c < nChannels; c++) {
+					int idx = t * (nChannels * nSlices) + z * nChannels + c;
+					SlideGlass sg = slides.get(idx);
+					if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
+						if (sg.getDicomImage().ensurePixelDataLoaded()) {
+							ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
+							if (donorImp != null && donorImp.getStackSize() > 0) {
+								zSpaceLabels[z] = donorImp.getStack().getSliceLabel(1);
+								break;
+							}
+						}
+					}
+				}
+				if (!zSpaceLabels[z].equals("Empty")) break;
+			}
+		}
 
 		for (int s = 0; s < nSlices; s++) {
 			/*0-based*/
 			int index = targetT * (nChannels * nSlices) + s * nChannels + targetC;
 			SlideGlass sg = slides.get(index);
-			if (sg == null) continue;
+			
+			// ★ 修正: 空きマス（null）パディングの完全最適化
+			if (sg == null || !hasFileSource(index) || !sg.getDicomImage().ensurePixelDataLoaded()) {
+				// 本来のシリーズ属性と、同Zの空間座標をマージ
+				String mergedLabel = mergeDicomMetaLabels(targetBaseLabel, zSpaceLabels[s]);
+
+				ImageProcessor dummyIp;
+				if (isColor) {
+					// ★ カラー対応
+					dummyIp = new ij.process.ColorProcessor(w, h);
+				} else {
+					switch (bitDepth) {
+						case 16:
+							dummyIp = new ij.process.ShortProcessor(w, h);
+							break;
+						case 32:
+							dummyIp = new ij.process.FloatProcessor(w, h);
+							break;
+						case 8:
+						case 1://explicit
+						default:
+							dummyIp = new ij.process.ByteProcessor(w, h);
+							break;
+					}
+				}
+				stack.addSlice(mergedLabel, dummyIp);
+				continue;
+			}
 			DicomImage dcmImg = sg.getDicomImage();
 			if (hasFileSource(index)) {
 				if (!dcmImg.ensurePixelDataLoaded()) {
@@ -1441,11 +1643,17 @@ public class Praparat extends JPanel {
 	}
 
 	public int getImageWidth() {
-		return slides.get(0).getOriginalImage().getWidth();
+		for (SlideGlass sg : slides.values()) {
+			if (sg != null) return sg.getOriginalImageSize().width;
+		}
+		return 0;
 	}
 
 	public int getImageHeight() {
-		return slides.get(0).getOriginalImage().getHeight();
+		for (SlideGlass sg : slides.values()) {
+			if (sg != null) return sg.getOriginalImageSize().height;
+		}
+		return 0;
 	}
 
 	public LUT getLUT() {
@@ -1478,45 +1686,45 @@ public class Praparat extends JPanel {
 	}
 
 	public int getSlidePosition(SlideGlass slide) {
-		int[] czt = getSlidePositionCZTArray(slide);
-		return czt[1];
+		int[] zct = getSlidePositionZCTArray(slide);
+		return zct[0];
 	}
 	
-	public int getSlidePositionOnCZTIndex(SlideGlass slide) {
-		int[] czt = getSlidePositionCZTArray(slide);
-		return calcCztIndex(czt);
+	public int getSlidePositionOnZCTIndex(SlideGlass slide) {
+		int[] zct = getSlidePositionZCTArray(slide);
+		return calcZctIndex(zct);
 	}
 	
-	private int calcCztIndex(int[] czt) {
-		int c = czt[0];
-		int z = czt[1];
-		int t = czt[2];
+	private int calcZctIndex(int[] zct) {
+		int z = zct[0];
+		int c = zct[1];
+		int t = zct[2];
 		return t * (nChannels * nSlices) + z * nChannels + c;
 	}
 	
-	public int[] getSlidePositionCZTArray(SlideGlass slide) {
+	public int[] getSlidePositionZCTArray(SlideGlass slide) {
 	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 	    if (slides == null) return new int[]{-1, -1, -1};
 
 	    for (Entry<Integer, SlideGlass> entry : slides.entrySet()) {
 	        if (entry.getValue() == slide) {
 	            int index = entry.getKey();
-	            return getSlidePositionCZTArray(index);
+	            return getSlidePositionZCTArray(index);
 	        }
 	    }
 	    return new int[]{-1, -1, -1};
 	}
 	
-	public int[] getSlidePositionCZTArray(int index) {
+	public int[] getSlidePositionZCTArray(int index) {
 	    ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
-		// 線形インデックス czt_index を各次元に分解
-		// 公式: czt_index = t * (nChannels * nSlices) + z * nChannels + c
+		// 線形インデックス zct_index を各次元に分解
+		// 公式: zct_index = t * (nChannels * nSlices) + z * nChannels + c
 	    if (slides == null) return new int[]{-1, -1, -1};
         int c = index % nChannels;
         int z = (index / nChannels) % nSlices;
         int t = index / (nChannels * nSlices);
         
-        return new int[]{c, z, t};
+        return new int[]{z, c, t};
 	}
 
 	/**
@@ -1736,16 +1944,26 @@ public class Praparat extends JPanel {
 		}
 	}
 
-	public boolean hasFileSource(int index /* 0 base */) {
+	// 修正前は index を使って pathToImages.get(index) をしていましたが、これをやめます
+	/**
+	 * 
+	 * @param zct index
+	 * @return
+	 */
+	public boolean hasFileSource(int index /* zct index */) {
 		List<String> paths = getImageFileLocations();
-		if (paths == null) {
+		// パスリストが null または空でなければ、このシリーズはファイルベースであると判定
+		if (paths == null || paths.isEmpty()) {
 			return false;
 		}
-		if (paths.size() < index) {
-			return false;
+
+		// index（ZCT）に対応するスライドが存在するかどうかだけチェックする
+		SlideGlass sg = slides.get(index);
+		if (sg == null) {
+			return false; // 空きマス（パディング領域）なら false
 		}
-		String p = paths.get(index);
-		return p != null && new File(p).exists();
+
+		return true;
 	}
 
 	private void initComponent() {
@@ -1851,13 +2069,14 @@ public class Praparat extends JPanel {
 			return;
 		}
 		SlideGlass target = slides.get(currentSlice);
-		target.setSize(w, h);
-		target.repaint();
+		if (target != null) {
+			target.setSize(w, h);
+			target.repaint();
+		}
 		// set origin all slides
 		for (Integer key : slides.keySet()) {
 			SlideGlass sl = slides.get(key);
-			if (sl == target)
-				continue;
+			if (sl == null || sl == target) continue;
 			sl.setSize(w, h);
 			if (target != null && !target.panningFlag && !sl.panningFlag) {
 				sl.imageSpecimen.originX = target.imageSpecimen.originX;
@@ -1927,7 +2146,9 @@ public class Praparat extends JPanel {
 
 	public void loadRoiToCurrentSlideGlass() {
 		SlideGlass sg = getCurrentSlide();
-		sg.loadRoiFromDB();
+		if(sg != null) {
+			sg.loadRoiFromDB();
+		}
 	}
 
 	public void loadRoisFromDB() {
@@ -1936,18 +2157,12 @@ public class Praparat extends JPanel {
 		}
 		if (getViewMode() != ViewMode.Thumbnail) {
 			for (Integer pos : this.slides.keySet()) {
-				this.slides.get(pos).loadRoiFromDB();
+				SlideGlass sg = this.slides.get(pos);
+				if(sg != null) {
+					sg.loadRoiFromDB();
+				}
 			}
 		}
-	}
-
-	public void addRoi(int slidePos, RoiObj r) {
-		if (slidePos < 0 || slidePos >= slides.size()) {
-			System.out.println("Praparat: this slide position invalid...cannot addRoi().");
-			return;
-		}
-		SlideGlass sg = slides.get(slidePos);
-		sg.addRoi(r);
 	}
 	
 	public void loadSeries(DICOMNode seriesNode) {
@@ -2057,7 +2272,7 @@ public class Praparat extends JPanel {
 	 * 
 	 * @param images
 	 */
-	public void loadSeries(ImagePlus images, boolean sortCZT) {
+	public void loadSeries(ImagePlus images, boolean sortZCT) {
 		if (images == null || images.getStackSize() == 0) {
 			if (Utils.isDebug)
 				System.out.println("praparat needs images..., return.");
@@ -2091,7 +2306,7 @@ public class Praparat extends JPanel {
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/* keep null file paths */);
 
-		constructSlideGlassesFromImagePlus(images, sortCZT);
+		constructSlideGlassesFromImagePlus(images, sortZCT);
 		applyGlobalAutoWindow(images);// before slider.initContext
 		updateSlidersVisibility();
 
@@ -2142,6 +2357,7 @@ public class Praparat extends JPanel {
 
 	public ImagePlus processCropRectangle(boolean show) {
 		SlideGlass sg = getCurrentSlide();
+		if (sg == null) return null; // 空きマスの場合は処理しない
 		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		RoiObj roi = cg.getSelectedRoi();
 		if (roi == null) {
@@ -2182,6 +2398,7 @@ public class Praparat extends JPanel {
 
 	public ImagePlus processCut(boolean show) {
 		SlideGlass sg = getCurrentSlide();
+		if (sg == null) return null; // 空きマスの場合は処理しない
 		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		RoiObj currentRoi = cg.getSelectedRoi();
 		if (currentRoi == null) {
@@ -2227,10 +2444,13 @@ public class Praparat extends JPanel {
 	public void processFlipHF() {
 		if (!isProcessSeries()) {
 			SlideGlass sg = getCurrentSlide();
-			sg.flipHF();
+			if (sg != null) sg.flipHF();
 		} else {
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
+				if (sg == null) {
+					continue; // 空きマスの場合は処理しない
+				}
 				sg.flipHF();
 			}
 		}
@@ -2239,10 +2459,11 @@ public class Praparat extends JPanel {
 	public void processFlipLR() {
 		if (!isProcessSeries()) {
 			SlideGlass sg = getCurrentSlide();
-			sg.flipLR();
+			if (sg != null) sg.flipLR();
 		} else {
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
+				if (sg == null) continue; // 空きマスの場合は処理しない
 				sg.flipLR();
 			}
 		}
@@ -2251,103 +2472,17 @@ public class Praparat extends JPanel {
 	public void processInvertImages() {
 		if (!isProcessSeries()) {
 			SlideGlass sg = getCurrentSlide();
+			if (sg == null) return; // 空きマスの場合は処理しない
 			sg.invert();
 		} else {
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
+				if (sg == null) continue; // 空きマスの場合は処理しない
 				sg.invert();
 			}
 		}
 	}
 	
-    // UIから、あるいはユーザー操作でROIが削除された時の処理
-    public void removeRoi(RoiObj roiToRemove) {
-    	boolean deleted = false;
-    	for(SlideGlass sg : slides.values()) {
-    		deleted = sg.deleteRoi(roiToRemove);
-    	}
-        if (deleted) {
-            repaint();
-        }
-    }
-
-	/**
-	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
-	 */
-	private void realizeImage(int index /* czt */, boolean processSeries, Double syncMag, Double syncRot,
-			Double syncMin, Double syncMax, Point syncOrigin) {
-		if (index < 0 || index >= slides.size()) {
-			return;
-		}
-		SlideGlass sg = slides.get(index);
-		// ★ 該当座標にSEGマスクが存在しない（スパースデータの空きマス）場合はスキップ
-		if (sg == null) {
-			return;
-		}
-		DicomImage dcmimg = sg.getDicomImage();
-		isMultiFrame = dcmimg.isMultiFrame();
-		isMultiFrame = isPDF == true ? true : isMultiFrame;
-		// まだピクセルデータがロードされていない、または解凍されていない場合
-		if (sg.getOriginalImage() == null) {
-			/**
-			 * multi frame file has only one file path.
-			 */
-			int file_pos = isMultiFrame ? 0 : index;
-//			int frame_pos = isMultiFrame ? index : 0;
-			/*
-			 * DICOMのピクセルデータはCZT並びではないため
-			 */
-			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
-			if (hasFileSource(file_pos)) {
-				// 1. ファイルからピクセルを読み込む
-				if (dcmimg.ensurePixelDataLoaded()) {
-					// pixel情報がある場合にのみ更新
-					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
-					sg.imageSpecimen.setOriginalImage(im);
-				}
-			} else {
-				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合の処理
-				if (dcmimg != null) {
-					ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
-					if (ip != null) {
-						ImagePlus im = new ImagePlus("" + index, ip);
-						sg.imageSpecimen.setOriginalImage(im);
-					}
-				}
-			}
-
-			double backupMin = sg.currentMin;
-			double backupMax = sg.currentMax;
-
-			sg.initCalibrationAndLUT();
-
-			// ★ バックアップのリストア: 初期値（0と255）から変更されていた場合は、
-			// グローバルコントラスト等で意味のある値が設定されていた証拠なので、強制的に復元する。
-			if (!(backupMin == 0.0 && backupMax == 255.0)) {
-				sg.currentMin = backupMin;
-				sg.currentMax = backupMax;
-			}
-
-			if (sg.currentMin != sg.currentMax) {
-				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
-			}
-
-			if (processSeries) {
-				// move, zoom, rotate, windowing
-				if (syncMag != null && Double.isFinite(syncMag))
-					sg.zoom(syncMag, false/* dummy */);
-				if (syncRot != null && Double.isFinite(syncRot))
-					sg.rotate(syncRot);
-				if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
-					sg.changeWindowingByMinMax(syncMin, syncMax);
-				}
-				// finally set origin
-				if (syncOrigin != null)
-					sg.setDisplayOrigin(syncOrigin);
-			}
-		}
-	}
-
 	/**
 	 * SingleGrid描画用 キャッシュ管理：円環（リングバッファ）状に前後数枚をロードする
 	 */
@@ -2383,18 +2518,7 @@ public class Praparat extends JPanel {
 				int targetIndex = (currentIndex + i + capacity) % capacity;
 				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			}
-
-//			int totalSize = slides.size();
-//
-//			// 1. 周回を考慮した範囲の画像をロード
-//			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
-//				// ★ 処理中にも新しいリクエスト（次のスクロール）が来たら即座に中断
-//				if (requestId != latestCacheRequest.get()) return;
-//
-//				int targetIndex = (currentIndex + i + totalSize) % totalSize;
-//				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
-//			}
-
+			
 			// ロード完了後、SlideGlassに再描画を促す（最新リクエストの時のみ）
 			if (requestId == latestCacheRequest.get()) {
 				SlideGlass sg = slides.get(currentIndex);
@@ -2452,26 +2576,161 @@ public class Praparat extends JPanel {
 			}
 
 			// 2. 範囲外（少し余裕を持たせる）をアンロード
-			int buffer = 15; // 画面外前後は保持しておく（頻繁なロード防止）
-			int totalSize = slides.size();
-			for (int j = 0; j < totalSize; j++) {
+			int buffer = 15;
+			//int capacity = nChannels * nSlices * nFrames; // ★ 修正
+			for (Integer j : slides.keySet()) { // ★ 修正：keySetで回す
 				if (j < (firstIdx - buffer) || j > (lastIdx + buffer)) {
 					unloadImage(j);
 				}
 			}
 		});
 	}
+	
+	/**
+	 * 本来のシリーズのメタデータ(baseLabel)をベースにしつつ、
+	 * 空間位置情報(spaceLabelから抽出したIPP, IOP, SliceLocation等)のみを正確に上書き融合したSliceLabelを生成します。
+	 */
+	private String mergeDicomMetaLabels(String baseLabel, String spaceLabel) {
+		if (baseLabel == null || "Empty".equals(baseLabel)) return spaceLabel;
+		if (spaceLabel == null || "Empty".equals(spaceLabel)) return baseLabel;
 
+		// 空間ドナーから位置情報タグの行を抽出
+		String[] spaceLines = spaceLabel.split("\n");
+		String ippLine = null;
+		String iopLine = null;
+		String locLine = null;
+
+		for (String line : spaceLines) {
+			if (line.contains("0020,0032")) ippLine = line; // ImagePositionPatient
+			if (line.contains("0020,0037")) iopLine = line; // ImageOrientationPatient
+			if (line.contains("0020,0041")) locLine = line; // SliceLocation
+		}
+
+		// ベース（シリーズ共通メタデータ）の空間タグ行のみを差し替える
+		String[] baseLines = baseLabel.split("\n");
+		StringBuilder sb = new StringBuilder();
+		for (String line : baseLines) {
+			if (ippLine != null && line.contains("0020,0032")) {
+				sb.append(ippLine).append("\n");
+			} else if (iopLine != null && line.contains("0020,0037")) {
+				sb.append(iopLine).append("\n");
+			} else if (locLine != null && line.contains("0020,0041")) {
+				sb.append(locLine).append("\n");
+			} else {
+				sb.append(line).append("\n");
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * 
+	 * @param index : zct
+	 */
 	private void unloadImage(int index) {
 		SlideGlass sg = slides.get(index);
 		if (sg != null && sg.getDicomImage() != null) {
-			if (hasFileSource(index) || (isMultiFrame() && hasFileSource(0))) {
+			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
+			if (isFileBacked) { // ★ 修正
 				// original image to null
 				sg.imageSpecimen.setOriginalImage(null);
 				// bulk file release
 				if (!isMultiFrame()) {
 					sg.getDicomImage().releasePixelBulkFromHeader();
 				}
+			}
+		}
+	}
+
+	/**
+	 * 指定したインデックスの画像をメモリ上に実体化（解凍含む）させる
+	 */
+	private void realizeImage(int index /* zct */, boolean processSeries, Double syncMag, Double syncRot,
+			Double syncMin, Double syncMax, Point syncOrigin) {
+		
+		int capacity = nChannels * nSlices * nFrames;
+		if (index < 0 || index >= capacity) {
+			return;
+		}
+		SlideGlass sg = slides.get(index);
+		// ★ 該当座標にSEGマスクが存在しない（スパースデータの空きマス）場合はスキップ
+		if (sg == null) {
+			return;
+		}
+		DicomImage dcmimg = sg.getDicomImage();
+		isMultiFrame = dcmimg.isMultiFrame();
+		isMultiFrame = isPDF == true ? true : isMultiFrame;
+		if (sg.getOriginalImage() == null) {
+			// Praparat全体がファイルソースを持っているかで判定
+			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
+			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+
+			if (isFileBacked) {
+				// 1. ファイルからピクセルを読み込む
+				if (dcmimg.ensurePixelDataLoaded()) {
+					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
+					sg.imageSpecimen.setOriginalImage(im);
+				}
+			} else {
+				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合の処理
+				if (dcmimg != null) {
+					ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
+					if (ip != null) {
+						ImagePlus im = new ImagePlus("" + index, ip);
+						sg.imageSpecimen.setOriginalImage(im);
+					}
+				}
+			}
+
+			double backupMin = sg.currentMin;
+			double backupMax = sg.currentMax;
+
+			sg.initCalibrationAndLUT();
+
+			String modalityStr = sg.getHeader().getString(Tag.Modality, "");
+			double realMaxPixelVal = 0.0;
+			if (sg.getOriginalImage() != null && sg.getOriginalImage().getProcessor() != null) {
+				// DO NOT USE processor.getMax() 
+				realMaxPixelVal = sg.getOriginalImage().getProcessor().getStatistics().max;
+			}
+
+			// ピクセル最大値が1.0、またはSEG指定の場合をマスク画像と判定
+			//See, PixelDataDecoder
+			boolean isMask = "SEG".equals(modalityStr) || dcmimg.getBitsAllocated() == 1 || realMaxPixelVal == 1.0;
+
+			if (isMask) {
+				sg.currentMin = 0.0;
+				// 実際のピクセル最大値(1.0)に合わせて白レベルを設定
+				sg.currentMax = (realMaxPixelVal > 0.0) ? realMaxPixelVal : 1.0;
+				
+				// 同期バグ（誤上書き）の防止
+				syncMin = null;
+				syncMax = null;
+			} else {
+				// 通常の画像（CT/MRI等）の場合は、従来のバックアップリストアを行う
+				if (!(backupMin == 0.0 && backupMax == 255.0)) {
+					sg.currentMin = backupMin;
+					sg.currentMax = backupMax;
+				}
+			}
+			// =====================================================================
+
+			if (sg.currentMin != sg.currentMax) {
+				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
+			}
+
+			if (processSeries) {
+				// move, zoom, rotate, windowing
+				if (syncMag != null && Double.isFinite(syncMag))
+					sg.zoom(syncMag, false/* dummy */);
+				if (syncRot != null && Double.isFinite(syncRot))
+					sg.rotate(syncRot);
+				if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
+					sg.changeWindowingByMinMax(syncMin, syncMax);
+				}
+				// finally set origin
+				if (syncOrigin != null)
+					sg.setDisplayOrigin(syncOrigin);
 			}
 		}
 	}
@@ -2522,6 +2781,17 @@ public class Praparat extends JPanel {
 			doFilmGridLayout(filmGridColumns);
 		}
 	}
+	
+    // UIから、あるいはユーザー操作でROIが削除された時の処理
+    public void removeRoi(RoiObj roiToRemove) {
+    	boolean deleted = false;
+    	for(SlideGlass sg : slides.values()) {
+    		deleted = sg.deleteRoi(roiToRemove);
+    	}
+        if (deleted) {
+            repaint();
+        }
+    }
 
 	public void removeSlide(int target) {
 		SlideGlass s = this.slides.get(target);
@@ -2632,11 +2902,11 @@ public class Praparat extends JPanel {
 		if (pvcp.processSeries()) {
 			for (int i : slides.keySet()) {
 				SlideGlass sg = slides.get(i);
-				sg.autoWindowing();
+				if (sg != null) sg.autoWindowing();
 			}
 		} else {
 			SlideGlass sg = getCurrentSlide();
-			sg.autoWindowing();
+			if (sg != null) sg.autoWindowing();
 		}
 	}
 
@@ -2695,7 +2965,9 @@ public class Praparat extends JPanel {
 			if (isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
-					s.setAnnotationVisible(v);
+					if (s != null) {
+					    s.setAnnotationVisible(v);
+					}
 				}
 			} else {
 				/*
@@ -2703,20 +2975,27 @@ public class Praparat extends JPanel {
 				 */
 				List<SlideGlass> selected = getSelectedGlasses();
 				for (SlideGlass s : selected) {
-					s.setAnnotationVisible(v);
+					if (s != null) {
+					    s.setAnnotationVisible(v);
+					}
 				}
 			}
 		} else {
 			if (isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
-					s.setAnnotationVisible(v);
+					if (s != null) {
+					    s.setAnnotationVisible(v);
+					}
 				}
 			} else {
 				/*
 				 * change state of current showing glass.
 				 */
-				getCurrentSlide().setAnnotationVisible(v);
+				SlideGlass sg = getCurrentSlide();
+				if (sg != null) {
+				    sg.setAnnotationVisible(v);
+				}
 			}
 		}
 	}
@@ -2793,19 +3072,19 @@ public class Praparat extends JPanel {
 
 				SlideGlass currentGlass = this.slides.get(currentSlice);
 				if (currentGlass == null) {
-					// このZ座標に現在の部位(チャンネル)のマスクが存在しない場合、画面をクリアする
 					viewPanel.removeAll();
-					viewPanel.setBackground(Color.BLACK); // ゼロ（黒）パディングを視覚化
+					viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
 					viewPanel.revalidate();
 					viewPanel.repaint();
-					updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1); // ラベルのクリア
+					updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1);
 					return;
 				}
 
 				// init all slide//already loaded (ImagePlus pattern)
 				// move, zoom, rotate, windowing
-				for (int i = 0; i < slides.size(); i++) {
-					SlideGlass sg = slides.get(i);
+				for (SlideGlass sg : slides.values()) {
+					if (sg == null) continue; // ★ スパースデータの空きマスを安全にスキップ
+
 					if (syncMag != null && Double.isFinite(syncMag))
 						sg.zoom(syncMag, false/* dummy */);
 					if (syncRot != null && Double.isFinite(syncRot))
@@ -2851,12 +3130,11 @@ public class Praparat extends JPanel {
 			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
 			SlideGlass currentGlass = this.slides.get(currentSlice);
 			if (currentGlass == null) {
-				// このZ座標に現在の部位(チャンネル)のマスクが存在しない場合、画面をクリアする
 				viewPanel.removeAll();
-				viewPanel.setBackground(Color.BLACK); // ゼロ（黒）パディングを視覚化
+				viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
 				viewPanel.revalidate();
 				viewPanel.repaint();
-				updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1); // ラベルのクリア
+				updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1);
 				return;
 			}
 
@@ -2994,11 +3272,13 @@ public class Praparat extends JPanel {
 	}
 
 	public void setNextSlice() {
-		setImagePositionUsingSlider(currentSlice + 1);
+		// ★ 修正：単純な+1ではなく、次元ごとの正確なステップ送りに委譲
+		stepDimension("Slice", 1);
 	}
 
 	public void setPreviousSlice() {
-		setImagePositionUsingSlider(currentSlice - 1);
+		// ★ 修正：
+		stepDimension("Slice", -1);
 	}
 
 	public void setReferenceLineMPR(ReferenceLineMPR refLine) {
@@ -3061,22 +3341,31 @@ public class Praparat extends JPanel {
 			if (isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
-					s.setTextVisible(v);
+					if (s != null) {
+					    s.setTextVisible(v);
+					}
 				}
 			} else {
 				List<SlideGlass> selected = getSelectedGlasses();
 				for (SlideGlass s : selected) {
-					s.setTextVisible(v);
+					if (s != null) {
+					    s.setTextVisible(v);
+					}
 				}
 			}
 		} else {
 			if (isProcessSeries()) {
 				for (Integer k : slides.keySet()) {
 					SlideGlass s = slides.get(k);
-					s.setTextVisible(v);
+					if (s != null) {
+					    s.setTextVisible(v);
+					}
 				}
 			} else {
-				getCurrentSlide().setTextVisible(v);
+				SlideGlass sg = getCurrentSlide();
+				if (sg != null) {
+				    sg.setTextVisible(v);
+				}
 			}
 		}
 	}
@@ -3305,7 +3594,7 @@ public class Praparat extends JPanel {
 		}
 
 		// 1次元インデックスの再計算
-		pendingTargetIndex = getCurrentSlideCZTIndex();
+		pendingTargetIndex = getCurrentSlideZCTIndex();
 		
 		// ★ 高速スクロール時のフリーズを防ぐための遅延実行（Debounce）
 		if (scrollDebounceTimer == null) {

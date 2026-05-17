@@ -199,9 +199,6 @@ public class BirdsEyeView extends JPanel{
 		}
 	}
 	
-	/**
-	 * clear info and all views
-	 */
 	public void resetViews(boolean clearPatientInfo) {
 		if(clearPatientInfo) {
 			clearPatientInfo();
@@ -214,36 +211,29 @@ public class BirdsEyeView extends JPanel{
 		//clear thumbnails
 		seriesListView.removeAllThumbnails();
 		
-		//clear filmgirid and singlegrid
-		filmGridView = new Praparat(Praparat.ViewMode.FilmGrid);		
-		filmGridView.gridViewOn(true);//fail safe
-		singleGridView = new Praparat(Praparat.ViewMode.SingleGrid);
-		
-		filmGridPane.remove(0);
-		singleGridPane.remove(0);
-		
-		filmGridPane.add(waitingPanel1);
-		singleGridPane.add(waitingPanel2);
-		
-//		Insets ins = seriesListView.getInsets();
-//		birdsEyeSplit.setDividerLocation(thumbnailSize+ins.top+ins.bottom);
+		resetGridPanes();
 		
 		SwingUtilities.invokeLater(()->{
 			birdsEyeSplit.setDividerLocation(getOptimalThumbnailHeight());
 		});
 		
 		int w = filmAndSingleGridSplit.getWidth();
-		filmAndSingleGridSplit.setDividerLocation(w-(int)(w/3));
+		if (w > 0) { // to avoid zero size initialization error
+			filmAndSingleGridSplit.setDividerLocation(w-(int)(w/3));
+		}
 		revalidate();
 		repaint();
 	}
-	
+
 	private void waitingFilmGridView() {
 		if(filmGridPane == null) {
 			return;
 		}
-		filmGridPane.remove(0);
+		// ★ 修正: 確実にすべて消してから待機パネルを追加する
+		filmGridPane.removeAll();
 		filmGridPane.add(waitingPanel1);
+		filmGridPane.revalidate();
+		filmGridPane.repaint();
 	}
 	
 //	private void keepDividerInPlace() {
@@ -433,6 +423,18 @@ public class BirdsEyeView extends JPanel{
 		if(thumbnail == null) {
 			return;
 		}
+		
+		// remove all
+		try {
+			if (SwingUtilities.isEventDispatchThread()) {
+				resetGridPanes();
+			} else {
+				SwingUtilities.invokeAndWait(() -> resetGridPanes());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 		boolean isMultiFrame = thumbnail.isMultiFrame();
 		boolean isMultiDimensional = thumbnail.isMultiDimensional();
 		isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
@@ -570,6 +572,26 @@ public class BirdsEyeView extends JPanel{
 		return pInfoMap;
 	}
 	
+	/**
+	 * グリッドのインスタンスを確実に破棄して待機状態に戻す
+	 */
+	private void resetGridPanes() {
+		filmGridView = new Praparat(Praparat.ViewMode.FilmGrid);		
+		filmGridView.gridViewOn(true);
+		singleGridView = new Praparat(Praparat.ViewMode.SingleGrid);
+		
+		filmGridPane.removeAll();
+		singleGridPane.removeAll();
+		
+		filmGridPane.add(waitingPanel1);
+		singleGridPane.add(waitingPanel2);
+		
+		filmGridPane.revalidate();
+		filmGridPane.repaint();
+		singleGridPane.revalidate();
+		singleGridPane.repaint();
+	}
+	
 	class ThumbnailListView extends JScrollPane{
 		JPanel seriesListPanel;
 		private ThumbnailListView() {
@@ -588,12 +610,15 @@ public class BirdsEyeView extends JPanel{
 		}
 		
 		void removeAllThumbnails() {
-			Component[] thums = seriesListPanel.getComponents();
-			for(Component c : thums) {
-				if(c instanceof Praparat) {
-					seriesListPanel.remove(c);
-				}
-			}
+//			Component[] thums = seriesListPanel.getComponents();
+//			for(Component c : thums) {
+//				if(c instanceof Praparat) {
+//					seriesListPanel.remove(c);
+//				}
+//			}
+			seriesListPanel.removeAll();
+			seriesListPanel.revalidate();
+			seriesListPanel.repaint();
 		}
 		
 		Praparat getThumbnail(String seriesUID) {

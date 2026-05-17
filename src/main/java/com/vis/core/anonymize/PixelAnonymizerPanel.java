@@ -352,7 +352,7 @@ public class PixelAnonymizerPanel extends JPanel {
 		for (RoiObj roi : tempRois) {
 			if (!seriesUid.equals(roi.getProperty(ContextKey.SeriesInstanceUID.name())))
 				continue;
-			int[] targets = calculateTargetCztIndices(prap, roi);
+			int[] targets = calculateTargetZctIndices(prap, roi);
 			for (int idx : targets) {
 				masksPerSlice.computeIfAbsent(idx, k -> new ArrayList<>()).add(roi);
 			}
@@ -424,9 +424,9 @@ public class PixelAnonymizerPanel extends JPanel {
 
 		} else {
 			// 単一スライスのファイル群の処理
-			Map<String, Integer> sopToCztMap = new HashMap<>();
+			Map<String, Integer> sopToZctMap = new HashMap<>();
 			for (Map.Entry<Integer, SlideGlass> entry : prap.getAllSlides().entrySet()) {
-				sopToCztMap.put(entry.getValue().getSOPInstanceUID(), entry.getKey());
+				sopToZctMap.put(entry.getValue().getSOPInstanceUID(), entry.getKey());
 			}
 
 			List<String> filePaths = prap.getImageFileLocations();
@@ -452,12 +452,12 @@ public class PixelAnonymizerPanel extends JPanel {
 				DicomObject dcm = reader.getHeader();
 				com.vis.dicom.DicomObject fmi = reader.getFileMetaInfomation();
 				String sop = dcm.getString(com.vis.dicom.Tag.SOPInstanceUID);
-				Integer cztIdx = sopToCztMap.get(sop);
+				Integer zctIdx = sopToZctMap.get(sop);
 				com.vis.dicom.UID tsuid = reader.checkTSUID();
 
-				if (cztIdx == null)
+				if (zctIdx == null)
 					continue;
-				List<RoiObj> rois = masksPerSlice.get(cztIdx);
+				List<RoiObj> rois = masksPerSlice.get(zctIdx);
 
 				if (rois != null && !rois.isEmpty()) {
 					reader.read(filePath, true);
@@ -736,9 +736,9 @@ public class PixelAnonymizerPanel extends JPanel {
 	}
 
 	/**
-	 * ROIの設定(Mode, CustomRange)から、対象となるCZTインデックスの配列を非UIスレッドで算出する
+	 * ROIの設定(Mode, CustomRange)から、対象となるZCTインデックスの配列を非UIスレッドで算出する
 	 */
-	private int[] calculateTargetCztIndices(Praparat prap, RoiObj roi) {
+	private int[] calculateTargetZctIndices(Praparat prap, RoiObj roi) {
 		int mode = roiModeMap.getOrDefault(roi, 1);
 		String customTxt = roiCustomTextMap.getOrDefault(roi, "");
 
@@ -756,11 +756,11 @@ public class PixelAnonymizerPanel extends JPanel {
 		} else if (mode == 1) { // Current
 			SlideGlass sg = roi.getSlideGlass();
 			if (sg != null) {
-				int[] currentCzt = prap.getSlidePositionCZTArray(sg);
-				int currentZ = currentCzt[1];
+				int[] currentZct = prap.getSlidePositionZCTArray(sg);
+				int currentZ = currentZct[0];
 				java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 				for (Integer idx : slides.keySet()) {
-					if (prap.getSlidePositionCZTArray(idx)[1] == currentZ) {
+					if (prap.getSlidePositionZCTArray(idx)[0] == currentZ) {
 						targetIndices.add(idx);
 					}
 				}
@@ -772,7 +772,7 @@ public class PixelAnonymizerPanel extends JPanel {
 			java.util.Set<Integer> targetZSet = parseCustomRangeToZ(customTxt);
 			java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
 			for (Integer idx : slides.keySet()) {
-				if (targetZSet.contains(prap.getSlidePositionCZTArray(idx)[1])) {
+				if (targetZSet.contains(prap.getSlidePositionZCTArray(idx)[0])) {
 					targetIndices.add(idx);
 				}
 			}
@@ -1053,10 +1053,10 @@ public class PixelAnonymizerPanel extends JPanel {
 						int selectedMode = panel.getSelectedRangeMode(); // 例: 2 (Custom Range)
 						String customRangeText = panel.getCustomRangeText(); // 例: "2,4,6"
 
-						int cztIdx = currentActivePraparat.getSlidePositionOnCZTIndex(sg);
+						int zctIdx = currentActivePraparat.getSlidePositionOnZCTIndex(sg);
 						RoiObj clonedRoi = (RoiObj) originalRoi.clone();
 						// 2. 所属するUIDsをターゲットのものに書き換え,DBに保存
-						SlideGlass sg2 = se.getAllSlides().get(cztIdx);
+						SlideGlass sg2 = se.getAllSlides().get(zctIdx);
 						if (sg2 != null) {
 							clonedRoi.setSlideGlass(sg2, true);
 							sg2.addRoi(clonedRoi);
@@ -1102,17 +1102,16 @@ public class PixelAnonymizerPanel extends JPanel {
 						MaskRoiPanel panel = (MaskRoiPanel) comp;
 						RoiObj originalRoi = panel.getAttachedRoi();
 
-						// パネルから対象となるCZTインデックスの配列を取得
+						// パネルから対象となるZCTインデックスの配列を取得
 						int[] targetIndices = panel.getTargetSliceIndices(currentActivePraparat);
 
 						SlideGlass originalSg = originalRoi.getSlideGlass();
 						if (currentActivePraparat != null && targetIndices != null && originalSg != null) {
 
-							// ★ 追加: 大元のROIのインデックスがターゲットに含まれているかチェック
-							int originalCztIdx = currentActivePraparat.getSlidePositionOnCZTIndex(originalSg);
+							int originalZctIdx = currentActivePraparat.getSlidePositionOnZCTIndex(originalSg);
 							boolean containsOriginal = false;
 							for (int idx : targetIndices) {
-								if (idx == originalCztIdx) {
+								if (idx == originalZctIdx) {
 									containsOriginal = true;
 									break;
 								}
@@ -1358,8 +1357,8 @@ public class PixelAnonymizerPanel extends JPanel {
         if (sNo == null) sNo = "Unknown";
         String seriesLabel = "Series " + sNo + (sDesc != null ? ": " + sDesc : "");
         
-		// 座標(CZT)から現在のスライス番号を取得 (先程のサブタスクを活用)
-		int currentSlice = pp.getCurrentSlideCZTIndex();
+		// 座標(ZCT)から現在のスライス番号を取得 (先程のサブタスクを活用)
+		int currentSlice = pp.getCurrentSlideZCTIndex();
 		// 改良した MaskRoiPanel を生成
 		MaskRoiPanel roiPanel = new MaskRoiPanel(targetRoi, pp, seriesLabel, currentSlice,
 				new MaskRoiPanel.MaskRoiPanelListener() {
