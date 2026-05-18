@@ -1543,11 +1543,7 @@ public class Praparat extends JPanel {
 
 			ImagePlus sliceImp = GDicomTools.dcmImgToImagePlus(dcmImg, orgCal);
 			
-//			System.out.println("SLICE IPP:"+GDicomTools.getTag(sliceImp, Tag.ImagePositionPatient));
-			
 			String sliceLabel = sliceImp.getStack().getSliceLabel(1/*always*/);
-			
-//			System.out.println(sliceLabel);//OK
 			
 			ImageProcessor ip = sliceImp.getProcessor();
 
@@ -1565,11 +1561,6 @@ public class Praparat extends JPanel {
 		replica.setCalibration(orgCal);
 		replica.setDimensions(1, nSlices, 1);
 		
-		for(int i=0; i< replica.getNSlices(); i++) {
-			replica.setPosition(GDicomTools.getRealIndex(replica, i+1));
-//			System.out.println("replica IPP:"+GDicomTools.getTag(replica, Tag.ImagePositionPatient));
-		}
-
 		return replica;
 	}
 	
@@ -1604,7 +1595,7 @@ public class Praparat extends JPanel {
 				}
 			}
 			// reset position
-			imp.setPosition(c, z, t);
+			imp.setPositionWithoutUpdate(c, z, t);
 			return stack2;
 		} else {
 			return imp.getStack();
@@ -2298,23 +2289,25 @@ public class Praparat extends JPanel {
 		String studyUID = GDicomTools.getTag(images, Tag.StudyInstanceUID);
 		String seriesUID = GDicomTools.getTag(images, Tag.SeriesInstanceUID);
 		String[] sopUIDs = new String[images.getNSlices()];
-//		List<String> paths = new ArrayList<>();
-		for (int i = 1; i <= images.getNSlices(); i++) {
-			images.setSlice(GDicomTools.getRealIndex(images, i));
-			String sopInstUid = GDicomTools.getTag(images, Tag.SOPInstanceUID);
-			if (sopInstUid == null || sopInstUid.trim().length() == 0) {
-				sopInstUid = UIDUtils.createUID();
-			} else {
-				sopUIDs[i - 1] = sopInstUid.trim();// fail safe
-			}
-			// if imageplus has series data, does not have all instance file paths.
-//			String path = images.getFileInfo().getFilePath();
-//			if(path != null && path.length() > 0 && new File(path).exists()) {
-//				if(!paths.contains(path)) {
-//					paths.add(path);
-//				}
-//			}
-		}
+		// 全次元のサイズを取得
+	    int cTotal = images.getNChannels();
+	    int zTotal = images.getNSlices();
+	    int tTotal = images.getNFrames();
+	    int n = 0;
+	    for (int t = 1; t <= tTotal; t++) {
+	        for (int z = 1; z <= zTotal; z++) {
+	            for (int c = 1; c <= cTotal; c++) {
+	            	images.setPositionWithoutUpdate(c, z, t);
+	            	String sopInstUid = GDicomTools.getTag(images, z,c,t, Tag.SOPInstanceUID);
+	    			if (sopInstUid == null || sopInstUid.trim().length() == 0) {
+	    				sopInstUid = UIDUtils.createUID();
+	    			} else {
+	    				sopUIDs[n++] = sopInstUid.trim();// fail safe
+	    			}
+	            }
+	        }
+	    }
+		
 		images.setSlice(1);// back to first.
 		String refUID = GDicomTools.getTag(images, "0020,0052");
 		setInfo(patID, studyUID, seriesUID, sopUIDs, refUID, null/* keep null file paths */);

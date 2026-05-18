@@ -73,21 +73,26 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.dcm4che3.util.UIDUtils;
+
 import com.vis.core.fusion.FusionDisplay;
-import com.vis.core.fusion.ImagePairingEngine;
 import com.vis.core.log.Log;
+import com.vis.core.ui.function.DicomDuplicator;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
+import com.vis.db.DatabaseHandler;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomWriter;
 import com.vis.dicom.Tag;
+import com.vis.dicom.UID;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.DicomImage;
 import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.ImageRoi;
 import ij.io.FileSaver;
 import ij.io.Opener;
 import ij.measure.Calibration;
@@ -95,11 +100,10 @@ import ij.measure.Measurements;
 import ij.plugin.FolderOpener;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import ij.process.LUT;
 import ij.process.ShortProcessor;
-import ij.process.StackStatistics;
+import ij.util.DicomTools;
 import io.github.tatsunidas.radiomics.features.RadiomicsFeature;
 import io.github.tatsunidas.radiomics.main.FeatureCalculator;
 import io.github.tatsunidas.radiomics.main.FeatureCalculatorFactory;
@@ -152,7 +156,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	private JSpinner filterSizeSpinner;
 	private JSpinner strideSpinner;
 	private JButton executeSliceButton, executeAllButton;
-	private JButton saveMapButton, saveMapToDbButton;
+	private JButton saveMapAsTiffButton, saveMapAsDcmButton, saveMapToDbButton;
 	
 	private JPanel configPanel;
 	private JSplitPane splitPane;
@@ -165,8 +169,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	private JSlider transparencySlider;
 
 	// --- Data Holders ---
-	private ImagePlus originalImage;
-	private ImagePlus maskImage;//not aligned
+//	private ImagePlus originalImage;
+//	private ImagePlus maskImage;//not aligned
 	
 	private ImagePlus calcImage;//calculate original images stack for feature calculation
 	private ImagePlus alignedMask;//calculate aligned mask stack for feature calculation
@@ -271,9 +275,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		// save function
 		JPanel savePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 		savePanel.setBorder(BorderFactory.createTitledBorder("Save Results"));
-		saveMapButton = new JButton("Save Map to File...");
+		saveMapAsTiffButton = new JButton("Save Map as Tiff...");
+		saveMapAsDcmButton = new JButton("Save Map as DICOM...");
 		saveMapToDbButton = new JButton("Save Map to DB");
-		savePanel.add(saveMapButton);
+		savePanel.add(saveMapAsTiffButton);
+		savePanel.add(saveMapAsDcmButton);
 		savePanel.add(saveMapToDbButton);
 		gbc.gridy++;
 		configPanel.add(savePanel, gbc);
@@ -412,23 +418,13 @@ public class RadiomicsVisualizationPanel extends JPanel {
 //		loadImageFromDbButton.addActionListener(e -> onLoadImageFromDb());
 //		loadMaskFromDbButton.addActionListener(e -> onLoadMaskFromDb());
 		
-//		// 2. 現在画面に表示されているオリジナル画像の [Z, C, T] 座標を取得
-		SlideGlass sg = originalImagePanel.getCurrentSlide();
-		if(sg == null) {
-			Log.logger.info("SlideGlass is null");
-			return;
-		}
-		int[] orgZct = originalImagePanel.getZCTArray(sg);
-		int orgZ = orgZct[0];
-		int orgC = orgZct[1];
-		int orgT = orgZct[2];
-
 		// --- Execute Actions ---
-		executeSliceButton.addActionListener(e -> onExecute(orgZ, orgC, orgT));
-		executeAllButton.addActionListener(e -> onExecute(-1, orgC, orgT));
+		executeSliceButton.addActionListener(e -> onExecute(false));
+		executeAllButton.addActionListener(e -> onExecute(true));
 
 		// --- Save Actions ---
-		saveMapButton.addActionListener(e -> onSaveMap());
+		saveMapAsTiffButton.addActionListener(e -> onSaveMap(false));
+		saveMapAsDcmButton.addActionListener(e -> onSaveMap(true));
 		saveMapToDbButton.addActionListener(e -> onSaveMapToDb());
 
 		// --- Fusion Actions ---
@@ -447,6 +443,49 @@ public class RadiomicsVisualizationPanel extends JPanel {
 				}
 			}
 		});
+	}
+	
+	private void initUIDsUsingSrcImage(ImagePlus input, ImagePlus src, boolean isSecondaryCapture) {
+		if(input == null || input.getNSlices() == 0) {
+			Log.logger.warning("Inputed imageplus has no images...");
+			return;
+		}
+		if(src == null || src.getNSlices() == 0) {
+			Log.logger.warning("To add UIDs to a new inputed imageplus, reference images are required...");
+			return;
+		}
+		
+		String sopClassUid = GDicomTools.getTag(src, Tag.SOPClassUID);
+		if(isSecondaryCapture)  sopClassUid = UID.SecondaryCaptureImageStorage.toString();
+		
+		String pid = GDicomTools.getTag(src, Tag.PatientID);
+		String studyUid = GDicomTools.getTag(src, Tag.StudyInstanceUID);
+		String refUid = GDicomTools.getTag(src, Tag.FrameOfReferenceUID);
+		String seriesUid = UIDUtils.createUID();
+		String sopInstUid = UIDUtils.createUID();
+		
+		int cTotal = input.getNChannels();
+		int zTotal = input.getNSlices();
+		int tTotal = input.getNFrames();
+		int instNo = 1;
+
+		// ZCTを明示して処理する
+		for (int t = 1; t <= tTotal; t++) {
+			for (int z = 1; z <= zTotal; z++) {
+				for (int c = 1; c <= cTotal; c++) {
+					GDicomTools.setTag(input, z, c,t,Tag.PatientID, pid);
+					GDicomTools.setTag(input, z, c,t,Tag.StudyInstanceUID, studyUid);
+					GDicomTools.setTag(input, z, c,t,Tag.SeriesInstanceUID, seriesUid);
+					if(refUid != null) {
+						GDicomTools.setTag(input, z, c,t,Tag.FrameOfReferenceUID, refUid);
+					}
+					GDicomTools.setTag(input, z, c,t,Tag.SOPClassUID, sopClassUid);
+					GDicomTools.setTag(input, z, c,t,Tag.MediaStorageSOPClassUID, sopInstUid);
+					GDicomTools.setTag(input, z, c,t,Tag.SOPInstanceUID, sopInstUid);
+					GDicomTools.setTag(input, z, c,t,Tag.InstanceNumber, String.valueOf(instNo++));
+				}
+			}
+		}
 	}
 
 	private void onLoadImage() {
@@ -473,14 +512,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			originalImage = opener.openImage(path);
 		}
 		if (originalImage != null) {
+			String
 			originalImagePanel.reloadSlideGlasses(originalImage);
-			// init from praparat, important.
-			this.originalImage = originalImagePanel.getImagePlus(-1, -1);
-			if (this.maskImage != null) {
-				this.maskImage.copyScale(this.originalImage);
-				maskImagePanel.reloadSlideGlasses(this.maskImage);
-				this.maskImage = maskImagePanel.getImagePlus(-1, -1);
-			}
 		} else {
 			throw new Exception("Failed to open image.");
 		}
@@ -512,19 +545,12 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 		if (maskImage != null) {
 			maskImagePanel.reloadSlideGlasses(maskImage);
-			this.maskImage = maskImagePanel.getImagePlus(-1, -1);
-			if (this.originalImage != null) {
-				this.maskImage.copyScale(this.originalImage);
-				maskImagePanel.reloadSlideGlasses(this.maskImage);
-				this.maskImage = maskImagePanel.getImagePlus(-1, -1);
-			}
 		} else {
 			throw new Exception("Failed to open image.");
 		}
 	}
 
 	/**
-	 * TODO Cannot set min max range...
 	 * 
 	 * @param path
 	 * @param mask_lbl
@@ -532,16 +558,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	 */
 	public void onLoadMask(String path, int mask_lbl) throws Exception {
 		onLoadMask(path);
-		if (this.maskImage != null) {
-			maskImagePanel.adjustContrastByMinMax(mask_lbl - 1, mask_lbl);
-		} else {
-			throw new Exception("Failed to open image.");
-		}
+		maskImagePanel.adjustContrastByMinMax(0, mask_lbl);
 	}
 
-	/**
-	 * [概念] データベースセレクタからオリジナル画像をロードします。
-	 */
 	public void onLoadImageFromDb(String pid, String studyUID, String seriesUID) {
 		if (studyUID == null || seriesUID == null) {
 			Log.logger.warning("Images cannnot load. studyUID/seriesUID does not allowed null");
@@ -553,7 +572,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	}
 
 	/**
-	 * [概念] データベースセレクタからマスク画像（DICOM SEG等）をロードします。
+	 * データベースセレクタからマスク画像（DICOM SEG等）をロードします。
 	 */
 	public void onLoadMaskFromDb(String pid, String studyUID, String seriesUID) {
 		if (studyUID == null || seriesUID == null) {
@@ -570,14 +589,22 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	 * 現在表示中のIMAGEスライスに対してRadiomics特徴量マップを計算します。
 	 * @param slice: 1 to N,  -1 means calculate all.
 	 */
-	private void onExecute(int slice, int orgC, int orgT) {
-		if (!validateInputs()) {
+	private void onExecute(boolean executeAllSlices) {
+		
+		// 現在画面に表示されているオリジナル画像の [Z, C, T] 座標を取得
+		SlideGlass sg = originalImagePanel.getCurrentSlide();
+		if(sg == null) {
+			Log.logger.info("SlideGlass is null");
 			return;
 		}
+		int[] orgZct = originalImagePanel.getZCTArray(sg);
+		int orgZ = orgZct[0];
+		int orgC = orgZct[1];
+		int orgT = orgZct[2];
 		
-		// 3. 表示中のチャンネル(C)・時相(T)に対応するオリジナル画像の純粋なZスタックを抽出
+		// 表示中のチャンネル(C)・時相(T)に対応するオリジナル画像の純粋なZスタックを抽出
 		calcImage = originalImagePanel.getImagePlus(orgC, orgT);
-		
+
 		// 4. マスク画像（SEG）のペアリング処理
 		alignedMask = null;
 		if (maskImagePanel != null && maskImagePanel.getAllSlides() != null) {
@@ -587,10 +614,22 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			int maskC = maskZct[1];
 			int maskT = maskZct[2];
 
-			// 【新機能の呼び出し】オリジナル画像の空間に完全にアライメントされたマスクを生成（枚数違いを自動パディング）
-			alignedMask = com.vis.core.fusion.ImagePairingEngine.alignMaskToOriginalSpace(
-					originalImagePanel,orgC, orgT,
-					maskImagePanel, maskC, maskT);
+			// オリジナル画像の空間に完全にアライメントされたマスクを生成（枚数違いを自動パディング）
+			alignedMask = com.vis.core.fusion.ImagePairingEngine.alignMaskToOriginalSpace(originalImagePanel, orgC,
+					orgT, maskImagePanel, maskC, maskT);
+		}
+		// off the loop
+		if (alignedMask != null) {
+			this.alignedMask.copyScale(this.calcImage);
+		}
+
+		if (!validateInputs()) {
+			return;
+		}
+		
+		int slice = -1;
+		if(!executeAllSlices) {
+			slice = orgZ + 1;
 		}
 
 		// 5. 要件：マスクが空の場合はフルフェイスマスク（画像全体を対象）を自動生成
@@ -627,9 +666,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		this.radiomicsMap = FeatureVisualizationMap.generateFeatureMap(calcImage, alignedMask, slice,
 				calculator, filterSize, d2_mode);
 		long endTime = System.currentTimeMillis();
-		System.out.println("--> Generation took " + (endTime - startTime) + " ms.");
-
+		Log.logger.info("--> Generation took " + (endTime - startTime) + " ms.");
 		if (radiomicsMap != null) {
+			this.radiomicsMap = convertTo16BitWithCalibration(this.radiomicsMap);
+			//to show on prap
+			initUIDsUsingSrcImage(this.radiomicsMap, calcImage, true/* secondary */);
 			radiomicsMapPanel.reloadSlideGlasses(radiomicsMap);
 			radiomicsMap.resetDisplayRange();
 		} else {
@@ -721,30 +762,42 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	/**
 	 * 保存用：メタデータのコピーとSeries Descriptionの変更を行う
 	 */
-	private void setupMetadataForSave(ImagePlus targetMap) {
-		if (this.originalImage == null)
-			return;
+	private HashMap<Integer, DicomImage> setupMetadataForSave(ImagePlus targetMap) {
+		if (this.calcImage == null)
+			return null;
 
 		// 1. ImageJのプロパティ（Infoなど）をコピー
-		Object info = this.originalImage.getProperty("Info");
+		Object info = this.calcImage.getProperty("Info");
 		if (info != null) {
 			targetMap.setProperty("Info", info);
 		}
-
-		GDicomTools.headerCopy(originalImage, targetMap);
-		// always set to unsigned, before change it to dcm.
-		for (int i = 0; i < targetMap.getNSlices(); i++) {
-			GDicomTools.setTag(targetMap, i + 1, Tag.PixelRepresentation, "0"/* UNSIGNED */);
+		
+		String featureName = targetMap.getProp("RafiomicsFeatureName");
+		if(featureName == null) {
+			featureName = "";
 		}
+		
+		GDicomTools.headerCopy(calcImage, targetMap);
 
-		HashMap<Integer, DicomImage> dcm = GDicomTools.imagePlusToDcm(targetMap, true);
+		HashMap<Integer, DicomImage> dcmStack = GDicomTools.imagePlusToDcm(targetMap, true);
 		Calibration cal = targetMap.getCalibration();
-		String seriesDesc = GDicomTools.getTag(originalImage, Tag.SeriesDescription);
+		String seriesDesc = GDicomTools.getTag(calcImage, Tag.SeriesDescription);
 		if (seriesDesc == null)
 			seriesDesc = "";
-		for (int k : dcm.keySet()) {
-			DicomImage inst = dcm.get(k);
+		String seriesUID = GDicomTools.getTag(targetMap, Tag.SeriesInstanceUID);
+		if(seriesUID == null) {
+			
+		}
+		for (int k : dcmStack.keySet()) {
+			DicomImage inst = dcmStack.get(k);
 			DicomObject header = inst.getHeader();
+			//change UIDs
+			header.setString(Tag.MediaStorageSOPClassUID, VR.UI, "");
+			header.setString(Tag.MediaStorageSOPInstanceUID, VR.UI, "");
+			header.
+			
+			//image attrs
+			header.setInt(Tag.PixelRepresentation, VR.IS, 0);/* UNSIGNED */
 			header.setInt(Tag.BitsAllocated, VR.IS, 16);// BitsAllocated(16);
 			header.setInt(Tag.BitsStored, VR.IS, 15);// BitsAllocated(16);
 			header.setInt(Tag.HighBit, VR.IS, 15);// BitsAllocated(16);
@@ -753,73 +806,72 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			header.setDouble(Tag.RescaleIntercept, VR.DS, coefficients[0]);
 			header.setDouble(Tag.RescaleSlope, VR.DS, coefficients[1]);
 			/*
-			 * vis mapを計算するときに、先に特徴名を付けておくとより良い
+			 * vis mapを計算するときに、RadiomicsMapのプロパティに特徴名を保存しておく
 			 */
-//		    String newSeriesDesc = "[Radiomics Map] " + seriesDesc;
-//		    header.setString(Tag.SeriesDescription, VR.LO, newSeriesDesc);
+		    String newSeriesDesc = featureName + " " + seriesDesc;
+		    header.setString(Tag.SeriesDescription, VR.LO, newSeriesDesc);
 		}
-
-		/*
-		 * // Series Description の先頭に文字列を追加 String orgDesc =
-		 * this.originalImage.getSeriesDescription(); String newDesc =
-		 * "[Radiomics Map] " + (orgDesc != null ? orgDesc : "");
-		 * newHeader.setSeriesDescription(newDesc);
-		 * 
-		 * // 新しいメタデータをマップオブジェクトに紐付け targetMap.setCustomMetadata(newHeader);
-		 */
+		return dcmStack;
 	}
 
 	/**
 	 * ファイルへ保存する実処理の拡張
 	 */
-	private void onSaveMap() {
+	private void onSaveMap(boolean outdcm) {
 		if (this.radiomicsMap == null) {
 			JOptionPane.showMessageDialog(this, "保存する可視化マップがありません。", "Warning", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
-
-		// 1. 32-bitから16-bitへの輝度キャリブレーション付き変換
-		ImagePlus saveMapInstance = convertTo16BitWithCalibration(this.radiomicsMap);
-
-		// 2. メタデータのコピーと記述の変更
-		setupMetadataForSave(saveMapInstance);
-
-		// --- 保存先選択ダイアログを表示 ---
-		JFileChooser fc = new JFileChooser();
-		fc.setDialogTitle("Save Radiomics Map");
-		fc.setSelectedFile(new File("radiomics_parametric_map.tif"));
-
-		FileNameExtensionFilter tiffFilter = new FileNameExtensionFilter("TIFF Image (*.tif)", "tif");
-		fc.addChoosableFileFilter(tiffFilter);
-
-		// DB保存ボタンとは別に、ファイル保存形式としてDICOM(*.dcm)も選べるようにする場合
-		FileNameExtensionFilter dicomFilter = new FileNameExtensionFilter("DICOM ファイル (*.dcm)", "dcm");
-		fc.addChoosableFileFilter(dicomFilter);
-
-		fc.setFileFilter(tiffFilter);
-
-		if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-			try {
-				String path = fc.getSelectedFile().getAbsolutePath();
-				FileFilter selectedFilter = fc.getFileFilter();
-
-				if (selectedFilter == dicomFilter || path.toLowerCase().endsWith(".dcm")) {
-					// TODO: DICOMとしてファイル保存するロジック
-					// saveAsDicomFile(saveMapInstance, path);
-					System.out.println("DICOMファイルとして保存: " + path);
-				} else {
+		
+		if(!outdcm) {
+			// --- 保存先選択ダイアログを表示 ---
+			JFileChooser fc = new JFileChooser();
+			fc.setDialogTitle("Save Radiomics Map");
+			fc.setSelectedFile(new File("radiomics_parametric_map.tif"));
+			FileNameExtensionFilter tiffFilter = new FileNameExtensionFilter("TIFF Image (*.tif)", "tif");
+			fc.addChoosableFileFilter(tiffFilter);
+			fc.setFileFilter(tiffFilter);
+			if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+				try {
+					String path = fc.getSelectedFile().getAbsolutePath();
 					// Tiffファイルとして保存（ImageJのFileSaverはCalibration情報もファイル内に保持してくれます）
 					if (!path.toLowerCase().endsWith(".tif") && !path.toLowerCase().endsWith(".tiff")) {
 						path += ".tif";
 					}
-					FileSaver fs = new FileSaver(saveMapInstance);
+					FileSaver fs = new FileSaver(this.radiomicsMap);
 					if (fs.saveAsTiff(path)) {
 						JOptionPane.showMessageDialog(this, "Tiff可視化マップを保存しました。");
 					}
+					return;
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					JOptionPane.showMessageDialog(this, "保存中にエラーが発生しました: " + ex.getMessage());
+					return;
 				}
-			} catch (Exception ex) {
-				ex.printStackTrace();
-				JOptionPane.showMessageDialog(this, "保存中にエラーが発生しました: " + ex.getMessage());
+			}
+		}else {
+			//save as dcm
+			// 2. メタデータのコピーと記述の変更
+			HashMap<Integer, DicomImage> dcms = setupMetadataForSave(this.radiomicsMap);
+
+			// --- 保存先選択ダイアログを表示 ---
+			JFileChooser fc = new JFileChooser();
+			fc.setDialogTitle("Save Radiomics Map");
+			fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			fc.setSelectedFile(new File("radiomics_parametric_map"));
+			DicomWriter writer = DicomWriter.newDicomWriter();
+			if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+				try {
+					String parent_path = fc.getSelectedFile().getAbsolutePath();
+					for(int idx : dcms.keySet()) {
+						DicomImage im = dcms.get(idx);
+						int instNo = im.getHeader().getInt(Tag.InstanceNumber, idx);
+						writer.write(im.getHeader(), UID.ImplicitVRLittleEndian.uid(), parent_path+File.separator+instNo+".dcm");
+					}
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					JOptionPane.showMessageDialog(this, "Error occuered when saving: " + ex.getMessage());
+				}
 			}
 		}
 	}
@@ -832,14 +884,33 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			JOptionPane.showMessageDialog(this, "データベースへ保存する可視化マップがありません。", "Warning", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
+		// メタデータ構成
+		HashMap<Integer, DicomImage> dcms = setupMetadataForSave(this.radiomicsMap);
+		
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if(db == null) {
+			JOptionPane.showMessageDialog(this, "GRAPHY DB does not ready, can not save to DB.");
+			return;
+		}
+		if(radiomicsMap != null) {
+			String pid = GDicomTools.getTag(radiomicsMap, Tag.PatientID);
+			String studyUID = GDicomTools.getTag(radiomicsMap, Tag.StudyInstanceUID);
+			String seriesUID = GDicomTools.getTag(radiomicsMap, Tag.SeriesInstanceUID);
+			if(pid == null || studyUID == null || seriesUID == null) {
+				JOptionPane.showMessageDialog(this, "Can not create new series, this images does not have dicom attributes.");
+				return;
+			}
+			try {
+				DicomDuplicator.createNewSeriesAndStore2DB(mpr_win.getPraparatAt(CutSurface.OBLIQUE)/*recon_prap*/, true);
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			JOptionPane.showMessageDialog(this, "Done, save reslice series.");
+		}else {
+			JOptionPane.showMessageDialog(this, "Can not create new series, do reslice first.");
+			return;
+		}
 
-		// 1. 16-bit & キャリブレーション変換
-		ImagePlus saveMapInstance = convertTo16BitWithCalibration(this.radiomicsMap);
-
-		// 2. メタデータ再構成
-		setupMetadataForSave(saveMapInstance);
-
-		// 3. GRAPHYのDatabaseHandlerやDcmSender等を利用してDBへストア
 		try {
 			// 例:
 			// DatabaseHandler.getInstance().storeImagePlusAsNewSeries(saveMapInstance);
@@ -850,75 +921,6 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		}
 	}
 
-//	private void updateFusionImage() {
-//		ImagePlus foreground = null;
-//		ImagePlus background = null;
-//		LUT fLUT = null;// means keep AS-IS.
-////		LUT fLUT = Resources.LUT_FIRE.loadLUT();
-//		if (fusionMapRadio.isSelected() && radiomicsMap != null && fusionBackground != null) {
-//			foreground = radiomicsMap;
-//			background = fusionBackground;
-//			fLUT = radiomicsMapPanel.getLUT();
-//		} else if (fusionMaskRadio.isSelected() && maskImage != null) {
-//			/*
-//			 * マスクラベルが小さい場合、Fusionしても見えないので、255にスケール。
-//			 */
-//			StackStatistics stats = new StackStatistics(maskImage);
-//			double globalMin = stats.min;
-//			double globalMax = stats.max;
-//			double scale = 255.0;
-//			if (globalMax - globalMin > 0) {
-//				scale = 255.0 / (globalMax - globalMin);
-//			}
-//
-//			ImageStack stack = new ImageStack(maskImage.getWidth(), maskImage.getHeight());
-//			for (int i = 1; i <= maskImage.getNSlices(); i++) {
-//				ImageProcessor ip = maskImage.getStack().getProcessor(i);
-//				ByteProcessor bp = new ByteProcessor(ip.getWidth(), ip.getHeight());
-//				byte[] bpPixels = (byte[]) bp.getPixels();
-//				// ピクセルごとにスケーリング
-//				for (int k = 0; k < ip.getPixelCount(); k++) {
-//					double val = ip.getf(k); // 元の値
-//					int scaledVal = (int) ((val - globalMin) * scale + 0.5); // +0.5は四捨五入
-//					// 値を 0-255 の範囲にクリッピング
-//					if (scaledVal < 0)
-//						scaledVal = 0;
-//					if (scaledVal > 255)
-//						scaledVal = 255;
-//					bpPixels[k] = (byte) scaledVal;
-//				}
-//				stack.addSlice(bp);
-//			}
-//			foreground = new ImagePlus("scaled 8-bit mask", stack);
-//			foreground.copyAttributes(maskImage);
-//			/**
-//			 * IMPORTANT
-//			 */
-//			background = originalImagePanel.getImagePlus(-1, -1);
-//			// update original image contrast
-//			double[] dispWinMinMax = originalImagePanel.getCurrentSlide().getCurrentWindowMinMax();
-//			double min = dispWinMinMax[0];
-//			double max = dispWinMinMax[1];
-//			int pos = background.getCurrentSlice();
-//			for (int i = 1; i <= background.getNSlices(); i++) {
-//				background.setSlice(i);
-//				background.setDisplayRange(min, max);
-//				background.updateAndDraw();
-//				System.out.println("before min and max:" + min + "," + max);
-//			}
-//			background.setSlice(pos);
-//		}
-//
-//		if (foreground == null || background == null) {
-//			this.fusionImage = null;
-//		} else {
-//			// --- Fusion実行 ---
-//			int opacity_percent = transparencySlider.getValue();
-//			double opacity = opacity_percent * 0.01d;
-//			this.fusionImage = fusion(foreground, background, opacity, fLUT);
-//		}
-//		fusionImagePanel.reloadSlideGlasses(this.fusionImage);
-//	}
 
 	/**
 	 * 
@@ -992,26 +994,26 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	}
 
 	private boolean validateInputs() {
-		if (originalImage == null) {
-			JOptionPane.showMessageDialog(this, "Please load an image AND a mask first.", "Input Required",
+		if (calcImage == null) {
+			JOptionPane.showMessageDialog(this, "Please load image first.", "Input Required",
 					JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 
-		if (maskImage != null) {
-			if (originalImage.getNSlices() != maskImage.getNSlices()) {
+		if (alignedMask != null) {
+			if (calcImage.getNSlices() != alignedMask.getNSlices()) {
 				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
 						JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 
-			if (originalImage.getWidth() != maskImage.getWidth()) {
+			if (calcImage.getWidth() != alignedMask.getWidth()) {
 				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
 						JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 
-			if (originalImage.getHeight() != maskImage.getHeight()) {
+			if (calcImage.getHeight() != alignedMask.getHeight()) {
 				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
 						JOptionPane.WARNING_MESSAGE);
 				return false;

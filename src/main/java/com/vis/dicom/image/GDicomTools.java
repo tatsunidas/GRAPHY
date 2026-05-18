@@ -69,49 +69,48 @@ import ij.util.Tools;
  *
  */
 public class GDicomTools extends ij.util.DicomTools {
-
+	
 	/**
-	 * ★ 追加：HyperStack（多次元）の場合に、スライス番号から正確な 1D インデックスを算出する
+	 * Stack index is an order of ImageStack.
+	 * Stack index is calculate c-z-t based.
+	 * z,c,t are 1-based.
 	 */
-	public static int getRealIndex(ImagePlus imp, int slicePos/* 1 to N */) {
+	public static int getStackIndex(ImagePlus imp, int z, int c, int t) {
 		if (imp != null && imp.isHyperStack()) {
-			int c = imp.getChannel() > 0 ? imp.getChannel() : 1;
-			int t = imp.getFrame() > 0 ? imp.getFrame() : 1;
-			// CとTを現在の状態に固定し、目的のZスライスの1Dインデックスを取得する
-			return imp.getStackIndex(c, slicePos, t);
+			// 1-base
+			int validC = Math.max(1, Math.min(c, imp.getNChannels()));
+			int validZ = Math.max(1, Math.min(z, imp.getNSlices()));
+			int validT = Math.max(1, Math.min(t, imp.getNFrames()));
+			return imp.getStackIndex(validC, validZ, validT);
 		}
-		return slicePos;
+		// 単純なスタックの場合はそのままZを返す
+		return z;
 	}
 
 	public static String getTag(ImagePlus imp, String tag/* gggg,eeee */) {
 		if (imp == null)
 			return null;
-		// カレントスライスを取得し、独自パーサーへ
-		int pos = imp.getCurrentSlice();
-		return getTag(imp, pos, new String[] { tag });
+		/*
+		 * getCurrentSlice return zct index(=stack index). 
+		 */
+		int stackIndex = imp.getCurrentSlice();
+		int[] czt = imp.convertIndexToPosition(stackIndex);
+		return getTag(imp, czt[1], czt[0], czt[2], tag);
 	}
 
-	public static String getTag(ImagePlus imp, int pos/* 1 to N */, String tag/* gggg,eeee */) {
+	/**
+	 * 
+	 * @param imp
+	 * @param zct : stack index
+	 * @param tag
+	 * @return
+	 */
+	public static String getTag(ImagePlus imp, int zct/* 1 to N */, String tag/* gggg,eeee */) {
 		if (imp == null)
 			return null;
-		// ★ imp.setSlice(pos) による無駄な再描画とフリーズを防ぎつつ、独自パーサーへ直行
-		return getTag(imp, pos, new String[] { tag });
+		return getTag(imp, zct, new String[] { tag });
 	}
 
-//	public static String getTag(ImagePlus imp, String tag/*gggg,eeee*/) {
-	// SliceLabelの先頭に改行がないとInfoプロパティしか返さない。
-//		String v = ij.util.DicomTools.getTag(imp, tag);
-//		if(v != null) {
-//			v = v.trim();
-//		}
-//		return v;
-//	}
-//	
-//	public static String getTag(ImagePlus imp, int pos/*1 to N*/, String tag/*gggg,eeee*/) {
-//		imp.setPosition(getRealIndex(imp, pos));
-//		return getTag(imp, tag);
-//	}
-	
 	/**
 	 * @param imp ImagePlus
 	 * @param tag 32-bit DICOM Tag (e.g.,: 0x00080060)
@@ -122,31 +121,47 @@ public class GDicomTools extends ij.util.DicomTools {
 		tagString = tagString.substring(1,10);
 		return getTag(imp, tagString);
 	}
+	
+	public static String getTag(ImagePlus imp, int z, int c, int t, int tag) {
+		String tagStr = TagUtils.toString(tag);
+		tagStr = tagStr.substring(1,10);
+		return getTag(imp, z, c, t, new String[] { tagStr });
+	}
+	
+	public static String getTag(ImagePlus imp, int z, int c, int t, String tag) {
+		return getTag(imp, z, c, t, new String[] { tag });
+	}
 
 	/**
 	 * 階層（シーケンス）のパスを指定してDICOMタグの値を取得する
 	 * 
 	 * @param imp  ImagePlus
-	 * @param pos  スライス番号 (1 to N)
+	 * @param zct  Stack index
 	 * @param tags タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
 	 * @return 取得した値の文字列。見つからない場合は null
 	 */
-	public static String getTag(ImagePlus imp, int pos/* 1 to N */, String[] tags) {
+	public static String getTag(ImagePlus imp, int zct/* 1 to N */, String[] tags) {
+		if(imp == null) {
+			return null;
+		}
+		int czt[] = imp.convertIndexToPosition(zct);
+		return getTag(imp, czt[1], czt[0], czt[2], tags);
+	}
+	
+	/**
+	 * シーケンスパスとC,Z,Tを指定してDICOMタグの値を取得する
+	 */
+	public static String getTag(ImagePlus imp, int z, int c, int t, String[] tags) {
 		if (tags == null || tags.length == 0) {
 			throw new IllegalArgumentException("Tags array cannot be null or empty.");
 		}
 
-		// 階層がない（1つだけ）の場合は、既存の単一タグ取得メソッドにフォールバック
-//		if (tags.length == 1) {
-//			return getTag(imp, pos, tags[0]);
-//		}
+		// 安全なZCT指定メソッドを使う
+		int stackIndex = getStackIndex(imp, z, c, t);
 
-		int realPos = getRealIndex(imp, pos);
-
-		// 1. スライス固有のラベル、または全体プロパティのInfoからテキストを取得
 		String headerText = null;
-		if (imp != null && pos >= 1 && pos <= imp.getStackSize()) {
-			headerText = imp.getStack().getSliceLabel(realPos);
+		if (imp != null && stackIndex >= 1 && stackIndex <= imp.getStackSize()) {
+			headerText = imp.getStack().getSliceLabel(stackIndex);
 		}
 		if (headerText == null || headerText.trim().isEmpty()) {
 			if (imp != null) {
@@ -158,7 +173,6 @@ public class GDicomTools extends ij.util.DicomTools {
 			return null;
 		}
 
-		// 2. 階層化されたテキストから値を抽出
 		return getTagInSequence(headerText, tags);
 	}
 
@@ -211,8 +225,8 @@ public class GDicomTools extends ij.util.DicomTools {
 		return null; // 結局見つからなかった場合
 	}
 
-	public static Double getDouble(ImagePlus imp, int pos/* 1 to N */, String tag) {
-		String value = getTag(imp, pos, tag);
+	public static Double getDouble(ImagePlus imp, int zct/* 1 to N */, String tag) {
+		String value = getTag(imp, zct, tag);
 		if (value == null)
 			return Double.NaN;
 		int index3 = value.indexOf("\\");
@@ -220,9 +234,36 @@ public class GDicomTools extends ij.util.DicomTools {
 			value = value.substring(0, index3);
 		return Tools.parseDouble(value);
 	}
+	
+	/**
+	 * for HyperStack
+	 * @param imp
+	 * @param z
+	 * @param c
+	 * @param t
+	 * @param tag
+	 * @return
+	 */
+	public static double[] getDoubles(ImagePlus imp, int z, int c, int t, String tag) {
+		String res = getTag(imp, z, c, t, tag);
+		if (res == null) return null;
+		String[] xyz = res.split("\\\\");
+		double[] arr = new double[xyz.length];
+		for (int i = 0; i < xyz.length; i++) {
+			arr[i] = ij.util.Tools.parseDouble(xyz[i]);
+		}
+		return arr;
+	}
 
-	public static double[] getDoubles(ImagePlus imp, int pos/* 1 to N */, String tag) {
-		String res = getTag(imp, pos, tag);
+	/**
+	 * Single stack
+	 * @param imp
+	 * @param zct
+	 * @param tag
+	 * @return
+	 */
+	public static double[] getDoubles(ImagePlus imp, int zct/* 1 to N */, String tag) {
+		String res = getTag(imp, zct, tag);
 		if (res == null)
 			return null;
 		String[] xyz = res.split("\\\\");
@@ -239,104 +280,8 @@ public class GDicomTools extends ij.util.DicomTools {
 	public static double[] getDoubles(ImagePlus imp, String tag) {
 		return getDoubles(imp, imp.getCurrentSlice(), tag);
 	}
-
-//	/**
-//	 * Add / update meta data in ImagePlus.
-//	 * Sequence tag are ignored.
-//	 * @param imp
-//	 * @param pos
-//	 * @param tag = No sequence tag.
-//	 * @param value
-//	 */
-//	public static void setTag(ImagePlus imp, int pos/*1 to N*/, String tag, String value) {
-//		if(imp.getNSlices() > 1) {
-//			ImageStack stack = imp.getStack();
-//			String hdr = stack.getSliceLabel(pos);
-//			if(hdr == null) {
-//				hdr = "";
-//			}
-//			/*
-//			 * Remove "\n" if "\n" in first line head
-//			 * DicomTools.getTag() return null when hdr head "\n".
-//			 */
-//			if(hdr.indexOf("\n")==0) {
-//				hdr = hdr.substring(1, hdr.length());
-//			}
-//			int index1 = hdr.indexOf(tag);
-//			if (index1 != -1) {// found
-//				if (hdr.charAt(index1 + 11) == '>') {
-//					// ignore tags in sequences
-//					index1 = hdr.indexOf(tag, index1 + 10);
-//				}
-//				index1 = hdr.indexOf(":", index1) + 1;
-//				String upper = hdr.substring(0, index1);
-//				int index2 = hdr.indexOf("\n", index1);
-//				String after = hdr.substring(index2);
-//				hdr = upper + value + after;
-//			} else {// not found
-//				if (!hdr.endsWith("\n")) {
-//					hdr = hdr + "\n" + tag + ": " + value + "\n";
-//				} else {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}
-//			}
-//			stack.setSliceLabel(hdr, pos);
-//		}else {
-//			String hdr = (String)imp.getProperty("Info");
-//			if (hdr == null) {
-//				hdr = "";
-//			}
-//			if(hdr.indexOf("\n")==0) {
-//				hdr = hdr.substring(1, hdr.length());
-//			}
-//			int index1 = hdr.indexOf(tag);
-//			if (index1 != -1 && hdr.endsWith(">")) {// found
-//				if (hdr.charAt(index1 + 11) == '>') {
-//					// ignore tags in sequences
-//					index1 = hdr.indexOf(tag, index1 + 10);
-//				}
-//				index1 = hdr.indexOf(":", index1) + 1;
-//				String upper = hdr.substring(0, index1);
-//				int index2 = hdr.indexOf("\n", index1);
-//				String after = hdr.substring(index2);
-//				hdr = upper + value + after;
-//			} else if(index1 != -1){ // found
-//				// 行ごとに分割
-//				String[] lines = hdr.split("\n");
-//				// 結果を格納するためのStringBuilder
-//				StringBuilder result = new StringBuilder();
-//				// 各行を処理
-//				for (String line : lines) {
-//					if(line.length() ==0) {
-//						continue;
-//					}
-//					// tag文字を取り出す
-//					try {
-//					String prefix = line.substring(0, 9);
-//					String v = line.substring(11);// [gggg,eeee: ]
-//					if (prefix.equals(tag)) {
-//						v = value; // replace
-//					}
-//					result.append(prefix).append(": ").append(v).append("\n");
-//					}catch(java.lang.StringIndexOutOfBoundsException e) {
-//						Log.logger.severe(e.getLocalizedMessage());
-//					}
-//				}
-//				hdr = result.toString();
-//			}else {
-//				if(hdr.equals("")) {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}else if (!hdr.endsWith("\n")) {
-//					hdr = hdr + "\n" + tag + ": " + value + "\n";
-//				} else {
-//					hdr = hdr + tag + ": " + value + "\n";
-//				}
-//			}
-//			imp.setProperty("Info", hdr);
-//		}
-//	}
 	
-	public static void setTag(ImagePlus imp, int pos/* 1 to N */, int tag/* only one tag */, String value) {
+	public static void setTag(ImagePlus imp, int zct/* 1 to N */, int tag/* only one tag */, String value) {
 		/*
 		 * DICOM tag is hex, be keep upper case.
 		 */
@@ -344,37 +289,59 @@ public class GDicomTools extends ij.util.DicomTools {
 		if(tagStr != null) {
 			//(gggg,eeee)
 			tagStr = tagStr.substring(1, 10);
-			setTag(imp, pos, tagStr, value);
+			setTag(imp, zct, tagStr, value);
 		}
 	}
 
 	/**
 	 * 既存コードとの互換性用（ルート階層のタグの更新・追加）
 	 */
-	public static void setTag(ImagePlus imp, int pos/* 1 to N */, String tag/* only one tag */, String value) {
-		setTag(imp, pos, new String[] { tag }, value);
+	public static void setTag(ImagePlus imp, int zct/* 1 to N */, String tag, String value) {
+		setTag(imp, zct, new String[] { tag }, value);
+	}
+	
+	/**
+	 * For simple stack
+	 */
+	public static void setTag(ImagePlus imp, int zct, String[] tags, String value) {
+		if(imp == null) {
+			return;
+		}
+		int[] czt = imp.convertIndexToPosition(zct);
+		setTag(imp, czt[1], czt[0], czt[2], tags, value);
+	}
+	
+	/*
+	 * zct 1-based of each.
+	 */
+	public static void setTag(ImagePlus imp, int z ,int c, int t, int tag/* only one tag */, String value) {
+		/*
+		 * DICOM tag is hex, be keep upper case.
+		 */
+		String tagStr = TagUtils.toString(tag);
+		int zct = getStackIndex(imp, z, c, t);
+		if(tagStr != null) {
+			//(gggg,eeee)
+			tagStr = tagStr.substring(1, 10);
+			setTag(imp, zct, tagStr, value);
+		}
 	}
 
 	/**
-	 * 階層（シーケンス）のパスを指定してDICOMタグの値を更新・追加する（完全版）
 	 * 
-	 * @param imp   ImagePlus
-	 * @param pos   スライス番号 (1 to N)
-	 * @param tags  タグの階層配列 (例: {"5200,9230", "0018,9117", "0018,9087"})
-	 * @param value セットしたい値
 	 */
-	public static void setTag(ImagePlus imp, int pos, String[] tags, String value) {
+	public static void setTag(ImagePlus imp, int z, int c, int t, String[] tags, String value) {
 		if (imp == null || tags == null || tags.length == 0)
 			return;
-		int realPos = getRealIndex(imp, pos);
+			
+		// ★ 安全なZCT指定メソッドを使う
+		int realPos = getStackIndex(imp, z, c, t);
 		boolean isStack = imp.getStackSize() > 1;
+		
 		String hdr = isStack ? imp.getStack().getSliceLabel(realPos) : (String) imp.getProperty("Info");
 
-		if (hdr == null)
-			hdr = "";
-		// 先頭の余分な改行をクリーンアップ
-		if (hdr.startsWith("\n"))
-			hdr = hdr.substring(1);
+		if (hdr == null) hdr = "";
+		if (hdr.startsWith("\n")) hdr = hdr.substring(1);
 
 		String newHdr;
 		if (tags.length == 1) {
@@ -388,6 +355,30 @@ public class GDicomTools extends ij.util.DicomTools {
 		} else {
 			imp.setProperty("Info", newHdr);
 		}
+	}
+	
+	public static void setTag(ImagePlus imp, int z, int c, int t, String tag, String value) {
+		setTag(imp, z, c, t, new String[] { tag }, value);
+	}
+	
+	public static void setDoubles(ImagePlus imp, int z, int c, int t, String tag, double[] values) {
+		String arr = "";
+		for (double v : values) {
+			arr += String.valueOf(v) + "\\";
+		}
+		// delete end of "\\"
+		arr = arr.substring(0, arr.lastIndexOf('\\'));
+		setTag(imp, z, c, t, tag, arr);
+	}
+
+	public static void setDoubles(ImagePlus imp, int zct, String tag, double[] values) {
+		String arr = "";
+		for (double v : values) {
+			arr += String.valueOf(v) + "\\";
+		}
+		// delete end of "\\"
+		arr = arr.substring(0, arr.lastIndexOf('\\'));
+		setTag(imp, zct, tag, arr);
 	}
 
 	/**
@@ -513,16 +504,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		return sb.toString();
 	}
 
-	public static void setDoubles(ImagePlus imp, int pos, String tag, double[] values) {
-		String arr = "";
-		for (double v : values) {
-			arr += String.valueOf(v) + "\\";
-		}
-		// delete end of "\\"
-		arr = arr.substring(0, arr.lastIndexOf('\\'));
-		setTag(imp, pos, tag, arr);
-	}
-
 	public static double getVoxelDepth(DicomObject header) {
 		double spacingBetweenSlices = header.getDouble(Tag.Spacing​Between​Slices, Double.NaN);
 		double sliceThickness = header.getDouble(Tag.Slice​Thickness, Double.NaN);
@@ -537,13 +518,16 @@ public class GDicomTools extends ij.util.DicomTools {
 
 	public static double getVoxelDepth(ImagePlus imp) {
 		double z = imp.getCalibration().pixelDepth;
-		double spacingBetweenSlices = getDouble(imp, 1, "0018,0088");
-		double sliceThickness = getDouble(imp, 1, "0018,0050");
+		// 共通タグは1枚目(Z=1, C=1, T=1)から取得
+		int zct_1 = getStackIndex(imp, 1, 1, 1);
+		double spacingBetweenSlices = getDouble(imp, zct_1, "0018,0088");
+		double sliceThickness = getDouble(imp, zct_1, "0018,0050");
 
 		if (imp.getNSlices() > 1) {
-			double[] ipp1 = getImagePositionPatient(imp, 1);
-			double[] ipp2 = getImagePositionPatient(imp, 2);
-			double[] iop = getImageOrientationPatient(imp, 1);
+			// 確実に「Z=1」と「Z=2」の座標を比較するように ZCT 指定メソッドを使用
+			double[] ipp1 = getImagePositionPatient(imp, 1, 1, 1);
+			double[] ipp2 = getImagePositionPatient(imp, 2, 1, 1);
+			double[] iop = getImageOrientationPatient(imp, 1, 1, 1);
 
 			if (iop == null || iop.length != 6) {
 				throw new IllegalArgumentException("ImageOrientationPatient must be a non-null 6-element array.");
@@ -609,14 +593,14 @@ public class GDicomTools extends ij.util.DicomTools {
 	/**
 	 * 
 	 * @param stack
-	 * @param RealIndex : from 1 to n, by getRealIndex()
+	 * @param zct : from 1 to n, StackIndex.
 	 * @return
 	 */
-	public static String getHeader(ImageStack stack, int RealIndex) {
-		String hdr = stack.getSliceLabel(RealIndex);
+	public static String getHeader(ImageStack stack, int zct) {
+		String hdr = stack.getSliceLabel(zct);
 		if ((hdr == null || hdr.length() < 100) && stack.isVirtual()) {
 			String dir = ((VirtualStack) stack).getDirectory();
-			String name = ((VirtualStack) stack).getFileName(RealIndex);
+			String name = ((VirtualStack) stack).getFileName(zct);
 			ImagePlus reader = new ImagePlus(dir + name);
 			hdr = reader.getInfoProperty();
 			if (hdr != null)
@@ -626,18 +610,35 @@ public class GDicomTools extends ij.util.DicomTools {
 	}
 
 	public static void headerCopy(ImagePlus from, ImagePlus to) {
-		if (from.getNSlices() != to.getNSlices()) {
-			Log.logger.info("Can not copy header, not matching stack sizes.");
+		// ★ 1. 次元（C, Z, T）と全体サイズが完全に一致しているかを厳密にチェック
+		if (from.getNChannels() != to.getNChannels() || 
+			from.getNSlices() != to.getNSlices() || 
+			from.getNFrames() != to.getNFrames() ||
+			from.getStackSize() != to.getStackSize()) {
+			Log.logger.info("Can not copy header, not matching dimensions or stack sizes.");
 			return;
 		}
-		if (from.getNSlices() == 1) {
-			to.setProperty("Info", from.getInfoProperty());
-		} else {
-			int size = from.getNSlices();
-			for (int i = 1; i <= size; i++) {
-				int index = getRealIndex(from, i);
-				String hdr = from.getStack().getSliceLabel(index);
-				to.getStack().setSliceLabel(hdr, index);
+
+		to.setProperty("Info", from.getInfoProperty());
+		
+		int cTotal = from.getNChannels();
+		int zTotal = from.getNSlices();
+		int tTotal = from.getNFrames();
+		
+		if (from.isHyperStack() || cTotal > 1 || zTotal > 1 || tTotal > 1) {
+			to.setDimensions(cTotal, zTotal, tTotal);
+			to.setOpenAsHyperStack(from.getOpenAsHyperStack());
+		}
+
+		// ZCTを明示して処理する
+		for (int t = 1; t <= tTotal; t++) {
+			for (int z = 1; z <= zTotal; z++) {
+				for (int c = 1; c <= cTotal; c++) {
+					// ImageJのAPIに「C, Z, T」を渡して、stack index (実際の1Dインデックス)を安全に取得
+					int index = from.getStackIndex(c, z, t);
+					String hdr = from.getStack().getSliceLabel(index);
+					to.getStack().setSliceLabel(hdr, index);
+				}
 			}
 		}
 	}
@@ -754,7 +755,7 @@ public class GDicomTools extends ij.util.DicomTools {
 
 			ImagePlus newImp = new ImagePlus("", stack);
 
-			// 【重要】ここで親のImagePlusにInfoプロパティをセットしないとnullになります
+			//　ここで親のImagePlusにInfoプロパティをセット
 			if (firstFrameHeader != null) {
 				newImp.setProperty("Info", firstFrameHeader);
 			}
@@ -766,144 +767,6 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 	}
 
-	public static ImagePlus dcmImgToImagePlusOld(DicomImage dcmImg, Calibration cal) {
-		if (!dcmImg.isMultiFrame()) {
-			ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(0).duplicate());
-			DicomObject header = dcmImg.getHeader();
-			int[] tags = header.tags();
-			for (int t : tags) {
-				if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
-					continue;
-				}
-				com.vis.dicom.VR vr = header.getVROn(t);
-				if (vr == com.vis.dicom.VR.SQ) {
-					continue;
-				}
-
-				String ts = TagUtils.toDicomToolsString(t);
-				String vmString = TagDict.vmOf(t);
-				if (vmString == null) { // maybe private tag
-					continue;
-				}
-				if (vmString.equals("1")) {
-					String val = header.getString(t);
-					if (val != null) {
-						setTag(imp, 1, ts, val);
-					}
-				} else {
-					String[] vals = header.getStrings(t);
-					if (vals != null && vals.length > 0) {
-						// 文字列連結をStringBuilderに変更（高速化・効率化）
-						StringBuilder sb = new StringBuilder();
-						for (int i = 0; i < vals.length; i++) {
-							sb.append(vals[i]);
-							if (i < vals.length - 1/* ignore appending to end of \\ */) {
-								sb.append("\\");
-							}
-						}
-						setTag(imp, 1, ts, sb.toString());
-					}
-				}
-			}
-			if (cal != null) {
-				imp.setCalibration(cal);
-			}
-			return imp;
-		} else {
-			int size = dcmImg.getNumOfFrames();
-			ImageStack stack = new ImageStack();
-			for (int i = 0; i < size; i++) {
-				/* single frame imp */
-				ImagePlus imp = new ImagePlus("", dcmImg.getImageProcessor(i));
-				DicomObject header = dcmImg.getHeader();
-				int[] tags = header.tags();
-				for (int t : tags) {
-					if (t == Tag.Pixel​Data || t == Tag.Float​​Pixel​​Data || t == Tag.Double​Float​Pixel​​Data) {
-						continue;
-					}
-					com.vis.dicom.VR vr = header.getVROn(t);
-					if (vr == com.vis.dicom.VR.SQ) {
-						continue;
-					}
-
-					String ts = TagUtils.toDicomToolsString(t);
-					String vmString = TagDict.vmOf(t);
-					if (vmString == null) { // maybe private tag
-						continue;
-					}
-					if (vmString.equals("1")) {
-						String val = header.getString(t);
-						if (val != null) {
-							setTag(imp, 1, ts, val);
-						}
-					} else {
-						String[] vals = header.getStrings(t);
-						if (vals != null && vals.length > 0) {
-							// 文字列連結をStringBuilderに変更（高速化・効率化）
-							StringBuilder sb = new StringBuilder();
-							for (int q = 0; q < vals.length; q++) {
-								sb.append(vals[q]);
-								if (i < vals.length - 1/* ignore appending to end of \\ */) {
-									sb.append("\\");
-								}
-							}
-							setTag(imp, 1, ts, sb.toString());
-						}
-					}
-				}
-				setTag(imp, (i + 1), TagUtils.toDicomToolsString(Tag.Instance​Number), String.valueOf(i + 1));
-				stack.addSlice(imp.getProcessor());
-				stack.setSliceLabel(imp.getInfoProperty(), i + 1);
-			}
-			ImagePlus newImp = new ImagePlus("", stack);
-			newImp.setCalibration(cal);
-			return newImp;
-		}
-	}
-
-//	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
-//		if (imp == null) {
-//			return null;
-//		}
-//		HashMap<Integer, DicomImage> images = new HashMap<>();
-//		int w = imp.getWidth();
-//		int h = imp.getHeight();
-//		int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
-//		int bits = imp.isRGB() ? 8 : imp.getBitDepth();
-//
-//		int s = imp.getNSlices();
-//
-//		
-//		boolean signed = isSignedImagePlus(imp);
-//
-//		for (int i = 0; i < s; i++) {
-//			DicomObject core = DicomObject.newDicomObject();
-//
-//			// 注意: addAttributes 内で imp.setSlice(i + 1) をしている場合、
-//			// 多次元ImagePlusでは「現在のCとT」におけるZスライスが切り替わるだけになることがあります。
-//			// 先ほど GDicomTools で実装した getRealIndex などを活用し、
-//			// 1Dインデックス(i + 1)から正確なスライスのメタデータを引き出せるようにしてください。
-//			addAttributes(core, i, imp, dealWithSecondaryCapture);
-//
-//			DicomImage dcmImg = DicomImage.newDicomImage(null/* file path */, core, null/* fmi null-able */,
-//					UID.ImplicitVRLittleEndian);
-//			imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
-//			Object pix = imp.getProcessor().getPixels();
-//			if (signed) {
-//				short[] originalPixels = (short[]) pix;
-//				// ★ 元の配列を汚さないように、新しい配列を生成してコピー＆計算する
-//				short[] copiedPixels = new short[originalPixels.length];
-//				for (int k = 0; k < originalPixels.length; k++) {
-//					//short processorで+32768されていた値を戻す
-//					copiedPixels[k] = (short) (originalPixels[k] - (short) 32768);
-//				}
-//				pix = copiedPixels; // コピーした方をDICOMにセットする
-//			}
-//			dcmImg.setPixelData(0, w, h, samples, bits, pix);
-//			images.put(i, dcmImg);
-//		}
-//		return images;
-//	}
 	
 	public static HashMap<Integer, DicomImage> imagePlusToDcm(ImagePlus imp, boolean dealWithSecondaryCapture) {
 	    if (imp == null) {
@@ -914,47 +777,55 @@ public class GDicomTools extends ij.util.DicomTools {
 	    int h = imp.getHeight();
 	    int samples = imp.getProcessor() instanceof ColorProcessor ? 3 : 1;
 	    int bits = imp.isRGB() ? 8 : imp.getBitDepth();
-	    int s = imp.getNSlices();
 
-	    // 先ほど作成した独自の判定メソッドを使用する
+	    // 全次元のサイズを取得
+	    int cTotal = imp.getNChannels();
+	    int zTotal = imp.getNSlices();
+	    int tTotal = imp.getNFrames();
+
 	    boolean isSigned = isSignedImagePlus(imp);
 
-	    for (int i = 0; i < s; i++) {
-	        DicomObject core = DicomObject.newDicomObject();
-	        addAttributes(core, i, imp, dealWithSecondaryCapture);
+	    for (int t = 1; t <= tTotal; t++) {
+	        for (int z = 1; z <= zTotal; z++) {
+	            for (int c = 1; c <= cTotal; c++) {
+	                // 1. ZCTから実際の1Dインデックスを取得 (1-based)
+	                int stackIndex = imp.getStackIndex(c, z, t);
+	                // 2. HashMap格納用のキー (0-based)
+	                int mapKey = stackIndex - 1;
 
-	        DicomImage dcmImg = DicomImage.newDicomImage(null, core, null, UID.ImplicitVRLittleEndian);
-	        imp.setSlice(GDicomTools.getRealIndex(imp, i + 1));
-	        
-	        Object pix = imp.getProcessor().getPixels();
-
-	        // 符号付き(Signed)の場合のみ、データ破壊を防ぐためにコピーして逆シフトする
-	        if (isSigned) {
-	            if (pix instanceof short[]) {
-	                // --- 16 bit Signed の場合 (-32768シフトを戻す) ---
-	                short[] originalPixels = (short[]) pix;
-	                short[] copiedPixels = new short[originalPixels.length];
-	                for (int k = 0; k < originalPixels.length; k++) {
-	                    copiedPixels[k] = (short) (originalPixels[k] ^ 0x8000); // XORで安全に反転
-	                }
-	                pix = copiedPixels;
+	                DicomObject core = DicomObject.newDicomObject();
 	                
-	            } else if (pix instanceof byte[]) {
-	                // --- 8 bit Signed の場合 (-128シフトを戻す) ---
-	                byte[] originalPixels = (byte[]) pix;
-	                byte[] copiedPixels = new byte[originalPixels.length];
-	                for (int k = 0; k < originalPixels.length; k++) {
-	                    copiedPixels[k] = (byte) (originalPixels[k] ^ 0x80); // XOR 0x80 で最上位ビットを反転
+	                // 3. C, Z, T を明示して属性を追加する新メソッドを呼ぶ
+	                addAttributes(core, stackIndex, imp, dealWithSecondaryCapture);
+
+	                DicomImage dcmImg = DicomImage.newDicomImage(null, core, null, UID.ImplicitVRLittleEndian);
+	                
+	                // 4. ImageStackから直接ピクセル配列を抜く（超高速化）
+	                Object pix = imp.getStack().getProcessor(stackIndex).getPixels();
+
+	                // 5. 符号付き(Signed)の場合の逆シフト処理
+	                if (isSigned) {
+	                    if (pix instanceof short[]) {
+	                        short[] originalPixels = (short[]) pix;
+	                        short[] copiedPixels = new short[originalPixels.length];
+	                        for (int k = 0; k < originalPixels.length; k++) {
+	                            copiedPixels[k] = (short) (originalPixels[k] ^ 0x8000);
+	                        }
+	                        pix = copiedPixels;
+	                    } else if (pix instanceof byte[]) {
+	                        byte[] originalPixels = (byte[]) pix;
+	                        byte[] copiedPixels = new byte[originalPixels.length];
+	                        for (int k = 0; k < originalPixels.length; k++) {
+	                            copiedPixels[k] = (byte) (originalPixels[k] ^ 0x80);
+	                        }
+	                        pix = copiedPixels;
+	                    }
 	                }
-	                pix = copiedPixels;
+
+	                dcmImg.setPixelData(0, w, h, samples, bits, pix);
+	                images.put(mapKey, dcmImg);
 	            }
 	        }
-
-	        // ※ Unsigned（符号なし）の場合はシフトされていないため、
-	        // コピーせずに pix の参照をそのまま渡してOKです（Javaのbyteがマイナス値として扱ってもビット列は正しい）
-
-	        dcmImg.setPixelData(0, w, h, samples, bits, pix);
-	        images.put(i, dcmImg);
 	    }
 	    return images;
 	}
@@ -1015,203 +886,173 @@ public class GDicomTools extends ij.util.DicomTools {
 	/**
 	 * Add attributes from ImagePlus to DicomObject 
 	 * @param dcm
-	 * @param slicePos
+	 * @param zctIndex (same as stack index)
 	 * @param imp
 	 * @param dealWithSecondaryCapture
 	 */
-	private static void addAttributes(DicomObject dcm, int slicePos/* 0 to N-1 */,
+	private static void addAttributes(DicomObject dcm, int zctindex/* 1 to N */,
 			ImagePlus imp/* should be set current processor */, boolean dealWithSecondaryCapture) {
 
-		imp.setSlice(getRealIndex(imp, slicePos+1));
+		int[] czt = imp.convertIndexToPosition(zctindex);
+		addAttributes(dcm, czt[1], czt[0], czt[2], imp, dealWithSecondaryCapture);
+	}
+	
+	private static void addAttributes(DicomObject dcm, int z, int c, int t,
+			ImagePlus imp, boolean dealWithSecondaryCapture) {
 
-		String sopClassUID = GDicomTools.getTag(imp, "0008,0016");
+		// UI更新を伴わず、サイレントに現在位置を移動させる（キャリブレーション取得等のために安全）
+		imp.setPositionWithoutUpdate(c, z, t);
+
+		String sopClassUID = GDicomTools.getTag(imp, z, c, t, "0008,0016");
 		if(sopClassUID != null) sopClassUID = sopClassUID.trim();
 		if (dealWithSecondaryCapture) {
 			sopClassUID = UID.SecondaryCaptureImageStorage.uid();
 		}
 		
-		String sopInstUID = GDicomTools.getTag(imp, "0008,0018");
+		String sopInstUID = GDicomTools.getTag(imp, z, c, t, "0008,0018");
 		if(sopInstUID != null) sopInstUID = sopInstUID.trim();
 		if (sopInstUID == null || sopInstUID.length() == 0) {
 			sopInstUID = UIDUtils.createUID();
 		}
-		setString(dcm, Tag.SOP​Class​UID, sopClassUID);
-		setString(dcm, Tag.SOP​Instance​UID, sopInstUID);
+		setString(dcm, Tag.SOPClassUID, sopClassUID);
+		setString(dcm, Tag.SOPInstanceUID, sopInstUID);
 
-		/*
-		 * 0010,0010 Patient's Name: TEST^TARO 0010,0020 Patient ID: 0000012345
-		 * 0010,0030 Patient's Birth Date: 19840405 0010,0032 Patient's Birth Time:
-		 * 000000 0010,0040 Patient's Sex: M 0010,1030 Patient's Weight: 65
-		 */
-		String patID = GDicomTools.getTag(imp, "0010,0020");
-		String patName = GDicomTools.getTag(imp, "0010,0010");
-		String patBoD = GDicomTools.getTag(imp, "0010,0030");
-		String patBoT = GDicomTools.getTag(imp, "0010,0032");
-		String patSex = GDicomTools.getTag(imp, "0010,0040");
-		String patWeight = GDicomTools.getTag(imp, "0010,1030");
-		setString(dcm, Tag.Patient​Name, patName);
-		setString(dcm, Tag.Patient​ID, patID);
-		setDate(dcm, Tag.Patient​Birth​Date, patBoD);
-		setTime(dcm, Tag.Patient​Birth​Time, patBoT);
-		setString(dcm, Tag.Patient​Sex, patSex);
-		setDouble(dcm, Tag.Patient​Weight, patWeight);
+		String patID = GDicomTools.getTag(imp, z, c, t, "0010,0020");
+		String patName = GDicomTools.getTag(imp, z, c, t, "0010,0010");
+		String patBoD = GDicomTools.getTag(imp, z, c, t, "0010,0030");
+		String patBoT = GDicomTools.getTag(imp, z, c, t, "0010,0032");
+		String patSex = GDicomTools.getTag(imp, z, c, t, "0010,0040");
+		String patWeight = GDicomTools.getTag(imp, z, c, t, "0010,1030");
+		setString(dcm, Tag.PatientName, patName);
+		setString(dcm, Tag.PatientID, patID);
+		setDate(dcm, Tag.PatientBirthDate, patBoD);
+		setTime(dcm, Tag.PatientBirthTime, patBoT);
+		setString(dcm, Tag.PatientSex, patSex);
+		setDouble(dcm, Tag.PatientWeight, patWeight);
 
-		/*
-		 * UIDs
-		 */
-		// study uid
-		String studyUID = GDicomTools.getTag(imp, "0020,000D");
-		if (studyUID == null || studyUID.trim().length() == 0) {
-			studyUID = UIDUtils.createUID();
-		}
-		// series uid
-		String seriesUID = GDicomTools.getTag(imp, "0020,000E");
-		if (seriesUID == null || seriesUID.trim().length() == 0) {
-			seriesUID = UIDUtils.createUID();
-		}
-		// reference uid(Tag.Frame​Of​Reference​UID)
-		String refUID = GDicomTools.getTag(imp, "0020,0052");
-		setString(dcm, Tag.Study​Instance​UID, studyUID);
-		setString(dcm, Tag.Series​Instance​UID, seriesUID);
-		setString(dcm, Tag.Frame​Of​Reference​UID, refUID);
+		String studyUID = GDicomTools.getTag(imp, z, c, t, "0020,000D");
+		if (studyUID == null || studyUID.trim().length() == 0) studyUID = UIDUtils.createUID();
+		
+		String seriesUID = GDicomTools.getTag(imp, z, c, t, "0020,000E");
+		if (seriesUID == null || seriesUID.trim().length() == 0) seriesUID = UIDUtils.createUID();
+		
+		String refUID = GDicomTools.getTag(imp, z, c, t, "0020,0052");
+		setString(dcm, Tag.StudyInstanceUID, studyUID);
+		setString(dcm, Tag.SeriesInstanceUID, seriesUID);
+		setString(dcm, Tag.FrameOfReferenceUID, refUID);
 
-		/*
-		 * 0008,0060 Modality: e.g., MR 0008, 0061 Modalities​In​Study 0008,0070
-		 * Manufacturer: Visionary Imaging Services,Inc. 0018,1000 Device Serial Number:
-		 * 40115 0008,1010 Station Name: GRAPHY 0018,1020 Software Versions(s): V7.0B
-		 * 0008,1030 Study Descreption 0008,103E Series Description: Scano 3plane_SAG
-		 * 0008,1090 Manufacturer's Model Name: GRAPHY
-		 */
-		String modality = GDicomTools.getTag(imp, "0008,0060");
-		String modalities = GDicomTools.getTag(imp, "0008,0061");
-		String manu = GDicomTools.getTag(imp, "0008,0070");
-		String deviceNo = GDicomTools.getTag(imp, "0018,1000");
-		String station = GDicomTools.getTag(imp, "0008,1010");
-		String softVer = GDicomTools.getTag(imp, "0018,1020");
-		String studyDesc = GDicomTools.getTag(imp, "0008,1030");
-		String seriesDesc = GDicomTools.getTag(imp, "0008,103E");
-		String modelName = GDicomTools.getTag(imp, "0008,1090");
+		String modality = GDicomTools.getTag(imp, z, c, t, "0008,0060");
+		String modalities = GDicomTools.getTag(imp, z, c, t, "0008,0061");
+		String manu = GDicomTools.getTag(imp, z, c, t, "0008,0070");
+		String deviceNo = GDicomTools.getTag(imp, z, c, t, "0018,1000");
+		String station = GDicomTools.getTag(imp, z, c, t, "0008,1010");
+		String softVer = GDicomTools.getTag(imp, z, c, t, "0018,1020");
+		String studyDesc = GDicomTools.getTag(imp, z, c, t, "0008,1030");
+		String seriesDesc = GDicomTools.getTag(imp, z, c, t, "0008,103E");
+		String modelName = GDicomTools.getTag(imp, z, c, t, "0008,1090");
 		setString(dcm, Tag.Modality, modality);
-		setString(dcm, Tag.Modalities​In​Study, modalities);
+		setString(dcm, Tag.ModalitiesInStudy, modalities);
 		setString(dcm, Tag.Manufacturer, manu);
-		setString(dcm, Tag.Device​Serial​Number, deviceNo);// long string
-		setString(dcm, Tag.Station​Name, station);
-		setString(dcm, Tag.Software​Versions, softVer);// long string
-		setString(dcm, Tag.Study​Description, studyDesc);
-		setString(dcm, Tag.Series​Description, seriesDesc);
-		setString(dcm, Tag.Manufacturer​Model​Name, modelName);
+		setString(dcm, Tag.DeviceSerialNumber, deviceNo);
+		setString(dcm, Tag.StationName, station);
+		setString(dcm, Tag.SoftwareVersions, softVer);
+		setString(dcm, Tag.StudyDescription, studyDesc);
+		setString(dcm, Tag.SeriesDescription, seriesDesc);
+		setString(dcm, Tag.ManufacturerModelName, modelName);
 
-		/*
-		 * 0008, 0008 ImageType 0008,0012 Instance Creation Date: 20221022 0008,0013
-		 * Instance Creation Time: 121105.117 0008,0020 Study Date: 20221022 0008,0021
-		 * Series Date: 20221022 0008,0022 Acquisition Date: 20221022 0008,0023 Content
-		 * Date: 20221022 0008,0030 Study Time: 121008.0 0008,0031 Series Time:
-		 * 121054.967 0008,0032 Acquisition Time: 121054.967 0008,0033 Content Time:
-		 * 121105.0
-		 */
-		String imageType = GDicomTools.getTag(imp, "0008,0008");
-		String instanceCreationDate = GDicomTools.getTag(imp, "0008,0012");
-		String instanceCreationTime = GDicomTools.getTag(imp, "0008,0013");
-		String studyDate = GDicomTools.getTag(imp, "0008,0020");
-		String seriesDate = GDicomTools.getTag(imp, "0008,0021");
-		String acquiDate = GDicomTools.getTag(imp, "0008,0022");
-		String contDate = GDicomTools.getTag(imp, "0008,0023");
-		String studyTime = GDicomTools.getTag(imp, "0008,0030");
-		String seriesTime = GDicomTools.getTag(imp, "0008,0031");
-		String acquiTime = GDicomTools.getTag(imp, "0008,0032");
-		String contTime = GDicomTools.getTag(imp, "0008,0033");
-		setString(dcm, Tag.Image​Type, imageType);
-		setDate(dcm, Tag.Instance​Creation​Date, instanceCreationDate);
-		setTime(dcm, Tag.Instance​Creation​Time, instanceCreationTime);
-		setDate(dcm, Tag.Study​Date, studyDate);
-		setDate(dcm, Tag.Series​Date, seriesDate);
-		setDate(dcm, Tag.Acquisition​Date, acquiDate);
-		setDate(dcm, Tag.Content​Date, contDate);
-		setTime(dcm, Tag.Study​Time, studyTime);
-		setTime(dcm, Tag.Series​Time, seriesTime);
-		setTime(dcm, Tag.Acquisition​Time, acquiTime);
-		setTime(dcm, Tag.Content​Time, contTime);
+		String imageType = GDicomTools.getTag(imp, z, c, t, "0008,0008");
+		String instanceCreationDate = GDicomTools.getTag(imp, z, c, t, "0008,0012");
+		String instanceCreationTime = GDicomTools.getTag(imp, z, c, t, "0008,0013");
+		String studyDate = GDicomTools.getTag(imp, z, c, t, "0008,0020");
+		String seriesDate = GDicomTools.getTag(imp, z, c, t, "0008,0021");
+		String acquiDate = GDicomTools.getTag(imp, z, c, t, "0008,0022");
+		String contDate = GDicomTools.getTag(imp, z, c, t, "0008,0023");
+		String studyTime = GDicomTools.getTag(imp, z, c, t, "0008,0030");
+		String seriesTime = GDicomTools.getTag(imp, z, c, t, "0008,0031");
+		String acquiTime = GDicomTools.getTag(imp, z, c, t, "0008,0032");
+		String contTime = GDicomTools.getTag(imp, z, c, t, "0008,0033");
+		setString(dcm, Tag.ImageType, imageType);
+		setDate(dcm, Tag.InstanceCreationDate, instanceCreationDate);
+		setTime(dcm, Tag.InstanceCreationTime, instanceCreationTime);
+		setDate(dcm, Tag.StudyDate, studyDate);
+		setDate(dcm, Tag.SeriesDate, seriesDate);
+		setDate(dcm, Tag.AcquisitionDate, acquiDate);
+		setDate(dcm, Tag.ContentDate, contDate);
+		setTime(dcm, Tag.StudyTime, studyTime);
+		setTime(dcm, Tag.SeriesTime, seriesTime);
+		setTime(dcm, Tag.AcquisitionTime, acquiTime);
+		setTime(dcm, Tag.ContentTime, contTime);
 
-		/*
-		 * 0020,0010 Study ID: 20221001-123 0020,0011 Series Number: 2 0020,0012
-		 * Acquisition Number: 0 0020,0013 InstanceNumber: 3 0020,0032 image position
-		 * patient 0020,0037 image orientation patient
-		 */
-		String studyID = GDicomTools.getTag(imp, "0020,0010");
-		String seriesNo = GDicomTools.getTag(imp, "0020,0011");
-		String acquiNo = GDicomTools.getTag(imp, "0020,0012");
-		String instNo = GDicomTools.getTag(imp, "0020,0013");
-		String imgPosPat = GDicomTools.getTag(imp, "0020,0032");
-		String imgOriPat = GDicomTools.getTag(imp, "0020,0037");
-		setString(dcm, Tag.Study​ID, studyID);
-		setInt(dcm, Tag.Series​Number, seriesNo);
-		setInt(dcm, Tag.Acquisition​Number, acquiNo);
-		setInt(dcm, Tag.Instance​Number, instNo);
-		setDoubles(dcm, Tag.Image​Position​Patient, imgPosPat);
-		setDoubles(dcm, Tag.Image​Orientation​Patient, imgOriPat);
+		String studyID = GDicomTools.getTag(imp, z, c, t, "0020,0010");
+		String seriesNo = GDicomTools.getTag(imp, z, c, t, "0020,0011");
+		String acquiNo = GDicomTools.getTag(imp, z, c, t, "0020,0012");
+		String instNo = GDicomTools.getTag(imp, z, c, t, "0020,0013");
+		String imgPosPat = GDicomTools.getTag(imp, z, c, t, "0020,0032");
+		String imgOriPat = GDicomTools.getTag(imp, z, c, t, "0020,0037");
+		setString(dcm, Tag.StudyID, studyID);
+		setInt(dcm, Tag.SeriesNumber, seriesNo);
+		setInt(dcm, Tag.AcquisitionNumber, acquiNo);
+		setInt(dcm, Tag.InstanceNumber, instNo);
+		setDoubles(dcm, Tag.ImagePositionPatient, imgPosPat);
+		setDoubles(dcm, Tag.ImageOrientationPatient, imgOriPat);
 
-//		String samplesPerPixel = GDicomTools.getTag(imp, "0028,0002");
-		int samplesPerPixel = imp.getProcessor() instanceof ColorProcessor ? 3 : 1; // DO NOT USE imp.getNChannels()
-//		String planarConfigurationString = GDicomTools.getTag(imp, "0028,0006");
-		int rows = imp.getHeight();// GDicomTools.getTag(imp, "0028,0010");
-		int cols = imp.getWidth();// GDicomTools.getTag(imp, "0028,0011");
-		String pixelSpacingYX = GDicomTools.getTag(imp, "0028,0030");
+		int samplesPerPixel = imp.getProcessor() instanceof ColorProcessor ? 3 : 1; 
+		int rows = imp.getHeight();
+		int cols = imp.getWidth();
+		
+		String pixelSpacingYX = GDicomTools.getTag(imp, z, c, t, "0028,0030");
 		if (pixelSpacingYX == null) {
 			Calibration cal = imp.getCalibration();
 			pixelSpacingYX = cal.pixelHeight + "\\\\" + cal.pixelWidth;
 		}
-		Double pixelSpacingZ = GDicomTools.getVoxelDepth(imp);// SpacingBetweenSlices
+		
+		Double pixelSpacingZ = GDicomTools.getVoxelDepth(imp);
 		if (pixelSpacingZ <= 0.0) {
 			pixelSpacingZ = imp.getCalibration().pixelDepth;
 		}
-		/*
-		 * When RGB, imp.getBitDepth() will return 24.
-		 * In DICOM, RGB image should be 8-bit per-channel.
-		 */
-		int bitsAllocated = samplesPerPixel == 1 ? imp.getBitDepth():8;// GDicomTools.getTag(imp, "0028,0100");
-		String bitsStored = GDicomTools.getTag(imp, "0028,0101");
-		String highBit = GDicomTools.getTag(imp, "0028,0102");
+
+		int bitsAllocated = samplesPerPixel == 1 ? imp.getBitDepth() : 8;
+		String bitsStored = GDicomTools.getTag(imp, z, c, t, "0028,0101");
+		String highBit = GDicomTools.getTag(imp, z, c, t, "0028,0102");
 		boolean signed = isSignedImagePlus(imp);
 		String pixelRepresentationString = signed ? "1" : "0";
 		
-		//Dicom tag is prefer.
-		String intercept = GDicomTools.getTag(imp, "0028,1052");
-		String slope = GDicomTools.getTag(imp, "0028,1053");
+		String intercept = GDicomTools.getTag(imp, z, c, t, "0028,1052");
+		String slope = GDicomTools.getTag(imp, z, c, t, "0028,1053");
 		
 		if(intercept==null || slope==null) {
 			Calibration cal = imp.getCalibration();
 			double[] coeffs = cal.getCoefficients();
-			if (coeffs != null) {
-				if(signed && coeffs[0]<=-32768) {
-					coeffs[0] += 32768;//remove -32768 from intercept.
+			if (coeffs != null && coeffs.length >= 2) {
+				if(signed && coeffs[0] <= -32768) {
+					coeffs[0] += 32768; // remove -32768 from intercept.
 				}
 				intercept = String.valueOf(coeffs[0]);
 				slope = String.valueOf(coeffs[1]);
 			}
 		}
 		
-		setInt(dcm, Tag.Samples​Per​Pixel, samplesPerPixel);
-		
+		setInt(dcm, Tag.SamplesPerPixel, samplesPerPixel);
 		if (samplesPerPixel == 3) {
-			setInt(dcm, Tag.Bits​Allocated, 8);
-			setInt(dcm, Tag.Bits​Stored, 8);
-			setInt(dcm, Tag.High​Bit, 7);
-			setString(dcm, Tag.Photometric​Interpretation, "RGB");
-			setInt(dcm, Tag.Planar​Configuration, 0); // 0 = RGBがピクセルごとに並んでいる(RGBRGBRGB...)
+			setInt(dcm, Tag.BitsAllocated, 8);
+			setInt(dcm, Tag.BitsStored, 8);
+			setInt(dcm, Tag.HighBit, 7);
+			setString(dcm, Tag.PhotometricInterpretation, "RGB");
+			setInt(dcm, Tag.PlanarConfiguration, 0); 
 		} else {
-			setString(dcm, Tag.Photometric​Interpretation, "MONOCHROME2");
+			setString(dcm, Tag.PhotometricInterpretation, "MONOCHROME2");
 		}
 		
 		setInt(dcm, Tag.Rows, rows);
 		setInt(dcm, Tag.Columns, cols);
-		setDoubles(dcm, Tag.Pixel​Spacing, pixelSpacingYX);
-		setDouble(dcm, Tag.Spacing​Between​Slices, pixelSpacingZ);
-		setInt(dcm, Tag.Bits​Allocated, bitsAllocated);
-		setInt(dcm, Tag.Bits​Stored, bitsStored);
-		setInt(dcm, Tag.High​Bit, highBit);
-		setInt(dcm, Tag.Pixel​Representation, pixelRepresentationString);// signed 1
-		setDouble(dcm, Tag.Rescale​Intercept, intercept);
-		setDouble(dcm, Tag.Rescale​Slope, slope);
+		setDoubles(dcm, Tag.PixelSpacing, pixelSpacingYX);
+		setDouble(dcm, Tag.SpacingBetweenSlices, pixelSpacingZ);
+		setInt(dcm, Tag.BitsAllocated, bitsAllocated);
+		setInt(dcm, Tag.BitsStored, bitsStored);
+		setInt(dcm, Tag.HighBit, highBit);
+		setInt(dcm, Tag.PixelRepresentation, pixelRepresentationString);
+		setDouble(dcm, Tag.RescaleIntercept, intercept);
+		setDouble(dcm, Tag.RescaleSlope, slope);
 	}
 
 	static public void setString(DicomObject dcm, int tag, String v) {
@@ -1304,12 +1145,12 @@ public class GDicomTools extends ij.util.DicomTools {
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImagePositionPatient(ImagePlus dcms, int pos, Vector3d ipp) {
+	public static void setImagePositionPatient(ImagePlus dcms, int zct, Vector3d ipp) {
 		if (ipp == null) {
 			Log.logger.info("ImagePositionPatient must have 3 component x,y,z...");
 			return;
 		}
-		setImagePositionPatient(dcms, pos, new double[] { ipp.x(), ipp.y(), ipp.z() });
+		setImagePositionPatient(dcms, zct, new double[] { ipp.x(), ipp.y(), ipp.z() });
 	}
 
 	/**
@@ -1317,12 +1158,12 @@ public class GDicomTools extends ij.util.DicomTools {
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImagePositionPatient(ImagePlus dcms, int pos, double[] ipp) {
+	public static void setImagePositionPatient(ImagePlus dcms, int zct, double[] ipp) {
 		if (ipp == null || ipp.length != 3) {
 			Log.logger.info("ImagePositionPatient must have 3 component x,y,z...");
 			return;
 		}
-		setDoubles(dcms, pos, "0020,0032", ipp);
+		setDoubles(dcms, zct, "0020,0032", ipp);
 	}
 
 	/**
@@ -1330,25 +1171,33 @@ public class GDicomTools extends ij.util.DicomTools {
 	 * @param dcms : if it has multi slices, set image position before perform.
 	 * @param ipp
 	 */
-	public static void setImageOrientationPatient(ImagePlus dcms, int pos, double[] iop) {
+	public static void setImageOrientationPatient(ImagePlus dcms, int zct, double[] iop) {
 		if (iop == null || iop.length != 6) {
 			Log.logger.info("ImageOrientationPatient must have 6 component y axis(Row) : xyz, x axis(Col) : xyz");
 			return;
 		}
-		setDoubles(dcms, pos, "0020,0037", iop);
+		setDoubles(dcms, zct, "0020,0037", iop);
 	}
 
-	public static void setImageOrientationPatient(ImagePlus dcms, int pos, Vector3d row, Vector3d col) {
-		setImageOrientationPatient(dcms, pos, new double[] { row.x, row.y, row.z, col.x, col.y, col.z });
+	public static void setImageOrientationPatient(ImagePlus dcms, int zct, Vector3d row, Vector3d col) {
+		setImageOrientationPatient(dcms, zct, new double[] { row.x, row.y, row.z, col.x, col.y, col.z });
+	}
+	
+	public static double[] getImagePositionPatient(ImagePlus imp, int z, int c, int t) {
+		return getDoubles(imp, z, c, t, "0020,0032");
 	}
 
-	public static double[] getImagePositionPatient(ImagePlus imp, int pos/* 1 to N */) {
-		double[] ipp = getDoubles(imp, pos, "0020,0032");
+	public static double[] getImageOrientationPatient(ImagePlus imp, int z, int c, int t) {
+		return getDoubles(imp, z, c, t, "0020,0037");
+	}
+
+	public static double[] getImagePositionPatient(ImagePlus imp, int zct/* 1 to N */) {
+		double[] ipp = getDoubles(imp, zct, "0020,0032");
 		return ipp;
 	}
 
-	public static double[] getImageOrientationPatient(ImagePlus imp, int pos/* 1 to N */) {
-		double[] iop = getDoubles(imp, pos, "0020,0037");
+	public static double[] getImageOrientationPatient(ImagePlus imp, int zct/* 1 to N */) {
+		double[] iop = getDoubles(imp, zct, "0020,0037");
 		return iop;
 	}
 
