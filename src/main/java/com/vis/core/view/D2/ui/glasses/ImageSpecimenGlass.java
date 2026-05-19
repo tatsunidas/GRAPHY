@@ -408,7 +408,6 @@ public class ImageSpecimenGlass extends JPanel{
 			AffineTransform finalTransform = new AffineTransform(sg.getCurrentTransform());
 			
 			sg.imgProcess.applyLUT(dup, sg.currentLUT);
-			
 			//adjust contrast to current
 			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
 			//invert if it set
@@ -431,12 +430,25 @@ public class ImageSpecimenGlass extends JPanel{
 			boolean sizeChanged = false;
 
 			// ImagePlusのタイプに合わせたBufferedImageを作成
-			if (this.display == null || this.display.getWidth() != w || this.display.getHeight() != h || this.display.getType() != type) {
+			// Size, LUTが変更されたかどうかを検知する
+			boolean lutChanged = false;
+			if (type == BufferedImage.TYPE_BYTE_INDEXED && this.display != null) {
+				// 新しい画像と古い画像のカラーパレットの色配列を比較する
+				if (!srcImg.getColorModel().equals(this.display.getColorModel())) {
+					lutChanged = true;
+				}
+			}
+			// ==========================================================
+
+			// ImagePlusのタイプに合わせたBufferedImageを作成
+			// ★ 修正：条件式に 「|| lutChanged」 を追加して、LUTが変わった時も再生成させる
+			if (this.display == null || this.display.getWidth() != w || this.display.getHeight() != h
+					|| this.display.getType() != type || lutChanged) {
 				sizeChanged = true;
-				//for LUT, index color model
+				// for LUT, index color model
 				if (type == BufferedImage.TYPE_BYTE_INDEXED) {
 					this.display = new BufferedImage(w, h, type, (IndexColorModel) srcImg.getColorModel());
-				}else {// normal
+				} else {// normal
 					this.display = new BufferedImage(w, h, type);
 				}
 			}

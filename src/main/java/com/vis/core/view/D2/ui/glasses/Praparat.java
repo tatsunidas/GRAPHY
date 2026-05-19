@@ -146,6 +146,7 @@ public class Praparat extends JPanel {
 	// component
 	private PraparatViewControlPanel pvcp;
 	private JPanel viewPanel;
+	ColorBar lutManager;
 	private SlideGlassGrid gridScrollPane;
 
 	// resize timer
@@ -912,7 +913,6 @@ public class Praparat extends JPanel {
 		class SlidePos {
 			SlideGlass sg;
 			double pos;
-			@SuppressWarnings("unused")
 			int instNo;
 			SlidePos(SlideGlass sg, double pos, int instNo) {
 				this.sg = sg;
@@ -1462,6 +1462,10 @@ public class Praparat extends JPanel {
 		String targetBaseLabel = "Empty";
 		boolean isColor = false;
 		int bitDepth = 8;
+		
+		double displayMin = Double.NaN;
+		double displayMax = Double.NaN;
+		
 		for (int z = 0; z < nSlices; z++) {
 			int idx = targetT * (nChannels * nSlices) + z * nChannels + targetC;
 			SlideGlass sg = slides.get(idx);
@@ -1472,6 +1476,11 @@ public class Praparat extends JPanel {
 						targetBaseLabel = donorImp.getStack().getSliceLabel(1);
 						isColor = sg.isRGB();
 						bitDepth = sg.getDicomImage().getBitsAllocated();
+						// ★追加: 最初の有効なスライドから現在の表示コントラスト(WW/WL)を取得
+						if (Double.isNaN(displayMin)) {
+							displayMin = sg.currentMin;
+							displayMax = sg.currentMax;
+						}
 						break;
 					}
 				}
@@ -1560,6 +1569,10 @@ public class Praparat extends JPanel {
 		}
 		replica.setCalibration(orgCal);
 		replica.setDimensions(1, nSlices, 1);
+		
+		if (!Double.isNaN(displayMin) && !Double.isNaN(displayMax) && displayMin != displayMax) {
+			replica.setDisplayRange(displayMin, displayMax);
+		}
 		
 		return replica;
 	}
@@ -1988,14 +2001,19 @@ public class Praparat extends JPanel {
 		setBorder(BorderMaker.make(this, false));
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 
-		sliderPanel = new JPanel();
-		sliderPanel.setLayout(new GridLayout(0, 1)); // 行数は動的、1列
+		JPanel southComponentPanel = new JPanel(new BorderLayout());
+		
+		lutManager = new ColorBar(this, 10, 10);
+//		JPanel lutPanel = new JPanel(new GridLayout(0, 1));
+//		lutPanel.add(lutManager);
+		southComponentPanel.add(lutManager, BorderLayout.NORTH);
+		
+		sliderPanel = new JPanel(new GridLayout(0, 1));
 		slider = new CineSlider(this, "Slice"); // ★ 引数にラベルを追加できるよう後でCineSliderも改修します
 		channelSlider = new CineSlider(this, "Channel");
 		frameSlider = new CineSlider(this, "Time");
-
-		// 初期状態ではメインのスライダーのみ（互換性維持のため）
 		sliderPanel.add(slider);
+		southComponentPanel.add(sliderPanel, BorderLayout.SOUTH);
 
 		/*
 		 * SlideGlass parent component
@@ -2028,14 +2046,14 @@ public class Praparat extends JPanel {
 
 		if (mode == ViewMode.Normal) {
 			add(pvcp, BorderLayout.NORTH);
-			add(sliderPanel, BorderLayout.SOUTH);
+			add(southComponentPanel, BorderLayout.SOUTH);
 			setFocusable(true);
 			setRequestFocusEnabled(true);
 		}
 
 		if (mode == ViewMode.SingleGrid) {
 			add(pvcp, BorderLayout.NORTH);
-			add(sliderPanel, BorderLayout.SOUTH);
+			add(southComponentPanel, BorderLayout.SOUTH);
 			setFocusable(true);
 			setRequestFocusEnabled(true);
 			pvcp.getFilmGridBtn().setEnabled(false);
@@ -2065,7 +2083,7 @@ public class Praparat extends JPanel {
 
 		if (mode == ViewMode.MPR) {
 			add(pvcp, BorderLayout.NORTH);
-			add(sliderPanel, BorderLayout.SOUTH);
+			add(southComponentPanel, BorderLayout.SOUTH);
 			setFocusable(true);
 			setRequestFocusEnabled(true);// fail safe?
 			/* filmGrid is denied */
@@ -3267,15 +3285,22 @@ public class Praparat extends JPanel {
     }
 
 	public void setLUT(LUT lut) {
+		lutManager.setLUT(lut);
 		this.lut = lut;
-		if (!isProcessSeries()) {
-			SlideGlass sg = getCurrentSlide();
-			sg.setLUT(this.lut);
-		} else {
-			for (Integer key : slides.keySet()) {
-				SlideGlass sg = slides.get(key);
-				sg.setLUT(this.lut);
+		if (isProcessSeries()) {
+			synchronized (slides) {
+				for (Integer key : slides.keySet()) {
+					SlideGlass sg = slides.get(key);
+					if(sg != null) {
+						sg.setLUT(this.lut);
+					}
+				}
 			}
+		}
+		SlideGlass current = getCurrentSlide();
+		if (current != null) {
+			current.setLUT(this.lut);
+			current.updateDisplayImage();
 		}
 		if (getViewPanel() != null) {
 			getViewPanel().repaint();
@@ -3283,12 +3308,10 @@ public class Praparat extends JPanel {
 	}
 
 	public void setNextSlice() {
-		// ★ 修正：単純な+1ではなく、次元ごとの正確なステップ送りに委譲
 		stepDimension("Slice", 1);
 	}
 
 	public void setPreviousSlice() {
-		// ★ 修正：
 		stepDimension("Slice", -1);
 	}
 
@@ -3566,14 +3589,12 @@ public class Praparat extends JPanel {
 			slider.setSliderVisible(false);
 			slider.setCineButtonVisible(false);
 		}
-		slider.setColorBarVisible(true);
 
 		// C(Channel)スライダー
 		if (nChannels > 1) {
 			sliderPanel.add(channelSlider);
 			channelSlider.initContext(nChannels);
 			channelSlider.setSliderVisible(true);
-			channelSlider.setColorBarVisible(false);
 			// ★ 変更：再生ボタンを表示する
 			channelSlider.setCineButtonVisible(true); 
 		}
@@ -3583,7 +3604,6 @@ public class Praparat extends JPanel {
 			sliderPanel.add(frameSlider);
 			frameSlider.initContext(nFrames);
 			frameSlider.setSliderVisible(true);
-			frameSlider.setColorBarVisible(false);
 			// ★ 確認：再生ボタンを表示する
 			frameSlider.setCineButtonVisible(true); 
 		}

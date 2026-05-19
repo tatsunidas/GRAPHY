@@ -28,7 +28,6 @@ public class CineSlider extends JPanel implements ActionListener {
 	private Praparat pp = null;
 	private Timer timer;
 	private int frame = 100;
-	private ColorBar colorBar;
 	private JLabel titleLabel;
 	private String dimensionName; // Position："P", Channel:"C", Time:"T", 5 dimensional.
 
@@ -66,23 +65,12 @@ public class CineSlider extends JPanel implements ActionListener {
 		
 		slider = new CineSliderHelper();
 		add(slider, BorderLayout.CENTER);
-		
-		// カラーバー（Zスライダーの時だけ表示させたい場合は後で制御）
-		colorBar = new ColorBar(pp, 128, 10);
-		add(colorBar, BorderLayout.NORTH);
-	}
-
-	// ★ 新規：カラーバーを表示するかどうか
-	public void setColorBarVisible(boolean visible) {
-		colorBar.setVisible(visible);
 	}
 	
-	// ★ 新規：アニメーションボタンを表示するかどうか
 	public void setCineButtonVisible(boolean visible) {
 		check.setVisible(visible);
 	}
 	
-	// ★ 新規追加：スライダー本体とラベルの表示/非表示を切り替える
 	public void setSliderVisible(boolean visible) {
 		slider.setVisible(visible);
 		titleLabel.setVisible(visible);
@@ -92,7 +80,6 @@ public class CineSlider extends JPanel implements ActionListener {
 		return slider.getValue();
 	}
 
-	// ★ 修正：外部から最大値を指定して初期化できるようにする
 	public void initContext(int total) {
 		slider.initContext(total);
 	}

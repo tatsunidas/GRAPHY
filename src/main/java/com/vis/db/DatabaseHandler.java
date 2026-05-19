@@ -3617,7 +3617,8 @@ public class DatabaseHandler {
 				// [Send] Send to PACS/DB
 				if (dcmFile.exists()) {
 					Log.logger.info("Sending to DB/PACS: " + dcmFile.getName());
-					DimseUtilities.sendFile(dcmFile);
+//					DimseUtilities.sendFile(dcmFile);
+					DimseUtilities.store(outFilePath, false);
 				} else {
 					Log.logger.warning("Failed to create temporary file. Skipping transmission: " + outFilePath);
 				}

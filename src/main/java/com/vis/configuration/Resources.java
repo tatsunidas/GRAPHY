@@ -133,6 +133,9 @@ public enum Resources {
 	//LUT
 	LUT_GRAY("luts/gray.lut"),
 	LUT_FIRE("luts/Fire-1.lut"),
+	LUT_S_PET("luts/S_PET.lut"),
+	LUT_PHASE("luts/Phase.lut"),
+	LUT_RAINBOW("luts/Rainbow.lut"),
 	; 
 	
 	private String pathInResource;

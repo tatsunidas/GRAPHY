@@ -40,15 +40,14 @@ public class ColorBar extends JLabel implements ComponentListener{
 				LutPicker p = new LutPicker();
 				p.setLocationRelativeTo(praparat());
 				LUT lut = p.run();
-				setColor(lut);
 				praparat().setLUT(lut);
 			}
 		});
-		setColor(null);
+		setLUT(null);
 		addComponentListener(this);
 	}
 	
-	public void setColor(LUT lut) {
+	public void setLUT(LUT lut) {
 		if (lut == null) {
 			// set default
 			setColor(null, null);

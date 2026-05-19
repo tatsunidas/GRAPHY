@@ -361,6 +361,33 @@ public class GDicomTools extends ij.util.DicomTools {
 		setTag(imp, z, c, t, new String[] { tag }, value);
 	}
 	
+	/**
+	 * 指定したZCT位置のスライスラベルから、特定のDICOMタグの行を完全に削除（NULL化）します。
+	 */
+	public static void removeTag(ImagePlus imp, int z, int c, int t, int tag) {
+		if (imp == null || imp.getStack() == null)
+			return;
+
+		// タグ番号を "GGGG,EEEE" 形式の大文字文字列に変換
+		String tagStr = TagUtils.toString(tag);
+
+		ImageStack stack = imp.getStack();
+		int index = imp.getStackIndex(c, z, t);
+		String label = stack.getSliceLabel(index);
+
+		if (label != null) {
+			String[] lines = label.split("\n");
+			StringBuilder sb = new StringBuilder();
+			for (String line : lines) {
+				// 該当するタグで始まらない行だけを再構築（＝対象タグの削除）
+				if (!line.trim().startsWith(tagStr)) {
+					sb.append(line).append("\n");
+				}
+			}
+			stack.setSliceLabel(sb.toString(), index);
+		}
+	}
+	
 	public static void setDoubles(ImagePlus imp, int z, int c, int t, String tag, double[] values) {
 		String arr = "";
 		for (double v : values) {

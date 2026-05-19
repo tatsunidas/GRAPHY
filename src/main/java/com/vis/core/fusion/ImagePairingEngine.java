@@ -13,6 +13,9 @@ import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
+/**
+ * @author tatsunidas
+ */
 public class ImagePairingEngine {
 
     /**
@@ -52,7 +55,19 @@ public class ImagePairingEngine {
 		}
 
 		// 法線ベクトル（Z軸方向）を計算するためのIOP取得
-		SlideGlass orgFirstSg = orgSlides.get(0);
+		// ★ 修正: ループで確実にヘッダーを持つスライドを探す（空きマス対応）
+		SlideGlass orgFirstSg = null;
+		for (SlideGlass sg : orgSlides.values()) {
+			if (sg != null && sg.getHeader() != null) {
+				orgFirstSg = sg;
+				break;
+			}
+		}
+		if (orgFirstSg == null) {
+			Log.logger.warning("All original slides are blank (no metadata). Cannot align mask.");
+			return null;
+		}
+		
 		int firstOrgFrameIdx = orgFirstSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 		double[] iop = getSafeIOP(orgFirstSg.getHeader(), firstOrgFrameIdx);
 
@@ -69,18 +84,20 @@ public class ImagePairingEngine {
 			SlideGlass orgSg = originalPrap.getSlideGlassAt(orgZCTIndex);
 
 			ImageProcessor matchedProcessor = null;
-			
 			double[] orgIpp = null;
+			int orgInstNo = z + 1; // フォールバック用のインスタンス番号
+			String orgSopUid = null;
 
-			if (orgSg != null) {
-				String orgSopUid = orgSg.getSOPInstanceUID();
+			// ★ 修正: orgSg が null、またはメタデータを持たない空きマスの場合は例外を投げず安全にスキップ（パディング）する
+			if (orgSg != null && orgSg.getHeader() != null) {
+				orgSopUid = orgSg.getSOPInstanceUID();
 				int orgFrameIdx = orgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
-
+				orgInstNo = orgSg.getHeader().getInt(Tag.InstanceNumber, z + 1);
+				
 				orgIpp = getSafeIPP(orgSg.getHeader(), orgFrameIdx);
 				double orgZPos = (orgIpp != null) ? (orgIpp[0] * nx + orgIpp[1] * ny + orgIpp[2] * nz) : z;
 
 				// 【ハイブリッド方式】マスク側から該当するスライスを探索
-				// 任意の3D空間平面における絶対座標計算
 				SlideGlass matchedMaskSg = findMatchingMaskSlide(maskSlides, maskPrap, orgSopUid, orgZPos, targetC,
 						targetT, nx, ny, nz);
 
@@ -89,10 +106,13 @@ public class ImagePairingEngine {
 					matchedProcessor = matchedMaskSg.getDicomImage().getImageProcessor(maskFrameIdx);
 				}
 			} else {
-				throw new IllegalArgumentException("This praparat is blank. Please load images first.");
+				// ★ ここが一番の修正ポイント！
+				// orgSg が存在しない（Empty）ということは、このZ位置のこのチャンネルには画像がないということ。
+				// つまり、合わせるべきマスクも「空」にするのが正しい挙動。
+				Log.logger.fine("Original slide at Z=" + z + " is empty. Skipping mask alignment for this slice.");
 			}
 
-			// マッチするマスクが無い場合、空のプロセッサを生成してパディング（穴埋め）
+			// マッチするマスクが無い、またはオリジナルが空の場合は、空のプロセッサを生成してパディング（穴埋め）
 			if (matchedProcessor == null) {
 				matchedProcessor = new ByteProcessor(width, height); // 全て0（黒）の空きマス
 			}
@@ -105,13 +125,12 @@ public class ImagePairingEngine {
 			sb.append("0020,000D: ").append(maskStudyUID).append("\n");
 			sb.append("0020,000E: ").append(maskSeriesUID).append("\n");
 			
-			// 2. 新規生成するUID (※ DICOMの仕様上、スライスごとに一意なSOPInstanceUIDが必要)
+			// 2. 新規生成するUID
 			String newSopUid = com.vis.dicom.UIDUtils.createUID();
 			sb.append("0008,0018: ").append(newSopUid).append("\n");
 			
 			// 3. 【最重要】オリジナル画像の番号と空間座標に「完全に同期」させる
-			int orgInstNo = orgSg.getHeader().getInt(Tag.InstanceNumber, z + 1);
-			sb.append("0020,0013: ").append(orgInstNo).append("\n"); // 常にオリジナル画像の番号を使う
+			sb.append("0020,0013: ").append(orgInstNo).append("\n");
 			
 			if (orgIpp != null) {
 				sb.append("0020,0032: ")
@@ -127,32 +146,28 @@ public class ImagePairingEngine {
 			String sliceLabel = sb.toString();
 			alignedMaskStack.addSlice(sliceLabel, matchedProcessor);
 		}
+		
 		ImagePlus alignedMaskImp = new ImagePlus("Aligned_Mask", alignedMaskStack);
-		/*
-		 * If stack size is 1, set meta to property info.
-		 */
+		
 		if (orgSlices == 1) {
 			String firstSliceMeta = alignedMaskStack.getSliceLabel(1);
 			if (firstSliceMeta != null) {
 				alignedMaskImp.setProperty("Info", firstSliceMeta);
 			}
 		}
-		/*
-		 * ensure mask stack is a single stack.
-		 */
+		
 		alignedMaskImp.setDimensions(1, alignedMaskStack.getSize(), 1);
 		alignedMaskImp.setOpenAsHyperStack(false);
-		alignedMaskImp.copyScale(originalPrap.getImagePlus(1,1));
+		alignedMaskImp.copyScale(originalPrap.getImagePlus(1,1)); // 安全のためチャンネル1・フレーム1からスケールを取る
 		return alignedMaskImp;
 	}
 
-    /**
-     * 【ハイブリッド方式】規格準拠のUIDマッチングを優先し、フォールバックとして空間座標（IPP）マッチングを行います。
-     */
+    // --- 以下、元のまま ---
+
     private static SlideGlass findMatchingMaskSlide(ConcurrentHashMap<Integer, SlideGlass> maskSlides, Praparat maskPrap, 
                                                     String targetSopUid, double targetZPos, 
                                                     int targetC, int targetT, double nx, double ny, double nz) {
-        double EPSILON = 1e-3; // 許容誤差 (0.001mm)
+        double EPSILON = 1e-3; 
         
         for (Integer idx : maskSlides.keySet()) {
             int[] zct = maskPrap.calcZCTArrayFromIndex(idx);
@@ -163,36 +178,23 @@ public class ImagePairingEngine {
 
             int maskFrameIdx = maskSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 
-            // ==========================================
-            // Step 1: 参照SOP Instance UIDによる完全マッチング
-            // ==========================================
             String refSopUid = getReferencedSopInstanceUid(maskSg.getHeader(), maskFrameIdx);
             if (targetSopUid != null && targetSopUid.equals(refSopUid)) {
-                return maskSg; // 規格準拠の完全一致！
+                return maskSg; 
             }
 
-            // ==========================================
-            // Step 2: 空間座標(IPP)と法線ベクトルによる位置マッチング
-            // ==========================================
             double[] maskIpp = getSafeIPP(maskSg.getHeader(), maskFrameIdx);
             if (maskIpp != null) {
                 double maskZPos = (maskIpp[0]*nx + maskIpp[1]*ny + maskIpp[2]*nz);
                 if (Math.abs(maskZPos - targetZPos) < EPSILON) {
-                    return maskSg; // 空間座標による一致（フォールバック成功）
+                    return maskSg; 
                 }
             }
         }
-        
-        // Step 3: どちらも無ければ「このスライスにはマスクが存在しない」
         return null; 
     }
 
-    /**
-     * DICOM SEGの複雑なシーケンス階層から、特定のフレームが参照している元画像のSOP Instance UIDを安全に抽出します。
-     */
     private static String getReferencedSopInstanceUid(DicomObject header, int frameIndex) {
-        // DICOM SEGの標準的な格納場所: 
-        // PerFrameFunctionalGroupsSequence -> DerivationImageSequence -> SourceImageSequence -> ReferencedSOPInstanceUID
         DicomObject perFrameSeq = header.getNestedDataset(Tag.PerFrameFunctionalGroupsSequence, frameIndex);
         if (perFrameSeq != null) {
             DicomObject derivationSeq = perFrameSeq.getNestedDataset(Tag.DerivationImageSequence, 0);
@@ -209,9 +211,6 @@ public class ImagePairingEngine {
         return null;
     }
 
-    /**
-     * Praparat互換：DICOMの階層から安全にImage Position (Patient)を抽出します。
-     */
     private static double[] getSafeIPP(DicomObject header, int frameIndex) {
         double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
         if (ipp != null && ipp.length == 3) return ipp;
@@ -226,9 +225,6 @@ public class ImagePairingEngine {
         return null;
     }
 
-    /**
-     * Praparat互換：DICOMの階層から安全にImage Orientation (Patient)を抽出します。
-     */
     private static double[] getSafeIOP(DicomObject header, int frameIndex) {
         double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
         if (iop != null && iop.length == 6) return iop;

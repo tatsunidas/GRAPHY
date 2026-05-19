@@ -72,6 +72,8 @@ import javax.swing.JTabbedPane;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import com.vis.configuration.Resources;
+import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.fusion.FusionDisplay;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -92,11 +94,10 @@ import ij.ImageStack;
 import ij.io.FileSaver;
 import ij.io.Opener;
 import ij.measure.Calibration;
-import ij.measure.Measurements;
 import ij.plugin.FolderOpener;
+import ij.plugin.LutLoader;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import ij.process.ImageStatistics;
 import ij.process.LUT;
 import ij.process.ShortProcessor;
 import ij.process.StackStatistics;
@@ -174,6 +175,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	private ImagePlus fusionImage;
 
 	RadiomicsSettings radSetting;
+	
+	LUT defaultRadiomicsMapLut = LutLoader.openLut(Resources.LUT_S_PET.path());
 
 	final String[] textures = { "GLCM", "GLRLM", "GLSZM", "GLDZM", "NGTDM", "NGLDM" };
 
@@ -322,6 +325,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		visGridPanel.add(radiomicsMapPanel);
 		visGridPanel.add(fusionImagePanel);
 		visualizationPanel.add(visGridPanel, BorderLayout.CENTER);
+		
+		radiomicsMapPanel.setLUT(defaultRadiomicsMapLut);
 
 		// Fusion
 		JPanel fusionControlsPanel = new JPanel();
@@ -800,18 +805,24 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		int h = rawMap.getHeight();
 		int slices = rawMap.getNSlices();
 
-		// マップ全体の最小値・最大値を取得
-		ImageStatistics stats = rawMap.getStatistics(Measurements.MIN_MAX);
+		// ★ 修正1: 現在のスライスだけでなく、全スライスを走査してグローバルな最小・最大値を取得する
+		StackStatistics stats = new StackStatistics(rawMap);
 		double min = stats.min;
 		double max = stats.max;
+
+		// ★ 修正2: 計算結果が全てNaNだった場合のゼロ除算・NaN汚染をガードする
+		if (Double.isNaN(min) || Double.isNaN(max) || Double.isInfinite(min)) {
+			min = 0.0;
+			max = 1.0;
+		}
+		if (min == max) {
+			max = min + 1.0; // ゼロ除算防止
+		}
 
 		// 32-bit float値を 16-bit直線マッピング (0 〜 65535) するためのスケーリング係数
 		// 物理値 Y = Slope * ピクセル値X + Intercept
 		double slope = (max - min) / 65535.0;
 		double intercept = min;
-
-		if (slope == 0)
-			slope = 1.0; // 単一値マップの場合のゼロ除算防止
 
 		ImageStack outStack = new ImageStack(w, h);
 		for (int i = 1; i <= slices; i++) {
@@ -820,20 +831,25 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 			for (int p = 0; p < fp.getPixelCount(); p++) {
 				float rawVal = fp.getf(p);
-				// 16bit整数値へ逆算してキャスト
-				int pixel16 = (int) ((rawVal - intercept) / slope + 0.5);
-				// 範囲内にクリッピング
-				if (pixel16 < 0)
-					pixel16 = 0;
-				if (pixel16 > 65535)
-					pixel16 = 65535;
-				sp.set(p, pixel16);
+				
+				// ★ 修正3: 計算対象外(NaN)のピクセルは安全に 0 に変換する
+				if (Float.isNaN(rawVal)) {
+					sp.set(p, 0);
+				} else {
+					// 16bit整数値へ逆算してキャスト
+					int pixel16 = (int) ((rawVal - intercept) / slope + 0.5);
+					// 範囲内にクリッピング
+					if (pixel16 < 0) pixel16 = 0;
+					if (pixel16 > 65535) pixel16 = 65535;
+					sp.set(p, pixel16);
+				}
 			}
 			outStack.addSlice(sp);
 		}
 
 		ImagePlus map16 = new ImagePlus("RadiomicsMap_16bit", outStack);
 		map16.copyScale(rawMap); // 幾何情報コピー
+		
 		// ImageJの輝度キャリブレーション（密度関数）を設定
 		Calibration cal = map16.getCalibration();
 		cal.setFunction(Calibration.STRAIGHT_LINE, new double[] { intercept, slope }, "Value");
@@ -854,14 +870,36 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			targetMap.setProperty("Info", info);
 		}
 		
-		String featureName = targetMap.getProp("RadiomicsFeatureName");
+		String featureName = (String) targetMap.getProperty("RadiomicsFeatureName");
 		if(featureName == null) {
 			featureName = "";
 		}
 		
+		// 元画像（ソース）からヘッダーメタデータを丸ごとコピー
 		GDicomTools.headerCopy(calcImage, targetMap);
 		
-		//set series number
+		// =====================================================================
+		// ★ 仕様変更: DICOM化（imagePlusToDcm）の前に、全スライスのメタデータを制御・書き換え
+		// =====================================================================
+		int cTotal = targetMap.getNChannels();
+		int zTotal = targetMap.getNSlices();
+		int tTotal = targetMap.getNFrames();
+
+		for (int t = 1; t <= tTotal; t++) {
+			for (int z = 1; z <= zTotal; z++) {
+				for (int c = 1; c <= cTotal; c++) {
+					// ① PixelRepresentationを0 (Unsigned) に固定
+					GDicomTools.setTag(targetMap, z, c, t, Tag.PixelRepresentation, "0");
+					
+					// ② 元画像から誤ってコピーされてしまった Intercept と Slope を完全に削除（NULL化）
+					GDicomTools.removeTag(targetMap, z, c, t, Tag.RescaleIntercept);
+					GDicomTools.removeTag(targetMap, z, c, t, Tag.RescaleSlope);
+				}
+			}
+		}
+		// =====================================================================
+		
+		// シリーズ番号の自動計算
 		int seriesNumber = 100;
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(db != null) {
@@ -875,8 +913,17 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			}
 		}
 		
+		// 32bit Floatパックを強制回避するため、新キャリブレーション係数[Intercept, Slope]を退避して一時解除
+		Calibration orgCal = targetMap.getCalibration();
+		double[] coefficients = orgCal.getCoefficients(); 
+		targetMap.setCalibration(new Calibration()); 
+		
+		// 【重要】完全にクリーンアップされた1Dラベルをベースに、16bit整数画像（OW）として安全にDICOM化
 		HashMap<Integer, DicomImage> dcmStack = GDicomTools.imagePlusToDcm(targetMap, true);
-		Calibration cal = targetMap.getCalibration();
+		
+		// キャリブレーション情報をメモリ上に復元
+		targetMap.setCalibration(orgCal);
+		
 		String seriesDesc = GDicomTools.getTag(calcImage, Tag.SeriesDescription);
 		if (seriesDesc == null)
 			seriesDesc = "";
@@ -884,27 +931,42 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		if(seriesUID == null) {
 			seriesUID = UIDUtils.createUID();
 		}
+		
+		// 最終的なDICOMオブジェクトへの個別属性書き込み
+		String newSeriesUID = UIDUtils.createUID();
 		for (int k : dcmStack.keySet()) {
 			DicomImage inst = dcmStack.get(k);
 			DicomObject header = inst.getHeader();
 			String instUid = UIDUtils.createUID();
-			//change UIDs
-			header.setString(Tag.MediaStorageSOPClassUID, VR.UI, UID.SecondaryCaptureImageStorage.toString());
+			
+			// SC画像としてのUID群を設定
+			header.setString(Tag.MediaStorageSOPClassUID, VR.UI, UID.SecondaryCaptureImageStorage.uid());
+			header.setString(Tag.SOPClassUID, VR.UI, UID.SecondaryCaptureImageStorage.uid());
 			header.setString(Tag.MediaStorageSOPInstanceUID, VR.UI, instUid);
 			header.setString(Tag.SOPInstanceUID, VR.UI, instUid);
+			header.setString(Tag.SeriesInstanceUID, VR.UI, newSeriesUID);
 			
-			//image attrs
-			header.setInt(Tag.PixelRepresentation, VR.IS, 0);/* UNSIGNED */
-			header.setInt(Tag.BitsAllocated, VR.IS, 16);// BitsAllocated(16);
-			header.setInt(Tag.BitsStored, VR.IS, 15);// BitsAllocated(16);
-			header.setInt(Tag.HighBit, VR.IS, 15);// BitsAllocated(16);
-			// 輝度キャリブレーションをDICOMタグ（Rescale Slope / Intercept）に書き換える
-			double[] coefficients = cal.getCoefficients(); // [Intercept, Slope]
-			header.setDouble(Tag.RescaleIntercept, VR.DS, coefficients[0]);
-			header.setDouble(Tag.RescaleSlope, VR.DS, coefficients[1]);
-			/*
-			 * vis mapを計算するときに、RadiomicsMapのプロパティに特徴名を保存しておく
-			 */
+			// 16bit整数属性を厳密にマーク
+			header.setInt(Tag.PixelRepresentation, VR.US, 0);//unsigned
+			header.setInt(Tag.BitsAllocated, VR.US, 16);
+			header.setInt(Tag.BitsStored, VR.US, 15);
+			header.setInt(Tag.HighBit, VR.US, 15);
+			
+			// =====================================================================
+			// ★ 修正2: imagePlusToDcmによる自動上書きを完全に回避するため、ここで上書きする！
+			// =====================================================================
+			header.setString(Tag.Manufacturer, VR.LO, "GRAPHY_Radiomics");
+			header.setString(Tag.DeviceSerialNumber, VR.LO, "00000000");
+			header.setString(Tag.StationName, VR.SH, "VIS_ANALYSIS_STATION");
+			header.setString(Tag.SoftwareVersions, VR.LO, "V2.0");
+			// =====================================================================
+			
+			// ★ 退避させておいた「RadiomicsMap本来の正しい直線式係数」をここでクリーンに上書き付与
+			if (coefficients != null && coefficients.length >= 2) {
+				header.setDouble(Tag.RescaleIntercept, VR.DS, coefficients[0]);
+				header.setDouble(Tag.RescaleSlope, VR.DS, coefficients[1]);
+			}
+			
 		    String newSeriesDesc = featureName + " " + seriesDesc;
 		    header.setString(Tag.SeriesDescription, VR.LO, newSeriesDesc);
 		    header.setInt(Tag.SeriesNumber, VR.IS, seriesNumber);
@@ -961,6 +1023,10 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
 				try {
 					String parent_path = fc.getSelectedFile().getAbsolutePath();
+					File parentDir = new File(parent_path);
+					if (!parentDir.exists()) {
+						parentDir.mkdirs();
+					}
 					for(int idx : dcms.keySet()) {
 						DicomImage im = dcms.get(idx);
 						int instNo = im.getHeader().getInt(Tag.InstanceNumber, idx);
@@ -1001,7 +1067,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		}
 		try {
 			db.storeDicomImagesToDb(dcms);
-			JOptionPane.showMessageDialog(this, "Done, save reslice series.");
+			com.vis.core.ui.main.MainScreen.getInstance().loadLocalStudiesBySearchKey();
+			JOptionPane.showMessageDialog(this, "Save radiomics map series was done.");
 		} catch (Exception e1) {
 			e1.printStackTrace();
 			Log.logger.warning("Something happen, can not store radiomics map to db ...");
