@@ -1699,6 +1699,11 @@ public class Praparat extends JPanel {
 		return calcZctIndex(zct);
 	}
 	
+	/**
+	 * 0 based. (but, in ImageJ it is 1-based, be careful.)
+	 * @param zct
+	 * @return
+	 */
 	public int calcZctIndex(int[] zct) {
 		int z = zct[0];
 		int c = zct[1];
@@ -3185,7 +3190,7 @@ public class Praparat extends JPanel {
 
 	/**
 	 * 指定された1Dインデックス(pos)に基づいて、各次元(C, T, Z)のスライダー位置を同期し、画像を表示する
-	 * @param pos 0 to n-1
+	 * @param pos 0 to n-1, zct.
 	 */
 	public void setImagePositionUsingSlider(int pos) {
 		SwingUtilities.invokeLater(() -> {

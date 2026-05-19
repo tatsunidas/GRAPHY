@@ -77,6 +77,12 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.Calibration;
 
+/**
+ * Should do refactoring...
+ * 
+ * @author tatsunidas
+ */
+@Deprecated
 public class DicomDuplicator {
 	
 	public DicomDuplicator() {}

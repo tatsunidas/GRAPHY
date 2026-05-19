@@ -107,13 +107,16 @@ public class RadiomicsWindow extends JFrame{
 //		panel = new SampleClassifierPanel(this);
 //		tabPane.addTab("Operation",panel);
         
+        /*
+         * At first, initialize texture params to set another components .
+         */
+        textureParams = new RadiomicsSettings();
         visPanel = new RadiomicsVisualizationPanel(textureParams);
-		tabPane.addTab("Visualization Map", visPanel);
-		
-		textureParams = new RadiomicsSettings();
-		tabPane.addTab("TextureParams", textureParams);
-		
 		batchPanel = new RadiomicsBatchModePanel(textureParams);
+		
+		// component ordering
+		tabPane.addTab("Visualization Map", visPanel);
+		tabPane.addTab("TextureParams", textureParams);
 		tabPane.addTab("Batch Execution", batchPanel);
 		
 		// divider movable

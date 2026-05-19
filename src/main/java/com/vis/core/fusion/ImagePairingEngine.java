@@ -23,7 +23,7 @@ public class ImagePairingEngine {
      * @param maskPrap     マスク画像のPraparat (SEG)
      * @param targetC      マスクの対象チャンネル (部位ごとに抽出する場合)
      * @param targetT      マスクの対象タイムフレーム
-     * @return オリジナル画像とスライス数が完全に一致したマスクのImagePlus
+     * @return オリジナル画像とスライス数が完全に一致したSingle Stack マスクのImagePlus
      */
 	public static ImagePlus alignMaskToOriginalSpace(Praparat originalPrap, int orgC, int orgT, Praparat maskPrap,
 			int targetC, int targetT) {
@@ -37,6 +37,19 @@ public class ImagePairingEngine {
 		ImageStack alignedMaskStack = new ImageStack(width, height);
 		ConcurrentHashMap<Integer, SlideGlass> orgSlides = originalPrap.getAllSlides();
 		ConcurrentHashMap<Integer, SlideGlass> maskSlides = maskPrap.getAllSlides();
+		
+		String maskPatID = "";
+		String maskStudyUID = "";
+		String maskSeriesUID = "";
+
+		for (SlideGlass sg : maskSlides.values()) {
+			if (sg != null && sg.getHeader() != null) {
+				maskPatID = sg.getHeader().getString(Tag.PatientID, "");
+				maskStudyUID = sg.getHeader().getString(Tag.StudyInstanceUID, "");
+				maskSeriesUID = sg.getHeader().getString(Tag.SeriesInstanceUID, "");
+				break;
+			}
+		}
 
 		// 法線ベクトル（Z軸方向）を計算するためのIOP取得
 		SlideGlass orgFirstSg = orgSlides.get(0);
@@ -56,23 +69,24 @@ public class ImagePairingEngine {
 			SlideGlass orgSg = originalPrap.getSlideGlassAt(orgZCTIndex);
 
 			ImageProcessor matchedProcessor = null;
-			String sliceLabel = "Empty_Mask";
+			
+			double[] orgIpp = null;
 
 			if (orgSg != null) {
 				String orgSopUid = orgSg.getSOPInstanceUID();
 				int orgFrameIdx = orgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 
-				double[] orgIpp = getSafeIPP(orgSg.getHeader(), orgFrameIdx);
+				orgIpp = getSafeIPP(orgSg.getHeader(), orgFrameIdx);
 				double orgZPos = (orgIpp != null) ? (orgIpp[0] * nx + orgIpp[1] * ny + orgIpp[2] * nz) : z;
 
 				// 【ハイブリッド方式】マスク側から該当するスライスを探索
+				// 任意の3D空間平面における絶対座標計算
 				SlideGlass matchedMaskSg = findMatchingMaskSlide(maskSlides, maskPrap, orgSopUid, orgZPos, targetC,
 						targetT, nx, ny, nz);
 
 				if (matchedMaskSg != null && matchedMaskSg.getDicomImage().ensurePixelDataLoaded()) {
 					int maskFrameIdx = matchedMaskSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 					matchedProcessor = matchedMaskSg.getDicomImage().getImageProcessor(maskFrameIdx);
-					sliceLabel = "Matched_Mask_" + orgSopUid;
 				}
 			} else {
 				throw new IllegalArgumentException("This praparat is blank. Please load images first.");
@@ -82,12 +96,53 @@ public class ImagePairingEngine {
 			if (matchedProcessor == null) {
 				matchedProcessor = new ByteProcessor(width, height); // 全て0（黒）の空きマス
 			}
-
+			
+			StringBuilder sb = new StringBuilder();
+			sb.append("\n");//DICOMToolsの仕様に合わせる
+			
+			// 1. マスク画像の共通メタデータ (PatientID, Study, Series)
+			sb.append("0010,0020: ").append(maskPatID).append("\n");
+			sb.append("0020,000D: ").append(maskStudyUID).append("\n");
+			sb.append("0020,000E: ").append(maskSeriesUID).append("\n");
+			
+			// 2. 新規生成するUID (※ DICOMの仕様上、スライスごとに一意なSOPInstanceUIDが必要)
+			String newSopUid = com.vis.dicom.UIDUtils.createUID();
+			sb.append("0008,0018: ").append(newSopUid).append("\n");
+			
+			// 3. 【最重要】オリジナル画像の番号と空間座標に「完全に同期」させる
+			int orgInstNo = orgSg.getHeader().getInt(Tag.InstanceNumber, z + 1);
+			sb.append("0020,0013: ").append(orgInstNo).append("\n"); // 常にオリジナル画像の番号を使う
+			
+			if (orgIpp != null) {
+				sb.append("0020,0032: ")
+				  .append(orgIpp[0]).append("\\")
+				  .append(orgIpp[1]).append("\\")
+				  .append(orgIpp[2]).append("\n");
+			}
+			if (iop != null && iop.length == 6) {
+				sb.append("0020,0037: ")
+				  .append(iop[0]).append("\\").append(iop[1]).append("\\").append(iop[2]).append("\\")
+				  .append(iop[3]).append("\\").append(iop[4]).append("\\").append(iop[5]).append("\n");
+			}
+			String sliceLabel = sb.toString();
 			alignedMaskStack.addSlice(sliceLabel, matchedProcessor);
 		}
-
 		ImagePlus alignedMaskImp = new ImagePlus("Aligned_Mask", alignedMaskStack);
-		alignedMaskImp.setCalibration(originalPrap.getImagePlus().getCalibration());
+		/*
+		 * If stack size is 1, set meta to property info.
+		 */
+		if (orgSlices == 1) {
+			String firstSliceMeta = alignedMaskStack.getSliceLabel(1);
+			if (firstSliceMeta != null) {
+				alignedMaskImp.setProperty("Info", firstSliceMeta);
+			}
+		}
+		/*
+		 * ensure mask stack is a single stack.
+		 */
+		alignedMaskImp.setDimensions(1, alignedMaskStack.getSize(), 1);
+		alignedMaskImp.setOpenAsHyperStack(false);
+		alignedMaskImp.copyScale(originalPrap.getImagePlus(1,1));
 		return alignedMaskImp;
 	}
 
