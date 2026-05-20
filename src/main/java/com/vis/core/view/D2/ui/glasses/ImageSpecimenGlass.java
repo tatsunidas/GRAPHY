@@ -452,6 +452,18 @@ public class ImageSpecimenGlass extends JPanel{
 					this.display = new BufferedImage(w, h, type);
 				}
 			}
+			
+			Graphics2D gClear = this.display.createGraphics();
+			if (this.display.getColorModel().hasAlpha()) {
+				// アルファチャンネルを持つ場合は完全に透明にクリア
+				gClear.setComposite(java.awt.AlphaComposite.Clear);
+				gClear.fillRect(0, 0, w, h);
+			} else {
+				// 持たない場合は黒で塗りつぶし
+				gClear.setColor(Color.BLACK);
+				gClear.fillRect(0, 0, w, h);
+			}
+			gClear.dispose();
 
 			try {
 	            // AffineTransformOpの作成
@@ -485,6 +497,11 @@ public class ImageSpecimenGlass extends JPanel{
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 		// テキストの滑らかさだけは維持
 		g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+		
+		// ★追加: 描画の前に背景全体を強制的に黒で塗りつぶす (残像テスト)
+		g2d.setColor(Color.BLACK);
+		g2d.fillRect(0, 0, getWidth(), getHeight());
+		
 		/*
 		 * waiting state
 		 */

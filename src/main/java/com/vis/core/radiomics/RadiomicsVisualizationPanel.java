@@ -953,12 +953,12 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			header.setInt(Tag.HighBit, VR.US, 15);
 			
 			// =====================================================================
-			// ★ 修正2: imagePlusToDcmによる自動上書きを完全に回避するため、ここで上書きする！
+			// imagePlusToDcmによる自動上書きを完全に回避するため、ここで上書きする！
 			// =====================================================================
-			header.setString(Tag.Manufacturer, VR.LO, "GRAPHY_Radiomics");
+			header.setString(Tag.Manufacturer, VR.LO, "Visionary Imaging Services, Inc.");
 			header.setString(Tag.DeviceSerialNumber, VR.LO, "00000000");
-			header.setString(Tag.StationName, VR.SH, "VIS_ANALYSIS_STATION");
-			header.setString(Tag.SoftwareVersions, VR.LO, "V2.0");
+			header.setString(Tag.StationName, VR.SH, "GRAPHY");
+			header.setString(Tag.SoftwareVersions, VR.LO, ApplicationFacade.version);
 			// =====================================================================
 			
 			// ★ 退避させておいた「RadiomicsMap本来の正しい直線式係数」をここでクリーンに上書き付与

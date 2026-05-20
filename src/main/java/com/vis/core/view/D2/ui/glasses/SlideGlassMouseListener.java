@@ -85,9 +85,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private CanvasGlass cg;
 	private int viewerToolType = Viewer2DToolBar.Windowing;
 	
-	private int wheelRotationAccumulator = 0;
-	private final int wheelThreshold = 2;
-	
 	/* ghost dragging */
 	private Timer longPressTimer;
 	private int pressingTimeToBeGhost = 1500;
@@ -225,12 +222,23 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			slide.setCursor(new Cursor(Cursor.MOVE_CURSOR));
 			double moveX = slide.lastDraggedX - x;
 			double moveY = slide.lastDraggedY - y;
+
 			if (!pp.isProcessSeries()) {
 				slide.panning(moveX, moveY);
 			} else {
+				// ★修正：操作中のスライドだけ移動させ、その「絶対座標」を他の全スライドに同期させる
+				slide.panning(moveX, moveY);
+				Point syncOrigin = slide.getDisplayImageOriginXY();
+
 				synchronized (this) {
 					ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-					for (Integer key : slides.keySet()) slides.get(key).panning(moveX, moveY);
+					for (Integer key : slides.keySet()) {
+						SlideGlass sg = slides.get(key);
+						if (sg != null && sg != slide) {
+							sg.panningFlag = true;
+							sg.setDisplayOrigin(syncOrigin); // 絶対座標で上書き
+						}
+					}
 				}
 			}
 			slide.lastDraggedX = x;
@@ -425,30 +433,41 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		e.consume();
 	}
 	
-	private void handleZoom(MouseEvent e) {
+	private void handleZoom(MouseWheelEvent e) {
 		if (pp.getViewMode() == ViewMode.Thumbnail) return;
-		if (Math.abs(wheelRotationAccumulator) >= wheelThreshold) {
-			logger.fine("zoom performed!");
-			this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-			double currentMag = slide.getMagnification();
-			double change = 0.1;
-			boolean zoomUp = false;
-			if (wheelRotationAccumulator > 0) { 
-				currentMag -= change;
-			} else { 
-				currentMag += change;
-				zoomUp = true;
-			}
-			if (!pp.isProcessSeries()) {
-				slide.zoom(currentMag, zoomUp);
-			} else {
-				ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
-				for (Integer key : slides.keySet()) slides.get(key).zoom(currentMag, zoomUp);
-			}
-			this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-			wheelRotationAccumulator = 0;
+		
+		int rotation = e.getWheelRotation();
+		if (rotation == 0) return; // Macの横スクロールなどを無視
+
+		logger.fine("zoom performed! rotation=" + rotation);
+		this.slide.setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		
+		double currentMag = slide.getMagnification();
+		
+		// ズームの感度（1回のカリッで0.1倍変化）
+		double change = 0.1;
+		boolean zoomUp = false;
+		
+		if (rotation > 0) { 
+			// 手前に回した時（縮小）
+			currentMag -= change;
+		} else { 
+			// 奥に回した時（拡大）
+			currentMag += change;
+			zoomUp = true;
 		}
-		e.consume();
+		
+		if (!pp.isProcessSeries()) {
+			slide.zoom(currentMag, zoomUp);
+		} else {
+			ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
+			for (Integer key : slides.keySet()) {
+				SlideGlass sg = slides.get(key);
+				if (sg != null) sg.zoom(currentMag, zoomUp);
+			}
+		}
+		
+		this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 	}
 	
 	private void startGhostDrag() {

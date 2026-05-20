@@ -1259,6 +1259,28 @@ public class SlideGlass extends JLayeredPane {
 	
 	public void setDisplayOrigin(Point p) {
 		imageSpecimen.updateOrigin(p.x, p.y);
+		
+		// 1. 現在の倍率を取得
+		double mag = getMagnification();
+		
+		// 2. 倍率1.0（等倍）における本来のデフォルト中央位置を計算
+		Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+		boolean isDefaultPosition = false;
+		
+		if (defaultDim != null) {
+			Point defaultOrigin = imageSpecimen.calcDefaultImageOrigin(defaultDim.width, defaultDim.height);
+			// 渡された位置がデフォルト位置と完全に一致するか判定
+			if (p.x == defaultOrigin.x && p.y == defaultOrigin.y) {
+				isDefaultPosition = true;
+			}
+		}
+		
+		// 3. Zoomが1.0、かつ位置もデフォルト中央ならパン状態を解除
+		if (mag == 1.0 && isDefaultPosition) {
+			this.panningFlag = false;
+		} else {
+			this.panningFlag = true;
+		}
 	}
 
 	private void setMagnification(double mag) {
@@ -1502,16 +1524,63 @@ public class SlideGlass extends JLayeredPane {
 	 * @param mag
 	 * @param zoomUp
 	 */
+//	void zoom(double mag, boolean zoomUp) {
+//		
+//		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
+//		mag = MathUtils.truncateToDecimalPlace(mag, 3);
+//		
+//		System.out.println("[Debug Zoom] 1. currentMag: " + currentMag + ", requestedMag: " + mag); // 追加
+//		
+//		if(currentMag == mag) {
+//			return;
+//		}
+//		
+//		// set magnification min max
+//		if (mag < 0.1) {
+//			mag = 0.1;
+//			logger.info("Zoom: magnification is too small, keep 0.1.");
+//		} else if (mag > 30) {
+//			mag = 30.0;
+//			logger.info("Zoom: magnification is too large, not up to 30.");
+//		}
+//		
+//		//update magnification
+//		setMagnification(mag);
+//		
+//		Dimension dispImageSize = getDisplayImageDimension();
+//		
+//		int w = dispImageSize.width;
+//		int h = dispImageSize.height;
+//		
+//		/*
+//		 * w and h are current "display" image size which already scaled by the mag factor.
+//		 * Here, correct size to previous size with previous mag factor, then, re-zoom current mag, and subtract prev - current.
+//		 */
+//		int shiftX = (int)((w/currentMag*mag - w)/2);
+//		int shiftY = (int)((h/currentMag*mag - h)/2);
+//		
+//		System.out.println("[Debug Zoom] 2. shiftX: " + shiftX + ", shiftY: " + shiftY + ", ImageOrigin(Old): " + imageSpecimen.originX + "," + imageSpecimen.originY); // 追加
+//		
+//		if (mag != 1.0) {
+//			panningFlag = true;// because, image origin shifted by zoom.
+//		}
+//		// update origin
+//		imageSpecimen.updateOrigin(imageSpecimen.originX-shiftX, imageSpecimen.originY-shiftY);
+//		
+//		Log.logger.fine("Origin changed by ZOOM: (x) "+imageSpecimen.originX +", (y) "+imageSpecimen.originY);
+//		
+//		imageSpecimen.updateDisplayImage();
+//		updatePrapInfoLabel(mouseX, mouseY);
+//	}
+	
 	void zoom(double mag, boolean zoomUp) {
-		
+
 		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
 		mag = MathUtils.truncateToDecimalPlace(mag, 3);
-		
-		if(currentMag == mag) {
+
+		if (currentMag == mag)
 			return;
-		}
-		
-		// set magnification min max
+
 		if (mag < 0.1) {
 			mag = 0.1;
 			logger.info("Zoom: magnification is too small, keep 0.1.");
@@ -1519,30 +1588,38 @@ public class SlideGlass extends JLayeredPane {
 			mag = 30.0;
 			logger.info("Zoom: magnification is too large, not up to 30.");
 		}
-		
-		//update magnification
-		setMagnification(mag);
-		
-		Dimension dispImageSize = getDisplayImageDimension();
-		
-		int w = dispImageSize.width;
-		int h = dispImageSize.height;
-		
-		/*
-		 * w and h are current "display" image size which already scaled by the mag factor.
-		 * Here, correct size to previous size with previous mag factor, then, re-zoom current mag, and subtract prev - current.
-		 */
-		int shiftX = (int)((w/currentMag*mag - w)/2);
-		int shiftY = (int)((h/currentMag*mag - h)/2);
-		
-		if (mag != 1.0) {
-			panningFlag = true;// because, image origin shifted by zoom.
+
+		double scaleComp = getScaleFactor()[0];
+		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
+
+		if (defaultDim != null) {
+			double oldW = defaultDim.width * scaleComp * currentMag;
+			double oldH = defaultDim.height * scaleComp * currentMag;
+
+			// ★追加：現在の倍率における「本来のデフォルト中心座標」を算出
+			Point defaultOrigin = imageSpecimen.calcDefaultImageOrigin((int) Math.round(oldW), (int) Math.round(oldH));
+
+			// ★追加：現在の原点がデフォルト中心からズレているか（＝手動パンされているか）を判定
+			boolean isManuallyPanned = (imageSpecimen.originX != defaultOrigin.x
+					|| imageSpecimen.originY != defaultOrigin.y);
+
+			double newW = defaultDim.width * scaleComp * mag;
+			double newH = defaultDim.height * scaleComp * mag;
+
+			int shiftX = (int) Math.round((newW - oldW) / 2.0);
+			int shiftY = (int) Math.round((newH - oldH) / 2.0);
+
+			// ★修正：1.0倍に戻った時のスナップ挙動をパン状態に応じて切り替える
+			if (mag == 1.0) {
+				panningFlag = isManuallyPanned; // 手動パンされていれば状態キープ、されていなければ中央スナップ
+			} else {
+				panningFlag = true;
+			}
+
+			imageSpecimen.updateOrigin(imageSpecimen.originX - shiftX, imageSpecimen.originY - shiftY);
 		}
-		// update origin
-		imageSpecimen.updateOrigin(imageSpecimen.originX-shiftX, imageSpecimen.originY-shiftY);
-		
-		Log.logger.fine("Origin changed by ZOOM: (x) "+imageSpecimen.originX +", (y) "+imageSpecimen.originY);
-		
+
+		setMagnification(mag);
 		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
