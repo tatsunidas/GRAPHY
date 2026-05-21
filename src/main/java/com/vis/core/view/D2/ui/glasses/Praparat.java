@@ -3828,51 +3828,89 @@ public class Praparat extends JPanel {
             int fallbackFgZctIndex = foregroundPraparat.calcZctIndex(new int[]{z, fgC, fgT});
             matchedFgSg = fgSlides.get(fallbackFgZctIndex);
         }
+        
+		// 3. オーバーレイ生成と適用
+		if (matchedFgSg != null && matchedFgSg.getDicomImage().ensurePixelDataLoaded()) {
 
-        // 3. オーバーレイ生成と適用
-        if (matchedFgSg != null && matchedFgSg.getDicomImage().ensurePixelDataLoaded()) {
-        	
-        	boolean isMulti = matchedFgSg.getDicomImage().isMultiFrame();
-            int fgFrameToExtract = isMulti ? (matchedFgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
-            
-            ij.process.ImageProcessor rawProcessor = matchedFgSg.getDicomImage().getImageProcessor(fgFrameToExtract);
-            
-            // 念のためのフェイルセーフ
-            if (rawProcessor == null) {
-                if (bgSg.getOriginalImage() != null) bgSg.getOriginalImage().setOverlay(null);
-                return;
-            }
-            
-            ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
+			boolean isMulti = matchedFgSg.getDicomImage().isMultiFrame();
+			int fgFrameToExtract = isMulti ? (matchedFgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
 
-            // ★ 超重要: 前景のWindow Level (Min/Max) を適用して描画可能なデータにする
-            fgProcessor.setMinAndMax(matchedFgSg.currentMin, matchedFgSg.currentMax);
-            // Min/Maxを基準に 8bit (0-255) にスケーリング変換する
-            fgProcessor = fgProcessor.convertToByteProcessor(true);
-            
-            if (fgLUT != null) {
-                fgProcessor.setLut(fgLUT);
-                // LUT適用済みの見た目を、そのままRGBピクセル（ColorProcessor）に変換する！
-                fgProcessor = fgProcessor.convertToColorProcessor();
-            } else if (!(fgProcessor instanceof ij.process.ColorProcessor)) {
-                // LUTがなくても、背景のカラー合成を邪魔しないようにRGB化しておくのが安全
-                fgProcessor = fgProcessor.convertToColorProcessor();
-            }
+			ij.process.ImageProcessor rawProcessor = matchedFgSg.getDicomImage().getImageProcessor(fgFrameToExtract);
+			if (rawProcessor == null) {
+				if (bgSg.getOriginalImage() != null)
+					bgSg.getOriginalImage().setOverlay(null);
+				return;
+			}
 
-            ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(0, 0, fgProcessor);
-            //set opacity
-            imageRoi.setOpacity(currentFusionOpacity);
-            imageRoi.setName("FusionROI_" + bgSopUid);
+			ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
 
-            ij.gui.Overlay overlay = new ij.gui.Overlay();
-            overlay.add(imageRoi);
+			// 表示上の最大値ではなく「実際のデータの最大値（stats.max = 1.0）」を正確に取得
+			ij.process.ImageStatistics stats = fgProcessor.getStatistics();
+			double realMin = stats.min;
+			double realMax = stats.max;
 
-            bgSg.getOriginalImage().setOverlay(overlay);
-        } else {
-        	if (bgSg.getOriginalImage() != null) {
-                bgSg.getOriginalImage().setOverlay(null);
-            }
-        }
+			double fgMin = matchedFgSg.currentMin;
+			double fgMax = matchedFgSg.currentMax;
+
+			String modalityStr = matchedFgSg.getHeader().getString(Tag.Modality, "");
+			boolean isMask = "SEG".equals(modalityStr) || matchedFgSg.getDicomImage().getBitsAllocated() == 1
+					|| realMax <= 1.0;
+
+			// 未表示で初期値のまま、またはマスク画像と判定された場合は、実際のピクセル値に合わせて強制補正
+			if (isMask || (fgMin == 0.0 && fgMax == 255.0 && realMax < 255.0) || fgMin == fgMax) {
+				fgMin = realMin;
+				fgMax = (realMax > realMin) ? realMax : realMin + 1.0;
+			}
+
+			// ByteProcessorのスケーリングサボりを防ぐため、強制的にFloatへ変換
+			fgProcessor = fgProcessor.convertToFloat();
+
+			// 補正された正しいMin/Maxを適用（ここで fgMax = 1.0 が適用されます）
+			fgProcessor.setMinAndMax(fgMin, fgMax);
+
+			// Min/Maxを基準に 8-bit (0-255) にスケーリング変換
+			fgProcessor = fgProcessor.convertToByte(true);
+
+			// LUT（カラーマップ）を適用
+			if (fgLUT != null) {
+				fgProcessor.setLut(fgLUT);
+			}
+
+			// ★★★ 色と透明度を両立させる究極のハイブリッド処理 ★★★
+			// 1. まず、LUTの色を焼き付けたRGBカラープロセッサを生成する
+			ij.process.ImageProcessor rgbProcessor = fgProcessor.convertToRGB();
+
+			// 2. 8-bitの生データと、RGBのピクセル配列を取得
+			byte[] bytePixels = (byte[]) fgProcessor.getPixels();
+			int[] rgbPixels = (int[]) rgbProcessor.getPixels();
+
+			// 3. 生データの段階で値が「0（背景）」だった場所だけ、
+			// RGB側で強制的に「完全な黒 (0x000000)」に塗りつぶす
+			for (int i = 0; i < bytePixels.length; i++) {
+				if (bytePixels[i] == 0) {
+					rgbPixels[i] = 0; // 0 は RGBの完全な黒
+				}
+			}
+
+			// ピクセルを書き換えたRGB版に差し替え
+			fgProcessor = rgbProcessor;
+
+			ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(0, 0, fgProcessor);
+			imageRoi.setZeroTransparent(true); // RGBの 0x000000 は確実に100%透明に抜ける
+			imageRoi.setOpacity(currentFusionOpacity);
+			imageRoi.setName("FusionROI_" + bgSopUid);
+
+			ij.gui.Overlay overlay = new ij.gui.Overlay();
+			overlay.add(imageRoi);
+
+			if (bgSg.getOriginalImage() != null) {
+				bgSg.getOriginalImage().setOverlay(overlay);
+			}
+		} else {
+			if (bgSg.getOriginalImage() != null) {
+				bgSg.getOriginalImage().setOverlay(null);
+			}
+		}
     }
 
     /**
