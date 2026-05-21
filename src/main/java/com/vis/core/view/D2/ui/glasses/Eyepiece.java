@@ -85,6 +85,8 @@ public class Eyepiece extends JPanel{
 	private Component draggingComponent = null; // 現在ドラッグ中のコンポーネント
 	private int insertionIndex = -1; // ドロップ予定のインデックス
 	
+	private Component fusionTargetComponent = null;
+	
 	public Eyepiece(String patID) {
 		this.patID = patID;
 		init();
@@ -311,48 +313,74 @@ public class Eyepiece extends JPanel{
 	 * マウス座標から挿入すべきインデックスを計算するロジック
 	 */
 	public void updateInsertionIndex(Point p) {
-		int count = getComponentCount();
-		int closestIndex = -1;
-		double minDistance = Double.MAX_VALUE;
+	    int count = getComponentCount();
+	    int closestIndex = -1;
+	    double minDistance = Double.MAX_VALUE;
+	    
+	    // 毎回リセット
+	    fusionTargetComponent = null;
 
-		// 全コンポーネントを走査して、マウスに最も近いものを探す
-		for (int i = 0; i < count; i++) {
-			Component c = getComponent(i);
-			Rectangle b = c.getBounds();
+	    // 全コンポーネントを走査
+	    for (int i = 0; i < count; i++) {
+	        Component c = getComponent(i);
+	        Rectangle b = c.getBounds();
 
-			// コンポーネントの中心点
-			Point center = new Point(b.x + b.width / 2, b.y + b.height / 2);
-			double dist = p.distance(center);
+	        // ★新規追加: マウスがこのコンポーネント内にあるか？
+	        if (b.contains(p) && c != draggingComponent) {
+	            // 中心50%の領域を「フュージョン・ホットスポット」とする
+	            Rectangle hotspot = new Rectangle(
+	                b.x + (int)(b.width * 0.25),
+	                b.y + (int)(b.height * 0.25),
+	                (int)(b.width * 0.5),
+	                (int)(b.height * 0.5)
+	            );
+	            
+	            if (hotspot.contains(p)) {
+	                fusionTargetComponent = c;
+	                insertionIndex = -1; // 挿入（タイリング）は無効化
+	                return; // 判定完了、ループを抜ける
+	            }
+	        }
 
-			if (dist < minDistance) {
-				minDistance = dist;
-				closestIndex = i;
-			}
-		}
+	        // 以降は既存の「最も近いコンポーネントを探す」処理
+	        Point center = new Point(b.x + b.width / 2, b.y + b.height / 2);
+	        double dist = p.distance(center);
+	        if (dist < minDistance) {
+	            minDistance = dist;
+	            closestIndex = i;
+	        }
+	    }
 
-		if (closestIndex != -1) {
-			Component target = getComponent(closestIndex);
-			Rectangle b = target.getBounds();
-
-			// コンポーネントの左半分なら「その前」、右半分なら「その後ろ」とする
-			// グリッドなのでX座標の相対位置で判断
-			if (p.x < b.x + b.width / 2) {
-				insertionIndex = closestIndex;
-			} else {
-				insertionIndex = closestIndex + 1;
-			}
-		} else {
-			// 空の領域などの場合、末尾にする
-			insertionIndex = count;
-		}
-		
-		Log.logger.fine("INSERT:"+insertionIndex);
+	    if (closestIndex != -1) {
+	        Component target = getComponent(closestIndex);
+	        Rectangle b = target.getBounds();
+	        if (p.x < b.x + b.width / 2) {
+	            insertionIndex = closestIndex;
+	        } else {
+	            insertionIndex = closestIndex + 1;
+	        }
+	    } else {
+	        insertionIndex = count;
+	    }
 	}
 	
     /**
      * 実際の並べ替え処理（Insert）
      */
 	public void performReorder() {
+		if (draggingComponent == null) return;
+
+	    // ★新規追加: フュージョンターゲットが存在する場合、重ね合わせ処理を実行して終了
+	    if (fusionTargetComponent != null && draggingComponent instanceof Praparat && fusionTargetComponent instanceof Praparat) {
+	        Praparat bgPrap = (Praparat) fusionTargetComponent;
+	        Praparat fgPrap = (Praparat) draggingComponent;
+	        
+	        bgPrap.enableFusionMode(fgPrap); // 背景側に、前景をフュージョンするよう指示
+	        
+	        fusionTargetComponent = null;
+	        return; 
+	    }
+	    
 		// 現在のインデックスを取得
 		int currentIndex = -1;
 		for (int i = 0; i < getComponentCount(); i++) {
@@ -428,12 +456,23 @@ public class Eyepiece extends JPanel{
 	}
 	
     // 挿入位置のライン（キャレット）を描画
-    @Override
-    protected void paintChildren(Graphics g) {
-        super.paintChildren(g); // 子コンポーネントを描画
+	@Override
+	protected void paintChildren(Graphics g) {
+	    super.paintChildren(g); // 子コンポーネントを描画
 
+	    Graphics2D g2 = (Graphics2D) g;
+
+	    // ★新規追加: フュージョンのホットスポットに入っている場合、青くハイライト
+	    if (fusionTargetComponent != null && draggingComponent != null) {
+	        Rectangle bounds = fusionTargetComponent.getBounds();
+	        g2.setColor(new Color(0, 120, 215, 80)); // 半透明の青
+	        g2.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+	        g2.setColor(new Color(0, 120, 215, 200));
+	        g2.setStroke(new BasicStroke(4f));
+	        g2.drawRect(bounds.x, bounds.y, bounds.width, bounds.height);
+	        return; // 赤い挿入ラインは描画しない
+	    }
         if (draggingComponent != null && insertionIndex >= 0) {
-            Graphics2D g2 = (Graphics2D) g;
             g2.setColor(Color.RED);
             g2.setStroke(new BasicStroke(4f));
 

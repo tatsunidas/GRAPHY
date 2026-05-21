@@ -10,8 +10,11 @@ import com.vis.dicom.Tag;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.ImageRoi;
+import ij.gui.Overlay;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
+import ij.process.LUT;
 
 /**
  * @author tatsunidas
@@ -160,6 +163,96 @@ public class ImagePairingEngine {
 		alignedMaskImp.setOpenAsHyperStack(false);
 		alignedMaskImp.copyScale(originalPrap.getImagePlus(1,1)); // 安全のためチャンネル1・フレーム1からスケールを取る
 		return alignedMaskImp;
+	}
+	
+	/**
+     * SOPInstanceUIDをベースに背景(CT/MRI)と前景(Mask/SEG)を紐付け、
+     * 非破壊でインタラクティブに表示できるOverlayを生成します。
+     *
+     * @param bgPrap  背景画像のPraparat (CT/MRI)
+     * @param bgC     背景の対象チャンネル
+     * @param bgT     背景の対象タイムフレーム
+     * @param fgPrap  前景画像のPraparat (SEG/Map)
+     * @param fgC     前景の対象チャンネル
+     * @param fgT     前景の対象タイムフレーム
+     * @param opacity 初期透過度 (0.0〜1.0)
+     * @param fgLUT   前景に適用するカラーマップ (不要な場合はnull)
+     * @return 背景の各スライスに一対一で対応した ImageRoi を含む Overlay
+     */
+	public static Overlay createFusionOverlay(Praparat bgPrap, int bgC, int bgT, Praparat fgPrap, int fgC, int fgT,
+			double opacity, LUT fgLUT) {
+		if (bgPrap == null || fgPrap == null)
+			return null;
+
+		Overlay overlay = new Overlay();
+		int bgSlices = bgPrap.getImagePlus().getNSlices();
+
+		ConcurrentHashMap<Integer, SlideGlass> bgSlides = bgPrap.getAllSlides();
+		ConcurrentHashMap<Integer, SlideGlass> fgSlides = fgPrap.getAllSlides();
+
+		// 空間座標計算用の法線ベクトルを取得 (既存ロジックを流用)
+		SlideGlass bgFirstSg = null;
+		for (SlideGlass sg : bgSlides.values()) {
+			if (sg != null && sg.getHeader() != null) {
+				bgFirstSg = sg;
+				break;
+			}
+		}
+		if (bgFirstSg == null) {
+			Log.logger.warning("All background slides are blank. Cannot create overlay.");
+			return null;
+		}
+
+		int firstBgFrameIdx = bgFirstSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+		double[] iop = getSafeIOP(bgFirstSg.getHeader(), firstBgFrameIdx);
+		double nx = 0, ny = 0, nz = 1;
+		if (iop != null && iop.length == 6) {
+			nx = iop[1] * iop[5] - iop[2] * iop[4];
+			ny = iop[2] * iop[3] - iop[0] * iop[5];
+			nz = iop[0] * iop[4] - iop[1] * iop[3];
+		}
+
+		// 背景画像の全スライス(Z)をループして、対応する前景を探す
+		for (int z = 0; z < bgSlices; z++) {
+			int bgZCTIndex = bgPrap.calcZctIndex(new int[] { z, bgC, bgT });
+			SlideGlass bgSg = bgPrap.getSlideGlassAt(bgZCTIndex);
+
+			if (bgSg != null && bgSg.getHeader() != null) {
+				String bgSopUid = bgSg.getSOPInstanceUID();
+				int bgFrameIdx = bgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+
+				double[] bgIpp = getSafeIPP(bgSg.getHeader(), bgFrameIdx);
+				double bgZPos = (bgIpp != null) ? (bgIpp[0] * nx + bgIpp[1] * ny + bgIpp[2] * nz) : z;
+
+				// 既存のハイブリッド探索メソッドを使ってマッチする前景SlideGlassを探す
+				SlideGlass matchedFgSg = findMatchingMaskSlide(fgSlides, fgPrap, bgSopUid, bgZPos, fgC, fgT, nx, ny,
+						nz);
+
+				if (matchedFgSg != null && matchedFgSg.getDicomImage().ensurePixelDataLoaded()) {
+					int fgFrameIdx = matchedFgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+					ImageProcessor fgProcessor = matchedFgSg.getDicomImage().getImageProcessor(fgFrameIdx).duplicate();
+
+					// カラーマップの適用
+					if (fgLUT != null) {
+						fgProcessor.setLut(fgLUT);
+					}
+
+					// ImageRoiの生成とプロパティ設定
+					ImageRoi imageRoi = new ImageRoi(0, 0, fgProcessor);
+					imageRoi.setOpacity(opacity);
+
+					// ★重要: ImageJのスライス番号は1-based index
+					imageRoi.setPosition(z + 1);
+
+					// 後からUIで操作できるように、SOPInstanceUIDなどを名前に持たせておくと便利です
+					imageRoi.setName("FusionROI_" + bgSopUid);
+
+					overlay.add(imageRoi);
+				}
+			}
+		}
+
+		return overlay;
 	}
 
     // --- 以下、元のまま ---

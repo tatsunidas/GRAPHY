@@ -111,6 +111,7 @@ import com.vis.imageio.PDFReader;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.Overlay;
 import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
@@ -165,6 +166,11 @@ public class Praparat extends JPanel {
 
 	private int currentSliceZCT = -1;
 	private javax.swing.Timer scrollDebounceTimer;
+	
+	// Fusion
+	private boolean isFusionMode = false;
+	private Praparat foregroundPraparat = null;
+	private double currentFusionOpacity = 0.5;
 	
 	/*
 	 * ZCT index to handle multi-channel
@@ -2756,6 +2762,11 @@ public class Praparat extends JPanel {
 			if (sg.currentMin != sg.currentMax) {
 				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
 			}
+			
+			// ★ 新規追加: 画像が実体化されたタイミングでフュージョンを動的適用
+            if (isFusionMode) {
+                applyFusionOverlayToSlide(index, sg);
+            }
 
 			if (processSeries) {
 				// move, zoom, rotate, windowing
@@ -3574,6 +3585,50 @@ public class Praparat extends JPanel {
 			this.pvcp.setText2InfoLabel(x, y, value, scaleXY, mag, rotate);
 		}
 	}
+	
+	/**
+	 * UIのスライダー等から呼ばれるメソッド（Praparat内、またはコントローラーに実装）
+	 * @param newOpacity 0.0〜1.0
+	 * @param newLUT 新しいカラーマップ（コントラスト変更用）
+	 */
+	public void updateFusionAppearance(double newOpacity, LUT newLUT) {
+		if (slides == null || slides.size() == 0) {
+			return;
+		}
+		for (Integer zct : slides.keySet()) {
+			SlideGlass sg = slides.get(zct);
+			if (sg == null) {
+				continue;
+			}
+			ImagePlus org = sg.getOriginalImage();
+			if (org == null || org.getOverlay() == null) {
+				continue;
+			}
+			Overlay overlay = org.getOverlay();
+			boolean updated = false;
+
+			/*
+			 * TODO
+			 * ij.gui.ImageRoiを一貫して使う？
+			 */
+			// Overlay内の全ROIを走査し、ImageRoiのみを更新する
+			for (int i = 0; i < overlay.size(); i++) {
+				ij.gui.Roi roi = overlay.get(i);
+				if (roi instanceof ij.gui.ImageRoi) {
+					ij.gui.ImageRoi imgRoi = (ij.gui.ImageRoi) roi;
+					imgRoi.setOpacity(newOpacity);
+					if (newLUT != null) {
+						imgRoi.getProcessor().setLut(newLUT);
+					}
+					updated = true;
+				}
+			}
+			if (updated) {
+				// 画像を再描画して変更を即座に反映
+				org.updateAndDraw();
+			}
+		}
+	}
 
 	/**
 	 * See, viewPanel componentListener.
@@ -3691,6 +3746,150 @@ public class Praparat extends JPanel {
 		// タイマーをリスタート（ホイールが連続して呼ばれている間は、実際の画像更新が延期される）
 		scrollDebounceTimer.restart();
 	}
+	
+	public void enableFusionMode(Praparat fgPraparat) {
+        if (fgPraparat == null || fgPraparat == this) return;
+        
+        this.isFusionMode = true;
+        this.foregroundPraparat = fgPraparat;
+
+        // すでにメモリ上に実体化されているスライド（現在表示中＋キャッシュ）に即座に適用
+        for (Integer zct : this.slides.keySet()) {
+            SlideGlass bgSg = this.slides.get(zct);
+            if (bgSg != null && bgSg.getOriginalImage() != null) {
+                applyFusionOverlayToSlide(zct, bgSg);
+                bgSg.updateDisplayImage();
+            }
+        }
+        repaint();
+    }
+    
+    /**
+     * 特定のSlideGlassに対して、動的にフュージョンオーバーレイを適用します。
+     */
+    private void applyFusionOverlayToSlide(int bgZctIndex, SlideGlass bgSg) {
+        if (!isFusionMode || foregroundPraparat == null) return;
+        if (bgSg == null || bgSg.getOriginalImage() == null) return;
+
+        int[] bgZctArray = this.calcZCTArrayFromIndex(bgZctIndex);
+        int z = bgZctArray[0];
+        
+        int fgC = foregroundPraparat.currentC;
+        int fgT = foregroundPraparat.currentT;
+        LUT fgLUT = foregroundPraparat.getLUT();
+        String bgSopUid = bgSg.getSOPInstanceUID();
+
+        SlideGlass matchedFgSg = null;
+        ConcurrentHashMap<Integer, SlideGlass> fgSlides = foregroundPraparat.getAllSlides();
+
+        // 1. 空間マッチング用の法線ベクトル取得
+        SlideGlass bgFirstSg = this.getSlideGlassAt(this.calcZctIndex(new int[]{0, this.currentC, this.currentT}));
+        double nx = 0, ny = 0, nz = 1;
+        if (bgFirstSg != null && bgFirstSg.getHeader() != null) {
+            int firstBgFrameIdx = bgFirstSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+            double[] iop = getSafeIOP(bgFirstSg.getHeader(), firstBgFrameIdx);
+            if (iop != null && iop.length == 6) {
+                nx = iop[1] * iop[5] - iop[2] * iop[4];
+                ny = iop[2] * iop[3] - iop[0] * iop[5];
+                nz = iop[0] * iop[4] - iop[1] * iop[3];
+            }
+        }
+
+        int bgFrameIdx = bgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+        double[] bgIpp = getSafeIPP(bgSg.getHeader(), bgFrameIdx);
+        double bgZPos = (bgIpp != null) ? (bgIpp[0] * nx + bgIpp[1] * ny + bgIpp[2] * nz) : z;
+
+        // 探索処理
+        for (Integer fgZct : fgSlides.keySet()) {
+            int[] fgZctArray = foregroundPraparat.calcZCTArrayFromIndex(fgZct);
+            if (fgZctArray[1] != fgC || fgZctArray[2] != fgT) continue;
+
+            SlideGlass fgSg = fgSlides.get(fgZct);
+            if (fgSg == null) continue;
+
+            if (bgSopUid.equals(fgSg.getSOPInstanceUID())) {
+                matchedFgSg = fgSg;
+                break;
+            }
+            
+            int fgFrameIdxCheck = fgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+            double[] fgIpp = getSafeIPP(fgSg.getHeader(), fgFrameIdxCheck);
+            if (fgIpp != null) {
+                double fgZPos = (fgIpp[0] * nx + fgIpp[1] * ny + fgIpp[2] * nz);
+                if (Math.abs(bgZPos - fgZPos) < 1e-3) {
+                    matchedFgSg = fgSg;
+                    break;
+                }
+            }
+        }
+
+        // フォールバック（Zインデックス）
+        if (matchedFgSg == null) {
+            int fallbackFgZctIndex = foregroundPraparat.calcZctIndex(new int[]{z, fgC, fgT});
+            matchedFgSg = fgSlides.get(fallbackFgZctIndex);
+        }
+
+        // 3. オーバーレイ生成と適用
+        if (matchedFgSg != null && matchedFgSg.getDicomImage().ensurePixelDataLoaded()) {
+        	
+        	boolean isMulti = matchedFgSg.getDicomImage().isMultiFrame();
+            int fgFrameToExtract = isMulti ? (matchedFgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+            
+            ij.process.ImageProcessor rawProcessor = matchedFgSg.getDicomImage().getImageProcessor(fgFrameToExtract);
+            
+            // 念のためのフェイルセーフ
+            if (rawProcessor == null) {
+                if (bgSg.getOriginalImage() != null) bgSg.getOriginalImage().setOverlay(null);
+                return;
+            }
+            
+            ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
+
+            // ★ 超重要: 前景のWindow Level (Min/Max) を適用して描画可能なデータにする
+            fgProcessor.setMinAndMax(matchedFgSg.currentMin, matchedFgSg.currentMax);
+            // Min/Maxを基準に 8bit (0-255) にスケーリング変換する
+            fgProcessor = fgProcessor.convertToByteProcessor(true);
+            
+            if (fgLUT != null) {
+                fgProcessor.setLut(fgLUT);
+                // LUT適用済みの見た目を、そのままRGBピクセル（ColorProcessor）に変換する！
+                fgProcessor = fgProcessor.convertToColorProcessor();
+            } else if (!(fgProcessor instanceof ij.process.ColorProcessor)) {
+                // LUTがなくても、背景のカラー合成を邪魔しないようにRGB化しておくのが安全
+                fgProcessor = fgProcessor.convertToColorProcessor();
+            }
+
+            ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(0, 0, fgProcessor);
+            //set opacity
+            imageRoi.setOpacity(currentFusionOpacity);
+            imageRoi.setName("FusionROI_" + bgSopUid);
+
+            ij.gui.Overlay overlay = new ij.gui.Overlay();
+            overlay.add(imageRoi);
+
+            bgSg.getOriginalImage().setOverlay(overlay);
+        } else {
+        	if (bgSg.getOriginalImage() != null) {
+                bgSg.getOriginalImage().setOverlay(null);
+            }
+        }
+    }
+
+    /**
+     * フュージョンモードを解除し、オーバーレイを破棄します。
+     */
+    public void disableFusionMode() {
+        this.isFusionMode = false;
+        this.foregroundPraparat = null;
+        
+        for (SlideGlass bgSg : this.slides.values()) {
+            if (bgSg != null && bgSg.getOriginalImage() != null) {
+                bgSg.getOriginalImage().setOverlay(null);
+                bgSg.updateDisplayImage();
+            }
+        }
+        repaint();
+    }
 
 	@Override
 	public boolean equals(Object pp) {

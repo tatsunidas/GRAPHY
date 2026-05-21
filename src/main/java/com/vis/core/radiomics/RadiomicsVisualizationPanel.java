@@ -1111,7 +1111,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		if (foreground == null) return;
 
 		double opacity = transparencySlider.getValue() * 0.01;
-		this.fusionImage = FusionDisplay.createFusionImage(foreground, this.calcImage, opacity, fLUT);
+		this.fusionImage = FusionDisplay.createFlattenedFusion(foreground, this.calcImage, opacity, fLUT);
 		
 		if (this.fusionImage != null) {
 			ImagePlus org = originalImagePanel.getImagePlus(1, 1);
