@@ -913,6 +913,7 @@ public class Praparat extends JPanel {
 		class SlidePos {
 			SlideGlass sg;
 			double pos;
+			@SuppressWarnings("unused")
 			int instNo;
 			SlidePos(SlideGlass sg, double pos, int instNo) {
 				this.sg = sg;
@@ -943,16 +944,16 @@ public class Praparat extends JPanel {
 			spList.add(new SlidePos(sg, pos, instNo));
 		}
 		
-		// ★ 追加：デバッグ用ログ出力
-		Log.logger.fine("--- Slide Position Debug Log ---");
-		for (SlidePos sp : spList) {
-			int fIdx = sp.sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
-			double[] debugIpp = getSafeIPP(sp.sg.getHeader(), fIdx);
-			int segNum = getSegmentNumber(sp.sg.getHeader(), fIdx);
-			Log.logger.fine(String.format("InstNo: %3d | Seg: %2d | Pos: %8.4f | IPP: %s", sp.instNo, segNum, sp.pos,
-					java.util.Arrays.toString(debugIpp)));
-		}
-		Log.logger.fine("--------------------------------");
+		// デバッグ用ログ出力
+//		Log.logger.fine("--- Slide Position Debug Log ---");
+//		for (SlidePos sp : spList) {
+//			int fIdx = sp.sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
+//			double[] debugIpp = getSafeIPP(sp.sg.getHeader(), fIdx);
+//			int segNum = getSegmentNumber(sp.sg.getHeader(), fIdx);
+//			Log.logger.fine(String.format("InstNo: %3d | Seg: %2d | Pos: %8.4f | IPP: %s", sp.instNo, segNum, sp.pos,
+//					java.util.Arrays.toString(debugIpp)));
+//		}
+//		Log.logger.fine("--------------------------------");
 
 		// 3. 空間位置（法線ベクトル方向の距離）で昇順ソートする（スライダを進めると法線ベクトルの方向へ進む）
 		spList.sort((o1, o2) -> Double.compare(o1.pos, o2.pos));
@@ -2525,7 +2526,15 @@ public class Praparat extends JPanel {
 		final double syncRot = current.getRotateAngle();
 		final double syncMin = current.currentMin;
 		final double syncMax = current.currentMax;
-		final Point syncOrigin = current.getDisplayImageOriginXY();
+		
+		// ★ 修正：現在表示しているスライスがまだドラッグ移動（パン）されていない初期表示状態なら、
+		// 先読みする前後のスライスには絶対座標を渡さず null を渡して、それぞれのスライスに綺麗に中央配置させる
+		Point tempOrigin = current.getDisplayImageOriginXY();
+		if (!current.panningFlag || (tempOrigin.x == 0 && tempOrigin.y == 0)) {
+			tempOrigin = null;
+		}
+		
+		final Point syncOrigin = tempOrigin;
 		final boolean processSeries = isProcessSeries();
 
 		// ★ 最新のリクエストIDを発行
@@ -2753,13 +2762,19 @@ public class Praparat extends JPanel {
 				if (syncMag != null && Double.isFinite(syncMag))
 					sg.zoom(syncMag, false/* dummy */);
 				if (syncRot != null && Double.isFinite(syncRot))
-					sg.rotate(syncRot);
+					sg.setAbsoluteRotate(syncRot);
 				if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
 					sg.changeWindowingByMinMax(syncMin, syncMax);
 				}
 				// finally set origin
-				if (syncOrigin != null)
+				if (syncOrigin == null || !sg.panningFlag) {
+					/*
+					 * update origin if not panning.
+					 */
+					sg.setSize(getViewPanelWidth(), getViewPanelHeight());
+				}else {
 					sg.setDisplayOrigin(syncOrigin);
+				}
 			}
 		}
 	}
@@ -3075,23 +3090,19 @@ public class Praparat extends JPanel {
 	 * @param sliceIndex:number of slice index, 0 to n-1
 	 */
 	void setImagePosition(int sliceZctIndex) {
-		if (slides == null) { // do not include pathToImages
+		if (slides == null) {
 			return;
 		}
 		if (isShowGridViewOn()) {
-			// to get current slice
 			currentSliceZCT = sliceZctIndex;
 			return;
 		}
 		
-		// ★ 1. 処理開始前にWAITにする
 	    setWaitCursor(true);
 	    
 	    try {
-	    	// set image first time
 			if (currentSliceZCT == -1) {
 				currentSliceZCT = sliceZctIndex;
-				// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
 				Double syncMag = 1.0;
 				Double syncRot = 0.0;
 				Double syncMin = null;
@@ -3102,31 +3113,31 @@ public class Praparat extends JPanel {
 				SlideGlass currentGlass = this.slides.get(currentSliceZCT);
 				if (currentGlass == null) {
 					viewPanel.removeAll();
-					viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
+					viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER);
 					viewPanel.revalidate();
 					viewPanel.repaint();
 					updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1);
 					return;
 				}
 
-				// init all slide//already loaded (ImagePlus pattern)
-				// move, zoom, rotate, windowing
 				for (SlideGlass sg : slides.values()) {
-					if (sg == null) continue; // ★ スパースデータの空きマスを安全にスキップ
+					if (sg == null) continue;
 
 					if (syncMag != null && Double.isFinite(syncMag))
-						sg.zoom(syncMag, false/* dummy */);
+						sg.zoom(syncMag, false);
 					if (syncRot != null && Double.isFinite(syncRot))
-						sg.rotate(syncRot);
+						sg.setAbsoluteRotate(syncRot);
 					if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
 						sg.changeWindowingByMinMax(syncMin, syncMax);
 					} else if (sg.currentMin != sg.currentMax) {
-						// initGlobalContrast() で設定済みの値をそのまま適用
 						sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
 					}
-					// finally set origin
-					if (syncOrigin != null)
+					
+					if (syncOrigin == null) {
+						sg.setSize(getViewPanelWidth(), getViewPanelHeight());
+					} else {
 						sg.setDisplayOrigin(syncOrigin);
+					}
 				}
 
 				boolean sizeChanged = (currentGlass.getWidth() != viewPanel.getWidth()
@@ -3134,63 +3145,102 @@ public class Praparat extends JPanel {
 
 				viewPanel.removeAll();
 				viewPanel.add(currentGlass, 0);
+				currentGlass.setFocusGained(true);
 
 				if (sizeChanged) {
 					currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
-					viewPanel.revalidate(); // サイズが変わった時だけ重い処理をする
+					viewPanel.revalidate();
 				}
-				viewPanel.repaint(); // 画面の更新だけならrepaintで十分
+				viewPanel.repaint();
 
-				// 2. 前後の先読みを開始（バックグラウンドスレッド）
 				manageCache(currentSliceZCT);
 
 				currentGlass.updateDisplayImage();
 				currentGlass.repaint();
 				currentGlass.requestFocus();
-				currentGlass.setFocusGained(true);// for key listener
 				return;
 			}
 
 			if (currentSliceZCT == sliceZctIndex) {
 				return;
 			}
+			
+			SlideGlass oldGlass = this.slides.get(currentSliceZCT);
+			
+			double syncMag = 1.0;
+			double syncRot = 0.0;
+			Double syncMin = null;
+			Double syncMax = null;
+			Point syncOrigin = null;
+
+			if (oldGlass != null) {
+				syncMag = oldGlass.getMagnification();
+				syncRot = oldGlass.getRotateAngle();
+				syncMin = oldGlass.currentMin;
+				syncMax = oldGlass.currentMax;
+				
+				if (!oldGlass.panningFlag) {
+					syncOrigin = null;
+				} else {
+					Point p = oldGlass.getDisplayImageOriginXY();
+					syncOrigin = (p.x == 0 && p.y == 0) ? null : p;
+				}
+			}
 
 			currentSliceZCT = sliceZctIndex;
-			// 1. 現在表示する画像は「最優先」でロード（メインスレッド）
-			SlideGlass currentGlass = this.slides.get(currentSliceZCT);
-			if (currentGlass == null) {
+			SlideGlass nextGlass = this.slides.get(currentSliceZCT);
+			if (nextGlass == null) {
 				viewPanel.removeAll();
-				viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER); // ★ ダミーパネルをセット
+				viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER);
 				viewPanel.revalidate();
 				viewPanel.repaint();
 				updateInfoLabel(-1, -1, "No Data", new double[] { -1, -1 }, -1, -1);
 				return;
 			}
 
-			double syncMag = currentGlass.getMagnification();
-			double syncRot = currentGlass.getRotateAngle();
-			Double syncMin = currentGlass.currentMin;
-			Double syncMax = currentGlass.currentMax;
-			Point syncOrigin = currentGlass.getDisplayImageOriginXY();
+			// ★復元：Series同期OFFの場合は、抽出したパラメータを自身のものに書き換える
+			if (!isProcessSeries()) {
+				syncMag = nextGlass.getMagnification();
+				syncRot = nextGlass.getRotateAngle();
+				syncMin = nextGlass.currentMin;
+				syncMax = nextGlass.currentMax;
+				if (nextGlass.panningFlag) {
+					Point currentOrigin = nextGlass.getDisplayImageOriginXY();
+					syncOrigin = (currentOrigin.x == 0 && currentOrigin.y == 0) ? null : currentOrigin;
+				} else {
+					syncOrigin = null;
+				}
+			}
+
+			// 1. 画像の実体化（未ロード時のみ発動する）
 			realizeImage(currentSliceZCT, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
 
+			// ★★★ 今回の最大のバグ修正ポイント ★★★
+			// realizeImage は「画像が先読み済みの場合は何もしない」仕様だったため、
+			// ここで明示的に対象スライスへ最新のパラメータを強制適用（上書き）します。
+			// syncOrigin が null の場合も setDisplayOrigin に渡すことで、先読み時に誤保持されたパンフラグを初期化させます。
+			if (Double.isFinite(syncMag)) nextGlass.zoom(syncMag, false);
+			if (Double.isFinite(syncRot)) nextGlass.setAbsoluteRotate(syncRot);
+			if (syncMin != null && syncMax != null && Double.isFinite(syncMin) && Double.isFinite(syncMax)) {
+				nextGlass.changeWindowingByMinMax(syncMin, syncMax);
+			}
+			nextGlass.setDisplayOrigin(syncOrigin);
+
 			viewPanel.removeAll();
-			viewPanel.add(currentGlass, 0);
+			viewPanel.add(nextGlass, 0);
 
-			currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+			nextGlass.setFocusGained(true);
 
-			// 親パネルにレイアウトの再計算と再描画を強制する
-			viewPanel.revalidate();
-			viewPanel.repaint();
+			nextGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
 
-			// 2. 前後の先読みを開始（バックグラウンドスレッド）
 			manageCache(currentSliceZCT);
 
-			currentGlass.updateDisplayImage();
-			currentGlass.repaint();
-			currentGlass.requestFocus();
-			currentGlass.setFocusGained(true);// for key listener
-	    }finally {
+			nextGlass.updateDisplayImage();
+			nextGlass.requestFocus();
+			
+			viewPanel.revalidate();
+			viewPanel.repaint();
+	    } finally {
 	    	setWaitCursor(false);
 	    }
 	}

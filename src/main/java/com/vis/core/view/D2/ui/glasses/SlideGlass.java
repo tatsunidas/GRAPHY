@@ -402,10 +402,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Dimension getDisplayImageDimension() {
-		double scaleComp = getScaleFactor()[0];
 		double zoomFactor = getMagnification();
 		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
-		return new Dimension((int)(defaultDim.width*scaleComp*zoomFactor), (int)(defaultDim.height*scaleComp*zoomFactor));
+		return new Dimension((int)(defaultDim.width*zoomFactor), (int)(defaultDim.height*zoomFactor));
 	}
 
 	/*
@@ -910,43 +909,44 @@ public class SlideGlass extends JLayeredPane {
 	}
 	
 	AffineTransform calculateCurrentAffineTransform() {
-		double scaleToFit = getScaleFactor()[0];
-		double zoomFactor = getMagnification();
+		double scaleToFit = getScaleFactor()[0]; // 画面に合わせる初期縮小率
+		double zoomFactor = getMagnification();  // ユーザーのズーム倍率 (1.0 = 100%)
+		
+		// 総合倍率
 		double s = scaleToFit * zoomFactor;
-		double sx = flipHorizontalFlag ? -s : s;// LR flip
-		double sy = flipVerticalFlag ? -s : s;// Head-Foot flip
+		double sx = flipHorizontalFlag ? -s : s;
+		double sy = flipVerticalFlag ? -s : s;
 
-		// 回転角度（度数法をラジアンに変換）
-		double rotateAngleInDegrees = getRotateAngle();
-		double thetaInRadians = Math.toRadians(rotateAngleInDegrees);
+		double thetaInRadians = Math.toRadians(getRotateAngle());
+		Dimension offScreen = getOriginalImageSize(); // 元画像サイズ
 
-		Dimension offScreen = getOriginalImageSize(); // OffScreen image size
-		double offCenterX = offScreen.width / 2.0;
-		double offCenterY = offScreen.height / 2.0;
+		// 1. 等倍表示（zoom=1.0）の時、画面上に見えているべき画像の「見かけのサイズ」
+		Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+		double fitW = (defaultDim != null) ? defaultDim.width : offScreen.width * scaleToFit;
+		double fitH = (defaultDim != null) ? defaultDim.height : offScreen.height * scaleToFit;
 
-		// B. 画面上の表示位置（Destination）の中心
-		// originX, originY は「画像の左上」を指しているため、サイズ/2 を足して中心を求めます。
-		// ※ここでのサイズは、回転前の元画像のサイズにスケールを掛けたものです。
-		double currentImgW = offScreen.width * s;
-		double currentImgH = offScreen.height * s;
+		// 2. ズームや回転の「中心軸」を、画面上の絶対座標として計算
+		// 基本配置位置（originX/Y）に、フィットサイズの中央分を足す
+		double visualCenterX = imageSpecimen.originX + (fitW / 2.0);
+		double visualCenterY = imageSpecimen.originY + (fitH / 2.0);
 
-		double destCenterX = imageSpecimen.originX + (currentImgW / 2.0);
-		double destCenterY = imageSpecimen.originY + (currentImgH / 2.0);
-
-		// 3. 行列の作成 (順序が重要です)
 		currentTransform = new AffineTransform();
 
-		// Step 4: 最後に、求めた画面上の中心位置へ移動させる
-		currentTransform.translate(destCenterX, destCenterY);
+		// 【重要：行列の組み立て順序（逆順に適用されます）】
+		
+		// Step 4: 画面上の回転・拡大中心軸（visualCenter）へ持っていく
+		currentTransform.translate(visualCenterX, visualCenterY);
 
-		// Step 3: 回転させる
+		// Step 3: その中心軸を基準に、回転とズーム（拡大縮小）を適用
 		currentTransform.rotate(thetaInRadians);
+		currentTransform.scale(zoomFactor, zoomFactor); // ユーザーのズーム倍率を掛ける
 
-		// Step 2: スケール（拡大縮小）とフリップ（反転）を適用する
-		currentTransform.scale(sx, sy);
+		// Step 2: 初期フィット倍率（scaleToFit）と反転を適用
+		currentTransform.scale(sx / s, sy / s); // 純粋なscaleToFitと反転成分のみを抽出
+		currentTransform.scale(scaleToFit, scaleToFit);
 
-		// Step 1: まず、元画像の中心を原点(0,0)に持ってくる
-		currentTransform.translate(-offCenterX, -offCenterY);
+		// Step 1: 元画像の中心を原点 (0,0) に合わせる
+		currentTransform.translate(-offScreen.width / 2.0, -offScreen.height / 2.0);
 
 		return currentTransform;
 	}
@@ -1254,10 +1254,41 @@ public class SlideGlass extends JLayeredPane {
 
 	public void setLUT(LUT lut) {
 		this.currentLUT = lut;
-		imageSpecimen.updateDisplayImage();
+		if(imageSpecimen != null) {
+			imageSpecimen.updateDisplayImage();
+		}
 	}
 	
 	public void setDisplayOrigin(Point p) {
+		if(imageSpecimen == null) {
+			return;
+		}
+		
+		// ======= ログ追加 =======
+//	    System.out.println("[DEBUG-ZOOM] setDisplayOrigin called. Input P: " + p + 
+//	                       " | Current Size: " + getWidth() + "x" + getHeight() + 
+//	                       " | Current panningFlag: " + this.panningFlag);
+	    // ======================
+		
+		// ★ 修正1: コンポーネントがまだ画面に配置されておらずサイズが確定していない（先読み状態など）場合は、
+		// 異常な座標計算や panningFlag の誤汚染を防ぐため、単純に座標をセットするだけで処理を抜ける
+		if (getWidth() <= 0 || getHeight() <= 0) {
+			if (p != null) {
+				imageSpecimen.updateOrigin(p.x, p.y);
+			}
+			return;
+		}
+
+		// ★ 修正2: p == null のときは、画面上のサイズ（getWidth）ではなく、画像の見かけのサイズ（defaultDim）を渡す
+		if (p == null) {
+			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+			if (defaultDim != null) {
+				p = imageSpecimen.calcDefaultImageOrigin(defaultDim.width, defaultDim.height);
+			} else {
+				p = new Point(0, 0);
+			}
+		}
+		
 		imageSpecimen.updateOrigin(p.x, p.y);
 		
 		// 1. 現在の倍率を取得
@@ -1307,6 +1338,13 @@ public class SlideGlass extends JLayeredPane {
 		} else {
 			rotatedFlag = true;
 		}
+	}
+	
+	public void setAbsoluteRotate(double absoluteAngle) {
+		setRotateAngle((int) Math.round(absoluteAngle));
+		imageSpecimen.updateDisplayImage();
+		updatePrapInfoLabel(mouseX, mouseY);
+		updateOrientation();
 	}
 
 //	public RoiPopupDialog isHereRoiPopup(int slideX, int slideY) {
@@ -1383,20 +1421,54 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	@Override
 	public void setSize(int compW, int compH) {
-		/*
-		 * keep default bounds of SlideGlass-self.
-		 */
-		super.setSize(compW, compH);// for updateScale()
+		// 幅や高さが0の場合は計算をスキップ（初期化時のバグ防止）
+		if (compW <= 0 || compH <= 0) {
+			super.setSize(compW, compH);
+			return;
+		}
+
+		super.setSize(compW, compH);
 		super.setPreferredSize(new Dimension(compW, compH));
 		setGlassSize(imageSpecimen, compW, compH);
 		setGlassSize(textOverlay, compW, compH);
 		setGlassSize(roiOverlay, compW, compH);
 		setGlassSize(coverGlass, compW, compH);
+		
+		// 1. スケール（初期フィット縮小率）を更新
 		updateScale();
+		
+		if(!panningFlag) {
+			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+			if (defaultDim != null && defaultDim.width > 0 && defaultDim.height > 0) {
+				// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
+				int defX = (compW - defaultDim.width) / 2;
+				int defY = (compH - defaultDim.height) / 2;
+				imageSpecimen.updateOrigin(defX, defY);
+			}
+		}else {
+			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+			// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
+			int defX = (compW - defaultDim.width) / 2;
+			int defY = (compH - defaultDim.height) / 2;
+			int sx = imageSpecimen.getDisplayOriginX();
+			int sy = imageSpecimen.getDisplayOriginY();
+			// 誤差レベルで中央に戻っていた場合はパンフラグを安全に落とす
+			if(defX == sx && defY == sy && Math.abs(getMagnification() - 1.0) < 1e-3) {
+			    panningFlag = false;
+			}
+		}
+		
+		// ======= ログ追加 =======
+//	    System.out.println("[DEBUG-ZOOM] setSize finished. Size: " + compW + "x" + compH + 
+//	                       " | panningFlag: " + panningFlag + 
+//	                       " | Final Origin: " + imageSpecimen.getDisplayOriginX() + "," + imageSpecimen.getDisplayOriginY());
+	    // ======================
+		
 		initPrapInfoLabel();
-		//finally
+		
+		// 3. 描画更新
 		imageSpecimen.updateDisplayImage();
-		repaint();//repaint all glasses.
+		repaint();
 	}
 
 	public void setTextVisible(boolean v) {
@@ -1496,21 +1568,25 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null) {
 			return;
 		}
-		/*
-		 * if component not visible, this will return 0. To avoid this situation, should
-		 * do setSize(w,h) before do this.
-		 */
 		if (getWidth() < 1 || getHeight() < 1) {
 			return;
 		}
 		Dimension d = imageSpecimen.calcImageSize2FitComponent();
 		if (d != null) {
 			if (header != null) {
-				this.scaleX = (double) d.width / (double) header.getInt(Tag.Columns, 0);
-				this.scaleY = (double) d.height / (double) header.getInt(Tag.Rows, 0);
+				// ★★★ 90度、270度回転時は、分母となるオリジナルサイズの縦横も入れ替える ★★★
+				int angle = getRotateAngle();
+				int srcW = (angle % 180 == 0) ? header.getInt(Tag.Columns, 0) : header.getInt(Tag.Rows, 0);
+				int srcH = (angle % 180 == 0) ? header.getInt(Tag.Rows, 0) : header.getInt(Tag.Columns, 0);
+
+				this.scaleX = (double) d.width / (double) srcW;
+				this.scaleY = (double) d.height / (double) srcH;
 			} else {
-				this.scaleX = (double) d.width / (double) getOriginalImage().getWidth();
-				this.scaleY = (double) d.height / (double) getOriginalImage().getHeight();
+				int angle = getRotateAngle();
+				int imgW = (angle % 180 == 0) ? getOriginalImage().getWidth() : getOriginalImage().getHeight();
+				int imgH = (angle % 180 == 0) ? getOriginalImage().getHeight() : getOriginalImage().getWidth();
+				this.scaleX = (double) d.width / (double) imgW;
+				this.scaleY = (double) d.height / (double) imgH;
 			}
 		}
 	}
@@ -1519,104 +1595,46 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.updateDisplayImage();
 	}
 
-	/**
-	 * 
-	 * @param mag
-	 * @param zoomUp
-	 */
-//	void zoom(double mag, boolean zoomUp) {
-//		
-//		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
-//		mag = MathUtils.truncateToDecimalPlace(mag, 3);
-//		
-//		System.out.println("[Debug Zoom] 1. currentMag: " + currentMag + ", requestedMag: " + mag); // 追加
-//		
-//		if(currentMag == mag) {
-//			return;
-//		}
-//		
-//		// set magnification min max
-//		if (mag < 0.1) {
-//			mag = 0.1;
-//			logger.info("Zoom: magnification is too small, keep 0.1.");
-//		} else if (mag > 30) {
-//			mag = 30.0;
-//			logger.info("Zoom: magnification is too large, not up to 30.");
-//		}
-//		
-//		//update magnification
-//		setMagnification(mag);
-//		
-//		Dimension dispImageSize = getDisplayImageDimension();
-//		
-//		int w = dispImageSize.width;
-//		int h = dispImageSize.height;
-//		
-//		/*
-//		 * w and h are current "display" image size which already scaled by the mag factor.
-//		 * Here, correct size to previous size with previous mag factor, then, re-zoom current mag, and subtract prev - current.
-//		 */
-//		int shiftX = (int)((w/currentMag*mag - w)/2);
-//		int shiftY = (int)((h/currentMag*mag - h)/2);
-//		
-//		System.out.println("[Debug Zoom] 2. shiftX: " + shiftX + ", shiftY: " + shiftY + ", ImageOrigin(Old): " + imageSpecimen.originX + "," + imageSpecimen.originY); // 追加
-//		
-//		if (mag != 1.0) {
-//			panningFlag = true;// because, image origin shifted by zoom.
-//		}
-//		// update origin
-//		imageSpecimen.updateOrigin(imageSpecimen.originX-shiftX, imageSpecimen.originY-shiftY);
-//		
-//		Log.logger.fine("Origin changed by ZOOM: (x) "+imageSpecimen.originX +", (y) "+imageSpecimen.originY);
-//		
-//		imageSpecimen.updateDisplayImage();
-//		updatePrapInfoLabel(mouseX, mouseY);
-//	}
-	
 	void zoom(double mag, boolean zoomUp) {
-
 		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
 		mag = MathUtils.truncateToDecimalPlace(mag, 3);
+		if (currentMag == mag) return;
 
-		if (currentMag == mag)
-			return;
+		// 倍率の安全ガード
+		if (mag < 0.1) mag = 0.1;
+		else if (mag > 30.0) mag = 30.0;
 
-		if (mag < 0.1) {
-			mag = 0.1;
-			logger.info("Zoom: magnification is too small, keep 0.1.");
-		} else if (mag > 30) {
-			mag = 30.0;
-			logger.info("Zoom: magnification is too large, not up to 30.");
-		}
-
-		double scaleComp = getScaleFactor()[0];
 		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
-
 		if (defaultDim != null) {
-			double oldW = defaultDim.width * scaleComp * currentMag;
-			double oldH = defaultDim.height * scaleComp * currentMag;
+			// フィット時のサイズを基準（100%）とする
+			double baseW = defaultDim.width;
+			double baseH = defaultDim.height;
 
-			// ★追加：現在の倍率における「本来のデフォルト中心座標」を算出
-			Point defaultOrigin = imageSpecimen.calcDefaultImageOrigin((int) Math.round(oldW), (int) Math.round(oldH));
+			// ズームの中心（マウス位置、未設定ならコンポーネント中央）
+			double centerX = (mouseX > 0) ? mouseX : getWidth() / 2.0;
+			double centerY = (mouseY > 0) ? mouseY : getHeight() / 2.0;
 
-			// ★追加：現在の原点がデフォルト中心からズレているか（＝手動パンされているか）を判定
-			boolean isManuallyPanned = (imageSpecimen.originX != defaultOrigin.x
-					|| imageSpecimen.originY != defaultOrigin.y);
+			// 現在の画像の見かけの左上座標
+			double currentVisualX = imageSpecimen.originX - (baseW * (currentMag - 1.0) / 2.0);
+			double currentVisualY = imageSpecimen.originY - (baseH * (currentMag - 1.0) / 2.0);
 
-			double newW = defaultDim.width * scaleComp * mag;
-			double newH = defaultDim.height * scaleComp * mag;
+			// ズーム中心点への「画像内での相対比率」を固定する
+			double relX = (centerX - currentVisualX) / (baseW * currentMag);
+			double relY = (centerY - currentVisualY) / (baseH * currentMag);
 
-			int shiftX = (int) Math.round((newW - oldW) / 2.0);
-			int shiftY = (int) Math.round((newH - oldH) / 2.0);
+			// 新しい倍率における、中心点を維持するための新しい等倍原点（originX/Y）の逆算
+			double newVisualW = baseW * mag;
+			double newVisualH = baseH * mag;
+			
+			double newVisualX = centerX - (relX * newVisualW);
+			double newVisualY = centerY - (relY * newVisualH);
 
-			// ★修正：1.0倍に戻った時のスナップ挙動をパン状態に応じて切り替える
-			if (mag == 1.0) {
-				panningFlag = isManuallyPanned; // 手動パンされていれば状態キープ、されていなければ中央スナップ
-			} else {
-				panningFlag = true;
-			}
+			// originX, originY の定義（zoom=1.0の時の位置）に復元マッピング
+			int newOriginX = (int) Math.round(newVisualX + (baseW * (mag - 1.0) / 2.0));
+			int newOriginY = (int) Math.round(newVisualY + (baseH * (mag - 1.0) / 2.0));
 
-			imageSpecimen.updateOrigin(imageSpecimen.originX - shiftX, imageSpecimen.originY - shiftY);
+			panningFlag = (mag != 1.0);
+			imageSpecimen.updateOrigin(newOriginX, newOriginY);
 		}
 
 		setMagnification(mag);

@@ -209,8 +209,12 @@ public class ImageSpecimenGlass extends JPanel{
 		if (bound_width < 1 || bound_height < 1) {
 			return null;
 		}
-		int original_width = orgCols;
-		int original_height = orgRows;
+		
+		// 現在の回転角度を取得し、90度/270度回転時は見かけ上の縦横（orgCols/orgRows）を入れ替えてフィット計算を行う ★★★
+		int angle = sg.getRotateAngle();
+		int original_width = (angle % 180 == 0) ? orgCols : orgRows;
+		int original_height = (angle % 180 == 0) ? orgRows : orgCols;
+		
 		// first, adjust new component size
 		int new_width = bound_width;
 		// scale height to maintain aspect ratio
@@ -388,11 +392,6 @@ public class ImageSpecimenGlass extends JPanel{
 		
 		if(orgImg == null) {
 			return;
-		}
-		
-		if (!sg.panningFlag) {
-			//to display open-up
-			resetImageOrigin();
 		}
 		
 		ImagePlus dup = createInitialDisplayImage();
