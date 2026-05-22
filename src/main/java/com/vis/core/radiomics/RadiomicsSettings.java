@@ -1313,7 +1313,16 @@ public class RadiomicsSettings extends JPanel{
 				 * Features param
 				 */
 				case SettingsContext.UseBinCountGLCM:
-					bcs_glcm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCnt = Boolean.valueOf(val);
+					if (useBinCnt) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_glcm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_glcm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountGLCM:
 					try {
@@ -1343,7 +1352,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_glcm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountGLRLM:
-					bcs_glrlm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntGLRLM = Boolean.valueOf(val);
+					if (useBinCntGLRLM) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_glrlm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_glrlm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountGLRLM:
 					try {
@@ -1365,7 +1383,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_glrlm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountGLSZM:
-					bcs_glszm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntGLSZM = Boolean.valueOf(val);
+					if (useBinCntGLSZM) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_glszm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_glszm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountGLSZM:
 					try {
@@ -1387,7 +1414,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_glszm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountGLDZM:
-					bcs_gldzm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntGLDZM = Boolean.valueOf(val);
+					if (useBinCntGLDZM) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_gldzm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_gldzm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountGLDZM:
 					try {
@@ -1409,7 +1445,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_gldzm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountNGTDM:
-					bcs_ngtdm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntNGTDM = Boolean.valueOf(val);
+					if (useBinCntNGTDM) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_ngtdm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_ngtdm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountNGTDM:
 					try {
@@ -1439,7 +1484,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_ngtdm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountNGLDM:
-					bcs_ngldm.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntNGLDM = Boolean.valueOf(val);
+					if (useBinCntNGLDM) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_ngldm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_ngldm.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountNGLDM:
 					try {
@@ -1477,7 +1531,16 @@ public class RadiomicsSettings extends JPanel{
 //					norm_ngldm.setSelectedItem(val);
 //					break;
 				case SettingsContext.UseBinCountHISTOGRAM:
-					bcs_hist.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntHIST = Boolean.valueOf(val);
+					if (useBinCntHIST) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_hist.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_hist.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountHISTOGRAM:
 					try {
@@ -1499,7 +1562,16 @@ public class RadiomicsSettings extends JPanel{
 					useOrg_ivh.setSelected(Boolean.valueOf(val));
 					break;
 				case SettingsContext.UseBinCountIVH:
-					bcs_ivh.getRadioButton().setSelected(Boolean.valueOf(val));
+					boolean useBinCntIVH = Boolean.valueOf(val);
+					if (useBinCntIVH) {
+					    // Bin Count を使いたい場合 ➔ Bin Countボタンを「ON」にする
+					    bcs_ivh.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin WidthボタンはOFFになります)
+					} else {
+					    // Bin Width を使いたい場合 ➔ Bin Widthボタンを「ON」にする
+					    bws_ivh.getRadioButton().setSelected(true);
+					    // (※この瞬間、自動的にBin CountボタンはOFFになります)
+					}
 					break;
 				case SettingsContext.BinCountIVH:
 					try {
