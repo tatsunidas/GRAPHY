@@ -1266,6 +1266,20 @@ public class Praparat extends JPanel {
 		return this.pathToImages;
 	}
 	
+	public HashMap<Integer, DicomImage> getDicomImages(){
+		if(slides == null || slides.isEmpty()) {
+			return null;
+		}
+		HashMap<Integer, DicomImage> ds = new HashMap<Integer, DicomImage>();
+		for(int zct : slides.keySet()) {
+			SlideGlass sg = slides.get(zct);
+			if(sg != null) {
+				ds.put(zct, sg.getDicomImage());
+			}
+		}
+		return ds;
+	}
+	
 	/**
 	 * return slides as imageplus.
 	 * 

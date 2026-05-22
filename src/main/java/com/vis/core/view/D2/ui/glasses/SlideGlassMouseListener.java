@@ -43,7 +43,6 @@ import java.awt.Cursor;
 import java.awt.Graphics2D;
 import java.awt.MouseInfo;
 import java.awt.Point;
-import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -90,12 +89,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	
 	/* ghost dragging */
 	private Timer ghostTimer;
-	private final static int pressingTimeToBeGhost = 1200;// Ghostが表示されるまでの時間（ミリ秒）
+	private final static int pressingTimeToBeGhost = 1200;// ms to be ghost
 	private int GHOST_MOVEMENT_THRESHOLD = 5;
 	boolean isGhostDragging = false;
 	private int currentAngle = 0;
     private java.awt.Point dragStartPoint = null;
-    private static final int FPS = 30;           // アニメーションの更新間隔（約33fps）
+    private static final int FPS = 30;//animation fps
     private static final int ANGLE_STEP = 360 / (pressingTimeToBeGhost / FPS); // 1フレームあたりの進行角度
 		
 	private Logger logger = Log.logger;
@@ -110,16 +109,15 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
             currentAngle += ANGLE_STEP;
             
             if (currentAngle >= 360) {
-                // 100%に到達した場合
+                // reach to 100%
                 currentAngle = 0;
                 ghostTimer.stop();
-                slide.setGhostProgress(0, null); // インジケーターを消す
+                slide.setGhostProgress(0, null); // remove indicator
                 
-                // ★★★ ここで既存の「Ghostを表示する処理」を呼び出します ★★★
                 startGhostDrag();
                 
             } else {
-                // 途中経過をSlideGlassに渡して描画させる
+                // update indicator
                 if (dragStartPoint != null) {
                     slide.setGhostProgress(currentAngle, dragStartPoint);
                 }
@@ -434,6 +432,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			return;
 		}
 		
+		// 途中で離した時も確実にプログレス表示を消去する
+		currentAngle = 0;
+		dragStartPoint = null;
+		slide.setGhostProgress(0, null);
+		
 		if(Viewer2DToolBar.isRoiTool(viewerToolType) || viewerToolType == Viewer2DToolBar.Brush) {
 			cg.mouseReleased(e);
 		}
@@ -456,10 +459,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			ggp.setVisible(false);
 			prapManager.setDraggingComponent(null);
 			isGhostDragging = false;
-			ghostTimer.stop();
-	        currentAngle = 0;
-	        dragStartPoint = null;
-	        slide.setGhostProgress(0, null);
 			e.consume();
 		}
 	}

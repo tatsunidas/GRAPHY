@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
+
 import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
@@ -85,6 +86,16 @@ import ij.measure.Calibration;
 @Deprecated
 public class DicomDuplicator {
 	
+	/**
+	 * You should use...
+	 * 
+	 * Praparat reslice = win.getPraparatAt(CutSurface.OBLIQUE); 
+	 * HashMap<Integer,DicomImage> dcmImages = reslice.getDicomImages(); 
+	 * if(dcmImages == null) {JOptionPane.showMessageDialog(this, "Dicom images are empty.\nDo reslice
+	 * first."); return; } 
+	 * db.storeDicomImagesToDb(dcmImages);
+	 */
+	@Deprecated
 	public DicomDuplicator() {}
 	
 	/**

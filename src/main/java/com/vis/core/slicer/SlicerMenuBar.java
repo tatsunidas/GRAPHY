@@ -40,6 +40,7 @@ package com.vis.core.slicer;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JFileChooser;
@@ -50,7 +51,6 @@ import javax.swing.JOptionPane;
 
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.SaveImage;
-import com.vis.core.ui.function.DicomDuplicator;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
@@ -71,7 +71,7 @@ import ij.util.DicomTools;
 @SuppressWarnings("serial")
 public class SlicerMenuBar extends JMenuBar implements ActionListener{
 	
-	SlicerWindow mpr_win;
+	SlicerWindow win;
 	
 	private final String patIDTag = "0010,0020";
 	private final String studyUIDTag = "0020,000D";
@@ -84,7 +84,7 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 	
 	public SlicerMenuBar(SlicerWindow win) {
 		
-		this.mpr_win = win;
+		this.win = win;
 		
 		JMenu mainMenu = new JMenu("File");
 		
@@ -115,7 +115,7 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 		}
 		JMenuItem item = (JMenuItem)obj;
 		if(item.getName().equals("Save reslice images as TIF")) {
-			ImagePlus recon = mpr_win.reconImage();
+			ImagePlus recon = win.reconImage();
 			if(recon != null && recon.getNSlices() > 0) {
 				String title = "Save reslice images";
 				String defaultDir = System.getProperty("user.home");
@@ -127,9 +127,9 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				return;
 			}
 		}else if(item.getName().equals("Save reslice images as dicom format")) {
-			ImagePlus recon = mpr_win.reconImage();
+			ImagePlus recon = win.reconImage();
 			if(recon != null) {
-				Praparat pp = mpr_win.getPraparatAt(CutSurface.OBLIQUE);
+				Praparat pp = win.getPraparatAt(CutSurface.OBLIQUE);
 				String pid = (String)pp.getUIDs()[0];
 				String studyUID = (String)pp.getUIDs()[1];
 				String seriesUID = (String)pp.getUIDs()[2];
@@ -143,7 +143,7 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 				chooser.setMultiSelectionEnabled(false);
 				chooser.setDialogTitle("Dicom save to...");
-				int res = chooser.showSaveDialog(mpr_win);
+				int res = chooser.showSaveDialog(win);
 				File dest = null;
 				if(res == JFileChooser.APPROVE_OPTION) {
 					dest = chooser.getSelectedFile();
@@ -188,7 +188,7 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				JOptionPane.showMessageDialog(this, "GRAPHY DB does not ready, can not save to DB.");
 				return;
 			}
-			ImagePlus recon = mpr_win.reconImage();
+			ImagePlus recon = win.reconImage();
 			if(recon != null) {
 				String pid = DicomTools.getTag(recon, patIDTag);
 				String studyUID = DicomTools.getTag(recon, studyUIDTag);
@@ -198,7 +198,13 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 					return;
 				}
 				try {
-					DicomDuplicator.createNewSeriesAndStore2DB(mpr_win.getPraparatAt(CutSurface.OBLIQUE)/*recon_prap*/, true);
+					Praparat reslice = win.getPraparatAt(CutSurface.OBLIQUE);
+					HashMap<Integer, DicomImage> dcmImages = reslice.getDicomImages();
+					if(dcmImages == null) {
+						JOptionPane.showMessageDialog(this, "Dicom images are empty.\nDo reslice first.");
+						return;
+					}
+					db.storeDicomImagesToDb(dcmImages);
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}
