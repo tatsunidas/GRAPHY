@@ -66,9 +66,9 @@ public class FusionControlDialog extends JDialog {
         mainPanel.add(opacitySlider);
 
         // ==========================================
-        // 2. LUT（カラーマップ）変更機能
+        // 2. Change LUT
         // ==========================================
-        mainPanel.add(new JLabel("カラーマップ (LUT):"));
+        mainPanel.add(new JLabel("Color Map (LUT):"));
         
         String[] lutNames = com.vis.configuration.Resources.getLutNames();
         
@@ -97,12 +97,12 @@ public class FusionControlDialog extends JDialog {
         // ==========================================
         // 3. XY座標のシフト指定
         // ==========================================
-        mainPanel.add(new JLabel("X軸 シフト (pixels):"));
+        mainPanel.add(new JLabel("X axis shift (pixels):"));
         xShiftSpinner = new JSpinner(new SpinnerNumberModel(pp.getFusionOffsetX(), -2048, 2048, 1));
         xShiftSpinner.addChangeListener(e -> updateFusion());
         mainPanel.add(xShiftSpinner);
 
-        mainPanel.add(new JLabel("Y軸 シフト (pixels):"));
+        mainPanel.add(new JLabel("Y axix shift (pixels):"));
         yShiftSpinner = new JSpinner(new SpinnerNumberModel(pp.getFusionOffsetY(), -2048, 2048, 1));
         yShiftSpinner.addChangeListener(e -> updateFusion());
         mainPanel.add(yShiftSpinner);
@@ -110,7 +110,7 @@ public class FusionControlDialog extends JDialog {
         add(mainPanel, BorderLayout.CENTER);
 
         // 下部の閉じるボタン
-        JButton closeBtn = new JButton("閉じる");
+        JButton closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> dispose());
         JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         southPanel.add(closeBtn);

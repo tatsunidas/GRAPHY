@@ -600,13 +600,32 @@ public class Praparat extends JPanel {
 			// PDF
 			if (sopClassUID.equals(UID.EncapsulatedPDFStorage.uid())) {
 				this.isPDF = true;
-				/*
-				 * PDF to one series.
-				 */
 				loadSlideGlassFromPDF(imgFiles.get(i), header, fmi, backend);
-				// PDF is one series, break here.
-				break;
+				break;// always as one series
 			}
+			
+			// Check Mosaic format : fMRI/DTI
+			boolean isMosaic = false;
+			String[] imageTypes = header.getStrings(Tag.ImageType);
+			if (imageTypes != null) {
+			    for (String type : imageTypes) {
+			        if (type != null && type.trim().equalsIgnoreCase("MOSAIC")) {
+			            isMosaic = true;
+			            break;
+			        }
+			    }
+			} else {
+			    // getStringsが使えない/単一文字列で返ってくるライブラリ用のフォールバック
+			    String it = header.getString(Tag.ImageType, "");
+			    if (it != null && it.contains("MOSAIC")) {
+			        isMosaic = true;
+			    }
+			}
+			
+			if(getViewMode()==ViewMode.Thumbnail) {
+				isMosaic = false;
+			}
+			
 			/*
 			 * isMultiFrame 1.General image types do not have NumberOfFrames tag.(means -1).
 			 * 2.3d sequence MRI, number of frame is 1 (of each image).
@@ -614,9 +633,12 @@ public class Praparat extends JPanel {
 			DicomImage dcm = DicomImage.newDicomImage(imgFiles.get(i), header, fmi, tsUID, backend);
 			this.isMultiFrame = dcm.isMultiFrame();
 			this.isMultiFrame = this.isMultiFrame && dcm.getNumOfFrames() > 1;
-
-			// single frame
-			if (!isMultiFrame) {
+			
+			if (isMosaic) {
+			    // ★ 新規追加: Mosaic画像の展開
+			    loadSlideGlassFromMosaicDicom(imgFiles.get(i), backend);
+			    // rsfMRIは複数のファイル（タイムポイント）が存在するため、breakせずに次のファイルを処理します
+			} else if (!isMultiFrame) {
 				loadSlideGlassFromSimpleDicom(imgFiles.get(i), backend, tsUID);
 			} else {
 				/*
@@ -852,6 +874,109 @@ public class Praparat extends JPanel {
 			}
 		}
 		executor.shutdown();
+	}
+	
+	private void loadSlideGlassFromMosaicDicom(String path2dcm, DICOMBackend backend) {
+	    DicomReader reader = DicomReader.newDicomReader(backend);
+	    reader.read(path2dcm, true); // ピクセルデータも読み込む
+	    DicomObject header = reader.getHeader();
+	    DicomObject fmi = reader.getFileMetaInfomation();
+	    UID tsUID = reader.checkTSUID();
+
+	    // 0x0019,100a (Siemens Private): NumberOfImagesInMosaic
+	    int numOfImages = header.getInt(0x0019100a, -1); 
+	    if (numOfImages <= 0) {
+	        Log.logger.warning("Mosaic format detected but NumberOfImagesInMosaic is invalid.");
+	        return;
+	    }
+
+	    int mosaicCols = header.getInt(Tag.Columns, 0);
+	    int mosaicRows = header.getInt(Tag.Rows, 0);
+	    int gridSize = (int) Math.ceil(Math.sqrt(numOfImages));
+	    int sliceW = mosaicCols / gridSize;
+	    int sliceH = mosaicRows / gridSize;
+
+	    DicomImage mosaicDcm = DicomImage.newDicomImage(path2dcm, header, fmi, tsUID, backend);
+	    mosaicDcm.ensurePixelDataLoaded();
+	    ImageProcessor mosaicIp = mosaicDcm.getImageProcessor(0);
+
+	    // ★ 空間座標再計算のための準備
+	    double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
+	    double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
+	    double spacing = header.getDouble(Tag.SpacingBetweenSlices, header.getDouble(Tag.SliceThickness, 1.0));
+
+	    final double nx, ny, nz;
+	    if (iop != null && iop.length == 6) {
+	        double tempNx = iop[1] * iop[5] - iop[2] * iop[4];
+	        double tempNy = iop[2] * iop[3] - iop[0] * iop[5];
+	        double tempNz = iop[0] * iop[4] - iop[1] * iop[3];
+	        double len = Math.sqrt(tempNx * tempNx + tempNy * tempNy + tempNz * tempNz);
+	        // 一度だけ代入する
+	        nx = tempNx / len;
+	        ny = tempNy / len;
+	        nz = tempNz / len;
+	    } else {
+	        // デフォルト値もここで一度だけ代入する
+	        nx = 0;
+	        ny = 0;
+	        nz = 1;
+	    }
+
+	    final int baseInstNo = header.getInt(Tag.InstanceNumber, 1);
+
+	    ExecutorService executor = Executors.newFixedThreadPool(Utils.availableProcessors());
+	    List<Future<SlideGlass>> futures = new ArrayList<>();
+
+	    for (int j = 0; j < numOfImages; j++) {
+	        final int index = j;
+	        Callable<SlideGlass> task = () -> {
+	            int colIndex = index % gridSize;
+	            int rowIndex = index / gridSize;
+	            int x = colIndex * sliceW;
+	            int y = rowIndex * sliceH;
+
+	            // 1. スライス画像のクロップ
+	            ImageProcessor sliceIp = mosaicIp.duplicate();
+	            sliceIp.setRoi(x, y, sliceW, sliceH);
+	            sliceIp = sliceIp.crop();
+
+	            // 2. ヘッダーの複製と書き換え (Rows, Columnsを上書き)
+	            DicomObject sliceHeader = DicomObject.newDicomObject(header, backend);
+	            sliceHeader.setInt(Tag.Columns, VR.US, sliceW);
+	            sliceHeader.setInt(Tag.Rows, VR.US, sliceH);
+
+	            // 3. Z座標(IPP)の再計算と適用
+	            if (ipp != null && ipp.length == 3) {
+	                double newX = ipp[0] + nx * spacing * index;
+	                double newY = ipp[1] + ny * spacing * index;
+	                double newZ = ipp[2] + nz * spacing * index;
+	                // ※DICOMBackendの実装に合わせて適宜調整してください
+	                sliceHeader.setDouble(Tag.ImagePositionPatient, VR.DS, new double[]{newX, newY, newZ}); 
+	            }
+
+	            // 時系列・空間を区別するための擬似インスタンス番号
+	            sliceHeader.setInt(Tag.InstanceNumber, VR.IS, (baseInstNo - 1) * numOfImages + index + 1);
+
+	            // 4. DicomImageの再構築とメモリ上のピクセルデータの流し込み
+	            DicomImage sliceDcm = DicomImage.newDicomImage(path2dcm, sliceHeader, fmi, tsUID, backend);
+	            int samples = sliceIp instanceof ColorProcessor ? 3 : 1;
+	            sliceDcm.setPixelData(0, sliceW, sliceH, samples, mosaicDcm.getBitsAllocated(), sliceIp.getPixels());
+
+	            return new SlideGlass(this, sliceDcm);
+	        };
+	        futures.add(executor.submit(task));
+	    }
+
+	    // 非同期処理の完了を待機し、slidesに格納
+	    for (Future<SlideGlass> future : futures) {
+	        try {
+	            // ConcurrentHashMapへの追加。キーは連番で仮置き（organizeMultiDimensionalSlidesで再マッピングされるため）
+	            slides.put(slides.size(), future.get()); 
+	        } catch (InterruptedException | ExecutionException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	    executor.shutdown();
 	}
 
 	/**
