@@ -51,6 +51,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import org.joml.Vector3d;
@@ -82,9 +83,6 @@ import ij.plugin.FolderOpener;
 import ij.process.ImageProcessor;
 
 /**
- * MPR view ref:
- * https://imagej.nih.gov/ij/developer/source/ij/plugin/Orthogonal_Views.java.html
- * 
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
@@ -98,11 +96,11 @@ public class SlicerWindow extends JFrame {
 //		ImagePlus ax = FolderOpener.open(
 //				"/home/tatsunidas/graphy_sample_images/dicom_samples/LGG-104/06-26-2000-MRI Hd wow-05523/4-Gad Ax T2 Straight-38151");
 //		new SlicerWindow(ax, null);
-		
+
 //		ImagePlus ax2 = FolderOpener.open("/home/tatsunidas/graphy_sample_images/signed-ct");
 //		Praparat pp = new Praparat(ax2, null, ViewMode.SingleGrid, false);
 //		new SlicerWindow(pp);
-		
+
 		ImagePlus ax = FolderOpener.open("C:\\Users\\t_kob\\Desktop\\signed");
 		Praparat pp = new Praparat(ax, null, ViewMode.SingleGrid, false);
 		new SlicerWindow(pp);
@@ -139,9 +137,6 @@ public class SlicerWindow extends JFrame {
 
 	final SlicerWindow own;
 
-	/*
-	 * https://forum.image.sc/t/rotate-line-roi-via-rotating-point-coordinates/8323
-	 */
 	private SlicerControlPanel contP;
 
 	private ImagePlus imp;// src imp, to backup.
@@ -173,6 +168,10 @@ public class SlicerWindow extends JFrame {
 	private Logger logger = Log.logger;
 
 	private boolean isSigned = false;
+
+	public interface ProgressListener {
+		void onProgress(int percent, String message);
+	}
 
 	/**
 	 * See also, D3.ui.GatryTiltCorrector
@@ -260,9 +259,125 @@ public class SlicerWindow extends JFrame {
 		return imp;
 	}
 
+//	private void init() {
+//		srcCutSurface = ImageOrientation.getCutSurface(imp);
+//		initImages();
+//		buildGUI();
+//		initReferenceLine();
+//		revalidate();
+//		setVisible(true);
+//
+//		SwingUtilities.invokeLater(new Runnable() {
+//			@Override
+//			public void run() {
+//				// ★ デバッグログ: 自動調整の「前」の状態を確認
+//				logDisplayStatus("Before AutoWindow XY (Axial)", xy_image);
+//				logDisplayStatus("Before AutoWindow XZ (Coronal)", xz_image);
+//				logDisplayStatus("Before AutoWindow YZ (Sagittal)", yz_image);
+//
+//				// 各断面の表示を自動調整 (※ここが原因の可能性大)
+//				xy_prap.applyGlobalAutoWindow();
+//				yz_prap.applyGlobalAutoWindow();
+//				xz_prap.applyGlobalAutoWindow();
+//
+//				// ★ デバッグログ: 自動調整の「後」の状態を確認
+//				logDisplayStatus("After AutoWindow XY (Axial)", xy_image);
+//				logDisplayStatus("After AutoWindow XZ (Coronal)", xz_image);
+//				logDisplayStatus("After AutoWindow YZ (Sagittal)", yz_image);
+//
+//				// スライダーを中央に移動
+//				if (xy_image != null)
+//					xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2);
+//				if (xz_image != null)
+//					xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2);
+//				if (yz_image != null)
+//					yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2);
+//
+//				recon_prap.setImagePositionUsingSlider(0);
+//			}
+//		});
+//	}
+
 	private void init() {
 		srcCutSurface = ImageOrientation.getCutSurface(imp);
-		initImages();
+
+		final javax.swing.JDialog progressDialog = new javax.swing.JDialog((java.awt.Frame) null, "MPR Initializing", true);
+		final javax.swing.JProgressBar progressBar = new javax.swing.JProgressBar(0, 100);
+		final javax.swing.JLabel progressLabel = new javax.swing.JLabel("Initializing volume...");
+
+		progressBar.setStringPainted(true);
+		progressBar.setForeground(new Color(0, 120, 215));
+
+		JPanel panel = new JPanel(new BorderLayout(10, 10));
+		panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
+		panel.add(progressLabel, BorderLayout.NORTH);
+		panel.add(progressBar, BorderLayout.CENTER);
+		progressDialog.add(panel);
+		progressDialog.pack();
+		progressDialog.setSize(400, 120);
+		progressDialog.setLocationRelativeTo(null);
+		progressDialog.setDefaultCloseOperation(javax.swing.JDialog.DO_NOTHING_ON_CLOSE);
+
+		javax.swing.SwingWorker<Void, Object[]> worker = new javax.swing.SwingWorker<Void, Object[]>() {
+			@Override
+			protected Void doInBackground() throws Exception {
+				publish(new Object[] { 0, "Standardizing stack orientation..." });
+				PlanarSupport.standardizeStackOrientation(imp);
+
+				publish(new Object[] { 5, "Reconstructing Orthogonal Slices..." });
+				initImages(new ProgressListener() {
+					@Override
+					public void onProgress(int percent, String message) {
+						// 画像再構成(0〜100%)を、全体の 5%〜45% の進捗としてマッピング
+						int scaledPercent = 5 + (int)(percent * 0.4);
+						publish(new Object[] { scaledPercent, message });
+					}
+				});
+
+				// ★ 修正: Praparatの構築(非常に重い処理)をバックグラウンドで実行し、進捗を通知する
+				publish(new Object[] { 45, "Building Axial View components (XY)..." });
+				xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR, true);
+
+				publish(new Object[] { 65, "Building Coronal View components (XZ)..." });
+				xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, false);
+
+				publish(new Object[] { 85, "Building Sagittal View components (YZ)..." });
+				yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR, false);
+
+				publish(new Object[] { 95, "Building 3D MPR View components..." });
+				recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal, false);
+
+				publish(new Object[] { 100, "Finalizing GUI components..." });
+				Thread.sleep(300); // 100%の表示をユーザーに少し見せるための待機
+				return null;
+			}
+
+			@Override
+			protected void process(List<Object[]> chunks) {
+				Object[] lastChunk = chunks.get(chunks.size() - 1);
+				progressBar.setValue((Integer) lastChunk[0]);
+				progressLabel.setText((String) lastChunk[1]);
+			}
+
+			@Override
+			protected void done() {
+				progressDialog.dispose();
+			}
+		};
+
+		worker.execute();
+		progressDialog.setVisible(true);
+
+		try {
+			worker.get(); 
+		} catch (Exception e) {
+			Log.logger.log(Level.SEVERE, "Failed to initialize MPR Slicer Window", e);
+			e.printStackTrace();
+			javax.swing.JOptionPane.showMessageDialog(null, 
+					"Initialization failed:\n" + e.getMessage(), "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+			return; 
+		}
+
 		buildGUI();
 		initReferenceLine();
 		revalidate();
@@ -271,30 +386,22 @@ public class SlicerWindow extends JFrame {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				// ★ デバッグログ: 自動調整の「前」の状態を確認
-				logDisplayStatus("Before AutoWindow XY (Axial)", xy_image);
-				logDisplayStatus("Before AutoWindow XZ (Coronal)", xz_image);
-				logDisplayStatus("Before AutoWindow YZ (Sagittal)", yz_image);
-
-				// 各断面の表示を自動調整 (※ここが原因の可能性大)
-				xy_prap.applyGlobalAutoWindow();
-				yz_prap.applyGlobalAutoWindow();
-				xz_prap.applyGlobalAutoWindow();
-
-				// ★ デバッグログ: 自動調整の「後」の状態を確認
 				logDisplayStatus("After AutoWindow XY (Axial)", xy_image);
 				logDisplayStatus("After AutoWindow XZ (Coronal)", xz_image);
 				logDisplayStatus("After AutoWindow YZ (Sagittal)", yz_image);
 
-				// スライダーを中央に移動
-				if (xy_image != null)
+				if (xy_prap != null) xy_prap.applyGlobalAutoWindow();
+				if (yz_prap != null) yz_prap.applyGlobalAutoWindow();
+				if (xz_prap != null) xz_prap.applyGlobalAutoWindow();
+
+				if (xy_image != null && xy_prap != null)
 					xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2);
-				if (xz_image != null)
+				if (xz_image != null && xz_prap != null)
 					xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2);
-				if (yz_image != null)
+				if (yz_image != null && yz_prap != null)
 					yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2);
 
-				recon_prap.setImagePositionUsingSlider(0);
+				if (recon_prap != null) recon_prap.setImagePositionUsingSlider(0);
 			}
 		});
 	}
@@ -346,13 +453,7 @@ public class SlicerWindow extends JFrame {
 		add(contP, BorderLayout.NORTH);
 		contP.setPreferredSize(new Dimension(getWidth(), 40));
 
-//		Log.logger.log(Level.FINE, "IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
-//		System.out.println("IOP axial:" + GDicomTools.getTag(xy_image, Tag.ImageOrientationPatient));
-
-		xy_prap = new Praparat(xy_image, studyColor, ViewMode.MPR, true);
-		xz_prap = new Praparat(xz_image, studyColor, ViewMode.MPR, false);
-		yz_prap = new Praparat(yz_image, studyColor, ViewMode.MPR, false);
-		recon_prap = new Praparat(recon_image, studyColor, ViewMode.Normal, false);
+		// ★ 修正: Praparatのインスタンス化 (new Praparat...) は init() 内で完了しているため削除
 
 		xy_prap.setName("XY");// IMPORTANT
 		xz_prap.setName("XZ");
@@ -403,8 +504,8 @@ public class SlicerWindow extends JFrame {
 		// SOPClassUID
 		GDicomTools.setTag(imp, pos, Tag.SOPInstanceUID, sopClassUID);
 		GDicomTools.setTag(imp, pos, Tag.PatientID, patID);
-		GDicomTools.setTag(imp, pos, Tag.StudyInstanceUID, studyUID);//lower case
-		GDicomTools.setTag(imp, pos, Tag.SeriesInstanceUID, seriesUID);//lower case
+		GDicomTools.setTag(imp, pos, Tag.StudyInstanceUID, studyUID);// lower case
+		GDicomTools.setTag(imp, pos, Tag.SeriesInstanceUID, seriesUID);// lower case
 		GDicomTools.setTag(imp, pos, "0020,0052", refUID);
 		// SOPInstUID
 		GDicomTools.setTag(imp, pos, "0008,0018", UIDUtils.createUID());
@@ -465,28 +566,56 @@ public class SlicerWindow extends JFrame {
 	 * @param is - used to get the dimensions of the new ImageProcessors
 	 * @return
 	 */
-	private void initImages() {
+//	private void initImages() {
+//		if (imp == null) {
+//			return;
+//		}
+//		PlanarSupport.standardizeStackOrientation(imp);
+//		Calibration cal = imp.getCalibration();
+//		cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+//		if (srcCutSurface == CutSurface.AXIAL) {
+//			xy_image = imp;// new Duplicator().run(imp);
+//			xy_image.setCalibration(cal);
+//			xz_image = constructXZ(xy_image, isSigned);
+//			yz_image = constructYZ(xy_image, isSigned);
+//		} else if (srcCutSurface == CutSurface.CORONAL) {
+//			xz_image = imp;
+//			xz_image.setCalibration(cal);
+//			xy_image = constructXY(xz_image, isSigned);
+//			yz_image = constructYZ(xy_image, isSigned);
+//		} else if (srcCutSurface == CutSurface.SAGITTAL) {
+//			yz_image = imp;
+//			yz_image.setCalibration(cal);
+//			xy_image = constructXY(yz_image, isSigned);
+//			xz_image = constructXZ(xy_image, isSigned);
+//		}
+//		initRecon();
+//	}
+
+	// ★ 修正: ProgressListener を受け取る仕様に変更
+	private void initImages(ProgressListener listener) {
 		if (imp == null) {
 			return;
 		}
-		PlanarSupport.standardizeStackOrientation(imp);
 		Calibration cal = imp.getCalibration();
 		cal.pixelDepth = GDicomTools.getVoxelDepth(imp);
+
 		if (srcCutSurface == CutSurface.AXIAL) {
-			xy_image = imp;// new Duplicator().run(imp);
+			xy_image = imp;
 			xy_image.setCalibration(cal);
-			xz_image = constructXZ(xy_image, isSigned);
-			yz_image = constructYZ(xy_image, isSigned);
+			// 前半50%をXZ、後半50%をYZの組み立てに割り当て
+			xz_image = constructXZ(xy_image, isSigned, listener, 0, 50);
+			yz_image = constructYZ(xy_image, isSigned, listener, 50, 100);
 		} else if (srcCutSurface == CutSurface.CORONAL) {
 			xz_image = imp;
 			xz_image.setCalibration(cal);
-			xy_image = constructXY(xz_image, isSigned);
-			yz_image = constructYZ(xy_image, isSigned);
+			xy_image = constructXY(xz_image, isSigned, listener, 0, 50);
+			yz_image = constructYZ(xy_image, isSigned, listener, 50, 100);
 		} else if (srcCutSurface == CutSurface.SAGITTAL) {
 			yz_image = imp;
 			yz_image.setCalibration(cal);
-			xy_image = constructXY(yz_image, isSigned);
-			xz_image = constructXZ(xy_image, isSigned);
+			xy_image = constructXY(yz_image, isSigned, listener, 0, 50);
+			xz_image = constructXZ(xy_image, isSigned, listener, 50, 100);
 		}
 		initRecon();
 	}
@@ -516,35 +645,94 @@ public class SlicerWindow extends JFrame {
 		notify();
 	}
 
-	ImagePlus constructXY(ImagePlus src, boolean isSigned) {
-		ImagePlus xy = null;
-		Calibration cal = null;
-		if (srcCutSurface == CutSurface.CORONAL) {
-			xy = new OrthogonalSlice().coronalToAxial(src, isSigned);
-		} else if (srcCutSurface == CutSurface.SAGITTAL) {
-			xy = new OrthogonalSlice().sagittalToAxial(src, isSigned);
-		} else {
-			throw new IllegalArgumentException("Cannnot create Axial images.");
-		}
-		cal = xy.getCalibration();
-		String seriesUID = UIDUtils.createUID();
-		int size = xy.getNSlices();
-		for (int z = 1; z <= size; z++) {
-			addUIDs(xy, z, seriesUID);
-		}
-		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
-		calHolder.pixelWidth = cal.pixelWidth;
-		calHolder.pixelHeight = cal.pixelHeight;
-		calHolder.pixelDepth = cal.pixelDepth;
-		calHolder.setXUnit(cal.getXUnit());
-		calHolder.setYUnit(cal.getYUnit());
-		calHolder.setZUnit(cal.getZUnit());
-		xy.setCalibration(calHolder);
-		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-		return xy;
-	}
+//	ImagePlus constructXY(ImagePlus src, boolean isSigned) {
+//		ImagePlus xy = null;
+//		Calibration cal = null;
+//		if (srcCutSurface == CutSurface.CORONAL) {
+//			xy = new OrthogonalSlice().coronalToAxial(src, isSigned);
+//		} else if (srcCutSurface == CutSurface.SAGITTAL) {
+//			xy = new OrthogonalSlice().sagittalToAxial(src, isSigned);
+//		} else {
+//			throw new IllegalArgumentException("Cannnot create Axial images.");
+//		}
+//		cal = xy.getCalibration();
+//		String seriesUID = UIDUtils.createUID();
+//		int size = xy.getNSlices();
+//		for (int z = 1; z <= size; z++) {
+//			addUIDs(xy, z, seriesUID);
+//		}
+//		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
+//		calHolder.pixelWidth = cal.pixelWidth;
+//		calHolder.pixelHeight = cal.pixelHeight;
+//		calHolder.pixelDepth = cal.pixelDepth;
+//		calHolder.setXUnit(cal.getXUnit());
+//		calHolder.setYUnit(cal.getYUnit());
+//		calHolder.setZUnit(cal.getZUnit());
+//		xy.setCalibration(calHolder);
+//		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+//		return xy;
+//	}
+//
+//	ImagePlus constructXZ(ImagePlus src, boolean isSigned) {
+//		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
+//			throw new IllegalArgumentException("Cannot create XZ...");
+//		}
+//		OrthogonalSlice orthTool = new OrthogonalSlice();
+//		ImageStack stack = new ImageStack();
+//		String seriesUID = UIDUtils.createUID();
+//		int size = src.getHeight();
+//		Calibration cal = null;
+//		for (int y = 0; y < size; y++) {
+//			ImagePlus xz_ = orthTool.cutHorizontally(src, y);
+//			if (cal == null) {
+//				cal = xz_.getCalibration();
+//			}
+//
+//			//set pixel representation
+//			GDicomTools.setTag(xz_, 1, "0028,0103", isSigned ? "1" : "0");
+//
+//			addUIDs(xz_, 1, seriesUID);
+//			stack.addSlice(xz_.getProcessor());
+//			/*
+//			 * xz_ is non-stack image plus. Tags set to properties.
+//			 */
+//			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
+//		}
+//		ImagePlus xz_imp = new ImagePlus("XZ", stack);
+////		String header = xz_imp.getStack().getSliceLabel(1);
+//		xz_imp.setCalibration(cal);
+//		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+//		return xz_imp;
+//	}
+//
+//	ImagePlus constructYZ(ImagePlus src, boolean isSigned) {
+//		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
+//			throw new IllegalArgumentException("Cannot create YZ...");
+//		}
+//		OrthogonalSlice orthTool = new OrthogonalSlice();
+//		ImageStack stack = new ImageStack();
+//		Calibration cal = null;
+//		String seriesUID = UIDUtils.createUID();
+//		int width = src.getWidth();
+//		for (int w = 0; w < width; w++) {
+//			ImagePlus yz_ = orthTool.cutVertically(src, w);
+//			if (cal == null) {
+//				cal = yz_.getCalibration();
+//			}
+//			
+//			//set pixel representation
+//			GDicomTools.setTag(yz_, 1, "0028,0103", isSigned ? "1" : "0");
+//			
+//			addUIDs(yz_, 1, seriesUID);
+//			stack.addSlice(yz_.getInfoProperty(), yz_.getProcessor());
+//		}
+//		ImagePlus yz_imp = new ImagePlus("YZ", stack);
+//		yz_imp.setCalibration(cal);
+//		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+//		return yz_imp;
+//	}
 
-	ImagePlus constructXZ(ImagePlus src, boolean isSigned) {
+	ImagePlus constructXZ(ImagePlus src, boolean isSigned, ProgressListener listener, int startProg, int endProg) {
 		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
 			throw new IllegalArgumentException("Cannot create XZ...");
 		}
@@ -559,24 +747,26 @@ public class SlicerWindow extends JFrame {
 				cal = xz_.getCalibration();
 			}
 
-			//set pixel representation
 			GDicomTools.setTag(xz_, 1, "0028,0103", isSigned ? "1" : "0");
-
 			addUIDs(xz_, 1, seriesUID);
-			stack.addSlice(xz_.getProcessor());
-			/*
-			 * xz_ is non-stack image plus. Tags set to properties.
-			 */
-			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
+			
+			// ★ 修正: addSliceとsetSliceLabelを1行にまとめ、潜在的なインデックスエラーを完全に排除
+			stack.addSlice(xz_.getInfoProperty(), xz_.getProcessor());
+
+			// 進捗率をマッピングして通知
+			if (listener != null) {
+				int currentProg = startProg + (int) (((double) y / size) * (endProg - startProg));
+				listener.onProgress(currentProg, "Reconstructing Coronal (XZ) plane: " + (y + 1) + " / " + size);
+			}
 		}
 		ImagePlus xz_imp = new ImagePlus("XZ", stack);
-//		String header = xz_imp.getStack().getSliceLabel(1);
 		xz_imp.setCalibration(cal);
 		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
 		return xz_imp;
 	}
 
-	ImagePlus constructYZ(ImagePlus src, boolean isSigned) {
+	// ★ 修正: 引数に進捗情報を追加し、ループ内で通知
+	ImagePlus constructYZ(ImagePlus src, boolean isSigned, ProgressListener listener, int startProg, int endProg) {
 		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
 			throw new IllegalArgumentException("Cannot create YZ...");
 		}
@@ -590,17 +780,62 @@ public class SlicerWindow extends JFrame {
 			if (cal == null) {
 				cal = yz_.getCalibration();
 			}
-			
-			//set pixel representation
+
 			GDicomTools.setTag(yz_, 1, "0028,0103", isSigned ? "1" : "0");
-			
+
 			addUIDs(yz_, 1, seriesUID);
 			stack.addSlice(yz_.getInfoProperty(), yz_.getProcessor());
+
+			// ★ 追加: 進捗率をマッピングして通知
+			if (listener != null) {
+				int currentProg = startProg + (int) (((double) w / width) * (endProg - startProg));
+				listener.onProgress(currentProg, "Reconstructing Sagittal (YZ) plane: " + (w + 1) + " / " + width);
+			}
 		}
 		ImagePlus yz_imp = new ImagePlus("YZ", stack);
 		yz_imp.setCalibration(cal);
 		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
 		return yz_imp;
+	}
+
+	// ★ 修正: 引数に進捗情報を追加し、ループ内で通知
+	ImagePlus constructXY(ImagePlus src, boolean isSigned, ProgressListener listener, int startProg, int endProg) {
+		ImagePlus xy = null;
+		Calibration cal = null;
+
+		if (listener != null) {
+			listener.onProgress(startProg, "Reconstructing Axial (XY) volume...");
+		}
+
+		if (srcCutSurface == CutSurface.CORONAL) {
+			xy = new OrthogonalSlice().coronalToAxial(src, isSigned);
+		} else if (srcCutSurface == CutSurface.SAGITTAL) {
+			xy = new OrthogonalSlice().sagittalToAxial(src, isSigned);
+		} else {
+			throw new IllegalArgumentException("Cannnot create Axial images.");
+		}
+		cal = xy.getCalibration();
+		String seriesUID = UIDUtils.createUID();
+		int size = xy.getNSlices();
+		for (int z = 1; z <= size; z++) {
+			addUIDs(xy, z, seriesUID);
+
+			// タグ付与ループ内の進捗通知 (10枚おきに間引いて通知)
+			if (listener != null && z % 10 == 0) {
+				int currentProg = startProg + (int) (((double) z / size) * (endProg - startProg));
+				listener.onProgress(currentProg, "Tagging Axial slices: " + z + " / " + size);
+			}
+		}
+		Calibration calHolder = this.imp.getCalibration().copy();
+		calHolder.pixelWidth = cal.pixelWidth;
+		calHolder.pixelHeight = cal.pixelHeight;
+		calHolder.pixelDepth = cal.pixelDepth;
+		calHolder.setXUnit(cal.getXUnit());
+		calHolder.setYUnit(cal.getYUnit());
+		calHolder.setZUnit(cal.getZUnit());
+		xy.setCalibration(calHolder);
+		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
+		return xy;
 	}
 
 	/**
@@ -894,12 +1129,12 @@ public class SlicerWindow extends JFrame {
 				ImagePlus temp = new ImagePlus("", resliceIp);
 				GDicomTools.setImagePositionPatient(temp, 1, ipp);
 				GDicomTools.setImageOrientationPatient(temp, 1, row_v, col_v);
-				//set pixel representation
+				// set pixel representation
 				GDicomTools.setTag(temp, 1, "0028,0103", isSigned ? "1" : "0");
-				//set SOPClassUID
+				// set SOPClassUID
 				String sopClassUID = GDicomTools.getTag(imp, Tag.SOPClassUID);
-				//Secondary Capture Image Storage 1.2.840.10008.5.1.4.1.1.7
-				sopClassUID = sopClassUID == null ? "1.2.840.10008.5.1.4.1.1.7":sopClassUID;
+				// Secondary Capture Image Storage 1.2.840.10008.5.1.4.1.1.7
+				sopClassUID = sopClassUID == null ? "1.2.840.10008.5.1.4.1.1.7" : sopClassUID;
 				GDicomTools.setTag(temp, 1, "0080,0016", sopClassUID);
 				stack.addSlice(temp.getProcessor());
 				stack.setSliceLabel(temp.getInfoProperty(), count++);

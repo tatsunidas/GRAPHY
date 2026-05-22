@@ -188,6 +188,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int y = e.getY();
 		viewerToolType = pp.getViewer2DToolType();
 		
+		boolean isRoiTool = (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType));
+		
 		if (dragStartPoint != null) {
             // マウスの移動距離を計算
             double distance = e.getPoint().distance(dragStartPoint);
@@ -197,9 +199,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
                 currentAngle = 0; // 進行度をリセット
                 dragStartPoint = e.getPoint(); // 新しい座標を基準にする
                 slide.setGhostProgress(0, null);
-                
-                // 動かし続けている間は一度タイマーを止めるか、その場で再スタートさせる
-                ghostTimer.restart(); 
+                if (!isRoiTool) {
+                    ghostTimer.restart(); 
+                } else {
+                    ghostTimer.stop();
+                }
             }
         }
 		
@@ -213,6 +217,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if (mprwin != null) {
 					ReferenceLineMPR refLines = pp.getReferenceLineMPR();
 					if(refLines != null && refLines.getState() != RoiObj.NORMAL) {
+						ghostTimer.stop();
 						refLines.mouseDragged(pp, x, y, e.getModifiersEx());
 						slide.lastDraggedX = x; slide.lastDraggedY = y;
 						return;
@@ -352,6 +357,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			return;
 		}
 		
+		boolean isRoiTool = (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType));
+
 		slide.mouseX = e.getX();
 		slide.mouseY = e.getY();
 		slide.lastDraggedX = e.getX();
@@ -370,7 +377,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
         currentAngle = 0;
         
         // Ghost起動条件に合致するボタン（左クリック等）ならタイマー開始
-        if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+        if (javax.swing.SwingUtilities.isLeftMouseButton(e) && !isRoiTool) {
             ghostTimer.start();
         }
 		
