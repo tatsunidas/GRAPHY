@@ -103,9 +103,9 @@ public class LutPicker extends JDialog implements WindowListener{
 		return new int[] {row,col};
 	}
 	
-	public LUT run() {
+	public Object[] run() {
 		setVisible(true);
-		return selectedLUT;
+		return new Object[] {selectedLUT, selectedLUTName.getText()};
 	}
 	
 	class LUTCellPanel extends JLabel implements MouseListener{

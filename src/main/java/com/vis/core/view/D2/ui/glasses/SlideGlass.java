@@ -191,6 +191,10 @@ public class SlideGlass extends JLayeredPane {
 	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> redoStack = new java.util.ArrayDeque<>();
 	private static final int MAX_UNDO_LIMIT = 20; // upper size of snapshots
 	private boolean isRestoring = false;
+	
+	//fusion ghost start timer
+	private int ghostProgressAngle = 0; // 0 〜 360
+    private java.awt.Point ghostProgressLocation = null;
 
 	public SlideGlass(Praparat pp, DicomImage dcmImg/* single frame */) {
 		if (pp == null || dcmImg == null) {
@@ -1077,36 +1081,88 @@ public class SlideGlass extends JLayeredPane {
 		repaint();//show rois
 	}
 
+//	public void resetContrast() {
+//		// adjust WW/WL
+//		Double wl = header.getDouble(Tag.Window​Center, Double.NaN);
+//		Double ww = header.getDouble(Tag.Window​Width, Double.NaN);
+//		if (!Double.isFinite(wl) || !Double.isFinite(ww)) {
+//			autoWindowing();
+//			return;
+//		}
+//		/*
+//		 * * 2. オフセットの計算 ImageJのShortProcessorはUnsigned 16-bit(0-65535)として扱うため、
+//		 * Signedデータを読み込む際に足し合わせたオフセットを引いて、 WL/WWの基準をImageJのピクセル値に合わせる必要があります。
+//		 */
+//		double offset = 0;
+//		boolean isSigned = dcmImg.isSigned();
+//		int bitsAllocated = dcmImg.getBitsAllocated();
+//
+//		if (isSigned) {
+//			if (bitsAllocated == 16) {
+//				// Signed 16-bitの場合、通常中心を32768シフトさせている
+//				offset = 32768.0;
+//			} else if (bitsAllocated == 8) {
+//				// Signed 8-bitの場合（稀）
+//				offset = 128.0;
+//			}
+//		}
+//
+//		/*
+//		 * 3. Rescale Slope/Intercept の考慮 DICOMのWL/WWは「Rescale適用後の値（HUなど）」で定義されています。
+//		 * ImageProcessor.setMinAndMax() は「生のピクセル値」に対して行う必要があるため、
+//		 * 逆計算をして生のピクセル値ベースのMin/Maxを求めます。
+//		 */
+//		double slope = header.getDouble(Tag.Rescale​Slope, 1.0);
+//		double intercept = header.getDouble(Tag.Rescale​Intercept, 0.0);
+//
+//		// 表示範囲の最小・最大を計算 (物理単位)
+//		double minPhys = wl - (ww / 2.0);
+//		double maxPhys = wl + (ww / 2.0);
+//
+//		// 生のピクセル値 (ImageJの内部値) に逆変換
+//		// 物理値 = (raw - offset) * slope + intercept
+//		// => raw = ((物理値 - intercept) / slope) + offset
+//		double rawMin = ((minPhys - intercept) / slope) + offset;
+//		double rawMax = ((maxPhys - intercept) / slope) + offset;
+//		changeWindowingByMinMax(rawMin, rawMax);
+//	}
+	
+	/**
+	 * 12 bit対応バージョン 
+	 */
 	public void resetContrast() {
-		// adjust WW/WL
+		// 1. Window Center / Width の取得と有限性チェック
 		Double wl = header.getDouble(Tag.Window​Center, Double.NaN);
 		Double ww = header.getDouble(Tag.Window​Width, Double.NaN);
-		if (wl.isNaN() || ww.isNaN()) {
+		if (!Double.isFinite(wl) || !Double.isFinite(ww)) {
 			autoWindowing();
 			return;
 		}
+
+		// 不正データ対策：Window Width が 1 未満の場合は強制的に 1 にする（DICOM規格の防衛）
+		if (ww < 1.0) {
+			ww = 1.0;
+		}
+
 		/*
-		 * * 2. オフセットの計算 ImageJのShortProcessorはUnsigned 16-bit(0-65535)として扱うため、
-		 * Signedデータを読み込む際に足し合わせたオフセットを引いて、 WL/WWの基準をImageJのピクセル値に合わせる必要があります。
+		 * 2. 動的なオフセットの計算
+		 * BitsAllocated ではなく、実際にデータが格納されている BitsStored を基準にシフト量を計算します。
+		 * (ImageJの標準DICOMプラグインの符号なし化ロジックと完全に同期させます)
 		 */
 		double offset = 0;
 		boolean isSigned = dcmImg.isSigned();
 		int bitsAllocated = dcmImg.getBitsAllocated();
+		// BitsStored（格納ビット数：12や16など）を取得。無ければAllocatedで代用
+		int bitsStored = header.getInt(Tag.Bits​Stored, bitsAllocated);
 
 		if (isSigned) {
-			if (bitsAllocated == 16) {
-				// Signed 16-bitの場合、通常中心を32768シフトさせている
-				offset = 32768.0;
-			} else if (bitsAllocated == 8) {
-				// Signed 8-bitの場合（稀）
-				offset = 128.0;
-			}
+			// 例: 16bit Allocated であっても、12bit Stored なら (1 << 11) = 2048.0 になる
+			offset = (double) (1 << (bitsStored - 1));
 		}
 
 		/*
-		 * 3. Rescale Slope/Intercept の考慮 DICOMのWL/WWは「Rescale適用後の値（HUなど）」で定義されています。
-		 * ImageProcessor.setMinAndMax() は「生のピクセル値」に対して行う必要があるため、
-		 * 逆計算をして生のピクセル値ベースのMin/Maxを求めます。
+		 * 3. Rescale Slope/Intercept の考慮
+		 * DICOMのWL/WW（物理空間）から、ImageJ内部の生のピクセル値へと逆算します。
 		 */
 		double slope = header.getDouble(Tag.Rescale​Slope, 1.0);
 		double intercept = header.getDouble(Tag.Rescale​Intercept, 0.0);
@@ -1116,10 +1172,22 @@ public class SlideGlass extends JLayeredPane {
 		double maxPhys = wl + (ww / 2.0);
 
 		// 生のピクセル値 (ImageJの内部値) に逆変換
-		// 物理値 = (raw - offset) * slope + intercept
-		// => raw = ((物理値 - intercept) / slope) + offset
 		double rawMin = ((minPhys - intercept) / slope) + offset;
 		double rawMax = ((maxPhys - intercept) / slope) + offset;
+
+		// ★★★ 修正ポイント: ビット深度に応じた値の範囲内への安全クランピング ★★★
+		double maxPossibleValue = (double) ((1 << bitsAllocated) - 1); // 16bitなら65535.0、8bitなら255.0
+		
+		rawMin = Math.max(0.0, Math.min(maxPossibleValue, rawMin));
+		rawMax = Math.max(0.0, Math.min(maxPossibleValue, rawMax));
+
+		// 万が一Slopeが負の画像などでMin/Maxが逆転した場合の最終保険
+		if (rawMin > rawMax) {
+			double tmp = rawMin;
+			rawMin = rawMax;
+			rawMax = tmp;
+		}
+
 		changeWindowingByMinMax(rawMin, rawMax);
 	}
 
@@ -1510,6 +1578,15 @@ public class SlideGlass extends JLayeredPane {
 	public void setWindowingState(boolean windowing) {
 		this.windowing = windowing;
 	}
+	
+	/**
+     * リスナーからアニメーションの進捗と座標を受け取り、再描画を要求します。
+     */
+    public void setGhostProgress(int angle, java.awt.Point location) {
+        this.ghostProgressAngle = angle;
+        this.ghostProgressLocation = location;
+        repaint(); // 値が更新されたら再描画
+    }
 
 	public void showBorder(boolean mouseEntered) {
 		Border b = BorderMaker.make(this, mouseEntered);
@@ -1791,4 +1868,33 @@ public class SlideGlass extends JLayeredPane {
 			Log.logger.fine("restoreState finished.");
 		}
 	}
+	
+	@Override
+    public void paint(java.awt.Graphics g) {
+        super.paint(g); // 元の画像やOverlayの描画を先に済ませる
+
+        // アニメーションが有効な場合のみ、最前面に円を描画する
+        if (ghostProgressAngle > 0 && ghostProgressLocation != null) {
+            java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
+            // アンチエイリアスを有効にして円を滑らかにする
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int radius = 25; // 円の半径
+            int x = ghostProgressLocation.x - radius;
+            int y = ghostProgressLocation.y - radius;
+
+            // 背景の薄いガイド円を描画（任意）
+            g2d.setColor(new java.awt.Color(255, 255, 255, 100)); // 半透明の白
+            g2d.setStroke(new java.awt.BasicStroke(4.0f));
+            g2d.drawOval(x, y, radius * 2, radius * 2);
+
+            // 進捗を示す円弧を描画
+            g2d.setColor(new java.awt.Color(0, 153, 255, 220)); // 鮮やかなブルー
+            // drawArc(x, y, w, h, 開始角度, 描画角度)
+            // 90度が時計の12時方向、マイナスの値を指定すると時計回りに描画されます
+            g2d.drawArc(x, y, radius * 2, radius * 2, 90, -ghostProgressAngle);
+
+            g2d.dispose();
+        }
+    }
 }

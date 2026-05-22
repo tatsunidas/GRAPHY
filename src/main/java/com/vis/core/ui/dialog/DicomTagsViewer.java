@@ -42,13 +42,13 @@ import javax.swing.JTable;
  */
 public class DicomTagsViewer extends javax.swing.JFrame {
 
-	//debug
+	// debug
 	public static void main(String args[]) {
 
 		String parent = "E:\\Dropbox\\Graphy-WorkSpace2\\graphy-parent\\graphy-core\\src\\test\\resources\\JIRA_DICOM\\";
 		String testCR = parent + "CR_JPG_IR87a.dcm";
 //		String testNM = parent + "NM_LEE_IR87.dcm";		
-		
+
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
@@ -76,9 +76,9 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		setUp(dcm.getAbsolutePath());
 		setVisible(true);
 	}
-	
+
 	public DicomTagsViewer(DICOMNode node) {
-		if(node.getLevel()!=DICOMNode.IMAGE) {
+		if (node.getLevel() != DICOMNode.IMAGE) {
 			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "-DicomTagsViewer-\nPlease select image row.");
 			return;
 		}
@@ -91,31 +91,42 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		setUp(p2img);
 		setVisible(true);
 	}
-	
-	void setUp(String p2dcm){
-		DicomTagsParser tagReader = new DicomTagsParser();
-		tagsArray2 = tagReader.read(p2dcm);
+
+	/**
+	 * DicomObjectからタグビューアを生成するコンストラクタ
+	 */
+	public DicomTagsViewer(com.vis.dicom.DicomObject dcmObj) {
+		// DicomObjectからタグモデルのリストを生成（メソッドはステップ3で作成）
+		ArrayList<DicomTagModel> list = parseFromDicomObject(dcmObj, 0);
+
+		// 共通化されたUI構築メソッドを呼び出す
+		setUpUI(list);
+		setVisible(true);
+	}
+
+	// 既存のsetUpメソッドからUI構築部分を切り出した新しいメソッド
+	private void setUpUI(ArrayList<DicomTagModel> tagsList) {
+		this.tagsArray2 = tagsList;
 		constructTableDataUsinfDicomTags();
-		//UI
+
+		// 既存の setUp にあったUI構築コードをここに移植します
 		scrollPane = new JScrollPane();
 		getContentPane().add(scrollPane, BorderLayout.CENTER);
 		model = new DefaultTableModel(tagsData, tagViewHeader);
 		dicomTagTable = new JTable(model);
-		
-		// ★追加：テーブルの自動リサイズをオフにし、水平スクロールを有効にする
-		dicomTagTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
-		// ★追加：各列の初期の推奨幅（ピクセル）を設定して見やすくする
+		dicomTagTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		if (dicomTagTable.getColumnModel().getColumnCount() == 4) {
-			dicomTagTable.getColumnModel().getColumn(0).setPreferredWidth(150); // gggg,eeee (ネストの > が入るため少し広め)
-			dicomTagTable.getColumnModel().getColumn(1).setPreferredWidth(250); // Name
-			dicomTagTable.getColumnModel().getColumn(2).setPreferredWidth(50); // VR
-			dicomTagTable.getColumnModel().getColumn(3).setPreferredWidth(450); // Value (値が長いことが多いので広め)
+			dicomTagTable.getColumnModel().getColumn(0).setPreferredWidth(150);
+			dicomTagTable.getColumnModel().getColumn(1).setPreferredWidth(250);
+			dicomTagTable.getColumnModel().getColumn(2).setPreferredWidth(50);
+			dicomTagTable.getColumnModel().getColumn(3).setPreferredWidth(450);
 		}
-		
+
 		scrollPane.setViewportView(dicomTagTable);
 		renderer = new HighlightTableCellRenderer();
 		dicomTagTable.setDefaultRenderer(Object.class, renderer);
+
 		JPanel searchPanel = new JPanel();
 		getContentPane().add(searchPanel, BorderLayout.NORTH);
 		JLabel lblSearch = new JLabel("Search : ");
@@ -124,8 +135,7 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		textField.getDocument().addDocumentListener(new SimpleDocumentListener() {
 			@Override
 			public void update(DocumentEvent e) {
-				if(renderer != null) {
-					System.out.println(textField.getText());
+				if (renderer != null) {
 					renderer.setPattern(textField.getText());
 					repaint();
 				}
@@ -136,18 +146,74 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		pack();
 	}
 
-//	private void constructTableData() {
-//		if (tagsArray.size() < 1) {
-//			return;
-//		}
-//		tagsData = new Object[tagsArray.size()][];
-//		int num = 0;
-//		for (String[] item : tagsArray) {
-//			tagsData[num] = (Object[]) item;
-//			num++;
-//		}
-//	}
+	// 既存のsetUpメソッドは、データ取得後にsetUpUIを呼ぶ形に変更します
+	void setUp(String p2dcm) {
+		DicomTagsParser tagReader = new DicomTagsParser();
+		ArrayList<DicomTagModel> list = tagReader.read(p2dcm);
+		setUpUI(list); // 切り出したメソッドを呼び出す
+	}
 	
+	/**
+	 * DicomObjectを走査してDicomTagModelのリストを作成します（再帰対応版）
+	 */
+	private ArrayList<DicomTagModel> parseFromDicomObject(com.vis.dicom.DicomObject dcm, int depth) {
+		ArrayList<DicomTagModel> list = new ArrayList<>();
+		if (dcm == null) return list;
+
+		int[] tags = dcm.tags();
+		if (tags == null) return list;
+
+		for (int tagNum : tags) {
+			DicomTagModel model = new DicomTagModel();
+
+			// 1. タグ番号の文字列化とネスト(depth)の表現（例: >>0010,0010）
+			String tagStr = org.dcm4che3.util.TagUtils.toString(tagNum);
+			if (depth > 0) {
+				StringBuilder prefix = new StringBuilder();
+				for (int i = 0; i < depth; i++) {
+					prefix.append(">");
+				}
+				tagStr = prefix.toString() + tagStr;
+			}
+			model.setTag(tagStr);
+
+			// 2. VRとタグ名のセット
+			com.vis.dicom.VR vr = dcm.getVROn(tagNum);
+			model.setVR(vr != null ? vr.name() : "");
+			model.setTagName(org.dcm4che3.data.ElementDictionary.keywordOf(tagNum, null));
+
+			// 3. 値の取得とSQ（Sequence）の再帰処理
+			if (vr != null && vr.name().equals("SQ")) {
+				model.setTagValue(""); // SQ（親）自体は値を持たないので空文字
+				list.add(model);
+				
+				// ご指摘の getNestedDataset(tag, itemIndex) を使用してループ処理
+				int itemIndex = 0;
+				while (true) {
+					// 指定インデックスの Item (データセット) を取得
+					com.vis.dicom.DicomObject nestedDcm = dcm.getNestedDataset(tagNum, itemIndex);
+					
+					// 該当するインデックスに Item がなくなったら（nullが返ってきたら）ループ終了
+					if (nestedDcm == null) {
+						break;
+					}
+					
+					// 深さ（depth）を 1 加算して、ネストされたデータセットを再帰的に解析
+					ArrayList<DicomTagModel> nestedList = parseFromDicomObject(nestedDcm, depth + 1);
+					list.addAll(nestedList);
+					
+					itemIndex++;
+				}
+			} else {
+				// 通常のタグの場合は文字列として値を取得
+				String value = dcm.getString(tagNum);
+				model.setTagValue(value != null ? value : "");
+				list.add(model);
+			}
+		}
+		return list;
+	}
+
 	private void constructTableDataUsinfDicomTags() {
 		if (tagsArray2.size() < 1) {
 			return;
@@ -156,10 +222,10 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 		int num = 0;
 		for (DicomTagModel item : tagsArray2) {
 			Object row[] = new Object[4];
-			row[0] = (Object)item.getTag();
-			row[1] = (Object)item.getTagName();
-			row[2] = (Object)item.getVR();
-			row[3] = (Object)item.getTagValue();
+			row[0] = (Object) item.getTag();
+			row[1] = (Object) item.getTagName();
+			row[2] = (Object) item.getVR();
+			row[3] = (Object) item.getTagValue();
 			tagsData[num] = row;
 			num++;
 		}

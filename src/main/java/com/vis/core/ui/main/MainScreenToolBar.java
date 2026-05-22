@@ -53,7 +53,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.tree.DefaultMutableTreeNode;
 
 import com.vis.configuration.Resources;
 import com.vis.core.anonymize.PixelAnonymizerDialog;

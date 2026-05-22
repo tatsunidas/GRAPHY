@@ -39,8 +39,8 @@ public class ColorBar extends JLabel implements ComponentListener{
 				}
 				LutPicker p = new LutPicker();
 				p.setLocationRelativeTo(praparat());
-				LUT lut = p.run();
-				praparat().setLUT(lut);
+				Object[] lutAndName = p.run();
+				praparat().setLUT(lutAndName[0]==null? null:(LUT)lutAndName[0], (String)lutAndName[1]);
 			}
 		});
 		setLUT(null);

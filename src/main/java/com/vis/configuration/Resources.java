@@ -239,6 +239,17 @@ public enum Resources {
 		return null;
 	}
 	
+	public static ij.process.LUT loadLUT(String name) {
+		File appDir = Platform.getAppDirectory();
+		File lut = new File(appDir.getAbsolutePath() + File.separator + "luts"+ File.separator + name +".lut");
+		if (lut.exists()) {
+			return LutLoader.openLut(lut.getAbsolutePath());
+		} else {
+			// debug
+			return LutLoader.openLut(new File("./luts/"+name+".lut").getAbsolutePath());
+		}
+	}
+	
 	public static HashMap<String,ij.process.LUT> loadAllLUT() {
 		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
 		File appDir = Platform.getAppDirectory();
@@ -259,6 +270,61 @@ public enum Resources {
 		}
 		return luts;
 	}
+	
+	/**
+     * アプリケーションと同階層にある lut (または luts) フォルダを走査し、
+     * 格納されているすべてのLUTファイル名（拡張子なし）の配列を取得します。
+     * * @return LUT名の配列。フォルダが存在しない場合はデフォルトの "Grayscale" を返します。
+     */
+    public static String[] getLutNames() {
+        // 1. フォルダの特定（"lut" フォルダを優先し、無ければ "luts" を探す）
+        java.io.File lutDir = new java.io.File("lut");
+        if (!lutDir.exists() || !lutDir.isDirectory()) {
+            lutDir = new java.io.File("luts");
+        }
+
+        // フォルダが見つからない場合の安全策
+        if (!lutDir.exists() || !lutDir.isDirectory()) {
+            com.vis.core.log.Log.logger.warning("LUT directory not found. Returning default list.");
+            return new String[] { "Grayscale" };
+        }
+
+        // 2. フォルダ内のファイルを走査（隠しファイルなどは除外）
+        java.io.File[] files = lutDir.listFiles(new java.io.FileFilter() {
+            @Override
+            public boolean accept(java.io.File pathname) {
+                return pathname.isFile() && !pathname.isHidden();
+            }
+        });
+
+        if (files == null || files.length == 0) {
+            return new String[] { "Grayscale" };
+        }
+
+        // 3. ファイル名から拡張子を取り除き、リストに追加
+        java.util.List<String> nameList = new java.util.ArrayList<>();
+        nameList.add("Grayscale"); // デフォルトLUTとして常に先頭に配置しておくのがオススメです
+
+        for (java.io.File f : files) {
+            String fileName = f.getName();
+            
+            // 拡張子を取り除く処理 (例: "S_Pet.lut" -> "S_Pet")
+            int dotIndex = fileName.lastIndexOf('.');
+            String lutName = (dotIndex > 0) ? fileName.substring(0, dotIndex) : fileName;
+
+            // 重複を防ぐ（大文字小文字の違い等も考慮する場合は適宜調整）
+            if (!nameList.contains(lutName) && !"Grayscale".equalsIgnoreCase(lutName)) {
+                nameList.add(lutName);
+            }
+        }
+
+        // 4. UIで見やすいように、"Grayscale" 以降をアルファベット順にソート
+        if (nameList.size() > 1) {
+            java.util.Collections.sort(nameList.subList(1, nameList.size()));
+        }
+
+        return nameList.toArray(new String[0]);
+    }
 	
 	public static String i18n(String key) {
 		return ResourceBundle.getBundle("i18n.i18n").getString(key);

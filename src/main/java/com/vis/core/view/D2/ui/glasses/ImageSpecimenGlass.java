@@ -413,17 +413,27 @@ public class ImageSpecimenGlass extends JPanel{
 			if(sg.isInverted()) {
 				sg.imgProcess.invert(dup);
 			}
-			// Overlay（フュージョン画像など）が存在する場合は、BufferedImage化する前に焼き付ける
-			/*
-			 * flatten() のタイミングでの透明度（Opacity）の指定は不要です！
-			 * すでに Praparat.java 側で Overlay に追加する前の ImageRoi に対して、以下のコードで透明度を設定済みだからです。
-			 */
-			if (orgImg.getOverlay() != null) {
-				dup.setOverlay(orgImg.getOverlay()); // コピー先のImagePlusにOverlayを転写
-				dup = dup.flatten(); // Overlayを焼き付けてRGB画像化
-			}
+			
+			ImagePlus safeOrgImg = getOriginalImage(); // 現在の画像をローカル変数に退避してロックする
+            
+            if (safeOrgImg != null && safeOrgImg.getOverlay() != null) {
+                dup.setOverlay(safeOrgImg.getOverlay()); 
+                ImagePlus flat = dup.flatten(); 
+                if (flat != null) {
+                    dup = flat; // 成功した時だけ上書き
+                } else {
+                    return; // 失敗時は安全にスキップ
+                }
+            }
+			
 			//create image to display
 			BufferedImage srcImg = dup.getBufferedImage();
+			
+			// メモリ逼迫時やリサイズ時の null ガード ★★★
+            // ImageJが画像の生成をスキップして null を返した場合は、一旦描画を中断する
+            if (srcImg == null) {
+                return;
+            }
 
 			int w = Math.max(1, getWidth()/*表示するコンポーネントサイズにする*/);
 			int h = Math.max(1, getHeight()/*表示するコンポーネントサイズにする*/);

@@ -63,16 +63,19 @@ import javax.swing.Timer;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.fusion.FusionControlDialog;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.CenterPositionLine;
 import com.vis.core.slicer.SlicerWindow;
 import com.vis.core.slicer.ReferenceLineMPR;
+import com.vis.core.ui.dialog.DicomTagsViewer;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.dicom.DicomObject;
 
 /**
  * @author tatsunidas
@@ -86,10 +89,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	private int viewerToolType = Viewer2DToolBar.Windowing;
 	
 	/* ghost dragging */
-	private Timer longPressTimer;
-	private int pressingTimeToBeGhost = 1500;
-	private int GHOST_MOVEMENT_THRESHOLD = 3;
+	private Timer ghostTimer;
+	private final static int pressingTimeToBeGhost = 1200;// Ghostが表示されるまでの時間（ミリ秒）
+	private int GHOST_MOVEMENT_THRESHOLD = 5;
 	boolean isGhostDragging = false;
+	private int currentAngle = 0;
+    private java.awt.Point dragStartPoint = null;
+    private static final int FPS = 30;           // アニメーションの更新間隔（約33fps）
+    private static final int ANGLE_STEP = 360 / (pressingTimeToBeGhost / FPS); // 1フレームあたりの進行角度
 		
 	private Logger logger = Log.logger;
 
@@ -99,9 +106,26 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		this.pp = slide.getPraparat();
 		this.prapManager = pp.getEyepiece();
 
-		ActionListener act = e -> startGhostDrag();
-		longPressTimer = new Timer(pressingTimeToBeGhost, act);
-		longPressTimer.setRepeats(false); 
+		ghostTimer = new javax.swing.Timer(FPS, e -> {
+            currentAngle += ANGLE_STEP;
+            
+            if (currentAngle >= 360) {
+                // 100%に到達した場合
+                currentAngle = 0;
+                ghostTimer.stop();
+                slide.setGhostProgress(0, null); // インジケーターを消す
+                
+                // ★★★ ここで既存の「Ghostを表示する処理」を呼び出します ★★★
+                startGhostDrag();
+                
+            } else {
+                // 途中経過をSlideGlassに渡して描画させる
+                if (dragStartPoint != null) {
+                    slide.setGhostProgress(currentAngle, dragStartPoint);
+                }
+            }
+        });
+		ghostTimer.setRepeats(true); 
 	}
 
 	@Override
@@ -166,6 +190,21 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int y = e.getY();
 		viewerToolType = pp.getViewer2DToolType();
 		
+		if (dragStartPoint != null) {
+            // マウスの移動距離を計算
+            double distance = e.getPoint().distance(dragStartPoint);
+            
+            // 閾値（HOLD_THRESHOLD）以上動いたら、ホールドが解除されたとみなす
+            if (distance > GHOST_MOVEMENT_THRESHOLD) {
+                currentAngle = 0; // 進行度をリセット
+                dragStartPoint = e.getPoint(); // 新しい座標を基準にする
+                slide.setGhostProgress(0, null);
+                
+                // 動かし続けている間は一度タイマーを止めるか、その場で再スタートさせる
+                ghostTimer.restart(); 
+            }
+        }
+		
 		if(pp.mode == ViewMode.MPR) {
 			Eyepiece eye = pp.getEyepiece();
 			if (eye != null) {
@@ -204,7 +243,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		Point current = e.getPoint();
 		Point pressPoint = new Point(slide.lastPressedX, slide.lastPressedY);
 		if (pressPoint.distance(current) > GHOST_MOVEMENT_THRESHOLD) {
-			longPressTimer.stop();
+			ghostTimer.stop();
 		}
 
 		if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
@@ -309,6 +348,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		viewerToolType = pp.getViewer2DToolType();
 		if (pp.getViewMode() == ViewMode.Thumbnail) viewerToolType = Viewer2DToolBar.Windowing;
 		
+		// right click
+		if (e.isPopupTrigger()) {
+			showPopupMenu(e);
+			return;
+		}
+		
 		slide.mouseX = e.getX();
 		slide.mouseY = e.getY();
 		slide.lastDraggedX = e.getX();
@@ -322,8 +367,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			pp.setImagePositionTo(slide);
 		}
 		
-		isGhostDragging = false;		
-		longPressTimer.start();
+		isGhostDragging = false;
+        dragStartPoint = e.getPoint();
+        currentAngle = 0;
+        
+        // Ghost起動条件に合致するボタン（左クリック等）ならタイマー開始
+        if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+            ghostTimer.start();
+        }
 		
 		if (SwingUtilities.isLeftMouseButton(e) && !e.isShiftDown()) {
 			if(pp.mode == ViewMode.MPR) {
@@ -341,7 +392,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if(refLines != null) {
 					refLines.mousePressed(pp, e.getX(), e.getY());
 					if(refLines.getState() != RoiObj.NORMAL) {
-						longPressTimer.stop(); 
+						ghostTimer.stop(); 
 						return;
 					}
 				}
@@ -365,7 +416,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		if (SwingUtilities.isLeftMouseButton(e)) {
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
-				longPressTimer.stop();
+				ghostTimer.stop();
 				cg.mousePressed(e);
 				return;
 			}
@@ -374,8 +425,14 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
-		longPressTimer.stop();
+		ghostTimer.stop();
 		viewerToolType = pp.getViewer2DToolType();
+		
+		//right click
+		if (e.isPopupTrigger()) {
+			showPopupMenu(e);
+			return;
+		}
 		
 		if(Viewer2DToolBar.isRoiTool(viewerToolType) || viewerToolType == Viewer2DToolBar.Brush) {
 			cg.mouseReleased(e);
@@ -399,6 +456,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			ggp.setVisible(false);
 			prapManager.setDraggingComponent(null);
 			isGhostDragging = false;
+			ghostTimer.stop();
+	        currentAngle = 0;
+	        dragStartPoint = null;
+	        slide.setGhostProgress(0, null);
 			e.consume();
 		}
 	}
@@ -494,4 +555,56 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		ggp.startDrag(img, mouseLoc);
 		ggp.setVisible(true);
 	}
+	
+	private void showPopupMenu(MouseEvent e) {
+        javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
+        
+        // 1. リセットメニューアイテム
+        javax.swing.JMenuItem resetItem = new javax.swing.JMenuItem("Reset");
+        resetItem.addActionListener(ae -> {
+            pp.resetView(); // Step 1でdisableFusionModeと連動させたので、これだけで両方解除されます
+        });
+        popup.add(resetItem);
+        
+		// 2. Tag表示メニューアイテム
+		javax.swing.JMenuItem tagItem = new javax.swing.JMenuItem("Show DicomTags");
+		tagItem.addActionListener(ae -> {
+			// 現在表示中の SlideGlass を安全に取得
+			SlideGlass currentSlide = pp.getCurrentSlide();
+
+			// ファイルソース（画像データ）が存在するかチェック
+			if (currentSlide != null && pp.hasFileSource(pp.getCurrentSlideZCTIndex())) {
+				// 各SlideGlass、またはDicomImageが保持しているファイルパスを直接取得
+				// ※DicomImageのパス取得メソッド（getFilePath()等）に合わせて適宜変えてください
+				DicomObject dcm = currentSlide.getDicomImage().getHeader();
+				if (dcm != null) {
+					DicomTagsViewer tv = new DicomTagsViewer(dcm);
+					tv.setLocationRelativeTo(pp);
+					return; // 正常終了
+				}
+			}
+
+			// 画像がない空きマス、またはファイル実体がない場合
+			javax.swing.JOptionPane.showMessageDialog(pp,
+					"DicomTags cannot show.\nSelected image does not have dicom header.", "Warning",
+					javax.swing.JOptionPane.WARNING_MESSAGE);
+		});
+		popup.add(tagItem);
+        
+        // 3. FusionControlメニューアイテム（Praparatがフュージョン状態のときのみリストされる）
+        if (pp.isFusionMode()) {
+            popup.addSeparator(); // 区切り線
+            javax.swing.JMenuItem fusionCtrlItem = new javax.swing.JMenuItem("Fusion Control");
+            fusionCtrlItem.addActionListener(ae -> {
+                // 現在の最前面ウィンドウを親として、コントロールダイアログを起動
+                java.awt.Window parentWindow = javax.swing.SwingUtilities.getWindowAncestor(slide);
+                FusionControlDialog dialog = new FusionControlDialog(parentWindow, pp);
+                dialog.setVisible(true);
+            });
+            popup.add(fusionCtrlItem);
+        }
+        
+        // マウスがクリックされたコンポーネント上の座標にメニューを表示
+        popup.show(e.getComponent(), e.getX(), e.getY());
+    }
 }

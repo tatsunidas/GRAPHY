@@ -326,7 +326,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 		visGridPanel.add(fusionImagePanel);
 		visualizationPanel.add(visGridPanel, BorderLayout.CENTER);
 		
-		radiomicsMapPanel.setLUT(defaultRadiomicsMapLut);
+		radiomicsMapPanel.setLUT(defaultRadiomicsMapLut, "S_PET");
 
 		// Fusion
 		JPanel fusionControlsPanel = new JPanel();

@@ -147,7 +147,8 @@ public class Praparat extends JPanel {
 	// component
 	private PraparatViewControlPanel pvcp;
 	private JPanel viewPanel;
-	ColorBar lutManager;
+	ColorBar colorBar;
+	private String currentLutName = "Grayscale";
 	private SlideGlassGrid gridScrollPane;
 
 	// resize timer
@@ -171,6 +172,8 @@ public class Praparat extends JPanel {
 	private boolean isFusionMode = false;
 	private Praparat foregroundPraparat = null;
 	private double currentFusionOpacity = 0.5;
+	private int fusionOffsetX = 0;
+    private int fusionOffsetY = 0;
 	
 	/*
 	 * ZCT index to handle multi-channel
@@ -1670,6 +1673,10 @@ public class Praparat extends JPanel {
 	public LUT getLUT() {
 		return this.lut;
 	}
+	
+	public String getLUTName() {
+		return currentLutName;
+	}
 
 	public int getNumberOfImages() {
 		return slides.size();
@@ -2010,10 +2017,10 @@ public class Praparat extends JPanel {
 
 		JPanel southComponentPanel = new JPanel(new BorderLayout());
 		
-		lutManager = new ColorBar(this, 10, 10);
+		colorBar = new ColorBar(this, 10, 10);
 //		JPanel lutPanel = new JPanel(new GridLayout(0, 1));
 //		lutPanel.add(lutManager);
-		southComponentPanel.add(lutManager, BorderLayout.NORTH);
+		southComponentPanel.add(colorBar, BorderLayout.NORTH);
 		
 		sliderPanel = new JPanel(new GridLayout(0, 1));
 		slider = new CineSlider(this, "Slice"); // ★ 引数にラベルを追加できるよう後でCineSliderも改修します
@@ -2926,6 +2933,10 @@ public class Praparat extends JPanel {
 		// 1. コントロールパネルとラベルの初期化
 		pvcp.setProcessSeries(true);
 		updateInfoLabel(-1, -1, "-1", new double[] { -1, -1 }, -1, -1);
+		
+		if (isFusionMode) {
+            disableFusionMode();
+        }
 
 		// 2. グリッド表示の解除
 		if (isShowGridViewOn()) {
@@ -3345,9 +3356,10 @@ public class Praparat extends JPanel {
         this.localToolType = toolType;
     }
 
-	public void setLUT(LUT lut) {
-		lutManager.setLUT(lut);
+	public void setLUT(LUT lut, String LutName) {
+		colorBar.setLUT(lut);
 		this.lut = lut;
+		this.currentLutName = LutName;
 		if (isProcessSeries()) {
 			synchronized (slides) {
 				for (Integer key : slides.keySet()) {
@@ -3843,6 +3855,23 @@ public class Praparat extends JPanel {
 			}
 
 			ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
+			
+			// 背景と前景の IOP (Image Orientation Patient) を取得
+            double[] bgIop = getSafeIOP(bgSg.getHeader(), bgFrameIdx);
+            double[] fgIop = getSafeIOP(matchedFgSg.getHeader(), fgFrameToExtract);
+            
+            if (bgIop != null && fgIop != null && bgIop.length == 6 && fgIop.length == 6) {
+                // X軸（Row方向）のベクトルの内積を計算。逆向き（-1付近）なら左右反転
+                double rowDot = bgIop[0] * fgIop[0] + bgIop[1] * fgIop[1] + bgIop[2] * fgIop[2];
+                if (rowDot < -0.5) {
+                    fgProcessor.flipHorizontal();
+                }
+                // Y軸（Col方向）のベクトルの内積を計算。逆向き（-1付近）なら上下反転
+                double colDot = bgIop[3] * fgIop[3] + bgIop[4] * fgIop[4] + bgIop[5] * fgIop[5];
+                if (colDot < -0.5) {
+                    fgProcessor.flipVertical();
+                }
+            }
 
 			// 表示上の最大値ではなく「実際のデータの最大値（stats.max = 1.0）」を正確に取得
 			ij.process.ImageStatistics stats = fgProcessor.getStatistics();
@@ -3895,7 +3924,7 @@ public class Praparat extends JPanel {
 			// ピクセルを書き換えたRGB版に差し替え
 			fgProcessor = rgbProcessor;
 
-			ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(0, 0, fgProcessor);
+			ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(fusionOffsetX, fusionOffsetY, fgProcessor);
 			imageRoi.setZeroTransparent(true); // RGBの 0x000000 は確実に100%透明に抜ける
 			imageRoi.setOpacity(currentFusionOpacity);
 			imageRoi.setName("FusionROI_" + bgSopUid);
@@ -3927,6 +3956,53 @@ public class Praparat extends JPanel {
             }
         }
         repaint();
+    }
+    
+    /**
+     * コントロールダイアログ等から透過度と位置シフトの指示を受け取り、動的にフュージョンをアップデートします。
+     */
+    public void updateFusionParameters(double opacity, int xShift, int yShift) {
+        this.currentFusionOpacity = opacity;
+        this.fusionOffsetX = xShift;
+        this.fusionOffsetY = yShift;
+        
+        if (isFusionMode) {
+            // 現在メモリ上にある（表示中＋キャッシュ先読み済みの）スライドに即座に新パラメータを再適用
+            for (Integer zct : this.slides.keySet()) {
+                SlideGlass bgSg = this.slides.get(zct);
+                if (bgSg != null && bgSg.getOriginalImage() != null) {
+                    applyFusionOverlayToSlide(zct, bgSg);
+                    bgSg.updateDisplayImage();
+                }
+            }
+            repaint();
+        }
+    }
+
+    // 4. ダイアログ側で現在の値を初期値として読み込めるよう、Getterを追加します
+    public boolean isFusionMode() { return this.isFusionMode; }
+    public double getCurrentFusionOpacity() { return this.currentFusionOpacity; }
+    public int getFusionOffsetX() { return this.fusionOffsetX; }
+    public int getFusionOffsetY() { return this.fusionOffsetY; }
+    
+    public Praparat getFusionForegroundPraparat() {
+    	return foregroundPraparat;
+    }
+    
+    /**
+     * コントロールダイアログ等からLUT（カラーマップ）の変更指示を受け取り、
+     * 前景画像に適用してフュージョン表示を更新します。
+     */
+    public void updateFusionLUT(ij.process.LUT newLut, String lutName) {
+        if (foregroundPraparat != null) {
+            // 前景のPraparat自体のLUTを書き換える
+            // ※既存のメソッド名（setLUT や changeLUT など）に合わせて調整してください
+            foregroundPraparat.setLUT(newLut, lutName); 
+            
+            // 現在表示中のフュージョンを新しいLUTで再計算してリフレッシュ
+            // (Step 1で追加した updateFusionParameters と同様の一括更新を行う)
+            updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX, this.fusionOffsetY);
+        }
     }
 
 	@Override
