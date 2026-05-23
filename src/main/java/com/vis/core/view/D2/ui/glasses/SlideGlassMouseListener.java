@@ -187,6 +187,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		int x = e.getX();
 		int y = e.getY();
 		viewerToolType = pp.getViewer2DToolType();
+		boolean isThumbnail = pp.getViewMode() == ViewMode.Thumbnail;
 		
 		boolean isRoiTool = (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType));
 		
@@ -199,7 +200,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
                 currentAngle = 0; // 進行度をリセット
                 dragStartPoint = e.getPoint(); // 新しい座標を基準にする
                 slide.setGhostProgress(0, null);
-                if (!isRoiTool) {
+                if (!isRoiTool && !isThumbnail) {
                     ghostTimer.restart(); 
                 } else {
                     ghostTimer.stop();
@@ -349,7 +350,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	@Override
 	public void mousePressed(MouseEvent e) {
 		viewerToolType = pp.getViewer2DToolType();
-		if (pp.getViewMode() == ViewMode.Thumbnail) viewerToolType = Viewer2DToolBar.Windowing;
+		boolean isThumbnail = (pp.getViewMode() == ViewMode.Thumbnail);
+		if (isThumbnail) viewerToolType = Viewer2DToolBar.Windowing;
 		
 		// right click
 		if (e.isPopupTrigger()) {
@@ -377,7 +379,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
         currentAngle = 0;
         
         // Ghost起動条件に合致するボタン（左クリック等）ならタイマー開始
-        if (javax.swing.SwingUtilities.isLeftMouseButton(e) && !isRoiTool) {
+        if (javax.swing.SwingUtilities.isLeftMouseButton(e) && !isRoiTool && !isThumbnail) {
             ghostTimer.start();
         }
 		

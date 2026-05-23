@@ -622,10 +622,6 @@ public class Praparat extends JPanel {
 			    }
 			}
 			
-			if(getViewMode()==ViewMode.Thumbnail) {
-				isMosaic = false;
-			}
-			
 			/*
 			 * isMultiFrame 1.General image types do not have NumberOfFrames tag.(means -1).
 			 * 2.3d sequence MRI, number of frame is 1 (of each image).
@@ -634,7 +630,7 @@ public class Praparat extends JPanel {
 			this.isMultiFrame = dcm.isMultiFrame();
 			this.isMultiFrame = this.isMultiFrame && dcm.getNumOfFrames() > 1;
 			
-			if (isMosaic) {
+			if (isMosaic && this.mode != ViewMode.Thumbnail) {
 			    // ★ 新規追加: Mosaic画像の展開
 			    loadSlideGlassFromMosaicDicom(imgFiles.get(i), backend);
 			    // rsfMRIは複数のファイル（タイムポイント）が存在するため、breakせずに次のファイルを処理します
@@ -2286,6 +2282,25 @@ public class Praparat extends JPanel {
 	public boolean isMultiDimensional() {
 		return nChannels > 1 || nFrames > 1;
 	}
+	
+	/**
+	 * for fMRI/DTI
+	 * @param sg
+	 * @return
+	 */
+	private boolean isMosaic(SlideGlass sg) {
+	    if (sg == null || sg.getHeader() == null) return false;
+	    String[] imageTypes = sg.getHeader().getStrings(Tag.ImageType);
+	    if (imageTypes != null) {
+	        for (String type : imageTypes) {
+	            if (type != null && type.trim().equalsIgnoreCase("MOSAIC")) return true;
+	        }
+	    } else {
+	        String it = sg.getHeader().getString(Tag.ImageType, "");
+	        return it != null && it.contains("MOSAIC");
+	    }
+	    return false;
+	}
 
 	public boolean isPDF() {
 		return this.isPDF;
@@ -2380,21 +2395,24 @@ public class Praparat extends JPanel {
 		viewPanel.removeAll();
 		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 		
-		// ★ 複製元の多次元プロパティを引き継ぐ
-		this.nSlices = p.nSlices;
-		this.nChannels = p.nChannels;
-		this.nFrames = p.nFrames;
+		// サムネイルモードではファイルが1つしか読まれておらずMosaicも未展開のため、ファイルからフルロードし直す
+		if (p.getViewMode() == ViewMode.Thumbnail && this.mode != ViewMode.Thumbnail) {
+			constructSlideGlassesFromDicom(pathToImages);
+			// 次元(nSlices等)は constructSlideGlassesFromDicom 内で再計算されるため引き継ぎ不要
+		} else {
+			// ★ 複製元の多次元プロパティを引き継ぐ（同モード間などの通常のコピー）
+			this.nSlices = p.nSlices;
+			this.nChannels = p.nChannels;
+			this.nFrames = p.nFrames;
+			constructSlideGlassesFromPraparat(p);
+		}
 
-		constructSlideGlassesFromPraparat(p);
 		applyGlobalAutoWindow();// before slider.initContext
 		currentSliceZCT = -1;
 		
-		constructSlideGlassesFromPraparat(p);
-		applyGlobalAutoWindow();// before slider.initContext
-		currentSliceZCT = -1;
 		updateSlidersVisibility();
 		if (Utils.isDebug) {
-			System.out.println(slides.size() + " images loaded.");
+			Log.logger.fine(slides.size() + " images loaded.");
 		}
 	}
 
@@ -2818,18 +2836,19 @@ public class Praparat extends JPanel {
 	 * @param index : zct
 	 */
 	private void unloadImage(int index) {
-		SlideGlass sg = slides.get(index);
-		if (sg != null && sg.getDicomImage() != null) {
-			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
-			if (isFileBacked) { // ★ 修正
-				// original image to null
-				sg.imageSpecimen.setOriginalImage(null);
-				// bulk file release
-				if (!isMultiFrame()) {
-					sg.getDicomImage().releasePixelBulkFromHeader();
-				}
-			}
-		}
+	    SlideGlass sg = slides.get(index);
+	    if (sg != null && sg.getDicomImage() != null) {
+	        boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
+	        boolean isUnpackedMosaic = isMosaic(sg) && this.mode != ViewMode.Thumbnail;
+	        if (isFileBacked && !isUnpackedMosaic) { 
+	            // original image to null
+	            sg.imageSpecimen.setOriginalImage(null);
+	            // bulk file release
+	            if (!isMultiFrame()) {
+	                sg.getDicomImage().releasePixelBulkFromHeader();
+	            }
+	        }
+	    }
 	}
 
 	/**
@@ -2854,22 +2873,25 @@ public class Praparat extends JPanel {
 			// Praparat全体がファイルソースを持っているかで判定
 			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
 			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
-
-			if (isFileBacked) {
-				// 1. ファイルからピクセルを読み込む
-				if (dcmimg.ensurePixelDataLoaded()) {
-					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
-					sg.imageSpecimen.setOriginalImage(im);
-				}
+			boolean isUnpackedMosaic = isMosaic(sg) && this.mode != ViewMode.Thumbnail;
+			
+			// モザイク画像(fMRI)の場合はファイルからの再ロードを行わず、メモリのデータを直接使う
+			if (isFileBacked && !isUnpackedMosaic) {
+			    // 1. ファイルからピクセルを読み込む
+			    if (dcmimg.ensurePixelDataLoaded()) {
+			        ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
+			        sg.imageSpecimen.setOriginalImage(im);
+			    }
 			} else {
-				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合の処理
-				if (dcmimg != null) {
-					ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
-					if (ip != null) {
-						ImagePlus im = new ImagePlus("" + index, ip);
-						sg.imageSpecimen.setOriginalImage(im);
-					}
-				}
+			    // ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合、およびMosaicの処理
+			    if (dcmimg != null) {
+			        // ※ すでにメモリ上にあるピクセルデータを取得して表示に使う
+			        ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
+			        if (ip != null) {
+			            ImagePlus im = new ImagePlus("" + index, ip);
+			            sg.imageSpecimen.setOriginalImage(im);
+			        }
+			    }
 			}
 
 			double backupMin = sg.currentMin;
