@@ -1285,6 +1285,18 @@ public class Praparat extends JPanel {
 		}
 		return slides;
 	}
+	
+	public SlideGlass getFirstNoEmptySlide() {
+		if (slides != null && slides.size() < 1) {
+			return null;
+		}
+		for (int z =0; z< nSlices; z++) {
+			int zct = calcZctIndex(new int[] {z, 0, 0});
+			SlideGlass sg = getSlideGlassAt(zct);
+			if (sg != null) return sg;
+		}
+		return null;
+	}
 
 	public PraparatViewControlPanel getController() {
 		return pvcp;
@@ -1298,7 +1310,9 @@ public class Praparat extends JPanel {
 	public SlideGlass getCurrentSlide() {
 		if (slides == null || slides.isEmpty()) return null;
 		if (currentSliceZCT == -1) {
-			for (SlideGlass sg : slides.values()) {
+			for (int z =0; z< nSlices; z++) {
+				int zct = calcZctIndex(new int[] {z, 0, 0});
+				SlideGlass sg = getSlideGlassAt(zct);
 				if (sg != null) return sg;
 			}
 		}
