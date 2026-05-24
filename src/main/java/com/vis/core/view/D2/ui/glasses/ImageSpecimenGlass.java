@@ -401,6 +401,38 @@ public class ImageSpecimenGlass extends JPanel{
 		}
 		
 		synchronized (dup) { // ロックを開始
+			// ==========================================================
+						// ★ 新規追加: SUVキャリブレーション（ピクセル値からSUVへのリアルタイム変換）
+						// ==========================================================
+						double suvFactor = sg.getSUVFactor(); // SlideGlassから係数を取得
+						if (suvFactor > 0.0) {
+							ImageProcessor ip = dup.getProcessor();
+							Calibration cal = dup.getCalibration();
+							
+							// 少数点以下の精度を失わないよう、FloatProcessorに変換して処理する
+							if (!(ip instanceof ij.process.FloatProcessor)) {
+								ip = ip.convertToFloat();
+							}
+							float[] pixels = (float[]) ip.getPixels();
+							
+							if (cal != null && cal.calibrated()) {
+								// DICOMの Calibration (Rescale Slope / Intercept) が存在する場合
+								// 1. 生のピクセル値を物理値（Bq/mL 等）に変換
+								// 2. 物理値を suvFactor で割って SUV（g/mL 等）に変換
+								for (int i = 0; i < pixels.length; i++) {
+									double calibratedVal = cal.getCValue(pixels[i]); // Bq/mLに復元
+									pixels[i] = (float) (calibratedVal / suvFactor); // SUVに変換
+								}
+								// ピクセルデータ自体がSUV値に置き換わったため、これ以上の重複補正を防ぐためにCalibrationをリセット
+								dup.setCalibration(null);
+							} else {
+								// Calibrationが存在しない（あるいは適用済み）場合は、単純に suvFactor で割る
+								for (int i = 0; i < pixels.length; i++) {
+									pixels[i] = (float) (pixels[i] / suvFactor);
+								}
+							}
+							dup.setProcessor(ip);
+						}
 			//update transform
 			sg.calculateCurrentAffineTransform();
 			

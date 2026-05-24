@@ -174,6 +174,11 @@ public class Praparat extends JPanel {
 	private double currentFusionOpacity = 0.5;
 	private int fusionOffsetX = 0;
     private int fusionOffsetY = 0;
+    
+    /*
+     * SUV calibration factor
+     */
+    private double suvFactor = 0.0;
 	
 	/*
 	 * ZCT index to handle multi-channel
@@ -3136,6 +3141,36 @@ public class Praparat extends JPanel {
 			if (sg != null) sg.autoWindowing();
 		}
 	}
+	
+	/**
+     * SUV校正係数を設定し、配下のすべてのSlideGlassに伝搬して画面を更新します。
+     * @param factor 算出したSUV Factor
+     */
+    public void setSUVFactor(double factor) {
+        this.suvFactor = factor;
+        Log.logger.info("Praparat: SUV Factor set to " + factor + ". Propagating to all SlideGlasses...");
+
+        // 1. 配下のすべてのSlideGlassに係数を伝搬
+        if (this.slides != null) { // ※ 実際のコレクション名（getAllSlides()等）に合わせて調整してください
+            for (SlideGlass sg : this.slides.values()) {
+                if (sg != null) {
+                    sg.setSUVFactor(factor);
+                }
+            }
+        }
+
+        // 2. 表示画像をアップデート（再計算・再描画）
+        // ※ 既存のフュージョン更新メソッドや、描画リフレッシュ用メソッドを呼び出します
+        // 例：updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX, this.fusionOffsetY);
+        repaint(); 
+    }
+
+    /**
+     * 現在保持しているSUV校正係数を取得します。
+     */
+    public double getSUVFactor() {
+        return this.suvFactor;
+    }
 
 	/**
 	 * 

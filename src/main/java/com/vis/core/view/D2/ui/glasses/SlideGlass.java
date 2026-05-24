@@ -181,6 +181,11 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	private double scaleX = 1.0d; // (fit to comp size)/(original)
 	private double scaleY = 1.0d; // (fit to comp size)/(original)
+	
+	/*
+	 * SUV calibration factor
+	 */
+	private double suvFactor = 0.0;
 
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	ImageProcessing imgProcess = new ImageProcessing();
@@ -324,6 +329,22 @@ public class SlideGlass extends JLayeredPane {
 	public ImagePlus convertToImagePlus() {
 		return GDicomTools.dcmImgToImagePlus(getDicomImage(), getOriginalCalibration());
 	}
+	
+	/**
+     * 【重要】元のピクセル値（またはRescaleされた値）をSUV値に変換するヘルパーメソッド
+     * @param originalValue DICOMの生のピクセル値、またはRescale Slope/Intercept適用後の値
+     * @return 変換後のSUV値
+     */
+    public double convertToSUV(double originalValue) {
+        if (this.suvFactor <= 0.0) {
+            return originalValue; // 校正されていない場合はそのまま返す
+        }
+        
+        // DICOM規格およびPetCtViewerのロジックに基づく変換
+        // 通常、originalValue が既に「Bq/ml (放射能濃度)」にRescaleされている場合：
+        // SUV = 放射能濃度 / suvFactor
+        return originalValue / this.suvFactor;
+    }
 
 	public ImagePlus cropRect() {
 		RoiObj roi = roiOverlay.findCurrentRoi();
@@ -1414,6 +1435,17 @@ public class SlideGlass extends JLayeredPane {
 		updatePrapInfoLabel(mouseX, mouseY);
 		updateOrientation();
 	}
+	
+	public void setSUVFactor(double factor) {
+        this.suvFactor = factor;
+        
+        // 必要に応じて、ここでSUV用のルックアップテーブル（LUT）の再適用や、
+         // キャッシュしている BufferedImage の再生成ロジックをトリガーします。
+    }
+	
+	public double getSUVFactor() {
+        return this.suvFactor;
+    }
 
 //	public RoiPopupDialog isHereRoiPopup(int slideX, int slideY) {
 //		Component[] comps = roiOverlay.getComponents();
