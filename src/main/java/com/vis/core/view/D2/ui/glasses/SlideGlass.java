@@ -1436,11 +1436,45 @@ public class SlideGlass extends JLayeredPane {
 		updateOrientation();
 	}
 	
-	public void setSUVFactor(double factor) {
+	/**
+     * Praparatから伝搬されるSUV Factorを設定し、オリジナル画像のキャリブレーションを更新します。
+     */
+    public void setSUVFactor(double factor) {
         this.suvFactor = factor;
+        Calibration cal = getOriginalCalibration();
+        Calibration cal2 = null;
+        if(cal != null) {
+        	cal2 = cal.copy();
+        }else {
+        	cal2 = new ij.measure.Calibration();
+        }
+        ImagePlus orgImg = getOriginalImage();
+        // オリジナル画像のキャリブレーション（傾き・切片）をSUV仕様に更新する
+        if (orgImg != null) {
+            synchronized (orgImg) {
+                if (factor > 0.0) {
+                    // 通常のDICOM Calibration: 物理値 = 生値 * Slope + Intercept
+                    // SUV Calibration: SUV値 = (生値 * Slope + Intercept) / suvFactor
+                    // つまり、Slope と Intercept をそれぞれ suvFactor で割ることで
+                    // getCValue() が自動的にSUV値を返すようになります。
+                    double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
+                    double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
+                    
+                    cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE, 
+                        new double[]{ currentIntercept / factor, currentSlope / factor }, "SUV");
+                } else {
+                    // SUVが解除された、または未校正の場合は通常のDICOM設定に戻す
+                    double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
+                    double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
+                    cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE, 
+                        new double[]{ currentIntercept, currentSlope }, "Bq/mL");
+                }
+                setOriginalCalibration(cal2);
+            }
+        }
         
-        // 必要に応じて、ここでSUV用のルックアップテーブル（LUT）の再適用や、
-         // キャッシュしている BufferedImage の再生成ロジックをトリガーします。
+        // 表示更新フラグ等をトリガー
+        this.updateDisplayImage();
     }
 	
 	public double getSUVFactor() {

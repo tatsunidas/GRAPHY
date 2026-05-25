@@ -162,7 +162,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			return null;
 		}
 		
-		// ★ ここから追加：MPEG用のバイパスルート
+		// MPEG用のバイパスルート
 		String tsuid = getTSUID().uid();
 		if (tsuid != null && tsuid.startsWith("1.2.840.10008.1.2.4.10")) {
 			
@@ -303,10 +303,6 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 			return getNativePixelData(frame);
 		}
 
-		/*
-		 * 20260113 以降のコードは未使用だが残す。 当初、圧縮ピクセルのbyte[]を取り出してから、 byte[]を解凍しようとしていたが、
-		 * DecompressCheの実装に合わせて、 byte[]を取り出さずに、直接フレームインデックス指定で取り出すようにした。
-		 */
 		Fragments frags = (Fragments) bulk;
 
 		// --- Basic Offset Table (BOT) の解析 ---
@@ -327,7 +323,7 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		int startFrag = findStartFragment(frags, bot, frame);
 		int endFrag = findEndFragment(frags, bot, frame, numFrames);
 
-		// --- 修正ポイント 2: フラグメントの結合 (combineFragments) ---
+		// combineFragments
 		return combineFragments(frags, startFrag, endFrag);
 	}
 	

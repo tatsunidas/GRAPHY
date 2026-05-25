@@ -7,6 +7,7 @@ import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -20,6 +21,120 @@ import ij.process.LUT;
  * @author tatsunidas
  */
 public class ImagePairingEngine {
+	
+	/**
+     * 【静的アライメント版（非破壊・メタデータ完結型）】
+     * GDicomToolsを用いてImagePlusから直接メタデータを読み取り、
+     * 前景のImagePlusから、背景のIPPにZ座標が最も近いスライスを検出して重ね合わせます。
+     */
+	/**
+     * 【修正版・幾何学属性のみ同期型】
+     * 前景のImagePlusから、背景のIPPにZ座標が最も近いスライスを検出し、
+     * 前景本来のメタデータ（ModalityやSUV情報）を維持したまま、空間座標（IPP/IOP）のみを背景に同期させます。
+     */
+//    public static ImagePlus alignVolumeStatic(Praparat fgPrap, int fgC, int fgT, Praparat bgPrap,
+//			int bgC, int bgT) {
+//        if (fgPrap == null || bgPrap == null) return null;
+//
+//        ImagePlus fgImp = fgPrap.getImagePlus(fgC, fgT);
+//        ImagePlus bgImp = bgPrap.getImagePlus(bgC, bgT);
+//        
+//        if (fgImp == null || bgImp == null) return null;
+//        
+//        // ★★★ 検証ログ：背景画像のプロパティをダンプ ★★★
+//        com.vis.core.log.Log.logger.info("--- Fusion Alignment Verification Start ---");
+//        com.vis.core.log.Log.logger.info("Background Image: " + bgImp.getTitle());
+//        com.vis.core.log.Log.logger.info("Stack Size: " + bgImp.getStackSize());
+//        
+//        String firstSliceLabel = bgImp.getStack().getSliceLabel(1);
+//        if (firstSliceLabel != null) {
+//            com.vis.core.log.Log.logger.info("First Slice Label length: " + firstSliceLabel.length());
+//            // IOPタグが含まれているかチェック
+//            if (firstSliceLabel.contains("0020,0037")) {
+//                com.vis.core.log.Log.logger.info("IOP Tag (0020,0037) FOUND in raw SliceLabel.");
+//                // 該当行だけを抽出して表示
+//                for (String line : firstSliceLabel.split("\n")) {
+//                    if (line.contains("0020,0037")) {
+//                        com.vis.core.log.Log.logger.info("IOP Line: " + line);
+//                        break;
+//                    }
+//                }
+//            } else {
+//                com.vis.core.log.Log.logger.severe("IOP Tag (0020,0037) IS MISSING in raw SliceLabel!");
+//            }
+//        } else {
+//             com.vis.core.log.Log.logger.severe("First Slice Label is NULL!");
+//        }
+//        com.vis.core.log.Log.logger.info("---------------------------------------------");
+//
+//        int bgSlices = bgImp.getStackSize(); 
+//        ImageStack matchedStack = new ImageStack(fgImp.getWidth(), fgImp.getHeight());
+//
+//        for (int z = 1; z <= bgSlices; z++) {
+//            // 1. 背景の現在のスライスから、ターゲットとなる空間幾何学（IPP / IOP）を取得
+//            double[] bgIpp = com.vis.dicom.image.GDicomTools.getImagePositionPatient(bgImp, z);
+//            double[] bgIop = com.vis.dicom.image.GDicomTools.getImageOrientationPatient(bgImp, z);
+//            
+//            // 2. 前景の中からZ座標が最も近いスライスのインデックスを探す
+//            int bestMatchedFgIndex = findClosestSliceIndex(bgIpp, fgImp);
+//            
+//            // データへの影響を遮断するためプロセッサを複製
+//            ij.process.ImageProcessor matchedIp = fgImp.getStack().getProcessor(bestMatchedFgIndex).duplicate();
+//                        
+//            GDicomTools.setDoubles(fgImp, bestMatchedFgIndex, Tag.ImageOrientationPatient, bgIop);
+//            GDicomTools.setDoubles(fgImp, bestMatchedFgIndex, Tag.ImagePositionPatient, bgIpp);
+//            
+//            String updatedFgLabel = fgImp.getStack().getSliceLabel(bestMatchedFgIndex);
+//            
+//            // 空間座標のみを同期させた前景の新しいラベルとプロセッサをスタックに追加
+//            matchedStack.addSlice(updatedFgLabel, matchedIp);
+//        }
+//
+//        ImagePlus alignedImp = new ImagePlus("Static_Aligned_Foreground", matchedStack);
+//        
+//        if (fgImp.getCalibration() != null) {
+//            alignedImp.setCalibration(fgImp.getCalibration().copy());
+//        }
+//        
+//        alignedImp.setProperty("Info", fgImp.getInfoProperty());
+//        
+//        return alignedImp;
+//    }
+    
+	/**
+     * 【デッドロック回避・独立エンジン版】
+     * 抽出済みのシングルスタック ImagePlus を受け取り、IPP/IOP に基づいて空間アライメントを行います。
+     */
+    public static ImagePlus alignVolumeStatic(ImagePlus fgImp, ImagePlus bgImp) {
+        if (fgImp == null || bgImp == null) return null;
+
+        com.vis.core.log.Log.logger.info("[Engine] Alignment started...");
+
+        int bgSlices = bgImp.getStackSize(); 
+        ImageStack matchedStack = new ImageStack(fgImp.getWidth(), fgImp.getHeight());
+
+        for (int z = 1; z <= bgSlices; z++) {
+            double[] bgIpp = GDicomTools.getImagePositionPatient(bgImp, z);
+            double[] bgIop = GDicomTools.getImageOrientationPatient(bgImp, z);
+            
+            // ★引数から C, T の絞り込みを削除（すでに fgImp はシングルスタックのため）
+            int bestMatchedFgIndex = findClosestSliceIndex(bgIpp, fgImp);
+            
+			ij.process.ImageProcessor matchedIp = fgImp.getStack().getProcessor(bestMatchedFgIndex).duplicate();
+			GDicomTools.setDoubles(fgImp, bestMatchedFgIndex, Tag.ImageOrientationPatient, bgIop);
+			GDicomTools.setDoubles(fgImp, bestMatchedFgIndex, Tag.ImagePositionPatient, bgIpp);
+			String updatedFgLabel = fgImp.getStack().getSliceLabel(bestMatchedFgIndex);
+			matchedStack.addSlice(updatedFgLabel, matchedIp);
+		}
+
+        ImagePlus alignedImp = new ImagePlus("Static_Aligned_Foreground", matchedStack);
+        if (fgImp.getCalibration() != null) alignedImp.setCalibration(fgImp.getCalibration().copy());
+        alignedImp.setProperty("Info", fgImp.getInfoProperty());
+        
+        com.vis.core.log.Log.logger.info("[Engine] Alignment completed.");
+        return alignedImp;
+    }
+
 
     /**
      * マスク（SEG等）をオリジナル画像の空間座標（Z軸・スライス枚数）に完全に一致するように再構成します。
@@ -254,8 +369,30 @@ public class ImagePairingEngine {
 
 		return overlay;
 	}
-
-    // --- 以下、元のまま ---
+	
+	/**
+     * 背景のIPPに対し、前景ImagePlus内で最も近いZ座標を持つスライスのインデックス(1-based)を返します。
+     */
+    private static int findClosestSliceIndex(double[] bgIpp, ImagePlus fgImp) {
+        int bestIndex = 1;
+        double minDistance = Double.MAX_VALUE;
+        
+        int fgSlices = fgImp.getStackSize();
+        
+        for (int i = 1; i <= fgSlices; i++) {
+            double[] fgIpp = GDicomTools.getImagePositionPatient(fgImp, i);
+            
+            if (bgIpp != null && fgIpp != null && bgIpp.length == 3 && fgIpp.length == 3) {
+                // Z座標(インデックス2)の差分で最短距離を判定
+                double distance = Math.abs(bgIpp[2] - fgIpp[2]); 
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestIndex = i; 
+                }
+            }
+        }
+        return bestIndex;
+    }
 
     private static SlideGlass findMatchingMaskSlide(ConcurrentHashMap<Integer, SlideGlass> maskSlides, Praparat maskPrap, 
                                                     String targetSopUid, double targetZPos, 

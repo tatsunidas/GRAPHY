@@ -7,6 +7,8 @@ import java.awt.*;
 import java.util.Hashtable;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 
+import ij.ImagePlus;
+
 @SuppressWarnings("serial")
 public class FusionControlDialog extends JDialog {
     
@@ -74,11 +76,13 @@ public class FusionControlDialog extends JDialog {
         
         lutComboBox = new JComboBox<>(lutNames);
         
+        //TODO
         // 現在前景に適用されているLUT名があれば、それを初期選択にする
-        Praparat fp = pp.getFusionForegroundPraparat();
-        if(fp != null) {
-        	lutComboBox.setSelectedItem(fp.getLUTName());
-        }
+//        ImagePlus fp = pp.getForegroundOverlay();
+//        if(fp != null) {
+//        	lutComboBox.setSelectedItem(fp.getLuts()[0]);
+//        }
+        
         // アイテムが選択されたら即座に反映
         lutComboBox.addActionListener(e -> {
             String selectedLutName = (String) lutComboBox.getSelectedItem();

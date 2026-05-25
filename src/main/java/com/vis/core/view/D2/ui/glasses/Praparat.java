@@ -170,7 +170,8 @@ public class Praparat extends JPanel {
 	
 	// Fusion
 	private boolean isFusionMode = false;
-	private Praparat foregroundPraparat = null;
+	// 空間座標（IPP）が背景と同期された、メタデータ保持済みの純粋な前景画像スタック
+    private ImagePlus foregroundOverlay;
 	private double currentFusionOpacity = 0.5;
 	private int fusionOffsetX = 0;
     private int fusionOffsetY = 0;
@@ -1449,6 +1450,9 @@ public class Praparat extends JPanel {
 
 			int w = representative.getOriginalImageSize().width;
 			int h = representative.getOriginalImageSize().height;
+			/*
+			 * SUV較正済み
+			 */
 			Calibration orgCal = representative.getOriginalCalibration();
 			String globalInfo = "";
 
@@ -1600,6 +1604,7 @@ public class Praparat extends JPanel {
 	 * 指定した C, T のシリーズ（Zスタック）を、個別メタデータを保持したまま抽出します。
 	 */
 	public ImagePlus getImagePlus(int targetC/*0-based*/, int targetT/*0-based*/) {
+		com.vis.core.log.Log.logger.info("[getImagePlus] Started for C=" + targetC + ", T=" + targetT);
 		if (slides == null || slides.isEmpty()) return null;
 
 		if (targetC < 0 || targetC >= nChannels) targetC = currentC;
@@ -1616,119 +1621,100 @@ public class Praparat extends JPanel {
 
 		int w = representative.getOriginalImageSize().width;
 		int h = representative.getOriginalImageSize().height;
-		Calibration orgCal = representative.getOriginalCalibration();
-		ImageStack stack = new ImageStack();
+		
+		ij.measure.Calibration orgCal = representative.getOriginalCalibration();
+		ij.ImageStack stack = new ij.ImageStack(w, h); // 幅と高さを指定
 		String globalInfo = "";
 
-		// =====================================================================
-		// ★1. [本来のターゲットシリーズ共通属性の取得]
-		// =====================================================================
-		String targetBaseLabel = "Empty";
 		boolean isColor = false;
 		int bitDepth = 8;
-		
 		double displayMin = Double.NaN;
 		double displayMax = Double.NaN;
 		
+		com.vis.core.log.Log.logger.info("[getImagePlus] Phase 1: Scanning image info...");
 		for (int z = 0; z < nSlices; z++) {
 			int idx = targetT * (nChannels * nSlices) + z * nChannels + targetC;
 			SlideGlass sg = slides.get(idx);
+			// ★修正: sg が null でないことを確認してから getDicomImage() を呼ぶ
 			if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
-				if (sg.getDicomImage().ensurePixelDataLoaded()) {
-					ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
-					if (donorImp != null && donorImp.getStackSize() > 0) {
-						targetBaseLabel = donorImp.getStack().getSliceLabel(1);
-						isColor = sg.isRGB();
-						bitDepth = sg.getDicomImage().getBitsAllocated();
-						// ★追加: 最初の有効なスライドから現在の表示コントラスト(WW/WL)を取得
-						if (Double.isNaN(displayMin)) {
-							displayMin = sg.currentMin;
-							displayMax = sg.currentMax;
-						}
-						break;
+				com.vis.dicom.image.DicomImage dcmImg = sg.getDicomImage();
+				if (dcmImg.ensurePixelDataLoaded()) {
+					isColor = sg.isRGB();
+					bitDepth = dcmImg.getBitsAllocated();
+					if (Double.isNaN(displayMin)) {
+						displayMin = sg.currentMin;
+						displayMax = sg.currentMax;
 					}
+					break;
 				}
 			}
 		}
 
-		// =====================================================================
-		// ★2. [空間位置ドナーの事前探索] Z座標ごとにスキャン
-		// =====================================================================
-		String[] zSpaceLabels = new String[nSlices];
+		com.vis.core.log.Log.logger.info("[getImagePlus] Phase 2: Scanning labels...");
+		String[] sliceLabels = new String[nSlices];
 		for (int z = 0; z < nSlices; z++) {
-			zSpaceLabels[z] = "Empty";
-			for (int t = 0; t < nFrames; t++) {
-				for (int c = 0; c < nChannels; c++) {
-					int idx = t * (nChannels * nSlices) + z * nChannels + c;
-					SlideGlass sg = slides.get(idx);
-					if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
-						if (sg.getDicomImage().ensurePixelDataLoaded()) {
-							ImagePlus donorImp = GDicomTools.dcmImgToImagePlus(sg.getDicomImage(), orgCal);
-							if (donorImp != null && donorImp.getStackSize() > 0) {
-								zSpaceLabels[z] = donorImp.getStack().getSliceLabel(1);
-								break;
-							}
-						}
-					}
-				}
-				if (!zSpaceLabels[z].equals("Empty")) break;
+			sliceLabels[z] = "Empty";
+			int idx = targetT * (nChannels * nSlices) + z * nChannels + targetC;
+			SlideGlass sg = slides.get(idx);
+			// ★修正: sg が null でないことを確認してから getDicomImage() を呼ぶ
+			if (sg != null && sg.getDicomImage() != null && hasFileSource(idx)) {
+				sliceLabels[z] = com.vis.dicom.image.GDicomTools.getHeaderAsString(sg.getDicomImage().getHeader(), new StringBuilder(), 0);
 			}
 		}
 
+		com.vis.core.log.Log.logger.info("[getImagePlus] Phase 3: Building ImageStack (Total Slices: " + nSlices + ")...");
 		for (int s = 0; s < nSlices; s++) {
-			/*0-based*/
+			if (s % 20 == 0) {
+				com.vis.core.log.Log.logger.info("[getImagePlus] Processing slice " + s + " / " + nSlices);
+			}
 			int index = targetT * (nChannels * nSlices) + s * nChannels + targetC;
 			SlideGlass sg = slides.get(index);
 			
-			// ★ 修正: 空きマス（null）パディングの完全最適化
+			// Padding empty image with slice label.
 			if (sg == null || !hasFileSource(index) || !sg.getDicomImage().ensurePixelDataLoaded()) {
-				// 本来のシリーズ属性と、同Zの空間座標をマージ
-				String mergedLabel = mergeDicomMetaLabels(targetBaseLabel, zSpaceLabels[s]);
-
-				ImageProcessor dummyIp;
-				if (isColor) {
-					// ★ カラー対応
-					dummyIp = new ij.process.ColorProcessor(w, h);
-				} else {
+				ij.process.ImageProcessor dummyIp;
+				if (isColor) dummyIp = new ij.process.ColorProcessor(w, h);
+				else {
 					switch (bitDepth) {
-						case 16:
-							dummyIp = new ij.process.ShortProcessor(w, h);
-							break;
-						case 32:
-							dummyIp = new ij.process.FloatProcessor(w, h);
-							break;
-						case 8:
-						case 1://explicit
-						default:
-							dummyIp = new ij.process.ByteProcessor(w, h);
-							break;
+						case 16: dummyIp = new ij.process.ShortProcessor(w, h); break;
+						case 32: dummyIp = new ij.process.FloatProcessor(w, h); break;
+						default: dummyIp = new ij.process.ByteProcessor(w, h); break;
 					}
 				}
-				stack.addSlice(mergedLabel, dummyIp);
+				stack.addSlice(sliceLabels[s], dummyIp);
 				continue;
 			}
-			DicomImage dcmImg = sg.getDicomImage();
-			if (hasFileSource(index)) {
-				if (!dcmImg.ensurePixelDataLoaded()) {
-					continue;
+			
+			// set original image
+			if (sg.getDicomImage().ensurePixelDataLoaded()) {
+				ij.process.ImageProcessor ip = null;
+				ImagePlus orgImp = sg.getOriginalImage();
+				
+				// ★修正: originalImage がキャッシュに存在すればそれを使う、無ければ DicomImage から直接抜き出す
+				if (orgImp != null) {
+					ip = orgImp.getProcessor().duplicate(); // 必ず複製して安全に積む
+				} else {
+					com.vis.dicom.image.DicomImage dcmImg = sg.getDicomImage();
+					int frameIdx = dcmImg.isMultiFrame() ? (sg.getHeader().getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1) : 0;
+					ip = dcmImg.getImageProcessor(frameIdx).duplicate();
+					
+//					// 直接抜き出した場合は Calibration (SUV等) を手動で当てる
+//					if (orgCal != null) {
+//						if (!(ip instanceof ij.process.FloatProcessor)) ip = ip.convertToFloat();
+//						float[] pixels = (float[]) ip.getPixels();
+//						for (int i = 0; i < pixels.length; i++) pixels[i] = (float) orgCal.getCValue(pixels[i]);
+//					}
 				}
+
+				if (globalInfo.isEmpty()) globalInfo = sliceLabels[0]; // zero index
+				
+				stack.addSlice(sliceLabels[s], ip);
 			}
-
-			ImagePlus sliceImp = GDicomTools.dcmImgToImagePlus(dcmImg, orgCal);
-			
-			String sliceLabel = sliceImp.getStack().getSliceLabel(1/*always*/);
-			
-			ImageProcessor ip = sliceImp.getProcessor();
-
-			if (globalInfo.isEmpty()) {
-				globalInfo = sliceImp.getInfoProperty();
-			}
-
-			stack.addSlice(sliceLabel, ip);
 		}
 
+		com.vis.core.log.Log.logger.info("[getImagePlus] Phase 4: Finalizing ImagePlus...");
 		ImagePlus replica = new ImagePlus("Series_C" + targetC + "_T" + targetT, stack);
-		if (!globalInfo.isEmpty() && stack.getSize()==1) {
+		if (!globalInfo.isEmpty() && stack.getSize() == 1) {
 			replica.setProperty("Info", globalInfo);
 		}
 		replica.setCalibration(orgCal);
@@ -1738,6 +1724,7 @@ public class Praparat extends JPanel {
 			replica.setDisplayRange(displayMin, displayMax);
 		}
 		
+		com.vis.core.log.Log.logger.info("[getImagePlus] Completed successfully!");
 		return replica;
 	}
 	
@@ -3969,11 +3956,13 @@ public class Praparat extends JPanel {
 		scrollDebounceTimer.restart();
 	}
 	
-	public void enableFusionMode(Praparat fgPraparat) {
-        if (fgPraparat == null || fgPraparat == this) return;
+	public void enableFusionMode(ImagePlus fgImages) {
+        if (fgImages == null || fgImages.getStackSize() == 0) return;
         
+        com.vis.core.log.Log.logger.info("[Fusion Render] enableFusionMode called. Overlay: " + (foregroundOverlay != null ? foregroundOverlay.getTitle() : "null"));
+		        
         this.isFusionMode = true;
-        this.foregroundPraparat = fgPraparat;
+        this.foregroundOverlay = fgImages;
 
         // すでにメモリ上に実体化されているスライド（現在表示中＋キャッシュ）に即座に適用
         for (Integer zct : this.slides.keySet()) {
@@ -3984,180 +3973,135 @@ public class Praparat extends JPanel {
             }
         }
         repaint();
+        com.vis.core.log.Log.logger.info("[Fusion Render] Fusion mode is ON and repaint() requested.");
     }
+	
     
     /**
      * 特定のSlideGlassに対して、動的にフュージョンオーバーレイを適用します。
      */
     private void applyFusionOverlayToSlide(int bgZctIndex, SlideGlass bgSg) {
-        if (!isFusionMode || foregroundPraparat == null) return;
+        // foregroundOverlayがセットされていない、またはフュージョンモードでない場合は処理スキップ
+        if (!isFusionMode || foregroundOverlay == null) return;
         if (bgSg == null || bgSg.getOriginalImage() == null) return;
 
+        // 1. 背景の現在の 0-based Zスライスインデックスを取得
         int[] bgZctArray = this.calcZCTArrayFromIndex(bgZctIndex);
         int z = bgZctArray[0];
         
-        int fgC = foregroundPraparat.currentC;
-        int fgT = foregroundPraparat.currentT;
-        LUT fgLUT = foregroundPraparat.getLUT();
-        String bgSopUid = bgSg.getSOPInstanceUID();
-
-        SlideGlass matchedFgSg = null;
-        ConcurrentHashMap<Integer, SlideGlass> fgSlides = foregroundPraparat.getAllSlides();
-
-        // 1. 空間マッチング用の法線ベクトル取得
-        SlideGlass bgFirstSg = this.getSlideGlassAt(this.calcZctIndex(new int[]{0, this.currentC, this.currentT}));
-        double nx = 0, ny = 0, nz = 1;
-        if (bgFirstSg != null && bgFirstSg.getHeader() != null) {
-            int firstBgFrameIdx = bgFirstSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
-            double[] iop = getSafeIOP(bgFirstSg.getHeader(), firstBgFrameIdx);
-            if (iop != null && iop.length == 6) {
-                nx = iop[1] * iop[5] - iop[2] * iop[4];
-                ny = iop[2] * iop[3] - iop[0] * iop[5];
-                nz = iop[0] * iop[4] - iop[1] * iop[3];
-            }
+        // ImageJのImageStackは 1-based インデックスのため +1 する
+        int ijSlice = z + 1;
+        if (ijSlice < 1 || ijSlice > foregroundOverlay.getStackSize()) {
+            if (bgSg.getOriginalImage() != null) bgSg.getOriginalImage().setOverlay(null);
+            return;
         }
 
-        int bgFrameIdx = bgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
-        double[] bgIpp = getSafeIPP(bgSg.getHeader(), bgFrameIdx);
-        double bgZPos = (bgIpp != null) ? (bgIpp[0] * nx + bgIpp[1] * ny + bgIpp[2] * nz) : z;
-
-        // 探索処理
-        for (Integer fgZct : fgSlides.keySet()) {
-            int[] fgZctArray = foregroundPraparat.calcZCTArrayFromIndex(fgZct);
-            if (fgZctArray[1] != fgC || fgZctArray[2] != fgT) continue;
-
-            SlideGlass fgSg = fgSlides.get(fgZct);
-            if (fgSg == null) continue;
-
-            if (bgSopUid.equals(fgSg.getSOPInstanceUID())) {
-                matchedFgSg = fgSg;
-                break;
-            }
-            
-            int fgFrameIdxCheck = fgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
-            double[] fgIpp = getSafeIPP(fgSg.getHeader(), fgFrameIdxCheck);
-            if (fgIpp != null) {
-                double fgZPos = (fgIpp[0] * nx + fgIpp[1] * ny + fgIpp[2] * nz);
-                if (Math.abs(bgZPos - fgZPos) < 1e-3) {
-                    matchedFgSg = fgSg;
-                    break;
-                }
-            }
-        }
-
-        // フォールバック（Zインデックス）
-        if (matchedFgSg == null) {
-            int fallbackFgZctIndex = foregroundPraparat.calcZctIndex(new int[]{z, fgC, fgT});
-            matchedFgSg = fgSlides.get(fallbackFgZctIndex);
+        // 2. 前景のカラーマップ（LUT）と背景のSOPの取得
+        ij.process.LUT fgLUT = lut;
+        if (foregroundOverlay.getLuts() != null && foregroundOverlay.getLuts().length > 0) {
+            fgLUT = foregroundOverlay.getLuts()[0];
         }
         
-		// 3. オーバーレイ生成と適用
-		if (matchedFgSg != null && matchedFgSg.getDicomImage().ensurePixelDataLoaded()) {
+        String bgSopUid = bgSg.getSOPInstanceUID();
 
-			boolean isMulti = matchedFgSg.getDicomImage().isMultiFrame();
-			int fgFrameToExtract = isMulti ? (matchedFgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+        // 3. アライメント済み前景スタックから、同一インデックスのプロセッサをダイレクトに抽出（探索ループ消滅）
+        ij.process.ImageProcessor rawProcessor = foregroundOverlay.getStack().getProcessor(ijSlice);
+        if (rawProcessor == null) {
+            if (bgSg.getOriginalImage() != null) bgSg.getOriginalImage().setOverlay(null);
+            return;
+        }
 
-			ij.process.ImageProcessor rawProcessor = matchedFgSg.getDicomImage().getImageProcessor(fgFrameToExtract);
-			if (rawProcessor == null) {
-				if (bgSg.getOriginalImage() != null)
-					bgSg.getOriginalImage().setOverlay(null);
-				return;
-			}
+        // 元データを汚さないように複製
+        ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
+        int bgFrameIdx = bgSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 
-			ij.process.ImageProcessor fgProcessor = rawProcessor.duplicate();
-			
-			// 背景と前景の IOP (Image Orientation Patient) を取得
-            double[] bgIop = getSafeIOP(bgSg.getHeader(), bgFrameIdx);
-            double[] fgIop = getSafeIOP(matchedFgSg.getHeader(), fgFrameToExtract);
-            
-            if (bgIop != null && fgIop != null && bgIop.length == 6 && fgIop.length == 6) {
-                // X軸（Row方向）のベクトルの内積を計算。逆向き（-1付近）なら左右反転
-                double rowDot = bgIop[0] * fgIop[0] + bgIop[1] * fgIop[1] + bgIop[2] * fgIop[2];
-                if (rowDot < -0.5) {
-                    fgProcessor.flipHorizontal();
-                }
-                // Y軸（Col方向）のベクトルの内積を計算。逆向き（-1付近）なら上下反転
-                double colDot = bgIop[3] * fgIop[3] + bgIop[4] * fgIop[4] + bgIop[5] * fgIop[5];
-                if (colDot < -0.5) {
-                    fgProcessor.flipVertical();
-                }
+        // 4. GDicomToolsを活用したIOP（方向）のミスマッチ補正
+        double[] bgIop = getSafeIOP(bgSg.getHeader(), bgFrameIdx);
+        // 前景ImagePlusからGDicomToolsを用いて直接IPP/IOP等の幾何学メタデータを安全にパース
+        double[] fgIop = com.vis.dicom.image.GDicomTools.getImageOrientationPatient(foregroundOverlay, ijSlice);
+        
+        if (bgIop != null && fgIop != null && bgIop.length == 6 && fgIop.length == 6) {
+            // X軸（Row方向）の内積。逆向きなら左右反転
+            double rowDot = bgIop[0] * fgIop[0] + bgIop[1] * fgIop[1] + bgIop[2] * fgIop[2];
+            if (rowDot < -0.5) {
+                fgProcessor.flipHorizontal();
             }
+            // Y軸（Col方向）の内積。逆向きなら上下反転
+            double colDot = bgIop[3] * fgIop[3] + bgIop[4] * fgIop[4] + bgIop[5] * fgIop[5];
+            if (colDot < -0.5) {
+                fgProcessor.flipVertical();
+            }
+        }
 
-			// 表示上の最大値ではなく「実際のデータの最大値（stats.max = 1.0）」を正確に取得
-			ij.process.ImageStatistics stats = fgProcessor.getStatistics();
-			double realMin = stats.min;
-			double realMax = stats.max;
+        // 5. 輝度値の統計情報とスケーリングレンジの取得
+        ij.process.ImageStatistics stats = fgProcessor.getStatistics();
+        double realMin = stats.min;
+        double realMax = stats.max;
+        
+        com.vis.core.log.Log.logger.info("[Fusion Render] fgProcessor Real Min: " + realMin + ", Real Max: " + realMax);
 
-			double fgMin = matchedFgSg.currentMin;
-			double fgMax = matchedFgSg.currentMax;
+        // 前景ビューアの現在のウィンドウ設定レンジをImagePlusから取得
+        double fgMin = foregroundOverlay.getDisplayRangeMin();
+        double fgMax = foregroundOverlay.getDisplayRangeMax();
 
-			String modalityStr = matchedFgSg.getHeader().getString(Tag.Modality, "");
-			boolean isMask = "SEG".equals(modalityStr) || matchedFgSg.getDicomImage().getBitsAllocated() == 1
-					|| realMax <= 1.0;
+        // GDicomTools、またはSliceLabelからモダリティを取得してマスク判定
+        String modalityStr = com.vis.dicom.image.GDicomTools.getTag(foregroundOverlay, Tag.Modality);
+        if (modalityStr == null) modalityStr = "";
+        
+        boolean isMask = "SEG".equals(modalityStr) || realMax <= 1.0;
 
-			// 未表示で初期値のまま、またはマスク画像と判定された場合は、実際のピクセル値に合わせて強制補正
-			if (isMask || (fgMin == 0.0 && fgMax == 255.0 && realMax < 255.0) || fgMin == fgMax) {
-				fgMin = realMin;
-				fgMax = (realMax > realMin) ? realMax : realMin + 1.0;
-			}
+        // 未表示初期値またはマスク画像の場合の自動レンジ補正
+        if (isMask || (fgMin == 0.0 && fgMax == 255.0 && realMax < 255.0) || fgMin == fgMax) {
+            fgMin = realMin;
+            fgMax = (realMax > realMin) ? realMax : realMin + 1.0;
+        }
 
-			// ByteProcessorのスケーリングサボりを防ぐため、強制的にFloatへ変換
-			fgProcessor = fgProcessor.convertToFloat();
+        // 精度維持のためFloatへ変換し、ウインドウ設定を焼き付け
+        fgProcessor = fgProcessor.convertToFloat();
+        fgProcessor.setMinAndMax(fgMin, fgMax);
 
-			// 補正された正しいMin/Maxを適用（ここで fgMax = 1.0 が適用されます）
-			fgProcessor.setMinAndMax(fgMin, fgMax);
+        // 8-bit（カラーマップ適用可能状態）へスケーリング
+        fgProcessor = fgProcessor.convertToByte(true);
 
-			// Min/Maxを基準に 8-bit (0-255) にスケーリング変換
-			fgProcessor = fgProcessor.convertToByte(true);
+        // カラーマップ（LUT）の適用
+        if (fgLUT != null) {
+            fgProcessor.setLut(fgLUT);
+        }
 
-			// LUT（カラーマップ）を適用
-			if (fgLUT != null) {
-				fgProcessor.setLut(fgLUT);
-			}
+        // 6. ハイブリッド透過処理（ゼロ透過のための完全な黒の生成）
+        ij.process.ImageProcessor rgbProcessor = fgProcessor.convertToRGB();
+        byte[] bytePixels = (byte[]) fgProcessor.getPixels();
+        int[] rgbPixels = (int[]) rgbProcessor.getPixels();
 
-			// ★★★ 色と透明度を両立させる究極のハイブリッド処理 ★★★
-			// 1. まず、LUTの色を焼き付けたRGBカラープロセッサを生成する
-			ij.process.ImageProcessor rgbProcessor = fgProcessor.convertToRGB();
+        for (int i = 0; i < bytePixels.length; i++) {
+            if (bytePixels[i] == 0) {
+                rgbPixels[i] = 0; // RGBとしての完全な黒 (0x000000)
+            }
+        }
+        fgProcessor = rgbProcessor;
 
-			// 2. 8-bitの生データと、RGBのピクセル配列を取得
-			byte[] bytePixels = (byte[]) fgProcessor.getPixels();
-			int[] rgbPixels = (int[]) rgbProcessor.getPixels();
+        // 7. オーバーレイ（ImageRoi）の生成と適用
+        // ※ シフト位置(fusionOffsetX/Y)や透明度(currentFusionOpacity)はPraparatクラスのフィールド変数からそのまま適用されます
+        ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(fusionOffsetX, fusionOffsetY, fgProcessor);
+        imageRoi.setZeroTransparent(true); // 完全な黒を100%透明化して抜く
+        imageRoi.setOpacity(currentFusionOpacity);
+        imageRoi.setName("FusionROI_" + bgSopUid);
 
-			// 3. 生データの段階で値が「0（背景）」だった場所だけ、
-			// RGB側で強制的に「完全な黒 (0x000000)」に塗りつぶす
-			for (int i = 0; i < bytePixels.length; i++) {
-				if (bytePixels[i] == 0) {
-					rgbPixels[i] = 0; // 0 は RGBの完全な黒
-				}
-			}
+        ij.gui.Overlay overlay = new ij.gui.Overlay();
+        overlay.add(imageRoi);
 
-			// ピクセルを書き換えたRGB版に差し替え
-			fgProcessor = rgbProcessor;
-
-			ij.gui.ImageRoi imageRoi = new ij.gui.ImageRoi(fusionOffsetX, fusionOffsetY, fgProcessor);
-			imageRoi.setZeroTransparent(true); // RGBの 0x000000 は確実に100%透明に抜ける
-			imageRoi.setOpacity(currentFusionOpacity);
-			imageRoi.setName("FusionROI_" + bgSopUid);
-
-			ij.gui.Overlay overlay = new ij.gui.Overlay();
-			overlay.add(imageRoi);
-
-			if (bgSg.getOriginalImage() != null) {
-				bgSg.getOriginalImage().setOverlay(overlay);
-			}
-		} else {
-			if (bgSg.getOriginalImage() != null) {
-				bgSg.getOriginalImage().setOverlay(null);
-			}
-		}
+        if (bgSg.getOriginalImage() != null) {
+            bgSg.getOriginalImage().setOverlay(overlay);
+        }
     }
+
 
     /**
      * フュージョンモードを解除し、オーバーレイを破棄します。
      */
     public void disableFusionMode() {
         this.isFusionMode = false;
-        this.foregroundPraparat = null;
+        this.foregroundOverlay = null;
         
         for (SlideGlass bgSg : this.slides.values()) {
             if (bgSg != null && bgSg.getOriginalImage() != null) {
@@ -4188,15 +4132,35 @@ public class Praparat extends JPanel {
             repaint();
         }
     }
-
+    
     // 4. ダイアログ側で現在の値を初期値として読み込めるよう、Getterを追加します
     public boolean isFusionMode() { return this.isFusionMode; }
     public double getCurrentFusionOpacity() { return this.currentFusionOpacity; }
     public int getFusionOffsetX() { return this.fusionOffsetX; }
     public int getFusionOffsetY() { return this.fusionOffsetY; }
-    
-    public Praparat getFusionForegroundPraparat() {
-    	return foregroundPraparat;
+        
+    /**
+     * フュージョン用の前景オーバーレイ画像（ImagePlus）をセットします。
+     */
+    public void setForegroundOverlay(ImagePlus overlayImp) {
+        this.foregroundOverlay = overlayImp;
+        if(overlayImp != null) {
+        	int c = overlayImp.getNChannels();
+        	int t = overlayImp.getNFrames();
+        	if(c > 1 || t > 1) {
+        		JOptionPane.showMessageDialog(this, "Overlay should be a single stack.\nThis overlay seems multi channel/frame stackm it cannot set to overlay.");
+        		this.foregroundOverlay = null;
+        	}
+        }
+        // セットされたら再描画をトリガーする
+        repaint(); 
+    }
+
+    /**
+     * 現在セットされている前景オーバーレイ画像を取得します。
+     */
+    public ImagePlus getForegroundOverlay() {
+        return this.foregroundOverlay;
     }
     
     /**
@@ -4204,12 +4168,10 @@ public class Praparat extends JPanel {
      * 前景画像に適用してフュージョン表示を更新します。
      */
     public void updateFusionLUT(ij.process.LUT newLut, String lutName) {
-        if (foregroundPraparat != null) {
+        if (foregroundOverlay != null) {
             // 前景のPraparat自体のLUTを書き換える
-            // ※既存のメソッド名（setLUT や changeLUT など）に合わせて調整してください
-            foregroundPraparat.setLUT(newLut, lutName); 
-            
-            // 現在表示中のフュージョンを新しいLUTで再計算してリフレッシュ
+            foregroundOverlay.setLut(newLut);
+            // 新しいLUTで再計算してリフレッシュ
             // (Step 1で追加した updateFusionParameters と同様の一括更新を行う)
             updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX, this.fusionOffsetY);
         }

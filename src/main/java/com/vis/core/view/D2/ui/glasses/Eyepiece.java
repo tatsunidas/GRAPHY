@@ -41,6 +41,7 @@ package com.vis.core.view.D2.ui.glasses;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -63,6 +64,8 @@ import com.vis.core.view.D2.ui.Viewer2DScreen;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext;
 import com.vis.db.DatabaseHandler;
+
+import ij.ImagePlus;
 
 @SuppressWarnings("serial")
 public class Eyepiece extends JPanel{
@@ -369,18 +372,70 @@ public class Eyepiece extends JPanel{
      */
 	public void performReorder() {
 		if (draggingComponent == null) return;
-
-	    // ★新規追加: フュージョンターゲットが存在する場合、重ね合わせ処理を実行して終了
-	    if (fusionTargetComponent != null && draggingComponent instanceof Praparat && fusionTargetComponent instanceof Praparat) {
+		
+		if (fusionTargetComponent != null && draggingComponent instanceof Praparat && fusionTargetComponent instanceof Praparat) {
 	        Praparat bgPrap = (Praparat) fusionTargetComponent;
 	        Praparat fgPrap = (Praparat) draggingComponent;
 	        
-	        bgPrap.enableFusionMode(fgPrap); // 背景側に、前景をフュージョンするよう指示
+	        int[] fg_zct_arr = fgPrap.calcZCTArrayFromIndex(fgPrap.getCurrentSlideZCTIndex());
+	        int[] bg_zct_arr = bgPrap.calcZCTArrayFromIndex(bgPrap.getCurrentSlideZCTIndex());
+	        
+	        bgPrap.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+            // ==========================================================
+	        // ★ 極めて重要：AWT/Swingのデッドロックを防ぐため、
+            // 画像の構築(getImagePlus)は必ずこの UIスレッド上 で済ませておく！
+            // ==========================================================
+            com.vis.core.log.Log.logger.info("Extracting ImagePlus on UI Thread...");
+	        ImagePlus fgImp = fgPrap.getImagePlus(fg_zct_arr[1], fg_zct_arr[2]);
+	        ImagePlus bgImp = bgPrap.getImagePlus(bg_zct_arr[1], bg_zct_arr[2]);
+
+            if (fgImp == null || bgImp == null) {
+                com.vis.core.log.Log.logger.severe("Failed to extract ImagePlus. Aborting fusion.");
+                bgPrap.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                fusionTargetComponent = null;
+                return;
+            }
+
+	        // ★ 重い「3Dリサンプリング・空間アライメント」処理のみをバックグラウンドへ逃がす
+	        javax.swing.SwingWorker<ImagePlus, Void> worker = new javax.swing.SwingWorker<ImagePlus, Void>() {
+	            @Override
+	            protected ImagePlus doInBackground() throws Exception {
+                    // Praparatではなく、純粋な ImagePlus をエンジンに渡す
+	                return com.vis.core.fusion.ImagePairingEngine.alignVolumeStatic(fgImp, bgImp);
+	            }
+
+	            @Override
+	            protected void done() {
+	                bgPrap.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+	                try {
+	                    ImagePlus alignedOverlay = get();
+	                    if (alignedOverlay != null) {
+	                    	
+	                    	ij.process.ImageStatistics stats = alignedOverlay.getStatistics();
+	                        com.vis.core.log.Log.logger.info("[Fusion Render] Overlay Stats -> Min: " + stats.min + ", Max: " + stats.max + ", Mean: " + stats.mean);
+	                        if (stats.max == 0) {
+	                             com.vis.core.log.Log.logger.severe("[Fusion Render] WARNING: Overlay image is completely BLACK (Max=0).");
+	                        }
+	                    	
+	                        bgPrap.enableFusionMode(alignedOverlay);
+	                        
+	                    } else {
+	                        javax.swing.JOptionPane.showMessageDialog(bgPrap, "Fusion alignment failed.");
+	                    }
+	                } catch (Exception ex) {
+	                    com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Error during fusion", ex);
+	                }
+	            }
+	        };
+	        
+	        worker.execute();
 	        
 	        fusionTargetComponent = null;
+	        draggingComponent = null;
 	        return; 
 	    }
-	    
+		
 		// 現在のインデックスを取得
 		int currentIndex = -1;
 		for (int i = 0; i < getComponentCount(); i++) {

@@ -388,6 +388,22 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 	}
 	
+	public static void setDoubles(ImagePlus imp, int z, int c, int t, int tag, double[] values) {
+		String arr = "";
+		for (double v : values) {
+			arr += String.valueOf(v) + "\\";
+		}
+		// delete end of "\\"
+		arr = arr.substring(0, arr.lastIndexOf('\\'));
+		String tagStr = TagUtils.toString(tag);
+		int zct = getStackIndex(imp, z, c, t);
+		if(tagStr != null) {
+			//(gggg,eeee)
+			tagStr = tagStr.substring(1, 10);
+			setTag(imp, zct, tagStr, arr);
+		}
+	}
+	
 	public static void setDoubles(ImagePlus imp, int z, int c, int t, String tag, double[] values) {
 		String arr = "";
 		for (double v : values) {
@@ -396,6 +412,16 @@ public class GDicomTools extends ij.util.DicomTools {
 		// delete end of "\\"
 		arr = arr.substring(0, arr.lastIndexOf('\\'));
 		setTag(imp, z, c, t, tag, arr);
+	}
+	
+	public static void setDoubles(ImagePlus imp, int zct, int tag, double[] values) {
+		String arr = "";
+		for (double v : values) {
+			arr += String.valueOf(v) + "\\";
+		}
+		// delete end of "\\"
+		arr = arr.substring(0, arr.lastIndexOf('\\'));
+		setTag(imp, zct, tag, arr);
 	}
 
 	public static void setDoubles(ImagePlus imp, int zct, String tag, double[] values) {
@@ -736,6 +762,14 @@ public class GDicomTools extends ij.util.DicomTools {
 		return sb.toString();
 	}
 
+	/**
+	 * This used for single frame or video.
+	 * Be careful for SEG or NIfTI. These format may treated as multiframe.
+	 * 
+	 * @param dcmImg
+	 * @param cal
+	 * @return
+	 */
 	public static ImagePlus dcmImgToImagePlus(DicomImage dcmImg, Calibration cal) {
 		if (!dcmImg.isMultiFrame()) {
 			// --- Single Frame ---
@@ -1223,10 +1257,48 @@ public class GDicomTools extends ij.util.DicomTools {
 		return ipp;
 	}
 
-	public static double[] getImageOrientationPatient(ImagePlus imp, int zct/* 1 to N */) {
-		double[] iop = getDoubles(imp, zct, "0020,0037");
-		return iop;
-	}
+//	public static double[] getImageOrientationPatient(ImagePlus imp, int zct/* 1 to N */) {
+//		double[] iop = getDoubles(imp, zct, "0020,0037");
+//		return iop;
+//	}
+	
+	/**
+     * ImagePlusの指定スライスから ImageOrientationPatient (0020,0037) を取得します。
+     * （※ 既存のメソッドがある場合は、その内部に以下のログを追加してください）
+     */
+    public static double[] getImageOrientationPatient(ImagePlus imp, int zct) {
+        if (imp == null) return null;
+        
+        // 1. ラベル文字列全体を取得
+        String label = imp.getStack().getSliceLabel(zct);
+        if (label == null || label.trim().isEmpty()) {
+            com.vis.core.log.Log.logger.warning("[Verify IOP] SliceLabel is completely empty for slice: " + zct);
+            return null;
+        }
+
+        // 2. ラベル内にタグが存在するかを単純に文字列検索
+        boolean hasIOPTag = label.contains("0020,0037") || label.contains("ImageOrientationPatient");
+        
+        // 3. 既存のパースロジック（getDoubles等）を呼び出して配列を取得
+        double[] iop = getDoubles(imp, zct, "0020,0037");
+        
+        // 4. 検証ログの出力
+        if (iop == null) {
+            if (hasIOPTag) {
+                com.vis.core.log.Log.logger.severe("[Verify IOP] Tag exists in label, but PARSING FAILED. Label snippet: " 
+                    + label.substring(0, Math.min(label.length(), 200)));
+            } else {
+                com.vis.core.log.Log.logger.warning("[Verify IOP] Tag DOES NOT EXIST in SliceLabel for slice: " + zct);
+            }
+        } else if (iop.length != 6) {
+            com.vis.core.log.Log.logger.warning("[Verify IOP] Parsed IOP array length is incorrect: " + iop.length);
+        } else {
+            // 成功時のログ（大量に出るのでfine等にしておく）
+            com.vis.core.log.Log.logger.fine("[Verify IOP] Successfully parsed IOP: " + java.util.Arrays.toString(iop));
+        }
+
+        return iop;
+    }
 
 	/**
 	 * SOP Class UID をもとに、Secondary Capture や 非画像データ(KO, PR, SR等) であるかを判定する。
