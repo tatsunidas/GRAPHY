@@ -130,14 +130,6 @@ public class TreeTableDropListener implements DropTargetListener{
 				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
 					DicomImporter importer = new DicomImporter(candidateList,willImportStudyUID);
-//					int total = candidateList.size();
-					//As Thread Manager of importer.
-//					DICOMTreeTable mainTreeTable = ApplicationContext.getInstance().getMainScreen().getTreeTable();
-//					int currentArchiveCol = mainTreeTable.getArchivedColumnPosition();
-//					LocalDBStateCellRendererableEditor stateCell = mainTreeTable.getStateCellEditorAtArchiveColumn(currentArchiveCol);
-//					stateCell.addImportingState(willImportStudyUID, total, importer);
-//					ApplicationContext.importing = true;
-//					ApplicationContext.importerExecSvc.submit(importer);
 					importer.start();//use executor.(but this is also can use.)
 				}
 			}

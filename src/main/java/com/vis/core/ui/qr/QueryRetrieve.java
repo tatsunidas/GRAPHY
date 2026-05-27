@@ -1217,18 +1217,18 @@ public class QueryRetrieve implements Task, Runnable {
 
 		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 		TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
-		final DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
+		final DICOMTreeTable qrTreeTable = anchorDock.getDICOMTreeTable();
 
 		// Disable header during retrieve
-		SwingUtilities.invokeLater(() -> treeTable.getTableHeader().setEnabled(false));
+		SwingUtilities.invokeLater(() -> qrTreeTable.getTableHeader().setEnabled(false));
 
 		int totalTasks = candidateInfoSet.size();
 		int currentCount = 0;
-		
-		//check CGET supports
+
+		// check CGET supports
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		String[] details = db.getListenerDetails();
-       String myAET = details[0];
+		String myAET = details[0];
 		boolean[] supports = DimseUtilities.checkRetrieveSupport(dest, myAET);
 
 		// candidateInfoSetは prepareCandidate で既に「シリーズ単位」のリストとして作成されているため
@@ -1266,25 +1266,26 @@ public class QueryRetrieve implements Task, Runnable {
 			String studyUID = infoset[1];
 			String seriesUID = infoset[2];
 			String sopUID = infoset[3]; // Should be null for Series-Level retrieve
+			int seriesCountPrev = db.getNumOfSeries(patID, studyUID);
 
 			try {
 				// Execute C-MOVE (Series Level)
-				if(DIMSE_CGET_CMOVE == null || DIMSE_CGET_CMOVE.equals("CGET")) {
-					if(supports[0]) {
+				if (DIMSE_CGET_CMOVE == null || DIMSE_CGET_CMOVE.equals("CGET")) {
+					if (supports[0]) {
 						c_get(dest, patID, studyUID, seriesUID, sopUID);
-					}else {
+					} else {
 						Log.logger.info("Destination doesn't support CGET, will try CMOVE instead.");
 						c_move(dest, patID, studyUID, seriesUID, sopUID);
 					}
-				}else if(DIMSE_CGET_CMOVE.equals("CMOVE")) {
+				} else if (DIMSE_CGET_CMOVE.equals("CMOVE")) {
 					/*
 					 * C-MOVE is a standard method of communication.
 					 */
 					c_move(dest, patID, studyUID, seriesUID, sopUID);
-				}else {
+				} else {
 					throw new Exception("Performing QR, but cannot detect DIMSE_CGET_CMOVE type...");
 				}
-				
+
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.out.println("Error during C-MOVE for series: " + seriesUID);
@@ -1298,7 +1299,7 @@ public class QueryRetrieve implements Task, Runnable {
 				update_con.put(TaskContext.TASK_ID, taskId);
 				update_con.put(TaskContext.SIZE, totalTasks);
 				update_con.put(TaskContext.CURRENT_IND, currentCount);
-				con = new ImportingStateContext(studyUID, update_con); // Show StudyUID as context
+				con = new ImportingStateContext(studyUID, seriesUID, update_con); // Show StudyUID as context
 			} else {
 				HashMap<String, Object> updation = new HashMap<>();
 				updation.put(TaskContext.CURRENT_IND, currentCount);
@@ -1309,154 +1310,20 @@ public class QueryRetrieve implements Task, Runnable {
 
 			// Repaint TreeTable
 			SwingUtilities.invokeLater(() -> {
-				treeTable.revalidate();
-				treeTable.repaint();
+				int seriesCountPost = db.getNumOfSeries(patID, studyUID);
+				if(seriesCountPrev < seriesCountPost) {
+					if(seriesCountPrev < seriesCountPost) {
+						//home tree table co-update
+						WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+					}
+				}
+				qrTreeTable.revalidate();
+				qrTreeTable.repaint();
 			});
 		}
 		done();
 	}
 	
-//	private void performRetrieve() {
-//		if (!retreiveReady || candidateInfoSet.size() < 1 || dest == null) {
-//			setStopped(true);
-//			Log.logger.warning("Retrieve taget is null ?? please check what you wolud retrieve.");
-//			return;
-//		}
-//		TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
-//		TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
-//		final DICOMTreeTable treeTable = anchorDock.getDICOMTreeTable();
-//		// Fix thread-safety: UI operations must be on EDT
-//		SwingUtilities.invokeLater(() -> treeTable.getTableHeader().setEnabled(false));
-//		
-//		int size = candidateInfoSet.size();
-//		
-//		// Optimize: Use series/study-level retrieval when possible
-//		if (retrieveLevel == DICOMNode.STUDY || retrieveLevel == DICOMNode.SERIES) {
-//			// Group candidates by series for batch retrieval
-//			HashMap<String, ArrayList<String[]>> seriesGroups = new HashMap<>();
-//			for (String[] infoset : candidateInfoSet) {
-//				String seriesKey = infoset[1] + "|" + infoset[2]; // studyUID|seriesUID
-//				seriesGroups.computeIfAbsent(seriesKey, k -> new ArrayList<>()).add(infoset);
-//			}
-//			
-//			int processedImages = 0;
-//			for (String seriesKey : seriesGroups.keySet()) {
-//				if (isStopped()) break;
-//				
-//				synchronized (this) {
-//					if (isSuspended()) {
-//						try {
-//							this.wait();
-//						} catch (InterruptedException ie) {
-//							setStopped(true);
-//							break;
-//						}
-//					}
-//				}
-//				if (Thread.interrupted()) {
-//					setStopped(true);
-//					break;
-//				}
-//				
-//				ArrayList<String[]> seriesImages = seriesGroups.get(seriesKey);
-//				String[] firstImage = seriesImages.get(0);
-//				String patID = firstImage[0];
-//				String studyUID = firstImage[1];
-//				String seriesUID = firstImage[2];
-//				
-//				// Retrieve at series level (one C-MOVE per series instead of per image)
-//				try {
-//					c_move(dest, patID, studyUID, seriesUID, ""); // Empty sopUID = series-level
-//				} catch (Exception e) {
-//					e.printStackTrace();
-//					System.out.println("An error occurred during series-level C-MOVE. Processing continues with next series.");
-//				}
-//				
-//				// Update progress for all images in this series
-//				processedImages += seriesImages.size();
-//				final int currentProgress = processedImages;
-//				
-//				if (con == null) {
-//					HashMap<String, Object> update_con = new HashMap<>();
-//					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-//					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-//					update_con.put(TaskContext.TASK_ID, taskId);
-//					update_con.put(TaskContext.SIZE, size);
-//					update_con.put(TaskContext.CURRENT_IND, currentProgress - 1);
-//					con = new ImportingStateContext(studyUID, update_con);
-//				} else {
-//					HashMap<String, Object> updation = new HashMap<>();
-//					updation.put(TaskContext.CURRENT_IND, currentProgress - 1);
-//					con.updateState(updation);
-//				}
-//				
-//				// Fix thread-safety: UI updates must be on EDT
-//				SwingUtilities.invokeLater(() -> {
-//					treeTable.revalidate();
-//					treeTable.repaint();
-//				});
-//			}
-//		} else {
-//			// IMAGE level: retrieve one by one (original behavior)
-//			int count = 0;
-//			while (!(count == size) && !(isStopped())) {
-//				synchronized (this) {
-//					if (isSuspended()) {
-//						try {
-//							this.wait();
-//						} catch (InterruptedException ie) {
-//							setStopped(true);
-//							break;
-//						}
-//					}
-//				}
-//				if (Thread.interrupted()) {
-//					setStopped(true);
-//					break;
-//				}
-//				if (sleepScheduled) {
-//					try {
-//						Thread.sleep(SLEEP_TIME);
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//				}
-//				/* retrieve */
-//				String infoset[] = candidateInfoSet.get(count);
-//				
-//				try {
-//					c_move(dest, infoset[0], infoset[1], infoset[2], infoset[3]);
-//				} catch (Exception e) {
-//					e.printStackTrace();
-//					System.out.println("An error occurred during C-MOVE. Processing has been interrupted. If multiple QR codes are being processed, the next operation will proceed.");
-//				}
-//				
-//				if(count == 0) {
-//					HashMap<String, Object> update_con = new HashMap<>();
-//					update_con.put(TaskContext.TASK_TYPE, TaskType.TypeImport);
-//					update_con.put(TaskContext.THREAD_ID, thisThread.getId());
-//					update_con.put(TaskContext.TASK_ID, taskId);
-//					update_con.put(TaskContext.SIZE, candidateInfoSet.size());
-//					update_con.put(TaskContext.CURRENT_IND, count);
-//					con = new ImportingStateContext(infoset[1], update_con);
-//				} else {
-//					HashMap<String, Object> updation = new HashMap<>();
-//					updation.put(TaskContext.CURRENT_IND, count);
-//					con.updateState(updation);
-//				}
-//				/* count up */
-//				count++;
-//				/*
-//				 * Fix thread-safety: UI updates must be on EDT
-//				 */
-//				SwingUtilities.invokeLater(() -> {
-//					treeTable.revalidate();
-//					treeTable.repaint();
-//				});
-//			} // while loop end
-//		}
-//		done();
-//	}
 	
 	public void done() {
 		setStopped(true);
@@ -1470,26 +1337,11 @@ public class QueryRetrieve implements Task, Runnable {
 					MainScreen main = (MainScreen)win;
 					TreeTableDockManager tabDockMng = WindowManager.getMainScreen().getTreeTableDockManager();
 					TabDock anchorDock = tabDockMng.getDock(dest.getNickname());
-					DICOMTreeTable oldTreeTable = anchorDock.getDICOMTreeTable();
-					
-					// Preserve tree expansion state before updating
-					ArrayList<Integer> expandedRows = oldTreeTable.getExpandedRowsPos();
-					
+					DICOMTreeTable qrTreeTable = anchorDock.getDICOMTreeTable();
 					main.updateQRTreeTables();
-					
-					// Refresh local database view to show newly retrieved studies
+					// Refresh home treetable
 					main.loadLocalStudiesBySearchKey();
-					
-					// Restore tree expansion state after update
-					DICOMTreeTable newTreeTable = anchorDock.getDICOMTreeTable();
-					if (newTreeTable != null && expandedRows != null) {
-						for (Integer row : expandedRows) {
-							if (row < newTreeTable.getRowCount()) {
-								newTreeTable.getTree().expandRow(row);
-							}
-						}
-					}
-					newTreeTable.getTableHeader().setEnabled(true);
+					qrTreeTable.getTableHeader().setEnabled(true);
 				}
 			}
 		});

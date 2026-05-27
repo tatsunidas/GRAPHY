@@ -140,11 +140,12 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 	}
     
 	private void toggleSuspendResume() {
-		Task t = getTaskTypeImportByCellLocationAt(node);
-		if (t == null) {
+		ImportingStateContext isc = getTaskTypeImportByCellLocationAt(node);
+		if (isc == null) {
 			return;
 		}
-		t.setSuspended(true);
+		Task t = (Task)isc;
+		((Task)t).setSuspended(true);
 		progressBar.setEnabled(false);
 		progressBar.setString("Suspended");
 		int choice = JOptionPane.showOptionDialog(
@@ -196,10 +197,9 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 			return panel; 
 		}
 		
-		Task t = getTaskTypeImportByCellLocationAt(node);
-		if (t != null /* importing or suspending */) {/* STUDY Level */
-			final ImportingStateContext isc = (ImportingStateContext) t.getContext();
-			if(isc.totalSize() == (isc.currentIndex() + 1) || t.isStopped()) {
+		ImportingStateContext isc = getTaskTypeImportByCellLocationAt(node);
+		if (isc != null /* importing or suspending */) {/* STUDY Level */
+			if(isc.totalSize() == (isc.currentIndex() + 1) || ((Task)isc).isStopped()) {
 				reset(false, null);
 			}else {
 				updateProgress(isc);
@@ -215,17 +215,29 @@ public class ArchiveCellEditor extends AbstractCellEditor implements TableCellEd
 	 * @param node
 	 * @return Task : To manage suspend.
 	 */
-	private Task getTaskTypeImportByCellLocationAt(DICOMNode node ) {
-		if(node.getLevel()==DICOMNode.STUDY) {
+	private ImportingStateContext getTaskTypeImportByCellLocationAt(DICOMNode node) {
+		// STUDY レベル または SERIES レベルの時にタスクを検索するように変更
+		if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
 			TaskManager tm = TaskManager.getInstance();
 			List<Integer> taskKeys = tm.getAllTaskIds();
 			for (int tid : taskKeys) {
 				Task t = tm.getTask(tid);
 				TaskContext con = t.getContext();
-				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
+				if (con instanceof ImportingStateContext && con.getType() == TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;
-					if(isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
-						return t;
+
+					// 対象のタスクがこのノードの属するStudyに対するものかチェック
+					if (isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
+
+						if (node.getLevel() == DICOMNode.STUDY) {
+							return isc;
+						} else if (node.getLevel() == DICOMNode.SERIES) {
+							// SeriesUIDが一致した時のみ返す。
+							// 一致しない場合は、forループを継続して次のタスクを探す。
+							if (isc.getSeriesUID() != null && isc.getSeriesUID().equals(node.getData(DICOMNode.SeriesInstanceUID))) {
+								return isc;
+							}
+						}
 					}
 				}
 			}

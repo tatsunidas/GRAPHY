@@ -129,17 +129,29 @@ public class ArchiveCellRenderer extends JPanel implements TableCellRenderer {
 		return this;
 	}
 	
-	private ImportingStateContext getTaskTypeImportByCellLocationAt(DICOMNode node ) {
-		if(node.getLevel()==DICOMNode.STUDY) {
+	private ImportingStateContext getTaskTypeImportByCellLocationAt(DICOMNode node) {
+		// STUDY レベル または SERIES レベルの時にタスクを検索するように変更
+		if (node.getLevel() == DICOMNode.STUDY || node.getLevel() == DICOMNode.SERIES) {
 			TaskManager tm = TaskManager.getInstance();
 			List<Integer> taskKeys = tm.getAllTaskIds();
 			for (int tid : taskKeys) {
 				Task t = tm.getTask(tid);
 				TaskContext con = t.getContext();
-				if (con instanceof ImportingStateContext && con.getType()==TaskType.TypeImport) {
+				if (con instanceof ImportingStateContext && con.getType() == TaskType.TypeImport) {
 					ImportingStateContext isc = (ImportingStateContext) con;
-					if(isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
-						return isc;
+
+					// 対象のタスクがこのノードの属するStudyに対するものかチェック
+					if (isc.getTaskId() == tid && isc.getStudyUID().equals(node.getData(DICOMNode.StudyInstanceUID))) {
+
+						if (node.getLevel() == DICOMNode.STUDY) {
+							return isc;
+						} else if (node.getLevel() == DICOMNode.SERIES) {
+							// SeriesUIDが一致した時のみ返す。
+							// 一致しない場合は、forループを継続して次のタスクを探す。
+							if (isc.getSeriesUID() != null && isc.getSeriesUID().equals(node.getData(DICOMNode.SeriesInstanceUID))) {
+								return isc;
+							}
+						}
 					}
 				}
 			}

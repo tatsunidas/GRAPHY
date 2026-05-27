@@ -60,13 +60,15 @@ public class ImportingStateContext implements TaskContext{
 	 * randomly show progressbar in contexts.
 	 */
 	final String suid;
+	final String seuid;
 	HashMap<String, Object> con;
 	
-	public ImportingStateContext(String studyInstanceUID, HashMap<String, Object> con) {
+	public ImportingStateContext(String studyInstanceUID, String seriesUID, HashMap<String, Object> con) {
 		if(!validateContext(con)) {
 			throw new IllegalArgumentException("TaskContext is not valid.");
 		}
 		this.suid = studyInstanceUID;
+		this.seuid = seriesUID;
 		this.con = con;
 		this.type = (TaskType)con.get(TaskContext.TASK_TYPE);
 		total = (Integer)con.get(TaskContext.SIZE);
@@ -90,6 +92,10 @@ public class ImportingStateContext implements TaskContext{
 	
 	public String getStudyUID() {
 		return suid;
+	}
+	
+	public String getSeriesUID() {
+		return seuid;
 	}
 	
 	@Override

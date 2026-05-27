@@ -52,6 +52,7 @@ import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomReader;
+import com.vis.dicom.Tag;
 import com.vis.dicom.dimse.DimseUtilities;
 
 import java.io.File;
@@ -171,7 +172,9 @@ public class DicomImporter implements Task, Runnable {
 				DicomReader reader = DicomReader.newDicomReader(DICOMBackend.getCurrent());
 				reader.read(new File(candidate).getAbsolutePath(),false);
 				DicomObject data = reader.getHeader();
+				String seriesUID = data.getString(Tag.SeriesInstanceUID);
 				DatabaseHandler db = DatabaseHandler.getInstance();
+				int seriesCountPrev = db.getNumOfSeries(data.getString(Tag.PatientID), data.getString(Tag.StudyInstanceUID));
 				db.setSaveAsLinkState(false);//never use saveAsLink
 				if (data != null) {
 					synchronized(this){
@@ -189,7 +192,7 @@ public class DicomImporter implements Task, Runnable {
 					update_con.put(TaskContext.TASK_ID, taskId);
 					update_con.put(TaskContext.SIZE, candidateList.size());
 					update_con.put(TaskContext.CURRENT_IND, count);
-					con = new ImportingStateContext(studyUID, update_con);
+					con = new ImportingStateContext(studyUID, seriesUID, update_con);
 				}else {
 					HashMap<String, Object> updation = new HashMap<>();
 					updation.put(TaskContext.CURRENT_IND, count);
@@ -198,13 +201,15 @@ public class DicomImporter implements Task, Runnable {
 				}
 				//update count
 				count ++;
-				//update treetable
-				WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
-				/*
-				 * IMPRTANT
-				 */
-				treeTable.revalidate();
-				treeTable.repaint();
+				
+				SwingUtilities.invokeLater(() -> {
+					int seriesCountPost = db.getNumOfSeries(data.getString(Tag.PatientID), data.getString(Tag.StudyInstanceUID));
+					//update treetable if new series imported ( in other words, if series count cout-up 0 to 1, this is new study)
+					if(seriesCountPrev < seriesCountPost) {
+						WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+					}
+					treeTable.repaint();
+				});
 			} catch (Exception e) {
 				Log.logger.severe("DicomImporter::perform():Unable to import file. Stoped import...\n"+e.getMessage());
 				return;
@@ -223,13 +228,17 @@ public class DicomImporter implements Task, Runnable {
 
 	public void done() {
 		setStopped(true);//fail safe
-		showImportResult();//show first
-		//clear from task manager
-		DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
-		treeTable.getTableHeader().setEnabled(true);
 		isCompleted = true;//set above to task remove.
 		TaskManager tm = TaskManager.getInstance();
 		tm.removeCompletedTasks();
+		// インポートがすべて完了したタイミングで、ツリーモデル全体を更新する
+		SwingUtilities.invokeLater(() -> {
+			showImportResult();//show first
+			WindowManager.getMainScreen().loadLocalStudiesBySearchKey();
+			//clear from task manager
+			DICOMTreeTable treeTable = WindowManager.getMainScreen().getLocalTreeTable();
+			treeTable.getTableHeader().setEnabled(true);
+		});
 	}
 
 	private ArrayList<String> getCandidateFilesList() {
