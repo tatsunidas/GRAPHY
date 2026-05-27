@@ -671,7 +671,6 @@ public class SlideGlass extends JLayeredPane {
 	
 	public void initComponents(Praparat pp, DicomImage dcmImg/* single frame */) {
 		this.pp = pp;
-//		this.roiset = new ArrayList<RoiObj>();
 		this.dcmImg = dcmImg;
 		this.header = dcmImg.getHeader();
 		setBorder(BorderMaker.make(this, false));
@@ -684,7 +683,8 @@ public class SlideGlass extends JLayeredPane {
 		coverGlass.addMouseMotionListener(sgml);
 		coverGlass.addMouseWheelListener(sgml);
 		coverGlass.addKeyListener(new SlideGlassKeyListener(this));
-		imageSpecimen.updateDisplayImage();
+		// this update is call from praparat
+//		imageSpecimen.updateDisplayImage();
 	}
 	
 	public void initCalibrationAndLUT() {

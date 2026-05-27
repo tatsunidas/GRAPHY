@@ -630,8 +630,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			int maskT = maskZct[2];
 
 			// オリジナル画像の空間に完全にアライメントされたマスクを生成（枚数違いを自動パディング）
-			alignedMask = com.vis.core.fusion.ImagePairingEngine.alignMaskToOriginalSpace(originalImagePanel, orgC,
-					orgT, maskImagePanel, maskC, maskT);
+			ImagePlus fgImg = maskImagePanel.getImagePlus(maskC, maskT);
+			ImagePlus bgImg = originalImagePanel.getImagePlus(orgC, orgT);
+			alignedMask = com.vis.core.fusion.ImagePairingEngine.alignVolumeStatic(fgImg, bgImg);
 			if (alignedMask != null) {
 				this.alignedMask.copyScale(this.calcImage);
 			}
@@ -1098,8 +1099,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 				if(orgSg != null && maskSg != null) {
 					int[] orgZct = originalImagePanel.getZCTArray(orgSg);
 					int[] maskZct = maskImagePanel.getZCTArray(maskSg);
-					this.alignedMask = com.vis.core.fusion.ImagePairingEngine.alignMaskToOriginalSpace(
-							originalImagePanel, orgZct[1], orgZct[2], maskImagePanel, maskZct[1], maskZct[2]);
+					ImagePlus fgImg = maskImagePanel.getImagePlus(maskZct[1], maskZct[2]);
+					ImagePlus bgImg = originalImagePanel.getImagePlus(orgZct[1], orgZct[2]);
+					this.alignedMask = com.vis.core.fusion.ImagePairingEngine.alignVolumeStatic(fgImg, bgImg);
 					if (this.alignedMask != null) this.alignedMask.copyScale(this.calcImage);
 				}
 			}

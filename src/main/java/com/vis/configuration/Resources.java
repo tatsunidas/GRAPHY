@@ -250,6 +250,37 @@ public enum Resources {
 		}
 	}
 	
+	/**
+     * 適用されているLUTのRGB配列を比較し、システム上のLUT名を逆引きします。
+     * @param targetLut 比較対象のLUT
+     * @return 一致したLUT名。見つからない場合は "Grayscale"
+     */
+    public static String resolveLutName(ij.process.LUT targetLut) {
+        if (targetLut == null) return "Grayscale";
+
+        // システム上のすべてのLUT名を取得
+        String[] allNames = getLutNames();
+        
+        for (String name : allNames) {
+            if ("Grayscale".equals(name)) continue;
+            
+            // LUTをロードして比較
+            ij.process.LUT cachedLut = loadLUT(name);
+            if (cachedLut != null) {
+                boolean isMatch = true;
+                // 256階調のカラーコード（int値）を1つずつ安全に比較する
+                for (int i = 0; i < 256; i++) {
+                    if (targetLut.getRGB(i) != cachedLut.getRGB(i)) {
+                        isMatch = false;
+                        break;
+                    }
+                }
+                if (isMatch) return name; // 完全に一致した名前を返す
+            }
+        }
+        return "Grayscale"; // 一致するものがなければデフォルト
+    }
+	
 	public static HashMap<String,ij.process.LUT> loadAllLUT() {
 		HashMap<String,ij.process.LUT> luts = new HashMap<String,ij.process.LUT>();
 		File appDir = Platform.getAppDirectory();

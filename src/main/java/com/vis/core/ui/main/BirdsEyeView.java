@@ -404,10 +404,9 @@ public class BirdsEyeView extends JPanel{
 					highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
 					birdsEyeSplit.setDividerLocation(getOptimalThumbnailHeight());
 				}
-				setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-                MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
 			});
 		}else {
+			//when canceled, cursor is back to default.
 			javax.swing.SwingUtilities.invokeLater(() -> {
                 setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
                 MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
@@ -437,10 +436,18 @@ public class BirdsEyeView extends JPanel{
 		
 		boolean isMultiFrame = thumbnail.isMultiFrame();
 		boolean isMultiDimensional = thumbnail.isMultiDimensional();
-		isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
+		if (thumbnail.getCurrentSlide() != null) {
+			isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
+			thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		}
 		boolean isPDF = thumbnail.isPDF();
 		currentSeriesUID = (String)thumbnail.getUIDs()[2];
-		thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		if (com.vis.core.ui.main.MainScreen.getInstance() != null) {
+			com.vis.core.ui.main.MainScreen.getInstance().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		}
+		if (thumbnail.getCurrentSlide() != null) {
+			thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+		}
 		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
 		 * single grid view
@@ -457,8 +464,9 @@ public class BirdsEyeView extends JPanel{
 			String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
 			singleGridView.loadSeries(padId, studyUid, seriesUid, sopUids);
 		}
-		singleGridView.doSingleGridLayout();
-		singleGridView.showFirstImage();
+		// praparat に委ねる
+//		singleGridView.doSingleGridLayout();
+//		singleGridView.showFirstImage();
 		//after set first image
 		singleGridView.getController().showInfoText(false);
 		singleGridView.setTextVisible(false);
@@ -469,8 +477,7 @@ public class BirdsEyeView extends JPanel{
 		 * Exclude MultiFrame
 		 */
 		//show same series in single grid view
-//		if(!isMultiFrame && !isPDF && singleGridView.getNumberOfImages() > 1) {
-		if(!isMultiFrame && !isMultiDimensional) {
+		if(!isMultiFrame && !isMultiDimensional && !isPDF) {
 			filmGridView.loadSeries(thumbnail);
 			filmGridView.gridViewOn(true);//fail safe
 			filmGridView.doFilmGridLayout(null);
@@ -482,9 +489,6 @@ public class BirdsEyeView extends JPanel{
 		}
 		birdsEyeSplit.setDividerLocation(thumbnailSize);
 		seriesListView.highlightSelectedThumbnail(currentSeriesUID);
-		/*SlideGlass has set cross-hair cursor as default*/
-		thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-		seriesListView.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 	}
 	
 	public void highlightSelectedImages(ArrayList<String> selectedSopUIDsInItsSeriesOnTreeTable) {
@@ -538,11 +542,6 @@ public class BirdsEyeView extends JPanel{
 			return;
 		}
 		showImagesFromThumbnailAction(seriesListView.getThumbnail(currentSeriesUID));
-		javax.swing.SwingUtilities.invokeLater(() -> {
-            highlightSelectedImages(selectedSopUIDs.get(currentSeriesUID));
-            setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-            MainScreen.getInstance().setCursor(Cursor.DEFAULT_CURSOR);
-        });
 	}
 	
 	public void addSeries(Object praparat) {
@@ -572,6 +571,10 @@ public class BirdsEyeView extends JPanel{
 		return pInfoMap;
 	}
 	
+	public ThumbnailListView getThumbnailListView() {
+		return this.seriesListView;
+	}
+	
 	/**
 	 * グリッドのインスタンスを確実に破棄して待機状態に戻す
 	 */
@@ -592,7 +595,7 @@ public class BirdsEyeView extends JPanel{
 		singleGridPane.repaint();
 	}
 	
-	class ThumbnailListView extends JScrollPane{
+	public class ThumbnailListView extends JScrollPane{
 		JPanel seriesListPanel;
 		private ThumbnailListView() {
 			seriesListPanel = new JPanel();
@@ -678,6 +681,13 @@ public class BirdsEyeView extends JPanel{
 		
 		int getPanelHeight() {
 			return seriesListPanel.getHeight();
+		}
+		
+		@Override
+		public void setCursor(java.awt.Cursor cursor) {
+			super.setCursor(cursor);
+			seriesListPanel.setCursor(cursor);
+			//praparats's cursor is set to in praparat. 
 		}
 	}	
 }

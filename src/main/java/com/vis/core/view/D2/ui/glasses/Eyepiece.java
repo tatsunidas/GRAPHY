@@ -419,6 +419,10 @@ public class Eyepiece extends JPanel{
 	                        }
 	                    	
 	                        bgPrap.enableFusionMode(alignedOverlay);
+	                        /*
+	                         * Ghost（ドラッグ中の残像）は、SlideGlassMouseListener の mouseReleased で
+	                         * 無条件に ggp.setVisible(false); される。
+	                         */
 	                        
 	                    } else {
 	                        javax.swing.JOptionPane.showMessageDialog(bgPrap, "Fusion alignment failed.");

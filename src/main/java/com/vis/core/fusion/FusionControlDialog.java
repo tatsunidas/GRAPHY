@@ -76,26 +76,36 @@ public class FusionControlDialog extends JDialog {
         
         lutComboBox = new JComboBox<>(lutNames);
         
-        //TODO
-        // 現在前景に適用されているLUT名があれば、それを初期選択にする
-//        ImagePlus fp = pp.getForegroundOverlay();
-//        if(fp != null) {
-//        	lutComboBox.setSelectedItem(fp.getLuts()[0]);
-//        }
+        ImagePlus fp = pp.getForegroundOverlay();
+        if (fp != null && fp.getLuts() != null && fp.getLuts().length > 0) {
+            ij.process.LUT currentLut = fp.getLuts()[0];
+            // Resourcesに追加した逆引きメソッドを使用
+            String resolvedName = com.vis.configuration.Resources.resolveLutName(currentLut);
+            lutComboBox.setSelectedItem(resolvedName);
+        } else {
+            lutComboBox.setSelectedItem("Grayscale");
+        }
         
-        // アイテムが選択されたら即座に反映
-        lutComboBox.addActionListener(e -> {
-            String selectedLutName = (String) lutComboBox.getSelectedItem();
-            
-            // 文字列から ImageJ の LUT オブジェクトへ変換する
-            ij.process.LUT selectedLut = null;
-            if (!"Grayscale".equals(selectedLutName)) {
-                 selectedLut = com.vis.configuration.Resources.loadLUT(selectedLutName);
-            }
-            
-            // Step 1 で作成したLUT更新ロジックを呼び出す
-            pp.updateFusionLUT(selectedLut, selectedLutName);
-        });
+		// アイテムが選択されたら即座に反映
+		lutComboBox.addActionListener(e -> {
+			String selectedLutName = (String) lutComboBox.getSelectedItem();
+
+			// 文字列から ImageJ の LUT オブジェクトへ変換する
+			ij.process.LUT selectedLut = null;
+			if (!"Grayscale".equals(selectedLutName)) {
+				selectedLut = com.vis.configuration.Resources.loadLUT(selectedLutName);
+			} else {
+				// Grayscale用のLUT配列を明示的に作成して渡す ★★★
+				byte[] gray = new byte[256];
+				for (int i = 0; i < 256; i++) {
+					gray[i] = (byte) i;
+				}
+				selectedLut = new ij.process.LUT(gray, gray, gray);
+			}
+
+			// Step 1 で作成したLUT更新ロジックを呼び出す
+			pp.updateFusionLUT(selectedLut, selectedLutName);
+		});
         mainPanel.add(lutComboBox);
 
         // ==========================================
@@ -113,10 +123,21 @@ public class FusionControlDialog extends JDialog {
 
         add(mainPanel, BorderLayout.CENTER);
 
-        // 下部の閉じるボタン
+        	// フュージョン解除ボタン
+        JButton unfusionBtn = new JButton("Unfusion");
+        unfusionBtn.setToolTipText("Unfusion and close dialog.");
+        unfusionBtn.addActionListener(e -> {
+            pp.disableFusionMode(); // 前景オーバーレイを破棄して画面を更新
+            dispose(); // 解除した後は用済みになるためダイアログも閉じる
+        });
+
+        // 既存の閉じるボタン
         JButton closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> dispose());
+        
+        // パネルに横並びで配置
         JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        southPanel.add(unfusionBtn);
         southPanel.add(closeBtn);
         add(southPanel, BorderLayout.SOUTH);
     }
