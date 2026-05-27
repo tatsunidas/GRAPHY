@@ -60,6 +60,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,6 +74,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 
+import com.vis.configuration.ContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.main.BirdsEyeView;
@@ -81,6 +83,7 @@ import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
+import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.SeriesWindow;
@@ -2087,6 +2090,55 @@ public class Praparat extends JPanel {
 	public boolean isShowing2DViewerOn() {
 		return prapManager != null;
 	}
+	
+	/**
+	 * SlideGlassの空間（IPP/FoR）と、ROIが持つ空間情報が一致するかを判定します。
+	 */
+	private boolean isSpatialMatch(SlideGlass sg, String roiIppStr, String roiForUid, String originSop) {
+	    DicomObject header = sg.getHeader();
+	    int frameIdx = isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
+
+	    // SlideGlass側のIPPを取得
+	    double[] currentIpp = getSafeIPP(header, frameIdx);
+	    
+	    // 1. IPPが存在しない（完全な2D画像）場合のフォールバック判定
+	    if (currentIpp == null || roiIppStr == null) {
+	        // 空間の概念がないため、厳密なSOPの一致のみを許可する（C=ALLなどの共有を遮断）
+	        String currentSop = sg.getSOPInstanceUID();
+	        return currentSop != null && currentSop.equals(originSop);
+	    }
+
+	    // 2. FrameOfReferenceの判定 (厳密に空間を区別する場合)
+	    String currentForUid = header.getString(Tag.FrameOfReferenceUID);
+	    if (currentForUid == null || currentForUid.trim().isEmpty()) {
+	        currentForUid = header.getString(Tag.SeriesInstanceUID); // FoR欠損時はSeriesUIDを代替に
+	    }
+	    if (roiForUid != null && !roiForUid.equals(currentForUid)) {
+	        return false; // 空間の基準（座標系）が違う
+	    }
+
+	    // 3. IPP（3D空間座標）の距離計算によるZ軸の一致判定
+	    try {
+	        String[] parts = roiIppStr.split(",");
+	        if (parts.length == 3) {
+	            double rx = Double.parseDouble(parts[0].trim());
+	            double ry = Double.parseDouble(parts[1].trim());
+	            double rz = Double.parseDouble(parts[2].trim());
+
+	            double dx = currentIpp[0] - rx;
+	            double dy = currentIpp[1] - ry;
+	            double dz = currentIpp[2] - rz;
+	            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+	            // ユークリッド距離が 1e-3 (0.001mm) 以下なら同一スライス（Z）とみなす
+	            return distance <= 1e-3;
+	        }
+	    } catch (NumberFormatException e) {
+	        Log.logger.warning("ROI IPP Parsing Error: " + roiIppStr);
+	    }
+
+	    return false;
+	}
 
 	// Praparat.java 内に追加
 	private void setWaitCursor(boolean isWait) {
@@ -2105,17 +2157,102 @@ public class Praparat extends JPanel {
 		}
 	}
 
+	// old
+//	public void loadRoisFromDB() {
+//		if (slides == null || slides.size() == 0) {
+//			return;
+//		}
+//		if (getViewMode() != ViewMode.Thumbnail) {
+//			for (Integer pos : this.slides.keySet()) {
+//				SlideGlass sg = this.slides.get(pos);
+//				if (sg != null) {
+//					sg.loadRoiFromDB();
+//				}
+//			}
+//		}
+//	}
+	
 	public void loadRoisFromDB() {
-		if (slides == null || slides.size() == 0) {
+		if (slides == null || slides.size() == 0 || getViewMode() == ViewMode.Thumbnail) {
 			return;
 		}
-		if (getViewMode() != ViewMode.Thumbnail) {
-			for (Integer pos : this.slides.keySet()) {
-				SlideGlass sg = this.slides.get(pos);
-				if (sg != null) {
-					sg.loadRoiFromDB();
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null)
+			return;
+
+		// 1. シリーズ内の全ROIを一括取得
+		ArrayList<HashMap<String, Object>> seriesRois = db.loadRoiContextFromSeries(patID, studyUID, seriesUID);
+		if (seriesRois == null || seriesRois.isEmpty())
+			return;
+
+		// 2. ディスパッチ処理: 取得した各ROIを評価
+		for (HashMap<String, Object> roiCtx : seriesRois) {
+
+			// メタプロパティから多次元空間情報を抽出
+			@SuppressWarnings("unchecked")
+			Map<String, String> metaProps = (Map<String, String>) roiCtx.get(ContextKey.RoiMetaProperties.name());
+			if (metaProps == null)
+				metaProps = new HashMap<>();
+
+			// 前回の議論で設計した情報を取得（保存時にこれらが付与されている前提）
+			String roiIppStr = metaProps.get("ReferenceImagePositionPatient");
+			String roiForUid = metaProps.get("FrameOfReferenceUID");
+
+			String dimCStr = metaProps.get("Dim_C");
+			String dimTStr = metaProps.get("Dim_T");
+
+			// NULLの場合は "NULL" という特別な状態として保持しておく
+			int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99;
+			int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99;
+			String originSop = (String) roiCtx.get("SOPInstanceUID");
+
+			for (Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
+				int zctIndex = entry.getKey();
+				SlideGlass sg = entry.getValue();
+				if (sg == null)
+					continue;
+
+				int[] currentZCT = calcZCTArrayFromIndex(zctIndex);
+				int currentC = currentZCT[1];
+				int currentT = currentZCT[2];
+
+				// ========================================================
+				// ★判定A: 次元のマッチング（NULLの場合はALLにしない）
+				// ========================================================
+				// ターゲットが -99 (NULL) の場合は、その後の空間判定で Origin SOP との完全一致を要求することで単一スライスに縛る
+				if (targetC != -1 && targetC != -99 && targetC != currentC)
+					continue;
+				if (targetT != -1 && targetT != -99 && targetT != currentT)
+					continue;
+
+				// ========================================================
+				// ★判定B: 空間（Z座標 / IPP）とSOPのマッチング
+				// ========================================================
+				boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
+
+				// DimがNULL(-99)のレガシーROI/新規ROIの場合は、空間が一致してもSOPが違えば弾く（単一スライス表示）
+				if (targetC == -99 || targetT == -99) {
+					String currentSop = sg.getSOPInstanceUID();
+					if (currentSop == null || !currentSop.equals(originSop)) {
+						continue; // 単一スライス用なので、別のSOPには分配しない
+					}
+				} else if (!spatialMatch) {
+					continue; // 空間が不一致なら弾く
+				}
+
+				// マッチング成功！
+				RoiObj revivedRoi = new RoiConverter().buildRoiObj(roiCtx);
+				if (revivedRoi != null) {
+					revivedRoi.setSlideGlass(sg, false);
+					sg.addRoiFromDB(revivedRoi); // 互換性維持のための安全な追加
 				}
 			}
+		}
+		repaint();
+		// RoiObjManagerが開いている場合は、リストを一括更新
+		if (com.vis.core.facade.WindowManager.getWindow(com.vis.configuration.ConfigInfo.RoiManager) != null) {
+			com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
 		}
 	}
 

@@ -193,12 +193,28 @@ public class CanvasGlass extends javax.swing.JPanel {
 				}
 				
 				roiset.add(newRoi);
+				/*
+				 * DBに存在していてもUpdateのために保存する。
+				 */
 				insertOrUpdateRoi4DB(newRoi);
 				//update RoiObjManager
 				RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager);
 				if(rom != null) {
 					rom.updateState();
 				}
+			}
+		}
+	}
+	
+	/**
+	 * DBから読み込まれたROIを、再保存なしで内部リストに追加します（互換性維持用）。
+	 */
+	public void addRoiFromDB(RoiObj roi) {
+		if (roi == null)
+			return;
+		synchronized (roiset) {
+			if (!this.roiset.contains(roi)) {
+				this.roiset.add(roi);
 			}
 		}
 	}
@@ -644,8 +660,26 @@ public class CanvasGlass extends javax.swing.JPanel {
 		double[] ipp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
 		if (ipp != null && ipp.length >= 3) {
 			String ippStr = ipp[0] + "," + ipp[1] + "," + ipp[2];
-			roi.setProperty("ReferenceImagePositionPatient", ippStr);
+			roi.setProperty(ContextKey.ReferenceImagePositionPatient.name(), ippStr);
 		}
+		int[] zct = pp.getZCTArray(sg);
+		roi.setProperty(ContextKey.Dim_Z.name(), String.valueOf(zct[0]));
+		roi.setProperty(ContextKey.Dim_C.name(), String.valueOf(zct[1]));
+		roi.setProperty(ContextKey.Dim_T.name(), String.valueOf(zct[2]));
+
+		String frameOfRef = sg.getHeader().getString(Tag.FrameOfReferenceUID);
+
+		if (frameOfRef == null || frameOfRef.trim().isEmpty()) {
+			if (ipp != null && ipp.length == 3) {
+				// IPPが存在するなら、空間の概念はあると見なして SeriesInstanceUID でグループ化
+				frameOfRef = sg.getHeader().getString(Tag.SeriesInstanceUID);
+			} else {
+				// IPPすら存在しない（完全な2D画像など）場合は、他画像との空間マッチングは物理的に不可能。
+				// 最も安全な SOPInstanceUID にフォールバックし、その画像単体に縛る。
+				frameOfRef = sg.getHeader().getString(Tag.SOPInstanceUID);
+			}
+		}
+		roi.setProperty("FrameOfReferenceUID", frameOfRef);
 		
 		//save as new or update
 		if(DatabaseHandler.getInstance() != null) {

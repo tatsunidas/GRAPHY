@@ -65,6 +65,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -119,6 +120,7 @@ import ij.io.SaveDialog;
 import ij.process.ColorProcessor;
 import ij.process.FloatPolygon;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 
 /**
  * 
@@ -131,6 +133,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	boolean isDebug = Utils.isDebug;
 	HashMap<ContextKey, JTextField> roiInfoFields;
 	RoiObj currentRoi;//current only one selected roi
+	HashMap<String, JTextField> multiDimFields; 
 	
 	enum Functions{
 		Measure,
@@ -328,11 +331,15 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	
 	void addRoiInfoFields() {
 		roiInfoFields = new HashMap<>();
+		multiDimFields = new HashMap<>(); // ★追加: マップの初期化
+
 		GridBagLayout l = new GridBagLayout();
 		roiInfoPanel.setLayout(l);
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.anchor = GridBagConstraints.WEST;
 		gbc.insets = new Insets(5, 5, 5, 5);
+
+		// 1. 既存のメインプロパティの生成
 		for (int i = 0; i < roiInfo.length; i++) {
 			JLabel lbl = new JLabel(roiInfo[i].name() + ":");
 			JTextField tf = new JTextField(10);
@@ -340,10 +347,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			if (roiInfo[i] == ContextKey.StudyDate) {
 				tf.setInputVerifier(new DateInputVerifier("yyyy/MM/dd"));
 			}
-			//add to map
 			roiInfoFields.put(roiInfo[i], tf);
-			//set layout
-			// ★変更: ラベル用のレイアウト設定 (横には伸びない)
+
 			gbc.gridx = 0;
 			gbc.gridy = i;
 			gbc.weightx = 0.0;
@@ -352,22 +357,44 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			gbc.anchor = GridBagConstraints.WEST;
 			roiInfoPanel.add(lbl, gbc);
 
-			// ★変更: テキストフィールド用のレイアウト設定 (余白があれば横に伸びる)
 			gbc.gridx = 1;
 			gbc.weightx = 1.0;
 			gbc.fill = GridBagConstraints.HORIZONTAL;
 			roiInfoPanel.add(tf, gbc);
 		}
-		// finally add save btn
+
+		// 2. ★追加: 多次元プロパティ用フィールド（Dim_C, Dim_Z, Dim_T）の生成と配置
+		String[] dimKeys = { "Dim_C", "Dim_Z", "Dim_T" };
+		String[] dimLabels = { "Dim_C (Channel, -1=ALL):", "Dim_Z (Slice, -1=ALL):", "Dim_T (Time, -1=ALL):" };
+
+		for (int j = 0; j < dimKeys.length; j++) {
+			JLabel lbl = new JLabel(dimLabels[j]);
+			JTextField tf = new JTextField(10);
+			tf.setName(dimKeys[j]);
+			multiDimFields.put(dimKeys[j], tf);
+
+			gbc.gridx = 0;
+			gbc.gridy = roiInfo.length + j; // 既存プロパティの下に配置
+			gbc.weightx = 0.0;
+			gbc.gridwidth = 1;
+			gbc.fill = GridBagConstraints.NONE;
+			gbc.anchor = GridBagConstraints.WEST;
+			roiInfoPanel.add(lbl, gbc);
+
+			gbc.gridx = 1;
+			gbc.weightx = 1.0;
+			gbc.fill = GridBagConstraints.HORIZONTAL;
+			roiInfoPanel.add(tf, gbc);
+		}
+
+		// 3. Save/Updateボタンの配置（位置を多次元フィールドの下に調整）
 		gbc.gridx = 0;
-		gbc.gridy = roiInfo.length;
-		gbc.gridwidth = 2; // 2列分使う
+		gbc.gridy = roiInfo.length + dimKeys.length; // ★修正
+		gbc.gridwidth = 2;
 		gbc.weightx = 1.0;
 		gbc.fill = GridBagConstraints.NONE;
 		gbc.anchor = GridBagConstraints.CENTER;
-		/*
-		 * save properties and update roi frame position if changed.
-		 */
+
 		JButton saveBtn = new JButton("Save/Update Info");
 		saveBtn.addActionListener(new ActionListener() {
 			@Override
@@ -380,39 +407,38 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				String rid = list.getSelectedValue();
 				RoiObj r = selectedRois.get(rid);
 				if (r != null) {
-					// 変更前のPositionを記憶
 					String oldPos = r.getProperty(ContextKey.Position.name());
 					String newPos = roiInfoFields.get(ContextKey.Position).getText();
 					boolean positionChanged = (oldPos != null && newPos != null && !oldPos.equals(newPos));
 
-					// プロパティをROIに反映
+					// メインプロパティをROIに反映
 					for (ContextKey ck : roiInfo) {
 						r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
 					}
 
-					// ★ 追加：Position が変更された場合の「引っ越し」処理
+					// ★追加: 多次元プロパティ（Dim_C, Dim_Z, Dim_T）の値をROIに反映
+					for (String dKey : multiDimFields.keySet()) {
+						String val = multiDimFields.get(dKey).getText();
+						if (val == null || val.trim().isEmpty()) {
+							val = "-1"; // 空欄で保存された場合は全適用(-1)をデフォルトにする
+						}
+						r.setProperty(dKey, val.trim());
+					}
+
+					// Position（スライス引っ越し）が変更された場合の既存処理
 					if (positionChanged) {
 						try {
-							// Position(1-based) を Praparatのマップ用Index(0-based)に変換
 							int newIndex = Integer.parseInt(newPos) - 1;
 							Praparat pp = r.getSlideGlass().getPraparat();
-
 							SlideGlass newSg = null;
 							if (pp.getAllSlides().containsKey(newIndex)) {
 								newSg = pp.getAllSlides().get(newIndex);
 							}
 
 							if (newSg != null && newSg != r.getSlideGlass()) {
-								// 1. 元のスライドから削除（DB上の古いレコードも消えます）
 								r.getSlideGlass().deleteRoi(r);
-
-								// 2. 新しいスライドの情報をセット（ここで SOPInstanceUID や InstanceNo が自動で書き換わります！）
 								r.setSlideGlass(newSg, false);
-
-								// 3. 新しいスライドに追加（新しいスライスの画像上で描画され、DBに上書きされます）
 								newSg.addRoi(r);
-
-								// リストと画面を更新して終了
 								updateState();
 								return;
 							} else {
@@ -426,13 +452,34 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 						}
 					}
 
-					// 通常の保存（Position変更がない場合）
+					// 通常のDB上書き保存
 					saveRoi2DB(r);
-					updateState(); // 名前などが変わったかもしれないのでリスト更新
+
+					// ★追加: ZCT条件の変更を画面に即座に反映させるため、再ディスパッチをトリガー
+					if (r.getSlideGlass() != null && r.getSlideGlass().getPraparat() != null) {
+						Praparat pp = r.getSlideGlass().getPraparat();
+
+						// 全スライドのCanvasGlassから、一旦古いROIのリストを全クリアする
+						for (SlideGlass sg : pp.getAllSlides().values()) {
+							if (sg != null) {
+								// CanvasGlass内のroisetをクリアするために既存のreset（部分初期化）に近い処理を行う
+								// 互換性維持のため、sg.getRois().clear() もしくは CanvasGlassにクリア指示
+								sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+								ArrayList<RoiObj> roiset = sg.getRois();
+								if (roiset != null) {
+									roiset.clear();
+								}
+							}
+						}
+						// 拡張した一括ロード＆分配ロジックを再呼び出し
+						pp.loadRoisFromDB();
+					}
+
+					updateState(); // リストの更新
 				}
 			}
 		});
-		roiInfoPanel.add(saveBtn/* save roi info */, gbc);
+		roiInfoPanel.add(saveBtn, gbc);
 	}
 	
 	public void updatePatientList() {
@@ -547,18 +594,123 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		return rois.containsKey(roiID);
 	}
 	
+	/*
+	 * old code
+	 */
+//	private void measure() {
+//		if(selectedRois == null || selectedRois.size() < 1) {
+//			return;
+//		}
+//		for(String k : selectedRois.keySet()) {
+//			RoiObj roiObj = selectedRois.get(k);
+//			RoiAnalyzer ana = new RoiAnalyzer(roiObj);
+//			List<HashMap<Measurements/*enum*/, Double>> res = ana.measure();
+//			for(HashMap<Measurements/*enum*/, Double> r : res) {
+//				ana.showInResultWindow(r);
+//			}
+//		}
+//	}
+	
 	private void measure() {
-		if(selectedRois == null || selectedRois.size() < 1) {
-			return;
-		}
-		for(String k : selectedRois.keySet()) {
-			RoiObj roiObj = selectedRois.get(k);
-			RoiAnalyzer ana = new RoiAnalyzer(roiObj);
-			List<HashMap<Measurements/*enum*/, Double>> res = ana.measure();
-			for(HashMap<Measurements/*enum*/, Double> r : res) {
-				ana.showInResultWindow(r);
-			}
-		}
+	    if(selectedRois == null || selectedRois.size() < 1) {
+	        return;
+	    }
+
+	    // 1. ROIをグループIDごとに仕分けるマップ
+	    // キー: RoiGroup (グループ化されていないものは個別のユニークID等をキーにするか別リストへ)
+	    HashMap<Integer, List<RoiObj>> groupedRois = new HashMap<>();
+	    List<RoiObj> singleRois = new ArrayList<>();
+
+	    for(String k : selectedRois.keySet()) {
+	        RoiObj roiObj = selectedRois.get(k);
+	        String groupStr = roiObj.getProperty(ContextKey.RoiGroup.name());
+	        
+	        int groupId = -1;
+	        try {
+	            if(groupStr != null && !groupStr.isEmpty()) {
+	                groupId = Integer.parseInt(groupStr);
+	            }
+	        } catch (NumberFormatException e) {
+	            groupId = -1;
+	        }
+
+	        // グループIDが設定されている（1以上など）場合はグループへ、それ以外は単独へ
+	        if (groupId > 0) {
+	            groupedRois.computeIfAbsent(groupId, val -> new ArrayList<>()).add(roiObj);
+	        } else {
+	            singleRois.add(roiObj);
+	        }
+	    }
+
+	    // 2. 単独ROIの計測（従来の処理）
+	    for (RoiObj roiObj : singleRois) {
+	        RoiAnalyzer ana = new RoiAnalyzer(roiObj);
+	        List<HashMap<Measurements, Double>> res = ana.measure();
+	        for(HashMap<Measurements, Double> r : res) {
+	            ana.showInResultWindow(r);
+	        }
+	    }
+
+	    // 3. グループ化されたROI（3D-ROI）の体積計測
+	    for (Map.Entry<Integer, List<RoiObj>> entry : groupedRois.entrySet()) {
+	        int groupId = entry.getKey();
+	        List<RoiObj> groupList = entry.getValue();
+
+	        // 複数スライスにまたがっている場合のみ体積計算
+	        if (groupList.size() > 1) {
+	            measureVolume(groupId, groupList);
+	        } else {
+	            // グループ設定されているが1枚しかない場合は2Dとして計算
+	            RoiAnalyzer ana = new RoiAnalyzer(groupList.get(0));
+	            List<HashMap<Measurements, Double>> res = ana.measure();
+	            for(HashMap<Measurements, Double> r : res) {
+	                ana.showInResultWindow(r);
+	            }
+	        }
+	    }
+	}
+	
+	/*
+	 * 参考メソッド簡易版
+	 * TODO：マスクからメッシュで計算する
+	 */
+	private void measureVolume(int groupId, List<RoiObj> groupList) {
+	    double totalVolume = 0.0;
+	    
+	    for (RoiObj roi : groupList) {
+	        SlideGlass sg = roi.getSlideGlass();
+	        if (sg == null) continue;
+
+	        // 1. 各ROIの統計情報を取得（ここで物理面積 Area が計算される）
+	        ImageStatistics stats = roi.getStatistics();
+	        if (stats == null) continue;
+
+	        // stats.area は Calibration (ピクセル幅×ピクセル高) が考慮された面積 (mm^2)
+	        double area = stats.area;
+
+	        // 2. スライスの厚み（Z方向の深さ）を取得
+	        ij.measure.Calibration cal = sg.getOriginalCalibration();
+	        double sliceThickness = 1.0;
+	        if (cal != null && cal.pixelDepth > 0) {
+	            sliceThickness = cal.pixelDepth;
+	        } else {
+	            // フォールバック: CalibrationにpixelDepthがない場合はDICOMヘッダから直接取得
+	            com.vis.dicom.DicomObject header = sg.getHeader();
+	            if (header != null) {
+	                sliceThickness = header.getDouble(com.vis.dicom.Tag.SpacingBetweenSlices, 
+	                                 header.getDouble(com.vis.dicom.Tag.SliceThickness, 1.0));
+	            }
+	        }
+
+	        // 3. 体積を積算: 体積(mm^3) = 面積(mm^2) × 厚み(mm)
+	        totalVolume += (area * sliceThickness);
+	    }
+
+	    // 4. 結果の出力（ここでは仮にコンソールとメッセージダイアログに出力）
+	    // ※ 実際は RoiAnalyzer や Measurement Table に新しい行として追加するロジックに繋ぎます
+	    String msg = String.format("3D-ROI Group [%d] Volume: %.2f mm³", groupId, totalVolume);
+	    com.vis.core.log.Log.logger.info(msg);
+	    javax.swing.JOptionPane.showMessageDialog(this, msg, "Volume Measurement", javax.swing.JOptionPane.INFORMATION_MESSAGE);
 	}
 	
 	private void delete() {
@@ -1791,66 +1943,72 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	@SuppressWarnings("unchecked")
 	@Override
 	public void valueChanged(ListSelectionEvent e) {
-		/*
-		 * e.getValueIsAdjusting() = true :: mouse pressed
-		 */
 		if (e.getSource() instanceof JList && e.getValueIsAdjusting()) {
-			
-			roiInfoLabeling();//backup rois
-			resetRoiInfoFields();//clear roi info fields
-			
-			for(String roiID : rois.keySet()) {
+
+			roiInfoLabeling(); // バックアップ
+			resetRoiInfoFields(); // 既存フィールドのクリア
+
+			// ★追加: 多次元用フィールドのクリア
+			if (multiDimFields != null) {
+				for (JTextField tf : multiDimFields.values()) {
+					tf.setText("");
+				}
+			}
+
+			for (String roiID : rois.keySet()) {
 				rois.get(roiID).setActiveOverlayRoi(false);
 			}
 			selectedRois = new HashMap<>();
 			JList<String> roiList = (JList<String>) e.getSource();
 			List<String> selected = roiList.getSelectedValuesList();
-			if(selected != null && selected.size() > 0) {
-				for(String id:selected) {
+			if (selected != null && selected.size() > 0) {
+				for (String id : selected) {
 					rois.get(id).setActiveOverlayRoi(true);
 					selectedRois.put(id, rois.get(id));
 				}
 			}
 			int selected_size = selectedRois.size();
-			if( selected_size == 1) {
+			if (selected_size == 1) {
 				Set<String> key = selectedRois.keySet();
 				String k = key.iterator().next();
 				currentRoi = rois.get(k);
-				//show on viewer
+
 				Praparat pp = currentRoi.getSlideGlass().getPraparat();
 				String posStr = currentRoi.getProperty(ContextKey.Position.name());
-				
+
 				if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 					try {
-						// Positionは1始まりなので、Praparatのマップ用Index(0始まり)に変換
 						int targetIndex = Integer.parseInt(posStr) - 1;
-						
-						// ★ setImagePositionUsingSlider を使うことで、画面下部のスライダーも連動して動くようになります！
-						pp.setImagePositionUsingSlider(targetIndex); 
-						
+						pp.setImagePositionUsingSlider(targetIndex);
 					} catch (NumberFormatException ex) {
-						// 万が一パースに失敗した場合は元のメソッドでフォールバック
 						pp.setImagePositionTo(currentRoi.getSlideGlass());
 					}
 				} else {
-					// Positionを持たない古いデータなどの場合
 					pp.setImagePositionTo(currentRoi.getSlideGlass());
 				}
 				toFront();
-				//show info
-				for(ContextKey ck : roiInfo) {
+
+				// メインプロパティのロード
+				for (ContextKey ck : roiInfo) {
 					String v = currentRoi.getProperty(ck);
-					if(ck == ContextKey.InstanceNo || ck == ContextKey.RoiGroup) {
+					if (ck == ContextKey.InstanceNo || ck == ContextKey.RoiGroup) {
 						Integer v_ = intValue(v);
-						if(!isIgnoreValue(v_)) {
+						if (!isIgnoreValue(v_)) {
 							roiInfoFields.get(ck).setText(v);
 						}
-					}else {
+					} else {
 						roiInfoFields.get(ck).setText(v);
 					}
 				}
+
+				// ★追加: 多次元プロパティ（Dim_C, Dim_Z, Dim_T）をUIフィールドにロード
+				if (currentRoi != null && multiDimFields != null) {
+					multiDimFields.get("Dim_C").setText(currentRoi.getProperty("Dim_C"));
+					multiDimFields.get("Dim_Z").setText(currentRoi.getProperty("Dim_Z"));
+					multiDimFields.get("Dim_T").setText(currentRoi.getProperty("Dim_T"));
+				}
 			}
-			Log.logger.fine("update Selected rois:"+selectedRois.size());
+			Log.logger.fine("update Selected rois:" + selectedRois.size());
 		}
 	}
 

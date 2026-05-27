@@ -501,14 +501,22 @@ public class DatabaseHandler {
 		return false;
 	}
 
+	/**
+	 * 
+	 * @param patID
+	 * @param studyUid
+	 * @param seriesUid
+	 * @param sopUid : Dummy, multi stack対応のために緩和
+	 * @param roiId
+	 */
 	public synchronized void deleteRoi(String patID, String studyUid, String seriesUid, String sopUid, String roiId) {
-		String statement = "DELETE FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
+		String statement = "DELETE FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND RoiID=?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
 			pstmt.setString(1, patID);
 			pstmt.setString(2, studyUid);
 			pstmt.setString(3, seriesUid);
-			pstmt.setString(4, sopUid);
-			pstmt.setString(5, roiId);
+//			pstmt.setString(x, sopUid);
+			pstmt.setString(4, roiId);
 			pstmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException e) {
@@ -3001,6 +3009,76 @@ public class DatabaseHandler {
 			return null;
 		}
 	}
+	
+	/**
+	 * シリーズレベルでROIを一括取得します。多次元データのディスパッチに使用します。
+	 */
+	public ArrayList<HashMap<String, Object>> loadRoiContextFromSeries(String pid, String studyUid, String seriesUid) {
+	    ArrayList<HashMap<String, Object>> set = new ArrayList<>();
+	    String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
+	    
+	    try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
+	        pstmt.setString(1, pid);
+	        pstmt.setString(2, studyUid);
+	        pstmt.setString(3, seriesUid);
+	        
+	        try (ResultSet rset = pstmt.executeQuery();) {
+	            while (rset.next()) {
+	                HashMap<String, Object> roiCon = new HashMap<>();
+	                roiCon.put("RoiID", rset.getString("RoiID"));
+	                roiCon.put("Name", rset.getString("Name"));
+	                roiCon.put("RoiType", rset.getInt("RoiType"));
+	                roiCon.put("OriginX", rset.getInt("OriginX"));
+	                roiCon.put("OriginY", rset.getInt("OriginY"));
+	                roiCon.put("Width", rset.getInt("Width"));
+	                roiCon.put("Height", rset.getInt("Height"));
+	                
+	                // Blobの変換
+	                roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
+	                roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
+	                roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
+	                
+	                roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
+	                roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
+	                roiCon.put("RoiLabel", rset.getString("RoiLabel"));
+	                roiCon.put("ObjectType", rset.getString("ObjectType"));
+	                roiCon.put("Organ", rset.getString("Organ"));
+	                roiCon.put("Description", rset.getString("Description"));
+	                
+	                if (rset.getDate(ContextKey.StudyDate.name()) != null) {
+	                    java.sql.Date sd = rset.getDate(ContextKey.StudyDate.name());
+	                    SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
+	                    roiCon.put(ContextKey.StudyDate.name(), f.format(sd));
+	                } else {
+	                    roiCon.put(ContextKey.StudyDate.name(), null);
+	                }
+	                
+	                roiCon.put(ContextKey.CrossSection.name(), rset.getString(ContextKey.CrossSection.name()));
+	                
+					// メタプロパティ（JSON）の展開（ここにDim_C, Dim_T, IPPなどが入る）
+					if (rset.getString(ContextKey.RoiMetaProperties.name()) != null) {
+						String jsonProperties = rset.getString(ContextKey.RoiMetaProperties.name());
+						Gson gson = new Gson();
+						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
+						}.getType();
+						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
+						roiCon.put(ContextKey.RoiMetaProperties.name(), loadedProps);
+					}
+	                
+	                roiCon.put("PatientID", rset.getString("PatientID"));
+	                roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
+	                roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
+	                roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID")); // 描画元のOriginSOPとして保持
+	                
+	                set.add(roiCon);
+	            }
+	        }
+	        conn.commit();
+	    } catch (SQLException ex) {
+	        logger.severe(ex.getMessage());
+	    }
+	    return set;
+	}
 
 	public HashMap<String, Object> loadSeriesNodeMaterial(ResultSet seriesInfo, HashMap<String, Object> studyMaterial) {
 		String modalityInStudy = (String) studyMaterial.get("ModalitiesInStudy");
@@ -3983,7 +4061,7 @@ public class DatabaseHandler {
 	public void updateRoiInfo(String roiId, String name, int roiType, int originX, int originY, int w, int h,
 			double[] pointX, double[] pointY, double[] shapeArray, int instNo, int roiGroup, String roilbl,
 			String objType, String organ, String desc, java.sql.Date studyDate, String crossSection,
-			String jsonProperties, String pid, String studyUid, String seriesUid, String sopUid) {
+			String jsonProperties, String pid, String studyUid, String seriesUid, String sopUid/*dummy*/) {
 
 		// get as byte
 		byte[] byteArrayX = null;
@@ -4015,7 +4093,7 @@ public class DatabaseHandler {
 			statement = statement
 					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , RoiMetaProperties=?";
 			statement = statement
-					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
+					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND RoiID=?";
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, name);
 			pstmt.setInt(2, roiType);
@@ -4041,8 +4119,8 @@ public class DatabaseHandler {
 			pstmt.setString(19, pid);
 			pstmt.setString(20, studyUid);
 			pstmt.setString(21, seriesUid);
-			pstmt.setString(22, sopUid);
-			pstmt.setString(23, roiId);
+//			pstmt.setString(x, sopUid);//利用しない（multi stack対応）
+			pstmt.setString(22, roiId);
 			pstmt.executeUpdate();
 			pstmt.close();
 			conn.commit();
@@ -4051,9 +4129,6 @@ public class DatabaseHandler {
 		}
 	}
 
-	/*
-	 * 更新する。このメソッドに合わせて。
-	 */
 	public boolean updateServer(HashMap<String, Object> newServerModelMaterial, String prevNickName) {
 		boolean duplicate = false;
 		try (Connection conn = openConnection();) {

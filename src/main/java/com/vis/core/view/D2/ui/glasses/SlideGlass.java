@@ -210,9 +210,22 @@ public class SlideGlass extends JLayeredPane {
 		initComponents(pp, dcmImg);
 	}
 
+	/**
+	 * Add roi and save DB to update it
+	 * @param roi
+	 */
 	public void addRoi(RoiObj roi) {
 //		roi.setSlideGlass(this);//DO NOT set here. Should set before this.
 		roiOverlay.addRoi(roi);
+	}
+	
+	/**
+	 * DBからのロード専用のROI追加メソッドです。
+	 * 保存は行わない。
+	 */
+	public void addRoiFromDB(RoiObj roi) {
+	    if (imageSpecimen == null) return; // 空きマスガード
+	    roiOverlay.addRoiFromDB(roi);
 	}
 	
 	void adjustContrastFromMouseAction(int dragX, int dragY) {

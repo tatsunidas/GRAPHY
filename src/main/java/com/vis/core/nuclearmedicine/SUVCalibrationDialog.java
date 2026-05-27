@@ -1,3 +1,6 @@
+/**
+ * Copyright: visionary imaging services, inc.
+ */
 package com.vis.core.nuclearmedicine;
 
 import java.awt.*;

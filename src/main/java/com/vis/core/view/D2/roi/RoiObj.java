@@ -2197,6 +2197,11 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return isLine() || type == RoiType.POINT.id() || type == RoiType.MULTIPOINT.id();
 	}
 
+	/**
+	 * Use equals(Object roi) instead
+	 * @param roi
+	 * @return
+	 */
 	public boolean isThisRoi(RoiObj roi) {
 		HashMap<ContextKey, String> uids = roi.getUIDs();
 		String patID = uids.get(ContextKey.PatientID);
@@ -2206,32 +2211,26 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		String id = uids.get(ContextKey.RoiID);
 		return isThisRoi(patID, studyUID, seriesUID, sopUID, id);
 	}
+	
+	public boolean isThisRoi(String patID, String studyUID, String seriesUID, String sopUID/*dummy*/, String roiId) {
+	    HashMap<ContextKey, String> uids = getUIDs();
+	    String uid1 = uids.get(ContextKey.PatientID);
+	    String uid2 = uids.get(ContextKey.StudyInstanceUID);
+	    String uid3 = uids.get(ContextKey.SeriesInstanceUID);
+	    /*
+	     * roi multi stack 対応
+	     */
+	    // String uid4 = uids.get(ContextKey.SOPInstanceUID); // 緩和のため判定には使用しない
+	    String id = uids.get(ContextKey.RoiID);
 
-	/**
-	 * use equals() instead.
-	 * 
-	 * @param studyUID
-	 * @param seriesUID
-	 * @param sopUID
-	 * @param roiInd
-	 * @return
-	 */
-	public boolean isThisRoi(String patID, String studyUID, String seriesUID, String sopUID, String roiId) {
-		HashMap<ContextKey, String> uids = getUIDs();
-		String uid1 = uids.get(ContextKey.PatientID);
-		String uid2 = uids.get(ContextKey.StudyInstanceUID);
-		String uid3 = uids.get(ContextKey.SeriesInstanceUID);
-		String uid4 = uids.get(ContextKey.SOPInstanceUID);
-		String id = uids.get(ContextKey.RoiID);
-		if (uid1 == null || uid2 == null || uid3 == null || id == null) {
-			return false;
-		}
-		if (uid1.equals(patID) && uid2.equals(studyUID) && uid3.equals(seriesUID) && uid4.equals(sopUID)
-				&& id.equals(roiId)) {
-			return true;
-		} else {
-			return false;
-		}
+	    if (uid1 == null || uid2 == null || uid3 == null || id == null) {
+	        return false;
+	    }
+
+	    // ★修正: SOPInstanceUID の比較を除外！
+	    // 識別子のユニーク性は RoiID と SeriesInstanceUID で十分に担保される
+	    // Series と RoiID が一致していれば、多次元で共有された「論理的に同一のROI」とみなす
+	    return uid1.equals(patID) && uid2.equals(studyUID) && uid3.equals(seriesUID) && id.equals(roiId);
 	}
 
 	/** Returns true if this ROI is currently displayed on an image. */
@@ -3309,5 +3308,33 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 */
 	protected boolean useLineSubpixelConvention() {
 		return isLineOrPoint();
+	}
+	
+	/**
+	 * このROIが多次元にまたがるグローバルROIかどうかを判定し、タイプを返します。
+	 * 0: 通常（ローカルROI）
+	 * 1: チャンネル共通（C=ALL） -> 破線（Dash）
+	 * 2: フレーム共通（T=ALL） -> 点線（Dot）
+	 * 3: 両方共通（C=ALL & T=ALL） -> 一点鎖線（Dash-Dot）
+	 */
+	public int getGlobalRoiType() {
+	    if (props == null) return 0;
+	    
+	    // Dim_C, Dim_T が "-1" (または "ALL") の場合をグローバルとみなす
+	    String c_str = props.getProperty("Dim_C");
+	    String t_str = props.getProperty("Dim_T");
+	    
+	    if(c_str == null || t_str == null) {
+	    	return 0;
+	    }
+	    
+	    boolean cGlobal = "-1".equals(c_str);
+	    boolean tGlobal = "-1".equals(t_str);
+	    
+	    if (cGlobal && tGlobal) return 3;
+	    if (cGlobal) return 1;
+	    if (tGlobal) return 2;
+	    
+	    return 0; // 通常のROI
 	}
 }

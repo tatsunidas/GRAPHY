@@ -61,6 +61,10 @@ public enum ContextKey {
 	ObjectType,//string target object type, e.g., target lesion.
 	Organ,//string
 	Description,//for textroi and any context.string
+	ReferenceImagePositionPatient,//ipp of dcm image that provide it's roi.
+	Dim_C,
+	Dim_Z,
+	Dim_T,
 	RoiMetaProperties // see, RoiMetaContextKey
 	;
 	
