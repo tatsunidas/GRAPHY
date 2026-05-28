@@ -66,7 +66,7 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -415,8 +415,8 @@ public class WandToolDialog extends JDialog {
 			// --- 既存ROIの更新の場合 ---
 			// 古いROIから属性（IDや色など）をコピーする
 			newRoi.copyAttributes(clickedRoi);
-			HashMap<ContextKey, String> uids = clickedRoi.getUIDs();
-			for (ContextKey k : uids.keySet()) {
+			HashMap<RoiDBKey, String> uids = clickedRoi.getUIDs();
+			for (RoiDBKey k : uids.keySet()) {
 				newRoi.setProperty(k, uids.get(k));
 			}
 		}

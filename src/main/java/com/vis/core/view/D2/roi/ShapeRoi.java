@@ -5,7 +5,7 @@ import java.awt.geom.*;
 import java.util.*;
 import java.util.logging.Level;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
@@ -171,8 +171,8 @@ public class ShapeRoi extends RoiObj {
     public HashMap<String, Object> readContext(){
     	HashMap<String,Object> con = new HashMap<>();
     	//read main attributes
-		for (ContextKey k : ContextKey.values()) {
-			if (k == ContextKey.RoiMetaProperties) {
+		for (RoiDBKey k : RoiDBKey.values()) {
+			if (k == RoiDBKey.RoiMetaProperties) {
 				continue;
 			}
 			String v = getProperty(k.name());
@@ -184,10 +184,10 @@ public class ShapeRoi extends RoiObj {
 		Map<String, String> metaProp = new HashMap<String, String>();
 		for (Object k : props.keySet()) {
 			boolean mainProp = false;
-			for (ContextKey ck : ContextKey.values()) {
+			for (RoiDBKey ck : RoiDBKey.values()) {
 				if (((String) k).equals(ck.name())) {
 					mainProp = true;
-					if (k == ContextKey.RoiMetaProperties) {
+					if (k == RoiDBKey.RoiMetaProperties) {
 						Log.logger.log(Level.WARNING,
 								"RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
 					}
@@ -200,7 +200,7 @@ public class ShapeRoi extends RoiObj {
 			String metaAttr = (String) props.get(k);
 			metaProp.put((String) k, metaAttr);
 		}
-		con.put(ContextKey.RoiMetaProperties.name(), metaProp);
+		con.put(RoiDBKey.RoiMetaProperties.name(), metaProp);
 		con.put("OriginX", x);//con.put("OriginX", (int) getXBase());
 		con.put("OriginY", y);//con.put("OriginY", (int) getYBase());
 		con.put("Width", width);
@@ -208,7 +208,7 @@ public class ShapeRoi extends RoiObj {
 		con.put("PointX", fArray2dArray(getFloatPolygon().xpoints));
 		con.put("PointY", fArray2dArray(getFloatPolygon().ypoints));
 		
-		con.put(ContextKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
+		con.put(RoiDBKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
 		
 		/*
 		 * if you want (0,0) origin shape float array,

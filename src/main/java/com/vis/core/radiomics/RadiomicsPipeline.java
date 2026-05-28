@@ -51,7 +51,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -653,7 +653,7 @@ public class RadiomicsPipeline {
 			// if 2d basis, calculate slice by slice
 			ImagePlus imp = prap.getImagePlus(-1,-1);
 			for (RoiObj r : rois) {
-				String sopUID = r.getProperty(ContextKey.SOPInstanceUID);
+				String sopUID = r.getProperty(RoiDBKey.SOPInstanceUID);
 				if(sopUID == null) {
 					System.err.println("Cannot create mask from this RoiObj...");
 					continue;
@@ -1695,7 +1695,7 @@ public class RadiomicsPipeline {
 			stack.addSlice(ip);
 		}
 		for(RoiObj ro:rois) {
-			String sopUID = ro.getProperty(ContextKey.SOPInstanceUID);
+			String sopUID = ro.getProperty(RoiDBKey.SOPInstanceUID);
 			if(sopUID == null) {
 				System.err.println("Cannot create mask from this RoiObj...");
 				continue;

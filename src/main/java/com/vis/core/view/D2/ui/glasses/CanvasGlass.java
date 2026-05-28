@@ -53,7 +53,8 @@ import java.util.logging.Level;
 import javax.swing.JTextArea;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.CenterPositionLine;
@@ -176,12 +177,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		synchronized(roiset) {
 			if (isExistsInRoiSet(newRoi)) {
-				HashMap<ContextKey, String> uids = newRoi.getUIDs();
-				String patID = uids.get(ContextKey.PatientID);
-				String studyUID = uids.get(ContextKey.StudyInstanceUID);
-				String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-				String sopUID = uids.get(ContextKey.SOPInstanceUID);
-				String roiID = uids.get(ContextKey.RoiID);
+				HashMap<RoiDBKey, String> uids = newRoi.getUIDs();
+				String patID = uids.get(RoiDBKey.PatientID);
+				String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+				String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+				String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+				String roiID = uids.get(RoiDBKey.RoiID);
 				updateRoi(patID, studyUID, seriesUID, sopUID, roiID, newRoi);
 				//this roi already in RoiObjManager.
 			} else {
@@ -291,14 +292,84 @@ public class CanvasGlass extends javax.swing.JPanel {
 		case MULTIPOINT:
 			roi = new PointRoi(imageX, imageY, RoiType.MULTIPOINT.id(), sg);
 			break;
+		case SPHERE_3D:
+			roi = create3DSphere(imageX,imageY);
 		default:
 			//do nothig
 		}
 		if (roi != null) {
+			//insertOrUpdateRoi4DB
 			addRoi(roi);
 			repaint();
 		}
 		return roi;
+	}
+
+	/**
+	 * ワンクリックで直径10mm(半径5mm)の3D球マスターROIを生成します。
+	 */
+	public RoiObj create3DSphere(int offScreenX, int offScreenY) {
+		int imageX = offScreenX;
+		int imageY = offScreenY;
+		// 1. 半径5.0mm をピクセル数に変換
+		double pixelSpacingX = sg.getOriginalPixelSpacingX();
+		double pixelSpacingY = sg.getOriginalPixelSpacingY();
+		if (pixelSpacingX <= 0)
+			pixelSpacingX = 1.0;
+		if (pixelSpacingY <= 0)
+			pixelSpacingY = 1.0;
+
+		double radiusPxX = 5.0 / pixelSpacingX;
+		double radiusPxY = 5.0 / pixelSpacingY;
+
+		// 2. 円の左上座標(x, y)と幅・高さを計算 (中心がクリック位置になるように)
+		int startX = (int) (imageX - radiusPxX);
+		int startY = (int) (imageY - radiusPxY);
+		int width = (int) (radiusPxX * 2.0);
+		int height = (int) (radiusPxY * 2.0);
+
+		// 3. OvalRoi (マスター) を生成し、ドラッグ状態をスキップして確定させる
+		OvalRoi masterRoi = new OvalRoi(startX, startY, width, height, sg);
+		masterRoi.setState(RoiObj.NORMAL);
+
+		// 4. 3D用のメタデータ(パラメータ)を付与
+		// ROIグループIDにユニークな値を設定（今回は簡易的に現在時刻ミリ秒）
+		// intの最大値(約21億)を超えないように、ミリ秒の下9桁をグループIDとして使用する
+		int uniqueGroupId = (int) (System.currentTimeMillis() % 1000000000L);
+		String newGroupId = String.valueOf(uniqueGroupId);
+		masterRoi.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+
+		masterRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(), "true");
+		masterRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), "SPHERE");
+		masterRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), "5.0");
+
+		// 5. クリックした中心点の 3D空間絶対座標 (IPP) を計算して保存
+		double[] currentIpp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
+		if (currentIpp != null && currentIpp.length == 3) {
+			double[] iop = sg.getHeader().getDoubles(Tag.ImageOrientationPatient);
+			if (iop != null && iop.length == 6) {
+				// DICOM座標変換式: 基準IPP + (Row方向ベクトル * X * 間隔) + (Col方向ベクトル * Y * 間隔)
+				double physX = currentIpp[0] + iop[0] * imageX * pixelSpacingX + iop[3] * imageY * pixelSpacingY;
+				double physY = currentIpp[1] + iop[1] * imageX * pixelSpacingX + iop[4] * imageY * pixelSpacingY;
+				double physZ = currentIpp[2] + iop[2] * imageX * pixelSpacingX + iop[5] * imageY * pixelSpacingY;
+				String centerIppStr = physX + "," + physY + "," + physZ;
+				masterRoi.setProperty("Sphere_Center_IPP", centerIppStr);
+			} else {
+				masterRoi.setProperty("Sphere_Center_IPP", currentIpp[0] + "," + currentIpp[1] + "," + currentIpp[2]);
+			}
+		}
+
+		currentRoi = masterRoi; // 選択状態にする
+
+		// 7. 【次フェーズ】このマスター情報を元に、前後のスライスへスレイブROIを自動展開する
+		if (pp != null) {
+			// ★ 旧: pp.generate3DSphereSlaves(masterRoi);
+			// ★ 新: 3Dオブジェクトを生成して展開を委譲する
+			new com.vis.core.view.D3.roi.SphereRoi3D(masterRoi).generateCrossSections(pp);
+		}
+
+		repaint();
+		return currentRoi;
 	}
 	
 	public void deleteRoi(int sx, int sy) {
@@ -307,16 +378,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		RoiObj roi2remove = activateRoiAt(sx, sy);
 		if (roi2remove != null) {
-			HashMap<ContextKey, String> uids = roi2remove.getUIDs();
-			String patID = uids.get(ContextKey.PatientID);
-			String studyUID = uids.get(ContextKey.StudyInstanceUID);
-			String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-			String sopUID = uids.get(ContextKey.SOPInstanceUID);
-			String roiID = uids.get(ContextKey.RoiID);
-			/*
-			 * see, deleteRoiFromDB to notify listener.
-			 */
-			deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+			// ==========================================================
+			// ★ 修正: 直接オブジェクト指定の deleteRoi を呼ぶことで、
+			// 必ず brushTool のクリア処理や Undo 保存のルートを通すようにする
+			// ==========================================================
+			deleteRoi(roi2remove);
+			
 			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager.toString());
 			if(rom != null) {
 				rom.updateState();
@@ -329,12 +396,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (roiset == null || roiset.size() < 1) {
 			return false;
 		}
-		HashMap<ContextKey, String> uids = roi2remove.getUIDs();
-		String patID = uids.get(ContextKey.PatientID);
-		String studyUID = uids.get(ContextKey.StudyInstanceUID);
-		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-		String sopUID = uids.get(ContextKey.SOPInstanceUID);
-		String roiID = uids.get(ContextKey.RoiID);
+		HashMap<RoiDBKey, String> uids = roi2remove.getUIDs();
+		String patID = uids.get(RoiDBKey.PatientID);
+		String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+		String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+		String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+		String roiID = uids.get(RoiDBKey.RoiID);
 		/*
 		 * see, deleteRoiFromDB to notify listener.
 		 */
@@ -393,12 +460,33 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 	private void deleteRoiFromDB(RoiObj roi) {
 		if (sg != null) sg.saveUndoState();
-		HashMap<ContextKey, String> uids = roi.getUIDs();
-		String patID = uids.get(ContextKey.PatientID);
-		String studyUID = uids.get(ContextKey.StudyInstanceUID);
-		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-		String sopUID = uids.get(ContextKey.SOPInstanceUID);
-		String roiID = uids.get(ContextKey.RoiID);
+		
+		String shapeType = roi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+		if ("SPHERE".equals(shapeType) || "FREEFORM".equals(shapeType)) {
+			String groupId = roi.getProperty(RoiDBKey.RoiGroup.name());
+			if (groupId != null) {
+				com.vis.core.view.D3.roi.AbstractRoi3D roi3D = null;
+				if ("SPHERE".equals(shapeType)) {
+					roi3D = new com.vis.core.view.D3.roi.SphereRoi3D(roi);
+				} else {//freedom shape 3d
+					roi3D = new com.vis.core.view.D3.roi.FreeFormRoi3D(roi);
+				}
+				
+				roi3D.deleteGroup(pp); // 一括削除
+				
+				if(Viewer2DScreen.getRoiObjManager() != null) {
+					Viewer2DScreen.getRoiObjManager().updateRoiObjList(sg.getPatientID());
+				}
+				return;
+			}
+		}
+		
+		HashMap<RoiDBKey, String> uids = roi.getUIDs();
+		String patID = uids.get(RoiDBKey.PatientID);
+		String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+		String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+		String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+		String roiID = uids.get(RoiDBKey.RoiID);
 		//notify
 		roi.notifyListeners(RoiObjListener.DELETED);
 		DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID,sopUID,roiID);
@@ -559,6 +647,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 				return;
 			}
 			currentRoi.mouseDown(e);
+			
+			/*
+			 * do not use roiType == RoiType.SPHERE_3D.id().
+			 * if Sphere 3d, roiType is Oval.
+			 */
+			String shape_3d_type = currentRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+			if (shape_3d_type != null && "SPHERE".equals(shape_3d_type)) {
+				currentRoi.setState(RoiObj.MOVING); 
+			}
 		}else {
 			if(sg.isHereRoiPopup(e)) {
 				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
@@ -566,7 +663,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 				dialog.mousePressed(e);
 				return;
 			}
+			
 			currentRoi = createNewRoi(sx, sy,roiType);
+			e.consume();
 		}
 	}
 
@@ -660,12 +759,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 		double[] ipp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
 		if (ipp != null && ipp.length >= 3) {
 			String ippStr = ipp[0] + "," + ipp[1] + "," + ipp[2];
-			roi.setProperty(ContextKey.ReferenceImagePositionPatient.name(), ippStr);
+			roi.setProperty(RoiMetaContextKey.ReferenceImagePositionPatient.name(), ippStr);
 		}
 		int[] zct = pp.getZCTArray(sg);
-		roi.setProperty(ContextKey.Dim_Z.name(), String.valueOf(zct[0]));
-		roi.setProperty(ContextKey.Dim_C.name(), String.valueOf(zct[1]));
-		roi.setProperty(ContextKey.Dim_T.name(), String.valueOf(zct[2]));
+		roi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
+		roi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
+		roi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
 
 		String frameOfRef = sg.getHeader().getString(Tag.FrameOfReferenceUID);
 
@@ -770,7 +869,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 							} else {
 								// ---------------------------------------------------------
 								// 空間位置が判定できない場合は、「現在のスライド(SOP)に直接描かれたROI」のみを表示する
-								String roiSop = roi.getProperty(ContextKey.SOPInstanceUID.name());
+								String roiSop = roi.getProperty(RoiDBKey.SOPInstanceUID.name());
 								String currentSop = sg.getSOPInstanceUID();
 								
 								if (roiSop != null && currentSop != null) {
@@ -888,7 +987,24 @@ public class CanvasGlass extends javax.swing.JPanel {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
 			//作成終了時
 			if(currentRoi.getState() != RoiObj.CONSTRUCTING) {
-				saveCurrentRoiSate();
+				/*
+				 * do not use roiType == RoiType.SPHERE_3D.id()
+				 * if sphere 3d, roiType is Oval.
+				 */
+				String shape_3d_type = currentRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+				if(shape_3d_type != null) {
+					if ("SPHERE".equals(shape_3d_type)) {
+						if (pp != null) {
+							new com.vis.core.view.D3.roi.SphereRoi3D(currentRoi).updateFrom2D(currentRoi);
+						}
+					} else if ("FREEFORM".equals(shape_3d_type)) {
+						if (pp != null) {
+							new com.vis.core.view.D3.roi.FreeFormRoi3D(currentRoi).updateFrom2D(currentRoi);
+						}
+					} else {
+						saveCurrentRoiSate(); // 従来の保存処理
+					}
+				}
 			}
 		}
 		//brush
@@ -1631,11 +1747,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void updateRoi(RoiObj roi) {
-		String patID = roi.getProperty(ContextKey.PatientID.name());
-		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
-		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
-		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
-		String roiInd = roi.getProperty(ContextKey.RoiID.name());
+		String patID = roi.getProperty(RoiDBKey.PatientID.name());
+		String studyUID = roi.getProperty(RoiDBKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(RoiDBKey.SOPInstanceUID.name());
+		String roiInd = roi.getProperty(RoiDBKey.RoiID.name());
 		updateRoi(patID, studyUID, seriesUID, sopUID, roiInd, roi);
 	}
 	
@@ -1660,11 +1776,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 				}
 			}
 			if(ind != -1) {
-				willUpdateRoi.setProperty(ContextKey.PatientID, patID);
-				willUpdateRoi.setProperty(ContextKey.StudyInstanceUID, studyUID);
-				willUpdateRoi.setProperty(ContextKey.SeriesInstanceUID, seriesUID);
-				willUpdateRoi.setProperty(ContextKey.SOPInstanceUID, sopUID);
-				willUpdateRoi.setProperty(ContextKey.RoiID, roiId);
+				willUpdateRoi.setProperty(RoiDBKey.PatientID, patID);
+				willUpdateRoi.setProperty(RoiDBKey.StudyInstanceUID, studyUID);
+				willUpdateRoi.setProperty(RoiDBKey.SeriesInstanceUID, seriesUID);
+				willUpdateRoi.setProperty(RoiDBKey.SOPInstanceUID, sopUID);
+				willUpdateRoi.setProperty(RoiDBKey.RoiID, roiId);
 				roiset.set(ind, willUpdateRoi);
 				insertOrUpdateRoi4DB(willUpdateRoi);// saveRoi to db
 			}

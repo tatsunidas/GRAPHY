@@ -51,7 +51,7 @@ import java.util.logging.Logger;
 import javax.swing.JFrame;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
@@ -733,7 +733,7 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 			return;
 		}
 		for (String patID : patIDs) {
-			if (patID.equals(pInfo.get(ContextKey.PatientID.name()))) {
+			if (patID.equals(pInfo.get(RoiDBKey.PatientID.name()))) {
 				bev.resetViews(true);
 			}
 		}

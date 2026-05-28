@@ -14,7 +14,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
 import com.vis.core.view.D2.ui.glasses.EventGlass;
@@ -103,7 +103,7 @@ public class TextRoi extends RoiObj {
     }
 
 	private void init(String text, Font font/*null-able*/) {
-		setProperty(ContextKey.Description.name(), text);
+		setProperty(RoiDBKey.Description.name(), text);
 		String[] lines = Tools.split(text, "\n");
 		setType(RoiType.TEXT);
 		int count = Math.min(lines.length, MAX_LINES);
@@ -126,7 +126,7 @@ public class TextRoi extends RoiObj {
 		textArea.setOpaque(false);
 		textArea.setForeground(ROIColor);
 		textArea.setCaretColor(ROIColor);
-		textArea.setName(getProperty(ContextKey.RoiID.name()));
+		textArea.setName(getProperty(RoiDBKey.RoiID.name()));
 		setFocusable(false);//when created, state is no editable.
 		if(getText() == null || getText().length()==0) {
 			textArea.setText(line1a);
@@ -346,7 +346,7 @@ public class TextRoi extends RoiObj {
     	super.setSlideGlass(sg, updateRoiID);
     	if(sg != null && textArea != null) {
     		CanvasGlass cg = (CanvasGlass)sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-    		textArea.setName(getProperty(ContextKey.RoiID.name()));
+    		textArea.setName(getProperty(RoiDBKey.RoiID.name()));
 			/*
 			 * If the same object is added multiple times, only one of them will exist in
 			 * the Swing container and will appear at the position where it was last added.
@@ -486,7 +486,7 @@ public class TextRoi extends RoiObj {
     
     void updateText() {
     	if(textArea != null) {
-			setProperty(ContextKey.Description.name(), textArea.getText());
+			setProperty(RoiDBKey.Description.name(), textArea.getText());
 			updateClipRect();
     	}
     }
@@ -579,7 +579,7 @@ public class TextRoi extends RoiObj {
     }
     
     public String getText() {
-        String txt = getProperty(ContextKey.Description.name());
+        String txt = getProperty(RoiDBKey.Description.name());
         return txt;
     }
     

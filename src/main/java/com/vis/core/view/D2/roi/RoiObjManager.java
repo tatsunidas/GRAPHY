@@ -96,7 +96,7 @@ import javax.swing.event.ListSelectionListener;
 import com.vis.core.view.D2.ui.glasses.*;
 import com.vis.db.DatabaseHandler;
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.configuration.Resources;
 import com.vis.configuration.RoiMetaContextKey;
@@ -131,7 +131,7 @@ import ij.process.ImageStatistics;
 public class RoiObjManager extends JFrame implements ActionListener, ItemListener, ListSelectionListener, Iterable<RoiObj>{
 	
 	boolean isDebug = Utils.isDebug;
-	HashMap<ContextKey, JTextField> roiInfoFields;
+	HashMap<String, JTextField> roiInfoFields;
 	RoiObj currentRoi;//current only one selected roi
 	HashMap<String, JTextField> multiDimFields; 
 	
@@ -141,6 +141,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		LineAndColor,
 		Update,
 		Duplicate,
+		GroupTo3D,
+		Ungroup3D,
 		//add more
 		Open,
 		Save,
@@ -174,16 +176,16 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	/*
 	 * Editable roi context info.
 	 */
-	final ContextKey[] roiInfo = new ContextKey[] {
-			ContextKey.Name,
-			ContextKey.Position,
-			ContextKey.RoiGroup,
-			ContextKey.RoiLabel,//lesion or lymph node
-			ContextKey.ObjectType,//target or non target or findings
-			ContextKey.Organ,//
-			ContextKey.Description,
-			ContextKey.StudyDate,
-			ContextKey.CrossSection//axi,cor,sag
+	final RoiDBKey[] roiInfo = new RoiDBKey[] {
+			RoiDBKey.Name,
+			RoiDBKey.Position,
+			RoiDBKey.RoiGroup,
+			RoiDBKey.RoiLabel,//lesion or lymph node
+			RoiDBKey.ObjectType,//target or non target or findings
+			RoiDBKey.Organ,//
+			RoiDBKey.Description,
+			RoiDBKey.StudyDate,
+			RoiDBKey.CrossSection//axi,cor,sag
 			};
 	
 	/*
@@ -284,6 +286,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		addButton(Functions.LineAndColor.name());
 		addButton(Functions.Update.name());
 		addButton(Functions.Duplicate.name());
+		addButton(Functions.GroupTo3D.name());
+		addButton(Functions.Ungroup3D.name());
 		addButton(moreButtonLabel);
 		if(isDebug) {
 			addButton("Test");
@@ -344,10 +348,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			JLabel lbl = new JLabel(roiInfo[i].name() + ":");
 			JTextField tf = new JTextField(10);
 			tf.setName(roiInfo[i].name());
-			if (roiInfo[i] == ContextKey.StudyDate) {
+			if (roiInfo[i] == RoiDBKey.StudyDate) {
 				tf.setInputVerifier(new DateInputVerifier("yyyy/MM/dd"));
 			}
-			roiInfoFields.put(roiInfo[i], tf);
+			roiInfoFields.put(roiInfo[i].name(), tf);
 
 			gbc.gridx = 0;
 			gbc.gridy = i;
@@ -408,9 +412,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				RoiObj r = selectedRois.get(rid);
 				if (r != null) {
 					// 1. メインプロパティをROIに反映（Position以外）
-					for (ContextKey ck : roiInfo) {
-						if (ck != ContextKey.Position) {
-							r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
+					for (RoiDBKey ck : roiInfo) {
+						if (ck != RoiDBKey.Position) {
+							r.setProperty(ck.name(), roiInfoFields.get(ck.name()).getText());
 						}
 					}
 
@@ -435,18 +439,18 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 							int newZctIndex = pp.calcZctIndex(new int[]{newZ, newC, newT});
 							String calculatedPos = String.valueOf(newZctIndex + 1); // Positionは 1-based
 							
-							r.setProperty(ContextKey.Position.name(), calculatedPos);
-							roiInfoFields.get(ContextKey.Position).setText(calculatedPos); // UI表示も同期
+							r.setProperty(RoiDBKey.Position.name(), calculatedPos);
+							roiInfoFields.get(RoiDBKey.Position.name()).setText(calculatedPos); // UI表示も同期
 						}
 					} else {
 						// -1 (ALL) が含まれる場合は特定の1枚に縛れないため "0" (全体適用) とする
-						r.setProperty(ContextKey.Position.name(), "0");
-						roiInfoFields.get(ContextKey.Position).setText("0");
+						r.setProperty(RoiDBKey.Position.name(), "0");
+						roiInfoFields.get(RoiDBKey.Position.name()).setText("0");
 					}
 
 					com.vis.core.log.Log.logger.info(String.format(
 						    "[DEBUG-1: UI] RoiObjManager Save: RoiID=%s | Input C=%d, Z=%d, T=%d | CalcPos=%s",
-						    rid, newC, newZ, newT, r.getProperty(ContextKey.Position.name())
+						    rid, newC, newZ, newT, r.getProperty(RoiDBKey.Position.name())
 						));
 
 					// 4. 通常のDB上書き保存
@@ -545,13 +549,17 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	}
 	
 	private void resetRoiInfoFields() {
-		for(ContextKey ck:roiInfo) {
-			roiInfoFields.get(ck).setText(null);
+		for(RoiDBKey ck:roiInfo) {
+			roiInfoFields.get(ck.name()).setText(null);
+		}
+		String[] dims = new String[] {RoiMetaContextKey.Dim_C.name(),RoiMetaContextKey.Dim_Z.name(),RoiMetaContextKey.Dim_T.name()};
+		for(String d : dims) {
+			multiDimFields.get(d).setText(null);
 		}
 	}
 	
 	public void addRoiObj(RoiObj roi) {
-		String id = roi.getProperty(ContextKey.RoiID.name());
+		String id = roi.getProperty(RoiDBKey.RoiID.name());
 		if(id == null || id.trim().length() == 0) {
 			return;
 		}
@@ -606,7 +614,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 
 	    for(String k : selectedRois.keySet()) {
 	        RoiObj roiObj = selectedRois.get(k);
-	        String groupStr = roiObj.getProperty(ContextKey.RoiGroup.name());
+	        String groupStr = roiObj.getProperty(RoiDBKey.RoiGroup.name());
 	        
 	        int groupId = -1;
 	        try {
@@ -711,12 +719,12 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					 */
 					slide.deleteRoi(r);
 				}else {
-					HashMap<ContextKey, String> uids = r.getUIDs();
-					String patID = uids.get(ContextKey.PatientID);
-					String studyUID = uids.get(ContextKey.StudyInstanceUID);
-					String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-					String sopUID = uids.get(ContextKey.SOPInstanceUID);
-					String roiID = uids.get(ContextKey.RoiID);
+					HashMap<RoiDBKey, String> uids = r.getUIDs();
+					String patID = uids.get(RoiDBKey.PatientID);
+					String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+					String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+					String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+					String roiID = uids.get(RoiDBKey.RoiID);
 					DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
 					r.notifyListeners(RoiObjListener.DELETED);
 				}
@@ -751,7 +759,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 
 			// 3. 新しいユニークな RoiID を生成してセット
 			String newRoiId = RoiObj.createRoiIndex();
-			newRoi.setProperty(ContextKey.RoiID.name(), newRoiId);
+			newRoi.setProperty(RoiDBKey.RoiID.name(), newRoiId);
 
 			// 4. 名前を分かりやすく「- Copy」にする
 			String oldName = originalRoi.getName();
@@ -765,6 +773,103 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 
 		// リストを更新して新しいROIを表示
 		updateState();
+	}
+	
+	private void groupTo3d() {
+		// リストで選択されている複数のROIを取得
+		int[] selectedIndices = list.getSelectedIndices();
+		if (selectedIndices.length < 2) {
+			PopUpMessage.showDialog(list, "Select multiple", "Please select at least 2 ROIs to bundle into 3D.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		// 新しい共通のグループIDを生成
+		int uniqueGroupId = (int) (System.currentTimeMillis() % 1000000000L);
+		String newGroupId = String.valueOf(uniqueGroupId);
+		
+		DatabaseHandler db = DatabaseHandler.getInstance();
+
+		for (int index : selectedIndices) {
+			String rid = list.getModel().getElementAt(index);
+			RoiObj r = selectedRois.get(rid);
+			if (r != null) {
+				// 3D FreeForm としてのアイデンティティを付与
+				r.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+				r.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), "FREEFORM");
+				r.setProperty(RoiMetaContextKey.Is3D_Master.name(), "true"); // FreeFormは全スライスが主役（マスター）
+				
+				// DBに上書き保存
+				if (db != null) {
+					db.insertRoi(r.readContext());
+				}
+			}
+		}
+		
+		updateState(); // リストの更新
+		PopUpMessage.showDialog(list, "Success", "Selected ROIs are successfully bundled into 1 FreeForm 3D ROI.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+	}
+	
+	/**
+	 * グループ全体の解散（Ungroup）: リストからグループ化されたROIをすべて選択してボタンを押すと、グループが完全に解散し、バラバラの2D
+	 * ROIに戻ります。
+	 * 
+	 * 特定のROIだけの離脱（Detach）:
+	 * グループ化されたROIのうち、特定の1枚だけを選択してボタンを押すと、そのROIだけがグループから抜け（2Dになり）、残りのメンバーは引き続き3Dグループとして維持されます。
+	 */
+	private void ungroup3d() {
+		int[] selectedIndices = list.getSelectedIndices();
+		if (selectedIndices.length == 0) {
+			PopUpMessage.showDialog(list, "Select ROIs", "Please select ROIs to ungroup.", JOptionPane.OK_OPTION,
+					JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		boolean updated = false;
+
+		for (int index : selectedIndices) {
+			String rid = list.getModel().getElementAt(index);
+			RoiObj r = selectedRois.get(rid);
+			if (r != null) {
+				// 3Dグループに属しているか確認
+				String shape3D = r.getProperty(RoiDBKey.RoiMetaProperties.name()); // fallback
+				if (shape3D == null)
+					shape3D = r.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+
+				if ("FREEFORM".equals(shape3D) || "SPHERE".equals(shape3D)) {
+					// 1. 新しい独自のグループIDを付与して、元のグループから切り離す
+					int uniqueGroupId = (int) (System.currentTimeMillis() % 1000000000L) + index;
+					r.setProperty(RoiDBKey.RoiGroup.name(), String.valueOf(uniqueGroupId));
+
+					// 2. 3Dとしてのアイデンティティ（メタデータ）をすべて消去し、ただの2D ROIに戻す
+					r.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), null);
+					r.setProperty(RoiMetaContextKey.Is3D_Master.name(), null);
+					r.setProperty(RoiMetaContextKey.Is3D_Slave.name(), null);
+					r.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), null);
+					r.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(), null);
+
+					// 3. DBに上書き保存
+					if (db != null) {
+						db.insertRoi(r.readContext());
+					}
+					updated = true;
+
+					// 画面の再描画
+					if (r.getSlideGlass() != null) {
+						r.getSlideGlass().repaintCanvasGlass();
+					}
+				}
+			}
+		}
+
+		if (updated) {
+			updateState(); // リストの更新
+			PopUpMessage.showDialog(list, "Success", "Selected ROIs have been detached and reverted to 2D ROIs.",
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		} else {
+			PopUpMessage.showDialog(list, "Info", "Selected ROIs are already standard 2D ROIs.", JOptionPane.OK_OPTION,
+					JOptionPane.INFORMATION_MESSAGE);
+		}
 	}
 	
 	/**
@@ -792,8 +897,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 		if(currentRoi != null) {
 			//add properties
-			for(ContextKey ck : roiInfo) {
-				currentRoi.setProperty(ck.name(), roiInfoFields.get(ck).getText());
+			for(RoiDBKey ck : roiInfo) {
+				currentRoi.setProperty(ck.name(), roiInfoFields.get(ck.name()).getText());
 			}
 			//save or update
 			saveRoi2DB(currentRoi);
@@ -845,10 +950,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 * @return
 	 */
 	boolean hasConsistency(Praparat pp, RoiObj roi) {
-		String pid = roi.getProperty(ContextKey.PatientID.name());
-		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
-		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
-		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		String pid = roi.getProperty(RoiDBKey.PatientID.name());
+		String studyUID = roi.getProperty(RoiDBKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(RoiDBKey.SOPInstanceUID.name());
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return false;
 		}
@@ -875,10 +980,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	 * @return
 	 */
 	boolean hasConsistency(Praparat pp, ij.gui.Roi roi) {
-		String pid = roi.getProperty(ContextKey.PatientID.name());
-		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
-		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
-		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		String pid = roi.getProperty(RoiDBKey.PatientID.name());
+		String studyUID = roi.getProperty(RoiDBKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(RoiDBKey.SOPInstanceUID.name());
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return false;
 		}
@@ -899,10 +1004,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 	}
 	
 	int getSlicePosition(Praparat pp, ij.gui.Roi roi) {
-		String pid = roi.getProperty(ContextKey.PatientID.name());
-		String studyUID = roi.getProperty(ContextKey.StudyInstanceUID.name());
-		String seriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
-		String sopUID = roi.getProperty(ContextKey.SOPInstanceUID.name());
+		String pid = roi.getProperty(RoiDBKey.PatientID.name());
+		String studyUID = roi.getProperty(RoiDBKey.StudyInstanceUID.name());
+		String seriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
+		String sopUID = roi.getProperty(RoiDBKey.SOPInstanceUID.name());
 		if(pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return -1;
 		}
@@ -1102,7 +1207,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				s.addRoi(roiObj);
 			}else {//no consistent roi
 				//escape by InstNo
-				String roiInstNoString = roiObj.getProperty(ContextKey.InstanceNo.name());
+				String roiInstNoString = roiObj.getProperty(RoiDBKey.InstanceNo.name());
 				if (roiInstNoString != null) {
 					try {
 						instNo = Integer.parseInt(roiInstNoString);
@@ -1170,9 +1275,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					RoiEncoder re = new RoiEncoder(out);
 					for (int i=0; i<keys.length; i++) {
 						RoiObj roiObj = rois.get(keys[i]);
-						String label = roiObj.getProperty(ContextKey.RoiID.name());
+						String label = roiObj.getProperty(RoiDBKey.RoiID.name());
 						// ファイル名の先頭に "0005_" のようにポジションを付与する
-						String posStr = roiObj.getProperty(ContextKey.Position.name());
+						String posStr = roiObj.getProperty(RoiDBKey.Position.name());
 						if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 							try {
 								int pos = Integer.parseInt(posStr);
@@ -1209,10 +1314,10 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					RoiEncoder re = new RoiEncoder(out);
 					for (int i=0; i<keys.length; i++) {
 						RoiObj roiObj = rois.get(keys[i]);
-						String label = roiObj.getProperty(ContextKey.RoiID.name());
+						String label = roiObj.getProperty(RoiDBKey.RoiID.name());
 						
 						// ファイル名の先頭に "0005_" のようにポジションを付与する
-						String posStr = roiObj.getProperty(ContextKey.Position.name());
+						String posStr = roiObj.getProperty(RoiDBKey.Position.name());
 						if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 							try {
 								int pos = Integer.parseInt(posStr);
@@ -1251,9 +1356,9 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if (roiObj == null) {
 			return;
 		}
-		String name = roiObj.getProperty(ContextKey.RoiID.name());
+		String name = roiObj.getProperty(RoiDBKey.RoiID.name());
 		// ファイル名の先頭に "0005_" のようにポジションを付与する
-		String posStr = roiObj.getProperty(ContextKey.Position.name());
+		String posStr = roiObj.getProperty(RoiDBKey.Position.name());
 		if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 			try {
 				int pos = Integer.parseInt(posStr);
@@ -1834,8 +1939,12 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			SwingUtilities.invokeLater(()->lineAndColor());
 		}else if (command.equals(Functions.Update.name())) {
 			updateState();
-		}else if (command.equals(Functions.Duplicate.name())) { // ★ 追加
+		}else if (command.equals(Functions.Duplicate.name())) {
 			duplicate();
+		}else if (command.equals(Functions.GroupTo3D.name())) {
+			groupTo3d();
+		}else if (command.equals(Functions.Ungroup3D.name())) {
+			ungroup3d();
 			
 		//more functions
 		}else if (command.equals(moreButtonLabel)) {
@@ -1962,7 +2071,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				currentRoi = rois.get(k);
 
 				Praparat pp = currentRoi.getSlideGlass().getPraparat();
-				String posStr = currentRoi.getProperty(ContextKey.Position.name());
+				String posStr = currentRoi.getProperty(RoiDBKey.Position.name());
 
 				if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 					try {
@@ -1977,15 +2086,15 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				toFront();
 
 				// メインプロパティのロード
-				for (ContextKey ck : roiInfo) {
+				for (RoiDBKey ck : roiInfo) {
 					String v = currentRoi.getProperty(ck);
-					if (ck == ContextKey.InstanceNo || ck == ContextKey.RoiGroup) {
+					if (ck == RoiDBKey.InstanceNo || ck == RoiDBKey.RoiGroup) {
 						Integer v_ = intValue(v);
 						if (!isIgnoreValue(v_)) {
-							roiInfoFields.get(ck).setText(v);
+							roiInfoFields.get(ck.name()).setText(v);
 						}
 					} else {
-						roiInfoFields.get(ck).setText(v);
+						roiInfoFields.get(ck.name()).setText(v);
 					}
 				}
 

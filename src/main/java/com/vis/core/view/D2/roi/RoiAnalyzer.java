@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.ui.ResultWindow;
@@ -374,7 +374,7 @@ public class RoiAnalyzer {
 			map.put(Measurements.LENGTH, length*pw);
 			map.put(Measurements.ROI_WIDTH, p[4]*pw);
 		}
-		String groupId = roiObj.getProperty(ContextKey.RoiGroup);
+		String groupId = roiObj.getProperty(RoiDBKey.RoiGroup);
 		if(groupId != null) {
 			try {
 				int gid = Integer.parseInt(groupId);
@@ -397,7 +397,7 @@ public class RoiAnalyzer {
 			rw = (ResultWindow)win;
 		}
 		int row = rw.getRowCount();
-		rw.setValue(ContextKey.RoiID.name(), row, roiObj.getProperty(ContextKey.RoiID.name()));
+		rw.setValue(RoiDBKey.RoiID.name(), row, roiObj.getProperty(RoiDBKey.RoiID.name()));
 		Set<Measurements> keys = results.keySet();
 		for(Measurements m : Measurements.values()) {
 			if(keys.contains(m)) {

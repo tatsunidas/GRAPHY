@@ -54,6 +54,8 @@ public enum RoiType {
 	//point
 	POINT(ij.gui.Roi.POINT),
 	MULTIPOINT(101),
+	//3d
+	SPHERE_3D(105),
 	//other
 	TEXT(102),
 	BRUSH(103),

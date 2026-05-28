@@ -93,55 +93,44 @@ import com.vis.core.view.mpr.SimpleMPRViewer;
 
 /**
  * buttons design https://material.io/tools/icons/?style=outline
+ * 
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class Viewer2DToolBar extends JToolBar{
-	
+public class Viewer2DToolBar extends JToolBar {
+
 	/* roi tool ids */
 	/**
-	 * RoiType.XXX.id(); will cause "case expressions must be constant expressions" error in switch statement.
+	 * RoiType.XXX.id(); will cause "case expressions must be constant expressions"
+	 * error in switch statement.
 	 */
-	public final static int RectangleRoi = ij.gui.Roi.RECTANGLE;//RoiType.RECTANGLE.id();
-	public final static int OvalRoi = ij.gui.Roi.OVAL;//RoiType.OVAL.id();
-	public final static int PolygonRoi = ij.gui.Roi.POLYGON;//RoiType.POLYGON.id();
-	public final static int FreeRoi = ij.gui.Roi.FREEROI;//RoiType.FREEROI.id();
-	public final static int LineRoi = ij.gui.Roi.LINE;//RoiType.LINE.id();
-	public final static int PolyLineRoi = ij.gui.Roi.POLYLINE;//RoiType.POLYLINE.id();
-	public final static int FreeLineRoi = ij.gui.Roi.FREELINE;//RoiType.FREELINE.id();
-	public final static int AngleRoi = ij.gui.Roi.ANGLE;//RoiType.ANGLE.id();
-	public final static int PointRoi = ij.gui.Roi.POINT;//RoiType.POINT.id();
-	public final static int MultiPointRoi = 101;//RoiType.MULTIPOINT.id();
-	public final static int ArrowRoi = 100;//RoiType.ARROW.id();
-	public final static int TextRoi = 102;//RoiType.TEXT.id();
-	public final static int ShapeRoi = ij.gui.Roi.COMPOSITE;//RoiType.COMPOSITE.id();
-	public final static int Brush = 103;//RoiType.BRUSH.id();
+	public final static int RectangleRoi = ij.gui.Roi.RECTANGLE;// RoiType.RECTANGLE.id();
+	public final static int OvalRoi = ij.gui.Roi.OVAL;// RoiType.OVAL.id();
+	public final static int PolygonRoi = ij.gui.Roi.POLYGON;// RoiType.POLYGON.id();
+	public final static int FreeRoi = ij.gui.Roi.FREEROI;// RoiType.FREEROI.id();
+	public final static int LineRoi = ij.gui.Roi.LINE;// RoiType.LINE.id();
+	public final static int PolyLineRoi = ij.gui.Roi.POLYLINE;// RoiType.POLYLINE.id();
+	public final static int FreeLineRoi = ij.gui.Roi.FREELINE;// RoiType.FREELINE.id();
+	public final static int AngleRoi = ij.gui.Roi.ANGLE;// RoiType.ANGLE.id();
+	public final static int PointRoi = ij.gui.Roi.POINT;// RoiType.POINT.id();
+	public final static int MultiPointRoi = 101;// RoiType.MULTIPOINT.id();
+	public final static int ArrowRoi = 100;// RoiType.ARROW.id();
+	public final static int TextRoi = 102;// RoiType.TEXT.id();
+	public final static int ShapeRoi = ij.gui.Roi.COMPOSITE;// RoiType.COMPOSITE.id();
+	public final static int Brush = 103;// RoiType.BRUSH.id();
 	public final static int Wand = 104;
-	
+	public final static int SPHERE_3D = RoiType.SPHERE_3D.id();
+
 	public final static int Windowing = 1000;
-	public final static int Analysis = 1001;//RoiObjManager
+	public final static int Analysis = 1001;// RoiObjManager
 	public final static int NONE = Integer.MIN_VALUE;
-	
-	public final static int[] roiTools = new int[] {
-			RectangleRoi,
-			OvalRoi,
-			PolygonRoi,
-			FreeRoi,
-			LineRoi,
-			PolyLineRoi,
-			FreeLineRoi,
-			AngleRoi,
-			PointRoi,
-			MultiPointRoi,
-			ArrowRoi,
-			TextRoi,
-			ShapeRoi,
-			Brush,
-			Wand,
+
+	public final static int[] roiTools = new int[] { RectangleRoi, OvalRoi, PolygonRoi, FreeRoi, LineRoi, PolyLineRoi,
+			FreeLineRoi, AngleRoi, PointRoi, MultiPointRoi, ArrowRoi, TextRoi, ShapeRoi, Brush, Wand, SPHERE_3D,
 			// add to roi tool
 	};
-	
-	//process features
+
+	// process features
 	JButton resetBtn;
 	JButton invertBtn;
 	JButton flipLRBtn;
@@ -151,8 +140,8 @@ public class Viewer2DToolBar extends JToolBar{
 	JButton cropBtn;
 	JButton cutBtn;
 	JCheckBox windowChk;
-	
-	//roi features
+
+	// roi features
 	ButtonGroup roiGroup = new ButtonGroup();
 	JCheckBox rectangleChk;
 	JCheckBox ovalChk;
@@ -163,71 +152,86 @@ public class Viewer2DToolBar extends JToolBar{
 	JCheckBox freelineChk;
 	JCheckBox angleChk;
 	JCheckBox pointChk;
-	JCheckBox mPointChk;//multi point
+	JCheckBox mPointChk;// multi point
 	JCheckBox arrowChk;
 	JCheckBox textChk;
 	JCheckBox brushChk;
 	JCheckBox wandChk;
-	
+	JCheckBox sphere3dChk;
+
 	int defaultImgIconSize = 48;
-	private int currentTool = Windowing;//default
-	
+	private int currentTool = Windowing;// default
+
 	JPanel base;
 	JPanel pluginListPanel;// holds toolbar item buttons
 
 	public Viewer2DToolBar() {
-		
-		if(Utils.isDebug) {
+
+		if (Utils.isDebug) {
 			try {
 				checkRoiIDs();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
-		
+
 		base = new JPanel();
 		int hgap = 1;
 		int vgap = hgap;
 		base.setLayout(new FlowLayout(FlowLayout.LEFT, hgap, vgap));
-		
+
 		base.add(loadButtons(initProcessFunctions()));
 		addSeparator();
 		base.add(loadButtons(initRois()));
 		addSeparator();
 		loadPluginTools();
-		
+
 		// after above, add jscrollpane.
 		JScrollPane scrollPane = new JScrollPane();
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.setViewportView(base);
-		scrollPane.setPreferredSize(new Dimension(300/*dummy*/, defaultImgIconSize*2+(hgap*2)+4/*adjust*/));
+		scrollPane.setPreferredSize(new Dimension(300/* dummy */, defaultImgIconSize * 2 + (hgap * 2) + 4/* adjust */));
 		add(scrollPane);
-		
-		if(windowChk != null) {
+
+		if (windowChk != null) {
 			if (!isRoiTool(currentTool)) {
 				windowChk.setSelected(true);
 				windowChk.setBackground(Color.CYAN);
 			}
 		}
 	}
-	
+
 	private void checkRoiIDs() throws Exception {
-		if(RectangleRoi != RoiType.RECTANGLE.id()) throw new Exception("Invalid RoiID");
-		if(OvalRoi != RoiType.OVAL.id()) throw new Exception("Invalid RoiID");
-		if(PolygonRoi != RoiType.POLYGON.id()) throw new Exception("Invalid RoiID");
-		if(FreeRoi != RoiType.FREEROI.id()) throw new Exception("Invalid RoiID");
-		if(LineRoi != RoiType.LINE.id()) throw new Exception("Invalid RoiID");
-		if(ArrowRoi != RoiType.ARROW.id()) throw new Exception("Invalid RoiID");
-		if(PolyLineRoi != RoiType.POLYLINE.id()) throw new Exception("Invalid RoiID");
-		if(FreeLineRoi != RoiType.FREELINE.id()) throw new Exception("Invalid RoiID");
-		if(AngleRoi != RoiType.ANGLE.id()) throw new Exception("Invalid RoiID");
-		if(PointRoi != RoiType.POINT.id()) throw new Exception("Invalid RoiID");
-		if(MultiPointRoi != RoiType.MULTIPOINT.id()) throw new Exception("Invalid RoiID");
-		if(TextRoi != RoiType.TEXT.id()) throw new Exception("Invalid RoiID");
-		if(ShapeRoi != RoiType.COMPOSITE.id()) throw new Exception("Invalid RoiID");
-		if(Brush != RoiType.BRUSH.id()) throw new Exception("Invalid RoiID");
-		//add more
+		if (RectangleRoi != RoiType.RECTANGLE.id())
+			throw new Exception("Invalid RoiID");
+		if (OvalRoi != RoiType.OVAL.id())
+			throw new Exception("Invalid RoiID");
+		if (PolygonRoi != RoiType.POLYGON.id())
+			throw new Exception("Invalid RoiID");
+		if (FreeRoi != RoiType.FREEROI.id())
+			throw new Exception("Invalid RoiID");
+		if (LineRoi != RoiType.LINE.id())
+			throw new Exception("Invalid RoiID");
+		if (ArrowRoi != RoiType.ARROW.id())
+			throw new Exception("Invalid RoiID");
+		if (PolyLineRoi != RoiType.POLYLINE.id())
+			throw new Exception("Invalid RoiID");
+		if (FreeLineRoi != RoiType.FREELINE.id())
+			throw new Exception("Invalid RoiID");
+		if (AngleRoi != RoiType.ANGLE.id())
+			throw new Exception("Invalid RoiID");
+		if (PointRoi != RoiType.POINT.id())
+			throw new Exception("Invalid RoiID");
+		if (MultiPointRoi != RoiType.MULTIPOINT.id())
+			throw new Exception("Invalid RoiID");
+		if (TextRoi != RoiType.TEXT.id())
+			throw new Exception("Invalid RoiID");
+		if (ShapeRoi != RoiType.COMPOSITE.id())
+			throw new Exception("Invalid RoiID");
+		if (Brush != RoiType.BRUSH.id())
+			throw new Exception("Invalid RoiID");
+		// add more
 	}
 
 	public JPanel loadButtons(HashMap<String, Resources> buttonLabels) {
@@ -236,10 +240,10 @@ public class Viewer2DToolBar extends JToolBar{
 		TreeMap<String, Resources> sortedMap = new TreeMap<>(buttonLabels);
 		for (String key : sortedMap.keySet()) {
 			BufferedImage img = (BufferedImage) buttonLabels.get(key).loadIconFromResource().getImage();
-			if(img.getWidth() != defaultImgIconSize) {
-				img = (BufferedImage) ImageUtils.resize(img,defaultImgIconSize,defaultImgIconSize);
+			if (img.getWidth() != defaultImgIconSize) {
+				img = (BufferedImage) ImageUtils.resize(img, defaultImgIconSize, defaultImgIconSize);
 			}
-			if(key.equals("rectangle")) {
+			if (key.equals("rectangle")) {
 				rectangleChk = new JCheckBox(key, new ImageIcon(img));
 				rectangleChk.setName(key);
 				rectangleChk.setFocusPainted(true);
@@ -248,7 +252,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(rectangleChk);
 				roiGroup.add(rectangleChk);
 				p.add(rectangleChk);
-			}else if(key.equals("oval")) {
+			} else if (key.equals("oval")) {
 				ovalChk = new JCheckBox(key, new ImageIcon(img));
 				ovalChk.setName(key);
 				ovalChk.setFocusPainted(true);
@@ -257,7 +261,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(ovalChk);
 				roiGroup.add(ovalChk);
 				p.add(ovalChk);
-			}else if(key.equals("free")) {
+			} else if (key.equals("free")) {
 				freeChk = new JCheckBox(key, new ImageIcon(img));
 				freeChk.setName(key);
 				freeChk.setFocusPainted(true);
@@ -266,7 +270,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(freeChk);
 				roiGroup.add(freeChk);
 				p.add(freeChk);
-			}else if(key.equals("line")) {
+			} else if (key.equals("line")) {
 				lineChk = new JCheckBox(key, new ImageIcon(img));
 				lineChk.setName(key);
 				lineChk.setFocusPainted(true);
@@ -275,7 +279,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(lineChk);
 				roiGroup.add(lineChk);
 				p.add(lineChk);
-			}else if(key.equals("polyline")) {
+			} else if (key.equals("polyline")) {
 				polyLineChk = new JCheckBox(key, new ImageIcon(img));
 				polyLineChk.setName(key);
 				polyLineChk.setFocusPainted(true);
@@ -284,7 +288,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(polyLineChk);
 				roiGroup.add(polyLineChk);
 				p.add(polyLineChk);
-			}else if(key.equals("freeline")) {
+			} else if (key.equals("freeline")) {
 				freelineChk = new JCheckBox(key, new ImageIcon(img));
 				freelineChk.setName(key);
 				freelineChk.setFocusPainted(true);
@@ -293,7 +297,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(freelineChk);
 				roiGroup.add(freelineChk);
 				p.add(freelineChk);
-			}else if(key.equals("polygon")) {
+			} else if (key.equals("polygon")) {
 				polyChk = new JCheckBox(key, new ImageIcon(img));
 				polyChk.setName(key);
 				polyChk.setFocusPainted(true);
@@ -302,7 +306,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(polyChk);
 				roiGroup.add(polyChk);
 				p.add(polyChk);
-			}else if(key.equals("point")) {
+			} else if (key.equals("point")) {
 				pointChk = new JCheckBox(key, new ImageIcon(img));
 				pointChk.setName(key);
 				pointChk.setFocusPainted(true);
@@ -311,7 +315,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(pointChk);
 				roiGroup.add(pointChk);
 				p.add(pointChk);
-			}else if(key.equals("multipoint")) {
+			} else if (key.equals("multipoint")) {
 				mPointChk = new JCheckBox(key, new ImageIcon(img));
 				mPointChk.setName(key);
 				mPointChk.setFocusPainted(true);
@@ -320,7 +324,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(mPointChk);
 				roiGroup.add(mPointChk);
 				p.add(mPointChk);
-			}else if(key.equals("arrow")) {
+			} else if (key.equals("arrow")) {
 				arrowChk = new JCheckBox(key, new ImageIcon(img));
 				arrowChk.setName(key);
 				arrowChk.setFocusPainted(true);
@@ -329,7 +333,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(arrowChk);
 				roiGroup.add(arrowChk);
 				p.add(arrowChk);
-			}else if(key.equals("text")) {
+			} else if (key.equals("text")) {
 				textChk = new JCheckBox(key, new ImageIcon(img));
 				textChk.setName(key);
 				textChk.setFocusPainted(true);
@@ -338,7 +342,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(textChk);
 				roiGroup.add(textChk);
 				p.add(textChk);
-			}else if(key.equals("angle")) {
+			} else if (key.equals("angle")) {
 				angleChk = new JCheckBox(key, new ImageIcon(img));
 				angleChk.setName(key);
 				angleChk.setFocusPainted(true);
@@ -347,7 +351,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(angleChk);
 				roiGroup.add(angleChk);
 				p.add(angleChk);
-			}else if(key.equals("brush")) {
+			} else if (key.equals("brush")) {
 				brushChk = new JCheckBox(key, new ImageIcon(img));
 				brushChk.setName(key);
 				brushChk.setFocusPainted(true);
@@ -356,7 +360,7 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(brushChk);
 				roiGroup.add(brushChk);
 				p.add(brushChk);
-			}else if(key.equals("wand")) {
+			} else if (key.equals("wand")) {
 				wandChk = new JCheckBox(key, new ImageIcon(img));
 				wandChk.setName(key);
 				wandChk.setFocusPainted(true);
@@ -365,7 +369,16 @@ public class Viewer2DToolBar extends JToolBar{
 				setAction(wandChk);
 				roiGroup.add(wandChk);
 				p.add(wandChk);
-			}else if(key.equals("window")) {
+			} else if (key.equals("3d_sphere")) {
+				sphere3dChk = new JCheckBox(key, new ImageIcon(img));
+				sphere3dChk.setName(key);
+				sphere3dChk.setFocusPainted(true);
+				sphere3dChk.setVerticalTextPosition(SwingConstants.BOTTOM);
+				sphere3dChk.setHorizontalTextPosition(SwingConstants.CENTER);
+				setAction(sphere3dChk);
+				roiGroup.add(sphere3dChk);
+				p.add(sphere3dChk);
+			} else if (key.equals("window")) {
 				windowChk = new JCheckBox(key, new ImageIcon(img));
 				windowChk.setName(key);
 				windowChk.setFocusPainted(true);
@@ -373,7 +386,7 @@ public class Viewer2DToolBar extends JToolBar{
 				windowChk.setHorizontalTextPosition(SwingConstants.CENTER);
 				setAction(windowChk);
 				p.add(windowChk);
-			}else {
+			} else {
 				JButton btn = new JButton(key, new ImageIcon(img));
 				btn.setName(key);
 				btn.setFocusPainted(true);
@@ -389,10 +402,10 @@ public class Viewer2DToolBar extends JToolBar{
 	private void setAction(JComponent comp) {
 		JButton btn = null;
 		JCheckBox chk = null;
-		if(comp instanceof JButton) {
-			btn = (JButton)comp;
-		}else if(comp instanceof JCheckBox) {
-			chk = (JCheckBox)comp;
+		if (comp instanceof JButton) {
+			btn = (JButton) comp;
+		} else if (comp instanceof JCheckBox) {
+			chk = (JCheckBox) comp;
 		}
 		switch (comp.getName()) {
 		case "reset":
@@ -405,15 +418,16 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage != null) {
+					if (activeStage != null) {
 						Eyepiece eye = activeStage.getEyepiece();
 						ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
-						if(selectedPraps.size() != 0) {
+						if (selectedPraps.size() != 0) {
 							for (Praparat pp : selectedPraps) {
 								pp.resetView();
 							}
-						}else {
-							PopUpMessage.showDialog(own, "Reset", "There is no series selected.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+						} else {
+							PopUpMessage.showDialog(own, "Reset", "There is no series selected.", JOptionPane.OK_OPTION,
+									JOptionPane.INFORMATION_MESSAGE);
 						}
 					}
 					setSelectedToolBackground();
@@ -448,12 +462,12 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage == null) {
+					if (activeStage == null) {
 						return;
 					}
 					Eyepiece eye = activeStage.getEyepiece();
-					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
-					for(Praparat pp:selectedPraps) {
+					ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
+					for (Praparat pp : selectedPraps) {
 						pp.processFlipLR();
 					}
 					currentTool = Windowing;
@@ -469,12 +483,12 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage == null) {
+					if (activeStage == null) {
 						return;
 					}
 					Eyepiece eye = activeStage.getEyepiece();
-					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
-					for(Praparat pp:selectedPraps) {
+					ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
+					for (Praparat pp : selectedPraps) {
 						pp.processFlipHF();
 					}
 					currentTool = Windowing;
@@ -490,7 +504,7 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage == null) {
+					if (activeStage == null) {
 						return;
 					}
 					Eyepiece eye = activeStage.getEyepiece();
@@ -515,10 +529,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(rectangleChk.isSelected()) {
-						currentTool = RectangleRoi;
-						setSelectedToolBackground();
-					}
+					currentTool = RectangleRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -526,10 +538,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(ovalChk.isSelected()) {
-						currentTool = OvalRoi;
-						setSelectedToolBackground();
-					}
+					currentTool = OvalRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -537,10 +547,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(freeChk.isSelected()) {
-						currentTool = FreeRoi;
-						setSelectedToolBackground();
-					}
+					currentTool = FreeRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -548,11 +556,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(lineChk.isSelected()) {
-						currentTool = LineRoi;
-						lineChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = LineRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -560,11 +565,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(freelineChk.isSelected()) {
-						currentTool = FreeLineRoi;
-						freelineChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = FreeLineRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -572,11 +574,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(polyChk.isSelected()) {
-						currentTool = PolygonRoi;
-						polyChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = PolygonRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -584,11 +583,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(polyLineChk.isSelected()) {
-						currentTool = PolyLineRoi;
-						polyLineChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = PolyLineRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -596,12 +592,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(arrowChk.isSelected()) {
-						currentTool = ArrowRoi;
-						//arrowChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-						Log.logger.fine("ARROW TOOL activated ! : "+currentTool);
-					}
+					currentTool = ArrowRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -609,11 +601,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(pointChk.isSelected()) {
-						currentTool = PointRoi;
-						pointChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = PointRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -621,11 +610,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(mPointChk.isSelected()) {
-						currentTool = MultiPointRoi;
-						mPointChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = MultiPointRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -633,11 +619,8 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					if(textChk.isSelected()) {
-						currentTool = TextRoi;
-						textChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = TextRoi;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -645,11 +628,17 @@ public class Viewer2DToolBar extends JToolBar{
 			chk.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent ae) {
-					if(angleChk.isSelected()) {
-						currentTool = AngleRoi;
-						angleChk.setBackground(Color.CYAN);
-						setSelectedToolBackground();
-					}
+					currentTool = AngleRoi;
+					setSelectedToolBackground();
+				}
+			});
+			break;
+		case "3d_sphere":
+			chk.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent ae) {
+					currentTool = SPHERE_3D;
+					setSelectedToolBackground();
 				}
 			});
 			break;
@@ -661,10 +650,10 @@ public class Viewer2DToolBar extends JToolBar{
 					Viewer2DScreen.getInstance();
 					RoiObjManager rom = Viewer2DScreen.getRoiObjManager();
 					rom.updateState();
-					if(!rom.isVisible()) {
+					if (!rom.isVisible()) {
 						rom.setVisible(true);
 						rom.toFront();
-					}else {
+					} else {
 						rom.requestFocus();
 						rom.toFront();
 					}
@@ -680,14 +669,14 @@ public class Viewer2DToolBar extends JToolBar{
 					StageDockManager sdm = own.getStageDockManager();
 					String stageID = own.getStageIDInAction();
 					StageView activeStage = sdm.getStage(stageID);
-					if(activeStage == null) {
+					if (activeStage == null) {
 						return;
 					}
 					Eyepiece eye = activeStage.getEyepiece();
-					ArrayList<Praparat>  selectedPraps = eye.getSelectingPraparats();
-					for(Praparat pp:selectedPraps) {
+					ArrayList<Praparat> selectedPraps = eye.getSelectingPraparats();
+					for (Praparat pp : selectedPraps) {
 						pp.processCropRectangle(true);
-						break;//only perform first selected prap
+						break;// only perform first selected prap
 					}
 					currentTool = Windowing;
 					setSelectedToolBackground();
@@ -718,13 +707,14 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
-					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
-					if(selectedPraps != null && selectedPraps.size() == 0) {
+					ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+					if (selectedPraps != null && selectedPraps.size() == 0) {
 						return;
 					}
 					Praparat pp = selectedPraps.get(0);
-					if(pp.isMultiDimensional() || pp.isMultiFrame()) {
-						JOptionPane.showConfirmDialog(WindowManager.getWindow(ConfigInfo.D2ViewerWindow), "Slicer cannot load multiframe/multichannel images...");
+					if (pp.isMultiDimensional() || pp.isMultiFrame()) {
+						JOptionPane.showConfirmDialog(WindowManager.getWindow(ConfigInfo.D2ViewerWindow),
+								"Slicer cannot load multiframe/multichannel images...");
 						return;
 					}
 					new SlicerWindow(selectedPraps.get(0));
@@ -796,14 +786,14 @@ public class Viewer2DToolBar extends JToolBar{
 			btn.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent arg0) {
-					
+
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
-					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
+					ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
 					int size = selectedPraps.size();
-					if(selectedPraps == null || size < 1) {
+					if (selectedPraps == null || size < 1) {
 						return;
 					}
-					//show only first prap
+					// show only first prap
 					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
 						SwingUtilities.invokeLater(() -> {
@@ -815,8 +805,8 @@ public class Viewer2DToolBar extends JToolBar{
 							javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
 								if (frame.canvas != null) {
 									/*
-									 * Countermeasure:
-									 * Caused by: java.awt.AWTException: JAWT_DrawingSurface_Lock() failed
+									 * Countermeasure: Caused by: java.awt.AWTException: JAWT_DrawingSurface_Lock()
+									 * failed
 									 */
 									if (frame.canvas.isDisplayable() && frame.canvas.isShowing()) {
 										frame.canvas.render();// これが呼ばれると paintGL() が動く
@@ -844,16 +834,16 @@ public class Viewer2DToolBar extends JToolBar{
 				@Override
 				public void actionPerformed(ActionEvent arg) {
 					Viewer2DScreen own = Viewer2DScreen.getInstance();
-					ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
+					ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
 					int size = selectedPraps.size();
-					if(selectedPraps == null || size < 1) {
+					if (selectedPraps == null || size < 1) {
 						return;
 					}
 					Praparat prap = selectedPraps.get(0);
 					new Thread(() -> {
 						new SimpleMPRViewer(prap.getImagePlus(-1, -1));
 					}).start();
-					
+
 					currentTool = Windowing;
 					setSelectedToolBackground();
 				}
@@ -893,10 +883,11 @@ public class Viewer2DToolBar extends JToolBar{
 		map.put("angle", Resources.AngleRoiIcon);
 		map.put("brush", Resources.RoiBrushIcon);
 		map.put("wand", Resources.RoiWandIcon);
+		map.put("3d_sphere", Resources.Roi3DSphereIcon);
 		return map;
 	}
-	
-	private HashMap<String, Resources> initProcessFunctions(){
+
+	private HashMap<String, Resources> initProcessFunctions() {
 		HashMap<String, Resources> map = new HashMap<>();
 		map.put("reset", Resources.ResetPraparatIcon);
 		map.put("invert", Resources.InvertIcon);
@@ -913,70 +904,68 @@ public class Viewer2DToolBar extends JToolBar{
 //		map.put("radiomics", Resources.RadiomicsJIcon);
 		return map;
 	}
-	
+
 	public int getCurrentToolType() {
 		return currentTool;
 	}
-	
+
 	public static boolean isRoiTool(int toolType) {
-		for(int i : roiTools) {
-			if(i==toolType) {
+		for (int i : roiTools) {
+			if (i == toolType) {
 				return true;
 			}
 		}
 		return false;
 	}
-	
+
 	/*
-	 * window -> change color
-	 * roi tool -> change color
-	 * other -> no change
+	 * window -> change color roi tool -> change color other -> no change
 	 */
 	private void setSelectedToolBackground() {
-		if(windowChk == null) {
+		if (windowChk == null) {
 			return;
 		}
-		if(currentTool == Analysis) {
+		if (currentTool == Analysis) {
 			roiGroup.clearSelection();
 		}
-		if(currentTool == Windowing) {
-			if(!windowChk.isSelected()) {
+		if (currentTool == Windowing) {
+			if (!windowChk.isSelected()) {
 				windowChk.setSelected(true);
 			}
 			windowChk.setBackground(Color.CYAN);
 			roiGroup.clearSelection();
-		}else {
-			if(windowChk.isSelected()) {
+		} else {
+			if (windowChk.isSelected()) {
 				windowChk.setSelected(false);
 			}
 			windowChk.setBackground(getBackground());
 		}
 		for (Enumeration<AbstractButton> e = roiGroup.getElements(); e.hasMoreElements();) {
 			AbstractButton chb = e.nextElement();
-			if(!chb.isSelected()) {
+			if (!chb.isSelected()) {
 				chb.setBackground(getBackground());
-			}else {
+			} else {
 				chb.setBackground(Color.cyan);
 			}
 		}
 	}
-	
+
 	public void loadPluginTools() {
 
 		PluginShelf pluginShelf = ApplicationFacade.pluginShelf;
 		if (pluginShelf == null) {
 			return;
 		}
-		
-		if(pluginListPanel == null) {
+
+		if (pluginListPanel == null) {
 			pluginListPanel = new JPanel();
 			pluginListPanel.setBorder(new LineBorder(Color.GRAY, 3, true));
 			pluginListPanel.setName("TOOLBAR_PLUGIN_LIST");
 		}
-		
-		if(base != null) {
+
+		if (base != null) {
 			boolean alreadyExists = false;
-			for(Component c : base.getComponents()) {
+			for (Component c : base.getComponents()) {
 				if ("TOOLBAR_PLUGIN_LIST".equals(c.getName())) {
 					alreadyExists = true;
 					break;
@@ -1048,7 +1037,7 @@ public class Viewer2DToolBar extends JToolBar{
 		revalidate();
 		repaint();
 	}
-	
+
 	/**
 	 * ブラシオプショントグルダイアログを表示し、プロパティを更新する
 	 */
@@ -1059,36 +1048,41 @@ public class Viewer2DToolBar extends JToolBar{
 		if (sizeStr != null) {
 			try {
 				currentSize = Integer.parseInt(sizeStr.trim());
-			} catch (NumberFormatException e) {}
+			} catch (NumberFormatException e) {
+			}
 		}
-		
+
 		String currentType = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType);
 		if (currentType == null) {
 			currentType = "Circle";
 		}
 
 		// 2. OptionDialog を作成して表示する
-		OptionDialog gd = new OptionDialog("Brush Options", (JFrame)WindowManager.getWindow(ConfigInfo.D2ViewerWindow));
+		OptionDialog gd = new OptionDialog("Brush Options",
+				(JFrame) WindowManager.getWindow(ConfigInfo.D2ViewerWindow));
 		gd.addNumericField("Brush Size", currentSize, 0, 5, "pixels");
-		gd.addChoice("Brush Type", new String[]{"Circle", "Square"}, currentType);
+		gd.addChoice("Brush Type", new String[] { "Circle", "Square" }, currentType);
 		gd.pack();
 		gd.showDialog();
 
 		// キャンセルされたら何もしない
-		if (gd.wasCanceled()) return;
+		if (gd.wasCanceled())
+			return;
 
 		// 3. 入力された値を取得
 		int newSize = (int) gd.getNextNumber();
 		String newType = gd.getNextChoice();
 
 		// 安全のためのガード（1未満や大きすぎるサイズを防ぐ）
-		if (newSize < 1) newSize = 1;
-		if (newSize > 500) newSize = 500;
+		if (newSize < 1)
+			newSize = 1;
+		if (newSize > 500)
+			newSize = 500;
 
 		// 4. プロパティに書き込んで保存する
 		// （※PropertiesUtil の正確な set/save メソッド名に合わせて調整してください）
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize, String.valueOf(newSize));
 		PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushType, newType);
-		
+
 	}
 }

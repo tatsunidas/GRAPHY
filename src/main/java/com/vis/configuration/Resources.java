@@ -99,6 +99,7 @@ public enum Resources {
 	AngleRoiIcon("icon/roi_angle.png"),
 	RoiBrushIcon("icon/roi_brush_48dp.png"),
 	RoiWandIcon("icon/wand.jpeg"),
+	Roi3DSphereIcon("icon/3d_sphere_roi_48dp_1F1F1F.png"),
 	
 	//viewer3d
 	MenuBarViewer3DIcon("icon/ic_3d_rotation_black_48dp.png"),

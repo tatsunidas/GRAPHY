@@ -76,7 +76,7 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -541,10 +541,10 @@ public class SampleClassifierPanel extends JPanel{
 		String studyUID = (String)info.get("StudyInstanceUID");
 		String seriesUID = (String)info.get("SeriesInstanceUID");
 		String[] sopUIDs = (String[])info.get("SOPInstanceUIDs");
-		String pid_ = r.getProperty(ContextKey.PatientID);
-		String stUID = r.getProperty(ContextKey.StudyInstanceUID);
-		String seUID = r.getProperty(ContextKey.SeriesInstanceUID);
-		String sopUID = r.getProperty(ContextKey.SOPInstanceUID);
+		String pid_ = r.getProperty(RoiDBKey.PatientID);
+		String stUID = r.getProperty(RoiDBKey.StudyInstanceUID);
+		String seUID = r.getProperty(RoiDBKey.SeriesInstanceUID);
+		String sopUID = r.getProperty(RoiDBKey.SOPInstanceUID);
 		if(patID.equals(pid_)&&studyUID.equals(stUID)&&seriesUID.equals(seUID)) {
 			for(String sop : sopUIDs) {
 				if(sop.equals(sopUID)) {
@@ -854,7 +854,7 @@ public class SampleClassifierPanel extends JPanel{
 		}
 		
 		void add(RoiObj r) {
-			String roiId = r.getUIDs().get(ContextKey.RoiID);
+			String roiId = r.getUIDs().get(RoiDBKey.RoiID);
 			if(roiId == null) {
 				System.out.println("Cannot load. This roi is not created by GRAPHY...:"+r.getName());
 				return;
@@ -865,7 +865,7 @@ public class SampleClassifierPanel extends JPanel{
 			}
 			for(int i=0; i<listModel.size(); i++) {
 				RoiObj r2 = listModel.get(i);
-				String roiId2 = r2.getUIDs().get(ContextKey.RoiID);
+				String roiId2 = r2.getUIDs().get(RoiDBKey.RoiID);
 				if(roiId.equals(roiId2)) {
 					//already in. skip.
 					return;
@@ -918,7 +918,7 @@ public class SampleClassifierPanel extends JPanel{
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 			if (value instanceof RoiObj) {
 				RoiObj roi = (RoiObj) value;
-				setText(roi.getUIDs().get(ContextKey.RoiID));
+				setText(roi.getUIDs().get(RoiDBKey.RoiID));
 			} else {
 				setText((value == null) ? "" : value.toString());
 			}

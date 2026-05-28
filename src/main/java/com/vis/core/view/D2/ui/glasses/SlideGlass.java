@@ -63,7 +63,7 @@ import javax.swing.border.Border;
 
 import org.joml.Vector3d;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.util.MathUtils;
@@ -1083,12 +1083,12 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.repaint();
 	}
 	
-	public void replaceRoi(HashMap<ContextKey, String> uids, RoiObj roiToReplace) {
-		String patID = uids.get(ContextKey.PatientID);
-		String studyUID = uids.get(ContextKey.StudyInstanceUID);
-		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-		String sopUID = uids.get(ContextKey.SOPInstanceUID);
-		String roiID = uids.get(ContextKey.RoiID);
+	public void replaceRoi(HashMap<RoiDBKey, String> uids, RoiObj roiToReplace) {
+		String patID = uids.get(RoiDBKey.PatientID);
+		String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+		String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+		String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+		String roiID = uids.get(RoiDBKey.RoiID);
 		roiOverlay.replaceRoi(patID, studyUID, seriesUID, sopUID, roiID, roiToReplace);
 	}
 
@@ -1833,7 +1833,7 @@ public class SlideGlass extends JLayeredPane {
 			for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
 				java.util.HashMap<String, Object> ctx = roi.readContext();
 				snapshot.add(ctx);
-				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.ContextKey.RoiID.name()) + " (Type: " + ctx.get(com.vis.configuration.ContextKey.RoiType.name()) + ")");
+				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.RoiDBKey.RoiID.name()) + " (Type: " + ctx.get(com.vis.configuration.RoiDBKey.RoiType.name()) + ")");
 			}
 		}
 		return snapshot;
@@ -1921,13 +1921,13 @@ public class SlideGlass extends JLayeredPane {
 			int restoredCount = 0;
 			for (java.util.HashMap<String, Object> pastRoiCtx : pastState) {
 				Log.logger.fine(
-						"Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(ContextKey.RoiID.name()));
+						"Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(RoiDBKey.RoiID.name()));
 				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(this, false);
 					this.addRoi(revivedRoi);
 					restoredCount++;
-					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(ContextKey.RoiID.name()));
+					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(RoiDBKey.RoiID.name()));
 				} else {
 					Log.logger.severe(
 							"CRITICAL: Failed to build RoiObj! converter.buildRoiObj returned null. Context keys: "

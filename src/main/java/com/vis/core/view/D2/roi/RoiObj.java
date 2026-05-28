@@ -53,7 +53,7 @@ import java.awt.event.*;
 import java.awt.geom.*;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
@@ -1581,7 +1581,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	/** Returns the name of this ROI, or null. */
 	public String getName() {
-		return getProperty(ContextKey.Name.name());
+		return getProperty(RoiDBKey.Name.name());
 	}
 
 	/**
@@ -1650,7 +1650,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return sb.toString();
 	}
 
-	public String getProperty(ContextKey conkey) {
+	public String getProperty(RoiDBKey conkey) {
 		return getProperty(conkey.name());
 	}
 	
@@ -1659,7 +1659,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			return null;
 		} else {
 			// if integer
-			if (property.equals(ContextKey.RoiType.name())) {
+			if (property.equals(RoiDBKey.RoiType.name())) {
 				return String.valueOf(getType());
 			}
 			return props.getProperty(property);
@@ -1870,13 +1870,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		return s;
 	}
 
-	public HashMap<ContextKey, String> getUIDs() {
-		HashMap<ContextKey, String> info = new HashMap<>();
-		info.put(ContextKey.PatientID, getProperty(ContextKey.PatientID.name()));
-		info.put(ContextKey.StudyInstanceUID, getProperty(ContextKey.StudyInstanceUID.name()));
-		info.put(ContextKey.SeriesInstanceUID, getProperty(ContextKey.SeriesInstanceUID.name()));
-		info.put(ContextKey.SOPInstanceUID, getProperty(ContextKey.SOPInstanceUID.name()));
-		info.put(ContextKey.RoiID, getProperty(ContextKey.RoiID.name()));
+	public HashMap<RoiDBKey, String> getUIDs() {
+		HashMap<RoiDBKey, String> info = new HashMap<>();
+		info.put(RoiDBKey.PatientID, getProperty(RoiDBKey.PatientID.name()));
+		info.put(RoiDBKey.StudyInstanceUID, getProperty(RoiDBKey.StudyInstanceUID.name()));
+		info.put(RoiDBKey.SeriesInstanceUID, getProperty(RoiDBKey.SeriesInstanceUID.name()));
+		info.put(RoiDBKey.SOPInstanceUID, getProperty(RoiDBKey.SOPInstanceUID.name()));
+		info.put(RoiDBKey.RoiID, getProperty(RoiDBKey.RoiID.name()));
 		return info;
 	}
 
@@ -2085,9 +2085,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		initUIDs(uids);
 		// Save frame position in properties
 		if (sg.getInstanceNo() != null) {
-			setProperty(ContextKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
+			setProperty(RoiDBKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
 		}
-		if (getProperty(ContextKey.Position.name()) == null) {
+		if (getProperty(RoiDBKey.Position.name()) == null) {
 			updatePositionProperty(sg);
 		}
 	}
@@ -2098,13 +2098,13 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			return;
 		}
 		String[] uids = sg.getUIDs();
-		setUIDs(uids[0], uids[1], uids[2], uids[3], getProperty(ContextKey.RoiID.name()));
+		setUIDs(uids[0], uids[1], uids[2], uids[3], getProperty(RoiDBKey.RoiID.name()));
 		// if already have instNo, no update it
 		if (sg.getInstanceNo() != null) {
-			setProperty(ContextKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
+			setProperty(RoiDBKey.InstanceNo.name(), String.valueOf(sg.getInstanceNo()));
 		}
 		// if already have frame position, no update it
-		if (getProperty(ContextKey.Position.name()) == null) {
+		if (getProperty(RoiDBKey.Position.name()) == null) {
 			updatePositionProperty(sg);
 		}
 	}
@@ -2122,7 +2122,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 		// 見つかったら、1-based (index + 1) で Position にセットする
 		if (index != -1) {
-			setProperty(ContextKey.Position.name(), String.valueOf(index + 1));
+			setProperty(RoiDBKey.Position.name(), String.valueOf(index + 1));
 		}
 	}
 
@@ -2203,25 +2203,25 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 * @return
 	 */
 	public boolean isThisRoi(RoiObj roi) {
-		HashMap<ContextKey, String> uids = roi.getUIDs();
-		String patID = uids.get(ContextKey.PatientID);
-		String studyUID = uids.get(ContextKey.StudyInstanceUID);
-		String seriesUID = uids.get(ContextKey.SeriesInstanceUID);
-		String sopUID = uids.get(ContextKey.SOPInstanceUID);
-		String id = uids.get(ContextKey.RoiID);
+		HashMap<RoiDBKey, String> uids = roi.getUIDs();
+		String patID = uids.get(RoiDBKey.PatientID);
+		String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+		String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+		String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+		String id = uids.get(RoiDBKey.RoiID);
 		return isThisRoi(patID, studyUID, seriesUID, sopUID, id);
 	}
 	
 	public boolean isThisRoi(String patID, String studyUID, String seriesUID, String sopUID/*dummy*/, String roiId) {
-	    HashMap<ContextKey, String> uids = getUIDs();
-	    String uid1 = uids.get(ContextKey.PatientID);
-	    String uid2 = uids.get(ContextKey.StudyInstanceUID);
-	    String uid3 = uids.get(ContextKey.SeriesInstanceUID);
+	    HashMap<RoiDBKey, String> uids = getUIDs();
+	    String uid1 = uids.get(RoiDBKey.PatientID);
+	    String uid2 = uids.get(RoiDBKey.StudyInstanceUID);
+	    String uid3 = uids.get(RoiDBKey.SeriesInstanceUID);
 	    /*
 	     * roi multi stack 対応
 	     */
 	    // String uid4 = uids.get(ContextKey.SOPInstanceUID); // 緩和のため判定には使用しない
-	    String id = uids.get(ContextKey.RoiID);
+	    String id = uids.get(RoiDBKey.RoiID);
 
 	    if (uid1 == null || uid2 == null || uid3 == null || id == null) {
 	        return false;
@@ -2732,9 +2732,9 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	 */
 	public HashMap<String, Object> readContext() {
 		HashMap<String, Object> con = new HashMap<>();
-		//read main attributes
-		for (ContextKey k : ContextKey.values()) {
-			if(k==ContextKey.RoiMetaProperties) {
+		//read main attributes that defined in db table cols.
+		for (RoiDBKey k : RoiDBKey.values()) {
+			if(k==RoiDBKey.RoiMetaProperties) {
 				continue;
 			}
 			String v = getProperty(k.name());
@@ -2744,18 +2744,17 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		}
 		//read meta attributes
 		/*
-		 * ContextKeyに列挙されている値はMainPropertiesとして扱う
+		 * RoiDBKeyに列挙されている値は必須Propertiesとして扱う
 		 * それ以外はMetaとして扱う。
 		 * どちらも、propsに並列に保持される。
-		 * （RoiMetaPropertiesというプロパティが別に存在するわけではない）
 		 */
 		Map<String, String> metaProp = new HashMap<String,String>();
 		for(Object k : props.keySet()) {
 			boolean mainProp = false;
-			for (ContextKey ck : ContextKey.values()) {
+			for (RoiDBKey ck : RoiDBKey.values()) {
 				if(((String)k).equals(ck.name())) {
 					mainProp = true;
-					if(k==ContextKey.RoiMetaProperties) {
+					if(k==RoiDBKey.RoiMetaProperties) {
 						/*
 						 * 単にDBでMetaをグループ化するために利用されるキーのため。
 						 */
@@ -2763,17 +2762,6 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					}
 					break;
 				}
-			}
-			
-			// ========================================================
-			// ★ 追加：多次元プロパティの保護回路
-			// Dim_C 等が ContextKey に存在していても、DBの独立カラムではないため
-			// JSON文字列（RoiMetaProperties）に含めて保存させる
-			// ========================================================
-			String keyStr = (String) k;
-			if (keyStr.equals("Dim_C") || keyStr.equals("Dim_Z") || keyStr.equals("Dim_T")
-					|| keyStr.equals("ReferenceImagePositionPatient") || keyStr.equals("FrameOfReferenceUID")) {
-				mainProp = false;
 			}
 			
 			if(mainProp) {
@@ -2785,7 +2773,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		/*
 		 * 保存時はプロパティとして渡されるが、ロード時はフラットにプロパティに保持される
 		 */
-		con.put(ContextKey.RoiMetaProperties.name(), metaProp);
+		con.put(RoiDBKey.RoiMetaProperties.name(), metaProp);
 		
 		con.put(RoiGeometry.OriginX.name(), (int) getXBase());
 		con.put(RoiGeometry.OriginY.name(), (int) getYBase());
@@ -2814,15 +2802,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			((PolygonRoi) this).fitSpline(getOptimalSplinePoints(3.0));
 		}
 		
-		con.put(ContextKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
+		con.put(RoiDBKey.StudyDate.name(), slide == null ? null:slide.getStudyDate());
 		
 		// See also ShapeRoi::readContext(), roiToShape(RoiObj roi)
 		con.put(RoiGeometry.Shape.name(), null);
 		
 		// --- 検証ログ 2 ---
-		if (con.containsKey(ContextKey.RoiMetaProperties.name())) {
+		if (con.containsKey(RoiDBKey.RoiMetaProperties.name())) {
 		    com.vis.core.log.Log.logger.info("[DEBUG-2: OBJ] RoiObj.readContext: JSON Output -> " 
-		        + con.get(ContextKey.RoiMetaProperties.name()));
+		        + con.get(RoiDBKey.RoiMetaProperties.name()));
 		} else {
 		    com.vis.core.log.Log.logger.warning("[DEBUG-2: OBJ] RoiObj.readContext: RoiMetaProperties is NULL!");
 		}
@@ -2977,7 +2965,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 
 	/** Sets the name of this ROI. */
 	public void setName(String name) {
-		setProperty(ContextKey.Name.name(), name);
+		setProperty(RoiDBKey.Name.name(), name);
 	}
 
 	/**
@@ -3049,7 +3037,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 			props.clear();
 		}
 		// read
-		for(ContextKey key : ContextKey.values()) {
+		for(RoiDBKey key : RoiDBKey.values()) {
 			Object v = roiCon.get(key.name());
 			if(v != null) {
 				if(v instanceof java.sql.Date || v instanceof java.util.Date) {
@@ -3074,7 +3062,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					continue;
 				}
 				setProperty(key.name(), (String)v);
-				if(key == ContextKey.Name) {
+				if(key == RoiDBKey.Name) {
 					setName((String)v);
 				}
 			}
@@ -3082,7 +3070,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 	
 	
-	public void setProperty(ContextKey key, String value) {
+	public void setProperty(RoiDBKey key, String value) {
 		setProperty(key.name(), value);
 	}
 
@@ -3107,7 +3095,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	public void setRoiLabel(String name) {
-		setProperty(ContextKey.RoiLabel.name(), name);
+		setProperty(RoiDBKey.RoiLabel.name(), name);
 	}
 
 	/**
@@ -3148,7 +3136,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		if(sg != null) {
 			setImage(sg.getOriginalImage());
 		}
-		if(getProperty(ContextKey.RoiID.name()) == null || initUIDs) {
+		if(getProperty(RoiDBKey.RoiID.name()) == null || initUIDs) {
 			initUIDsBySlideGlass(sg);
 		}else {
 			updateUIDsBySlideGlass(sg);
@@ -3228,11 +3216,11 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 	}
 
 	protected void setUIDs(String pid, String studyUID, String seriesUID, String sopUID, String roiID) {
-		setProperty(ContextKey.PatientID.name(), pid);
-		setProperty(ContextKey.StudyInstanceUID.name(), studyUID);
-		setProperty(ContextKey.SeriesInstanceUID.name(), seriesUID);
-		setProperty(ContextKey.SOPInstanceUID.name(), sopUID);
-		setProperty(ContextKey.RoiID.name(), roiID);
+		setProperty(RoiDBKey.PatientID.name(), pid);
+		setProperty(RoiDBKey.StudyInstanceUID.name(), studyUID);
+		setProperty(RoiDBKey.SeriesInstanceUID.name(), seriesUID);
+		setProperty(RoiDBKey.SOPInstanceUID.name(), sopUID);
+		setProperty(RoiDBKey.RoiID.name(), roiID);
 	}
 
 	/**

@@ -38,12 +38,14 @@
 package com.vis.configuration;
 
 /**
- * Context information.
+ * Context information that save database (defined table).
  * These are not including Roi geometry data (such as points, coordinates etc).
+ * 
+ * If you want to save meta information it does not defined in table, use RoiMetaContextKey instead.
  * 
  * @author tatsunidas
  */
-public enum ContextKey {
+public enum RoiDBKey {
 	PatientID,
 	StudyInstanceUID,
 	SeriesInstanceUID,
@@ -61,15 +63,11 @@ public enum ContextKey {
 	ObjectType,//string target object type, e.g., target lesion.
 	Organ,//string
 	Description,//for textroi and any context.string
-	ReferenceImagePositionPatient,//ipp of dcm image that provide it's roi.
-	Dim_C,
-	Dim_Z,
-	Dim_T,
 	RoiMetaProperties // see, RoiMetaContextKey
 	;
 	
 	public static boolean checkPropertyKey(String key) {
-		for (ContextKey k : ContextKey.values()) {
+		for (RoiDBKey k : RoiDBKey.values()) {
 			String stringKey = k.name();
 			if (stringKey.equals(key)) {
 				return true;

@@ -74,7 +74,8 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.main.BirdsEyeView;
@@ -1739,12 +1740,283 @@ public class Praparat extends JPanel {
 		}
 		return rois;
 	}
+//
+//	/**
+//	 * マスター3D球ROIの情報を元に、交差する前後のスライスへ自動的にスレイブROIを展開します。
+//	 */
+//	public void generate3DSphereSlaves(com.vis.core.view.D2.roi.RoiObj masterRoi) {
+//		if (masterRoi == null)
+//			return;
+//
+//		String radiusStr = masterRoi.getProperty(RoiMetaContextKey.Sphere_Radius_mm.name());
+//		String centerIppStr = masterRoi.getProperty(RoiMetaContextKey.Sphere_Center_IPP.name());
+//		String groupId = masterRoi.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+//		
+//		if (radiusStr == null || centerIppStr == null || groupId == null) {
+//			com.vis.core.log.Log.logger.warning("Missing 3D Sphere parameters.");
+//			return;
+//		}
+//
+//		try {
+//			double R = Double.parseDouble(radiusStr); // 球の半径(mm)
+//			String[] ippParts = centerIppStr.split(",");
+//			double cx = Double.parseDouble(ippParts[0].trim());
+//			double cy = Double.parseDouble(ippParts[1].trim());
+//			double cz = Double.parseDouble(ippParts[2].trim());
+//
+//			String cStr = masterRoi.getProperty(RoiMetaContextKey.Dim_C.name());
+//			String tStr = masterRoi.getProperty(RoiMetaContextKey.Dim_T.name());
+//			int targetC = (cStr != null && !cStr.isEmpty()) ? Integer.parseInt(cStr) : -1;
+//			int targetT = (tStr != null && !tStr.isEmpty()) ? Integer.parseInt(tStr) : -1;
+//			
+//			com.vis.core.log.Log.logger.info(String.format(
+//					"[DEBUG-7] generate3DSphereSlaves starts. R=%.2f, CX=%.2f, CY=%.2f, CZ=%.2f", 
+//					R, cx, cy, cz
+//				));
+//				int slaveCount = 0;
+//			
+//			for (java.util.Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
+//				SlideGlass sg = entry.getValue();
+//
+//				// マスター自身が乗っているスライスはスキップ
+//				if (sg == masterRoi.getSlideGlass())
+//					continue;
+//
+//				int[] zct = getZCTArray(sg);
+//				// チャンネルとフレームがマスターと異なる場合はスキップ（別の時空間）
+//				if (targetC != -1 && targetC != zct[1])
+//					continue;
+//				if (targetT != -1 && targetT != zct[2])
+//					continue;
+//
+//				com.vis.dicom.DicomObject header = sg.getHeader();
+//				int frameIdx = isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
+//
+//				double[] sliceIpp = getSafeIPP(header, frameIdx);
+//				double[] sliceIop = getSafeIOP(header, frameIdx);
+//
+//				if (sliceIpp == null || sliceIop == null)
+//					continue;
+//
+//				// 1. スライスの法線ベクトル (Row x Col)
+//				double nx = sliceIop[1] * sliceIop[5] - sliceIop[2] * sliceIop[4];
+//				double ny = sliceIop[2] * sliceIop[3] - sliceIop[0] * sliceIop[5];
+//				double nz = sliceIop[0] * sliceIop[4] - sliceIop[1] * sliceIop[3];
+//
+//				// 2. スライスの原点(IPP)から球の中心へ向かうベクトル
+//				double vx = cx - sliceIpp[0];
+//				double vy = cy - sliceIpp[1];
+//				double vz = cz - sliceIpp[2];
+//
+//				// 3. 球の中心からスライス平面までの直交距離 d
+//				double d = Math.abs(vx * nx + vy * ny + vz * nz);
+//
+//				// 4. 交差判定 (距離が半径未満なら交差)
+//				if (d < R) {
+//					// 断面の円の半径 r
+//					double r_mm = Math.sqrt(R * R - d * d);
+//
+//					// 5. 球の中心座標をスライスの2Dピクセル座標(x, y)に投影
+//					double projX_mm = vx * sliceIop[0] + vy * sliceIop[1] + vz * sliceIop[2];
+//					double projY_mm = vx * sliceIop[3] + vy * sliceIop[4] + vz * sliceIop[5];
+//
+//					double pxSpacingX = sg.getPixelSpacingX();
+//					double pxSpacingY = sg.getPixelSpacingY();
+//					if (pxSpacingX <= 0)
+//						pxSpacingX = 1.0;
+//					if (pxSpacingY <= 0)
+//						pxSpacingY = 1.0;
+//
+//					double pixelX = projX_mm / pxSpacingX;
+//					double pixelY = projY_mm / pxSpacingY;
+//
+//					double radiusPxX = r_mm / pxSpacingX;
+//					double radiusPxY = r_mm / pxSpacingY;
+//
+//					// スレイブROIの生成
+//					int startX = (int)(pixelX - radiusPxX);
+//					int startY = (int)(pixelY - radiusPxY);
+//					int width = (int)(radiusPxX * 2.0);
+//					int height = (int)(radiusPxY * 2.0);
+//
+//					com.vis.core.view.D2.roi.OvalRoi slaveRoi = new com.vis.core.view.D2.roi.OvalRoi(startX, startY,
+//							width, height, sg);
+//					slaveRoi.setState(com.vis.core.view.D2.roi.RoiObj.NORMAL);
+//
+//					// プロパティの継承
+//					slaveRoi.setProperty(com.vis.configuration.RoiDBKey.RoiGroup.name(), groupId); // 同じグループID
+//					slaveRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), "SPHERE"); 
+//					slaveRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), String.valueOf(R));
+//					slaveRoi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
+//					slaveRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
+//					slaveRoi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
+//					slaveRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), "true");
+//
+//					// キャンバスへ追加（これにより自動的にDBに保存される）
+//					CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+//					if (cg != null) {
+//						cg.addRoi(slaveRoi);
+//						// 裏側のスライドは自動で再描画されない場合があるため再描画を促す
+//						sg.repaintCanvasGlass();
+//						slaveCount++;
+//					}
+//				}
+//			}
+//			
+//			// --- 検証ログ 3-2 ---
+//			com.vis.core.log.Log.logger
+//					.info("[DEBUG-8] generate3DSphereSlaves finished. Created slaves: " + slaveCount);
+//			// ----------------
+//
+//			// Managerが開いていればリストを更新
+//			com.vis.core.view.D2.roi.RoiObjManager rom = com.vis.core.view.D2.roi.RoiObjManager.getInstance();
+//			if (rom != null && rom.isVisible()) {
+//				rom.updateState();
+//			}
+//
+//		} catch (Exception e) {
+//			com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Failed to generate 3D Sphere Slaves", e);
+//		}
+//	}
+//
+//	// Praparat.java
+//	public void deleteSphereGroup(String groupId) {
+//		if (groupId == null)
+//			return;
+//		for (SlideGlass sg : slides.values()) {
+//			if (sg == null)
+//				continue;
+//			com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg
+//					.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+//			if (cg != null) {
+//				java.util.ArrayList<com.vis.core.view.D2.roi.RoiObj> roiset = cg.getRoiSet();
+//				if (roiset != null) {
+//					java.util.Iterator<com.vis.core.view.D2.roi.RoiObj> it = roiset.iterator();
+//					boolean removed = false;
+//					while (it.hasNext()) {
+//						com.vis.core.view.D2.roi.RoiObj r = it.next();
+//						String gId = r.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+//						if (groupId.equals(gId)) {
+//							it.remove();
+//							// ==========================================================
+//							// ★修正: getUIDs() を使って安全に削除キーを取得する
+//							// ==========================================================
+//							java.util.HashMap<com.vis.configuration.RoiDBKey, String> uids = r.getUIDs();
+//							com.vis.db.DatabaseHandler.getInstance().deleteRoi(
+//									uids.get(com.vis.configuration.RoiDBKey.PatientID),
+//									uids.get(com.vis.configuration.RoiDBKey.StudyInstanceUID),
+//									uids.get(com.vis.configuration.RoiDBKey.SeriesInstanceUID),
+//									uids.get(com.vis.configuration.RoiDBKey.SOPInstanceUID),
+//									uids.get(com.vis.configuration.RoiDBKey.RoiID));
+//							removed = true;
+//						}
+//					}
+//					if (removed)
+//						cg.repaint();
+//				}
+//			}
+//		}
+//	}
+//
+//	/**
+//	 * 移動・サイズ変更されたROIを新たなマスターとして、3D Sphere全体を再計算・再配置します
+//	 */
+//	public void updateSphere3D(com.vis.core.view.D2.roi.RoiObj modifiedRoi) {
+//		String groupId = modifiedRoi.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+//		
+//		// --- 検証ログ 1 ---
+//		com.vis.core.log.Log.logger.info("[DEBUG-5] updateSphere3D called. GroupID = " + groupId);
+//		// ----------------
+//		
+//		if (groupId == null) {
+//			com.vis.core.log.Log.logger.warning("[DEBUG-5 ERROR] GroupID is NULL! Aborting update.");
+//			return;
+//		}
+//
+//		// 1. 自分以外のグループ内ROI（古いスレイブ等）を全スライドから一括削除
+//		for (SlideGlass sg : slides.values()) {
+//			if (sg == null)
+//				continue;
+//			com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg
+//					.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+//			if (cg != null) {
+//				java.util.ArrayList<com.vis.core.view.D2.roi.RoiObj> roiset = cg.getRoiSet();
+//				if (roiset != null) {
+//					java.util.Iterator<com.vis.core.view.D2.roi.RoiObj> it = roiset.iterator();
+//					while (it.hasNext()) {
+//						com.vis.core.view.D2.roi.RoiObj r = it.next();
+//						if (r != modifiedRoi
+//								&& groupId.equals(r.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name()))) {
+//							it.remove();
+//							java.util.HashMap<com.vis.configuration.RoiDBKey, String> uids = r.getUIDs();
+//							com.vis.db.DatabaseHandler.getInstance().deleteRoi(
+//								uids.get(com.vis.configuration.RoiDBKey.PatientID),
+//								uids.get(com.vis.configuration.RoiDBKey.StudyInstanceUID),
+//								uids.get(com.vis.configuration.RoiDBKey.SeriesInstanceUID),
+//								uids.get(com.vis.configuration.RoiDBKey.SOPInstanceUID),
+//								uids.get(com.vis.configuration.RoiDBKey.RoiID)
+//							);
+//						}
+//					}
+//					cg.repaint();
+//				}
+//			}
+//		}
+//
+//		// 2. この modifiedRoi を「真のマスター」として3D空間座標(IPP)を再計算
+//		SlideGlass sg = modifiedRoi.getSlideGlass();
+//		double pixelSpacingX = sg.getPixelSpacingX();
+//		double pixelSpacingY = sg.getPixelSpacingY();
+//		if (pixelSpacingX <= 0)
+//			pixelSpacingX = 1.0;
+//		if (pixelSpacingY <= 0)
+//			pixelSpacingY = 1.0;
+//
+//		// 現在の円の中心ピクセル座標
+//		double imageX = modifiedRoi.getXBase() + modifiedRoi.getBounds().width / 2.0;
+//		double imageY = modifiedRoi.getYBase() + modifiedRoi.getBounds().height / 2.0;
+//
+//		com.vis.dicom.DicomObject header = sg.getHeader();
+//		int frameIdx = isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
+//		double[] currentIpp = getSafeIPP(header, frameIdx);
+//		double[] iop = getSafeIOP(header, frameIdx);
+//
+//		if (currentIpp != null && currentIpp.length == 3 && iop != null && iop.length == 6) {
+//			double physX = currentIpp[0] + iop[0] * imageX * pixelSpacingX + iop[3] * imageY * pixelSpacingY;
+//			double physY = currentIpp[1] + iop[1] * imageX * pixelSpacingX + iop[4] * imageY * pixelSpacingY;
+//			double physZ = currentIpp[2] + iop[2] * imageX * pixelSpacingX + iop[5] * imageY * pixelSpacingY;
+//			modifiedRoi.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(), physX + "," + physY + "," + physZ);
+//		}
+//
+//		modifiedRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(), "true");
+//		modifiedRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), null); // スレイブからマスターへ昇格
+//
+//		// DBの自身を上書き更新
+//		/*
+//		 * この処理はCanvasGlassのZCTにメタデータを上書きしてしまうため、直接DBに保存してアップデートする
+//		 */
+////		com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg
+////				.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+////		cg.insertOrUpdateRoi4DB(modifiedRoi);
+//		
+//		com.vis.core.log.Log.logger.info(String.format("[DEBUG-6] Saving new Master to DB. New IPP: %s, Radius: %s",
+//				modifiedRoi.getProperty(RoiMetaContextKey.Sphere_Center_IPP.name()),
+//				modifiedRoi.getProperty(RoiMetaContextKey.Sphere_Radius_mm.name())));
+//		
+//		com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+//		if (db != null) {
+//		    db.insertRoi(modifiedRoi.readContext());
+//		}
+//
+//		// 3. 再展開
+//		generate3DSphereSlaves(modifiedRoi);
+//	}
 
 	public Modality getModality() {
 		return this.modality;
 	}
 
-	private double[] getSafeIOP(DicomObject header, int frameIndex) {
+	public double[] getSafeIOP(DicomObject header, int frameIndex) {
 		// 1. まずルート階層をチェック
 		double[] iop = header.getDoubles(Tag.ImageOrientationPatient);
 		if (iop != null && iop.length == 6)
@@ -1772,7 +2044,7 @@ public class Praparat extends JPanel {
 		return null;
 	}
 
-	private double[] getSafeIPP(DicomObject header, int frameIndex) {
+	public double[] getSafeIPP(DicomObject header, int frameIndex) {
 		// 1. ルート階層をチェック
 		double[] ipp = header.getDoubles(Tag.ImagePositionPatient);
 		if (ipp != null && ipp.length == 3)
@@ -2176,7 +2448,7 @@ public class Praparat extends JPanel {
 
 			// メタプロパティから多次元空間情報を抽出
 			@SuppressWarnings("unchecked")
-			Map<String, String> metaProps = (Map<String, String>) roiCtx.get(ContextKey.RoiMetaProperties.name());
+			Map<String, String> metaProps = (Map<String, String>) roiCtx.get(RoiDBKey.RoiMetaProperties.name());
 			if (metaProps == null)
 				metaProps = new HashMap<>();
 
@@ -2230,7 +2502,29 @@ public class Praparat extends JPanel {
 				RoiObj revivedRoi = new RoiConverter().buildRoiObj(roiCtx);
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(sg, false);
-					sg.addRoiFromDB(revivedRoi); // 互換性維持のための安全な追加
+					if (metaProps.containsKey(RoiMetaContextKey.Shape_3D_Type.name())) {
+						revivedRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), metaProps.get(RoiMetaContextKey.Shape_3D_Type.name()));
+					}
+					if (metaProps.containsKey(RoiMetaContextKey.Sphere_Radius_mm.name())) {
+						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), metaProps.get(RoiMetaContextKey.Sphere_Radius_mm.name()));
+					}
+					if (metaProps.containsKey(RoiMetaContextKey.Sphere_Center_IPP.name())) {
+						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(), metaProps.get(RoiMetaContextKey.Sphere_Center_IPP.name()));
+					}
+					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Master.name())) {
+						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(), metaProps.get(RoiMetaContextKey.Is3D_Master.name()));
+					}
+					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Slave.name())) {
+						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), metaProps.get(RoiMetaContextKey.Is3D_Slave.name()));
+					}
+
+					// 2Dの各次元情報も確実に同期
+					if (dimCStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_C.name(), dimCStr);
+					String dimZStr = metaProps.get("Dim_Z");
+					if (dimZStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), dimZStr);
+					if (dimTStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_T.name(), dimTStr);
+
+					sg.addRoiFromDB(revivedRoi); // キャンバスへ追加
 				}
 			}
 		}
@@ -2260,7 +2554,7 @@ public class Praparat extends JPanel {
 	                    boolean removed = false;
 	                    while (it.hasNext()) {
 	                        com.vis.core.view.D2.roi.RoiObj r = it.next();
-	                        if (targetRoiId.equals(r.getProperty(com.vis.configuration.ContextKey.RoiID.name()))) {
+	                        if (targetRoiId.equals(r.getProperty(com.vis.configuration.RoiDBKey.RoiID.name()))) {
 	                            it.remove();
 	                            // CanvasGlass がこのROIをアクティブとして保持している場合は解放
 	                            if (cg.getCurrentRoi() == r) {
@@ -2298,7 +2592,7 @@ public class Praparat extends JPanel {
 
 	    // 3. 取得した最新のプロパティを用いて再分配（ディスパッチ）
 	    @SuppressWarnings("unchecked")
-	    java.util.Map<String, String> metaProps = (java.util.Map<String, String>) targetRoiCtx.get(com.vis.configuration.ContextKey.RoiMetaProperties.name());
+	    java.util.Map<String, String> metaProps = (java.util.Map<String, String>) targetRoiCtx.get(com.vis.configuration.RoiDBKey.RoiMetaProperties.name());
 	    if (metaProps == null) metaProps = new java.util.HashMap<>();
 
 	    String roiIppStr = metaProps.get("ReferenceImagePositionPatient");
@@ -2442,26 +2736,6 @@ public class Praparat extends JPanel {
 		}
 		loadSeries(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 	}
-
-//	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs,
-//			List<String> pathToImages) {
-//		if (pathToImages == null || pathToImages.size() == 0) {
-//			System.out.println("prap needs path to images..., return.");
-//			return;
-//		}
-//		viewPanel.removeAll();
-//		/*
-//		 * update information of series images.
-//		 */
-//		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
-//		constructSlideGlassesFromDicom(pathToImages);
-//		applyGlobalAutoWindow();// before slider.initContext
-//		currentSliceZCT = -1;
-//		updateSlidersVisibility();
-//		if (Utils.isDebug) {
-//			System.out.println(slides.size() + " images loaded.");
-//		}
-//	}
 	
 	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToImages) {
 	    if (pathToImages == null || pathToImages.isEmpty()) {
@@ -2516,6 +2790,8 @@ public class Praparat extends JPanel {
 						setTextVisible(false);
 						setAnnotationVisible(false);
 					}
+					
+					loadRoisFromDB();
 
 	                // 5. 初回描画のトリガー（ここで初めて画像が描画される）
 	                if (!isShowGridViewOn()) {

@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.log.Log;
 
@@ -118,7 +118,7 @@ public class RoiConverter {
 			ij.gui.Arrow arrow = new ij.gui.Arrow(al.x1, al.y1, al.x2, al.y2);
 			return copyProperties2IJRoi(roiObj, arrow);
 		case TEXT:
-			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.width, roiObj.height, roiObj.getProperty(ContextKey.Description.name()), new Font(Font.SANS_SERIF, Font.PLAIN, 14));
+			ij.gui.TextRoi txt = new ij.gui.TextRoi(roiObj.getXBase(), roiObj.getYBase(), roiObj.width, roiObj.height, roiObj.getProperty(RoiDBKey.Description.name()), new Font(Font.SANS_SERIF, Font.PLAIN, 14));
 			return copyProperties2IJRoi(roiObj, txt);
 		case POINT:case MULTIPOINT:
 			ij.gui.PointRoi p = new ij.gui.PointRoi(roiObj.getFloatPolygon().xpoints, roiObj.getFloatPolygon().ypoints);
@@ -136,8 +136,8 @@ public class RoiConverter {
 	}
 	
 	private ij.gui.Roi copyProperties2IJRoi(RoiObj roiObj, ij.gui.Roi ijRoi) {
-		for (ContextKey key : ContextKey.values()) {
-			if (key == ContextKey.RoiMetaProperties) {
+		for (RoiDBKey key : RoiDBKey.values()) {
+			if (key == RoiDBKey.RoiMetaProperties) {
 				continue;
 			}
 			String value = roiObj.getProperty(key.name());
@@ -149,10 +149,10 @@ public class RoiConverter {
 		Properties props = roiObj.getProperties();
 		for (Object k : props.keySet()) {
 			boolean mainProp = false;
-			for (ContextKey ck : ContextKey.values()) {
+			for (RoiDBKey ck : RoiDBKey.values()) {
 				if (((String) k).equals(ck.name())) {
 					mainProp = true;
-					if (k == ContextKey.RoiMetaProperties) {
+					if (k == RoiDBKey.RoiMetaProperties) {
 						Log.logger.log(Level.WARNING,
 								"RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
 					}
@@ -167,7 +167,7 @@ public class RoiConverter {
 		}
 		
 		// ImageJのシステムにポジション（スタックの何枚目か）を認識させるための必須処理
-		String posStr = roiObj.getProperty(ContextKey.Position.name());
+		String posStr = roiObj.getProperty(RoiDBKey.Position.name());
 		if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {
 			try {
 				int pos = Integer.parseInt(posStr);
@@ -218,7 +218,7 @@ public class RoiConverter {
 				type = RoiType.MULTIPOINT.id();
 			}
 		}
-		roiCon.put(ContextKey.RoiType.name(), String.valueOf(type));//keep String
+		roiCon.put(RoiDBKey.RoiType.name(), String.valueOf(type));//keep String
 		
 		// ★ 追加: SplineFit の状態をチェックしてプロパティに入れる
 		if (roi instanceof ij.gui.PolygonRoi) {
@@ -229,8 +229,8 @@ public class RoiConverter {
 		}
 		
 		//add all remain context props
-		for(ContextKey key : ContextKey.values()) {
-			if(key == ContextKey.RoiType) {
+		for(RoiDBKey key : RoiDBKey.values()) {
+			if(key == RoiDBKey.RoiType) {
 				continue;
 			}
 			String value = roi.getProperty(key.name());
@@ -244,7 +244,7 @@ public class RoiConverter {
 	
 	public RoiObj buildRoiObj(HashMap<String, Object> roiCon) {
 		//to open roi file
-		int type = roiCon.get(ContextKey.RoiType.name()) instanceof String ? Integer.valueOf((String)roiCon.get(ContextKey.RoiType.name())):(int)roiCon.get(ContextKey.RoiType.name());
+		int type = roiCon.get(RoiDBKey.RoiType.name()) instanceof String ? Integer.valueOf((String)roiCon.get(RoiDBKey.RoiType.name())):(int)roiCon.get(RoiDBKey.RoiType.name());
 		int x = (int)roiCon.get("OriginX");
 		int y = (int)roiCon.get("OriginY");
 		int w = (int)roiCon.get("Width");
@@ -346,11 +346,11 @@ public class RoiConverter {
 		}
 		
 		//add meta prop
-		if(roiCon.get(ContextKey.RoiMetaProperties.name()) == null) {
+		if(roiCon.get(RoiDBKey.RoiMetaProperties.name()) == null) {
 			return roi;
 		}
 		@SuppressWarnings("unchecked")
-		Map<String, String> metaProp = (HashMap<String,String>)roiCon.get(ContextKey.RoiMetaProperties.name());
+		Map<String, String> metaProp = (HashMap<String,String>)roiCon.get(RoiDBKey.RoiMetaProperties.name());
 		for(String k : metaProp.keySet()) {
 			roi.addProperty(k, metaProp.get(k));
 		}

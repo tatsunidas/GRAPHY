@@ -11,7 +11,7 @@ import javax.swing.tree.DefaultTreeModel;
 
 import org.dcm4che3.data.UID;
 
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
@@ -205,7 +205,7 @@ public class PixelAnonymizerPanel extends JPanel {
 		maskRoiListPanel.removeAll();
 
 		for (RoiObj roi : tempRois) {
-			String roiSeriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+			String roiSeriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
 			if (roiSeriesUID == null || roiSeriesUID.equals(currentSeriesUID)) {
 
 				// ★ 変更：Mapに記憶されている設定を読み出す（なければデフォルトの1と空白）
@@ -270,7 +270,7 @@ public class PixelAnonymizerPanel extends JPanel {
 					if (isCancelled())
 						break;
 					currentSeries++;
-					String seUid = series.get(ContextKey.SeriesInstanceUID.name());
+					String seUid = series.get(RoiDBKey.SeriesInstanceUID.name());
 					publish(String.format("Masking series (%d/%d): %s", currentSeries, totalSeries, seUid));
 
 					processPixelMaskingToTemp(seUid, tempDir, this);
@@ -350,7 +350,7 @@ public class PixelAnonymizerPanel extends JPanel {
 
 		Map<Integer, List<RoiObj>> masksPerSlice = new HashMap<>();
 		for (RoiObj roi : tempRois) {
-			if (!seriesUid.equals(roi.getProperty(ContextKey.SeriesInstanceUID.name())))
+			if (!seriesUid.equals(roi.getProperty(RoiDBKey.SeriesInstanceUID.name())))
 				continue;
 			int[] targets = calculateTargetZctIndices(prap, roi);
 			for (int idx : targets) {
@@ -882,9 +882,9 @@ public class PixelAnonymizerPanel extends JPanel {
 
 	protected void loadSeriesToPraparat(HashMap<String, String> seriesInfo) {
 		// 1. Praparat にシリーズの画像データをセットする
-		String pid = seriesInfo.get(ContextKey.PatientID.name());
-		String studyUid = seriesInfo.get(ContextKey.StudyInstanceUID.name());
-		String seriesUid = seriesInfo.get(ContextKey.SeriesInstanceUID.name());
+		String pid = seriesInfo.get(RoiDBKey.PatientID.name());
+		String studyUid = seriesInfo.get(RoiDBKey.StudyInstanceUID.name());
+		String seriesUid = seriesInfo.get(RoiDBKey.SeriesInstanceUID.name());
 		Praparat targetPrap = praparatMap.get(seriesUid);
 		if (targetPrap != null && targetPrap != currentActivePraparat) {
 
@@ -1020,9 +1020,9 @@ public class PixelAnonymizerPanel extends JPanel {
 			int copiedCount = 0;
 
 			for (HashMap<String, String> series : targetSeriesList) {
-				String pid = series.get(ContextKey.PatientID.name());
-				String studyUID = series.get(ContextKey.StudyInstanceUID.name());
-				String seUID = series.get(ContextKey.SeriesInstanceUID.name());
+				String pid = series.get(RoiDBKey.PatientID.name());
+				String studyUID = series.get(RoiDBKey.StudyInstanceUID.name());
+				String seUID = series.get(RoiDBKey.SeriesInstanceUID.name());
 
 				// 現在表示中のシリーズには既に描いてあるのでスキップ
 				if (seUID.equals(currentSeriesUID)) {
@@ -1210,7 +1210,7 @@ public class PixelAnonymizerPanel extends JPanel {
 
 				// 1. tempRois の中から、カレントシリーズに属するROIだけを抽出
 				for (RoiObj roi : tempRois) {
-					String roiSeriesUID = roi.getProperty(ContextKey.SeriesInstanceUID.name());
+					String roiSeriesUID = roi.getProperty(RoiDBKey.SeriesInstanceUID.name());
 
 					// UIDが一致する場合（または未設定の場合も現在のものとみなす安全策）
 					if (roiSeriesUID == null || roiSeriesUID.equals(currentSeriesUID)) {
@@ -1366,7 +1366,7 @@ public class PixelAnonymizerPanel extends JPanel {
 					public void onRemoveRequested(MaskRoiPanel panel) {
 						// 既存の削除処理
 						RoiObj r = panel.getAttachedRoi();
-						String rid = r.getProperty(ContextKey.RoiID);
+						String rid = r.getProperty(RoiDBKey.RoiID);
 						// 追跡リストから削除
 						tempRois.remove(r);
 						// 2. ★ 全スライスからこのROIを完全に抹消する
@@ -1378,7 +1378,7 @@ public class PixelAnonymizerPanel extends JPanel {
 								for (SlideGlass sg : allSlides.values()) {
 									List<RoiObj> roisCopy = new ArrayList<>(sg.getRois());
 									for(RoiObj ro: roisCopy) {
-										if(ro.getProperty(ContextKey.RoiID).equals(rid)) {
+										if(ro.getProperty(RoiDBKey.RoiID).equals(rid)) {
 											sg.deleteRoi(ro);
 										}
 									}

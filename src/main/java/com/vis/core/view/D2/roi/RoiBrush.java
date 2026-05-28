@@ -35,6 +35,7 @@
  *
  * ***** END LICENSE BLOCK *****
  */
+
 package com.vis.core.view.D2.roi;
 
 import java.awt.Point;
@@ -42,14 +43,13 @@ import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.geom.NoninvertibleTransformException;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.ContextKey;
+import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.ui.glasses.*;
@@ -58,7 +58,6 @@ public class RoiBrush {
 	final static int ADD = 0, SUBTRACT = 1;
 	private int mode = ADD;
 
-	// 新規作成モードかどうかのフラグ
 	private boolean isNewRoiMode = false;
 
 	int defaultSize = 15;
@@ -67,15 +66,10 @@ public class RoiBrush {
 	SlideGlass slide = null;
 	ShapeRoi brush = null;
 
-	// UIスレッド用の表示用ROI
 	volatile RoiObj currentBrushingRoi = null;
-	
 	private RoiObj lastOperatedRoi = null;
 
-	// 【重要】バックグラウンドスレッド専用の「計算途中の最新ROI」
-	// ここに計算結果を累積させることで、UI反映が遅れても計算の整合性を保つ
 	private RoiObj internalWorkingRoi = null;
-
 	private ExecutorService calcExecutor;
 
 	public RoiBrush(SlideGlass slide, MouseEvent pressedEvent, boolean createBrush) {
@@ -86,48 +80,23 @@ public class RoiBrush {
 	}
 
 	public void createBrush(MouseEvent pressedEvent) {
-		if (slide == null)
-			return;
+		if (slide == null) return;
 
-		// Executorの初期化
 		if (calcExecutor == null || calcExecutor.isShutdown()) {
 			calcExecutor = Executors.newSingleThreadExecutor();
 		}
 
-		int slideX = pressedEvent.getX();
-		int slideY = pressedEvent.getY();
-		int size = getBrushSize();
+		determineModeAndTarget(pressedEvent);
+		updateBrushShape(pressedEvent.getX(), pressedEvent.getY());
 
-		Point p = null;
-		try {
-			p = slide.offScreenCoordinate(slideX, slideY);
-		} catch (NoninvertibleTransformException nte) {
-			nte.printStackTrace();
-			return;
-		}
-
-		int ox = p.x;
-		int oy = p.y;
-
-		String type = getBrushType();
-		if (type.toLowerCase().equals("circle")) {
-			brush = getCircularRoi(ox, oy, size);
-		} else {
-			brush = getSquareRoi(ox, oy, size);
-		}
-		brush.setActiveOverlayRoi(false);
-		slide.setRoiBrush(brush);
-		slide.repaint();
-
-		// モードとターゲットの初期判定
-		determineModeAndTarget(pressedEvent/* slide coords */, brush);
-
-		// 【重要】計算用ROIの初期化タスクを投入
-		// UI上のROIをクローンして、スレッド内の管理下に置く
 		final RoiObj startRoi = currentBrushingRoi;
 		calcExecutor.submit(() -> {
 			if (startRoi != null) {
-				internalWorkingRoi = (RoiObj) ((ShapeRoi) startRoi).clone(); // 安全のため複製
+				if (startRoi instanceof ShapeRoi) {
+					internalWorkingRoi = (RoiObj) ((ShapeRoi) startRoi).clone(); 
+				} else {
+					internalWorkingRoi = new ShapeRoi(startRoi);
+				}
 			} else {
 				internalWorkingRoi = null;
 			}
@@ -135,108 +104,60 @@ public class RoiBrush {
 
 		brushRoi(pressedEvent);
 	}
-	
-	/**
-     * 現在選択されている（アクティブな）ROIを探して返すヘルパー
-     */
-//	private RoiObj getSelectedRoi() {
-//		if (slide == null)
-//			return null;
-//		for (RoiObj roi : slide.getRois()) {
-//			if (roi.isActiveOverlayRoi() || roi.isSelected()) {
-//				return roi;
-//			}
-//		}
-//		return null;
-//	}
 
-	/**
-     * クリック時のモード判定
-     * 位置による自動判定よりも、明示的なキー操作(Shift/Alt)を優先する
-     */
-    private void determineModeAndTarget(MouseEvent e, ShapeRoi initialBrush) {
-        Point mousePoint = e.getPoint();
-        
-        // 1. 物理的なターゲット判定
-        RoiObj hitRoi = slide.getRoiLocationAt(mousePoint.x, mousePoint.y);
-        RoiObj overlappedRoi = (hitRoi == null) ? findOverlappingRoi(initialBrush) : null;
-        RoiObj targetRoi = (hitRoi != null) ? hitRoi : overlappedRoi;
+	private void determineModeAndTarget(MouseEvent e) {
+		Point mousePoint = e.getPoint();
+		RoiObj hitRoi = slide.getRoiLocationAt(mousePoint.x, mousePoint.y);
 
-        // 2. キー入力
-        boolean isShift = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
-        boolean isAlt = (e.getModifiersEx() & java.awt.event.InputEvent.ALT_DOWN_MASK) != 0;
+		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+		RoiObj activeRoi = null;
+		if (cg != null) {
+			activeRoi = cg.getCurrentRoi();
+			if (activeRoi == null) activeRoi = cg.getSelectedRoi();
+		}
+		if (activeRoi == null) activeRoi = lastOperatedRoi;
 
-        // 3. モード決定
-        if (isAlt) {
-            // --- Alt: 削除 ---
-            mode = SUBTRACT;
-            
-            // 【修正箇所】 
-            // 物理ターゲットがない場合、「直前に操作したROI」を削除対象として採用する
-            // これにより、ROIの外側からドラッグして削り込む操作が可能になる
-            if (targetRoi == null) {
-                if (lastOperatedRoi != null && slide.getRois().contains(lastOperatedRoi)) {
-                    targetRoi = lastOperatedRoi;
-                }
-            }
+		boolean isShift = e.isShiftDown();
+		boolean isAlt = e.isAltDown();
 
-            currentBrushingRoi = targetRoi; 
-            isNewRoiMode = false;
-        } 
-        else if (isShift) {
-            // --- Shift: 拡張/統合 ---
-            mode = ADD;
-            
-            // Shiftと同様のフォールバック
-            if (targetRoi == null) {
-                if (lastOperatedRoi != null && slide.getRois().contains(lastOperatedRoi)) {
-                    targetRoi = lastOperatedRoi;
-                }
-            }
-
-            currentBrushingRoi = targetRoi;
-            isNewRoiMode = (targetRoi == null); 
-        } 
-        else {
-            // --- キーなし (自動判定) ---
-            // 変更なし
-            if (hitRoi != null) {
-                mode = ADD;
-                currentBrushingRoi = hitRoi;
-                isNewRoiMode = false;
-            } else if (overlappedRoi != null) {
-                mode = SUBTRACT;
-                currentBrushingRoi = overlappedRoi;
-                isNewRoiMode = false;
-            } else {
-                mode = ADD;
-                currentBrushingRoi = null;
-                isNewRoiMode = true;
-            }
-        }
-    }
-
-	private RoiObj findOverlappingRoi(ShapeRoi brushShape) {
-		Rectangle brushBounds = brushShape.getBounds();
-		List<RoiObj> rois = slide.getRois();
-		synchronized (rois) {
-			for (RoiObj roi : rois) {
-				if (!roi.isVisible())
-					continue;
-				if (roi.getBounds().intersects(brushBounds)) {
-					// 簡易判定としてBoundsチェックのみ採用（高速化）
-					// 必要であればAreaクラスでの精密判定を入れてください
-					return roi;
+		if (isAlt) {
+			mode = SUBTRACT;
+			currentBrushingRoi = (hitRoi != null) ? hitRoi : activeRoi;
+			isNewRoiMode = false;
+		} 
+		else if (isShift) {
+			mode = ADD;
+			currentBrushingRoi = (hitRoi != null) ? hitRoi : activeRoi;
+			if (currentBrushingRoi == null) {
+				java.util.List<RoiObj> rois = slide.getRois();
+				if (rois != null && !rois.isEmpty()) {
+					currentBrushingRoi = rois.get(rois.size() - 1);
 				}
 			}
-			return null;
+			isNewRoiMode = (currentBrushingRoi == null); 
+		} 
+		else {
+			if (hitRoi != null) {
+				mode = ADD;
+				currentBrushingRoi = hitRoi;
+				isNewRoiMode = false;
+			} else {
+				mode = ADD;
+				currentBrushingRoi = null;
+				isNewRoiMode = true;
+			}
 		}
+		
+		// ★ 検証ログ 1: モード判定結果
+		com.vis.core.log.Log.logger.info(String.format(
+			"[Brush-Debug 1] determineModeAndTarget | Keys(Shift:%b, Alt:%b) | Mode: %s | isNew: %b | Target Found: %b",
+			isShift, isAlt, (mode == ADD ? "ADD" : "SUBTRACT"), isNewRoiMode, (currentBrushingRoi != null)
+		));
 	}
 
 	public void clearCurrentBrushingRoi() {
 		currentBrushingRoi = null;
 		isNewRoiMode = false;
-		// workingRoiはスレッド内でnull制御されるためここでは触らない
 	}
 
 	public void brushDragged(MouseEvent e) {
@@ -244,42 +165,39 @@ public class RoiBrush {
 			createBrush(e);
 			return;
 		}
-
-		// ブラシ位置更新
-		int sx = e.getX();
-		int sy = e.getY();
-		int RoiOffset = getBrushSize() / 2;
-
+		updateBrushShape(e.getX(), e.getY());
+		brushRoi(e);
+	}
+	
+	private void updateBrushShape(int screenX, int screenY) {
 		Point p = null;
 		try {
-			p = slide.offScreenCoordinate(sx, sy);
+			p = slide.offScreenCoordinate(screenX, screenY);
 		} catch (NoninvertibleTransformException nte) {
 			return;
 		}
 
 		int ox = p.x;
 		int oy = p.y;
-		int xNew = ox - RoiOffset;
-		int yNew = oy - RoiOffset;
-		int dx = xNew - brush.startX;
-		int dy = yNew - brush.startY;
 
-		brush.x += dx;
-		brush.y += dy;
-		brush.oldX = brush.x;
-		brush.oldY = brush.y;
-		brush.startX = xNew;
-		brush.startY = yNew;
-		slide.lastDraggedX = sx;
-		slide.lastDraggedY = sy;
+		String type = getBrushType();
+		int size = getBrushSize();
+		
+		if (type.toLowerCase().equals("circle")) {
+			brush = getCircularRoi(ox, oy, size);
+		} else {
+			brush = getSquareRoi(ox, oy, size);
+		}
+		
+		brush.setActiveOverlayRoi(false);
+		slide.setRoiBrush(brush);
 
-		slide.repaint(); // ブラシの移動のみ即座に描画
-
-		brushRoi(e);
+		slide.lastDraggedX = screenX;
+		slide.lastDraggedY = screenY;
+		slide.repaint(); 
 	}
 
 	public void brushingEnd() {
-		// remove first
 		slide.setRoiBrush(null);
 		slide.repaint();
 		
@@ -290,19 +208,18 @@ public class RoiBrush {
 				SwingUtilities.invokeLater(() -> {
 					if (roiToSave != null) {
 						if (currentBrushingRoi != null) {
-							slide.updateRoi(roiToSave);
+							slide.replaceRoi(currentBrushingRoi.getUIDs(), roiToSave);
 						} else {
 							slide.addRoi(roiToSave);
 						}
 						slide.saveRoi(roiToSave);
 						
-						// ★追加: 次回のShift操作のために、確定したROIを記憶しておく
 						lastOperatedRoi = roiToSave;
 						if (slide != null) {
 							slide.saveUndoState();
 						}
 					}
-					clearCurrentBrushingRoi(); // ここでcurrentBrushingRoiはnullになる
+					clearCurrentBrushingRoi(); 
 				});
 				internalWorkingRoi = null;
 			});
@@ -313,19 +230,11 @@ public class RoiBrush {
 
 	public void brushRoi(MouseEvent e) {
 		final int targetMode = this.mode;
-		// 現在のモードが新規作成かどうか
 		final boolean isCreating = this.isNewRoiMode;
-
-		// 計算スレッドに渡すために、現在のブラシ形状を複製
 		final ShapeRoi brushSnapshot = (ShapeRoi) brush.clone();
 
 		if (calcExecutor != null && !calcExecutor.isShutdown()) {
 			calcExecutor.submit(() -> {
-				// --- バックグラウンドスレッド ---
-
-				// ここでは currentBrushingRoi ではなく internalWorkingRoi を使う
-				// これにより、前回の計算結果に対し、今回のブラシ分を適用できる
-
 				if (targetMode == ADD) {
 					processAdd(brushSnapshot, isCreating);
 				} else {
@@ -333,111 +242,126 @@ public class RoiBrush {
 				}
 			});
 
-			// 新規作成モードは最初の1回で終わりなので、フラグを落とす
-			// (これをUIスレッド側で即座にやっておかないと、次のイベントも新規作成しようとしてしまう)
 			if (this.isNewRoiMode) {
 				this.isNewRoiMode = false;
 			}
 		}
 	}
 
-	// スレッド内処理: ADD (Expand or New)
 	private void processAdd(ShapeRoi brushSnapshot, boolean isCreating) {
 		RoiObj result;
+		
+		// ★ 検証ログ 2-1: ADD処理開始
+		com.vis.core.log.Log.logger.info(String.format(
+			"[Brush-Debug 2-1] processAdd Start | isCreating: %b | BrushBounds: %s",
+			isCreating, brushSnapshot.getBounds().toString()
+		));
 
 		if (internalWorkingRoi == null) {
 			if (isCreating) {
-				// まだROIがない＆新規作成モード -> ブラシそのものをROIにする
 				result = (ShapeRoi) brushSnapshot.clone();
 			} else {
-				// 異常系（あるはずのROIがない）
 				return;
 			}
 		} else {
-			// 既存ROIとの結合
-			ShapeRoi base = new ShapeRoi(internalWorkingRoi);
-			// IDなどのプロパティを引き継ぐ
-			String roiId = internalWorkingRoi.getProperty(ContextKey.RoiID.name());
+			ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? 
+							new ShapeRoi(internalWorkingRoi) : new ShapeRoi(internalWorkingRoi);
+			java.util.Properties oldProps = internalWorkingRoi.getProperties();
 
-			// ★計算実行★
-			base = base.or(brushSnapshot);
+			base.or(brushSnapshot);
 
-			if (roiId != null)
-				base.setProperty(ContextKey.RoiID.name(), roiId);
+			if (oldProps != null) {
+				base.props = (java.util.Properties) oldProps.clone();
+			}
+			base.setSlideGlass(slide, false);
 			result = base;
 		}
-
-		// 次の計算のために内部キャッシュを更新
+		
 		internalWorkingRoi = result;
-
-		// UI反映
+		
+		// ★ 検証ログ 2-2: ADD処理終了
+		com.vis.core.log.Log.logger.info(String.format(
+			"[Brush-Debug 2-2] processAdd End | ResultBounds: %s | ResultPoints: %d",
+			result.getBounds().toString(), result.getFloatPolygon().npoints
+		));
+		
 		updateUiRoi(result, isCreating);
 	}
 
-	// スレッド内処理: SUBTRACT
 	private void processSubtract(ShapeRoi brushSnapshot) {
-		if (internalWorkingRoi == null)
-			return;
+		if (internalWorkingRoi == null) return;
 
-		if (!(internalWorkingRoi instanceof ShapeRoi)) {
-			// ShapeRoiへの変換が必要な場合
-			internalWorkingRoi = new ShapeRoi(internalWorkingRoi);
+		// ★ 検証ログ 3-1: SUBTRACT処理開始
+		com.vis.core.log.Log.logger.info(String.format(
+			"[Brush-Debug 3-1] processSubtract Start | TargetBounds: %s | BrushBounds: %s",
+			internalWorkingRoi.getBounds().toString(), brushSnapshot.getBounds().toString()
+		));
+
+		ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? 
+						new ShapeRoi(internalWorkingRoi) : new ShapeRoi(internalWorkingRoi);
+
+		base.not(brushSnapshot);
+
+		java.util.Properties oldProps = internalWorkingRoi.getProperties();
+		if (oldProps != null) {
+			base.props = (java.util.Properties) oldProps.clone();
 		}
+		base.setSlideGlass(slide, false);
 
-		// ★計算実行★
-		ShapeRoi result = ((ShapeRoi) internalWorkingRoi).not(brushSnapshot);
+		boolean isEmpty = (base.getContainedFloatPoints().xpoints.length <= 4
+				|| (base.width <= 0 && base.height <= 0));
 
-		// 消滅判定
-		boolean isEmpty = (result.getContainedFloatPoints().xpoints.length <= 4
-				|| (result.width <= 0 && result.height <= 0));
+		// ★ 検証ログ 3-2: SUBTRACT処理終了
+		com.vis.core.log.Log.logger.info(String.format(
+			"[Brush-Debug 3-2] processSubtract End | ResultBounds: %s | ResultPoints: %d | isEmpty: %b",
+			base.getBounds().toString(), base.getFloatPolygon().npoints, isEmpty
+		));
 
 		if (isEmpty) {
-			internalWorkingRoi = null; // なくなった
+			internalWorkingRoi = null; 
 			SwingUtilities.invokeLater(() -> {
 				if (currentBrushingRoi != null)
 					slide.deleteRoi(currentBrushingRoi);
 				currentBrushingRoi = null;
 			});
 		} else {
-			internalWorkingRoi = result; // 次のために更新
-			updateUiRoi(result, false);
+			internalWorkingRoi = base; 
+			updateUiRoi(base, false);
 		}
 	}
 
-	// UIへの反映ヘルパー
 	private void updateUiRoi(final RoiObj resultRoi, final boolean isFirstCreation) {
-		// 結果の複製を渡す必要はない（resultRoiはこの時点で他から触られない）が、念のため
 		SwingUtilities.invokeLater(() -> {
 			if (isFirstCreation && currentBrushingRoi == null) {
 				slide.addRoi(resultRoi);
 			} else {
-				// 既に削除されていたらエラーになるのを防ぐチェックを入れても良い
-				slide.updateRoi(resultRoi);
+				if (currentBrushingRoi != null) {
+					slide.replaceRoi(currentBrushingRoi.getUIDs(), resultRoi);
+				} else {
+					slide.updateRoi(resultRoi);
+				}
 			}
-			// 描画用の参照も更新
 			currentBrushingRoi = resultRoi;
 		});
 	}
 
-	// ... getCircularRoi, getSquareRoi, getBrushSize 等は省略 ...
-	ShapeRoi getCircularRoi(int x, int y, int width) {
-		double cx = x - (int) Math.floor(width / 2);
-		double cy = y - (int) Math.floor(width / 2);
-		RoiObj roi = new OvalRoi(cx, cy, width, width, slide);
-		Polygon poly = roi.getPolygon();
-		return new ShapeRoi(poly, slide);
+	ShapeRoi getCircularRoi(int cx, int cy, int size) {
+		double x = cx - size / 2.0;
+		double y = cy - size / 2.0;
+		RoiObj oval = new OvalRoi(x, y, size, size, slide);
+		return new ShapeRoi(oval);
 	}
 
-	ShapeRoi getSquareRoi(int x, int y, int width) {
-		RoiObj roi = new RoiObj(x - (int) Math.floor(width / 2), y - (int) Math.floor(width / 2), width, width, 0,
-				slide);
-		return new ShapeRoi(roi);
+	ShapeRoi getSquareRoi(int cx, int cy, int size) {
+		double x = cx - size / 2.0;
+		double y = cy - size / 2.0;
+		RoiObj rect = new RoiObj(x, y, size, size, 0, slide);
+		return new ShapeRoi(rect);
 	}
 
 	int getBrushSize() {
 		String sizeStr = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize);
-		if (sizeStr == null)
-			return defaultSize;
+		if (sizeStr == null) return defaultSize;
 		return Integer.valueOf(sizeStr.trim());
 	}
 

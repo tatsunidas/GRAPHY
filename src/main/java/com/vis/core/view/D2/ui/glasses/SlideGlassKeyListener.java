@@ -43,6 +43,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.vis.core.view.D2.roi.RoiObj;
+
 /**
  * @author tatsunidas
  */
@@ -94,7 +96,18 @@ public class SlideGlassKeyListener implements KeyListener {
             return true;
         }
         if (k == KeyEvent.VK_DELETE || k == KeyEvent.VK_BACK_SPACE) {
-            ((CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER)).deleteRoi(sg.mouseX, sg.mouseY);
+        	CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+            // ==========================================================
+            // ★ 修正: 座標より先に「選択中のROI」または「ホバー中のROI」を探す
+            // ==========================================================
+            RoiObj target = cg.getSelectedRoi();
+            if (target == null) target = cg.getCurrentRoi();
+
+            if (target != null) {
+                cg.deleteRoi(target); // 安全な削除ルート
+            } else {
+                cg.deleteRoi(sg.mouseX, sg.mouseY); // フォールバック
+            }
             return true;
         }
         return false;
