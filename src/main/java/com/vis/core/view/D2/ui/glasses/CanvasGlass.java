@@ -641,9 +641,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 		
 		if (currentRoi != null){
 			if(sg.isHereRoiPopup(e)) {
-				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
-				RoiPopUpDialog dialog = getRoiPopupAt(e);
-				dialog.mousePressed(e);
 				return;
 			}
 			currentRoi.mouseDown(e);
@@ -658,12 +655,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 		}else {
 			if(sg.isHereRoiPopup(e)) {
-				//NORTICE; if mouse on RoiPopup, slideXY is change to RoiPopUp origin...
-				RoiPopUpDialog dialog = getRoiPopupAt(e);
-				dialog.mousePressed(e);
 				return;
 			}
-			
 			currentRoi = createNewRoi(sx, sy,roiType);
 			e.consume();
 		}
@@ -703,7 +696,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 //			System.out.println("RoiDialog DRAGGING!!!");
 			RoiPopUpDialog dialog = getRoiPopupAt(e);
 			if(dialog != null) {
-				dialog.mouseDragged(e);
+//				dialog.mouseDragged(e);
 				dragging = true;
 			}
 		//is roi ?
@@ -947,11 +940,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 			return;
 		}
 		//is roi info dialog ?
-		if(sg.isHereRoiPopup(e)) {
+		if(isHereRoiPopup(e)) {
 //			System.out.println("RoiDialog DRAGGING!!!");
 			RoiPopUpDialog dialog = getRoiPopupAt(e);
 			if(dialog != null) {
-				dialog.mouseDragged(e);
+//				dialog.mouseDragged(e);
 			}
 		//is roi ?
 		}else {
@@ -971,9 +964,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 		sg.lastPressedY = sy;
 		
 		if (toolID == Viewer2DToolBar.Brush) {
-			if (brushTool != null) brushTool.brushRoi(e);
+			handleRoiBrushMouseDown(e); // ← 元々あった正しい呼び出しに戻す
 			return;
-		}else if(toolID == Viewer2DToolBar.Wand) {
+		}
+		
+		if(toolID == Viewer2DToolBar.Wand) {
 			e.consume();
 			return;
 		}
@@ -1724,49 +1719,6 @@ public class CanvasGlass extends javax.swing.JPanel {
 			return 2 * base;
 		} else {
 			return 1 * base;
-		}
-	}
-	
-	public void showRoiPopUp(RoiObj roi, boolean show) {
-		if (!show) {
-			//check already showing on.
-			Component[] roiPopups = getComponents();
-	    	for(Component com:roiPopups) {
-	    		if(com instanceof RoiPopUpDialog) {
-	    			RoiPopUpDialog rpd = (RoiPopUpDialog)com;
-	    			RoiObj r = rpd.getRoi();
-	    			if(r.equals(roi)) {
-	    				rpd.setVisible(show);
-	    				repaint();
-	    				break;
-	    			}
-	    		}
-	    	}
-		}else {
-			boolean exist = false;
-			Component[] roiPopups = getComponents();
-	    	for(Component com:roiPopups) {
-	    		if(com instanceof RoiPopUpDialog) {
-	    			RoiPopUpDialog rpd = (RoiPopUpDialog)com;
-	    			RoiObj r = rpd.getRoi();
-	    			if(r.equals(roi)) {
-	    				exist = true;
-	    				break;
-	    			}
-	    		}
-	    	}
-	    	if(!exist) {
-	    		Point p = sg.slideglassCoordinateFromOffScreen(roi.getBounds().x, roi.getBounds().y);
-	    		int sx = p.x;
-	    		int sy = p.y + (int)(roi.getBounds().height * sg.getScaleFactor()[0]);//adjust location
-	    		
-				RoiPopUpDialog rpd = new RoiPopUpDialog(sg, roi);
-				rpd.setLocation(sx, sy);
-				add(rpd);
-				repaint();
-	    	}else {
-	    		
-	    	}
 		}
 	}
 	

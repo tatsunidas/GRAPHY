@@ -70,6 +70,7 @@ import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.dialog.DicomTagsViewer;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.roi.RoiObj;
+import com.vis.core.view.D2.roi.RoiPopUpDialog;
 import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
@@ -574,15 +575,36 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	}
 	
 	private void showPopupMenu(MouseEvent e) {
-        javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
-        
-        // 1. リセットメニューアイテム
-        javax.swing.JMenuItem resetItem = new javax.swing.JMenuItem("Reset");
-        resetItem.addActionListener(ae -> {
-            pp.resetView(); // Step 1でdisableFusionModeと連動させたので、これだけで両方解除されます
-        });
-        popup.add(resetItem);
-        
+		javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
+
+		// ==========================================================
+		// ★ 追加: 右クリックした場所にROIがあれば、ROI専用メニューを出す
+		// ==========================================================
+		RoiObj hitRoi = cg.activateRoiAt(e.getX(), e.getY());
+		if (hitRoi != null) {
+			javax.swing.JMenuItem infoItem = new javax.swing.JMenuItem("Show ROI Info");
+			infoItem.addActionListener(ae -> {
+				// スクリーン上の絶対座標を取得してダイアログを表示
+				Point screenLoc = e.getLocationOnScreen();
+				RoiPopUpDialog dialog = new RoiPopUpDialog(slide, hitRoi, screenLoc);
+				dialog.setVisible(true);
+			});
+			popup.add(infoItem);
+
+			// ROI専用メニューを表示して終了
+			popup.show(e.getComponent(), e.getX(), e.getY());
+			return;
+		}
+
+		// --- これ以下はROIが無い場所を右クリックした時の「通常のメニュー」 ---
+
+		// 1. リセットメニューアイテム
+		javax.swing.JMenuItem resetItem = new javax.swing.JMenuItem("Reset");
+		resetItem.addActionListener(ae -> {
+			pp.resetView(); // Step 1でdisableFusionModeと連動させたので、これだけで両方解除されます
+		});
+		popup.add(resetItem);
+
 		// 2. Tag表示メニューアイテム
 		javax.swing.JMenuItem tagItem = new javax.swing.JMenuItem("Show DicomTags");
 		tagItem.addActionListener(ae -> {
