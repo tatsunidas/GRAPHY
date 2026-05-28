@@ -2156,21 +2156,6 @@ public class Praparat extends JPanel {
 			sg.loadRoiFromDB();
 		}
 	}
-
-	// old
-//	public void loadRoisFromDB() {
-//		if (slides == null || slides.size() == 0) {
-//			return;
-//		}
-//		if (getViewMode() != ViewMode.Thumbnail) {
-//			for (Integer pos : this.slides.keySet()) {
-//				SlideGlass sg = this.slides.get(pos);
-//				if (sg != null) {
-//					sg.loadRoiFromDB();
-//				}
-//			}
-//		}
-//	}
 	
 	public void loadRoisFromDB() {
 		if (slides == null || slides.size() == 0 || getViewMode() == ViewMode.Thumbnail) {
@@ -2254,6 +2239,124 @@ public class Praparat extends JPanel {
 		if (com.vis.core.facade.WindowManager.getWindow(com.vis.configuration.ConfigInfo.RoiManager) != null) {
 			com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
 		}
+	}
+	
+	/**
+	 * 特定のRoiIDを持つROIを全スライドから一度削除し、
+	 * DBの最新状態に基づいて正しい次元・空間へ再分配（再描画）します。
+	 */
+	public void redispatchRoi(String targetRoiId) {
+	    if (slides == null || slides.isEmpty() || targetRoiId == null) return;
+
+	    // 1. 全スライドのキャンバスから、該当のROIを完全に除去する
+	    for (SlideGlass sg : slides.values()) {
+	        if (sg != null) {
+	            com.vis.core.view.D2.ui.glasses.CanvasGlass cg = 
+	                (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+	            if (cg != null) {
+	                java.util.ArrayList<com.vis.core.view.D2.roi.RoiObj> roiset = cg.getRoiSet();
+	                if (roiset != null) {
+	                    java.util.Iterator<com.vis.core.view.D2.roi.RoiObj> it = roiset.iterator();
+	                    boolean removed = false;
+	                    while (it.hasNext()) {
+	                        com.vis.core.view.D2.roi.RoiObj r = it.next();
+	                        if (targetRoiId.equals(r.getProperty(com.vis.configuration.ContextKey.RoiID.name()))) {
+	                            it.remove();
+	                            // CanvasGlass がこのROIをアクティブとして保持している場合は解放
+	                            if (cg.getCurrentRoi() == r) {
+	                                cg.setCurrentRoi2NULL(); 
+	                            }
+	                            removed = true;
+	                        }
+	                    }
+	                    // 削除が行われたスライドはキャンバスを再描画して古い線を消す
+	                    if (removed) {
+	                        cg.repaint();
+	                    }
+	                }
+	            }
+	        }
+	    }
+
+	    // 2. DBから対象のROIコンテキストを再ロード
+	    com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+	    if (db == null) return;
+
+	    // シリーズ内の全ROIを取得し、対象のRoiIDだけをフィルタリング
+	    java.util.ArrayList<java.util.HashMap<String, Object>> seriesRois = db.loadRoiContextFromSeries(patID, studyUID, seriesUID);
+	    if (seriesRois == null || seriesRois.isEmpty()) return;
+
+	    java.util.HashMap<String, Object> targetRoiCtx = null;
+	    for (java.util.HashMap<String, Object> ctx : seriesRois) {
+	        if (targetRoiId.equals(ctx.get("RoiID"))) {
+	            targetRoiCtx = ctx;
+	            break;
+	        }
+	    }
+
+	    if (targetRoiCtx == null) return; // DBに存在しない場合は終了
+
+	    // 3. 取得した最新のプロパティを用いて再分配（ディスパッチ）
+	    @SuppressWarnings("unchecked")
+	    java.util.Map<String, String> metaProps = (java.util.Map<String, String>) targetRoiCtx.get(com.vis.configuration.ContextKey.RoiMetaProperties.name());
+	    if (metaProps == null) metaProps = new java.util.HashMap<>();
+
+	    String roiIppStr = metaProps.get("ReferenceImagePositionPatient");
+	    String roiForUid = metaProps.get("FrameOfReferenceUID");
+	    
+	    String dimCStr = metaProps.get("Dim_C");
+	    String dimTStr = metaProps.get("Dim_T");
+	    int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99; 
+	    int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99; 
+	    String originSop = (String) targetRoiCtx.get("SOPInstanceUID");
+	    
+	    com.vis.core.log.Log.logger.info(String.format(
+	            "[DEBUG-4: DISPATCH] Loaded from DB: Target C=%d, T=%d | OriginSOP=%s", 
+	            targetC, targetT, originSop
+	        ));
+	    
+	    for (java.util.Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
+	        int zctIndex = entry.getKey();
+	        SlideGlass sg = entry.getValue();
+	        if (sg == null) continue;
+
+	        int[] currentZCT = calcZCTArrayFromIndex(zctIndex);
+	        int currentC = currentZCT[1];
+	        int currentT = currentZCT[2];
+
+	        // 判定A: 次元
+	        if (targetC != -1 && targetC != -99 && targetC != currentC) continue; 
+	        if (targetT != -1 && targetT != -99 && targetT != currentT) continue; 
+
+	        // 判定B: 空間
+	        boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
+	        
+	        com.vis.core.log.Log.logger.fine(String.format(
+	                "[DEBUG-4: MATCHING] Slide(Z=%d, C=%d, T=%d) | SpatialMatch=%b", 
+	                currentZCT[0], currentC, currentT, spatialMatch
+	            ));
+	        
+	        if (targetC == -99 || targetT == -99) {
+	            String currentSop = sg.getSOPInstanceUID();
+	            if (currentSop == null || !currentSop.equals(originSop)) continue;
+	        } else if (!spatialMatch) {
+	            continue;
+	        }
+
+	        // マッチング成功 -> SlideGlassに追加して再描画
+	        com.vis.core.view.D2.roi.RoiObj revivedRoi = new com.vis.core.view.D2.roi.RoiConverter().buildRoiObj(targetRoiCtx);
+	        if (revivedRoi != null) {
+	        	
+	        	if (dimCStr != null) revivedRoi.setProperty("Dim_C", dimCStr);
+	            String dimZStr = metaProps.get("Dim_Z"); // Dim_Zも取得しておく
+	            if (dimZStr != null) revivedRoi.setProperty("Dim_Z", dimZStr);
+	            if (dimTStr != null) revivedRoi.setProperty("Dim_T", dimTStr);
+	            
+	            revivedRoi.setSlideGlass(sg, false); 
+	            sg.addRoiFromDB(revivedRoi);
+	            sg.repaintCanvasGlass(); // 新しい表示先に再描画をかける
+	        }
+	    }
 	}
 
 	public void loadSeries(DICOMNode seriesNode) {
@@ -2424,22 +2527,16 @@ public class Praparat extends JPanel {
 	            } catch (Exception e) {
 	                com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Failed to load series", e);
 	            } finally {
-	                setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-	                if (com.vis.core.ui.main.MainScreen.getInstance() != null) {
-	                    com.vis.core.ui.main.MainScreen.getInstance().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
-	                }
-	                // BirdsEyeViewのリストビューのカーソルも通常に戻す
-	                java.awt.Component parent = getParent();
-	                while (parent != null) {
-	                    if (parent instanceof com.vis.core.ui.main.BirdsEyeView) {
-	                        com.vis.core.ui.main.BirdsEyeView bev = (com.vis.core.ui.main.BirdsEyeView) parent;
-	                        if (bev.getThumbnailListView() != null) {
-	                            bev.getThumbnailListView().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
-	                        }
-	                        break;
-	                    }
-	                    parent = parent.getParent();
-	                }
+	            	SwingUtilities.invokeLater(()->{
+	            		setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+	            		MainScreen ms = MainScreen.getInstance();
+		                if (ms != null) {
+		                    ms.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+		                    BirdsEyeView bev = ms.getBirdsEyeView();
+		                    bev.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+		        			bev.getThumbnailListView().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+		                }
+	            	});
 	            }
 	        }
 	    };
@@ -3507,6 +3604,24 @@ public class Praparat extends JPanel {
 		if (getViewMode() != ViewMode.SingleGrid && getViewMode() != ViewMode.FilmGrid) {
 			showBorder(focusGained);
 		}
+	}
+	
+	@Override
+	public void setCursor(java.awt.Cursor cursor) {
+		super.setCursor(cursor);
+		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
+		if(slides != null) {
+			for(SlideGlass sg : slides.values()) {
+				if(sg != null) {
+					sg.setCursor(cursor);
+				}else {
+					for(Component c : viewPanel.getComponents()) {
+						c.setCursor(cursor);
+					}
+				}
+			}
+		}
+		repaint();
 	}
 
 	private void setImageFileLocations(List<String> pathToImages) {

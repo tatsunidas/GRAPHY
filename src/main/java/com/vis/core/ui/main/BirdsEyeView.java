@@ -438,15 +438,11 @@ public class BirdsEyeView extends JPanel{
 		boolean isMultiDimensional = thumbnail.isMultiDimensional();
 		if (thumbnail.getCurrentSlide() != null) {
 			isMultiFrame = isMultiFrame && thumbnail.getCurrentSlide().getHeader().getInt(Tag.Number​Of​Frames, -1) > 1;
-			thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		}
 		boolean isPDF = thumbnail.isPDF();
 		currentSeriesUID = (String)thumbnail.getUIDs()[2];
 		if (com.vis.core.ui.main.MainScreen.getInstance() != null) {
 			com.vis.core.ui.main.MainScreen.getInstance().setCursor(new Cursor(Cursor.WAIT_CURSOR));
-		}
-		if (thumbnail.getCurrentSlide() != null) {
-			thumbnail.getCurrentSlide().setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		}
 		seriesListView.setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		/*
@@ -687,7 +683,14 @@ public class BirdsEyeView extends JPanel{
 		public void setCursor(java.awt.Cursor cursor) {
 			super.setCursor(cursor);
 			seriesListPanel.setCursor(cursor);
-			//praparats's cursor is set to in praparat. 
+			Component[] thums = seriesListPanel.getComponents();
+			for(Component c : thums) {
+				if(c instanceof Praparat) {
+					Praparat pp = (Praparat)c;
+					pp.setCursor(cursor);
+				}
+			}
+			repaint();
 		}
 	}	
 }

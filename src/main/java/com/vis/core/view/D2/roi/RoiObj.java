@@ -2764,6 +2764,18 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					break;
 				}
 			}
+			
+			// ========================================================
+			// ★ 追加：多次元プロパティの保護回路
+			// Dim_C 等が ContextKey に存在していても、DBの独立カラムではないため
+			// JSON文字列（RoiMetaProperties）に含めて保存させる
+			// ========================================================
+			String keyStr = (String) k;
+			if (keyStr.equals("Dim_C") || keyStr.equals("Dim_Z") || keyStr.equals("Dim_T")
+					|| keyStr.equals("ReferenceImagePositionPatient") || keyStr.equals("FrameOfReferenceUID")) {
+				mainProp = false;
+			}
+			
 			if(mainProp) {
 				continue;
 			}
@@ -2806,6 +2818,15 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		
 		// See also ShapeRoi::readContext(), roiToShape(RoiObj roi)
 		con.put(RoiGeometry.Shape.name(), null);
+		
+		// --- 検証ログ 2 ---
+		if (con.containsKey(ContextKey.RoiMetaProperties.name())) {
+		    com.vis.core.log.Log.logger.info("[DEBUG-2: OBJ] RoiObj.readContext: JSON Output -> " 
+		        + con.get(ContextKey.RoiMetaProperties.name()));
+		} else {
+		    com.vis.core.log.Log.logger.warning("[DEBUG-2: OBJ] RoiObj.readContext: RoiMetaProperties is NULL!");
+		}
+		
 		return con;
 	}
 

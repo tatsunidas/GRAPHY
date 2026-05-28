@@ -4121,11 +4121,18 @@ public class DatabaseHandler {
 			pstmt.setString(21, seriesUid);
 //			pstmt.setString(x, sopUid);//利用しない（multi stack対応）
 			pstmt.setString(22, roiId);
-			pstmt.executeUpdate();
+			com.vis.core.log.Log.logger.info("[DEBUG-3: DB] Executing UPDATE for RoiID=" + roiId);
+
+			int affectedRows = pstmt.executeUpdate();
 			pstmt.close();
 			conn.commit();
+
+			// --- 検証ログ 3-2 ---
+			com.vis.core.log.Log.logger.info("[DEBUG-3: DB] UPDATE Success! Affected Rows=" + affectedRows);
+			// -----------------
 		} catch (SQLException ex) {
 			logger.severe("DatabaseHandler - Unable to update roi information\n" + ex.getMessage());
+            ex.printStackTrace(); // スタックトレースも出力して原因を特定
 		}
 	}
 

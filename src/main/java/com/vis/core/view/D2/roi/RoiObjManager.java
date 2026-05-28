@@ -407,74 +407,57 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				String rid = list.getSelectedValue();
 				RoiObj r = selectedRois.get(rid);
 				if (r != null) {
-					String oldPos = r.getProperty(ContextKey.Position.name());
-					String newPos = roiInfoFields.get(ContextKey.Position).getText();
-					boolean positionChanged = (oldPos != null && newPos != null && !oldPos.equals(newPos));
-
-					// メインプロパティをROIに反映
+					// 1. メインプロパティをROIに反映（Position以外）
 					for (ContextKey ck : roiInfo) {
-						r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
-					}
-
-					// ★追加: 多次元プロパティ（Dim_C, Dim_Z, Dim_T）の値をROIに反映
-					for (String dKey : multiDimFields.keySet()) {
-						String val = multiDimFields.get(dKey).getText();
-						if (val == null || val.trim().isEmpty()) {
-							val = "-1"; // 空欄で保存された場合は全適用(-1)をデフォルトにする
+						if (ck != ContextKey.Position) {
+							r.setProperty(ck.name(), roiInfoFields.get(ck).getText());
 						}
-						r.setProperty(dKey, val.trim());
 					}
 
-					// Position（スライス引っ越し）が変更された場合の既存処理
-					if (positionChanged) {
-						try {
-							int newIndex = Integer.parseInt(newPos) - 1;
+					// 2. 多次元プロパティ（Dim_C, Z, T）の取得と反映
+					String dimCStr = multiDimFields.get("Dim_C").getText().trim();
+					String dimZStr = multiDimFields.get("Dim_Z").getText().trim();
+					String dimTStr = multiDimFields.get("Dim_T").getText().trim();
+
+					int newC = dimCStr.isEmpty() ? -1 : Integer.parseInt(dimCStr);
+					int newZ = dimZStr.isEmpty() ? -1 : Integer.parseInt(dimZStr);
+					int newT = dimTStr.isEmpty() ? -1 : Integer.parseInt(dimTStr);
+
+					r.setProperty("Dim_C", String.valueOf(newC));
+					r.setProperty("Dim_Z", String.valueOf(newZ));
+					r.setProperty("Dim_T", String.valueOf(newT));
+
+					// 3. ★ Dimの値からPosition（1Dインデックス）を逆算して強制同期
+					if (newC != -1 && newZ != -1 && newT != -1) {
+						if (r.getSlideGlass() != null && r.getSlideGlass().getPraparat() != null) {
 							Praparat pp = r.getSlideGlass().getPraparat();
-							SlideGlass newSg = null;
-							if (pp.getAllSlides().containsKey(newIndex)) {
-								newSg = pp.getAllSlides().get(newIndex);
-							}
-
-							if (newSg != null && newSg != r.getSlideGlass()) {
-								r.getSlideGlass().deleteRoi(r);
-								r.setSlideGlass(newSg, false);
-								newSg.addRoi(r);
-								updateState();
-								return;
-							} else {
-								JOptionPane.showMessageDialog(RoiObjManager.this,
-										"Position " + newPos + " is out of bounds or not loaded.", "Error",
-										JOptionPane.ERROR_MESSAGE);
-							}
-						} catch (NumberFormatException ex) {
-							JOptionPane.showMessageDialog(RoiObjManager.this, "Invalid Position format.", "Error",
-									JOptionPane.ERROR_MESSAGE);
+							// calcZctIndex には [Z, C, T] の順で渡す
+							int newZctIndex = pp.calcZctIndex(new int[]{newZ, newC, newT});
+							String calculatedPos = String.valueOf(newZctIndex + 1); // Positionは 1-based
+							
+							r.setProperty(ContextKey.Position.name(), calculatedPos);
+							roiInfoFields.get(ContextKey.Position).setText(calculatedPos); // UI表示も同期
 						}
+					} else {
+						// -1 (ALL) が含まれる場合は特定の1枚に縛れないため "0" (全体適用) とする
+						r.setProperty(ContextKey.Position.name(), "0");
+						roiInfoFields.get(ContextKey.Position).setText("0");
 					}
 
-					// 通常のDB上書き保存
-					saveRoi2DB(r);
+					com.vis.core.log.Log.logger.info(String.format(
+						    "[DEBUG-1: UI] RoiObjManager Save: RoiID=%s | Input C=%d, Z=%d, T=%d | CalcPos=%s",
+						    rid, newC, newZ, newT, r.getProperty(ContextKey.Position.name())
+						));
 
-					// ★追加: ZCT条件の変更を画面に即座に反映させるため、再ディスパッチをトリガー
+					// 4. 通常のDB上書き保存
+					saveRoi2DB(r);
+					
+					// 5. 新設した再ディスパッチ処理を実行して画面をリフレッシュ
 					if (r.getSlideGlass() != null && r.getSlideGlass().getPraparat() != null) {
 						Praparat pp = r.getSlideGlass().getPraparat();
-
-						// 全スライドのCanvasGlassから、一旦古いROIのリストを全クリアする
-						for (SlideGlass sg : pp.getAllSlides().values()) {
-							if (sg != null) {
-								// CanvasGlass内のroisetをクリアするために既存のreset（部分初期化）に近い処理を行う
-								// 互換性維持のため、sg.getRois().clear() もしくは CanvasGlassにクリア指示
-								sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-								ArrayList<RoiObj> roiset = sg.getRois();
-								if (roiset != null) {
-									roiset.clear();
-								}
-							}
-						}
-						// 拡張した一括ロード＆分配ロジックを再呼び出し
-						pp.loadRoisFromDB();
+						pp.redispatchRoi(rid);
 					}
-
+					
 					updateState(); // リストの更新
 				}
 			}
@@ -784,17 +767,22 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		updateState();
 	}
 	
+	/**
+	 * db.insertRoi(roi.readContext());で新規作成または、存在していれば上書きを促す。
+	 * SlideGlass>CanvasGlassからの処理は、CanavasGlassのZCTを強制上書きするので注意。
+	 */
 	private void saveRoi2DB(RoiObj roi) {
 		//save or update
-		SlideGlass slide = roi.getSlideGlass();
-		if(slide != null) {
-			slide.addRoi(roi);//update if already exist
-		}else {
+//		SlideGlass slide = roi.getSlideGlass();
+//		if(slide != null) {
+//			slide.addRoi(roi);//update if already exist
+//		}else {
+			//save new or update
 			DatabaseHandler db = DatabaseHandler.getInstance();
 			if(db != null) {
 				db.insertRoi(roi.readContext());
 			}
-		}
+//		}
 	}
 	
 	private void roiInfoLabeling() {

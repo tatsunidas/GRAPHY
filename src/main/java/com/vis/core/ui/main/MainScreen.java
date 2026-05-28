@@ -217,6 +217,10 @@ public class MainScreen extends JFrame implements WindowListener, ComponentListe
 	public SearchToolBar getMainSearchToolBar() {
 		return this.searchToolBar;
 	}
+	
+	public BirdsEyeView getBirdsEyeView() {
+		return bev;
+	}
 
 	public ArrayList<DICOMNode> getSelectedNode() {
 		return homeTreeTable.getSelectedNodes();
