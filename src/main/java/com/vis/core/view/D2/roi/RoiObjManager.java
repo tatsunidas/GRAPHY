@@ -73,12 +73,14 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -90,6 +92,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -143,6 +146,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		Duplicate,
 		GroupTo3D,
 		Ungroup3D,
+		Move,
 		//add more
 		Open,
 		Save,
@@ -307,6 +311,7 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		pm.addSeparator();
 		
 		//roi edit
+		addPopupItem(Functions.Move.name()); // ★追加: Moveメニュー
 		addPopupItem(Functions.OR_Combine.name());
 		addPopupItem(Functions.Split.name());
 		addPopupItem(Functions.AND.name());
@@ -411,14 +416,15 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 				String rid = list.getSelectedValue();
 				RoiObj r = selectedRois.get(rid);
 				if (r != null) {
-					// 1. メインプロパティをROIに反映（Position以外）
+					// 1. メインプロパティの取得
+					HashMap<String, String> mainProps = new HashMap<>();
 					for (RoiDBKey ck : roiInfo) {
 						if (ck != RoiDBKey.Position) {
-							r.setProperty(ck.name(), roiInfoFields.get(ck.name()).getText());
+							mainProps.put(ck.name(), roiInfoFields.get(ck.name()).getText());
 						}
 					}
 
-					// 2. 多次元プロパティ（Dim_C, Z, T）の取得と反映
+					// 2. 入力された多次元プロパティ（Dim_C, Z, T）のパース
 					String dimCStr = multiDimFields.get("Dim_C").getText().trim();
 					String dimZStr = multiDimFields.get("Dim_Z").getText().trim();
 					String dimTStr = multiDimFields.get("Dim_T").getText().trim();
@@ -427,42 +433,119 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 					int newZ = dimZStr.isEmpty() ? -1 : Integer.parseInt(dimZStr);
 					int newT = dimTStr.isEmpty() ? -1 : Integer.parseInt(dimTStr);
 
-					r.setProperty("Dim_C", String.valueOf(newC));
-					r.setProperty("Dim_Z", String.valueOf(newZ));
-					r.setProperty("Dim_T", String.valueOf(newT));
+					Praparat pp = (r.getSlideGlass() != null) ? r.getSlideGlass().getPraparat() : null;
+					DatabaseHandler db = DatabaseHandler.getInstance();
 
-					// 3. ★ Dimの値からPosition（1Dインデックス）を逆算して強制同期
-					if (newC != -1 && newZ != -1 && newT != -1) {
-						if (r.getSlideGlass() != null && r.getSlideGlass().getPraparat() != null) {
-							Praparat pp = r.getSlideGlass().getPraparat();
-							// calcZctIndex には [Z, C, T] の順で渡す
-							int newZctIndex = pp.calcZctIndex(new int[]{newZ, newC, newT});
-							String calculatedPos = String.valueOf(newZctIndex + 1); // Positionは 1-based
-							
-							r.setProperty(RoiDBKey.Position.name(), calculatedPos);
-							roiInfoFields.get(RoiDBKey.Position.name()).setText(calculatedPos); // UI表示も同期
+					// 3D-ROI グループの判定
+					String groupId = r.getProperty(RoiDBKey.RoiGroup.name());
+					String shape3D = r.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+					boolean is3D = (groupId != null && !groupId.isEmpty() && shape3D != null && !shape3D.isEmpty());
+
+					if (is3D && pp != null) {
+						// ==========================================================
+						// ★ 3D-ROI（一式連動更新）の場合
+						// ==========================================================
+						// グループに属する全スライスの全ROIを収集
+						List<RoiObj> groupRois = new ArrayList<>();
+						for (SlideGlass s : pp.getAllSlides().values()) {
+							if (s == null) continue;
+							for (RoiObj roiInSlice : s.getRois()) {
+								if (groupId.equals(roiInSlice.getProperty(RoiDBKey.RoiGroup.name()))) {
+									groupRois.add(roiInSlice);
+								}
+							}
 						}
+
+						// Zの移動差分（現在のZと新しい入力Zの差）を計算
+						String oldZStr = r.getProperty("Dim_Z");
+						int oldZ = (oldZStr != null && !oldZStr.isEmpty()) ? Integer.parseInt(oldZStr) : newZ;
+						int diffZ = newZ - oldZ;
+
+						// グループ内の全ROIのプロパティを更新
+						for (RoiObj roi : groupRois) {
+							// 共通のメインプロパティをコピー
+							for (String k : mainProps.keySet()) {
+								roi.setProperty(k, mainProps.get(k));
+							}
+
+							// C と T は一式すべてのプロパティを指定値に強制同期
+							roi.setProperty("Dim_C", String.valueOf(newC));
+							roi.setProperty("Dim_T", String.valueOf(newT));
+
+							// Z軸は3D構造を壊さないように配慮して処理
+							if (roi == r) {
+								// 画面から直接操作されたターゲットROIは指定されたZに物理移動
+								roi.setProperty("Dim_Z", String.valueOf(newZ));
+							} else if ("FREEFORM".equals(shape3D) && diffZ != 0) {
+								// FreeForm等の場合は、一式としてZ軸方向に平行移動（シフト）させる
+								String gZStr = roi.getProperty("Dim_Z");
+								int gZ = (gZStr != null && !gZStr.isEmpty()) ? Integer.parseInt(gZStr) : 0;
+								roi.setProperty("Dim_Z", String.valueOf(Math.max(0, gZ + diffZ)));
+							}
+
+							// 1次元Positionの逆算同期
+							int z = Integer.parseInt(roi.getProperty("Dim_Z"));
+							int c = Integer.parseInt(roi.getProperty("Dim_C"));
+							int t = Integer.parseInt(roi.getProperty("Dim_T"));
+							int newZct = pp.calcZctIndex(new int[]{z, c, t});
+							roi.setProperty(RoiDBKey.Position.name(), String.valueOf(newZct + 1));
+
+							// DB保存
+							if (db != null) db.insertRoi(roi.readContext());
+						}
+
+						// SPHERE の場合は、マスターのZ位置移動に合わせて、全Slaveの3D形状を自動再展開・再配置させる
+						if ("SPHERE".equals(shape3D)) {
+							// マスターを特定
+							RoiObj masterRoi = null;
+							for (RoiObj roi : groupRois) {
+								if ("true".equals(roi.getProperty(RoiMetaContextKey.Is3D_Master.name()))) {
+									masterRoi = roi;
+									break;
+								}
+							}
+							if (masterRoi == null) masterRoi = r;
+							// 3Dモデル駆動による全Slave追従生成
+							new com.vis.core.view.D3.roi.SphereRoi3D(masterRoi).updateFrom2D(masterRoi);
+						}
+
+						// グループ全体の所属SlideGlass（引越し）と描画をリフレッシュ
+						for (RoiObj roi : groupRois) {
+							if (pp != null) pp.redispatchRoi(roi.getProperty(RoiDBKey.RoiID.name()));
+						}
+
 					} else {
-						// -1 (ALL) が含まれる場合は特定の1枚に縛れないため "0" (全体適用) とする
-						r.setProperty(RoiDBKey.Position.name(), "0");
-						roiInfoFields.get(RoiDBKey.Position.name()).setText("0");
+						// ==========================================================
+						// ★ 2D-ROI（単独更新：従来通り）の場合
+						// ==========================================================
+						for (String k : mainProps.keySet()) {
+							r.setProperty(k, mainProps.get(k));
+						}
+						r.setProperty("Dim_C", String.valueOf(newC));
+						r.setProperty("Dim_Z", String.valueOf(newZ));
+						r.setProperty("Dim_T", String.valueOf(newT));
+
+						if (newC != -1 && newZ != -1 && newT != -1 && pp != null) {
+							int newZctIndex = pp.calcZctIndex(new int[]{newZ, newC, newT});
+							String calculatedPos = String.valueOf(newZctIndex + 1);
+							r.setProperty(RoiDBKey.Position.name(), calculatedPos);
+							roiInfoFields.get(RoiDBKey.Position.name()).setText(calculatedPos);
+						} else {
+							r.setProperty(RoiDBKey.Position.name(), "0");
+							roiInfoFields.get(RoiDBKey.Position.name()).setText("0");
+						}
+
+						if (db != null) db.insertRoi(r.readContext());
+						if (pp != null) pp.redispatchRoi(rid);
 					}
 
-					com.vis.core.log.Log.logger.info(String.format(
-						    "[DEBUG-1: UI] RoiObjManager Save: RoiID=%s | Input C=%d, Z=%d, T=%d | CalcPos=%s",
-						    rid, newC, newZ, newT, r.getProperty(RoiDBKey.Position.name())
-						));
-
-					// 4. 通常のDB上書き保存
-					saveRoi2DB(r);
-					
-					// 5. 新設した再ディスパッチ処理を実行して画面をリフレッシュ
-					if (r.getSlideGlass() != null && r.getSlideGlass().getPraparat() != null) {
-						Praparat pp = r.getSlideGlass().getPraparat();
-						pp.redispatchRoi(rid);
+					// 画面全体の再描画
+					if (pp != null) {
+						for (SlideGlass sg : pp.getAllSlides().values()) {
+							sg.repaintCanvasGlass();
+						}
 					}
-					
-					updateState(); // リストの更新
+					updateState(); // リストの同期リフレッシュ
 				}
 			}
 		});
@@ -870,6 +953,305 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			PopUpMessage.showDialog(list, "Info", "Selected ROIs are already standard 2D ROIs.", JOptionPane.OK_OPTION,
 					JOptionPane.INFORMATION_MESSAGE);
 		}
+	}
+	
+	// ==========================================================
+	// ★ 追加・修正: リアルタイムプレビュー対応の ROI XYZ 微調整機能
+	// ==========================================================
+	private void moveRois() {
+		if (selectedRois == null || selectedRois.size() < 1) {
+			JOptionPane.showMessageDialog(this, "Select ROI(s) first.");
+			return;
+		}
+
+		// 1. カスタムダイアログの作成（モーダル）
+		JDialog dialog = new JDialog(this, "Interactive Move ROI(s)", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+		dialog.setLayout(new BorderLayout());
+
+		JPanel inputPanel = new JPanel(new GridLayout(3, 2, 5, 5));
+		inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+		// スピンボタン（微調整しやすいように JSpinner を採用）
+		javax.swing.JSpinner xSpinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(0, -9999, 9999, 1));
+		javax.swing.JSpinner ySpinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(0, -9999, 9999, 1));
+		javax.swing.JSpinner zSpinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(0, -9999, 9999, 1));
+
+		inputPanel.add(new JLabel("X shift (pixels):"));
+		inputPanel.add(xSpinner);
+		inputPanel.add(new JLabel("Y shift (pixels):"));
+		inputPanel.add(ySpinner);
+		inputPanel.add(new JLabel("Z shift (slices):"));
+		inputPanel.add(zSpinner);
+
+		dialog.add(inputPanel, BorderLayout.CENTER);
+
+		// ボタンパネル
+		JPanel btnPanel = new JPanel();
+		JButton btnOk = new JButton("OK / Apply");
+		JButton btnCancel = new JButton("Cancel / Revert");
+		btnPanel.add(btnOk);
+		btnPanel.add(btnCancel);
+		dialog.add(btnPanel, BorderLayout.SOUTH);
+
+		// 状態管理用（これまでに何ピクセル動かしたかを記録）
+		final int[] lastShifts = { 0, 0, 0 }; // [0]=X, [1]=Y, [2]=Z
+		final boolean[] isCanceled = { false };
+
+		// 2. リアルタイム反映ロジック（スピンボタンを動かすたびに発動）
+		// ※ DBアクセスが重くならないよう、150msのディレイ（デバウンス）をかける
+		Timer debounceTimer = new Timer(150, e -> {
+			int curX = (int) xSpinner.getValue();
+			int curY = (int) ySpinner.getValue();
+			int curZ = (int) zSpinner.getValue();
+
+			// 前回の位置からの「差分」だけを適用する
+			int diffX = curX - lastShifts[0];
+			int diffY = curY - lastShifts[1];
+			int diffZ = curZ - lastShifts[2];
+
+			if (diffX == 0 && diffY == 0 && diffZ == 0)
+				return;
+
+			applyMoveShift(diffX, diffY, diffZ);
+
+			lastShifts[0] = curX;
+			lastShifts[1] = curY;
+			lastShifts[2] = curZ;
+		});
+		debounceTimer.setRepeats(false);
+
+		javax.swing.event.ChangeListener changeListener = e -> debounceTimer.restart();
+		xSpinner.addChangeListener(changeListener);
+		ySpinner.addChangeListener(changeListener);
+		zSpinner.addChangeListener(changeListener);
+
+		// 3. OK と Cancel の挙動
+		btnOk.addActionListener(e -> dialog.dispose()); // OKならそのまま閉じる（DB保存は既に完了済み）
+
+		btnCancel.addActionListener(e -> {
+			isCanceled[0] = true;
+			// これまで動かした分を逆向きにシフトしてロールバック（元に戻す）
+			applyMoveShift(-lastShifts[0], -lastShifts[1], -lastShifts[2]);
+			dialog.dispose();
+		});
+
+		// ×ボタンで閉じられた時もCancel扱いにする
+		dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+		dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+			@Override
+			public void windowClosing(java.awt.event.WindowEvent e) {
+				if (!isCanceled[0]) {
+					isCanceled[0] = true;
+					applyMoveShift(-lastShifts[0], -lastShifts[1], -lastShifts[2]);
+					dialog.dispose();
+				}
+			}
+		});
+
+		dialog.pack();
+		dialog.setLocationRelativeTo(this);
+		dialog.setVisible(true); // ダイアログが閉じるまでここでブロックされる
+
+		if (!isCanceled[0]) {
+			updateState(); // 最終的なリストの更新
+		}
+	}
+
+	// ==========================================================
+	// 実際の移動処理エンジン (3D-ROI 一式連動 & ゴースト消去対応)
+	// ==========================================================
+	private void applyMoveShift(int diffX, int diffY, int diffZ) {
+		if (diffX == 0 && diffY == 0 && diffZ == 0)
+			return;
+		DatabaseHandler db = DatabaseHandler.getInstance();
+
+		List<String> keys = new ArrayList<>(selectedRois.keySet());
+		List<String> processedGroups = new ArrayList<>(); // 二重処理防止用
+		int scrollTargetZct = -1; // Z移動時のオートスクロール先
+
+		for (String key : keys) {
+			RoiObj r = selectedRois.get(key);
+			if (r == null)
+				continue;
+
+			Praparat pp = (r.getSlideGlass() != null) ? r.getSlideGlass().getPraparat() : null;
+			if (pp == null)
+				continue;
+
+			String shape3D = r.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+			boolean is3D = (shape3D != null && !shape3D.isEmpty());
+
+			if (is3D) {
+				// --- 3D ROI の場合: グループ(一式)として処理 ---
+				String groupId = r.getProperty(RoiDBKey.RoiGroup.name());
+				if (processedGroups.contains(groupId))
+					continue; // すでに処理済みのグループならスキップ
+				processedGroups.add(groupId);
+
+				if ("SPHERE".equals(shape3D)) {
+					// SPHERE はマスター1つを動かして再展開
+					RoiObj masterRoi = findMasterRoi(pp, groupId);
+					if (masterRoi == null)
+						masterRoi = r;
+
+					// 1. 古いスレーブ（残像）を全スライドから完全消去
+					purgeGroupSlaves(pp, groupId, masterRoi.getProperty(RoiDBKey.RoiID.name()));
+
+					// 2. マスターのXY移動
+					if (diffX != 0 || diffY != 0) {
+						masterRoi.setLocation(masterRoi.getXBase() + diffX, masterRoi.getYBase() + diffY);
+					}
+					// 3. マスターのZ移動
+					if (diffZ != 0) {
+						scrollTargetZct = shiftRoiZ(masterRoi, pp, diffZ);
+					}
+
+					// 4. DB保存とスレーブの再展開
+					if (db != null)
+						db.insertRoi(masterRoi.readContext());
+					new com.vis.core.view.D3.roi.SphereRoi3D(masterRoi).updateFrom2D(masterRoi);
+
+				} else {
+					// FREEFORM 等: グループ内の全ROI（全スライス）を一斉に物理移動させる
+					List<RoiObj> allGroupRois = findAllRoisInGroup(pp, groupId);
+					for (RoiObj gRoi : allGroupRois) {
+						if (diffX != 0 || diffY != 0) {
+							gRoi.setLocation(gRoi.getXBase() + diffX, gRoi.getYBase() + diffY);
+						}
+						if (diffZ != 0) {
+							int newZct = shiftRoiZ(gRoi, pp, diffZ);
+							if (scrollTargetZct == -1)
+								scrollTargetZct = newZct;
+						}
+						if (db != null)
+							db.insertRoi(gRoi.readContext());
+					}
+				}
+			} else {
+				// --- 2D ROI の場合: 単独処理 ---
+				if (diffX != 0 || diffY != 0) {
+					r.setLocation(r.getXBase() + diffX, r.getYBase() + diffY);
+				}
+				if (diffZ != 0) {
+					int newZct = shiftRoiZ(r, pp, diffZ);
+					if (scrollTargetZct == -1)
+						scrollTargetZct = newZct;
+				}
+				if (db != null)
+					db.insertRoi(r.readContext());
+			}
+		}
+
+		// --- 画面の同期と再描画 ---
+		if (keys.size() > 0) {
+			RoiObj firstR = selectedRois.get(keys.get(0));
+			Praparat pp = firstR.getSlideGlass().getPraparat();
+			if (pp != null) {
+				// Z移動があった場合は、対象のスライスへオートスクロール
+				if (diffZ != 0 && scrollTargetZct != -1) {
+					pp.setImagePositionUsingSlider(scrollTargetZct);
+				}
+				// 3Dの残像消去や引越しを反映するため、全スライドを一斉再描画
+				for (SlideGlass sg : pp.getAllSlides().values()) {
+					sg.repaintCanvasGlass();
+				}
+			}
+		}
+	}
+
+	// ==========================================================
+	// ★ ヘルパーメソッド群
+	// ==========================================================
+
+	/**
+	 * ROIのZインデックスを更新し、所属するSlideGlassを物理的に引越しさせる
+	 */
+	private int shiftRoiZ(RoiObj roi, Praparat pp, int diffZ) {
+		String dimZStr = roi.getProperty("Dim_Z");
+		int currentZ = (dimZStr != null && !dimZStr.isEmpty()) ? Integer.parseInt(dimZStr) : -1;
+		if (currentZ == -1)
+			return -1;
+
+		int newZ = Math.max(0, currentZ + diffZ);
+		roi.setProperty("Dim_Z", String.valueOf(newZ));
+
+		String dimCStr = roi.getProperty("Dim_C");
+		String dimTStr = roi.getProperty("Dim_T");
+		int currentC = (dimCStr != null && !dimCStr.isEmpty()) ? Integer.parseInt(dimCStr) : -1;
+		int currentT = (dimTStr != null && !dimTStr.isEmpty()) ? Integer.parseInt(dimTStr) : -1;
+
+		int newZctIndex = pp.calcZctIndex(new int[] { newZ, currentC, currentT });
+		roi.setProperty(RoiDBKey.Position.name(), String.valueOf(newZctIndex + 1));
+
+		SlideGlass oldSg = roi.getSlideGlass();
+		SlideGlass newSg = pp.getAllSlides().get(newZctIndex);
+
+		if (newSg != null && oldSg != newSg) {
+			if (oldSg != null)
+				oldSg.getRois().remove(roi);
+			roi.setSlideGlass(newSg, false);
+			if (!newSg.getRois().contains(roi))
+				newSg.getRois().add(roi);
+		}
+		return newZctIndex;
+	}
+
+	/**
+	 * Sphere移動時に残像（ゴースト）を防ぐため、マスター以外の全スレーブをキャンバスから消去する
+	 */
+	private void purgeGroupSlaves(Praparat pp, String groupId, String masterId) {
+		if (pp == null || groupId == null || masterId == null)
+			return;
+		for (SlideGlass s : pp.getAllSlides().values()) {
+			if (s == null)
+				continue;
+			List<RoiObj> toRemove = new ArrayList<>();
+			for (RoiObj r : s.getRois()) {
+				if (groupId.equals(r.getProperty(RoiDBKey.RoiGroup.name()))
+						&& !masterId.equals(r.getProperty(RoiDBKey.RoiID.name()))) {
+					toRemove.add(r);
+				}
+			}
+			s.getRois().removeAll(toRemove);
+		}
+	}
+
+	/**
+	 * 指定グループに属するすべてのROIをリストアップする
+	 */
+	private List<RoiObj> findAllRoisInGroup(Praparat pp, String groupId) {
+		List<RoiObj> list = new ArrayList<>();
+		if (pp == null || groupId == null)
+			return list;
+		for (SlideGlass s : pp.getAllSlides().values()) {
+			if (s == null)
+				continue;
+			for (RoiObj r : s.getRois()) {
+				if (groupId.equals(r.getProperty(RoiDBKey.RoiGroup.name()))) {
+					list.add(r);
+				}
+			}
+		}
+		return list;
+	}
+
+	/**
+	 * グループIDからマスターROIを探し出す
+	 */
+	private RoiObj findMasterRoi(Praparat pp, String groupId) {
+		if (pp == null || groupId == null)
+			return null;
+		for (SlideGlass s : pp.getAllSlides().values()) {
+			if (s == null)
+				continue;
+			for (RoiObj r : s.getRois()) {
+				if (groupId.equals(r.getProperty(RoiDBKey.RoiGroup.name()))
+						&& "true".equals(r.getProperty(RoiMetaContextKey.Is3D_Master.name()))) {
+					return r;
+				}
+			}
+		}
+		return null;
 	}
 	
 	/**
@@ -1945,6 +2327,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 			groupTo3d();
 		}else if (command.equals(Functions.Ungroup3D.name())) {
 			ungroup3d();
+		}else if (command.equals(Functions.Move.name())) { // ★追加: Moveアクション
+			moveRois();
 			
 		//more functions
 		}else if (command.equals(moreButtonLabel)) {
