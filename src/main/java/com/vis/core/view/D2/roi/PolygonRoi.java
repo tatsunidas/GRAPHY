@@ -901,11 +901,15 @@ public class PolygonRoi extends RoiObj {
 		double oxd = ox;
 		double oyd = oy;
 		
-		if ((IJ.altKeyDown() || IJ.controlKeyDown()) && !(nPoints <= 3 && type != RoiType.POINT.id())
-				&& !(this instanceof RotatedRectRoi)) {
+		boolean isAltOrCtrl = SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_ALT)
+				|| SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_CONTROL)
+				|| SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_META); // MacのCmd
+		boolean isShift = SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_SHIFT);
+
+		if (isAltOrCtrl && !(nPoints <= 3 && type != RoiType.POINT.id())) {
 			deleteHandle(oxd, oyd);
 			return;
-		} else if (IJ.shiftKeyDown() && type != RoiType.POINT.id() && !(this instanceof RotatedRectRoi)) {
+		} else if (isShift && type != RoiType.POINT.id()  && !(this instanceof RotatedRectRoi)) {
 			addHandle(oxd, oyd);
 			return;
 		}

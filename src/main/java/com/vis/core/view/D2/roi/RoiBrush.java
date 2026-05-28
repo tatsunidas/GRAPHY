@@ -39,8 +39,6 @@
 package com.vis.core.view.D2.roi;
 
 import java.awt.Point;
-import java.awt.Polygon;
-import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.geom.NoninvertibleTransformException;
 import java.util.concurrent.ExecutorService;
@@ -49,11 +47,13 @@ import java.util.concurrent.Executors;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
-import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.ui.glasses.*;
 
+/**
+ * @author tatsunidas
+ */
 public class RoiBrush {
 	final static int ADD = 0, SUBTRACT = 1;
 	private int mode = ADD;

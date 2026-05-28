@@ -969,17 +969,45 @@ public class CanvasGlass extends javax.swing.JPanel {
 		int sy = e.getY();
 		sg.lastPressedX = sx; 
 		sg.lastPressedY = sy;
-		switch (toolID) {
-		case Viewer2DToolBar.Brush:
-			handleRoiBrushMouseDown(e);
+		
+		if (toolID == Viewer2DToolBar.Brush) {
+			if (brushTool != null) brushTool.brushRoi(e);
+			return;
+		}else if(toolID == Viewer2DToolBar.Wand) {
 			e.consume();
-			break;
-		case Viewer2DToolBar.Wand:
-			e.consume();
-			break;
-		default:
-			roiMouseDown(e);
+			return;
 		}
+		
+		RoiObj hitRoi = activateRoiAt(sx, sy);
+
+		// ==========================================================
+		// ★修正: ハンドル操作（Alt/Shift）の最優先処理（線上も対応）
+		// ==========================================================
+		if (hitRoi != null && hitRoi.getState() == RoiObj.NORMAL) {
+			int handle = hitRoi.isHandle(sx, sy); // ハンドル番号を取得 (-1ならハンドル外)
+			if (handle >= 0) {
+				// 1. ハンドル上の場合
+				if (e.isShiftDown() || e.isAltDown() || e.isControlDown()) {
+					hitRoi.mouseDownInHandle(handle, sx, sy);
+					repaint();
+					return; // 通常の移動や新規作成に進ませない
+				}
+			} 
+			// 選択状態にできなくなるのでコメントアウト
+//			else {
+//				// 2. ハンドル外だが、PolygonRoiの線上・内部でShift/Altが押された場合
+//				if (hitRoi instanceof com.vis.core.view.D2.roi.PolygonRoi) {
+//					if (e.isShiftDown() || e.isAltDown()) {
+//						// 強制的に頂点操作処理へ流す（-1を渡しても内部で一番近い頂点が計算される）
+//						hitRoi.mouseDownInHandle(-1, sx, sy);
+//						repaint();
+//						return; // 新規作成（紫色の線）を完全にブロック！
+//					}
+//				}
+//			}
+		}
+		
+		roiMouseDown(e);
 	}
 
 	public void mouseReleased(MouseEvent emr) {

@@ -2320,7 +2320,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		notifyListeners(RoiObjListener.MODIFIED);
 	}
 
-	protected void mouseDownInHandle(int handle, int sx, int sy) {
+	public void mouseDownInHandle(int handle, int sx, int sy) {
 		setState(MOVING_HANDLE);
 		activeHandle = handle;
 	}
