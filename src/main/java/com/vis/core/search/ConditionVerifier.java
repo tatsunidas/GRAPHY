@@ -45,7 +45,7 @@ public class ConditionVerifier {
             }
 
             try {
-                DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), backend);
+                DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), false, backend);
                 DicomObject header = dcm.getHeader();
 
                 if (SeriesConditionEvaluator.evaluate(header, conditions, allowedPlanes)) {
@@ -88,7 +88,7 @@ public class ConditionVerifier {
 
             for (File f : entry.getValue()) {
                 try {
-                    DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), backend);
+                    DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), false, backend);
                     String expectedFolderName = generateUniqueFolderName(dcm.getHeader());
                     tree.append(" |   |- ").append(expectedFolderName).append("\n");
                 } catch (Exception e) {

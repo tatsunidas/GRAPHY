@@ -669,7 +669,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     }
                 	
                     File repFile = lastVerificationResult.validTargetFiles.get(i);
-                    DicomImage dcm = DicomImage.newDicomImage(repFile.getCanonicalPath(), backend);
+                    DicomImage dcm = DicomImage.newDicomImage(repFile.getCanonicalPath(), false, backend);
                     
                     String uniqueFolderName = ConditionVerifier.generateUniqueFolderName(dcm.getHeader());
                     File seriesDestDir = new File(destinationFolder, uniqueFolderName);

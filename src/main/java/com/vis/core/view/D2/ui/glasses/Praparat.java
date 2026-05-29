@@ -3102,7 +3102,7 @@ public class Praparat extends JPanel {
 				if (isMosaic && this.mode != ViewMode.Thumbnail) {
 					localList.addAll(loadDicomImagesFromMosaic(path, backend));
 				} else if (!localIsMultiFrame) {
-					localList.add(DicomImage.newDicomImage(path, backend));
+					localList.add(DicomImage.newDicomImage(path, false, backend));
 				} else {
 					localList.addAll(loadDicomImagesFromMultiFrame(path, backend));
 				}

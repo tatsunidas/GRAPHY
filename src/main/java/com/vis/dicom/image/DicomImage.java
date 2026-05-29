@@ -47,9 +47,9 @@ import ij.process.ImageProcessor;
 
 public interface DicomImage {
 	
-	public static DicomImage newDicomImage(String path, DICOMBackend backend) {
+	public static DicomImage newDicomImage(String path, boolean withPixel, DICOMBackend backend) {
 		DicomReader reader = DicomReader.newDicomReader(backend);
-		reader.read(path, false/*with pixel*/);
+		reader.read(path, withPixel);
 		DicomObject header = reader.getHeader();
 		DicomObject fmi = reader.getFileMetaInfomation();
 		return newDicomImage(path, header, fmi, reader.checkTSUID(), backend);

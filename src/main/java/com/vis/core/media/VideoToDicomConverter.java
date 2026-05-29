@@ -20,15 +20,13 @@ import com.vis.dicom.UID;
 import com.vis.dicom.UIDUtils;
 import com.vis.dicom.VR;
 import com.vis.dicom.image.PhotometricInterpretation;
-import com.vis.imageio.MpegConverter;
 import com.vis.imageio.VideoReader;
 
 import ij.ImagePlus;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
-import ws.schild.jave.info.MultimediaInfo;
-import ws.schild.jave.info.VideoInfo;
+import ws.schild.jave.progress.EncoderProgressListener;
 
 /**
  * Read non-dicom video, and convert it to dicom with streaming, auto-splitting, and MPEG wrapping.
@@ -47,13 +45,10 @@ public class VideoToDicomConverter {
 
 	public VideoToDicomConverter() {
 	}
-
-	// =========================================================================================
-	// 1. MPEGラッパー方式 (JAVE2によるコーデック判定・Remux/Encode・丸ごとカプセル化)
-	// =========================================================================================
-
+	
 	/**
-	 * コーデックを判定し、MPEGならコピー、非圧縮ならH.264へ変換してDICOMに丸ごとラップするメソッド。
+	 * 動画を確実にH.264(MP4)へ変換してDICOMに丸ごとラップするメソッド。
+	 * MJPEGなど非対応コーデックが来てもJAVE2で自動的にトランスコードします。
 	 */
 	public static void convertMpegVideo(File videoFile, File tempDir, int seriesNumber, int instanceNumber, Modality m,
 			String patName, String patID, String sex, java.util.Date dob, String studyUID, String studyID,
@@ -64,23 +59,51 @@ public class VideoToDicomConverter {
 
 		try {
 			if (listener != null) {
-				listener.onProgress(0, "動画の解析とH.264(MP4)への変換を開始します...");
+				listener.onProgress(0, "Starting video analysis and H.264 (MP4) conversion...");
 			}
 
-			// ★ JAVE2による処理（外部委譲のため、ここは完了までブロックされます）
-			MultimediaInfo mp4Info = MpegConverter.convertToH264Mp4WithCheck(videoFile, tempMp4);
-			VideoInfo mp4VideoInfo = mp4Info.getVideo();
+			// ★ 修正点: 厳しいMpegConverterのチェックを使わず、JAVE2で直接H.264(MP4)へ強制トランスコードする
+			ws.schild.jave.MultimediaObject multimediaObject = new ws.schild.jave.MultimediaObject(videoFile);
+			
+			ws.schild.jave.encode.VideoAttributes videoAttrs = new ws.schild.jave.encode.VideoAttributes();
+			videoAttrs.setCodec("libx264"); // DICOM仕様に適合する標準的なH.264コーデックを指定
+
+			ws.schild.jave.encode.EncodingAttributes encodingAttrs = new ws.schild.jave.encode.EncodingAttributes();
+			encodingAttrs.setOutputFormat("mp4");
+			encodingAttrs.setVideoAttributes(videoAttrs);
+
+			ws.schild.jave.Encoder encoder = new ws.schild.jave.Encoder();
+			encoder.encode(multimediaObject, tempMp4, encodingAttrs, new EncoderProgressListener() {
+				@Override
+				public void sourceInfo(ws.schild.jave.info.MultimediaInfo info) {}
+
+				@Override
+				public void progress(int permil) {
+					if (listener != null) {
+						// 0〜30%をH.264トランスコードの進捗として割り当てる
+						int percent = (int) ((permil / 1000.0) * 30.0);
+						listener.onProgress(percent, "Transcoding to H.264 format: " + (permil / 10) + "%");
+					}
+				}
+
+				@Override
+				public void message(String message) {}
+			});
+
+			// 変換後のMP4ファイルからメタ情報を取得
+			ws.schild.jave.MultimediaObject mp4Object = new ws.schild.jave.MultimediaObject(tempMp4);
+			ws.schild.jave.info.MultimediaInfo mp4Info = mp4Object.getInfo();
+			ws.schild.jave.info.VideoInfo mp4VideoInfo = mp4Info.getVideo();
 			
 			if (listener != null) {
-				listener.onProgress(30, "MP4変換完了。DICOMカプセル化の準備中...");
+				listener.onProgress(30, "MP4 conversion completed. Preparing for DICOM encapsulation...");
 			}
 
 			long mp4FileSize = tempMp4.length();
 			long DICOM_SAFE_MAX_SIZE = 4000000000L; // 約3.7GB
 
 			if (mp4FileSize > DICOM_SAFE_MAX_SIZE) {
-			    tempMp4.delete();
-			    throw new IllegalArgumentException("圧縮後のファイルサイズ (" + (mp4FileSize / 1024 / 1024) + " MB) がDICOMの上限(4GB)を超過しています。動画を分割してください。");
+			    throw new IllegalArgumentException("The compressed file size (" + (mp4FileSize / 1024 / 1024) + " MB) exceeds the DICOM limit (4GB). Please split the video.");
 			}
 
 			int w = mp4VideoInfo.getSize().getWidth();
@@ -96,6 +119,7 @@ public class VideoToDicomConverter {
 			String sopInstanceUID = dcmHeader.getString(Tag.SOP​Instance​UID);
 			File outputFile = new File(tempDir, sopInstanceUID + ".dcm");
 
+			// DICOM規格の MPEG-4 AVC/H.264 Transfer Syntax
 			String transferSyntax = "1.2.840.10008.1.2.4.102"; 
 			DicomWriter writer = DicomWriter.newDicomWriter(backend);
 			writer.write(dcmHeader, transferSyntax, outputFile.getAbsolutePath());
@@ -104,7 +128,7 @@ public class VideoToDicomConverter {
 			appendMpegDataStream(outputFile, tempMp4, listener);
 
 			if (listener != null) {
-				listener.onProgress(100, "MPEG動画のDICOM変換が完了しました。");
+				listener.onProgress(100, "DICOM conversion of MPEG video completed.");
 			}
 
 		} finally {

@@ -166,7 +166,7 @@ public class MainScreenMenu extends JMenuBar{
 							return;
 						}
 						//image.isMultiframe() do not use
-						DicomImage video = DicomImage.newDicomImage(paths.get(0), DICOMBackend.getCurrent());
+						DicomImage video = DicomImage.newDicomImage(paths.get(0), true, DICOMBackend.getCurrent());
 						if(video.isMultiFrame()) {
 							new DicomToAviConverter(paths.get(0), 10/*fallback fps*/);
 						}else{

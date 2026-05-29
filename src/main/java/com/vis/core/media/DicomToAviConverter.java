@@ -3,15 +3,24 @@
  */
 package com.vis.core.media;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.image.DicomImage;
 
 import ij.ImagePlus;
-import ij.ImageStack;
 import ij.process.ImageProcessor;
+import ws.schild.jave.Encoder;
+import ws.schild.jave.MultimediaObject;
+import ws.schild.jave.encode.EncodingAttributes;
+import ws.schild.jave.encode.VideoAttributes;
+import ws.schild.jave.info.MultimediaInfo;
+import ws.schild.jave.progress.EncoderProgressListener;
+import ij.plugin.AVI_Reader;
 import ij.plugin.filter.AVI_Writer;
 
 import ij.io.SaveDialog;
+
+import java.io.File;
 
 import javax.swing.JOptionPane;
 import javax.swing.ProgressMonitor;
@@ -19,6 +28,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.dicom.dcm4cheImpl.DecompressorChe;
 
 /**
  * @author tatsunidas
@@ -68,7 +78,7 @@ public class DicomToAviConverter {
         
         DicomImage dicom = null;
         try {
-            dicom = DicomImage.newDicomImage(dicomFilePath, DICOMBackend.getCurrent());
+            dicom = DicomImage.newDicomImage(dicomFilePath, true, DICOMBackend.getCurrent());
         } catch (Exception e) {
             showErrorDialog("Failed to load DICOM file:\n" + e.getMessage());
             return;
@@ -77,6 +87,10 @@ public class DicomToAviConverter {
         if (dicom == null || dicom.getHeader() == null) {
             showErrorDialog("No valid DICOM data found.");
             return;
+        }
+        
+        if(dicom.getHeader().getValue(Tag.PixelData) == null) {
+        	Log.logger.severe("What's ??");
         }
 
         int numFrames = dicom.getNumOfFrames();
@@ -94,7 +108,87 @@ public class DicomToAviConverter {
 
         // Accurate FPS calculation (Vendor-specific support)
         double fps = calculateAccurateFps(dicom.getHeader(), fallbackFps);
-        convertToAviViaImageJ(dicom, outputAviPath, fps);
+        
+        String tsUid = dicom.getTSUID().uid();
+        boolean isMpeg = tsUid.startsWith("1.2.840.10008.1.2.4.10");
+        if(isMpeg) {
+        	transcodeMpegToAviViaJave(dicom, outputAviPath);
+        }else {
+        	convertToAviViaImageJ(dicom, outputAviPath, fps);
+        }
+    }
+    
+    /**
+     * 抽出済みの動画ファイルを、JAVE2を用いてAVIへ一括トランスコードします。
+     * 毎フレームのデコードが発生しないため、長編動画でも数秒〜数十秒で完了します。
+     */
+    private void transcodeMpegToAviViaJave(DicomImage dicom, String outputAviPath) {
+        ProgressMonitor pm = new ProgressMonitor(null, "AVI Conversion", "Transcoding video stream...", 0, 100);
+        pm.setMillisToDecideToPopup(0);
+        pm.setMillisToPopup(0);
+
+        try {
+        	
+        	AVI_Reader r = null;
+        	
+        	DecompressorChe d = new DecompressorChe(dicom);
+        	File sourceMp4 = d.extractMpegToTempFile();
+        	
+            VideoAttributes video = new VideoAttributes();
+            video.setCodec("mjpeg");
+//            video.setCodec("mpeg4"); // AVIと最も互換性の高い標準的な動画コーデック
+            
+			// ★ なるべく圧縮しない（最高画質）ための設定
+			// MJPEGの品質を1（最高画質・最低圧縮）に指定します（範囲: 1〜31）
+			video.setQuality(1);
+
+			// ★ ビットレートの制限による劣化を防ぐため、非常に高い値（例: 100Mbps）を許容します
+			video.setBitRate(100000000);
+
+            EncodingAttributes encodingAttrs = new EncodingAttributes();
+            encodingAttrs.setOutputFormat("avi");
+            encodingAttrs.setVideoAttributes(video);
+
+            Encoder encoder = new Encoder();
+            EncoderProgressListener javeListener = new EncoderProgressListener() {
+                @Override
+                public void sourceInfo(MultimediaInfo info) {}
+
+                @Override
+                public void progress(int permil) {
+                    if (pm.isCanceled()) {
+                        // 必要に応じて処理の中断ロジックを実装可能
+                        SwingUtilities.invokeLater(() -> pm.setNote("Cancelling..."));
+                    } else {
+                        int percent = permil / 10;
+                        SwingUtilities.invokeLater(() -> {
+                            pm.setProgress(percent);
+                            pm.setNote("Transcoding to AVI: " + percent + "%");
+                        });
+                    }
+                }
+
+                @Override
+                public void message(String message) {}
+            };
+
+            // JAVE2による一括変換の実行
+            encoder.encode(new MultimediaObject(sourceMp4), new File(outputAviPath), encodingAttrs, javeListener);
+
+            pm.close();
+            if (!pm.isCanceled()) {
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(null, "AVI conversion completed.\nOutput: " + outputAviPath, "Complete", JOptionPane.INFORMATION_MESSAGE);
+                });
+            }
+
+        } catch (Exception e) {
+            pm.close();
+            showErrorDialog("Error during JAVE2 transcoding:\n" + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (pm != null) pm.close();
+        }
     }
     
     /**
@@ -148,7 +242,7 @@ public class DicomToAviConverter {
 
             // AVI_Writer は、内部で vStack.getProcessor(n) を1フレームずつ呼んで逐次ファイルに書き込みます
             AVI_Writer writer = new AVI_Writer();
-            writer.writeImage(imp, outputAviPath, AVI_Writer.JPEG_COMPRESSION, 85);
+            writer.writeImage(imp, outputAviPath, AVI_Writer.JPEG_COMPRESSION, 100);
 
             pm.close();
             if (pm.isCanceled()) {

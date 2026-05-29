@@ -336,7 +336,7 @@ public class DicomTagExtractorDialog extends JDialog {
 					
 					File dcmFile = targetDicomFiles.get(i);
 					StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
-					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(), backend);
+					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(),false, backend);
 					DicomObject header = dcm.getHeader();
 
 					// ★抽出対象の全リスト（管理タグ + ユーザー指定タグ）を連結

@@ -48,7 +48,7 @@ public class NonDicomImportOrchestrator {
         int currentSeriesNo = initialSeriesNumber;
 
         // ★ 簡易プログレスモニターの作成 (0〜100%)
-        ProgressMonitor pm = new ProgressMonitor(null, "DICOMインポート処理", "準備中...", 0, 100);
+        ProgressMonitor pm = new ProgressMonitor(null, "Importing as DICOM", "Ready to start...", 0, 100);
         pm.setMillisToDecideToPopup(0);
         pm.setMillisToPopup(0);
 
@@ -59,7 +59,7 @@ public class NonDicomImportOrchestrator {
                 
                 SwingUtilities.invokeLater(() -> {
                     pm.setProgress(0);
-                    pm.setNote("静止画を変換中 (" + images.size() + "枚)...");
+                    pm.setNote("Converting images (" + images.size() + " images)...");
                 });
 
                 // contextは1つしかないので、その中のseriesUIDをそのまま使う
@@ -93,7 +93,7 @@ public class NonDicomImportOrchestrator {
                             // UIの更新は必ずSwingのイベントスレッドで行う
                             SwingUtilities.invokeLater(() -> {
                                 pm.setProgress(percent);
-                                pm.setNote("動画 " + videoIndex + "/" + totalVideos + " : " + message);
+                                pm.setNote("Video " + videoIndex + "/" + totalVideos + " : " + message);
                             });
                         }
                 );
@@ -111,7 +111,7 @@ public class NonDicomImportOrchestrator {
 
                 SwingUtilities.invokeLater(() -> {
                     pm.setProgress(50); // PDFは細かい進捗が取れないと仮定し、便宜上50%にしておく
-                    pm.setNote("PDFを変換中 " + pdfIndex + "/" + totalPdfs + " : " + pdf.getName());
+                    pm.setNote("Converting PDF " + pdfIndex + "/" + totalPdfs + " : " + pdf.getName());
                 });
 
                 // PDF用のUIDを新しく発行する

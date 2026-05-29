@@ -159,7 +159,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 			throw new NullPointerException("tsuid");
 		}
 		if (dataset == null) {
-
+			throw new NullPointerException("DicomObject is Null...");
 		}
 		this.dataset = dataset;
 		this.tsuid = tsuid;
@@ -272,7 +272,7 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 	 * ★ スマートキャッシュ機構：SOPInstanceUID + ピクセルデータサイズのハイブリッドキーで
 	 * 高速なシークと、変更検知（マスキング後の確実な上書き）を両立します。
 	 */
-	private File extractMpegToTempFile() throws IOException {
+	public File extractMpegToTempFile() throws IOException {
 		if (pixeldataFragments == null || pixeldataFragments.size() < 2) {
 			return null;
 		}
