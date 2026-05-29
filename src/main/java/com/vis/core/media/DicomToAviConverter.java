@@ -94,63 +94,78 @@ public class DicomToAviConverter {
 
         // Accurate FPS calculation (Vendor-specific support)
         double fps = calculateAccurateFps(dicom.getHeader(), fallbackFps);
+        convertToAviViaImageJ(dicom, outputAviPath, fps);
+    }
+    
+    /**
+     * 従来のImageJ(ImageStack)を利用したAVI変換処理。
+     * VirtualStackを用いて、全フレームをメモリに保持せずストリームで逐次書き込みます。
+     */
+    private void convertToAviViaImageJ(DicomImage dicom, String outputAviPath, double fallbackFps) {
+        int numFrames = dicom.getNumOfFrames();
+        int width = dicom.getWidth();
+        int height = dicom.getHeight();
 
-        // Prepare progress dialog
+        double fps = calculateAccurateFps(dicom.getHeader(), fallbackFps);
         ProgressMonitor pm = new ProgressMonitor(null, "AVI Conversion", "Initializing...", 0, numFrames);
         pm.setMillisToDecideToPopup(0);
         pm.setMillisToPopup(0);
 
         try {
-            ImageStack stack = new ImageStack(width, height);
+            // ★ 巨大な ImageStack ではなく VirtualStack を使用する
+            ij.VirtualStack vStack = new ij.VirtualStack(width, height, numFrames) {
+                @Override
+                public ImageProcessor getProcessor(int n) {
+                    // n は 1 から numFrames まで順番に呼ばれます
+                    
+                    if (pm.isCanceled()) {
+                        // キャンセル時は安全に終わらせるために黒い画像を返す
+                        return new ij.process.ColorProcessor(width, height);
+                    }
 
-            for (int i = 0; i < numFrames; i++) {
-                // Check for cancellation
-                if (pm.isCanceled()) {
-                    System.out.println("Conversion cancelled by the user.");
-                    return;
+                    SwingUtilities.invokeLater(() -> {
+                        pm.setNote("Encoding frame: " + n + " / " + numFrames);
+                        pm.setProgress(n);
+                    });
+
+                    // その瞬間に必要なフレームだけを抽出 (0始まりなので n-1)
+                    ImageProcessor ip = dicom.getImageProcessor(n - 1);
+                    
+                    if (ip == null) {
+                        System.err.println("Warning: Failed to extract frame " + n + ", using blank frame.");
+                        // デコード失敗でクラッシュさせないためのフォールバック
+                        return new ij.process.ColorProcessor(width, height);
+                    }
+                    return ip;
                 }
+            };
 
-                pm.setNote("Extracting frame: " + (i + 1) + " / " + numFrames);
-                pm.setProgress(i);
-
-                // NPE prevention: Skip processing if frame extraction fails
-                ImageProcessor ip = dicom.getImageProcessor(i);
-                if (ip != null) {
-                    stack.addSlice("Frame " + i, ip);
-                } else {
-                    System.err.println("Warning: Failed to extract frame " + i + ", skipping.");
-                }
-            }
-
-            if (stack.getSize() == 0) {
-                showErrorDialog("Could not extract any valid frames.");
-                return;
-            }
-
-            pm.setNote("Exporting to AVI file...");
+            pm.setNote("Exporting to AVI file (Stream mode)...");
             
-            // Create ImagePlus and set FPS
-            ImagePlus imp = new ImagePlus("DICOM_Video", stack);
+            // VirtualStack を ImagePlus にセット
+            ImagePlus imp = new ImagePlus("DICOM_Video", vStack);
             imp.getCalibration().fps = fps;
 
-            // Export to AVI
+            // AVI_Writer は、内部で vStack.getProcessor(n) を1フレームずつ呼んで逐次ファイルに書き込みます
             AVI_Writer writer = new AVI_Writer();
-            writer.writeImage(imp, outputAviPath, AVI_Writer.JPEG_COMPRESSION, 100);
+            writer.writeImage(imp, outputAviPath, AVI_Writer.JPEG_COMPRESSION, 85);
 
-            // Completion notification
             pm.close();
-            SwingUtilities.invokeLater(() -> {
-                JOptionPane.showMessageDialog(null, "AVI conversion completed.\nOutput: " + outputAviPath, "Complete", JOptionPane.INFORMATION_MESSAGE);
-            });
+            if (pm.isCanceled()) {
+                System.out.println("Conversion was cancelled.");
+                // 必要であれば、作りかけの出力ファイルを削除する処理をここに追加
+            } else {
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(null, "AVI conversion completed.\nOutput: " + outputAviPath, "Complete", JOptionPane.INFORMATION_MESSAGE);
+                });
+            }
 
         } catch (Exception e) {
             pm.close();
             showErrorDialog("An unexpected error occurred during conversion:\n" + e.getMessage());
             e.printStackTrace();
         } finally {
-            if (pm != null) {
-                pm.close();
-            }
+            if (pm != null) pm.close();
         }
     }
 

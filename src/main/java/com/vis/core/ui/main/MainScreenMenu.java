@@ -64,6 +64,8 @@ import com.vis.core.ui.function.SeriesSeparator;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
 import com.vis.db.DatabaseHandler;
+import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.image.DicomImage;
 
 /**
  * @author tatsunidas 
@@ -163,7 +165,9 @@ public class MainScreenMenu extends JMenuBar{
 							JOptionPane.showMessageDialog(main, "Please select MultiFrame(Video) Dicom Series.(File path not found)");
 							return;
 						}
-						if(image.isMultiframe()) {
+						//image.isMultiframe() do not use
+						DicomImage video = DicomImage.newDicomImage(paths.get(0), DICOMBackend.getCurrent());
+						if(video.isMultiFrame()) {
 							new DicomToAviConverter(paths.get(0), 10/*fallback fps*/);
 						}else{
 							JOptionPane.showMessageDialog(main, "This series is not MultiFrame(Video) Dicom. Interrupt converting AVI.");
