@@ -378,6 +378,9 @@ public class DicomExporter extends JFrame implements Task {
 	
 	@Override
 	public void start() {
+		if(dcmFilesUIDs == null || dcmFilesUIDs.isEmpty()) {
+			return;
+		}
 		ArrayList<String[]> candidate = validateExport(dcmFilesUIDs);
 		if(candidate == null || candidate.size() == 0) {
 			return;

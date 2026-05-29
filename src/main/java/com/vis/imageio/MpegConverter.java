@@ -5,6 +5,9 @@
 package com.vis.imageio;
 
 import java.io.File;
+
+import javax.swing.JOptionPane;
+
 import ws.schild.jave.Encoder;
 import ws.schild.jave.MultimediaObject;
 import ws.schild.jave.encode.AudioAttributes;
@@ -51,7 +54,9 @@ public class MpegConverter {
         // 条件3: コーデックがMPEGでも非圧縮形式でもない場合、エラーをだす
         // ※ 例: mjpeg, vp8, vp9, wmv など
         else {
-            throw new IllegalArgumentException("エラー: サポートされていないビデオコーデック (" + decoderName + ") です。MPEG系または非圧縮形式のみDICOM変換が可能です。");
+        	JOptionPane.showMessageDialog(null, "Error: This codec is not supported. (" + decoderName + "), you can input MPEG-family or non-compression type to convert it DICOM.");
+            return null;
+        	// throw new IllegalArgumentException("Error: This codec is not supported. (" + decoderName + "), you can input MPEG-family or non-compression type to convert it DICOM.");
         }
 
         // 音声は不要であればnullでも良いですが、コピーを試みます

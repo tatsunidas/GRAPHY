@@ -10,6 +10,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import javax.swing.JOptionPane;
+
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomWriter;
@@ -36,6 +38,14 @@ import ws.schild.jave.info.VideoInfo;
 public class VideoToDicomConverter {
 
 	private static final DICOMBackend backend = DICOMBackend.getCurrent();
+	
+	public interface ProgressListener {
+		/**
+		 * @param percent 進行度 (0〜100)
+		 * @param message 現在の処理状態を示すメッセージ
+		 */
+		void onProgress(int percent, String message);
+	}
 
 	public VideoToDicomConverter() {
 	}
@@ -50,26 +60,31 @@ public class VideoToDicomConverter {
 	public static void convertMpegVideo(File videoFile, File tempDir, int seriesNumber, int instanceNumber, Modality m,
 			String patName, String patID, String sex, java.util.Date dob, String studyUID, String studyID,
 			String studyDesc, java.util.Date studyDate, java.util.Date studyTime, java.util.Date contentDate,
-			java.util.Date contentTime, String seriesDesc) throws Exception {
+			java.util.Date contentTime, String seriesDesc, ProgressListener listener) throws Exception {
 
-		// 変換作業用の中間MP4ファイル
 		File tempMp4 = new File(tempDir, videoFile.getName() + "_" + System.currentTimeMillis() + "_temp.mp4");
 
 		try {
-			// ★ 1. MpegConverter に動画の解析と MP4 化（Remux or Encode）を委譲する
+			if (listener != null) {
+				listener.onProgress(0, "動画の解析とH.264(MP4)への変換を開始します...");
+			}
+
+			// ★ JAVE2による処理（外部委譲のため、ここは完了までブロックされます）
 			MultimediaInfo mp4Info = MpegConverter.convertToH264Mp4WithCheck(videoFile, tempMp4);
 			VideoInfo mp4VideoInfo = mp4Info.getVideo();
 			
-			// MPEGカプセル化における「4GBの壁」安全装置
+			if (listener != null) {
+				listener.onProgress(30, "MP4変換完了。DICOMカプセル化の準備中...");
+			}
+
 			long mp4FileSize = tempMp4.length();
 			long DICOM_SAFE_MAX_SIZE = 4000000000L; // 約3.7GB
 
 			if (mp4FileSize > DICOM_SAFE_MAX_SIZE) {
 			    tempMp4.delete();
-			    throw new IllegalArgumentException("The compressed MPEG file size (\" + (mp4FileSize / 1024 / 1024) + \" MB) exceeds the 4GB DICOM Item size limit. Please split the video.");
+			    throw new IllegalArgumentException("圧縮後のファイルサイズ (" + (mp4FileSize / 1024 / 1024) + " MB) がDICOMの上限(4GB)を超過しています。動画を分割してください。");
 			}
 
-			// 2. 取得した情報からDICOMヘッダに必要な値を計算
 			int w = mp4VideoInfo.getSize().getWidth();
 			int h = mp4VideoInfo.getSize().getHeight();
 			double fps = mp4VideoInfo.getFrameRate();
@@ -77,23 +92,24 @@ public class VideoToDicomConverter {
 			double durationSec = durationMs / 1000.0;
 			int frames = (int) Math.rint(durationSec * fps);
 
-			// 3. MPEG専用のDICOMヘッダを作成
 			DicomObject dcmHeader = createMpegDicomHeader(w, h, frames, fps, durationSec, seriesNumber, instanceNumber,
 					m, patName, patID, sex, dob, studyUID, studyID, studyDesc, studyDate, studyTime, contentDate, contentTime, seriesDesc);
 
 			String sopInstanceUID = dcmHeader.getString(Tag.SOP​Instance​UID);
 			File outputFile = new File(tempDir, sopInstanceUID + ".dcm");
 
-			// 4. Transfer Syntax を H.264 (MPEG-4 AVC High Profile / Level 4.1) に指定して書き込み
 			String transferSyntax = "1.2.840.10008.1.2.4.102"; 
 			DicomWriter writer = DicomWriter.newDicomWriter(backend);
 			writer.write(dcmHeader, transferSyntax, outputFile.getAbsolutePath());
 
-			// 5. MP4ファイルをDICOMへ丸ごとストリームカプセル化
-			appendMpegDataStream(outputFile, tempMp4);
+			// ★ ストリームカプセル化処理（ここで30% -> 100%まで進捗を刻みます）
+			appendMpegDataStream(outputFile, tempMp4, listener);
+
+			if (listener != null) {
+				listener.onProgress(100, "MPEG動画のDICOM変換が完了しました。");
+			}
 
 		} finally {
-			// ★ 処理が終了（または失敗）したら中間MP4ファイルは必ず削除
 			if (tempMp4.exists()) {
 				tempMp4.delete();
 			}
@@ -157,44 +173,47 @@ public class VideoToDicomConverter {
 	/**
 	 * 動画ファイル(MP4)をそのままDICOMのPixelDataとしてカプセル化ストリーム追記するメソッド
 	 */
-	private static void appendMpegDataStream(File outputFile, File mp4File) throws Exception {
+	private static void appendMpegDataStream(File outputFile, File mp4File, ProgressListener listener) throws Exception {
 		long videoLength = mp4File.length();
-		boolean needsPadding = (videoLength % 2 != 0); // DICOMは偶数バイト必須
+		boolean needsPadding = (videoLength % 2 != 0); 
 		long itemLength = needsPadding ? videoLength + 1 : videoLength;
 
 		try (FileOutputStream fos = new FileOutputStream(outputFile, true);
 			 BufferedOutputStream bos = new BufferedOutputStream(fos);
 			 FileInputStream fis = new FileInputStream(mp4File)) {
 
-			// 1. PixelData (7FE0, 0010) (OB, Undefined Length)
 			bos.write(0xE0); bos.write(0x7F); bos.write(0x10); bos.write(0x00);
 			bos.write('O');  bos.write('B');  bos.write(0x00); bos.write(0x00);
 			bos.write(0xFF); bos.write(0xFF); bos.write(0xFF); bos.write(0xFF);
-
-			// 2. Basic Offset Table (空)
 			bos.write(0xFE); bos.write(0xFF); bos.write(0x00); bos.write(0xE0); 
 			bos.write(0x00); bos.write(0x00); bos.write(0x00); bos.write(0x00); 
-
-			// 3. 動画データを入れる Item Tag (FFFE, E000) と、その長さ
 			bos.write(0xFE); bos.write(0xFF); bos.write(0x00); bos.write(0xE0);
 			bos.write((int) (itemLength & 0xFF));
 			bos.write((int) ((itemLength >> 8) & 0xFF));
 			bos.write((int) ((itemLength >> 16) & 0xFF));
 			bos.write((int) ((itemLength >> 24) & 0xFF));
 
-			// 4. 動画ファイル(MP4)をそのままストリーム転送（バッファを使って爆速コピー）
 			byte[] buffer = new byte[8192];
 			int bytesRead;
+			long copiedBytes = 0;
+			
+			// ★ ストリーム書き込みの進捗を報告
 			while ((bytesRead = fis.read(buffer)) != -1) {
 				bos.write(buffer, 0, bytesRead);
+				copiedBytes += bytesRead;
+				
+				if (listener != null) {
+					// 30%からスタートし、残り70%分を割り当てる計算
+					int percent = 30 + (int) ((copiedBytes * 70.0) / videoLength);
+					listener.onProgress(percent, "DICOMへ動画データをカプセル化中...");
+				}
 			}
 
-			// 奇数長の場合は 0x00 でパディング
+			//奇数長の場合
 			if (needsPadding) {
 				bos.write(0x00);
 			}
 
-			// 5. Sequence Delimiter (FFFE, E0DD) でカプセル化終了
 			bos.write(0xFE); bos.write(0xFF); bos.write(0xDD); bos.write(0xE0);
 			bos.write(0x00); bos.write(0x00); bos.write(0x00); bos.write(0x00);
 
@@ -213,14 +232,16 @@ public class VideoToDicomConverter {
 	public static void convertRawVideo(File videoFile, File tempDir, int seriesNumber, int instanceNumber, Modality m,
 			String patName, String patID, String sex, java.util.Date dob, String studyUID, String studyID,
 			String studyDesc, java.util.Date studyDate, java.util.Date studyTime, java.util.Date contentDate,
-			java.util.Date contentTime, String seriesDesc) throws Exception {
+			java.util.Date contentTime, String seriesDesc, ProgressListener listener) throws Exception {
+
+		if (listener != null) listener.onProgress(0, "動画ファイルの読み込みと解析を行っています...");
 
 		VideoReader reader = VideoReader.load(videoFile);
 		if (reader == null) {
 			throw new IllegalArgumentException("Unsupported video format: " + videoFile.getName());
 		}
 
-		ImagePlus imp = reader.read(); // Virtual Stackとして開かれる
+		ImagePlus imp = reader.read(); 
 		if (imp == null) {
 			throw new IOException("Failed to read video data from: " + videoFile.getName());
 		}
@@ -233,10 +254,7 @@ public class VideoToDicomConverter {
 		boolean isColor = imp.isRGB();
 		double fps = imp.getCalibration().fps;
 
-		// 分割されたファイル間で「同じシリーズ」として扱うための共通UID
 		String seriesInstanceUID = UIDUtils.createUID();
-
-		// ★ ファイル分割の計算 (安全マージンを取って 4,000,000,000 bytes ≒ 約3.7GB を上限とする)
 		long DICOM_SAFE_MAX_SIZE = 4000000000L; 
 		int bytesPerPixel = isColor ? 3 : 1;
 		long bytesPerFrame = (long) w * h * bytesPerPixel;
@@ -248,41 +266,42 @@ public class VideoToDicomConverter {
 		}
 
 		int currentFrameOffset = 0;
-		int fileIndex = 0; // ファイルが分割されるたびにインクリメント（Instance Number用）
+		int fileIndex = 0; 
 
 		try {
 			while (currentFrameOffset < totalFrames) {
-				// このチャンク（ファイル）に書き込むフレーム数を決定
 				int chunkFrames = Math.min(maxFramesPerFile, totalFrames - currentFrameOffset);
 				long chunkPixelBytes = bytesPerFrame * chunkFrames;
 				double chunkDuration = Math.rint(chunkFrames * fps);
 
-				// 1. ヘッダの作成 (チャンクのフレーム数で作成。インスタンス番号を連番にする)
 				DicomObject dcmHeader = createDicomHeader(w, h, chunkFrames, isColor, bits, fps, chunkDuration, seriesNumber,
 						instanceNumber + fileIndex, m, patName, patID, sex, dob, studyUID, studyID, studyDesc, studyDate, studyTime,
 						contentDate, contentTime, seriesDesc, seriesInstanceUID);
 
-				// 2. ヘッダ情報だけを先にファイルへ書き出す (Implicit VR)
 				String sopInstanceUID = dcmHeader.getString(Tag.SOP​Instance​UID);
 				File outputFile = new File(tempDir, sopInstanceUID + ".dcm");
 
 				DicomWriter writer = DicomWriter.newDicomWriter(backend);
 				writer.write(dcmHeader, UID.ImplicitVRLittleEndian.uid(), outputFile.getAbsolutePath());
 
-				// 3. ストリーム処理で指定範囲のフレームだけを追記していく
 				try {
-					appendPixelDataStreamChunk(outputFile, imp, w, h, chunkFrames, isColor, chunkPixelBytes, currentFrameOffset);
+					// ★ 進捗計算用に totalFrames と currentFrameOffset を渡す
+					appendPixelDataStreamChunk(outputFile, imp, w, h, chunkFrames, isColor, chunkPixelBytes, currentFrameOffset, totalFrames, listener);
 				} catch (Exception e) {
-					outputFile.delete(); // 失敗した場合は壊れたファイルを削除
+					outputFile.delete(); 
 					throw e;
 				}
 
-				// 次のチャンク（ファイル）へ進む
 				currentFrameOffset += chunkFrames;
 				fileIndex++;
 			}
+			
+			if (listener != null) {
+				listener.onProgress(100, "非圧縮動画のDICOM変換が完了しました。");
+			}
+			
 		} finally {
-			imp.close(); // 確実にリソースを開放
+			imp.close(); 
 		}
 	}
 
@@ -348,7 +367,7 @@ public class VideoToDicomConverter {
 	/**
 	 * 指定されたチャンクのフレーム範囲だけを読み込み、DICOMにストリーム追記するメソッド。
 	 */
-	private static void appendPixelDataStreamChunk(File outputFile, ImagePlus imp, int w, int h, int chunkFrames, boolean isColor, long chunkPixelBytes, int startFrameOffset) throws Exception {
+	private static void appendPixelDataStreamChunk(File outputFile, ImagePlus imp, int w, int h, int chunkFrames, boolean isColor, long chunkPixelBytes, int startFrameOffset, int totalFrames, ProgressListener listener) throws Exception {
 		boolean needsPadding = chunkPixelBytes % 2 != 0;
 		long dicomLength = needsPadding ? chunkPixelBytes + 1 : chunkPixelBytes;
 
@@ -358,7 +377,6 @@ public class VideoToDicomConverter {
 		try (FileOutputStream fos = new FileOutputStream(outputFile, true);
 				BufferedOutputStream bos = new BufferedOutputStream(fos)) {
 
-			// 1. PixelData (7FE0,0010) タグの書き込み
 			bos.write(0xE0);
 			bos.write(0x7F);
 			bos.write(0x10);
@@ -369,8 +387,15 @@ public class VideoToDicomConverter {
 			bos.write((int) ((dicomLength >> 16) & 0xFF));
 			bos.write((int) ((dicomLength >> 24) & 0xFF));
 
-			// 2. チャンクのフレーム数分だけループ
 			for (int k = 0; k < chunkFrames; k++) {
+				
+				// ★ 全体に対するフレームの進捗を計算して通知
+				if (listener != null) {
+					int currentGlobalFrame = startFrameOffset + k + 1;
+					int percent = (int) ((currentGlobalFrame * 100.0) / totalFrames);
+					listener.onProgress(percent, "フレーム抽出・書き込み中 (" + currentGlobalFrame + "/" + totalFrames + ")");
+				}
+
 				imp.setSlice(startFrameOffset + k + 1);
 
 				if (!isColor) {
@@ -394,7 +419,6 @@ public class VideoToDicomConverter {
 				}
 			}
 
-			// 3. 奇数長パディング処理
 			if (needsPadding) {
 				bos.write(0x00);
 			}

@@ -52,6 +52,7 @@ import javax.swing.JOptionPane;
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.media.DicomToAviConverter;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
 import com.vis.core.ui.dialog.HelpDialog;
@@ -62,6 +63,7 @@ import com.vis.core.ui.function.SeriesIntegrator;
 import com.vis.core.ui.function.SeriesSeparator;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.ui.main.dcmtreetable.TreeTableDockManager;
+import com.vis.db.DatabaseHandler;
 
 /**
  * @author tatsunidas 
@@ -131,6 +133,48 @@ public class MainScreenMenu extends JMenuBar{
 			}
 		});
 		fileMenu.add(mntmExport);
+		
+		JMenuItem mntmExportAVI = new JMenuItem("Export as AVI");
+		mntmExportAVI.setToolTipText("Export AVI file converted from dicom series");
+		mntmExportAVI.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if(!HOMEinAction()) {
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					return;
+				}
+				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
+				if(win != null) {
+					MainScreen main = (MainScreen)win;
+					ArrayList<DICOMNode> selected = main.getSelectedNode();
+					if(selected == null || selected.isEmpty()) {
+						Log.logger.fine("No dicom series selected...");
+						return;
+					}
+					DICOMNode series = selected.get(0);
+					if(series.getLevel() == DICOMNode.SERIES) {
+						DICOMNode image = (DICOMNode) series.getChild(0);
+						String stUid = image.getData(DICOMNode.StudyInstanceUID);
+						String seUid = image.getData(DICOMNode.SeriesInstanceUID);
+						DatabaseHandler db = DatabaseHandler.getInstance();
+						ArrayList<String> paths = db.getFileLocationsSeriesLevel(stUid, seUid);
+						
+						if(paths == null || paths.isEmpty()) {
+							JOptionPane.showMessageDialog(main, "Please select MultiFrame(Video) Dicom Series.(File path not found)");
+							return;
+						}
+						if(image.isMultiframe()) {
+							new DicomToAviConverter(paths.get(0), 10/*fallback fps*/);
+						}else{
+							JOptionPane.showMessageDialog(main, "This series is not MultiFrame(Video) Dicom. Interrupt converting AVI.");
+						}
+					}else {
+						JOptionPane.showMessageDialog(main, "Please select MultiFrame(Video) Dicom Series.");
+					}
+				}
+			}
+		});
+		fileMenu.add(mntmExportAVI);
 		
 		JMenuItem mntmDelete = new JMenuItem("Delete");
 		mntmDelete.setToolTipText("Delete dicom files selected on HOME TreeTable.");

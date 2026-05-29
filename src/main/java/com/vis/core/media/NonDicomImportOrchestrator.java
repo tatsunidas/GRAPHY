@@ -8,8 +8,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.ProgressMonitor;
+import javax.swing.SwingUtilities;
+
 import com.vis.core.util.ImageUtils;
-import com.vis.dicom.Modality; // ← VideoConverterなどで使っているModalityに合わせてimport
+import com.vis.dicom.Modality;
 
 public class NonDicomImportOrchestrator {
 
@@ -32,7 +35,6 @@ public class NonDicomImportOrchestrator {
         ArrayList<File> videos = new ArrayList<>();
         ArrayList<File> pdfs = new ArrayList<>();
         for (File f : files) {
-            // (注) DicomUtilities.isDicomFile の判定は UI側(Importer)で弾いている想定ですが、念のため入れてもOK
             String path = f.getAbsolutePath();
             if (ImageUtils.isImageFile(path)) {
                 images.add(f);
@@ -45,40 +47,88 @@ public class NonDicomImportOrchestrator {
 
         int currentSeriesNo = initialSeriesNumber;
 
-        // 2. 静止画の処理（★ ルール1: まとめて1つのシリーズにする）
-        if (!images.isEmpty()) {
-            // contextは1つしかないので、その中のseriesUIDをそのまま使う
-            ImageToDicomConverter.convertImages(images, tempDir, context, currentSeriesNo);
-            currentSeriesNo++;
-        }
+        // ★ 簡易プログレスモニターの作成 (0〜100%)
+        ProgressMonitor pm = new ProgressMonitor(null, "DICOMインポート処理", "準備中...", 0, 100);
+        pm.setMillisToDecideToPopup(0);
+        pm.setMillisToPopup(0);
 
-        // 3. 動画の処理（★ ルール2: 1ファイルごとに別のシリーズにする）
-        for (File video : videos) {
-            // Video用のUIDを新しく発行する（contextの中身を上書き、あるいは直接渡す）
-            context.seriesUID = com.vis.dicom.UIDUtils.createUID(); 
-            
-            VideoToDicomConverter.convertMpegVideo(
-                    video, tempDir, currentSeriesNo, 1, Modality.OT, // OT = Other
-                    context.pname, context.pid, context.sex, 
-                    com.vis.core.util.DateUtils.toDateObj(context.dob, "/"), 
-                    context.studyUID, null, context.studyDesc, 
-                    com.vis.core.util.DateUtils.toDateObj(context.studyDate, "/"), 
-                    com.vis.core.util.DateUtils.toTimeObj(context.studyTime, "/"), 
-                    com.vis.core.util.DateUtils.toDateObj(context.contentDate, "/"), 
-                    com.vis.core.util.DateUtils.toTimeObj(context.contentTime, "/"), 
-                    context.seriesDesc);
-            
-            currentSeriesNo++;
-        }
+        try {
+            // 2. 静止画の処理（★ ルール1: まとめて1つのシリーズにする）
+            if (!images.isEmpty()) {
+                if (pm.isCanceled()) return; // キャンセルチェック
+                
+                SwingUtilities.invokeLater(() -> {
+                    pm.setProgress(0);
+                    pm.setNote("静止画を変換中 (" + images.size() + "枚)...");
+                });
 
-        // 4. PDFの処理（★ ルール3: 1ファイルごとに別のシリーズにする）
-        for (File pdf : pdfs) {
-            // PDF用のUIDを新しく発行する
-            context.seriesUID = com.vis.dicom.UIDUtils.createUID();
+                // contextは1つしかないので、その中のseriesUIDをそのまま使う
+                ImageToDicomConverter.convertImages(images, tempDir, context, currentSeriesNo);
+                currentSeriesNo++;
+            }
+
+            // 3. 動画の処理（★ ルール2: 1ファイルごとに別のシリーズにする）
+            for (int i = 0; i < videos.size(); i++) {
+                if (pm.isCanceled()) return; // キャンセルチェック
+
+                File video = videos.get(i);
+                int videoIndex = i + 1;
+                int totalVideos = videos.size();
+                
+                // Video用のUIDを新しく発行する
+                context.seriesUID = com.vis.dicom.UIDUtils.createUID(); 
+                
+                VideoToDicomConverter.convertMpegVideo(
+                        video, tempDir, currentSeriesNo, 1, Modality.OT, // OT = Other
+                        context.pname, context.pid, context.sex, 
+                        com.vis.core.util.DateUtils.toDateObj(context.dob, "/"), 
+                        context.studyUID, null, context.studyDesc, 
+                        com.vis.core.util.DateUtils.toDateObj(context.studyDate, "/"), 
+                        com.vis.core.util.DateUtils.toTimeObj(context.studyTime, "/"), 
+                        com.vis.core.util.DateUtils.toDateObj(context.contentDate, "/"), 
+                        com.vis.core.util.DateUtils.toTimeObj(context.contentTime, "/"), 
+                        context.seriesDesc,
+                        // ★ プログレスリスナーの実装
+                        (percent, message) -> {
+                            // UIの更新は必ずSwingのイベントスレッドで行う
+                            SwingUtilities.invokeLater(() -> {
+                                pm.setProgress(percent);
+                                pm.setNote("動画 " + videoIndex + "/" + totalVideos + " : " + message);
+                            });
+                        }
+                );
+                            
+                currentSeriesNo++;
+            }
+
+            // 4. PDFの処理（★ ルール3: 1ファイルごとに別のシリーズにする）
+            for (int i = 0; i < pdfs.size(); i++) {
+                if (pm.isCanceled()) return; // キャンセルチェック
+
+                File pdf = pdfs.get(i);
+                int pdfIndex = i + 1;
+                int totalPdfs = pdfs.size();
+
+                SwingUtilities.invokeLater(() -> {
+                    pm.setProgress(50); // PDFは細かい進捗が取れないと仮定し、便宜上50%にしておく
+                    pm.setNote("PDFを変換中 " + pdfIndex + "/" + totalPdfs + " : " + pdf.getName());
+                });
+
+                // PDF用のUIDを新しく発行する
+                context.seriesUID = com.vis.dicom.UIDUtils.createUID();
+                PdfToDicomConverter.convertPDF(pdf, tempDir, context, currentSeriesNo);
+                
+                currentSeriesNo++;
+            }
             
-            PdfToDicomConverter.convertPDF(pdf, tempDir, context, currentSeriesNo);
-            
-            currentSeriesNo++;
+            // 完了時の通知（必要に応じて）
+            SwingUtilities.invokeLater(() -> pm.setProgress(100));
+
+        } finally {
+            // エラー時も含め、確実にダイアログを閉じる
+            if (pm != null) {
+                pm.close();
+            }
         }
     }
 }

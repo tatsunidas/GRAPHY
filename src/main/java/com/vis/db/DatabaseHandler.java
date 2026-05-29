@@ -370,7 +370,7 @@ public class DatabaseHandler {
 	}
 
 	/*
-	 * delete record and file in instance level. if it save as link, delete only
+	 * delete record and file&roi in instance level. if it save as link, delete only
 	 * record, else delete both file and record. if it is last instance, delete
 	 * parent directory folder too.
 	 */
@@ -383,15 +383,41 @@ public class DatabaseHandler {
 		String storeURI = getFileLocation(studyUID, seriesUID, sopUID);
 
 		boolean done = false;
+		// ROIを先に削除するためのSQL
+		String deleteRoiStmt = "DELETE FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
 		String statement = "DELETE FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
-			pstmt.setString(1, patID);
-			pstmt.setString(2, studyUID);
-			pstmt.setString(3, seriesUID);
-			pstmt.setString(4, sopUID);
-			// found in db and deleted == 1
-			done = pstmt.executeUpdate() == 1;
+
+		// 外側のtry: Connectionの管理
+		try (Connection conn = openConnection()) {
+
+			// 1. ROIの削除 (先に実行)
+			try (PreparedStatement pstmtRoi = conn.prepareStatement(deleteRoiStmt)) {
+				pstmtRoi.setString(1, patID);
+				pstmtRoi.setString(2, studyUID);
+				pstmtRoi.setString(3, seriesUID);
+				pstmtRoi.setString(4, sopUID);
+				pstmtRoi.executeUpdate(); // 戻り値(削除件数)のチェックは不要(ROIが存在しない場合もあるため)
+			} catch (SQLException e) {
+				conn.rollback();
+				throw e;
+			}
+
+			// 2. IMAGEの削除 (ROI削除後に実行)
+			try (PreparedStatement pstmt = conn.prepareStatement(statement)) {
+				pstmt.setString(1, patID);
+				pstmt.setString(2, studyUID);
+				pstmt.setString(3, seriesUID);
+				pstmt.setString(4, sopUID);
+				// found in db and deleted == 1
+				done = pstmt.executeUpdate() == 1;
+			} catch (SQLException e) {
+				conn.rollback();
+				throw e;
+			}
+
+			// 3. 両方の削除が成功したらコミット
 			conn.commit();
+
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
