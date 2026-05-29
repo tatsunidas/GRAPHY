@@ -1,8 +1,10 @@
+/**
+ * Copyright visionary imaging services, inc.
+ */
 package com.vis.core.view.D3.roi; // パッケージ名は環境に合わせてください
 
 import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.RoiMetaContextKey;
-import com.vis.core.log.Log;
 import com.vis.core.view.D2.roi.OvalRoi;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.ui.glasses.CanvasGlass;
@@ -14,8 +16,18 @@ import com.vis.dicom.Tag;
 
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
+/**
+ * TODO
+ * 
+ * 将来的には、SphereRoi3Dは、RoiObjの子クラスとして、各種メソッドをOverrideさせる。
+ * 中心座標と、ボリュームの左上座標（IPP）、IOP、半径を保持させる。
+ * 位置検出は、この球の断面内にマウスがあるかどうかで判定させる。
+ * drawで、この球とスライス断面が接する線を、スライス上に描画すればよい。
+ * ただし、SlideGlass単位のROIの管理を、Praparatで行うように改修する必要がある。
+ * 
+ * @author tatsunidas
+ */
 public class SphereRoi3D extends AbstractRoi3D {
 	
 	public final String Shape_3D_Type = "SPHERE";
@@ -24,6 +36,7 @@ public class SphereRoi3D extends AbstractRoi3D {
     private double cx, cy, cz;
     private int targetC = -1;
     private int targetT = -1;
+    private int masterZ = -1; // ★追加: MasterのZインデックスを保持
 
     /**
      * マスターとなるRoiObjを渡すことで、内部状態(中心座標や半径)を初期化します。
@@ -43,8 +56,11 @@ public class SphereRoi3D extends AbstractRoi3D {
         }
         
         String cStr = masterRoi.getProperty(RoiMetaContextKey.Dim_C.name());
+        String zStr = masterRoi.getProperty(RoiMetaContextKey.Dim_Z.name()); // ★追加
         String tStr = masterRoi.getProperty(RoiMetaContextKey.Dim_T.name());
+        
         this.targetC = (cStr != null && !cStr.isEmpty()) ? Integer.parseInt(cStr) : -1;
+        this.masterZ = (zStr != null && !zStr.isEmpty()) ? Integer.parseInt(zStr) : -1;
         this.targetT = (tStr != null && !tStr.isEmpty()) ? Integer.parseInt(tStr) : -1;
     }
 
@@ -52,6 +68,10 @@ public class SphereRoi3D extends AbstractRoi3D {
     public void updateFrom2D(RoiObj modifiedRoi) {
         Praparat pp = modifiedRoi.getSlideGlass().getPraparat();
         if (pp == null) return;
+
+        // ★追加: Masterの最新Zインデックスを更新
+        String zStr = modifiedRoi.getProperty(RoiMetaContextKey.Dim_Z.name());
+        this.masterZ = (zStr != null && !zStr.isEmpty()) ? Integer.parseInt(zStr) : -1;
 
         // 1. 自分以外のグループ内ROIを一括削除
         for (SlideGlass sg : pp.getAllSlides().values()) {
@@ -113,74 +133,92 @@ public class SphereRoi3D extends AbstractRoi3D {
 
     @Override
     public void generateCrossSections(Praparat pp) {
-        if (pp == null) return;
+        if (pp == null || masterZ == -1) return;
 
-        for (Map.Entry<Integer, SlideGlass> entry : pp.getAllSlides().entrySet()) {
-            SlideGlass sg = entry.getValue();
+        // ★ Masterスライドからスライス厚（Slice Thickness / Spacing Between Slices）を取得
+        int masterZctIdx = pp.calcZctIndex(new int[]{masterZ, targetC, targetT});
+        SlideGlass masterSg = pp.getAllSlides().get(masterZctIdx);
+        if (masterSg == null) return;
+        
+        DicomObject masterHeader = masterSg.getHeader();
+        double sliceThickness = 1.0;
+        if (masterHeader != null) {
+            // スライス間隔を優先し、無ければスライス厚を使用。どちらも無ければ1.0mmとする
+            sliceThickness = masterHeader.getDouble(Tag.SpacingBetweenSlices, 
+                             masterHeader.getDouble(Tag.SliceThickness, 1.0));
+            if (sliceThickness <= 0) sliceThickness = 1.0; // フェイルセーフ
+        }
 
-            // マスターがいるCanvasの処理は updateFrom2D で完了しているのでスキップ
-            // (本来はIDで判定するのがより安全ですが、今回は簡易的にスライドで判定)
-            int[] zct = pp.getZCTArray(sg);
-            if (targetC != -1 && targetC != zct[1]) continue;
-            if (targetT != -1 && targetT != zct[2]) continue;
+        // ★ Masterを中心に上下何スライスまで描画するかを整数で計算（切り捨て）
+        int maxSlicesAway = (int) Math.floor(radiusMm / sliceThickness);
 
+        // ★ Masterを中心に、完全対称なインデックスループを回す
+        for (int diff = -maxSlicesAway; diff <= maxSlicesAway; diff++) {
+            
+            // Master自身は描画済みなのでスキップ
+            if (diff == 0) continue;
+
+            int targetZ = masterZ + diff;
+            int zctIdx = pp.calcZctIndex(new int[]{targetZ, targetC, targetT});
+            SlideGlass sg = pp.getAllSlides().get(zctIdx);
+            
+            // スライドが存在しない（範囲外）ならスキップ
+            if (sg == null) continue;
+
+            // ★ 距離(d)は「スライス枚数差分 × スライス厚」で厳密に計算（IPP計算誤差を排除）
+            double d = Math.abs(diff) * sliceThickness;
+            
+            // 念のための安全チェック（半径を超えていないか）
+            if (d >= radiusMm) continue;
+
+            // 断面の半径をピタゴラスの定理で算出
+            double r_mm = Math.sqrt(radiusMm * radiusMm - d * d);
+
+            // ----- ここから下は、XYの座標を対象スライスに正確に投影する処理（変更なし） -----
             DicomObject header = sg.getHeader();
             int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
 
             double[] sliceIpp = pp.getSafeIPP(header, frameIdx);
             double[] sliceIop = pp.getSafeIOP(header, frameIdx);
-
             if (sliceIpp == null || sliceIop == null) continue;
-
-            double nx = sliceIop[1] * sliceIop[5] - sliceIop[2] * sliceIop[4];
-            double ny = sliceIop[2] * sliceIop[3] - sliceIop[0] * sliceIop[5];
-            double nz = sliceIop[0] * sliceIop[4] - sliceIop[1] * sliceIop[3];
 
             double vx = cx - sliceIpp[0];
             double vy = cy - sliceIpp[1];
             double vz = cz - sliceIpp[2];
 
-            double d = Math.abs(vx * nx + vy * ny + vz * nz);
+            // 投影座標（スライスのXY平面上の位置）
+            double projX_mm = vx * sliceIop[0] + vy * sliceIop[1] + vz * sliceIop[2];
+            double projY_mm = vx * sliceIop[3] + vy * sliceIop[4] + vz * sliceIop[5];
 
-            // 交差判定
-            if (d < radiusMm) {
-                // 距離が0（マスター自身が乗っているスライス）の場合は新規作成をスキップ
-                if (d < 1e-3) continue;
+            double pxSpacingX = sg.getPixelSpacingX() <= 0 ? 1.0 : sg.getPixelSpacingX();
+            double pxSpacingY = sg.getPixelSpacingY() <= 0 ? 1.0 : sg.getPixelSpacingY();
 
-                double r_mm = Math.sqrt(radiusMm * radiusMm - d * d);
-                double projX_mm = vx * sliceIop[0] + vy * sliceIop[1] + vz * sliceIop[2];
-                double projY_mm = vx * sliceIop[3] + vy * sliceIop[4] + vz * sliceIop[5];
+            double pixelX = projX_mm / pxSpacingX;
+            double pixelY = projY_mm / pxSpacingY;
 
-                double pxSpacingX = sg.getPixelSpacingX() <= 0 ? 1.0 : sg.getPixelSpacingX();
-                double pxSpacingY = sg.getPixelSpacingY() <= 0 ? 1.0 : sg.getPixelSpacingY();
+            double radiusPxX = r_mm / pxSpacingX;
+            double radiusPxY = r_mm / pxSpacingY;
 
-                double pixelX = projX_mm / pxSpacingX;
-                double pixelY = projY_mm / pxSpacingY;
+            int startX = (int) (pixelX - radiusPxX);
+            int startY = (int) (pixelY - radiusPxY);
+            int width = (int) (radiusPxX * 2.0);
+            int height = (int) (radiusPxY * 2.0);
 
-                double radiusPxX = r_mm / pxSpacingX;
-                double radiusPxY = r_mm / pxSpacingY;
+            OvalRoi slaveRoi = new OvalRoi(startX, startY, width, height, sg);
+            slaveRoi.setState(RoiObj.NORMAL);
 
-                int startX = (int) (pixelX - radiusPxX);
-                int startY = (int) (pixelY - radiusPxY);
-                int width = (int) (radiusPxX * 2.0);
-                int height = (int) (radiusPxY * 2.0);
+            slaveRoi.setProperty(RoiDBKey.RoiGroup.name(), groupId);
+            slaveRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), Shape_3D_Type);
+            slaveRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), String.valueOf(radiusMm));
+            slaveRoi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(targetC));
+            slaveRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(targetZ));
+            slaveRoi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(targetT));
+            slaveRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), "true");
 
-                OvalRoi slaveRoi = new OvalRoi(startX, startY, width, height, sg);
-                slaveRoi.setState(RoiObj.NORMAL);
-
-                slaveRoi.setProperty(RoiDBKey.RoiGroup.name(), groupId);
-                slaveRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), Shape_3D_Type);
-                slaveRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), String.valueOf(radiusMm));
-                slaveRoi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
-                slaveRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
-                slaveRoi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
-                slaveRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), "true");
-
-                CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-                if (cg != null) {
-                    cg.addRoi(slaveRoi);
-                    sg.repaintCanvasGlass();
-                }
+            CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+            if (cg != null) {
+                cg.addRoi(slaveRoi);
+                sg.repaintCanvasGlass();
             }
         }
         
