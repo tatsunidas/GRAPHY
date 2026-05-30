@@ -4837,6 +4837,74 @@ public class Praparat extends JPanel {
 			updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX, this.fusionOffsetY);
 		}
 	}
+	
+	/**
+	 * 現在のPraparatの断面の向き（AXIAL, SAGITTAL, CORONAL等）を取得します。
+	 */
+	public com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface getCutSurface() {
+		SlideGlass sg = getCurrentSlide();
+		if (sg == null) return com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN;
+		return com.vis.core.view.D2.ui.orientation.ImageOrientation.getCutSurface(sg.getHeader());
+	}
+
+	/**
+	 * 指定されたIPP(物理座標)に最も近いスライスを探し、5mm以内であれば同期移動します。
+	 * マルチチャンネル・マルチフレーム環境下でも現在のC, Tを維持してZ方向のみを検索します。
+	 */
+	public void syncSliceToIPP(org.joml.Vector3d sourceIPP, com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface sourceSurface, double toleranceMm) {
+		if (nSlices <= 1 || sourceIPP == null || sourceSurface == null) return;
+		if (sourceSurface == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN) return;
+
+		// 1. 断面（CutSurface）が異なる場合は同期しない
+		if (getCutSurface() != sourceSurface) return;
+
+		// 2. 自身のスライス平面の法線ベクトル(Normal)を取得
+		SlideGlass currentSg = getCurrentSlide();
+		if (currentSg == null) return;
+		int frameIdx = isMultiFrame() ? (currentSg.getHeader().getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1) : 0;
+		double[] iop = getSafeIOP(currentSg.getHeader(), frameIdx);
+		if (iop == null || iop.length != 6) return;
+
+		org.joml.Vector3d row = new org.joml.Vector3d(iop[0], iop[1], iop[2]);
+		org.joml.Vector3d col = new org.joml.Vector3d(iop[3], iop[4], iop[5]);
+		org.joml.Vector3d normal = new org.joml.Vector3d();
+		row.cross(col, normal).normalize(); // 法線ベクトルを計算
+
+		// 3. 自身の全スライス(Z)の中から、最も物理距離が近いものを探す
+		int bestZ = -1;
+		double minDistance = Double.MAX_VALUE;
+
+		for (int z = 0; z < nSlices; z++) {
+			// ★マルチチャンネル対応: ターゲット側の現在のChannel(C)とTime(T)を固定してZだけを走査する
+			int index = calcZctIndex(new int[]{z, currentC, currentT});
+			SlideGlass sg = slides.get(index);
+			if (sg == null) continue;
+
+			int fIdx = isMultiFrame() ? (sg.getHeader().getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1) : 0;
+			double[] ipp = getSafeIPP(sg.getHeader(), fIdx);
+			if (ipp == null || ipp.length != 3) continue;
+
+			org.joml.Vector3d myIPP = new org.joml.Vector3d(ipp[0], ipp[1], ipp[2]);
+
+			// ★重要: 単純な3D直線距離ではなく、法線ベクトルへの投影距離(内積)を求める
+			// これにより、FOVのXYズレを無視して「スライス平面同士の垂直距離」だけを正確に測れます
+			org.joml.Vector3d diff = new org.joml.Vector3d(sourceIPP).sub(myIPP);
+			double dist = Math.abs(diff.dot(normal));
+
+			if (dist < minDistance) {
+				minDistance = dist;
+				bestZ = z;
+			}
+		}
+
+		// 4. 最も近いスライスが許容誤差（toleranceMm = 5.0mmなど）以内なら移動する
+		if (bestZ != -1 && minDistance <= toleranceMm) {
+			// スライダーを通じて移動を指示（これで画像ロード処理等も発火します）
+			if (slider != null && slider.getValue() != (bestZ + 1)) {
+				slider.setPosition(bestZ);
+			}
+		}
+	}
 
 	@Override
 	public boolean equals(Object pp) {

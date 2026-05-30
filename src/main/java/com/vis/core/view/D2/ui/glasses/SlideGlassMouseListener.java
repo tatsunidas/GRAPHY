@@ -78,6 +78,7 @@ import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Modality;
+import com.vis.dicom.Tag;
 
 /**
  * @author tatsunidas
@@ -134,35 +135,65 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
         int rotation = e.getWheelRotation();
         int mod = e.getModifiersEx();
         
-        // ページング (修飾キーなし、またはC, Tキーとの組み合わせ)
-        if ((mod & (InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK | InputEvent.ALT_DOWN_MASK)) == 0) {
-            if (!pp.isShowGridViewOn()) {
-                int step = (rotation < 0) ? -1 : 1;
-                
-                // SlideGlassKeyListener の static メソッドを使用して判定
-                String targetDim = "Slice";
-                if (SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_C)) targetDim = "Channel";
-                else if (SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_T)) targetDim = "Time";
-                
-                ArrayList<Praparat> syncingPraps = (prapManager != null) ? prapManager.getSelectingPraparats() : null;
-				
-				// ★ 修正：選択されているPraparatが複数ある場合のみ同期スクロールさせる
-				if (syncingPraps != null && syncingPraps.size() > 1) {
-					for (Praparat p : syncingPraps) {
-						p.stepDimension(targetDim, step);
+		// ページング (修飾キーなし、またはC, Tキーとの組み合わせ)
+		if ((mod & (InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK | InputEvent.ALT_DOWN_MASK)) == 0) {
+			if (!pp.isShowGridViewOn()) {
+				int step = (rotation < 0) ? -1 : 1;
+
+				// SlideGlassKeyListener の static メソッドを使用して判定
+				String targetDim = "Slice";
+				if (SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_C))
+					targetDim = "Channel";
+				else if (SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_T))
+					targetDim = "Time";
+
+				ArrayList<Praparat> syncingPraps = (prapManager != null) ? prapManager.getSelectingPraparats() : null;
+
+				// ★ 修正：自身が「選択状態」であり、かつ複数のPraparatが選択されている場合は同期モード
+				if (syncingPraps != null && syncingPraps.size() > 1 && pp.isSelected()) {
+					// 1. まず操作されたソース自身を移動させる
+					pp.stepDimension(targetDim, step);
+
+					// 2. 移動ディメンションが "Slice(Z)" の場合のみ、物理座標(IPP)同期を行う
+					if ("Slice".equals(targetDim)) {
+						SlideGlass newSg = pp.getCurrentSlide();
+						if (newSg != null) {
+							int fIdx = pp.isMultiFrame() ? (newSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+							double[] ippArray = pp.getSafeIPP(newSg.getHeader(), fIdx);
+
+							if (ippArray != null) {
+								org.joml.Vector3d sourceIPP = new org.joml.Vector3d(ippArray[0], ippArray[1],
+										ippArray[2]);
+								com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface sourceSurface = pp.getCutSurface();
+
+								// 他の選択済みPraparatに新しいIPPを送信し、5mmの許容範囲で同期させる
+								for (Praparat targetPrap : syncingPraps) {
+									if (targetPrap != pp) {
+										targetPrap.syncSliceToIPP(sourceIPP, sourceSurface, 5.0);
+									}
+								}
+							}
+						}
+					} else {
+						// Channel や Time の場合は単純にインデックスを同調させる
+						for (Praparat targetPrap : syncingPraps) {
+							if (targetPrap != pp) {
+								targetPrap.stepDimension(targetDim, step);
+							}
+						}
 					}
 				} else {
-					// 1つしか選択されていない、または未選択の場合は、マウスカーソルが乗っているPraparat単体を動かす
+					// 1つしか選択されていない、または未選択のPraparat上での操作は単独移動
 					if (pp.getViewMode() != ViewMode.FilmGrid) {
 						pp.stepDimension(targetDim, step);
 					}
 				}
-                e.consume();
-            } else {
-                // FilmGrid時は親のスクロールへ
-                dispatchToGrid(e);
-            }
-            
+				e.consume();
+			} else {
+				// FilmGrid時は親のスクロールへ
+				dispatchToGrid(e);
+			}
+
         // Rotate (Ctrl + Wheel)
         } else if ((mod & InputEvent.CTRL_DOWN_MASK) != 0) {
             handleRotate(e,rotation);
