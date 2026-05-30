@@ -59,7 +59,6 @@ import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.JLayeredPane;
-import javax.swing.border.Border;
 
 import org.joml.Vector3d;
 
@@ -102,13 +101,13 @@ public class SlideGlass extends JLayeredPane {
 	public final static int ROI_CANVAS_LAYER = JLayeredPane.PALETTE_LAYER;
 	public final static int TEXT_LAYER = JLayeredPane.MODAL_LAYER;
 	public final static int EVENT_LAYER = JLayeredPane.DRAG_LAYER;
-	
+
 	private static final String UNIT_MM = "mm";
 	private static final String UNIT_HU = "HU";
 	private static final String UNIT_GRAY = "Gray Value";
 
 	private Praparat pp;// series viewer
-	private DicomObject header;//from dicom image
+	private DicomObject header;// from dicom image
 	private DicomImage dcmImg;
 
 	// glasses
@@ -116,8 +115,8 @@ public class SlideGlass extends JLayeredPane {
 	private TextOverlayGlass textOverlay;
 	private CanvasGlass roiOverlay;
 	private EventGlass coverGlass;/* KeyListener */
-	
-	//transform
+
+	// transform
 	AffineTransform currentTransform;
 
 	// flags
@@ -126,13 +125,15 @@ public class SlideGlass extends JLayeredPane {
 	public boolean panningFlag = false;
 	public boolean rotatedFlag = false, flipHorizontalFlag = false, flipVerticalFlag = false, zoomFlag = false;
 	private boolean invertFlag = false;
+	private boolean isHovered = false;
+
 	boolean windowing = false;// WW/WL changed
 	private boolean showAnnotation = true;
 	private boolean showText = true;
 	boolean isPDF = false;
 	boolean isGrayscale = false;
 	boolean isRGB = false;
-	
+
 	final boolean isBiped;
 	final double[] display_iop = new double[6];
 
@@ -141,15 +142,14 @@ public class SlideGlass extends JLayeredPane {
 	protected double currentMax = 255;// current window contrast max
 	protected double lastMin = -1;
 	protected double lastMax = -1;
-	double startChangeContrastWW = -1;//mousePressed
-	double startChangeContrastWL = -1;//mousePressed
+	double startChangeContrastWW = -1;// mousePressed
+	double startChangeContrastWL = -1;// mousePressed
 	// rotate
 	public int currentRotateAngle = 0;
 	public int lastRotateAngle = 0;
-	
+
 	/**
-	 * Size of fit to component is 1.0(100%).
-	 * No original size.
+	 * Size of fit to component is 1.0(100%). No original size.
 	 */
 	private double magnification = 1.0d;// zoom ratio 1 to N
 
@@ -159,29 +159,30 @@ public class SlideGlass extends JLayeredPane {
 	 * coordinate system of the original image, but the coordinates on the
 	 * SlideGlass fitted to the current ViewPanel.
 	 */
-	public int lastDraggedX = 0;//on slide
-	public int lastDraggedY = 0;//on slide
-	
+	public int lastDraggedX = 0;// on slide
+	public int lastDraggedY = 0;// on slide
+
 	public int mouseX = 0;// current mouse loc on slideglass
 	public int mouseY = 0;// current mouse loc on slideglass
-	
-	public int lastPressedX = 0;//SlideGlass coordinate
-	public int lastPressedY = 0;//SlideGlass coordinate
-	
+
+	public int lastPressedX = 0;// SlideGlass coordinate
+	public int lastPressedY = 0;// SlideGlass coordinate
+
 	LUT currentLUT;// null-able, if null set grayscale
 
 	/**
 	 * Ratio of display dimension (display zone on ViewPanel without zoom&pann) to
-	 * original image size. 
+	 * original image size.
 	 * 
-	 * The imageSpecimen.calcImageSize2FitComponent() method makes scaleX and scaleY have the same value.
+	 * The imageSpecimen.calcImageSize2FitComponent() method makes scaleX and scaleY
+	 * have the same value.
 	 * 
 	 * scaleX = display dimension width (no zoom & pann) /original image width.
 	 * scaleY = display dimension height (no zoom & pann) /original image height.
 	 */
 	private double scaleX = 1.0d; // (fit to comp size)/(original)
 	private double scaleY = 1.0d; // (fit to comp size)/(original)
-	
+
 	/*
 	 * SUV calibration factor
 	 */
@@ -191,16 +192,16 @@ public class SlideGlass extends JLayeredPane {
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	ImageProcessing imgProcess = new ImageProcessing();
 	Logger logger = Log.logger;
-	
+
 	// ★ 変更：RoiObjのまま保存せず、DB保存用の「HashMap（値の集合）」に変換してスタックに積む！
 	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> undoStack = new java.util.ArrayDeque<>();
 	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> redoStack = new java.util.ArrayDeque<>();
 	private static final int MAX_UNDO_LIMIT = 20; // upper size of snapshots
 	private boolean isRestoring = false;
-	
-	//fusion ghost start timer
+
+	// fusion ghost start timer
 	private int ghostProgressAngle = 0; // 0 〜 360
-    private java.awt.Point ghostProgressLocation = null;
+	private java.awt.Point ghostProgressLocation = null;
 
 	public SlideGlass(Praparat pp, DicomImage dcmImg/* single frame */) {
 		if (pp == null || dcmImg == null) {
@@ -213,22 +214,23 @@ public class SlideGlass extends JLayeredPane {
 
 	/**
 	 * Add roi and save DB to update it
+	 * 
 	 * @param roi
 	 */
 	public void addRoi(RoiObj roi) {
 //		roi.setSlideGlass(this);//DO NOT set here. Should set before this.
 		roiOverlay.addRoi(roi);
 	}
-	
+
 	/**
-	 * DBからのロード専用のROI追加メソッドです。
-	 * 保存は行わない。
+	 * DBからのロード専用のROI追加メソッドです。 保存は行わない。
 	 */
 	public void addRoiFromDB(RoiObj roi) {
-	    if (imageSpecimen == null) return; // 空きマスガード
-	    roiOverlay.addRoiFromDB(roi);
+		if (imageSpecimen == null)
+			return; // 空きマスガード
+		roiOverlay.addRoiFromDB(roi);
 	}
-	
+
 	void adjustContrastFromMouseAction(int dragX, int dragY) {
 		// 1. 開始位置からの「総移動距離」を計算
 		int xDiff = dragX - lastPressedX;
@@ -237,20 +239,21 @@ public class SlideGlass extends JLayeredPane {
 		// 2. 画面サイズに対する移動割合
 		int totalWidth = getWidth();
 		int totalHeight = getHeight();
-		
+
 		// ゼロ除算対策
-		if (totalWidth == 0 || totalHeight == 0) return;
+		if (totalWidth == 0 || totalHeight == 0)
+			return;
 
 		// 感度調整。もし動きが遅いと感じたら 2.0 などに上げてください
-		double sensitivity = 1.0; 
-		
+		double sensitivity = 1.0;
+
 		// ドラッグ中に変動する値ではなく、クリック時の固定されたWindow幅を基準にする
 		double dynamicRange = startChangeContrastWW;
-		
+
 		// 安全対策：もし何らかの理由で初期Window幅が狭すぎる（または0以下）場合は、
 		// マウスが動かなくなるのを防ぐために最低限の倍率を保証する
 		if (dynamicRange < 1.0) {
-			dynamicRange = 256.0; 
+			dynamicRange = 256.0;
 		}
 
 		// 3. 移動量に応じた変化量を計算
@@ -265,7 +268,7 @@ public class SlideGlass extends JLayeredPane {
 		if (newWindow < 1.0) {
 			newWindow = 1.0;
 		}
-		
+
 		// 5. 適用
 		changeWindowingByWWWL(newLevel, newWindow);
 	}
@@ -278,15 +281,15 @@ public class SlideGlass extends JLayeredPane {
 		if (org == null) {
 			return;
 		}
-		synchronized(org) {
+		synchronized (org) {
 			ImageProcessor ip = org.getProcessor();
-			if(ip == null) {
+			if (ip == null) {
 				return;
 			}
 			if (isRGB()) {
 				ip.reset();
 			}
-			lastMin = currentMin; 
+			lastMin = currentMin;
 			lastMax = currentMax;
 			new ContrastEnhancer().stretchHistogram(ip, 0.5);
 			this.currentMin = ip.getMin();// DO NOT USE getMinThreshold()
@@ -304,22 +307,25 @@ public class SlideGlass extends JLayeredPane {
 		double newMin = WL - (.5 * WW);
 		double newMax = WL + (.5 * WW);
 		if (newMin >= newMax) {
-			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than or equals max; min " + newMin + " max " + newMax);
+			logger.log(Level.WARNING,
+					"SlideGlass::changeWindow() problem occured: min value larger than or equals max; min " + newMin
+							+ " max " + newMax);
 			return;
 		}
 		changeWindowingByMinMax(newMin, newMax);
 	}
-	
+
 	void changeWindowingByMinMax(double newMin, double newMax) {
 		if (newMin > newMax) {
-			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than max; min " + newMin + " max " + newMax);
+			logger.log(Level.WARNING, "SlideGlass::changeWindow() problem occured: min value larger than max; min "
+					+ newMin + " max " + newMax);
 			return;
 		}
 		lastMin = currentMin;
-		lastMax = currentMax; 
+		lastMax = currentMax;
 		currentMin = newMin;
 		currentMax = newMax;
-		//logger.fine("change ww/wl : newMin " + newMin + " newMax " + newMax);
+		// logger.fine("change ww/wl : newMin " + newMin + " newMax " + newMax);
 		imageSpecimen.updateDisplayImage();
 	}
 
@@ -343,22 +349,23 @@ public class SlideGlass extends JLayeredPane {
 	public ImagePlus convertToImagePlus() {
 		return GDicomTools.dcmImgToImagePlus(getDicomImage(), getOriginalCalibration());
 	}
-	
+
 	/**
-     * 【重要】元のピクセル値（またはRescaleされた値）をSUV値に変換するヘルパーメソッド
-     * @param originalValue DICOMの生のピクセル値、またはRescale Slope/Intercept適用後の値
-     * @return 変換後のSUV値
-     */
-    public double convertToSUV(double originalValue) {
-        if (this.suvFactor <= 0.0) {
-            return originalValue; // 校正されていない場合はそのまま返す
-        }
-        
-        // DICOM規格およびPetCtViewerのロジックに基づく変換
-        // 通常、originalValue が既に「Bq/ml (放射能濃度)」にRescaleされている場合：
-        // SUV = 放射能濃度 / suvFactor
-        return originalValue / this.suvFactor;
-    }
+	 * 【重要】元のピクセル値（またはRescaleされた値）をSUV値に変換するヘルパーメソッド
+	 * 
+	 * @param originalValue DICOMの生のピクセル値、またはRescale Slope/Intercept適用後の値
+	 * @return 変換後のSUV値
+	 */
+	public double convertToSUV(double originalValue) {
+		if (this.suvFactor <= 0.0) {
+			return originalValue; // 校正されていない場合はそのまま返す
+		}
+
+		// DICOM規格およびPetCtViewerのロジックに基づく変換
+		// 通常、originalValue が既に「Bq/ml (放射能濃度)」にRescaleされている場合：
+		// SUV = 放射能濃度 / suvFactor
+		return originalValue / this.suvFactor;
+	}
 
 	public ImagePlus cropRect() {
 		RoiObj roi = roiOverlay.findCurrentRoi();
@@ -417,13 +424,13 @@ public class SlideGlass extends JLayeredPane {
 		}
 		imageSpecimen.updateDisplayImage();
 		updateOrientation();
-		repaint();//update image specimen
+		repaint();// update image specimen
 	}
 
 	public RoiObj getActiveRoi() {
 		return roiOverlay.getActiveRoi();
 	}
-	
+
 	/*
 	 * mouse position on slide glass XY location
 	 */
@@ -431,9 +438,9 @@ public class SlideGlass extends JLayeredPane {
 		Point pointOnViewPanel = new Point(mouseX, mouseY);
 		return pointOnViewPanel;
 	}
-	
+
 	public double[] getCurrentWindowMinMax() {
-		return new double[] {currentMin, currentMax};
+		return new double[] { currentMin, currentMax };
 	}
 
 	public DicomImage getDicomImage() {
@@ -443,7 +450,7 @@ public class SlideGlass extends JLayeredPane {
 	public Dimension getDisplayImageDimension() {
 		double zoomFactor = getMagnification();
 		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
-		return new Dimension((int)(defaultDim.width*zoomFactor), (int)(defaultDim.height*zoomFactor));
+		return new Dimension((int) (defaultDim.width * zoomFactor), (int) (defaultDim.height * zoomFactor));
 	}
 
 	/*
@@ -455,21 +462,21 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public double getPixelSpacingX() {
-		if(getOriginalCalibration() == null) {
+		if (getOriginalCalibration() == null) {
 			return 1.;
 		}
 		return getOriginalCalibration().pixelWidth;
 	}
 
 	public double getPixelSpacingY() {
-		if(getOriginalCalibration() == null) {
+		if (getOriginalCalibration() == null) {
 			return 1.;
 		}
 		return getOriginalCalibration().pixelHeight;
 	}
 
 	public double getPixelSpacingZ() {
-		if(getOriginalCalibration() == null) {
+		if (getOriginalCalibration() == null) {
 			return 1.;
 		}
 		return getOriginalCalibration().pixelDepth;
@@ -506,9 +513,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public Calibration getOriginalCalibration() {
-		if(getOriginalImage() !=null) {
+		if (getOriginalImage() != null) {
 			return getOriginalImage().getCalibration();
-		}else {
+		} else {
 			return imageSpecimen.getOriginalCalibration();
 		}
 	}
@@ -516,7 +523,7 @@ public class SlideGlass extends JLayeredPane {
 	public ImagePlus getOriginalImage() {
 		return this.imageSpecimen.getOriginalImage();
 	}
-	
+
 	/**
 	 * 
 	 * @return 8 bit or rgb buffered image.
@@ -528,7 +535,7 @@ public class SlideGlass extends JLayeredPane {
 	public Dimension getOriginalImageSize() {
 		int w = header.getInt(Tag.Columns, 0);
 		int h = header.getInt(Tag.Rows, 0);
-		return new Dimension(w,h);
+		return new Dimension(w, h);
 	}
 
 	public double getOriginalPixelSpacingX() {
@@ -548,39 +555,39 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public String getPixelSpacingUnit() {
-		if(getOriginalCalibration() == null) {
+		if (getOriginalCalibration() == null) {
 			return UNIT_GRAY;
 		}
 		return getOriginalCalibration().getUnit();
 	}
-	
+
 	public Object[] getPixelValueFromOriginal(int orgImageX, int orgImageY) {
-		if(orgImageX < 0 || orgImageX > imageSpecimen.orgCols-1) {
+		if (orgImageX < 0 || orgImageX > imageSpecimen.orgCols - 1) {
 			return null;
 		}
-		if(orgImageY < 0 || orgImageY > imageSpecimen.orgRows-1) {
+		if (orgImageY < 0 || orgImageY > imageSpecimen.orgRows - 1) {
 			return null;
 		}
-		
+
 		ImagePlus org = getOriginalImage();
-		
-		if(org == null) {
+
+		if (org == null) {
 			return null;
 		}
-		
-		synchronized(org) {
+
+		synchronized (org) {
 			if (!isRGB()) {
 //				System.out.println(Arrays.toString(org.getCalibration().getCoefficients()));
 				double pix_raw = org.getProcessor().get(orgImageX, orgImageY);
 				double pix_cal = org.getProcessor().getPixelValue(orgImageX, orgImageY);
 				if (dcmImg.getBitsAllocated() == 32) {
-					pix_raw = Float.intBitsToFloat((int)pix_raw);
+					pix_raw = Float.intBitsToFloat((int) pix_raw);
 				}
 				return new Double[] { pix_raw, pix_cal };
 			} else {
 				ColorProcessor cp = (ColorProcessor) org.getProcessor();
 				int[] rgb = cp.getPixel(orgImageX, orgImageY, null);
-				return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2])};
+				return new String[] { String.valueOf(rgb[0]), String.valueOf(rgb[1]), String.valueOf(rgb[2]) };
 			}
 		}
 	}
@@ -591,6 +598,7 @@ public class SlideGlass extends JLayeredPane {
 
 	/**
 	 * If MPR viewtype with RESLICE mode, return ReferenceLine.
+	 * 
 	 * @return
 	 */
 	public ReferenceLineMPR getReferenceLineMPR() {
@@ -654,7 +662,7 @@ public class SlideGlass extends JLayeredPane {
 	public String getUID(int tag) {
 		return header != null ? header.getString(tag) : null;
 	}
-	
+
 	public String[] getUIDs() {
 		String[] uids = new String[4];
 		uids[0] = header != null ? header.getString(Tag.Patient​ID, "NO_PatientID") : null;
@@ -663,31 +671,31 @@ public class SlideGlass extends JLayeredPane {
 		uids[3] = header != null ? header.getString(Tag.SOP​Instance​UID, "NO_SOPInstanceUID") : null;
 		return uids;
 	}
-	
-	public String getStudyDate() {
-	    String rawDate = (header != null) ? header.getString(Tag.Study​Date) : null;
-	    // 値が取得できない、またはDICOM標準の8桁に満たない場合のガード
-	    if (rawDate == null || rawDate.length() < 8) {
-	        return "0000/00/00"; // または "NO_DATE" など
-	    }
-	    try {
-	        // DICOM形式 (yyyyMMdd) を LocalDate にパース
-	        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-	        LocalDate date = LocalDate.parse(rawDate.substring(0, 8), inputFormatter);
 
-	        // yyyy/MM/dd 形式に変換
-	        return date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-	    } catch (Exception e) {
-	        // パースエラー（不正な日付文字列など）の場合
-	        return "0000/00/00";
-	    }
+	public String getStudyDate() {
+		String rawDate = (header != null) ? header.getString(Tag.Study​Date) : null;
+		// 値が取得できない、またはDICOM標準の8桁に満たない場合のガード
+		if (rawDate == null || rawDate.length() < 8) {
+			return "0000/00/00"; // または "NO_DATE" など
+		}
+		try {
+			// DICOM形式 (yyyyMMdd) を LocalDate にパース
+			DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+			LocalDate date = LocalDate.parse(rawDate.substring(0, 8), inputFormatter);
+
+			// yyyy/MM/dd 形式に変換
+			return date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+		} catch (Exception e) {
+			// パースエラー（不正な日付文字列など）の場合
+			return "0000/00/00";
+		}
 	}
-	
+
 	public void initComponents(Praparat pp, DicomImage dcmImg/* single frame */) {
 		this.pp = pp;
 		this.dcmImg = dcmImg;
 		this.header = dcmImg.getHeader();
-		setBorder(BorderMaker.make(this, false));
+		this.showBorder();// and build border
 		setOpaque(false);
 		setUpGlassLayer(header);
 		initCalibrationAndLUT(header);
@@ -700,7 +708,7 @@ public class SlideGlass extends JLayeredPane {
 		// this update is call from praparat
 //		imageSpecimen.updateDisplayImage();
 	}
-	
+
 	public void initCalibrationAndLUT() {
 		initCalibrationAndLUT(header);
 	}
@@ -711,28 +719,28 @@ public class SlideGlass extends JLayeredPane {
 	 * @param header
 	 */
 	private void initCalibrationAndLUT(DicomObject header) {
-		
+
 		Calibration originalCal = new Calibration();
-		
-		if(currentLUT == null && !isRGB){
+
+		if (currentLUT == null && !isRGB) {
 			setLUT(extractDisplayLUT(header));
-		}		
-		
+		}
+
 		setupSpatialCalibration(originalCal, header);
-		if(!isRGB) {
+		if (!isRGB) {
 			setupDensityCalibration(originalCal, header);
 		}
-		
+
 		setOriginalCalibration(originalCal);
 		// adjust WW/WL
 		if (this.currentMin != 0 && this.currentMax != 255 && !isRGB) {
 			changeWindowingByMinMax(currentMin, currentMax);
-		}else {
-			//here, do nothing. delegate global auto contrast.
+		} else {
+			// here, do nothing. delegate global auto contrast.
 //			autoWindowing();
 		}
 	}
-	
+
 	private LUT extractDisplayLUT(DicomObject header) {
 		// Red, Green, Blue の Descriptor を取得 [エントリー数, 最初のエントリー値, ビット数]
 		int[] rDesc = header.getInts(Tag.Red​Palette​Color​Lookup​Table​Descriptor);
@@ -779,28 +787,26 @@ public class SlideGlass extends JLayeredPane {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * ピクセル間隔（Pixel Spacing / Voxel Depth）を設定します。
 	 */
 	private void setupSpatialCalibration(Calibration cal, DicomObject header) {
-	    double[] spacing = header.getDoubles(Tag.Pixel​Spacing);
-	    if (spacing != null && spacing.length >= 2) {
-	        // DICOM: [0]=Row Spacing(Y), [1]=Column Spacing(X)
-	        cal.pixelWidth = spacing[1];
-	        cal.pixelHeight = spacing[0];
-	        cal.setUnit(UNIT_MM);
-	    } else {
-	        cal.pixelWidth = 1.0;
-	        cal.pixelHeight = 1.0;
-	    }
-	    cal.pixelDepth = GDicomTools.getVoxelDepth(header);
+		double[] spacing = header.getDoubles(Tag.Pixel​Spacing);
+		if (spacing != null && spacing.length >= 2) {
+			// DICOM: [0]=Row Spacing(Y), [1]=Column Spacing(X)
+			cal.pixelWidth = spacing[1];
+			cal.pixelHeight = spacing[0];
+			cal.setUnit(UNIT_MM);
+		} else {
+			cal.pixelWidth = 1.0;
+			cal.pixelHeight = 1.0;
+		}
+		cal.pixelDepth = GDicomTools.getVoxelDepth(header);
 	}
-	
-	
+
 	/**
-	 * Rescale Slope/Intercept
-	 * ImageJのShortProcessorは符号なし(0-65535)としてデータを扱う.
+	 * Rescale Slope/Intercept ImageJのShortProcessorは符号なし(0-65535)としてデータを扱う.
 	 */
 	private void setupDensityCalibration(Calibration cal, DicomObject header) {
 
@@ -835,8 +841,8 @@ public class SlideGlass extends JLayeredPane {
 					double[] coeff = { intercept - (32768.0 * slope), slope };
 					cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
 				} else {
-					//intercept=-32768
-					//slope=1
+					// intercept=-32768
+					// slope=1
 					cal.setSigned16BitCalibration();
 				}
 			}
@@ -845,7 +851,7 @@ public class SlideGlass extends JLayeredPane {
 			double[] coeff = { intercept, slope };
 			cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
 		}
-		
+
 		// ==========================================================
 		// ★ 追加：キャッシュからのリアライズ時、すでにSUV校正済みなら再適用する
 		// ==========================================================
@@ -865,7 +871,7 @@ public class SlideGlass extends JLayeredPane {
 		if (pp == null || pp.getViewMode() == ViewMode.Thumbnail) {
 			return;
 		}
-		if(imageSpecimen == null) {
+		if (imageSpecimen == null) {
 			return;
 		}
 		pp.setAndShowPixelValue(this, 0, 0);
@@ -955,11 +961,11 @@ public class SlideGlass extends JLayeredPane {
 	public void loadRoiFromDB() {
 		roiOverlay.loadRoiFromDB();
 	}
-	
+
 	AffineTransform calculateCurrentAffineTransform() {
 		double scaleToFit = getScaleFactor()[0]; // 画面に合わせる初期縮小率
-		double zoomFactor = getMagnification();  // ユーザーのズーム倍率 (1.0 = 100%)
-		
+		double zoomFactor = getMagnification(); // ユーザーのズーム倍率 (1.0 = 100%)
+
 		// 総合倍率
 		double s = scaleToFit * zoomFactor;
 		double sx = flipHorizontalFlag ? -s : s;
@@ -981,7 +987,7 @@ public class SlideGlass extends JLayeredPane {
 		currentTransform = new AffineTransform();
 
 		// 【重要：行列の組み立て順序（逆順に適用されます）】
-		
+
 		// Step 4: 画面上の回転・拡大中心軸（visualCenter）へ持っていく
 		currentTransform.translate(visualCenterX, visualCenterY);
 
@@ -998,18 +1004,19 @@ public class SlideGlass extends JLayeredPane {
 
 		return currentTransform;
 	}
-	
+
 	/**
 	 * Calculate current transform and update it.
+	 * 
 	 * @return
 	 */
 	public AffineTransform getCurrentTransform() {
-		if(currentTransform == null) {
+		if (currentTransform == null) {
 			return calculateCurrentAffineTransform();
 		}
 		return currentTransform;
 	}
-	
+
 	/**
 	 * 
 	 * @param glassX SlideGlassX (screenX)
@@ -1038,24 +1045,25 @@ public class SlideGlass extends JLayeredPane {
 			throw e;
 		}
 	}
-	
+
 	/**
 	 * Calculate slide glass coordinate in current condition.
+	 * 
 	 * @return
 	 */
 	public Point slideglassCoordinateFromOffScreen(double offScreenX, double offScreenY) {
-		
+
 		AffineTransform at = getCurrentTransform();
-		
+
 		// OffScreen origin
 		Point2D.Double offOrigin = new Point2D.Double(offScreenX, offScreenY);
 		// Display Image Coordinates
 		Point2D.Double newOrigin = new Point2D.Double();
 		at.transform(offOrigin, newOrigin);
-		
+
 		return new Point((int) Math.round(newOrigin.getX()), (int) Math.round(newOrigin.getY()));
 	}
-	
+
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
@@ -1073,7 +1081,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	/**
-	 * Panning is simply a movement of the display image origin position. 
+	 * Panning is simply a movement of the display image origin position.
 	 * 
 	 * @param moveX: screen coordinate
 	 * @param moveY: screen coordinate
@@ -1084,15 +1092,15 @@ public class SlideGlass extends JLayeredPane {
 		logger.fine("Panning : originX " + imageSpecimen.originX + " ," + " originY " + imageSpecimen.originY);
 		updatePanningState();
 	}
-	
+
 	public void repaintCanvasGlass() {
 		roiOverlay.repaint();
 	}
-	
+
 	public void repaintImageGlass() {
 		imageSpecimen.repaint();
 	}
-	
+
 	public void replaceRoi(HashMap<RoiDBKey, String> uids, RoiObj roiToReplace) {
 		String patID = uids.get(RoiDBKey.PatientID);
 		String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
@@ -1104,7 +1112,8 @@ public class SlideGlass extends JLayeredPane {
 
 	public void replaceRoi(String patID, String beReplacedStudyUID, String beReplacedSeriesUID, String beReplacedSopUID,
 			String beReplacedRoiId, RoiObj roiToReplace) {
-		roiOverlay.replaceRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId, roiToReplace);
+		roiOverlay.replaceRoi(patID, beReplacedStudyUID, beReplacedSeriesUID, beReplacedSopUID, beReplacedRoiId,
+				roiToReplace);
 	}
 
 	public void reset() {
@@ -1122,7 +1131,7 @@ public class SlideGlass extends JLayeredPane {
 		imageSpecimen.updateDisplayImage();
 		TextOverlayGlass tg = (TextOverlayGlass) getGlassAt(TEXT_LAYER);
 		tg.setInvertState(this.invertFlag);
-		repaint();//show rois
+		repaint();// show rois
 	}
 
 //	public void resetContrast() {
@@ -1170,9 +1179,9 @@ public class SlideGlass extends JLayeredPane {
 //		double rawMax = ((maxPhys - intercept) / slope) + offset;
 //		changeWindowingByMinMax(rawMin, rawMax);
 //	}
-	
+
 	/**
-	 * 12 bit対応バージョン 
+	 * 12 bit対応バージョン
 	 */
 	public void resetContrast() {
 		// 1. Window Center / Width の取得と有限性チェック
@@ -1189,8 +1198,7 @@ public class SlideGlass extends JLayeredPane {
 		}
 
 		/*
-		 * 2. 動的なオフセットの計算
-		 * BitsAllocated ではなく、実際にデータが格納されている BitsStored を基準にシフト量を計算します。
+		 * 2. 動的なオフセットの計算 BitsAllocated ではなく、実際にデータが格納されている BitsStored を基準にシフト量を計算します。
 		 * (ImageJの標準DICOMプラグインの符号なし化ロジックと完全に同期させます)
 		 */
 		double offset = 0;
@@ -1205,8 +1213,7 @@ public class SlideGlass extends JLayeredPane {
 		}
 
 		/*
-		 * 3. Rescale Slope/Intercept の考慮
-		 * DICOMのWL/WW（物理空間）から、ImageJ内部の生のピクセル値へと逆算します。
+		 * 3. Rescale Slope/Intercept の考慮 DICOMのWL/WW（物理空間）から、ImageJ内部の生のピクセル値へと逆算します。
 		 */
 		double slope = header.getDouble(Tag.Rescale​Slope, 1.0);
 		double intercept = header.getDouble(Tag.Rescale​Intercept, 0.0);
@@ -1221,7 +1228,7 @@ public class SlideGlass extends JLayeredPane {
 
 		// ★★★ 修正ポイント: ビット深度に応じた値の範囲内への安全クランピング ★★★
 		double maxPossibleValue = (double) ((1 << bitsAllocated) - 1); // 16bitなら65535.0、8bitなら255.0
-		
+
 		rawMin = Math.max(0.0, Math.min(maxPossibleValue, rawMin));
 		rawMax = Math.max(0.0, Math.min(maxPossibleValue, rawMax));
 
@@ -1236,7 +1243,7 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	void rotate(double changeAngle) {
-		if(changeAngle == 0) {
+		if (changeAngle == 0) {
 			return;
 		}
 		double willRotateAngle = getRotateAngle() + changeAngle;
@@ -1245,7 +1252,7 @@ public class SlideGlass extends JLayeredPane {
 		updatePrapInfoLabel(mouseX, mouseY);
 		updateOrientation();
 	}
-	
+
 	void updateOrientation() {
 
 		double rotateAngleInDegrees = getRotateAngle();
@@ -1253,34 +1260,32 @@ public class SlideGlass extends JLayeredPane {
 
 		Vector3d baseRow = ImageOrientation.getRowDirection(dcmImg.getHeader());
 		Vector3d baseCol = ImageOrientation.getColumnDirection(dcmImg.getHeader());
-		
-		//DX video
-		if(baseRow == null || baseCol == null) {
+
+		// DX video
+		if (baseRow == null || baseCol == null) {
 			return;
 		}
-		
+
 		if (baseRow.length() < 1e-6 || baseCol.length() < 1e-6) {
 			Log.logger.log(Level.WARNING, "ImagePositionPatient is NULL, cannot calculate Orientations.");
 			return;
 		}
-		
+
 		double flipX = flipHorizontalFlag ? -1.0 : 1.0;
-       double flipY = flipVerticalFlag ? -1.0 : 1.0;
-       
-       Vector3d workingRow = new Vector3d(baseRow).mul(flipX);
-       Vector3d workingCol = new Vector3d(baseCol).mul(flipY);
+		double flipY = flipVerticalFlag ? -1.0 : 1.0;
+
+		Vector3d workingRow = new Vector3d(baseRow).mul(flipX);
+		Vector3d workingCol = new Vector3d(baseCol).mul(flipY);
 
 		// 2. 回転計算 (線形結合)
 		double cos = Math.cos(thetaInRadians);
 		double sin = Math.sin(thetaInRadians);
-		
+
 		// NewRow = workingRow * cos - workingCol * sin
-		Vector3d newRow = new Vector3d(workingRow).mul(cos)
-                .sub(new Vector3d(workingCol).mul(sin));
+		Vector3d newRow = new Vector3d(workingRow).mul(cos).sub(new Vector3d(workingCol).mul(sin));
 
 		// NewCol = workingRow * sin + workingCol * cos
-		Vector3d newCol = new Vector3d(workingRow).mul(sin)
-		                .add(new Vector3d(workingCol).mul(cos));
+		Vector3d newCol = new Vector3d(workingRow).mul(sin).add(new Vector3d(workingCol).mul(cos));
 
 		// 3. 直交性と長さの正規化を保証する
 		PlanarSupport.normalizeAndOrthogonalize(newRow, newCol);
@@ -1300,7 +1305,7 @@ public class SlideGlass extends JLayeredPane {
 	public void saveCurrentRoiSate() {
 		roiOverlay.saveCurrentRoiSate();
 	}
-	
+
 	public void saveRoi(RoiObj roi) {
 		roiOverlay.insertOrUpdateRoi4DB(roi);
 	}
@@ -1316,25 +1321,13 @@ public class SlideGlass extends JLayeredPane {
 		}
 		repaint();
 	}
-	
+
 	public void setHorizontalFlipState(boolean flip) {
 		flipHorizontalFlag = flip;
 	}
-	
+
 	public void setVerticalFlipState(boolean flip) {
 		flipVerticalFlag = flip;
-	}
-
-	public void setFocusGained(boolean mouseEntered) {
-		if (mouseEntered) {
-			coverGlass.requestFocusInWindow();// enable key event
-		} else {
-			coverGlass.requestFocus(false);
-		}
-		if (pp.isShowGridViewOn()) {
-			pp.setImagePositionTo(this);
-		}
-		showBorder(mouseEntered);
 	}
 
 	/**
@@ -1355,10 +1348,9 @@ public class SlideGlass extends JLayeredPane {
 	public void setInvertState(boolean invert) {
 		invertFlag = invert;
 	}
-	
+
 	/**
-	 * Set/Replace to new ImagePlus.
-	 * Header is remaining.
+	 * Set/Replace to new ImagePlus. Header is remaining.
 	 */
 	public void setImage(ImagePlus imp) {
 		imageSpecimen.replaceImage(imp);
@@ -1366,22 +1358,22 @@ public class SlideGlass extends JLayeredPane {
 
 	public void setLUT(LUT lut) {
 		this.currentLUT = lut;
-		if(imageSpecimen != null) {
+		if (imageSpecimen != null) {
 			imageSpecimen.updateDisplayImage();
 		}
 	}
-	
+
 	public void setDisplayOrigin(Point p) {
-		if(imageSpecimen == null) {
+		if (imageSpecimen == null) {
 			return;
 		}
-		
+
 		// ======= ログ追加 =======
 //	    System.out.println("[DEBUG-ZOOM] setDisplayOrigin called. Input P: " + p + 
 //	                       " | Current Size: " + getWidth() + "x" + getHeight() + 
 //	                       " | Current panningFlag: " + this.panningFlag);
-	    // ======================
-		
+		// ======================
+
 		// ★ 修正1: コンポーネントがまだ画面に配置されておらずサイズが確定していない（先読み状態など）場合は、
 		// 異常な座標計算や panningFlag の誤汚染を防ぐため、単純に座標をセットするだけで処理を抜ける
 		if (getWidth() <= 0 || getHeight() <= 0) {
@@ -1400,16 +1392,16 @@ public class SlideGlass extends JLayeredPane {
 				p = new Point(0, 0);
 			}
 		}
-		
+
 		imageSpecimen.updateOrigin(p.x, p.y);
-		
+
 		// 1. 現在の倍率を取得
 		double mag = getMagnification();
-		
+
 		// 2. 倍率1.0（等倍）における本来のデフォルト中央位置を計算
 		Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
 		boolean isDefaultPosition = false;
-		
+
 		if (defaultDim != null) {
 			Point defaultOrigin = imageSpecimen.calcDefaultImageOrigin(defaultDim.width, defaultDim.height);
 			// 渡された位置がデフォルト位置と完全に一致するか判定
@@ -1417,7 +1409,7 @@ public class SlideGlass extends JLayeredPane {
 				isDefaultPosition = true;
 			}
 		}
-		
+
 		// 3. Zoomが1.0、かつ位置もデフォルト中央ならパン状態を解除
 		if (mag == 1.0 && isDefaultPosition) {
 			this.panningFlag = false;
@@ -1451,89 +1443,89 @@ public class SlideGlass extends JLayeredPane {
 			rotatedFlag = true;
 		}
 	}
-	
+
 	public void setAbsoluteRotate(double absoluteAngle) {
 		setRotateAngle((int) Math.round(absoluteAngle));
 		imageSpecimen.updateDisplayImage();
 		updatePrapInfoLabel(mouseX, mouseY);
 		updateOrientation();
 	}
-	
+
 	/**
-     * Praparatから伝搬されるSUV Factorを設定し、オリジナル画像のキャリブレーションを更新します。
-     */
-    public void setSUVFactor(double factor, String unit) {
-        this.suvFactor = factor;
-        this.suvUnit = unit;
-        Calibration cal = getOriginalCalibration();
-        Calibration cal2 = null;
-        if(cal != null) {
-        	cal2 = cal.copy();
-        }else {
-        	cal2 = new ij.measure.Calibration();
-        }
-        ImagePlus orgImg = getOriginalImage();
-        // オリジナル画像のキャリブレーション（傾き・切片）をSUV仕様に更新する
-        if (orgImg != null) {
-            synchronized (orgImg) {
-                if (factor > 0.0) {
-                    // 通常のDICOM Calibration: 物理値 = 生値 * Slope + Intercept
-                    // SUV Calibration: SUV値 = (生値 * Slope + Intercept) / suvFactor
-                    // つまり、Slope と Intercept をそれぞれ suvFactor で割ることで
-                    // getCValue() が自動的にSUV値を返すようになります。
-                    double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
-                    double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
-                    
-                    cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE, 
-                        new double[]{ currentIntercept / factor, currentSlope / factor }, suvUnit);
-                    // ==========================================================
-                    // ★ 追加: SUV化された瞬間に、PET画像の臨床標準コントラスト（例: SUV 0.0〜7.0）を強制適用する
-                    // ==========================================================
-                    double targetSuvMin = 0.0;
-                    double targetSuvMax = 7.0; // ※施設や医師の好みに合わせて 5.0 〜 10.0 に調整してください
+	 * Praparatから伝搬されるSUV Factorを設定し、オリジナル画像のキャリブレーションを更新します。
+	 */
+	public void setSUVFactor(double factor, String unit) {
+		this.suvFactor = factor;
+		this.suvUnit = unit;
+		Calibration cal = getOriginalCalibration();
+		Calibration cal2 = null;
+		if (cal != null) {
+			cal2 = cal.copy();
+		} else {
+			cal2 = new ij.measure.Calibration();
+		}
+		ImagePlus orgImg = getOriginalImage();
+		// オリジナル画像のキャリブレーション（傾き・切片）をSUV仕様に更新する
+		if (orgImg != null) {
+			synchronized (orgImg) {
+				if (factor > 0.0) {
+					// 通常のDICOM Calibration: 物理値 = 生値 * Slope + Intercept
+					// SUV Calibration: SUV値 = (生値 * Slope + Intercept) / suvFactor
+					// つまり、Slope と Intercept をそれぞれ suvFactor で割ることで
+					// getCValue() が自動的にSUV値を返すようになります。
+					double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
+					double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
 
-                    // SUV値を元の物理値（Bq/mL）に逆算
-                    double minPhys = targetSuvMin * factor;
-                    double maxPhys = targetSuvMax * factor;
+					cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE,
+							new double[] { currentIntercept / factor, currentSlope / factor }, suvUnit);
+					// ==========================================================
+					// ★ 追加: SUV化された瞬間に、PET画像の臨床標準コントラスト（例: SUV 0.0〜7.0）を強制適用する
+					// ==========================================================
+					double targetSuvMin = 0.0;
+					double targetSuvMax = 7.0; // ※施設や医師の好みに合わせて 5.0 〜 10.0 に調整してください
 
-                    // resetContrast() と同じロジックで、生のピクセル値へ逆算する
-                    double offset = 0;
-                    boolean isSigned = this.dcmImg.isSigned();
-                    int bitsAllocated = this.dcmImg.getBitsAllocated();
-                    int bitsStored = this.header.getInt(com.vis.dicom.Tag.BitsStored, bitsAllocated);
-                    
-                    if (isSigned) {
-                        offset = (double) (1 << (bitsStored - 1));
-                    }
+					// SUV値を元の物理値（Bq/mL）に逆算
+					double minPhys = targetSuvMin * factor;
+					double maxPhys = targetSuvMax * factor;
 
-                    double rawMin = ((minPhys - currentIntercept) / currentSlope) + offset;
-                    double rawMax = ((maxPhys - currentIntercept) / currentSlope) + offset;
+					// resetContrast() と同じロジックで、生のピクセル値へ逆算する
+					double offset = 0;
+					boolean isSigned = this.dcmImg.isSigned();
+					int bitsAllocated = this.dcmImg.getBitsAllocated();
+					int bitsStored = this.header.getInt(com.vis.dicom.Tag.BitsStored, bitsAllocated);
 
-                    // 範囲外にはみ出さないようクランプ
-                    double maxPossibleValue = (double) ((1 << bitsAllocated) - 1);
-                    rawMin = Math.max(0.0, Math.min(maxPossibleValue, rawMin));
-                    rawMax = Math.max(0.0, Math.min(maxPossibleValue, rawMax));
+					if (isSigned) {
+						offset = (double) (1 << (bitsStored - 1));
+					}
 
-                    // コントラストを適用
-                    changeWindowingByMinMax(rawMin, rawMax);
-                } else {
-                    // SUVが解除された、または未校正の場合は通常のDICOM設定に戻す
-                    double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
-                    double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
-                    cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE, 
-                        new double[]{ currentIntercept, currentSlope }, "Bq/mL");
-                }
-                setOriginalCalibration(cal2);
-            }
-        }
-        
-        // 表示更新フラグ等をトリガー
-        this.updateDisplayImage();
-    }
-	
+					double rawMin = ((minPhys - currentIntercept) / currentSlope) + offset;
+					double rawMax = ((maxPhys - currentIntercept) / currentSlope) + offset;
+
+					// 範囲外にはみ出さないようクランプ
+					double maxPossibleValue = (double) ((1 << bitsAllocated) - 1);
+					rawMin = Math.max(0.0, Math.min(maxPossibleValue, rawMin));
+					rawMax = Math.max(0.0, Math.min(maxPossibleValue, rawMax));
+
+					// コントラストを適用
+					changeWindowingByMinMax(rawMin, rawMax);
+				} else {
+					// SUVが解除された、または未校正の場合は通常のDICOM設定に戻す
+					double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);
+					double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
+					cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE,
+							new double[] { currentIntercept, currentSlope }, "Bq/mL");
+				}
+				setOriginalCalibration(cal2);
+			}
+		}
+
+		// 表示更新フラグ等をトリガー
+		this.updateDisplayImage();
+	}
+
 	public double getSUVFactor() {
-        return this.suvFactor;
-    }
+		return this.suvFactor;
+	}
 
 //	public RoiPopupDialog isHereRoiPopup(int slideX, int slideY) {
 //		Component[] comps = roiOverlay.getComponents();
@@ -1597,13 +1589,6 @@ public class SlideGlass extends JLayeredPane {
 		}
 	}
 
-	// list selection action
-	public void setSelectionState(boolean select) {
-		this.selectedFlag = select;
-		showBorder(true /* mouseEntered */);
-		repaint();
-	}
-
 	/**
 	 * set slideglass size and update image specimen
 	 */
@@ -1621,11 +1606,11 @@ public class SlideGlass extends JLayeredPane {
 		setGlassSize(textOverlay, compW, compH);
 		setGlassSize(roiOverlay, compW, compH);
 		setGlassSize(coverGlass, compW, compH);
-		
+
 		// 1. スケール（初期フィット縮小率）を更新
 		updateScale();
-		
-		if(!panningFlag) {
+
+		if (!panningFlag) {
 			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
 			if (defaultDim != null && defaultDim.width > 0 && defaultDim.height > 0) {
 				// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
@@ -1633,7 +1618,7 @@ public class SlideGlass extends JLayeredPane {
 				int defY = (compH - defaultDim.height) / 2;
 				imageSpecimen.updateOrigin(defX, defY);
 			}
-		}else {
+		} else {
 			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
 			// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
 			int defX = (compW - defaultDim.width) / 2;
@@ -1641,19 +1626,19 @@ public class SlideGlass extends JLayeredPane {
 			int sx = imageSpecimen.getDisplayOriginX();
 			int sy = imageSpecimen.getDisplayOriginY();
 			// 誤差レベルで中央に戻っていた場合はパンフラグを安全に落とす
-			if(defX == sx && defY == sy && Math.abs(getMagnification() - 1.0) < 1e-3) {
-			    panningFlag = false;
+			if (defX == sx && defY == sy && Math.abs(getMagnification() - 1.0) < 1e-3) {
+				panningFlag = false;
 			}
 		}
-		
+
 		// ======= ログ追加 =======
 //	    System.out.println("[DEBUG-ZOOM] setSize finished. Size: " + compW + "x" + compH + 
 //	                       " | panningFlag: " + panningFlag + 
 //	                       " | Final Origin: " + imageSpecimen.getDisplayOriginX() + "," + imageSpecimen.getDisplayOriginY());
-	    // ======================
-		
+		// ======================
+
 		initPrapInfoLabel();
-		
+
 		// 3. 描画更新
 		imageSpecimen.updateDisplayImage();
 		repaint();
@@ -1682,7 +1667,7 @@ public class SlideGlass extends JLayeredPane {
 		add(textOverlay, TEXT_LAYER, top_in_its_layers);
 		add(coverGlass, EVENT_LAYER, top_in_its_layers);
 	}
-	
+
 	/*
 	 * TODO
 	 */
@@ -1698,19 +1683,101 @@ public class SlideGlass extends JLayeredPane {
 	public void setWindowingState(boolean windowing) {
 		this.windowing = windowing;
 	}
-	
-	/**
-     * リスナーからアニメーションの進捗と座標を受け取り、再描画を要求します。
-     */
-    public void setGhostProgress(int angle, java.awt.Point location) {
-        this.ghostProgressAngle = angle;
-        this.ghostProgressLocation = location;
-        repaint(); // 値が更新されたら再描画
-    }
 
-	public void showBorder(boolean mouseEntered) {
-		Border b = BorderMaker.make(this, mouseEntered);
-		setBorder(b);
+	/**
+	 * リスナーからアニメーションの進捗と座標を受け取り、再描画を要求します。
+	 */
+	public void setGhostProgress(int angle, java.awt.Point location) {
+		this.ghostProgressAngle = angle;
+		this.ghostProgressLocation = location;
+		repaint(); // 値が更新されたら再描画
+	}
+
+	// ボーダー描画ロジックの改良版
+	public void showBorder() {
+		if (pp == null || coverGlass == null)
+			return;
+
+		// 1. 各種状態の取得
+		boolean processSeries = pp.isProcessSeries();
+		boolean praparatSelected = pp.isSelected();
+		boolean slideSelected = isSelected();
+		boolean focused = this.isHovered;
+
+		// カラーオブジェクトの初期化 (null の場合は透明Borderになります)
+		java.awt.Color outerColor = null;
+		java.awt.Color innerColor = null;
+
+		// 2. 新しい仕様に基づく条件分岐
+		if (processSeries) {
+			// --------------------------------------------------
+			// 【ケースA】processSeries = true の場合
+			// --------------------------------------------------
+			if (praparatSelected) {
+				outerColor = new java.awt.Color(148, 0, 211); // 外側：紫
+				innerColor = new java.awt.Color(255, 140, 0); // 内側：オレンジ
+			} else {
+				if (focused) {
+					innerColor = new java.awt.Color(0, 255, 255); // マウスホバー：シアン
+				}
+			}
+		} else {
+			// --------------------------------------------------
+			// 【ケースB】processSeries = false の場合
+			// --------------------------------------------------
+			if (slideSelected) {
+				// 自身が選択状態：紫とオレンジの二重ボーダー
+				outerColor = new java.awt.Color(148, 0, 211); // 外側：紫
+				innerColor = new java.awt.Color(255, 140, 0); // 内側：オレンジ
+			} else if (praparatSelected) {
+				// 自身は非選択だが、同じPraparat内に選択状態(true)のものが他にある：紫のみ
+				outerColor = new java.awt.Color(148, 0, 211); // 外側：紫
+				if (focused) {
+					innerColor = new java.awt.Color(0, 255, 255); // ホバー時は内側にシアン
+				}
+			} else {
+				// シリーズ内で誰も選択されていない場合
+				if (focused) {
+					innerColor = new java.awt.Color(0, 255, 255); // マウスホバー：シアン
+				}
+			}
+		}
+
+		// 3. ボーダーコンポーネントの生成 (色の指定がなければ 2px の透明余白にする)
+		javax.swing.border.Border outer = (outerColor != null)
+				? javax.swing.BorderFactory.createLineBorder(outerColor, 2)
+				: javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2);
+
+		javax.swing.border.Border inner = (innerColor != null)
+				? javax.swing.BorderFactory.createLineBorder(innerColor, 2)
+				: javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2);
+
+		// 最前面の透明ガラスに合体ボーダーをセット
+		coverGlass.setBorder(javax.swing.BorderFactory.createCompoundBorder(outer, inner));
+
+		// 下層画像が潜り込まないよう、SlideGlass自体に4pxの透明パディングを確保
+		setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 4, 4, 4));
+	}
+
+	// 2. マウスホバー/フォーカス状態の更新
+	public void setFocusGained(boolean mouseEntered) {
+		this.isHovered = mouseEntered; // ホバー状態を記憶
+		if (mouseEntered) {
+			coverGlass.requestFocusInWindow();// enable key event
+		} else {
+			coverGlass.requestFocus(false);
+		}
+		if (pp.isShowGridViewOn()) {
+			pp.setImagePositionTo(this);
+		}
+		showBorder(); // 再描画を指示
+	}
+
+	// 3. 選択状態の更新
+	public void setSelectionState(boolean select) {
+		this.selectedFlag = select;
+		showBorder(); // ハードコーディングを解除し、現在のホバー状態に従って再描画
+		repaint();
 	}
 
 	public void showRoiPopupOf(RoiObj roi) {
@@ -1787,7 +1854,7 @@ public class SlideGlass extends JLayeredPane {
 			}
 		}
 	}
-	
+
 	public void updateDisplayImage() {
 		imageSpecimen.updateDisplayImage();
 	}
@@ -1795,11 +1862,14 @@ public class SlideGlass extends JLayeredPane {
 	void zoom(double mag, boolean zoomUp) {
 		double currentMag = MathUtils.truncateToDecimalPlace(getMagnification(), 3);
 		mag = MathUtils.truncateToDecimalPlace(mag, 3);
-		if (currentMag == mag) return;
+		if (currentMag == mag)
+			return;
 
 		// 倍率の安全ガード
-		if (mag < 0.1) mag = 0.1;
-		else if (mag > 30.0) mag = 30.0;
+		if (mag < 0.1)
+			mag = 0.1;
+		else if (mag > 30.0)
+			mag = 30.0;
 
 		Dimension defaultDim = this.imageSpecimen.calcImageSize2FitComponent();
 		if (defaultDim != null) {
@@ -1822,7 +1892,7 @@ public class SlideGlass extends JLayeredPane {
 			// 新しい倍率における、中心点を維持するための新しい等倍原点（originX/Y）の逆算
 			double newVisualW = baseW * mag;
 			double newVisualH = baseH * mag;
-			
+
 			double newVisualX = centerX - (relX * newVisualW);
 			double newVisualY = centerY - (relY * newVisualH);
 
@@ -1844,14 +1914,14 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public void saveUndoState() {
 		Log.logger.fine("--- saveUndoState called ---");
-		
+
 		if (isRestoring) {
 			Log.logger.fine("--- saveUndoState called, is restoring is true, return ---");
-			return; 
+			return;
 		}
-		
+
 		java.util.List<java.util.HashMap<String, Object>> currentState = createSnapshot();
-		
+
 		Log.logger.fine("Current ROIs count to save: " + currentState.size());
 
 		if (!undoStack.isEmpty() && isSameState(undoStack.peek(), currentState)) {
@@ -1864,9 +1934,10 @@ public class SlideGlass extends JLayeredPane {
 			undoStack.removeLast();
 		}
 		redoStack.clear();
-		Log.logger.fine("Saved to undoStack. undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
+		Log.logger.fine(
+				"Saved to undoStack. undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
 	}
-	
+
 	private java.util.List<java.util.HashMap<String, Object>> createSnapshot() {
 		java.util.List<java.util.HashMap<String, Object>> snapshot = new java.util.ArrayList<>();
 		java.util.List<RoiObj> currentRois = getRois();
@@ -1874,23 +1945,30 @@ public class SlideGlass extends JLayeredPane {
 			for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
 				java.util.HashMap<String, Object> ctx = roi.readContext();
 				snapshot.add(ctx);
-				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.RoiDBKey.RoiID.name()) + " (Type: " + ctx.get(com.vis.configuration.RoiDBKey.RoiType.name()) + ")");
+				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.RoiDBKey.RoiID.name())
+						+ " (Type: " + ctx.get(com.vis.configuration.RoiDBKey.RoiType.name()) + ")");
 			}
 		}
 		return snapshot;
 	}
 
-	private boolean isSameState(java.util.List<java.util.HashMap<String, Object>> state1, java.util.List<java.util.HashMap<String, Object>> state2) {
-		if (state1.size() != state2.size()) return false;
+	private boolean isSameState(java.util.List<java.util.HashMap<String, Object>> state1,
+			java.util.List<java.util.HashMap<String, Object>> state2) {
+		if (state1.size() != state2.size())
+			return false;
 		for (int i = 0; i < state1.size(); i++) {
 			java.util.HashMap<String, Object> r1 = state1.get(i);
 			java.util.HashMap<String, Object> r2 = state2.get(i);
-			
+
 			// 座標やサイズに変化がないか簡易チェック
-			if (!String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name()))) ||
-			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name()))) ||
-			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name()))) ||
-			    !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())).equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())))) {
+			if (!String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name()))
+					.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name())))
+					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name()))
+							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name())))
+					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name()))
+							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name())))
+					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name()))
+							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())))) {
 				return false;
 			}
 		}
@@ -1911,7 +1989,7 @@ public class SlideGlass extends JLayeredPane {
 
 		// 2. Undo スタックから一番上の過去を取り出す
 		java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
-		
+
 		// ★ 究極のガード：もし取り出した過去が「今の画面と全く同じ」なら、それは「無駄に保存された履歴」なので、
 		// もう一回 pop してさらに過去に遡る！
 		while (!undoStack.isEmpty() && isSameState(stateToRestore, currentlyVisibleState)) {
@@ -1926,7 +2004,8 @@ public class SlideGlass extends JLayeredPane {
 
 	public void redo() {
 		Log.logger.fine("--- redo called ---");
-		if (redoStack.isEmpty()) return;
+		if (redoStack.isEmpty())
+			return;
 
 		// 1. 今見えている画面の状態を Undo スタックに退避する
 		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
@@ -1934,14 +2013,14 @@ public class SlideGlass extends JLayeredPane {
 
 		// 2. Redo スタックから未来を取り出す
 		java.util.List<java.util.HashMap<String, Object>> stateToRestore = redoStack.pop();
-		
+
 		// 3. 未来を復元する
 		restoreState(stateToRestore);
 	}
 
 	/**
 	 * ★ DBとの整合性を保ちながら過去の状態を復元する心臓部
-	 */	
+	 */
 	private void restoreState(java.util.List<java.util.HashMap<String, Object>> pastState) {
 
 		isRestoring = true;
@@ -1961,8 +2040,8 @@ public class SlideGlass extends JLayeredPane {
 			com.vis.core.view.D2.roi.RoiConverter converter = new com.vis.core.view.D2.roi.RoiConverter();
 			int restoredCount = 0;
 			for (java.util.HashMap<String, Object> pastRoiCtx : pastState) {
-				Log.logger.fine(
-						"Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(RoiDBKey.RoiID.name()));
+				Log.logger
+						.fine("Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(RoiDBKey.RoiID.name()));
 				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(this, false);
@@ -1988,33 +2067,33 @@ public class SlideGlass extends JLayeredPane {
 			Log.logger.fine("restoreState finished.");
 		}
 	}
-	
+
 	@Override
-    public void paint(java.awt.Graphics g) {
-        super.paint(g); // 元の画像やOverlayの描画を先に済ませる
+	public void paint(java.awt.Graphics g) {
+		super.paint(g); // 元の画像やOverlayの描画を先に済ませる
 
-        // アニメーションが有効な場合のみ、最前面に円を描画する
-        if (ghostProgressAngle > 0 && ghostProgressLocation != null) {
-            java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
-            // アンチエイリアスを有効にして円を滑らかにする
-            g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+		// アニメーションが有効な場合のみ、最前面に円を描画する
+		if (ghostProgressAngle > 0 && ghostProgressLocation != null) {
+			java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
+			// アンチエイリアスを有効にして円を滑らかにする
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
 
-            int radius = 25; // 円の半径
-            int x = ghostProgressLocation.x - radius;
-            int y = ghostProgressLocation.y - radius;
+			int radius = 25; // 円の半径
+			int x = ghostProgressLocation.x - radius;
+			int y = ghostProgressLocation.y - radius;
 
-            // 背景の薄いガイド円を描画（任意）
-            g2d.setColor(new java.awt.Color(255, 255, 255, 100)); // 半透明の白
-            g2d.setStroke(new java.awt.BasicStroke(4.0f));
-            g2d.drawOval(x, y, radius * 2, radius * 2);
+			// 背景の薄いガイド円を描画（任意）
+			g2d.setColor(new java.awt.Color(255, 255, 255, 100)); // 半透明の白
+			g2d.setStroke(new java.awt.BasicStroke(4.0f));
+			g2d.drawOval(x, y, radius * 2, radius * 2);
 
-            // 進捗を示す円弧を描画
-            g2d.setColor(new java.awt.Color(0, 153, 255, 220)); // 鮮やかなブルー
-            // drawArc(x, y, w, h, 開始角度, 描画角度)
-            // 90度が時計の12時方向、マイナスの値を指定すると時計回りに描画されます
-            g2d.drawArc(x, y, radius * 2, radius * 2, 90, -ghostProgressAngle);
+			// 進捗を示す円弧を描画
+			g2d.setColor(new java.awt.Color(0, 153, 255, 220)); // 鮮やかなブルー
+			// drawArc(x, y, w, h, 開始角度, 描画角度)
+			// 90度が時計の12時方向、マイナスの値を指定すると時計回りに描画されます
+			g2d.drawArc(x, y, radius * 2, radius * 2, 90, -ghostProgressAngle);
 
-            g2d.dispose();
-        }
-    }
+			g2d.dispose();
+		}
+	}
 }

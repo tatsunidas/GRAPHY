@@ -72,7 +72,6 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
-import javax.swing.border.Border;
 
 import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.RoiMetaContextKey;
@@ -1092,7 +1091,7 @@ public class Praparat extends JPanel {
 			};
 			emptyGlassPanel.setBackground(Color.BLACK);
 
-			// ★ 最重要：空きマスでもマウスホイールでのスライス送りを可能にする
+			// 空きマスでもマウスホイールでのスライス送りを可能にする
 			emptyGlassPanel.addMouseWheelListener(e -> {
 				if (e.getWheelRotation() > 0) {
 					stepDimension("Slice", 1); // 下スクロールで次へ
@@ -1101,20 +1100,14 @@ public class Praparat extends JPanel {
 				}
 			});
 
-			// ★ 新規追加: Shift ＋ 左クリックでPraparatを選択状態にする
+			// Shift ＋ 左クリックでPraparatを選択状態にする
 			// ==========================================================
 			emptyGlassPanel.addMouseListener(new java.awt.event.MouseAdapter() {
 				@Override
 				public void mouseClicked(java.awt.event.MouseEvent e) {
-					// Shiftキーが押されていて、かつ左クリック(ボタン1)の場合
 					if (e.isShiftDown() && SwingUtilities.isLeftMouseButton(e)) {
-						// 現在の選択状態の「逆」を新しい状態とする（トグル）
-						boolean nextState = !isSelected();
-						// Praparatの選択状態は、内部のSlideGlassの選択状態に依存しているが、
-						// NO IMAGEの場合は、直接Praparatの選択状態を更新する。
-						// Praparat自体の選択フラグを更新して境界線（ボーダー）を再描画
-						selected = nextState;
-						showBorder(isFocusGained());
+						// Emptyパネルは単体のSlideGlassが存在しないため、強制的にPraparat全体を切り替える
+						setSelectionState(!isSelected());
 					}
 				}
 			});
@@ -2177,7 +2170,7 @@ public class Praparat extends JPanel {
 		// init slides
 		slides = new ConcurrentHashMap<Integer, SlideGlass>();
 		setLayout(new BorderLayout());
-		setBorder(BorderMaker.make(this, false));
+		showBorder(false);//
 		pvcp = new PraparatViewControlPanel(this);// pixelInfoLabel
 
 		JPanel southComponentPanel = new JPanel(new BorderLayout());
@@ -4190,21 +4183,69 @@ public class Praparat extends JPanel {
 	 * Praparat selection state See, SlideGlassMouseListener True if any one of the
 	 * SlideGlasses is in the selected state.
 	 */
+	// 1. 外部からPraparatを強制的に選択/解除する場合（全SlideGlassもそれに従う）
 	public void setSelectionState(boolean select) {
-		if (mode == ViewMode.Thumbnail) {
-			this.selected = select;
-			showBorder(false/* focusGained */);
-			return;
-		}
-		this.selected = false;
-		for (int i : slides.keySet()) {
-			SlideGlass sg = slides.get(i);
-			if (sg.isSelected()) {
-				this.selected = true;
-				break;
+		this.selected = select;
+
+		// サムネイル以外なら、配下の全SlideGlassの状態も一斉に同期させる
+		if (mode != ViewMode.Thumbnail && slides != null) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) {
+					// SlideGlassのメソッドを呼んで状態とボーダーを更新
+					sg.setSelectionState(select);
+				}
 			}
 		}
 		showBorder(isFocusGained());
+	}
+
+	// SlideGlassの選択状態から、Praparatの選択状態を自動再計算するメソッド
+	public void updateSelectionStateFromSlides() {
+		if (mode == ViewMode.Thumbnail)
+			return;
+
+		// 1. シリーズ内に1つでも選択されたスライドがあるかをスキャン
+		this.selected = false;
+		if (slides != null) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null && sg.isSelected()) {
+					this.selected = true;
+					break;
+				}
+			}
+		}
+
+		// 2. ★仕様の要
+		// 自身の他スライドの選択状態によって「紫の単線ボーダー」を出す・出さないが
+		// 動的に変わるため、選択変更があった際は配下の全SlideGlassにボーダーの描き直しを通知する
+		if (slides != null) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) {
+					sg.showBorder();
+				}
+			}
+		}
+
+		showBorder(isFocusGained());
+	}
+
+	// 3. 【新規】マウスでShift+クリックされたときのスマートなトグル処理
+	public void toggleSelection(SlideGlass clickedSlide) {
+		if (clickedSlide == null)
+			return;
+
+		// 次になりたい状態（現在の逆）
+		boolean nextState = !clickedSlide.isSelected();
+
+		if (isProcessSeries()) {
+			// 【Series=true】Praparatと配下の全SlideGlassを一斉に切り替える
+			setSelectionState(nextState);
+		} else {
+			// 【Series=false】クリックされたSlideGlassのみ切り替える
+			clickedSlide.setSelectionState(nextState);
+			// 全体（Praparat）の選択状態を再評価して、必要ならOffにする
+			updateSelectionStateFromSlides();
+		}
 	}
 
 	public void setShowCrossLineMode(boolean crossMode) {
@@ -4368,8 +4409,9 @@ public class Praparat extends JPanel {
 	}
 
 	public void showBorder(boolean show) {
-		Border b = BorderMaker.make(this, isFocusGained());
-		setBorder(b);
+		// SlideGlass側で2層のステータスボーダーを描画するため、
+		// Praparat側の外枠は二重線にならないよう、透明なパディング（EmptyBorder）にします。
+		setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 2, 2, 2));
 	}
 
 	public void showFirstImage() {

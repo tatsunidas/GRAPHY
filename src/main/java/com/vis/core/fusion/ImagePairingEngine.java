@@ -14,6 +14,7 @@ import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.process.ImageProcessor;
 
 /**
  * This class is responsible for pairing foreground images for fusion.
@@ -24,6 +25,8 @@ import ij.ImageStack;
  * @author tatsunidas
  */
 public class ImagePairingEngine {
+	
+	public static boolean interpolateResample = true;
 
     private static class AlignResult {
         ImagePlus image;
@@ -63,14 +66,26 @@ public class ImagePairingEngine {
             double nz = bgIop[0] * bgIop[4] - bgIop[1] * bgIop[3];
 
             boolean isSparseData = "SEG".equals(fgModality);
+            boolean isSameDimension = (fgImp.getWidth() == bgImp.getWidth() && fgImp.getHeight() == bgImp.getHeight());
             
             Log.logger.fine("Foreground modality is : "+fgModality);
 
             Log.logger.info("[Engine] Phase 1: Try IPP Matching (Z-Axis)...");
             result = buildStackByIppMatching(fgImp, bgImp, nx, ny, nz, 1.0);
 
-            if (result.isBlankRateOver(0.90)) {
-                Log.logger.warning("[Engine] IPP Matching failed (>=90% blank). Fallbacking...");
+            if (!result.isBlankRateOver(0.90)) {
+                if(isSameDimension) {
+                	// Clear, Go Next
+                }else {
+                	// maybe PET or SPECT not same saze with BG(CT or MR).
+                	if(interpolateResample) {
+                		result = reconstructBy3DTrilinear(fgImp, bgImp);
+                	}else {
+                		result = reconstructBy3DNearestNeighbor(fgImp, bgImp);
+                	}
+                }
+            }else {//fall back
+            	Log.logger.warning("[Engine] IPP Matching failed (>=90% blank). Fallbacking...");
 
                 if (isSparseData) {
                     Log.logger.info("[Engine] Phase 2 (SEG): Try SOP Matching...");
@@ -82,7 +97,7 @@ public class ImagePairingEngine {
                     }
                 } else {
                     Log.logger.info("[Engine] Phase 2 (Dense): 3D Nearest Neighbor Resampling...");
-                    result = reconstructBy3DResampling(fgImp, bgImp);
+                    result = reconstructBy3DNearestNeighbor(fgImp, bgImp);
                     
                     if (result.isBlankRateOver(0.90)) {
                         Log.logger.warning("[Engine] 3D Resampling failed (Still >=90% blank).");
@@ -173,9 +188,138 @@ public class ImagePairingEngine {
     }
 
     /**
-     * 【極めて重要】実空間からの逆算による 3D Voxel Nearest Neighbor リサンプリング
+     * 実空間からの逆算による 3D Trilinear Interpolation (XYZ完全補間)
      */
-    private static AlignResult reconstructBy3DResampling(ImagePlus fgImp, ImagePlus bgImp) {
+    private static AlignResult reconstructBy3DTrilinear(ImagePlus fgImp, ImagePlus bgImp) {
+        int bgW = bgImp.getWidth();
+        int bgH = bgImp.getHeight();
+        int bgSlices = bgImp.getStackSize();
+        
+        int fgW = fgImp.getWidth();
+        int fgH = fgImp.getHeight();
+        int fgSlices = fgImp.getStackSize();
+        
+        ImageStack matchedStack = new ImageStack(bgW, bgH); 
+        ImageStack fgStack = fgImp.getStack();
+        
+        float[] voxels = new float[fgW*fgH*fgSlices];
+		int itr = 0;
+		for (int z = 0; z < fgSlices; z++) {
+			ImageProcessor ip = fgStack.getProcessor(z+1);
+			for(int y = 0; y < fgH; y++) {
+				for(int x = 0; x < fgW; x++) {
+					voxels[itr++] = ip.getf(x, y);
+				}
+			}
+		}
+        
+        double[] fgIop = GDicomTools.getImageOrientationPatient(fgImp, 1);
+        double[] fgIpp1 = GDicomTools.getImagePositionPatient(fgImp, 1);
+        if (fgIop == null || fgIpp1 == null) return new AlignResult(null, 0, bgSlices);
+        
+        double fgPx = 1.0, fgPy = 1.0, fgPz = 1.0;
+        if (fgImp.getCalibration() != null) {
+            fgPx = fgImp.getCalibration().pixelWidth;
+            fgPy = fgImp.getCalibration().pixelHeight;
+        }
+        
+        Vector3d fRr = new Vector3d(fgIop[0], fgIop[1], fgIop[2]);
+        Vector3d fRc = new Vector3d(fgIop[3], fgIop[4], fgIop[5]);
+        Vector3d fRs = new Vector3d();
+        
+        if (fgSlices > 1) {
+            double[] fgIppN = GDicomTools.getImagePositionPatient(fgImp, fgSlices);
+            if (fgIppN != null) {
+                Vector3d start = new Vector3d(fgIpp1[0], fgIpp1[1], fgIpp1[2]);
+                Vector3d end = new Vector3d(fgIppN[0], fgIppN[1], fgIppN[2]);
+                fRs = new Vector3d(end).sub(start).normalize();
+                fgPz = end.distance(start) / (fgSlices - 1); 
+            } else {
+                fRr.cross(fRc, fRs).normalize();
+            }
+        } else {
+            fRr.cross(fRc, fRs).normalize();
+        }
+        if (fgPz <= 0) fgPz = 1.0;
+        
+        Vector3d fIpp = new Vector3d(fgIpp1[0], fgIpp1[1], fgIpp1[2]);
+        
+        double[] bgIop = GDicomTools.getImageOrientationPatient(bgImp, 1);
+        double[] bgIpp1 = GDicomTools.getImagePositionPatient(bgImp, 1);
+        if (bgIop == null || bgIpp1 == null) return new AlignResult(null, 0, bgSlices);
+        Vector3d bRr = new Vector3d(bgIop[0], bgIop[1], bgIop[2]);
+        Vector3d bRc = new Vector3d(bgIop[3], bgIop[4], bgIop[5]);
+        
+        double bgPx = 1.0, bgPy = 1.0;
+        if (bgImp.getCalibration() != null) {
+            bgPx = bgImp.getCalibration().pixelWidth;
+            bgPy = bgImp.getCalibration().pixelHeight;
+        }
+
+        Log.logger.info("=== 3D Trilinear Resampling Debug Info ===");
+        Log.logger.info(String.format("FG - Size:%dx%dx%d, Spacing(x,y,z):%.3f, %.3f, %.3f", fgW, fgH, fgSlices, fgPx, fgPy, fgPz));
+        Log.logger.info(String.format("FG - IPP1:%.2f, %.2f, %.2f", fIpp.x, fIpp.y, fIpp.z));
+        Log.logger.info(String.format("BG - Size:%dx%dx%d, Spacing(x,y):%.3f, %.3f", bgW, bgH, bgSlices, bgPx, bgPy));
+        
+        int bitDepth = fgImp.getBitDepth();
+        int validCount = 0;
+        
+        for (int z = 1; z <= bgSlices; z++) {
+            double[] bgIppArr = GDicomTools.getImagePositionPatient(bgImp, z);
+            ij.process.ImageProcessor ip = createBlankProcessor(bitDepth, bgW, bgH);
+            boolean hasValidPixel = false;
+            
+            if (bgIppArr != null) {
+                Vector3d bIpp = new Vector3d(bgIppArr[0], bgIppArr[1], bgIppArr[2]);
+                
+                for (int y = 0; y < bgH; y++) {
+                    double offY = y * bgPy;
+                    double baseYY = bIpp.y + bRc.y * offY;
+                    double baseYX = bIpp.x + bRc.x * offY;
+                    double baseYZ = bIpp.z + bRc.z * offY;
+                    
+                    for (int x = 0; x < bgW; x++) {
+                        double offX = x * bgPx;
+                        double px = baseYX + bRr.x * offX;
+                        double py = baseYY + bRr.y * offX;
+                        double pz = baseYZ + bRr.z * offX;
+                        
+                        double dx = px - fIpp.x;
+                        double dy = py - fIpp.y;
+                        double dz = pz - fIpp.z;
+                        
+                        double u = (dx * fRr.x + dy * fRr.y + dz * fRr.z) / fgPx;
+                        double v = (dx * fRc.x + dy * fRc.y + dz * fRc.z) / fgPy;
+                        double w = (dx * fRs.x + dy * fRs.y + dz * fRs.z) / fgPz;
+                        
+                        // トリリニア補間によって値を算出
+                        float val = (float) io.github.tatsunidas.radiomics.main.Utils.TrilinearInterpolation(voxels, fgW, fgH, fgSlices, u, v, w);
+                        
+                        if (val != 0.0f) {
+                            if (bitDepth == 8 || bitDepth == 16 || bitDepth == 24) {
+                                ip.set(x, y, (int) Math.round(val));
+                            } else {
+                                ip.setf(x, y, val);
+                            }
+                            hasValidPixel = true;
+                        }
+                    }
+                }
+            }
+            
+            if (hasValidPixel) validCount++;
+            matchedStack.addSlice(bgImp.getStack().getSliceLabel(z), ip);
+        }
+        
+        Log.logger.info("=== 3D Trilinear Resampling Finished. Valid Slices: " + validCount + "/" + bgSlices + " ===");
+        ImagePlus res = new ImagePlus("Aligned_3DTrilinear", matchedStack);
+        return new AlignResult(res, validCount, bgSlices);
+    }
+    
+    /**
+     * 実空間からの逆算による 3D Voxel Nearest Neighbor リサンプリング
+     */
+    private static AlignResult reconstructBy3DNearestNeighbor(ImagePlus fgImp, ImagePlus bgImp) {
         int bgW = bgImp.getWidth();
         int bgH = bgImp.getHeight();
         int bgSlices = bgImp.getStackSize();

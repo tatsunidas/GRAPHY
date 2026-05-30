@@ -326,10 +326,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 	public void mouseClicked(MouseEvent e) {
 		viewerToolType = pp.getViewer2DToolType();
 		
-		// ==========================================================
-		// ★修正1: ブラシツールの時は Shift+クリック による複数選択トグルを無効化する
-		// これをしないと、飛び地を作ろうとした時にイベントが横取りされてブラシが発動しません。
-		// ==========================================================
 		if (viewerToolType == Viewer2DToolBar.Brush) {
 			return; // ブラシツール中はクリックイベント（選択等）を無視
 		}
@@ -339,8 +335,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				e.consume();
 				return;
 			}
-			slide.setSelectionState();
-			if (pp.getViewMode() != ViewMode.Thumbnail) pp.setSelectionState(true);
+			if (pp.getViewMode() != ViewMode.Thumbnail) {
+				pp.toggleSelection(slide);
+			}
 			e.consume();
 		}
 		
