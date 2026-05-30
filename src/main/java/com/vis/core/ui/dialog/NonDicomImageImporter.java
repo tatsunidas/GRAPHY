@@ -174,12 +174,18 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		try {
 			NonDicomImportOrchestrator orchestrator = new NonDicomImportOrchestrator();
 			// 配列をListに変換して渡す
-			orchestrator.executeImport(java.util.Arrays.asList(files), context, tempDir.toFile(), initialSeriesNumber);
+			orchestrator.executeConvert(java.util.Arrays.asList(files), context, tempDir.toFile(), initialSeriesNumber);
 			
 			// 6. 変換が終わったらDBへ送信
-			File[] outFiles = tempDir.toFile().listFiles();
+			File[] outFiles = tempDir.toFile().listFiles((dir, name) -> name.toLowerCase().endsWith(".dcm"));
+			Log.logger.info("Orchestrator finished. Generated DICOM files count: "
+					+ (outFiles != null ? outFiles.length : "null"));
+
 			if (outFiles != null && outFiles.length > 0) {
 				DimseUtilities.sendMe(outFiles);
+				Log.logger.info("Send to DIMSE/DB completed.");
+			} else{
+				Log.logger.warning("No DICOM files were generated. Skipping DIMSE send.");
 			}
 			
 		} catch (Exception e) {

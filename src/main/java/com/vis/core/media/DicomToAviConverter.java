@@ -15,7 +15,6 @@ import ws.schild.jave.encode.EncodingAttributes;
 import ws.schild.jave.encode.VideoAttributes;
 import ws.schild.jave.info.MultimediaInfo;
 import ws.schild.jave.progress.EncoderProgressListener;
-import ij.plugin.AVI_Reader;
 import ij.plugin.filter.AVI_Writer;
 
 import ij.io.SaveDialog;
@@ -128,8 +127,6 @@ public class DicomToAviConverter {
         pm.setMillisToPopup(0);
 
         try {
-        	
-        	AVI_Reader r = null;
         	
         	DecompressorChe d = new DecompressorChe(dicom);
         	File sourceMp4 = d.extractMpegToTempFile();

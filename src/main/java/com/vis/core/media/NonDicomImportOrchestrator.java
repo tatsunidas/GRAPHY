@@ -28,8 +28,8 @@ public class NonDicomImportOrchestrator {
      * @param tempDir 変換後のDICOMファイルを保存する一時ディレクトリ
      * @param initialSeriesNumber 既存Studyに追加する場合はその続きの番号、新規の場合は1
      */
-    public void executeImport(List<File> files, NonDicomMediaContext context, File tempDir, int initialSeriesNumber) throws Exception {
-        
+    public void executeConvert(List<File> files, NonDicomMediaContext context, File tempDir, int initialSeriesNumber) throws Exception {
+    	
         // 1. ファイルの種類ごとに仕分ける
         ArrayList<File> images = new ArrayList<>();
         ArrayList<File> videos = new ArrayList<>();
