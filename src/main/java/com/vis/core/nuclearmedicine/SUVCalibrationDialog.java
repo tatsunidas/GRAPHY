@@ -40,6 +40,9 @@ public class SUVCalibrationDialog extends JDialog {
 
 	// ★ ベンダー固有のプライベートタグ用
 	private double philipsSuvScaleFactor = 0.0;
+	
+	// ★ すでにSUV化されているかのフラグ
+	private boolean isAlreadySUV = false;
 
 	// 計算結果の係数
 	private double suvFactor = 0.0;
@@ -55,25 +58,81 @@ public class SUVCalibrationDialog extends JDialog {
 	private JComboBox<String> cmbSex;
 	private JLabel lblRadionuclide;
 	private JLabel lblPhilipsWarning;
+	private JLabel lblAlreadySuvWarning; // ★ 追加：SUV化済み警告ラベル
+	private JButton btnApply; // ★ 追加：状態制御のためにメンバ変数化
 
 	public SUVCalibrationDialog(Frame owner, Praparat praparat) {
 		super(owner, "SUV Calibration", true);
 		this.praparat = praparat;
-
+		init();
+	}
+	
+	public SUVCalibrationDialog(Window owner, Praparat praparat) {
+		super(owner, "SUV Calibration", ModalityType.APPLICATION_MODAL);
+		this.praparat = praparat;
+		init();
+	}
+	
+	private void init() {
 		for (SlideGlass sg : praparat.getAllSlides().values()) {
 			if (sg != null) {
 				this.header = sg.getHeader();
 				break;
 			}
 		}
-
 		if (this.header == null) {
-			JOptionPane.showMessageDialog(owner, "This series does not have any images.");
+			JOptionPane.showMessageDialog(getOwner(), "This series does not have any images.");
 			SwingUtilities.invokeLater(() -> {
 				dispose();
 			});
+			return; // ★ 処理を中断
 		}
+		
+		// ★ 実行順序の修正：データを先に抽出し、その結果に基づいてUIを構築・更新する
 		extractDicomData();
+		buildUI();
+		updateUI();
+	}
+	
+	/**
+	 * 抽出したデータをUIコンポーネントに反映する
+	 */
+	private void updateUI() {
+		if (txtWeight == null) return; // UI構築前はスキップ
+
+		txtWeight.setText(patWeight > 0 ? String.format("%.2f", patWeight) : "");
+		txtHeight.setText(patHeight > 0 ? String.format("%.2f", patHeight) : "");
+		txtDose.setText(totalDose > 0 ? String.format("%.2f", totalDose) : "");
+		txtHalfLife.setText(halfLife > 0 ? String.format("%.2f", halfLife) : "");
+
+		DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+		txtInjTime.setText(injectionTime != null ? injectionTime.format(timeFmt) : "");
+		txtSerTime.setText(seriesTime != null ? seriesTime.format(timeFmt) : "");
+
+		cmbSex.setSelectedItem("F".equals(patSex) ? "Female" : "Male");
+		
+		if (lblRadionuclide != null) {
+			lblRadionuclide.setText(radionuclideName != null ? radionuclideName : "Unknown");
+		}
+
+		// ★ すでにSUV化されている場合のUIロック処理
+		if (isAlreadySUV) {
+			if (lblAlreadySuvWarning != null) {
+				lblAlreadySuvWarning.setVisible(true);
+			}
+			cmbSuvType.setEnabled(false);
+			txtWeight.setEnabled(false);
+			txtHeight.setEnabled(false);
+			txtDose.setEnabled(false);
+			txtHalfLife.setEnabled(false);
+			txtInjTime.setEnabled(false);
+			txtSerTime.setEnabled(false);
+			cmbSex.setEnabled(false);
+			
+			if (btnApply != null) {
+				btnApply.setEnabled(false);
+			}
+		}
 	}
 
 	/**
@@ -88,7 +147,17 @@ public class SUVCalibrationDialog extends JDialog {
 
 		int row = 0;
 
-		// ★ Philips警告ラベルの表示
+		// ★ すでにSUV化されている場合の警告ラベル（初期は非表示）
+		lblAlreadySuvWarning = new JLabel(
+				"<html><font color='red'><b>This image is already calibrated to SUV.<br>Values cannot be modified.</b></font></html>");
+		lblAlreadySuvWarning.setVisible(false);
+		gbc.gridx = 0;
+		gbc.gridy = row++;
+		gbc.gridwidth = 2;
+		mainPanel.add(lblAlreadySuvWarning, gbc);
+		gbc.gridwidth = 1;
+
+		// Philips警告ラベルの表示
 		if (philipsSuvScaleFactor > 0) {
 			lblPhilipsWarning = new JLabel(
 					"<html><font color='blue'>Philips Private SUV Factor Detected.</font></html>");
@@ -99,13 +168,13 @@ public class SUVCalibrationDialog extends JDialog {
 			gbc.gridwidth = 1;
 		}
 
-		// ★ SUVタイプの選択 (バリエーションの網羅)
+		// SUVタイプの選択 (バリエーションの網羅)
 		String[] suvTypes = { "SUVbw (Body Weight)", "SUL (Lean Body Mass - James)", "SUL (Lean Body Mass - Janma)",
 				"SUVbsa (Body Surface Area)" };
 		cmbSuvType = new JComboBox<>(suvTypes);
 		addRow(mainPanel, gbc, row++, "Calculation Type:", cmbSuvType);
 
-		// 核種の表示 (要件4)
+		// 核種の表示
 		gbc.gridx = 0;
 		gbc.gridy = row;
 		gbc.weightx = 0.0;
@@ -130,7 +199,7 @@ public class SUVCalibrationDialog extends JDialog {
 		cmbSex = new JComboBox<>(new String[] { "Male", "Female" });
 		cmbSex.setSelectedItem("F".equals(patSex) ? "Female" : "Male");
 
-		// コンポーネントをきれいに配置 (GridBagLayout)
+		// コンポーネントをきれいに配置
 		addRow(mainPanel, gbc, row++, "Patient Weight (kg):", txtWeight);
 		addRow(mainPanel, gbc, row++, "Patient Height (m):", txtHeight);
 		addRow(mainPanel, gbc, row++, "Patient Sex:", cmbSex);
@@ -139,7 +208,7 @@ public class SUVCalibrationDialog extends JDialog {
 		addRow(mainPanel, gbc, row++, "Injection Time (HH:mm:ss):", txtInjTime);
 		addRow(mainPanel, gbc, row++, "Series Time (HH:mm:ss):", txtSerTime);
 
-		// 垂直方向のスペーサー（余白をすべて下部に詰めるための役割）
+		// 垂直方向のスペーサー
 		gbc.gridx = 0;
 		gbc.gridy = row++;
 		gbc.gridwidth = 2;
@@ -148,11 +217,13 @@ public class SUVCalibrationDialog extends JDialog {
 
 		// ボタン配置
 		JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-		JButton btnOk = new JButton("Apply");
+		btnApply = new JButton("Apply"); // ★ メンバ変数を使用
 		JButton btnCancel = new JButton("Cancel");
-		btnOk.addActionListener(e -> applyAndClose());
+		
+		btnApply.addActionListener(e -> applyAndClose());
 		btnCancel.addActionListener(e -> dispose());
-		btnPanel.add(btnOk);
+		
+		btnPanel.add(btnApply);
 		btnPanel.add(btnCancel);
 
 		getContentPane().setLayout(new BorderLayout());
@@ -160,7 +231,7 @@ public class SUVCalibrationDialog extends JDialog {
 		getContentPane().add(btnPanel, BorderLayout.SOUTH);
 
 		pack();
-		setMinimumSize(new Dimension(420, 400));
+		setMinimumSize(new Dimension(420, 440)); // 警告メッセージ用に少し高さを確保
 		setLocationRelativeTo(getOwner());
 	}
 
@@ -176,7 +247,7 @@ public class SUVCalibrationDialog extends JDialog {
 	}
 
 	/**
-	 * 半角数字と小数点以外入力をブロックするTextFieldを生成する（要件2）
+	 * 半角数字と小数点以外入力をブロックするTextFieldを生成する
 	 */
 	private JTextField createNumericTextField(double value) {
 		JTextField textField = new JTextField(value > 0 ? String.format("%.2f", value) : "");
@@ -185,11 +256,28 @@ public class SUVCalibrationDialog extends JDialog {
 	}
 
 	/**
-	 * ルート階層またはシーケンス階層からDICOM属性を安全に抽出する（要件1, 4, 5）
+	 * ルート階層またはシーケンス階層からDICOM属性を安全に抽出する
 	 */
 	private void extractDicomData() {
 		if (header == null)
 			return;
+
+		// ★ SUV化済みかどうかの判定処理を追加
+		String units = header.getString(Tag.Units, ""); 
+		String suvType = header.getString(0x00541006, ""); 
+		String rescaleType = header.getString(Tag.RescaleType, ""); 
+
+		if ("GML".equalsIgnoreCase(units)) {
+			isAlreadySUV = true;
+		} else if (suvType != null && !suvType.trim().isEmpty()) {
+			isAlreadySUV = true;
+		} else if (rescaleType != null && rescaleType.toUpperCase().contains("SUV")) {
+			isAlreadySUV = true;
+		}
+		
+		if (isAlreadySUV) {
+			Log.logger.info("This image is already calibrated to SUV. (Units: " + units + ")");
+		}
 
 		// 基本情報の取得
 		patWeight = header.getDouble(Tag.PatientWeight, 0.0);
@@ -199,18 +287,12 @@ public class SUVCalibrationDialog extends JDialog {
 		// 放射性医薬品シーケンス (0054,0016) の取得を試みる
 		DicomObject item = null;
 		try {
-			// GRAPHYのDICOMライブラリの仕様に合わせてシーケンスから子要素を取得
-			@SuppressWarnings("unchecked")
-			java.util.List<DicomObject> seq = (java.util.List<DicomObject>) header
-					.getSequence(Tag.RadiopharmaceuticalInformationSequence);
-			if (seq != null && !seq.isEmpty()) {
-				item = seq.get(0);
-			}
+			item = header.getNestedDataset(Tag.RadiopharmaceuticalInformationSequence);
 		} catch (Exception e) {
 			Log.logger.fine("No RadiopharmaceuticalInformationSequence found, searching root.");
 		}
 
-		// 投与量 (Bq -> MBq) の抽出（要件1: エスケープ処理）
+		// 投与量 (Bq -> MBq) の抽出
 		totalDose = (item != null && item.contains(Tag.RadionuclideTotalDose))
 				? item.getDouble(Tag.RadionuclideTotalDose, 0.0)
 				: header.getDouble(Tag.RadionuclideTotalDose, 0.0);
@@ -218,7 +300,7 @@ public class SUVCalibrationDialog extends JDialog {
 			totalDose /= 1000000.0;
 		}
 
-		// 半減期 (秒 -> 分) の抽出（要件1: エスケープ処理）
+		// 半減期 (秒 -> 分) の抽出
 		halfLife = (item != null && item.contains(Tag.RadionuclideHalfLife))
 				? item.getDouble(Tag.RadionuclideHalfLife, 0.0)
 				: header.getDouble(Tag.RadionuclideHalfLife, 0.0);
@@ -226,12 +308,11 @@ public class SUVCalibrationDialog extends JDialog {
 			halfLife /= 60.0;
 		}
 
-		// 核種名の抽出（要件4）
+		// 核種名の抽出
 		radionuclideName = (item != null && item.contains(Tag.Radionuclide))
 				? item.getString(Tag.Radionuclide, "Unknown")
 				: header.getString(Tag.Radionuclide, "Unknown");
 
-		// もしコードシーケンス(0054,0100)にあれば、そちらから意味(CodeMeaning)を取る処理もエスケープとして追加可能
 		if ("Unknown".equals(radionuclideName) && item != null) {
 			try {
 				@SuppressWarnings("unchecked")
@@ -244,7 +325,7 @@ public class SUVCalibrationDialog extends JDialog {
 			}
 		}
 
-		// 時刻の抽出とエスケープ（要件1）
+		// 時刻の抽出とエスケープ
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HHmmss");
 		try {
 			String injTimeStr = (item != null && item.contains(Tag.RadiopharmaceuticalStartTime))
@@ -264,8 +345,7 @@ public class SUVCalibrationDialog extends JDialog {
 			Log.logger.warning("Failed to parse time for SUV: " + e.getMessage());
 		}
 
-		// ★ Philipsプライベートタグのエスケープ処理 (7053, 1000 or 7053, 1009)
-		// ※ GRAPHYのTag仕様で16進数指定が通らない場合は直接数値を指定してください
+		// Philipsプライベートタグのエスケープ処理
 		try {
 			philipsSuvScaleFactor = header.getDouble(0x70531000, 0.0);
 			if (philipsSuvScaleFactor == 0.0) {
@@ -274,10 +354,12 @@ public class SUVCalibrationDialog extends JDialog {
 		} catch (Exception e) {
 			Log.logger.fine("No Philips private SUV tags found.");
 		}
+		
+		// ※ ここでの updateUI() 呼び出しは削除し、init() の最後に統合しました
 	}
 
 	/**
-	 * 入力検証（レンジチェック）とデータの適用（要件2, 3）
+	 * 入力検証（レンジチェック）とデータの適用
 	 */
 	private void applyAndClose() {
 		try {
@@ -299,7 +381,7 @@ public class SUVCalibrationDialog extends JDialog {
 			seriesTime = LocalTime.parse(txtSerTime.getText().trim(), timeFmt);
 			patSex = "Female".equals(cmbSex.getSelectedItem()) ? "F" : "M";
 
-			// 臨床的レンジチェック（要件3：明らかにおかしい値の排除）
+			// 臨床的レンジチェック
 			if (patWeight < 0.001 || patWeight > 250.0) {
 				showValidationError("Patient Weight must be between 0.001 kg and 250.0 kg.");
 				return;
@@ -318,7 +400,7 @@ public class SUVCalibrationDialog extends JDialog {
 				return;
 			}
 
-			// ★ Philipsプライベートタグが存在し、SUVbwが選ばれている場合のバイパス
+			// Philipsプライベートタグが存在し、SUVbwが選ばれている場合のバイパス
 			if (philipsSuvScaleFactor > 0 && cmbSuvType.getSelectedIndex() == 0) {
 				this.suvFactor = 1.0 / philipsSuvScaleFactor;
 				Log.logger.info("Using Philips Private SUV Scale Factor.");
@@ -339,14 +421,31 @@ public class SUVCalibrationDialog extends JDialog {
 					return;
 			}
 
-			// ★ 選択されたSUVタイプに応じたファクターの計算
-			this.suvFactor = calculateAdvancedSUVFactor(diffSeconds, cmbSuvType.getSelectedIndex());
+			// 選択されたSUVタイプに応じたファクターの計算
+			int suvType = cmbSuvType.getSelectedIndex();
+			this.suvFactor = calculateAdvancedSUVFactor(diffSeconds, suvType);
 			if (this.suvFactor <= 0) {
 				showValidationError("Could not calculate valid SUV factor. Check Height/Weight.");
 				return;
 			}
 			
-			praparat.setSUVFactor(suvFactor);
+			// ==========================================
+			// ★ 検証用ログの追加
+			// ==========================================
+			double samplePixelValue = 10000.0; // テスト用のピクセル値 (Bq/mL)
+
+			// 現在の calculateAdvancedSUVFactor は (Dose / Weight) を返しているため、単位は [Bq/g] となります。
+			// したがって、SUVを求めるには ピクセル値 を suvFactor で「割る」必要があります。
+			double sampleSuv = samplePixelValue / this.suvFactor;
+
+			Log.logger.info("=== SUV Calculation Verification ===");
+			Log.logger.info(String.format("1. Calculated SUV Divisor (Dose/Base): %.4f Bq/g", this.suvFactor));
+			Log.logger.info(String.format("2. If raw pixel value is %.1f Bq/mL, SUV will be: %.3f", samplePixelValue,
+					sampleSuv));
+			Log.logger.info("====================================");
+			// ==========================================
+			
+			praparat.setSUVFactor(suvFactor, getSuvUnit(suvType));
 
 			Log.logger.info("SUV Factor successfully calibrated: " + this.suvFactor + " (Modality: PET, Nuclide: "
 					+ radionuclideName + ", Type: " + cmbSuvType.getSelectedItem() + ")");
@@ -366,7 +465,7 @@ public class SUVCalibrationDialog extends JDialog {
 	}
 
 	/**
-	 * ★ SULやBSAを考慮した高度なSUV変換係数の計算
+	 * SULやBSAを考慮した高度なSUV変換係数の計算
 	 */
 	private double calculateAdvancedSUVFactor(long diffSeconds, int typeIndex) {
 		double decay = Math.exp(-Math.log(2.0) * diffSeconds / (halfLife * 60.0));
@@ -422,9 +521,38 @@ public class SUVCalibrationDialog extends JDialog {
 	public double getSuvFactor() {
 		return this.suvFactor;
 	}
+	
+	/**
+	 * 指定されたSUVタイプのインデックスに応じた単位（String）を取得します。
+	 * @param typeIndex cmbSuvTypeのインデックス (0: BW, 1: SUL-James, 2: SUL-Janma, 3: BSA)
+	 * @return 単位の文字列
+	 */
+	public String getSuvUnit(int typeIndex) {
+		switch (typeIndex) {
+		case 0: // SUVbw (Body Weight)
+		case 1: // SUL (Lean Body Mass - James)
+		case 2: // SUL (Lean Body Mass - Janma)
+			return "g/mL";
+		case 3: // SUVbsa (Body Surface Area)
+			return "cm²/mL"; // UIでの表示環境によっては "cm2/mL" としてください
+		default:
+			return "";
+		}
+	}
 
 	/**
-	 * 半角数字と小数点のみ許可するドキュメントフィルター（要件2）
+	 * 現在コンボボックスで選択されているSUV計算方法の単位を取得します。
+	 * @return 単位の文字列
+	 */
+	public String getCurrentSuvUnit() {
+		if (cmbSuvType != null) {
+			return getSuvUnit(cmbSuvType.getSelectedIndex());
+		}
+		return "";
+	}
+
+	/**
+	 * 半角数字と小数点のみ許可するドキュメントフィルター
 	 */
 	private static class NumericDocumentFilter extends DocumentFilter {
 		@Override

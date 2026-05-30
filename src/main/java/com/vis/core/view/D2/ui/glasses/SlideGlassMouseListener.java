@@ -64,6 +64,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.fusion.FusionControlDialog;
 import com.vis.core.log.Log;
+import com.vis.core.nuclearmedicine.SUVCalibrationDialog;
 import com.vis.core.slicer.CenterPositionLine;
 import com.vis.core.slicer.SlicerWindow;
 import com.vis.core.slicer.ReferenceLineMPR;
@@ -76,6 +77,7 @@ import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.Modality;
 
 /**
  * @author tatsunidas
@@ -578,7 +580,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
 
 		// ==========================================================
-		// ★ 追加: 右クリックした場所にROIがあれば、ROI専用メニューを出す
+		// 右クリックした場所にROIがあれば、ROI専用メニューを出す
 		// ==========================================================
 		RoiObj hitRoi = cg.activateRoiAt(e.getX(), e.getY());
 		if (hitRoi != null) {
@@ -641,6 +643,21 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
                 dialog.setVisible(true);
             });
             popup.add(fusionCtrlItem);
+        }
+        
+        /*
+         * PET画像の場合、SUV Calibrationをリスト
+         */
+        Modality modality = pp.getModality();
+        if(modality == Modality.PT) {
+        	popup.addSeparator(); // 区切り線
+            javax.swing.JMenuItem suvCalItem = new javax.swing.JMenuItem("SUV Calibration");
+            suvCalItem.addActionListener(ae -> {
+                java.awt.Window parentWindow = javax.swing.SwingUtilities.getWindowAncestor(slide);
+                SUVCalibrationDialog dialog = new SUVCalibrationDialog(parentWindow, pp);
+                dialog.setVisible(true);
+            });
+            popup.add(suvCalItem);
         }
         
         // マウスがクリックされたコンポーネント上の座標にメニューを表示

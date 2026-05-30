@@ -3730,7 +3730,7 @@ public class Praparat extends JPanel {
 	 * 
 	 * @param factor 算出したSUV Factor
 	 */
-	public void setSUVFactor(double factor) {
+	public void setSUVFactor(double factor, String unit) {
 		this.suvFactor = factor;
 		Log.logger.info("Praparat: SUV Factor set to " + factor + ". Propagating to all SlideGlasses...");
 
@@ -3738,15 +3738,10 @@ public class Praparat extends JPanel {
 		if (this.slides != null) { // ※ 実際のコレクション名（getAllSlides()等）に合わせて調整してください
 			for (SlideGlass sg : this.slides.values()) {
 				if (sg != null) {
-					sg.setSUVFactor(factor);
+					sg.setSUVFactor(factor, unit);
 				}
 			}
 		}
-
-		// 2. 表示画像をアップデート（再計算・再描画）
-		// ※ 既存のフュージョン更新メソッドや、描画リフレッシュ用メソッドを呼び出します
-		// 例：updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX,
-		// this.fusionOffsetY);
 		repaint();
 	}
 
@@ -3785,15 +3780,15 @@ public class Praparat extends JPanel {
 			Double[] pixelRawAndCalibrated = (Double[]) val;
 			double raw_v = pixelRawAndCalibrated[0];
 			double calibrated_v = pixelRawAndCalibrated[1];
-			updateInfoLabel(pointOnOrg, calibrated_v + "(" + raw_v + ")", scaleXY, mag, rotate);
+			String formattedCal = formatPixelValue(calibrated_v);
+			String formattedRaw = formatPixelValue(raw_v);
+			updateInfoLabel(pointOnOrg, formattedCal + " (" + formattedRaw + ")", scaleXY, mag, rotate);
 		} else {
 			String[] rgbAndColor = (String[]) val;
 			String r = rgbAndColor[0];
 			String g = rgbAndColor[1];
 			String b = rgbAndColor[2];
-//			String color = rgbAndColor[3];//java.awt.Color[r,g,b]
-//			updateInfoLabel(X, Y, r+","+g+","+b+" "+"("+color+")", scale, mag, rotate);
-			updateInfoLabel(pointOnOrg, "(r,g,b)" + r + "," + g + "," + b, scaleXY, mag, rotate);
+			updateInfoLabel(pointOnOrg, "(R,G,B) " + r + ", " + g + ", " + b, scaleXY, mag, rotate);
 		}
 	}
 
@@ -4394,6 +4389,26 @@ public class Praparat extends JPanel {
 	private void updateInfoLabel(int x, int y, String value, double[] scaleXY, double mag, double rotate) {
 		if (getViewMode() != ViewMode.Thumbnail) {
 			this.pvcp.setText2InfoLabel(x, y, value, scaleXY, mag, rotate);
+		}
+	}
+	
+	/**
+	 * 値の大きさに応じて小数点以下の表示桁数をスマートに切り替えるヘルパーメソッド
+	 */
+	private String formatPixelValue(double value) {
+		if (Double.isNaN(value)) return "NaN";
+		if (value == 0.0) return "0.00";
+		
+		double abs = Math.abs(value);
+		if (abs >= 0.01) {
+			// 0.01以上（通常のSUVや、大きなRAW値）は小数点以下2桁固定
+			return String.format("%.2f", value);
+		} else if (abs >= 0.0001) {
+			// 0.01未満で0に近い値の場合は、有効数字を確保するため小数点以下4桁まで表示
+			return String.format("%.4f", value);
+		} else {
+			// さらに極端に小さい値は指数表記 (例: 3.50e-5)
+			return String.format("%.2e", value);
 		}
 	}
 

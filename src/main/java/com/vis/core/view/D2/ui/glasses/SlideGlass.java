@@ -186,6 +186,7 @@ public class SlideGlass extends JLayeredPane {
 	 * SUV calibration factor
 	 */
 	private double suvFactor = 0.0;
+	private String suvUnit = "";
 
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	ImageProcessing imgProcess = new ImageProcessing();
@@ -844,6 +845,15 @@ public class SlideGlass extends JLayeredPane {
 			double[] coeff = { intercept, slope };
 			cal.setFunction(Calibration.STRAIGHT_LINE, coeff, UNIT_GRAY);
 		}
+		
+		// ==========================================================
+		// ★ 追加：キャッシュからのリアライズ時、すでにSUV校正済みなら再適用する
+		// ==========================================================
+		if (this.suvFactor > 0.0 && "PT".equals(modality)) {
+			double[] coeff = cal.getCoefficients();
+			cal.setFunction(ij.measure.Calibration.STRAIGHT_LINE,
+					new double[] { coeff[0] / this.suvFactor, coeff[1] / this.suvFactor }, suvUnit);
+		}
 
 		// モダリティがCTの場合は単位をHU（ハンスフィールド・ユニット）に設定
 		if ("CT".equals(modality)) {
@@ -1452,8 +1462,9 @@ public class SlideGlass extends JLayeredPane {
 	/**
      * Praparatから伝搬されるSUV Factorを設定し、オリジナル画像のキャリブレーションを更新します。
      */
-    public void setSUVFactor(double factor) {
+    public void setSUVFactor(double factor, String unit) {
         this.suvFactor = factor;
+        this.suvUnit = unit;
         Calibration cal = getOriginalCalibration();
         Calibration cal2 = null;
         if(cal != null) {
@@ -1474,7 +1485,37 @@ public class SlideGlass extends JLayeredPane {
                     double currentIntercept = this.header.getDouble(com.vis.dicom.Tag.RescaleIntercept, 0.0);
                     
                     cal2.setFunction(ij.measure.Calibration.STRAIGHT_LINE, 
-                        new double[]{ currentIntercept / factor, currentSlope / factor }, "SUV");
+                        new double[]{ currentIntercept / factor, currentSlope / factor }, suvUnit);
+                    // ==========================================================
+                    // ★ 追加: SUV化された瞬間に、PET画像の臨床標準コントラスト（例: SUV 0.0〜7.0）を強制適用する
+                    // ==========================================================
+                    double targetSuvMin = 0.0;
+                    double targetSuvMax = 7.0; // ※施設や医師の好みに合わせて 5.0 〜 10.0 に調整してください
+
+                    // SUV値を元の物理値（Bq/mL）に逆算
+                    double minPhys = targetSuvMin * factor;
+                    double maxPhys = targetSuvMax * factor;
+
+                    // resetContrast() と同じロジックで、生のピクセル値へ逆算する
+                    double offset = 0;
+                    boolean isSigned = this.dcmImg.isSigned();
+                    int bitsAllocated = this.dcmImg.getBitsAllocated();
+                    int bitsStored = this.header.getInt(com.vis.dicom.Tag.BitsStored, bitsAllocated);
+                    
+                    if (isSigned) {
+                        offset = (double) (1 << (bitsStored - 1));
+                    }
+
+                    double rawMin = ((minPhys - currentIntercept) / currentSlope) + offset;
+                    double rawMax = ((maxPhys - currentIntercept) / currentSlope) + offset;
+
+                    // 範囲外にはみ出さないようクランプ
+                    double maxPossibleValue = (double) ((1 << bitsAllocated) - 1);
+                    rawMin = Math.max(0.0, Math.min(maxPossibleValue, rawMin));
+                    rawMax = Math.max(0.0, Math.min(maxPossibleValue, rawMax));
+
+                    // コントラストを適用
+                    changeWindowingByMinMax(rawMin, rawMax);
                 } else {
                     // SUVが解除された、または未校正の場合は通常のDICOM設定に戻す
                     double currentSlope = this.header.getDouble(com.vis.dicom.Tag.RescaleSlope, 1.0);

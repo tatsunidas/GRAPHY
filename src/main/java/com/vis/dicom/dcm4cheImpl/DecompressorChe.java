@@ -431,9 +431,9 @@ public class DecompressorChe implements com.vis.imageio.Decompressor {
 //		}
 //		return null;
 //	}
-	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/* 0 to - N-1 */) {
+	public ImageProcessor getImageProcessorFromMpeg(int frameIndex/* zct 0 to - N-1 */) {
 		if (isMpeg && mpegVirtualStack != null) {
-			// ★修正1: 複数スレッド(先読みと描画)からの同時アクセスによる競合を防ぐ
+			// 複数スレッド(先読みと描画)からの同時アクセスによる競合を防ぐ
 			synchronized (mpegVirtualStack) {
 				// ★修正2: setSlice() はUIイベントを誘発して重いため、Stackから直接取得する
 				ImageProcessor ip = mpegVirtualStack.getStack().getProcessor(frameIndex + 1);

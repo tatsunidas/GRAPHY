@@ -83,7 +83,8 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 	boolean decompressed = false;
 	final String filePath;
 	
-	private Decompressor mpegDecompressorCache = null;
+	// クラス変数として保持し、同じファイル（SOP）のMPEGなら使い回す
+	private static final java.util.concurrent.ConcurrentHashMap<String, Decompressor> globalMpegDecompressorCache = new java.util.concurrent.ConcurrentHashMap<>();
 	
 	public DicomImageChe(String path, boolean withPixel) {
 		DicomReader reader = DicomReader.newDicomReader(DICOMBackend.DCM4CHE);
@@ -165,13 +166,17 @@ public class DicomImageChe extends DicomObjectChe implements DicomImage{
 		// MPEG用のバイパスルート
 		String tsuid = getTSUID().uid();
 		if (tsuid != null && tsuid.startsWith("1.2.840.10008.1.2.4.10")) {
-			
-			// 初回のみ作成してキャッシュ
-			if (this.mpegDecompressorCache == null) {
-				this.mpegDecompressorCache = Decompressor.newInstance(this);
-			}
-			if (this.mpegDecompressorCache instanceof com.vis.dicom.dcm4cheImpl.DecompressorChe) {
-				com.vis.dicom.dcm4cheImpl.DecompressorChe cheDec = (com.vis.dicom.dcm4cheImpl.DecompressorChe) this.mpegDecompressorCache;
+
+			// キャッシュキーの生成（ファイルパス + SOPInstanceUID等で一意にする）
+			String sop = getSopClassUID() != null ? getSopClassUID().uid() : "unknown";
+			String cacheKey = (this.filePath != null ? this.filePath : "") + "_" + sop;
+
+			// スレッドセーフに初回のみ Decompressor を作成
+			Decompressor dec = globalMpegDecompressorCache.computeIfAbsent(cacheKey,
+					k -> Decompressor.newInstance(this));
+
+			if (dec instanceof com.vis.dicom.dcm4cheImpl.DecompressorChe) {
+				com.vis.dicom.dcm4cheImpl.DecompressorChe cheDec = (com.vis.dicom.dcm4cheImpl.DecompressorChe) dec;
 				ImageProcessor mpegIp = cheDec.getImageProcessorFromMpeg(frame);
 				if (mpegIp != null) {
 					return mpegIp; // PixelDataDecoder を完全に無視して返す！

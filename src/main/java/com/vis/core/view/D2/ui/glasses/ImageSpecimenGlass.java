@@ -420,8 +420,7 @@ public class ImageSpecimenGlass extends JPanel{
 					// 1. 生のピクセル値を物理値（Bq/mL 等）に変換
 					// 2. 物理値を suvFactor で割って SUV（g/mL 等）に変換
 					for (int i = 0; i < pixels.length; i++) {
-						double calibratedVal = cal.getCValue(pixels[i]); // Bq/mLに復元
-						pixels[i] = (float) (calibratedVal / suvFactor); // SUVに変換
+						pixels[i] = (float)cal.getCValue(pixels[i]);// SUV較正は済んでいる
 					}
 					// ピクセルデータ自体がSUV値に置き換わったため、これ以上の重複補正を防ぐためにCalibrationをリセット
 					dup.setCalibration(null);
@@ -439,8 +438,26 @@ public class ImageSpecimenGlass extends JPanel{
 			AffineTransform finalTransform = new AffineTransform(sg.getCurrentTransform());
 			
 			sg.imgProcess.applyLUT(dup, sg.currentLUT);
-			//adjust contrast to current
-			sg.imgProcess.windowing(dup, sg.currentMin, sg.currentMax);
+			
+			// adjust contrast to current
+			// ==========================================================
+			// ★ 修正2：ピクセルデータがSUV値(物理スケール)に変換されているため、
+			// windowing用のMin/Maxも「生のピクセル値」から「SUV値」へ変換して適用する
+			// ==========================================================
+			double displayMin = sg.currentMin;
+			double displayMax = sg.currentMax;
+
+			if (suvFactor > 0.0) {
+				Calibration originalCal = sg.getOriginalCalibration();
+				if (originalCal != null && originalCal.calibrated()) {
+					displayMin = originalCal.getCValue(sg.currentMin);
+					displayMax = originalCal.getCValue(sg.currentMax);
+				} else {
+					displayMin = sg.currentMin / suvFactor;
+					displayMax = sg.currentMax / suvFactor;
+				}
+			}
+			sg.imgProcess.windowing(dup, displayMin, displayMax);
 			//invert if it set
 			if(sg.isInverted()) {
 				sg.imgProcess.invert(dup);
