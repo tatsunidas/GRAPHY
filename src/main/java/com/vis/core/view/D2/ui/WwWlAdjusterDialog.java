@@ -198,32 +198,34 @@ public class WwWlAdjusterDialog extends JDialog {
         wlSlider.addChangeListener(sliderEvent);
         wwSlider.addChangeListener(sliderEvent);
 
-        autoBtn.addActionListener(e -> {
-            if (currentPraparat != null) {
-                SlideGlass sg = currentPraparat.getCurrentSlide();
-                if (sg != null) {
-                    ImagePlus imp = sg.getOriginalImage();
-                    
-                    // ★修正: 対象のチャンネルだけを正確に狙い撃ちしてストレッチをかける
-                    if (sg.isRGB() && currentChannel == -1) {
-                        // RGB画像で「All」選択時は、R・G・Bそれぞれを個別に最大ストレッチしてホワイトバランスを自動補正する
-                        for (int c = 0; c <= 2; c++) {
-                            ImageStatistics stats = getTargetStatistics(imp, c);
-                            if (stats != null) {
-                                currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), c, stats.min, stats.max);
-                            }
-                        }
-                    } else {
-                        // モノクロ画像、または特定のカラーチャンネル選択時
-                        ImageStatistics stats = getTargetStatistics(imp, currentChannel);
-                        if (stats != null) {
-                            currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel, stats.min, stats.max);
-                        }
-                    }
-                    updateUIFromModel();
-                }
-            }
-        });
+		autoBtn.addActionListener(e -> {
+			if (currentPraparat != null) {
+				SlideGlass sg = currentPraparat.getCurrentSlide();
+				if (sg != null) {
+					ImagePlus imp = sg.getOriginalImage();
+
+					// ★修正: 対象のチャンネルだけを正確に狙い撃ちしてストレッチをかける
+					if (sg.isRGB() && currentChannel == -1) {
+						// RGB画像で「All」選択時は、R・G・Bそれぞれを個別に最大ストレッチしてホワイトバランスを自動補正する
+						for (int c = 0; c <= 2; c++) {
+							ImageStatistics stats = getTargetStatistics(imp, c);
+							if (stats != null) {
+								currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), c, stats.min,
+										stats.max);
+							}
+						}
+					} else {
+						// モノクロ画像、または特定のカラーチャンネル選択時
+						ImageStatistics stats = getTargetStatistics(imp, currentChannel);
+						if (stats != null) {
+							currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel,
+									stats.min, stats.max);
+						}
+					}
+					updateUIFromModel();
+				}
+			}
+		});
 
         resetBtn.addActionListener(e -> {
             if (currentPraparat != null) {
