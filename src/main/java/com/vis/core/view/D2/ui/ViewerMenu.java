@@ -47,15 +47,14 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 
 import com.vis.core.facade.ApplicationFacade;
+import com.vis.core.log.Log;
 import com.vis.core.plugin.PlugInCompiler;
 import com.vis.core.plugin.PluginShelf;
 import com.vis.core.ui.dialog.HelpDialog;
-import com.vis.core.ui.function.DicomDuplicator;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.db.DatabaseHandler;
 
 /**
- * 
- * Future work 20240814
  * 
  * @author tatsunidas
  *
@@ -78,13 +77,15 @@ public class ViewerMenu extends JMenuBar {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				Viewer2DScreen own = Viewer2DScreen.getInstance();
-				if(own == null) {
+				DatabaseHandler db = DatabaseHandler.getInstance();
+				if(own == null || db == null) {
+					Log.logger.info("Ouch, viewer or database is null...");
 					return;
 				}
 				ArrayList<Praparat>  selectedPraps = own.getSelectedPraps();
 				for(Praparat pp : selectedPraps) {
 					try {
-						DicomDuplicator.createNewSeriesAndStore2DB(pp, false);
+						db.storeDicomImagesToDb(pp.getDicomImages());
 					} catch (Exception e1) {
 						e1.printStackTrace();
 					}
@@ -92,6 +93,31 @@ public class ViewerMenu extends JMenuBar {
 			}
 		});
 		mnFile.add(mntmSaveNewSeries);
+		
+		JMenu mnImage = new JMenu("Image");
+		add(mnImage);
+		JMenuItem mntmWWWL = new JMenuItem("Adjust contrast");
+		mntmWWWL.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if(own == null) {
+					Log.logger.info("Ouch, viewer is null...");
+					return;
+				}
+				ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+				for(Praparat pp : selectedPraps) {
+					try {
+						WwWlAdjusterDialog.showDialog(pp, own);
+					} catch (Exception e1) {
+						e1.printStackTrace();
+					}
+					//do just first pp.
+					break;
+				}
+			}
+		});
+		mnImage.add(mntmWWWL);
 		
 		pluginMenu = new JMenu("Plugins");
 		add(pluginMenu);
@@ -109,17 +135,8 @@ public class ViewerMenu extends JMenuBar {
 		});
 		mnHelp.add(mntmHelp);
 		
-//		JMenuItem mntmExport = new JMenuItem("Export");
-//		mntmExport.addActionListener(new ActionListener() {
-//			@Override
-//			public void actionPerformed(ActionEvent arg0) {
-//				// TODO Auto-generated method stub
-//				ArrayList<DICOMNode> selected = ApplicationContext.getInstance().getMainScreen().getSelectedNode();
-//				new DicomExporter(selected);
-//			}
-//		});
-//		mnFile.add(mntmExport);
-//		
+		
+		
 //		JMenuItem mntmDelete = new JMenuItem("Delete");
 //		mntmDelete.addActionListener(new ActionListener() {
 //			@Override
@@ -165,9 +182,6 @@ public class ViewerMenu extends JMenuBar {
 //
 //		JMenu mnRoi = new JMenu("ROI");
 //		add(mnRoi);
-//
-//		JMenu mnPlugins = new JMenu("Plugins");
-//		add(mnPlugins);
 //
 //		JMenu mnOpenrecent = new JMenu("OpenRecent");
 //		add(mnOpenrecent);

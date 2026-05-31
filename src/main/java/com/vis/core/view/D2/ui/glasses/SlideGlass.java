@@ -1780,16 +1780,6 @@ public class SlideGlass extends JLayeredPane {
 		repaint();
 	}
 
-	public void showRoiPopupOf(RoiObj roi) {
-		if (roi == null) {
-			return;
-		}
-		if (roi instanceof TextRoi) {
-			return;
-		}
-//		roi.showRoiPopupOnCanvas();//TODO
-	}
-
 	private void updatePanningState() {
 		Dimension d = imageSpecimen.calcImageSize2FitComponent();
 		if (d == null) {

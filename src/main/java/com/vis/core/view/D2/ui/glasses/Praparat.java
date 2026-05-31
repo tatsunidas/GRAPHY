@@ -185,8 +185,7 @@ public class Praparat extends JPanel {
 	 */
 	private int pendingTargetIndex = -1;
 
-	private java.util.concurrent.atomic.AtomicInteger latestCacheRequest = new java.util.concurrent.atomic.AtomicInteger(
-			0);
+	private java.util.concurrent.atomic.AtomicInteger latestCacheRequest = new java.util.concurrent.atomic.AtomicInteger(0);
 
 	private int filmGridColumns = 5;
 	private boolean isMultiFrame = false;/* to set video option */
@@ -228,6 +227,8 @@ public class Praparat extends JPanel {
 
 	private final int PREFETCH_RANGE = 3;
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
+	
+	private final java.util.concurrent.ConcurrentHashMap<Integer, WwWlState> wwWlStorage = new java.util.concurrent.ConcurrentHashMap<>();
 
 	final ViewMode mode;
 
@@ -307,7 +308,15 @@ public class Praparat extends JPanel {
 
 	public void adjustContrastFromMouseAction(int dragX, int dragY) {
 		SlideGlass slide = getCurrentSlide();
+		if (slide == null) return;
+		
 		slide.adjustContrastFromMouseAction(dragX, dragY);
+		double newMin = slide.currentMin;
+		double newMax = slide.currentMax;
+
+		// 自身のストレージを更新
+		getWwWlState(getCurrentSlidePos()).setValues(-1, newMin, newMax);
+
 		if (isProcessSeries()) {
 			ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
@@ -315,7 +324,9 @@ public class Praparat extends JPanel {
 				if (slide == sg) {
 					continue;
 				}
-				sg.changeWindowingByMinMax(slide.currentMin, slide.currentMax);
+				// 他のスライドのストレージも更新して適用
+				getWwWlState(key).setValues(-1, newMin, newMax);
+				sg.changeWindowingByMinMax(newMin, newMax);
 			}
 		}
 	}
@@ -335,11 +346,20 @@ public class Praparat extends JPanel {
 			ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
 			for (Integer key : slides.keySet()) {
 				SlideGlass sg = slides.get(key);
-				sg.changeWindowingByMinMax(min, max);
+				if (sg != null) {
+					// 記憶領域へ保存（-1 は All Channels）
+					getWwWlState(key).setValues(-1, min, max);
+					sg.changeWindowingByMinMax(min, max);
+				}
 			}
 		} else {
-			SlideGlass slide = getCurrentSlide();
-			slide.changeWindowingByMinMax(min, max);
+			int zct = getCurrentSlidePos();
+			SlideGlass slide = slides.get(zct);
+			if (slide != null) {
+				// 単一スライスの場合
+				getWwWlState(zct).setValues(-1, min, max);
+				slide.changeWindowingByMinMax(min, max);
+			}
 		}
 	}
 
@@ -427,6 +447,88 @@ public class Praparat extends JPanel {
 		for (int i = 1; i <= depth; i++) {
 			GDicomTools.setTag(imp, i, "0028,1050", wcStr); // Window Center
 			GDicomTools.setTag(imp, i, "0028,1051", wwStr); // Window Width
+		}
+	}
+	
+	/**
+	 * 対象スライスのWW/WL状態を取得、存在しなければ初期化して返す
+	 */
+	public WwWlState getWwWlState(int zctIndex) {
+	    return wwWlStorage.computeIfAbsent(zctIndex, key -> {
+	        SlideGlass sg = slides.get(key);
+	        if (sg != null) {
+	            // SlideGlassの初期状態からWwWlStateを生成
+	            double[] minMax = sg.getCurrentWindowMinMax();
+	            return new WwWlState(minMax[0], minMax[1]);
+	        }
+	        return new WwWlState(0.0, 255.0);
+	    });
+	}
+
+	/**
+	 * 外部（UIダイアログなど）からWW/WLが変更されたときに呼び出されるメソッド
+	 */
+	public void updateSliderContrast(int zctIndex, int colorChannel, double min, double max) {
+	    // 1. ストレージ（記憶領域）に保存（これでアンロードされても消えない）
+	    WwWlState state = getWwWlState(zctIndex);
+	    state.setValues(colorChannel, min, max);
+
+	    // 2. 現在メモリにある実際のSlideGlassにリアルタイム反映
+	    if (isProcessSeries()) {
+	        // シリーズ全体同期がONの場合、全スライスのストレージを更新して反映
+	        for (Integer key : slides.keySet()) {
+	            getWwWlState(key).setValues(colorChannel, min, max);
+	            SlideGlass sg = slides.get(key);
+	            if (sg != null && sg.getOriginalImage() != null) {
+	                applyStateToSlideGlass(sg, colorChannel, min, max);
+	            }
+	        }
+	    } else {
+	        // 単一スライスのみ反映
+	        SlideGlass sg = slides.get(zctIndex);
+	        if (sg != null) {
+	            applyStateToSlideGlass(sg, colorChannel, min, max);
+	        }
+	    }
+	}
+
+	/**
+	 * 実際のSlideGlass（ImageJのImageProcessor等）に値を適用するヘルパー
+	 */
+	private void applyStateToSlideGlass(SlideGlass sg, int colorChannel, double min, double max) {
+		if (sg.isRGB()) {
+			// カラー画像（Color Balance）の適用
+			ImagePlus imp = sg.getOriginalImage();
+			if (imp != null && imp.getProcessor() instanceof ij.process.ColorProcessor) {
+				ij.process.ColorProcessor cp = (ij.process.ColorProcessor) imp.getProcessor();
+
+				// 1. UIダイアログのチャンネルIDを、ImageJのビットフラグにマッピング
+				int channelFlags = 7; // デフォルト: All (7)
+				if (colorChannel == 0)
+					channelFlags = 4; // Red
+				else if (colorChannel == 1)
+					channelFlags = 2; // Green
+				else if (colorChannel == 2)
+					channelFlags = 1; // Blue
+
+				// 2. 該当カラーチャンネルのSnapshotが未取得なら取得（ImageJの仕様: 輝度リセット用）
+				if (cp.getMin() == 0 && cp.getMax() == 255 && !cp.caSnapshot()) {
+					cp.snapshot();
+					cp.caSnapshot(true);
+				}
+
+				// 3. ImageJのColorProcessorに、特定のチャンネルを狙ってMin/Maxを適用
+				cp.setMinAndMax(min, max, channelFlags);
+
+				// 4. SlideGlass自体のグローバルなWW/WL管理値も（All選択時のみ）同期させておく
+				if (colorChannel == -1) {
+					sg.currentMin = min;
+					sg.currentMax = max;
+				}
+			}
+		} else {
+			// モノクロ画像（通常のWW/WL）
+			sg.changeWindowingByMinMax(min, max);
 		}
 	}
 
@@ -2785,6 +2887,16 @@ public class Praparat extends JPanel {
 					}
 					
 					loadRoisFromDB();
+					
+					// ==========================================================
+	                // ★【追加コード】
+	                // 非同期ロードが完了する前に、すでに呼び出し元（BirdsEyeView）から
+	                // 選択命令（selected=true）を受け取っていた場合、
+	                // 新しく出揃ったすべてのSlideGlassへその選択状態を確実に強制同期させます。
+	                // ==========================================================
+	                if (isSelected()) {
+	                    setSelectionState(true);
+	                }
 
 	                // 5. 初回描画のトリガー（ここで初めて画像が描画される）
 	                if (!isShowGridViewOn()) {
@@ -3498,19 +3610,25 @@ public class Praparat extends JPanel {
 				syncMin = null;
 				syncMax = null;
 			} else {
-				// 通常の画像（CT/MRI等）の場合は、従来のバックアップリストアを行う
-				if (!(backupMin == 0.0 && backupMax == 255.0)) {
-					sg.currentMin = backupMin;
-					sg.currentMax = backupMax;
-				}
+				
+				WwWlState savedState = getWwWlState(index);
+		        
+		        if (sg.isRGB()) {
+		            // RGBの場合は各チャンネルの設定を復元
+		            applyStateToSlideGlass(sg, -1, savedState.getMin(-1), savedState.getMax(-1));
+		            applyStateToSlideGlass(sg, 0, savedState.getMin(0), savedState.getMax(0));
+		            applyStateToSlideGlass(sg, 1, savedState.getMin(1), savedState.getMax(1));
+		            applyStateToSlideGlass(sg, 2, savedState.getMin(2), savedState.getMax(2));
+		        } else {
+		            // モノクロ画像
+		            double savedMin = savedState.getMin(-1);
+		            double savedMax = savedState.getMax(-1);
+		            sg.changeWindowingByMinMax(savedMin, savedMax);
+		        }
+				
 			}
-			// =====================================================================
 
-			if (sg.currentMin != sg.currentMax) {
-				sg.changeWindowingByMinMax(sg.currentMin, sg.currentMax);
-			}
-
-			// ★ 新規追加: 画像が実体化されたタイミングでフュージョンを動的適用
+			// 画像が実体化されたタイミングでフュージョンを動的適用
 			if (isFusionMode) {
 				applyFusionOverlayToSlide(index, sg);
 			}
@@ -3704,18 +3822,30 @@ public class Praparat extends JPanel {
 		// サムネイルモードは何もしない
 	}
 
+	/**
+	 * 従来の自動ウインドウ（上下カット）処理ではなく、純粋にDICOM属性タグのコントラストに戻すリセット処理にリファクタリング
+	 */
 	public void resetWindow() {
-		if (pvcp.processSeries()) {
-			for (int i : slides.keySet()) {
-				SlideGlass sg = slides.get(i);
-				if (sg != null)
-					sg.autoWindowing();
+		if (isProcessSeries()) {
+			ConcurrentHashMap<Integer, SlideGlass> allSlides = getAllSlides();
+			if (allSlides != null) {
+				for (Integer key : allSlides.keySet()) {
+					SlideGlass sg = allSlides.get(key);
+					if (sg != null) {
+						sg.resetContrast(); // DICOMタグ(Window Center/Width)から初期コントラストを復元
+						getWwWlState(key).setValues(-1, sg.currentMin, sg.currentMax);
+					}
+				}
 			}
 		} else {
-			SlideGlass sg = getCurrentSlide();
-			if (sg != null)
-				sg.autoWindowing();
+			int zct = getCurrentSlidePos();
+			SlideGlass sg = slides.get(zct);
+			if (sg != null) {
+				sg.resetContrast(); // DICOMタグからリセット
+				getWwWlState(zct).setValues(-1, sg.currentMin, sg.currentMax);
+			}
 		}
+		repaint();
 	}
 
 	/**
@@ -3956,7 +4086,9 @@ public class Praparat extends JPanel {
 
 				viewPanel.removeAll();
 				viewPanel.add(currentGlass, 0);
-				currentGlass.setFocusGained(true);
+				
+				java.awt.Component cover1 = (java.awt.Component) currentGlass.getGlassAt(SlideGlass.EVENT_LAYER);
+				if (cover1 != null) cover1.requestFocusInWindow();
 
 				if (sizeChanged) {
 					currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
@@ -4038,8 +4170,10 @@ public class Praparat extends JPanel {
 			viewPanel.setVisible(false);
 			viewPanel.removeAll();
 			viewPanel.add(nextGlass, 0);
-			nextGlass.setFocusGained(true);
 			nextGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+			
+			java.awt.Component cover2 = (java.awt.Component) nextGlass.getGlassAt(SlideGlass.EVENT_LAYER);
+			if (cover2 != null) cover2.requestFocusInWindow();
 
 			manageCache(currentSliceZCT);
 			nextGlass.updateDisplayImage();
@@ -4187,8 +4321,9 @@ public class Praparat extends JPanel {
 	public void setSelectionState(boolean select) {
 		this.selected = select;
 
-		// サムネイル以外なら、配下の全SlideGlassの状態も一斉に同期させる
-		if (mode != ViewMode.Thumbnail && slides != null) {
+		// 配下の全SlideGlassの状態も一斉に同期させる
+		// サムネイルでも同様。
+		if (slides != null) {
 			for (SlideGlass sg : slides.values()) {
 				if (sg != null) {
 					// SlideGlassのメソッドを呼んで状態とボーダーを更新
