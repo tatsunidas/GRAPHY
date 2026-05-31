@@ -70,7 +70,6 @@ import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
 import com.vis.core.view.D2.roi.RoiType;
-import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;

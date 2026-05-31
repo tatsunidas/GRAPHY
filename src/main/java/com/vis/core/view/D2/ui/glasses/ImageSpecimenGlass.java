@@ -171,6 +171,22 @@ public class ImageSpecimenGlass extends JPanel{
 	}
 	
 	/**
+	 * 8-bit用（0〜255）のコントラスト変換テーブル(LUT)を生成するヘルパーメソッド
+	 */
+	private int[] create8BitLUT(double min, double max) {
+		int[] lut = new int[256];
+		double range = max - min;
+		if (range <= 0) range = 1.0; // ゼロ除算防止
+
+		for (int i = 0; i < 256; i++) {
+			if (i <= min) lut[i] = 0;
+			else if (i >= max) lut[i] = 255;
+			else lut[i] = (int) (((i - min) / range) * 255.0);
+		}
+		return lut;
+	}
+	
+	/**
 	 * This method support the origin which is inside border area on slideglass.
 	 * * @param newImgW
 	 * @param newImgH
@@ -440,24 +456,70 @@ public class ImageSpecimenGlass extends JPanel{
 			sg.imgProcess.applyLUT(dup, sg.currentLUT);
 			
 			// adjust contrast to current
-			// ==========================================================
-			// ★ 修正2：ピクセルデータがSUV値(物理スケール)に変換されているため、
-			// windowing用のMin/Maxも「生のピクセル値」から「SUV値」へ変換して適用する
-			// ==========================================================
-			double displayMin = sg.currentMin;
-			double displayMax = sg.currentMax;
-
-			if (suvFactor > 0.0) {
-				Calibration originalCal = sg.getOriginalCalibration();
-				if (originalCal != null && originalCal.calibrated()) {
-					displayMin = originalCal.getCValue(sg.currentMin);
-					displayMax = originalCal.getCValue(sg.currentMax);
-				} else {
-					displayMin = sg.currentMin / suvFactor;
-					displayMax = sg.currentMax / suvFactor;
+			if (sg.isRGB()) {
+				// 画像がカラー（RGB）の場合は、モノクロ上書きを完全にスキップし、
+				// Praparatの WwWlState ストレージから各チャンネルの調整値を個別に復元して適用する
+				if (dup.getProcessor() instanceof ij.process.ColorProcessor) {
+					ij.process.ColorProcessor cp = (ij.process.ColorProcessor) dup.getProcessor();
+					
+					int zctIndex = sg.getPraparat().getZCTIndex(sg);
+					WwWlState state = sg.getPraparat().getWwWlState(zctIndex);
+					
+					// Snapshotの確保（元画像の保護）
+					if (cp.getMin() == 0 && cp.getMax() == 255 && !cp.caSnapshot()) {
+						cp.snapshot();
+						cp.caSnapshot(true);
+					}
+					
+					// ★ImageJのバグ(上書き仕様)を回避するため、独自にLUTを合成して一括適用する
+					int[] snap = (int[]) cp.getSnapshotPixels();
+					int[] pixels = (int[]) cp.getPixels();
+					
+					// 1. 各チャンネル個別の変換テーブル(LUT)を生成
+					int[] lutAll = create8BitLUT(state.getMin(-1), state.getMax(-1));
+					int[] lutR   = create8BitLUT(state.getMin(0), state.getMax(0));
+					int[] lutG   = create8BitLUT(state.getMin(1), state.getMax(1));
+					int[] lutB   = create8BitLUT(state.getMin(2), state.getMax(2));
+					
+					// 2. Allの設定と各色の設定を合成した「最終LUT」を作成
+					int[] finalR = new int[256];
+					int[] finalG = new int[256];
+					int[] finalB = new int[256];
+					for (int i = 0; i < 256; i++) {
+						finalR[i] = lutR[lutAll[i]];
+						finalG[i] = lutG[lutAll[i]];
+						finalB[i] = lutB[lutAll[i]];
+					}
+					
+					// 3. 元画像（スナップショット）からピクセルを読み出し、合成LUTを通して書き込む
+					for (int i = 0; i < pixels.length; i++) {
+						int c = snap[i];
+						int r = (c >> 16) & 0xff;
+						int g = (c >> 8) & 0xff;
+						int b = c & 0xff;
+						
+						// 各色成分に最終LUTを適用
+						pixels[i] = 0xff000000 | (finalR[r] << 16) | (finalG[g] << 8) | finalB[b];
+					}
 				}
+			} else {
+				// モノクロ画像（CT, MRI等）は従来通り、一括ウインドウ処理を適用
+				double displayMin = sg.currentMin;
+				double displayMax = sg.currentMax;
+
+				if (suvFactor > 0.0) {
+					Calibration originalCal = sg.getOriginalCalibration();
+					if (originalCal != null && originalCal.calibrated()) {
+						displayMin = originalCal.getCValue(sg.currentMin);
+						displayMax = originalCal.getCValue(sg.currentMax);
+					} else {
+						displayMin = sg.currentMin / suvFactor;
+						displayMax = sg.currentMax / suvFactor;
+					}
+				}
+				sg.imgProcess.windowing(dup, displayMin, displayMax);
 			}
-			sg.imgProcess.windowing(dup, displayMin, displayMax);
+			
 			//invert if it set
 			if(sg.isInverted()) {
 				sg.imgProcess.invert(dup);

@@ -497,35 +497,15 @@ public class Praparat extends JPanel {
 	 */
 	private void applyStateToSlideGlass(SlideGlass sg, int colorChannel, double min, double max) {
 		if (sg.isRGB()) {
-			// カラー画像（Color Balance）の適用
-			ImagePlus imp = sg.getOriginalImage();
-			if (imp != null && imp.getProcessor() instanceof ij.process.ColorProcessor) {
-				ij.process.ColorProcessor cp = (ij.process.ColorProcessor) imp.getProcessor();
-
-				// 1. UIダイアログのチャンネルIDを、ImageJのビットフラグにマッピング
-				int channelFlags = 7; // デフォルト: All (7)
-				if (colorChannel == 0)
-					channelFlags = 4; // Red
-				else if (colorChannel == 1)
-					channelFlags = 2; // Green
-				else if (colorChannel == 2)
-					channelFlags = 1; // Blue
-
-				// 2. 該当カラーチャンネルのSnapshotが未取得なら取得（ImageJの仕様: 輝度リセット用）
-				if (cp.getMin() == 0 && cp.getMax() == 255 && !cp.caSnapshot()) {
-					cp.snapshot();
-					cp.caSnapshot(true);
-				}
-
-				// 3. ImageJのColorProcessorに、特定のチャンネルを狙ってMin/Maxを適用
-				cp.setMinAndMax(min, max, channelFlags);
-
-				// 4. SlideGlass自体のグローバルなWW/WL管理値も（All選択時のみ）同期させておく
-				if (colorChannel == -1) {
-					sg.currentMin = min;
-					sg.currentMax = max;
-				}
+			// ★改善点: カラー画像の場合、実際のウインドウイング適用は描画パイプライン（updateDisplayImage）内で
+			// WwWlState を参照して行うため、ここではグローバル管理値の同期と、再描画のトリガーのみを行います。
+			if (colorChannel == -1) {
+				sg.currentMin = min;
+				sg.currentMax = max;
 			}
+
+			// 画面描画の更新をリアルタイムにトリガー
+			sg.imageSpecimen.updateDisplayImage();
 		} else {
 			// モノクロ画像（通常のWW/WL）
 			sg.changeWindowingByMinMax(min, max);
@@ -3584,10 +3564,7 @@ public class Praparat extends JPanel {
 					}
 				}
 			}
-
-			double backupMin = sg.currentMin;
-			double backupMax = sg.currentMax;
-
+			
 			sg.initCalibrationAndLUT();
 
 			String modalityStr = sg.getHeader().getString(Tag.Modality, "");
@@ -3823,17 +3800,24 @@ public class Praparat extends JPanel {
 	}
 
 	/**
-	 * 従来の自動ウインドウ（上下カット）処理ではなく、純粋にDICOM属性タグのコントラストに戻すリセット処理にリファクタリング
+	 * DICOMタグに定義されている Window Center / Width に戻すリセット処理
 	 */
 	public void resetWindow() {
 		if (isProcessSeries()) {
-			ConcurrentHashMap<Integer, SlideGlass> allSlides = getAllSlides();
+			java.util.concurrent.ConcurrentHashMap<Integer, SlideGlass> allSlides = getAllSlides();
 			if (allSlides != null) {
 				for (Integer key : allSlides.keySet()) {
 					SlideGlass sg = allSlides.get(key);
 					if (sg != null) {
 						sg.resetContrast(); // DICOMタグ(Window Center/Width)から初期コントラストを復元
-						getWwWlState(key).setValues(-1, sg.currentMin, sg.currentMax);
+						
+						// ★修正: RGB個別の状態も確実に初期状態へリセットする
+						WwWlState state = getWwWlState(key);
+						state.resetToDefault();
+						state.setValues(-1, sg.currentMin, sg.currentMax); // Allのみ復元値で上書き
+						
+						// リセットされたストレージでLUTを再合成して描画更新
+						if (sg.isRGB()) sg.imageSpecimen.updateDisplayImage();
 					}
 				}
 			}
@@ -3841,8 +3825,13 @@ public class Praparat extends JPanel {
 			int zct = getCurrentSlidePos();
 			SlideGlass sg = slides.get(zct);
 			if (sg != null) {
-				sg.resetContrast(); // DICOMタグからリセット
-				getWwWlState(zct).setValues(-1, sg.currentMin, sg.currentMax);
+				sg.resetContrast();
+				
+				WwWlState state = getWwWlState(zct);
+				state.resetToDefault();
+				state.setValues(-1, sg.currentMin, sg.currentMax);
+				
+				if (sg.isRGB()) sg.imageSpecimen.updateDisplayImage();
 			}
 		}
 		repaint();

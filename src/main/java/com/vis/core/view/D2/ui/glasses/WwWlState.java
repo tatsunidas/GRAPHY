@@ -41,4 +41,13 @@ public class WwWlState {
 
     public double getDefaultMin() { return defaultMin; }
     public double getDefaultMax() { return defaultMax; }
+    
+    public synchronized void resetToDefault() {
+        // Allの初期化
+        setValues(-1, defaultMin, defaultMax);
+        // カラーチャンネルの初期化（8-bitプレーンのデフォルト 0〜255）
+        setValues(0, 0.0, 255.0); // Red
+        setValues(1, 0.0, 255.0); // Green
+        setValues(2, 0.0, 255.0); // Blue
+    }
 }

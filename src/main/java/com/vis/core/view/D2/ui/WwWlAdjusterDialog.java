@@ -30,6 +30,10 @@ public class WwWlAdjusterDialog extends JDialog {
     private double baseMinRange = 0.0;
     private double baseMaxRange = 255.0;
     private double baseMaxWW = 255.0;
+    
+    //ヒストグラムの形を保持するキャッシュ
+    private ImageStatistics cachedStats;
+    private ImagePlus cachedImp;
 
     public static void showDialog(Praparat praparat, Window owner) {
         if (instance == null) {
@@ -185,10 +189,9 @@ public class WwWlAdjusterDialog extends JDialog {
 
             currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel, min, max);
             
-            ImagePlus imp = sg.getOriginalImage();
-            ImageStatistics stats = getTargetStatistics(imp);
-            if (stats != null) {
-                contrastPlot.setHistogramData(imp, stats, min, max);
+            // 毎回 getTargetStatistics() を計算せず、キャッシュされた形を使って「線と色」だけを更新する
+            if (cachedStats != null && cachedImp != null) {
+                contrastPlot.setHistogramData(cachedImp, cachedStats, min, max);
             }
         };
 
@@ -200,12 +203,24 @@ public class WwWlAdjusterDialog extends JDialog {
                 SlideGlass sg = currentPraparat.getCurrentSlide();
                 if (sg != null) {
                     ImagePlus imp = sg.getOriginalImage();
-                    ImageStatistics stats = getTargetStatistics(imp);
-                    if (stats != null) {
-                        // 実際のデータ範囲へフルストレッチ
-                        currentPraparat.adjustContrastByMinMax(stats.min, stats.max);
-                        updateUIFromModel();
+                    
+                    // ★修正: 対象のチャンネルだけを正確に狙い撃ちしてストレッチをかける
+                    if (sg.isRGB() && currentChannel == -1) {
+                        // RGB画像で「All」選択時は、R・G・Bそれぞれを個別に最大ストレッチしてホワイトバランスを自動補正する
+                        for (int c = 0; c <= 2; c++) {
+                            ImageStatistics stats = getTargetStatistics(imp, c);
+                            if (stats != null) {
+                                currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), c, stats.min, stats.max);
+                            }
+                        }
+                    } else {
+                        // モノクロ画像、または特定のカラーチャンネル選択時
+                        ImageStatistics stats = getTargetStatistics(imp, currentChannel);
+                        if (stats != null) {
+                            currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel, stats.min, stats.max);
+                        }
                     }
+                    updateUIFromModel();
                 }
             }
         });
@@ -218,22 +233,26 @@ public class WwWlAdjusterDialog extends JDialog {
         });
     }
 
+ // 1. getTargetStatistics メソッドを、引数でチャンネルを受け取れるようにオーバーロードします。
     private ImageStatistics getTargetStatistics(ImagePlus imp) {
+        return getTargetStatistics(imp, currentChannel);
+    }
+
+    private ImageStatistics getTargetStatistics(ImagePlus imp, int targetChannel) {
         if (imp == null || imp.getProcessor() == null) return null;
         ImageProcessor ip = imp.getProcessor();
         
         ImageProcessor targetIp = ip;
-        if (ip instanceof ij.process.ColorProcessor && currentChannel >= 0) {
+        if (ip instanceof ij.process.ColorProcessor && targetChannel >= 0) {
             ij.process.ColorProcessor cp = (ij.process.ColorProcessor) ip;
             byte[] r = new byte[cp.getWidth() * cp.getHeight()];
             byte[] g = new byte[r.length];
             byte[] b = new byte[r.length];
             cp.getRGB(r, g, b);
-            byte[] targetPixels = (currentChannel == 0) ? r : ((currentChannel == 1) ? g : b);
+            byte[] targetPixels = (targetChannel == 0) ? r : ((targetChannel == 1) ? g : b);
             targetIp = new ij.process.ByteProcessor(cp.getWidth(), cp.getHeight(), targetPixels, null);
         }
 
-        // 常にRAW値の統計を取得する
         ImageStatistics rawStats = ImageStatistics.getStatistics(targetIp, ImageStatistics.MIN_MAX, null);
         
         if (targetIp.getBitDepth() > 8) {
@@ -253,6 +272,10 @@ public class WwWlAdjusterDialog extends JDialog {
 
         ImagePlus imp = sg.getOriginalImage();
         ImageStatistics stats = getTargetStatistics(imp);
+        
+        // ★追加: 取得した統計情報をキャッシュに保存しておく
+        this.cachedStats = stats;
+        this.cachedImp = imp;
         
         WwWlState state = currentPraparat.getWwWlState(currentPraparat.getCurrentSlidePos());
 
