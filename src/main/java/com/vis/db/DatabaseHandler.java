@@ -37,6 +37,7 @@
  */
 package com.vis.db;
 
+import java.awt.Window;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -49,22 +50,27 @@ import java.util.logging.Level;
 import javax.swing.JOptionPane;
 import javax.swing.tree.DefaultMutableTreeNode;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
+import com.vis.core.util.DBUtils;
 import com.vis.core.util.DateUtils;
 import com.vis.core.util.DeleteFolder;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.RoiGeometry;
+import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomObject;
+import com.vis.dicom.DicomReader;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.DicomWriter;
 import com.vis.dicom.Modality;
 import com.vis.dicom.Tag;
 import com.vis.dicom.UID;
+import com.vis.dicom.VR;
 import com.vis.dicom.dimse.DcmQRSCP;
 import com.vis.dicom.dimse.DimseUtilities;
 import com.vis.dicom.image.DicomImage;
@@ -4221,6 +4227,132 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		}
+	}
+	
+	/**
+	 * create study as new patient all UIDs are primary-key, so not allow same id
+	 * already existing in DB. all UIDs are replaced.
+	 * 
+	 * @param noDuplicatedImages
+	 * @param patInfoMap
+	 * @param setNewInstanceUID
+	 */
+	public void updatePatientInformationAndStore2DB(ArrayList<String[]> noDuplicatedImages,
+			HashMap<String, String> patInfoMap) {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null) {
+			return;
+		}
+		if (noDuplicatedImages == null || noDuplicatedImages.size() < 1) {
+			return;
+		}
+		if (patInfoMap == null) {
+			return;
+		}
+
+		Path tempParent = null;
+		try {
+			tempParent = Files.createTempDirectory(null);
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.out.println("Cannot create TempDir to create duplicate dcm files.");
+			return;
+		}
+		File tempDir = tempParent.toFile();
+		
+		DICOMBackend backend = null;
+		try {
+			backend = DICOMBackend.getCurrent();
+		} catch (Exception e1) {
+			backend = DICOMBackend.DCM4CHE;
+		}
+		
+		// collect studyUIDs
+		String[] studyUIDs = getNoDuplicatedIDs(noDuplicatedImages, "STUDY");
+		for (String studyUID : studyUIDs) {
+			String newStudyUID = DBUtils.createNewUIDNoExistingInDB("STUDY");
+			//collect seriesUIDs
+			String[] seriesUIDs = getNoDuplicatedIDs(noDuplicatedImages, "SERIES");
+			for (String seriesUID : seriesUIDs) {
+				String newSeriesUID = DBUtils.createNewUIDNoExistingInDB("SERIES");
+				for (String[] idset : noDuplicatedImages) {
+					if (idset[1].equals(studyUID) && idset[2].equals(seriesUID)) {
+						String newSopInstUID = DBUtils.createNewUIDNoExistingInDB("IMAGE");
+						// org
+						//String pid = idset[0];
+						String sopUID = idset[3];
+
+						String orgPath = db.getFileLocation(studyUID, seriesUID, sopUID);
+						DicomReader dr = DicomReader.newDicomReader(backend); 
+						dr.read(orgPath, true);// with pixel
+						
+						DicomObject orgDcm = dr.getHeader();
+						String tsUID = dr.checkTSUID().uid();
+
+						String newPID = patInfoMap.get("PatientID").trim();
+						String newPNAME = patInfoMap.get("PatientName").trim();
+						String newBOD = patInfoMap.get("PatientBirthDate").trim().replace("/", "");
+						String newSex = patInfoMap.get("PatientSex").trim();
+						
+						orgDcm.setString(Tag.Patient​ID, VR.LO, newPID);
+						orgDcm.setString(Tag.Patient​Name, VR.PN, newPNAME);
+						orgDcm.setDate(Tag.Patient​Birth​Date, VR.DA, DateUtils.toSQLDateObj(newBOD));
+						orgDcm.setString(Tag.Patient​Sex, VR.CS, newSex);
+						orgDcm.setString(Tag.Study​Instance​UID, VR.UI, newStudyUID);
+						orgDcm.setString(Tag.Series​Instance​UID, VR.UI, newSeriesUID);
+						orgDcm.setString(Tag.SOP​Instance​UID, VR.UI, newSopInstUID);
+						orgDcm.setString(Tag.Media​Storage​SOP​Instance​UID, VR.UI, newSopInstUID);
+						/*
+						 * write
+						 */
+						String dest = tempDir.getAbsolutePath() + File.separator + "dup_" + sopUID + ".dcm";
+						DicomWriter writer = DicomWriter.newDicomWriter(backend);
+						writer.write(orgDcm,  tsUID, dest);
+						/*
+						 * send to graphy refresh table load image
+						 */
+						DimseUtilities.store(dest, false/*deleteAfterStored*/);
+						
+					} else {
+						continue;
+					}
+				}
+			}
+		}
+		try {
+			FileUtils.deleteDirectory(tempDir);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		Window win = WindowManager.getMainScreen();
+		if(win !=null) {
+			MainScreen main = (MainScreen) win;
+			main.loadLocalStudiesBySearchKey();
+		}
+	}
+	
+	/**
+	 * 
+	 * @param instanceUIDSets: array of [pid, studyUid, seriesUid, sopUid]
+	 * @param dcmLevel: patient study series image
+	 * @return
+	 */
+	static String[] getNoDuplicatedIDs(ArrayList<String[]> instanceUIDSets, String dcmLevel) {
+		dcmLevel = dcmLevel.toLowerCase();
+		HashSet<String> ids = new HashSet<>();
+		// idset:pid,studyuid,seriesuid,sopuid
+		for (String[] idset : instanceUIDSets) {
+			if (dcmLevel.equals("patient")) {
+				ids.add(idset[0]);
+			} else if (dcmLevel.equals("study")) {
+				ids.add(idset[1]);
+			} else if (dcmLevel.equals("series")) {
+				ids.add(idset[2]);
+			} else if (dcmLevel.equals("image")) {
+				ids.add(idset[3]);
+			}
+		}
+		return ids.toArray(new String[ids.size()]);
 	}
 
 	public synchronized boolean writeDatasetInfo(DicomObject dataset, String filePath) {

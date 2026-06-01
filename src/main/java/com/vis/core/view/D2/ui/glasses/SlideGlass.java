@@ -1537,59 +1537,6 @@ public class SlideGlass extends JLayeredPane {
 		return this.suvFactor;
 	}
 
-//	public RoiPopupDialog isHereRoiPopup(int slideX, int slideY) {
-//		Component[] comps = roiOverlay.getComponents();
-//		for (Component com : comps) {
-//			if (com != null && com != roiOverlay && com instanceof RoiPopupDialog) {
-//				RoiPopupDialog candi_rpd = (RoiPopupDialog) com;
-//				if (candi_rpd == null || !candi_rpd.roiAlive()) {
-//					continue;
-//				}
-//				/*
-//				 * SlideUIで発生したMouseEventでも、 RoiPopup上にあるとRoiPopup座標になる
-//				 */
-//				System.out.println(slideX + " " + slideY + " " + candi_rpd.getX() + " " + candi_rpd.getY());
-//				int checkX = slideX + candi_rpd.getX();
-//				int checkY = slideY + candi_rpd.getY();
-//				// if com is JPanel subclass
-////				int checkX = slideX - rpd.getX();
-////				int checkY = slideY - rpd.getY();
-////				boolean found = candi_rpd.contains(new Point(checkX,checkY));
-//				// avoid conflict
-//				/*
-//				 * rpdのマウスイベントで位置を取得するとrpd座標になるため、 SlideGlass左上の位置を誤って検出してしまう。 これを避ける
-//				 * RoiPopupDialog内では、sxsyは原点座標に戻る
-//				 */
-//				Component pretended_rpd = roiOverlay.getComponentAt(slideX, slideY);
-//				Component target_rpd = roiOverlay.getComponentAt(checkX, checkY);
-//				if (target_rpd == null) {
-//					continue;
-//				}
-//				// in dialog or left upper corner
-//				//true left upper dialog
-//				if (candi_rpd.getX() == 0 && candi_rpd.getY() == 0) {
-//					if ((pretended_rpd instanceof RoiPopupDialog) && target_rpd instanceof RoiPopupDialog) {
-//						if (pretended_rpd == target_rpd) {
-//							return (RoiPopupDialog) target_rpd;
-//						}
-//					}
-//				}
-//				if (!(pretended_rpd instanceof RoiPopupDialog) && target_rpd instanceof RoiPopupDialog) {
-//					if(candi_rpd.getWidth() > candi_rpd.getX() && candi_rpd.getHeight() > candi_rpd.getY()) {
-//						return null;
-//					}else {
-//						if (target_rpd != null && target_rpd != roiOverlay && target_rpd instanceof RoiPopupDialog) {
-//							System.out.println("ROI POPUP FOUND !!!!");
-//							return (RoiPopupDialog) target_rpd;
-//						}
-//					}
-//					
-//				}
-//			}
-//		}
-//		return null;
-//	}
-
 	// mouse action
 	public void setSelectionState() {
 		if (isSelected()) {
@@ -1679,18 +1626,6 @@ public class SlideGlass extends JLayeredPane {
 		add(roiOverlay, ROI_CANVAS_LAYER, top_in_its_layers);
 		add(textOverlay, TEXT_LAYER, top_in_its_layers);
 		add(coverGlass, EVENT_LAYER, top_in_its_layers);
-	}
-
-	/*
-	 * TODO
-	 */
-	public void setVisibleRoiPopupAt(boolean show, int slideX, int slideY) {
-//		RoiPopUpDialog rpd = roiOverlay.getRoiPopupFromRoiAt(slideX, slideY);
-//		if (rpd == null) {
-//			return;
-//		} else {
-//			rpd.setVisible(show);
-//		}
 	}
 
 	public void setWindowingState(boolean windowing) {

@@ -261,11 +261,11 @@ public class PatientInfoEditor {
 			//if true, integrate it to.
 			if(info != null) {
 				Log.logger.info(pid+" is already exists, will integrate to.");
-				DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,info);
+				db.updatePatientInformationAndStore2DB(imageUIDs,info);
 			//else, to new one
 			}else {
 				//update UIDs and write to DB.
-				DicomDuplicator.updatePatientInformationAndStore2DB(imageUIDs,pmap);
+				db.updatePatientInformationAndStore2DB(imageUIDs,pmap);
 			}
 			// delete
 			if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
