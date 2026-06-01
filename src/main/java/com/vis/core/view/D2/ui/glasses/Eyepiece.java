@@ -284,6 +284,11 @@ public class Eyepiece extends JPanel{
      * @param rows 行数 (M) - 最小 1
      * @param cols 列数 (N) - 最小 1
      */
+	/**
+     * 指定されたM×Nでレイアウトを更新します。
+     * @param rows 行数 (M) - 最小 1
+     * @param cols 列数 (N) - 最小 1
+     */
 	public void updateLayout(int rows, int cols) {
 		if (rows < 1 || cols < 1) {
 			Log.logger.warning("Row and Col shoud be > 0.");
@@ -293,23 +298,61 @@ public class Eyepiece extends JPanel{
 		int numOfPrap = prapShelf.howManyPraparat();
 
 		if (numOfPrap == 0) {
-			gridLayout = new GridLayout(1, 1, gap, gap);
-			setLayout(gridLayout);
+			// インスタンスを作り直さず、既存のレイアウトプロパティを変更
+			gridLayout.setRows(1);
+			gridLayout.setColumns(1);
 			removeAll();
+			revalidate();
+			repaint();
 			return;
 		}
 
-		// 2. update
-		// GridLayout(int rows, int cols, int hgap, int vgap)
-		gridLayout = new GridLayout(rows, cols, 0, 0);
-		setLayout(gridLayout);
-		removeAll();
-		// add praps
+		// 1. GridLayoutのプロパティのみを更新（インスタンスの再生成と removeAll を回避）
+		gridLayout.setRows(rows);
+		gridLayout.setColumns(cols);
+
+		// 2. 現在追加されているコンポーネントのリストを取得
+		Component[] currentComps = getComponents();
+		java.util.List<Component> currentList = java.util.Arrays.asList(currentComps);
+
+		// 3. 必要なPraparatを順番にチェックして配置する
+		int index = 0;
 		for (PraparatContext pcon : prapShelf.getAllShelfContents()) {
-			add(pcon.getPraparat());
+			Praparat prap = pcon.getPraparat();
+			if (!currentList.contains(prap)) {
+				add(prap, index); // 指定位置に新規挿入
+			} else {
+				setComponentZOrder(prap, index); // 既に存在する場合は並び順(ZOrder)だけを更新
+			}
+			index++;
 		}
+
+		// 4. 逆に、不要になったコンポーネントがあれば削除
+		for (Component c : currentComps) {
+			boolean found = false;
+			for (PraparatContext pcon : prapShelf.getAllShelfContents()) {
+				if (c == pcon.getPraparat()) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				remove(c);
+			}
+		}
+
 		revalidate();
 		repaint();
+		
+		// 5. ★追加：レイアウトが確定した後、各Praparatに対して明示的にビューの更新を促す
+		// これにより、追加・削除時のサイズ変更イベントの取りこぼしを完全に防ぎます
+		SwingUtilities.invokeLater(() -> {
+			for (Component c : getComponents()) {
+				if (c instanceof Praparat) {
+					((Praparat) c).updateViewPanel();
+				}
+			}
+		});
 	}
 	
 	/**

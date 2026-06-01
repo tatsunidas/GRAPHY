@@ -185,7 +185,8 @@ public class Praparat extends JPanel {
 	 */
 	private int pendingTargetIndex = -1;
 
-	private java.util.concurrent.atomic.AtomicInteger latestCacheRequest = new java.util.concurrent.atomic.AtomicInteger(0);
+	private java.util.concurrent.atomic.AtomicInteger latestCacheRequest = new java.util.concurrent.atomic.AtomicInteger(
+			0);
 
 	private int filmGridColumns = 5;
 	private boolean isMultiFrame = false;/* to set video option */
@@ -227,7 +228,7 @@ public class Praparat extends JPanel {
 
 	private final int PREFETCH_RANGE = 3;
 	private ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
-	
+
 	private final java.util.concurrent.ConcurrentHashMap<Integer, WwWlState> wwWlStorage = new java.util.concurrent.ConcurrentHashMap<>();
 
 	final ViewMode mode;
@@ -308,8 +309,9 @@ public class Praparat extends JPanel {
 
 	public void adjustContrastFromMouseAction(int dragX, int dragY) {
 		SlideGlass slide = getCurrentSlide();
-		if (slide == null) return;
-		
+		if (slide == null)
+			return;
+
 		slide.adjustContrastFromMouseAction(dragX, dragY);
 		double newMin = slide.currentMin;
 		double newMax = slide.currentMax;
@@ -449,47 +451,47 @@ public class Praparat extends JPanel {
 			GDicomTools.setTag(imp, i, "0028,1051", wwStr); // Window Width
 		}
 	}
-	
+
 	/**
 	 * 対象スライスのWW/WL状態を取得、存在しなければ初期化して返す
 	 */
 	public WwWlState getWwWlState(int zctIndex) {
-	    return wwWlStorage.computeIfAbsent(zctIndex, key -> {
-	        SlideGlass sg = slides.get(key);
-	        if (sg != null) {
-	            // SlideGlassの初期状態からWwWlStateを生成
-	            double[] minMax = sg.getCurrentWindowMinMax();
-	            return new WwWlState(minMax[0], minMax[1]);
-	        }
-	        return new WwWlState(0.0, 255.0);
-	    });
+		return wwWlStorage.computeIfAbsent(zctIndex, key -> {
+			SlideGlass sg = slides.get(key);
+			if (sg != null) {
+				// SlideGlassの初期状態からWwWlStateを生成
+				double[] minMax = sg.getCurrentWindowMinMax();
+				return new WwWlState(minMax[0], minMax[1]);
+			}
+			return new WwWlState(0.0, 255.0);
+		});
 	}
 
 	/**
 	 * 外部（UIダイアログなど）からWW/WLが変更されたときに呼び出されるメソッド
 	 */
 	public void updateSliderContrast(int zctIndex, int colorChannel, double min, double max) {
-	    // 1. ストレージ（記憶領域）に保存（これでアンロードされても消えない）
-	    WwWlState state = getWwWlState(zctIndex);
-	    state.setValues(colorChannel, min, max);
+		// 1. ストレージ（記憶領域）に保存（これでアンロードされても消えない）
+		WwWlState state = getWwWlState(zctIndex);
+		state.setValues(colorChannel, min, max);
 
-	    // 2. 現在メモリにある実際のSlideGlassにリアルタイム反映
-	    if (isProcessSeries()) {
-	        // シリーズ全体同期がONの場合、全スライスのストレージを更新して反映
-	        for (Integer key : slides.keySet()) {
-	            getWwWlState(key).setValues(colorChannel, min, max);
-	            SlideGlass sg = slides.get(key);
-	            if (sg != null && sg.getOriginalImage() != null) {
-	                applyStateToSlideGlass(sg, colorChannel, min, max);
-	            }
-	        }
-	    } else {
-	        // 単一スライスのみ反映
-	        SlideGlass sg = slides.get(zctIndex);
-	        if (sg != null) {
-	            applyStateToSlideGlass(sg, colorChannel, min, max);
-	        }
-	    }
+		// 2. 現在メモリにある実際のSlideGlassにリアルタイム反映
+		if (isProcessSeries()) {
+			// シリーズ全体同期がONの場合、全スライスのストレージを更新して反映
+			for (Integer key : slides.keySet()) {
+				getWwWlState(key).setValues(colorChannel, min, max);
+				SlideGlass sg = slides.get(key);
+				if (sg != null && sg.getOriginalImage() != null) {
+					applyStateToSlideGlass(sg, colorChannel, min, max);
+				}
+			}
+		} else {
+			// 単一スライスのみ反映
+			SlideGlass sg = slides.get(zctIndex);
+			if (sg != null) {
+				applyStateToSlideGlass(sg, colorChannel, min, max);
+			}
+		}
 	}
 
 	/**
@@ -664,7 +666,7 @@ public class Praparat extends JPanel {
 			cg.repaint();
 		}
 	}
-	
+
 	/**
 	 * Attention: Will use large physical memory. This method is only used for
 	 * single pop-up view or test purpose. Dicom attributes keeps minimally.
@@ -1052,13 +1054,13 @@ public class Praparat extends JPanel {
 			gridViewOn(false);
 			return;
 		}
-		
+
 		if (isMultiDimensional() || isMultiFrame() || isPDF()) {
 			Log.logger.warning("FilmGrid view is disabled for MultiFrame/PDF/Multi-dimensional data.");
 			gridViewOn(false);
 			return;
 		}
-		
+
 		gridViewOn(true);
 		setCursor(new Cursor(Cursor.WAIT_CURSOR));
 		setFilmGridColumns(col);
@@ -2437,54 +2439,54 @@ public class Praparat extends JPanel {
 	public boolean isShowing2DViewerOn() {
 		return prapManager != null;
 	}
-	
+
 	/**
 	 * SlideGlassの空間（IPP/FoR）と、ROIが持つ空間情報が一致するかを判定します。
 	 */
 	private boolean isSpatialMatch(SlideGlass sg, String roiIppStr, String roiForUid, String originSop) {
-	    DicomObject header = sg.getHeader();
-	    int frameIdx = isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
+		DicomObject header = sg.getHeader();
+		int frameIdx = isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
 
-	    // SlideGlass側のIPPを取得
-	    double[] currentIpp = getSafeIPP(header, frameIdx);
-	    
-	    // 1. IPPが存在しない（完全な2D画像）場合のフォールバック判定
-	    if (currentIpp == null || roiIppStr == null) {
-	        // 空間の概念がないため、厳密なSOPの一致のみを許可する（C=ALLなどの共有を遮断）
-	        String currentSop = sg.getSOPInstanceUID();
-	        return currentSop != null && currentSop.equals(originSop);
-	    }
+		// SlideGlass側のIPPを取得
+		double[] currentIpp = getSafeIPP(header, frameIdx);
 
-	    // 2. FrameOfReferenceの判定 (厳密に空間を区別する場合)
-	    String currentForUid = header.getString(Tag.FrameOfReferenceUID);
-	    if (currentForUid == null || currentForUid.trim().isEmpty()) {
-	        currentForUid = header.getString(Tag.SeriesInstanceUID); // FoR欠損時はSeriesUIDを代替に
-	    }
-	    if (roiForUid != null && !roiForUid.equals(currentForUid)) {
-	        return false; // 空間の基準（座標系）が違う
-	    }
+		// 1. IPPが存在しない（完全な2D画像）場合のフォールバック判定
+		if (currentIpp == null || roiIppStr == null) {
+			// 空間の概念がないため、厳密なSOPの一致のみを許可する（C=ALLなどの共有を遮断）
+			String currentSop = sg.getSOPInstanceUID();
+			return currentSop != null && currentSop.equals(originSop);
+		}
 
-	    // 3. IPP（3D空間座標）の距離計算によるZ軸の一致判定
-	    try {
-	        String[] parts = roiIppStr.split(",");
-	        if (parts.length == 3) {
-	            double rx = Double.parseDouble(parts[0].trim());
-	            double ry = Double.parseDouble(parts[1].trim());
-	            double rz = Double.parseDouble(parts[2].trim());
+		// 2. FrameOfReferenceの判定 (厳密に空間を区別する場合)
+		String currentForUid = header.getString(Tag.FrameOfReferenceUID);
+		if (currentForUid == null || currentForUid.trim().isEmpty()) {
+			currentForUid = header.getString(Tag.SeriesInstanceUID); // FoR欠損時はSeriesUIDを代替に
+		}
+		if (roiForUid != null && !roiForUid.equals(currentForUid)) {
+			return false; // 空間の基準（座標系）が違う
+		}
 
-	            double dx = currentIpp[0] - rx;
-	            double dy = currentIpp[1] - ry;
-	            double dz = currentIpp[2] - rz;
-	            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		// 3. IPP（3D空間座標）の距離計算によるZ軸の一致判定
+		try {
+			String[] parts = roiIppStr.split(",");
+			if (parts.length == 3) {
+				double rx = Double.parseDouble(parts[0].trim());
+				double ry = Double.parseDouble(parts[1].trim());
+				double rz = Double.parseDouble(parts[2].trim());
 
-	            // ユークリッド距離が 1e-3 (0.001mm) 以下なら同一スライス（Z）とみなす
-	            return distance <= 1e-3;
-	        }
-	    } catch (NumberFormatException e) {
-	        Log.logger.warning("ROI IPP Parsing Error: " + roiIppStr);
-	    }
+				double dx = currentIpp[0] - rx;
+				double dy = currentIpp[1] - ry;
+				double dz = currentIpp[2] - rz;
+				double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-	    return false;
+				// ユークリッド距離が 1e-3 (0.001mm) 以下なら同一スライス（Z）とみなす
+				return distance <= 1e-3;
+			}
+		} catch (NumberFormatException e) {
+			Log.logger.warning("ROI IPP Parsing Error: " + roiIppStr);
+		}
+
+		return false;
 	}
 
 	// Praparat.java 内に追加
@@ -2503,7 +2505,7 @@ public class Praparat extends JPanel {
 			sg.loadRoiFromDB();
 		}
 	}
-	
+
 	public void loadRoisFromDB() {
 		if (slides == null || slides.size() == 0 || getViewMode() == ViewMode.Thumbnail) {
 			return;
@@ -2578,26 +2580,34 @@ public class Praparat extends JPanel {
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(sg, false);
 					if (metaProps.containsKey(RoiMetaContextKey.Shape_3D_Type.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), metaProps.get(RoiMetaContextKey.Shape_3D_Type.name()));
+						revivedRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(),
+								metaProps.get(RoiMetaContextKey.Shape_3D_Type.name()));
 					}
 					if (metaProps.containsKey(RoiMetaContextKey.Sphere_Radius_mm.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), metaProps.get(RoiMetaContextKey.Sphere_Radius_mm.name()));
+						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(),
+								metaProps.get(RoiMetaContextKey.Sphere_Radius_mm.name()));
 					}
 					if (metaProps.containsKey(RoiMetaContextKey.Sphere_Center_IPP.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(), metaProps.get(RoiMetaContextKey.Sphere_Center_IPP.name()));
+						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(),
+								metaProps.get(RoiMetaContextKey.Sphere_Center_IPP.name()));
 					}
 					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Master.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(), metaProps.get(RoiMetaContextKey.Is3D_Master.name()));
+						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(),
+								metaProps.get(RoiMetaContextKey.Is3D_Master.name()));
 					}
 					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Slave.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(), metaProps.get(RoiMetaContextKey.Is3D_Slave.name()));
+						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(),
+								metaProps.get(RoiMetaContextKey.Is3D_Slave.name()));
 					}
 
 					// 2Dの各次元情報も確実に同期
-					if (dimCStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_C.name(), dimCStr);
+					if (dimCStr != null)
+						revivedRoi.setProperty(RoiMetaContextKey.Dim_C.name(), dimCStr);
 					String dimZStr = metaProps.get("Dim_Z");
-					if (dimZStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), dimZStr);
-					if (dimTStr != null) revivedRoi.setProperty(RoiMetaContextKey.Dim_T.name(), dimTStr);
+					if (dimZStr != null)
+						revivedRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), dimZStr);
+					if (dimTStr != null)
+						revivedRoi.setProperty(RoiMetaContextKey.Dim_T.name(), dimTStr);
 
 					sg.addRoiFromDB(revivedRoi); // キャンバスへ追加
 				}
@@ -2609,123 +2619,134 @@ public class Praparat extends JPanel {
 			com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
 		}
 	}
-	
+
 	/**
-	 * 特定のRoiIDを持つROIを全スライドから一度削除し、
-	 * DBの最新状態に基づいて正しい次元・空間へ再分配（再描画）します。
+	 * 特定のRoiIDを持つROIを全スライドから一度削除し、 DBの最新状態に基づいて正しい次元・空間へ再分配（再描画）します。
 	 */
 	public void redispatchRoi(String targetRoiId) {
-	    if (slides == null || slides.isEmpty() || targetRoiId == null) return;
+		if (slides == null || slides.isEmpty() || targetRoiId == null)
+			return;
 
-	    // 1. 全スライドのキャンバスから、該当のROIを完全に除去する
-	    for (SlideGlass sg : slides.values()) {
-	        if (sg != null) {
-	            com.vis.core.view.D2.ui.glasses.CanvasGlass cg = 
-	                (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-	            if (cg != null) {
-	                java.util.ArrayList<com.vis.core.view.D2.roi.RoiObj> roiset = cg.getRoiSet();
-	                if (roiset != null) {
-	                    java.util.Iterator<com.vis.core.view.D2.roi.RoiObj> it = roiset.iterator();
-	                    boolean removed = false;
-	                    while (it.hasNext()) {
-	                        com.vis.core.view.D2.roi.RoiObj r = it.next();
-	                        if (targetRoiId.equals(r.getProperty(com.vis.configuration.RoiDBKey.RoiID.name()))) {
-	                            it.remove();
-	                            // CanvasGlass がこのROIをアクティブとして保持している場合は解放
-	                            if (cg.getCurrentRoi() == r) {
-	                                cg.setCurrentRoi2NULL(); 
-	                            }
-	                            removed = true;
-	                        }
-	                    }
-	                    // 削除が行われたスライドはキャンバスを再描画して古い線を消す
-	                    if (removed) {
-	                        cg.repaint();
-	                    }
-	                }
-	            }
-	        }
-	    }
+		// 1. 全スライドのキャンバスから、該当のROIを完全に除去する
+		for (SlideGlass sg : slides.values()) {
+			if (sg != null) {
+				com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg
+						.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+				if (cg != null) {
+					java.util.ArrayList<com.vis.core.view.D2.roi.RoiObj> roiset = cg.getRoiSet();
+					if (roiset != null) {
+						java.util.Iterator<com.vis.core.view.D2.roi.RoiObj> it = roiset.iterator();
+						boolean removed = false;
+						while (it.hasNext()) {
+							com.vis.core.view.D2.roi.RoiObj r = it.next();
+							if (targetRoiId.equals(r.getProperty(com.vis.configuration.RoiDBKey.RoiID.name()))) {
+								it.remove();
+								// CanvasGlass がこのROIをアクティブとして保持している場合は解放
+								if (cg.getCurrentRoi() == r) {
+									cg.setCurrentRoi2NULL();
+								}
+								removed = true;
+							}
+						}
+						// 削除が行われたスライドはキャンバスを再描画して古い線を消す
+						if (removed) {
+							cg.repaint();
+						}
+					}
+				}
+			}
+		}
 
-	    // 2. DBから対象のROIコンテキストを再ロード
-	    com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
-	    if (db == null) return;
+		// 2. DBから対象のROIコンテキストを再ロード
+		com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+		if (db == null)
+			return;
 
-	    // シリーズ内の全ROIを取得し、対象のRoiIDだけをフィルタリング
-	    java.util.ArrayList<java.util.HashMap<String, Object>> seriesRois = db.loadRoiContextFromSeries(patID, studyUID, seriesUID);
-	    if (seriesRois == null || seriesRois.isEmpty()) return;
+		// シリーズ内の全ROIを取得し、対象のRoiIDだけをフィルタリング
+		java.util.ArrayList<java.util.HashMap<String, Object>> seriesRois = db.loadRoiContextFromSeries(patID, studyUID,
+				seriesUID);
+		if (seriesRois == null || seriesRois.isEmpty())
+			return;
 
-	    java.util.HashMap<String, Object> targetRoiCtx = null;
-	    for (java.util.HashMap<String, Object> ctx : seriesRois) {
-	        if (targetRoiId.equals(ctx.get("RoiID"))) {
-	            targetRoiCtx = ctx;
-	            break;
-	        }
-	    }
+		java.util.HashMap<String, Object> targetRoiCtx = null;
+		for (java.util.HashMap<String, Object> ctx : seriesRois) {
+			if (targetRoiId.equals(ctx.get("RoiID"))) {
+				targetRoiCtx = ctx;
+				break;
+			}
+		}
 
-	    if (targetRoiCtx == null) return; // DBに存在しない場合は終了
+		if (targetRoiCtx == null)
+			return; // DBに存在しない場合は終了
 
-	    // 3. 取得した最新のプロパティを用いて再分配（ディスパッチ）
-	    @SuppressWarnings("unchecked")
-	    java.util.Map<String, String> metaProps = (java.util.Map<String, String>) targetRoiCtx.get(com.vis.configuration.RoiDBKey.RoiMetaProperties.name());
-	    if (metaProps == null) metaProps = new java.util.HashMap<>();
+		// 3. 取得した最新のプロパティを用いて再分配（ディスパッチ）
+		@SuppressWarnings("unchecked")
+		java.util.Map<String, String> metaProps = (java.util.Map<String, String>) targetRoiCtx
+				.get(com.vis.configuration.RoiDBKey.RoiMetaProperties.name());
+		if (metaProps == null)
+			metaProps = new java.util.HashMap<>();
 
-	    String roiIppStr = metaProps.get("ReferenceImagePositionPatient");
-	    String roiForUid = metaProps.get("FrameOfReferenceUID");
-	    
-	    String dimCStr = metaProps.get("Dim_C");
-	    String dimTStr = metaProps.get("Dim_T");
-	    int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99; 
-	    int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99; 
-	    String originSop = (String) targetRoiCtx.get("SOPInstanceUID");
-	    
-	    com.vis.core.log.Log.logger.info(String.format(
-	            "[DEBUG-4: DISPATCH] Loaded from DB: Target C=%d, T=%d | OriginSOP=%s", 
-	            targetC, targetT, originSop
-	        ));
-	    
-	    for (java.util.Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
-	        int zctIndex = entry.getKey();
-	        SlideGlass sg = entry.getValue();
-	        if (sg == null) continue;
+		String roiIppStr = metaProps.get("ReferenceImagePositionPatient");
+		String roiForUid = metaProps.get("FrameOfReferenceUID");
 
-	        int[] currentZCT = calcZCTArrayFromIndex(zctIndex);
-	        int currentC = currentZCT[1];
-	        int currentT = currentZCT[2];
+		String dimCStr = metaProps.get("Dim_C");
+		String dimTStr = metaProps.get("Dim_T");
+		int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99;
+		int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99;
+		String originSop = (String) targetRoiCtx.get("SOPInstanceUID");
 
-	        // 判定A: 次元
-	        if (targetC != -1 && targetC != -99 && targetC != currentC) continue; 
-	        if (targetT != -1 && targetT != -99 && targetT != currentT) continue; 
+		com.vis.core.log.Log.logger.info(String.format(
+				"[DEBUG-4: DISPATCH] Loaded from DB: Target C=%d, T=%d | OriginSOP=%s", targetC, targetT, originSop));
 
-	        // 判定B: 空間
-	        boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
-	        
-	        com.vis.core.log.Log.logger.fine(String.format(
-	                "[DEBUG-4: MATCHING] Slide(Z=%d, C=%d, T=%d) | SpatialMatch=%b", 
-	                currentZCT[0], currentC, currentT, spatialMatch
-	            ));
-	        
-	        if (targetC == -99 || targetT == -99) {
-	            String currentSop = sg.getSOPInstanceUID();
-	            if (currentSop == null || !currentSop.equals(originSop)) continue;
-	        } else if (!spatialMatch) {
-	            continue;
-	        }
+		for (java.util.Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
+			int zctIndex = entry.getKey();
+			SlideGlass sg = entry.getValue();
+			if (sg == null)
+				continue;
 
-	        // マッチング成功 -> SlideGlassに追加して再描画
-	        com.vis.core.view.D2.roi.RoiObj revivedRoi = new com.vis.core.view.D2.roi.RoiConverter().buildRoiObj(targetRoiCtx);
-	        if (revivedRoi != null) {
-	        	
-	        	if (dimCStr != null) revivedRoi.setProperty("Dim_C", dimCStr);
-	            String dimZStr = metaProps.get("Dim_Z"); // Dim_Zも取得しておく
-	            if (dimZStr != null) revivedRoi.setProperty("Dim_Z", dimZStr);
-	            if (dimTStr != null) revivedRoi.setProperty("Dim_T", dimTStr);
-	            
-	            revivedRoi.setSlideGlass(sg, false); 
-	            sg.addRoiFromDB(revivedRoi);
-	            sg.repaintCanvasGlass(); // 新しい表示先に再描画をかける
-	        }
-	    }
+			int[] currentZCT = calcZCTArrayFromIndex(zctIndex);
+			int currentC = currentZCT[1];
+			int currentT = currentZCT[2];
+
+			// 判定A: 次元
+			if (targetC != -1 && targetC != -99 && targetC != currentC)
+				continue;
+			if (targetT != -1 && targetT != -99 && targetT != currentT)
+				continue;
+
+			// 判定B: 空間
+			boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
+
+			com.vis.core.log.Log.logger
+					.fine(String.format("[DEBUG-4: MATCHING] Slide(Z=%d, C=%d, T=%d) | SpatialMatch=%b", currentZCT[0],
+							currentC, currentT, spatialMatch));
+
+			if (targetC == -99 || targetT == -99) {
+				String currentSop = sg.getSOPInstanceUID();
+				if (currentSop == null || !currentSop.equals(originSop))
+					continue;
+			} else if (!spatialMatch) {
+				continue;
+			}
+
+			// マッチング成功 -> SlideGlassに追加して再描画
+			com.vis.core.view.D2.roi.RoiObj revivedRoi = new com.vis.core.view.D2.roi.RoiConverter()
+					.buildRoiObj(targetRoiCtx);
+			if (revivedRoi != null) {
+
+				if (dimCStr != null)
+					revivedRoi.setProperty("Dim_C", dimCStr);
+				String dimZStr = metaProps.get("Dim_Z"); // Dim_Zも取得しておく
+				if (dimZStr != null)
+					revivedRoi.setProperty("Dim_Z", dimZStr);
+				if (dimTStr != null)
+					revivedRoi.setProperty("Dim_T", dimTStr);
+
+				revivedRoi.setSlideGlass(sg, false);
+				sg.addRoiFromDB(revivedRoi);
+				sg.repaintCanvasGlass(); // 新しい表示先に再描画をかける
+			}
+		}
 	}
 
 	public void loadSeries(DICOMNode seriesNode) {
@@ -2811,52 +2832,53 @@ public class Praparat extends JPanel {
 		}
 		loadSeries(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 	}
-	
-	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs, List<String> pathToImages) {
-	    if (pathToImages == null || pathToImages.isEmpty()) {
-	        System.out.println("prap needs path to images..., return.");
-	        return;
-	    }
-	    viewPanel.removeAll();
-	    setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
-	    
-	    setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-	    // ★非同期フローの要: SwingWorkerの導入
-	    javax.swing.SwingWorker<java.util.List<DicomImage>, Void> worker = new javax.swing.SwingWorker<java.util.List<DicomImage>, Void>() {
-	        
-	        @Override
-	        protected java.util.List<DicomImage> doInBackground() throws Exception {
-	        	/*
-	        	 * SimpleDicom, MultiFrame, PDF, MosaicDicom
-	        	 */
-	            return buildDicomImagesInBackground(pathToImages);
-	        }
+	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs,
+			List<String> pathToImages) {
+		if (pathToImages == null || pathToImages.isEmpty()) {
+			System.out.println("prap needs path to images..., return.");
+			return;
+		}
+		viewPanel.removeAll();
+		setInfo(patID, studyUID, seriesUID, sopUIDs, pathToImages);
 
-	        @Override
-	        protected void done() {
-	            try {
-	                // バックグラウンド処理の結果（全画像データ）を取得
-	                java.util.List<DicomImage> dcmImages = get();
-	                
-	                slides = new java.util.concurrent.ConcurrentHashMap<>();
-	                java.util.List<SlideGlass> slideList = new java.util.ArrayList<>();
-	                
-	                // 2. EDT（UIスレッド）上で安全にSlideGlassを一括生成
-	                for (int i = 0; i < dcmImages.size(); i++) {
-	                    SlideGlass sg = new SlideGlass(Praparat.this, dcmImages.get(i));
-	                    slides.put(i, sg);
-	                    slideList.add(sg);
-	                }
+		setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-	                // 3. ★全スライドが揃った状態で計算を実行（ここでスライダーの最大値や適正コントラストが確定する）
-	                organizeMultiDimensionalSlides(slideList);
-	                applyGlobalAutoWindow();
+		// ★非同期フローの要: SwingWorkerの導入
+		javax.swing.SwingWorker<java.util.List<DicomImage>, Void> worker = new javax.swing.SwingWorker<java.util.List<DicomImage>, Void>() {
 
-	                // 4. UI状態の更新
-	                currentSliceZCT = -1;
-	                updateSlidersVisibility(); // ここでスライダーが正しく表示される
-	                
+			@Override
+			protected java.util.List<DicomImage> doInBackground() throws Exception {
+				/*
+				 * SimpleDicom, MultiFrame, PDF, MosaicDicom
+				 */
+				return buildDicomImagesInBackground(pathToImages);
+			}
+
+			@Override
+			protected void done() {
+				try {
+					// バックグラウンド処理の結果（全画像データ）を取得
+					java.util.List<DicomImage> dcmImages = get();
+
+					slides = new java.util.concurrent.ConcurrentHashMap<>();
+					java.util.List<SlideGlass> slideList = new java.util.ArrayList<>();
+
+					// 2. EDT（UIスレッド）上で安全にSlideGlassを一括生成
+					for (int i = 0; i < dcmImages.size(); i++) {
+						SlideGlass sg = new SlideGlass(Praparat.this, dcmImages.get(i));
+						slides.put(i, sg);
+						slideList.add(sg);
+					}
+
+					// 3. ★全スライドが揃った状態で計算を実行（ここでスライダーの最大値や適正コントラストが確定する）
+					organizeMultiDimensionalSlides(slideList);
+					applyGlobalAutoWindow();
+
+					// 4. UI状態の更新
+					currentSliceZCT = -1;
+					updateSlidersVisibility(); // ここでスライダーが正しく表示される
+
 					// ==========================================================
 					// 非同期ロードが完全に完了し、SlideGlassが生成された直後に
 					// サムネイルモードであればテキストとアノテーションを確実に非表示にする
@@ -2865,44 +2887,45 @@ public class Praparat extends JPanel {
 						setTextVisible(false);
 						setAnnotationVisible(false);
 					}
-					
-					loadRoisFromDB();
-					
-					// ==========================================================
-	                // ★【追加コード】
-	                // 非同期ロードが完了する前に、すでに呼び出し元（BirdsEyeView）から
-	                // 選択命令（selected=true）を受け取っていた場合、
-	                // 新しく出揃ったすべてのSlideGlassへその選択状態を確実に強制同期させます。
-	                // ==========================================================
-	                if (isSelected()) {
-	                    setSelectionState(true);
-	                }
 
-	                // 5. 初回描画のトリガー（ここで初めて画像が描画される）
-	                if (!isShowGridViewOn()) {
-	                    doSingleGridLayout();
-	                } else {
-	                    doFilmGridLayout(filmGridColumns);
-	                }
-	                
-	            } catch (Exception e) {
-	                com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Failed to load series", e);
-	            } finally {
-	            	SwingUtilities.invokeLater(()->{
-	            		setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-	            		MainScreen ms = MainScreen.getInstance();
-		                if (ms != null) {
-		                    ms.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
-		                    BirdsEyeView bev = ms.getBirdsEyeView();
-		                    bev.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
-		        			bev.getThumbnailListView().setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
-		                }
-	            	});
-	            }
-	        }
-	    };
-	    // 非同期処理を開始
-	    worker.execute();
+					loadRoisFromDB();
+
+					// ==========================================================
+					// ★【追加コード】
+					// 非同期ロードが完了する前に、すでに呼び出し元（BirdsEyeView）から
+					// 選択命令（selected=true）を受け取っていた場合、
+					// 新しく出揃ったすべてのSlideGlassへその選択状態を確実に強制同期させます。
+					// ==========================================================
+					if (isSelected()) {
+						setSelectionState(true);
+					}
+
+					// 5. 初回描画のトリガー（ここで初めて画像が描画される）
+					if (!isShowGridViewOn()) {
+						doSingleGridLayout();
+					} else {
+						doFilmGridLayout(filmGridColumns);
+					}
+
+				} catch (Exception e) {
+					com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Failed to load series", e);
+				} finally {
+					SwingUtilities.invokeLater(() -> {
+						setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+						MainScreen ms = MainScreen.getInstance();
+						if (ms != null) {
+							ms.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+							BirdsEyeView bev = ms.getBirdsEyeView();
+							bev.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+							bev.getThumbnailListView()
+									.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.DEFAULT_CURSOR));
+						}
+					});
+				}
+			}
+		};
+		// 非同期処理を開始
+		worker.execute();
 	}
 
 	/**
@@ -3390,7 +3413,10 @@ public class Praparat extends JPanel {
 				if (requestId != latestCacheRequest.get())
 					return;
 				int targetIndex = (currentIndex + i + capacity) % capacity;
-				realizeImage(targetIndex, processSeries, syncMag, syncRot, syncMin, syncMax, syncOrigin);
+				// ★修正: 現在表示中の画像(currentIndex)に対する非同期のUI上書きを防ぎ、カクつきをなくす
+				boolean shouldSync = processSeries && (targetIndex != currentIndex);
+				
+				realizeImage(targetIndex, shouldSync, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			}
 
 			// ロード完了後、SlideGlassに再描画を促す（最新リクエストの時のみ）
@@ -3564,7 +3590,7 @@ public class Praparat extends JPanel {
 					}
 				}
 			}
-			
+
 			sg.initCalibrationAndLUT();
 
 			String modalityStr = sg.getHeader().getString(Tag.Modality, "");
@@ -3587,47 +3613,53 @@ public class Praparat extends JPanel {
 				syncMin = null;
 				syncMax = null;
 			} else {
-				
+
 				WwWlState savedState = getWwWlState(index);
-		        
-		        if (sg.isRGB()) {
-		            // RGBの場合は各チャンネルの設定を復元
-		            applyStateToSlideGlass(sg, -1, savedState.getMin(-1), savedState.getMax(-1));
-		            applyStateToSlideGlass(sg, 0, savedState.getMin(0), savedState.getMax(0));
-		            applyStateToSlideGlass(sg, 1, savedState.getMin(1), savedState.getMax(1));
-		            applyStateToSlideGlass(sg, 2, savedState.getMin(2), savedState.getMax(2));
-		        } else {
-		            // モノクロ画像
-		            double savedMin = savedState.getMin(-1);
-		            double savedMax = savedState.getMax(-1);
-		            sg.changeWindowingByMinMax(savedMin, savedMax);
-		        }
-				
+
+				if (sg.isRGB()) {
+					// RGBの場合は各チャンネルの設定を復元
+					applyStateToSlideGlass(sg, -1, savedState.getMin(-1), savedState.getMax(-1));
+					applyStateToSlideGlass(sg, 0, savedState.getMin(0), savedState.getMax(0));
+					applyStateToSlideGlass(sg, 1, savedState.getMin(1), savedState.getMax(1));
+					applyStateToSlideGlass(sg, 2, savedState.getMin(2), savedState.getMax(2));
+				} else {
+					// モノクロ画像
+					double savedMin = savedState.getMin(-1);
+					double savedMax = savedState.getMax(-1);
+					sg.changeWindowingByMinMax(savedMin, savedMax);
+				}
+
 			}
 
 			// 画像が実体化されたタイミングでフュージョンを動的適用
 			if (isFusionMode) {
 				applyFusionOverlayToSlide(index, sg);
 			}
+			
+			final Double syncMin_ = syncMin;
+			final Double syncMax_ = syncMax;
 
 			if (processSeries) {
-				// move, zoom, rotate, windowing
-				if (syncMag != null && Double.isFinite(syncMag))
-					sg.zoom(syncMag, false/* dummy */);
-				if (syncRot != null && Double.isFinite(syncRot))
-					sg.setAbsoluteRotate(syncRot);
-				if ((syncMin != null && Double.isFinite(syncMin)) && (syncMax != null && Double.isFinite(syncMax))) {
-					sg.changeWindowingByMinMax(syncMin, syncMax);
-				}
-				// finally set origin
-				if (syncOrigin == null || !sg.panningFlag) {
-					/*
-					 * update origin if not panning.
-					 */
-					sg.setSize(getViewPanelWidth(), getViewPanelHeight());
-				} else {
-					sg.setDisplayOrigin(syncOrigin);
-				}
+				// ★ 修正: スレッド競合を防ぐため、UI状態の変更は必ずEDT(メインスレッド)に委譲する
+				SwingUtilities.invokeLater(() -> {
+					// move, zoom, rotate, windowing
+					if (syncMag != null && Double.isFinite(syncMag))
+						sg.zoom(syncMag, false/* dummy */);
+					if (syncRot != null && Double.isFinite(syncRot))
+						sg.setAbsoluteRotate(syncRot);
+					if ((syncMin_ != null && Double.isFinite(syncMin_)) && (syncMax_ != null && Double.isFinite(syncMax_))) {
+						sg.changeWindowingByMinMax(syncMin_, syncMax_);
+					}
+					// finally set origin
+					if (syncOrigin == null || !sg.panningFlag) {
+						/*
+						 * update origin if not panning.
+						 */
+						sg.setSize(getViewPanelWidth(), getViewPanelHeight());
+					} else {
+						sg.setDisplayOrigin(syncOrigin);
+					}
+				});
 			}
 		}
 	}
@@ -3810,14 +3842,15 @@ public class Praparat extends JPanel {
 					SlideGlass sg = allSlides.get(key);
 					if (sg != null) {
 						sg.resetContrast(); // DICOMタグ(Window Center/Width)から初期コントラストを復元
-						
+
 						// ★修正: RGB個別の状態も確実に初期状態へリセットする
 						WwWlState state = getWwWlState(key);
 						state.resetToDefault();
 						state.setValues(-1, sg.currentMin, sg.currentMax); // Allのみ復元値で上書き
-						
+
 						// リセットされたストレージでLUTを再合成して描画更新
-						if (sg.isRGB()) sg.imageSpecimen.updateDisplayImage();
+						if (sg.isRGB())
+							sg.imageSpecimen.updateDisplayImage();
 					}
 				}
 			}
@@ -3826,12 +3859,13 @@ public class Praparat extends JPanel {
 			SlideGlass sg = slides.get(zct);
 			if (sg != null) {
 				sg.resetContrast();
-				
+
 				WwWlState state = getWwWlState(zct);
 				state.resetToDefault();
 				state.setValues(-1, sg.currentMin, sg.currentMax);
-				
-				if (sg.isRGB()) sg.imageSpecimen.updateDisplayImage();
+
+				if (sg.isRGB())
+					sg.imageSpecimen.updateDisplayImage();
 			}
 		}
 		repaint();
@@ -3988,17 +4022,17 @@ public class Praparat extends JPanel {
 			showBorder(focusGained);
 		}
 	}
-	
+
 	@Override
 	public void setCursor(java.awt.Cursor cursor) {
 		super.setCursor(cursor);
 		ConcurrentHashMap<Integer, SlideGlass> slides = getAllSlides();
-		if(slides != null) {
-			for(SlideGlass sg : slides.values()) {
-				if(sg != null) {
+		if (slides != null) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) {
 					sg.setCursor(cursor);
-				}else {
-					for(Component c : viewPanel.getComponents()) {
+				} else {
+					for (Component c : viewPanel.getComponents()) {
 						c.setCursor(cursor);
 					}
 				}
@@ -4036,8 +4070,9 @@ public class Praparat extends JPanel {
 				Double syncMin = null;
 				Double syncMax = null;
 				Point syncOrigin = null;
-				realizeImage(currentSliceZCT, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
-
+				// ★修正：自身に対する遅延UI更新を防ぐため、第2引数を false にする
+				realizeImage(currentSliceZCT, false, syncMag, syncRot, syncMin, syncMax, syncOrigin);
+				
 				SlideGlass currentGlass = this.slides.get(currentSliceZCT);
 				if (currentGlass == null) {
 					viewPanel.removeAll();
@@ -4075,9 +4110,13 @@ public class Praparat extends JPanel {
 
 				viewPanel.removeAll();
 				viewPanel.add(currentGlass, 0);
-				
+
 				java.awt.Component cover1 = (java.awt.Component) currentGlass.getGlassAt(SlideGlass.EVENT_LAYER);
-				if (cover1 != null) cover1.requestFocusInWindow();
+				if (cover1 != null)
+					cover1.requestFocusInWindow();
+
+				// ★追加: 初回表示時もホバー状態を安全にリセットし、ステートリークを防ぐ
+				currentGlass.setFocusGained(false);
 
 				if (sizeChanged) {
 					currentGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
@@ -4105,6 +4144,8 @@ public class Praparat extends JPanel {
 			Double syncMax = null;
 			Point syncOrigin = null;
 
+			boolean wasHovered = false; // ★ 追加
+
 			if (oldGlass != null) {
 				syncMag = oldGlass.getMagnification();
 				syncRot = oldGlass.getRotateAngle();
@@ -4117,6 +4158,10 @@ public class Praparat extends JPanel {
 					Point p = oldGlass.getDisplayImageOriginXY();
 					syncOrigin = (p.x == 0 && p.y == 0) ? null : p;
 				}
+
+				// ★追加: ステートリーク対策。コンポーネントが剥がされる前にホバー状態を記憶し、強制解除する
+				wasHovered = oldGlass.isHovered();
+				oldGlass.setFocusGained(false);
 			}
 
 			currentSliceZCT = sliceZctIndex;
@@ -4130,7 +4175,7 @@ public class Praparat extends JPanel {
 				return;
 			}
 
-			// ★復元：Series同期OFFの場合は、抽出したパラメータを自身のものに書き換える
+			// Series同期OFFの場合は、抽出したパラメータを自身のものに書き換える
 			if (!isProcessSeries()) {
 				syncMag = nextGlass.getMagnification();
 				syncRot = nextGlass.getRotateAngle();
@@ -4143,10 +4188,22 @@ public class Praparat extends JPanel {
 					syncOrigin = null;
 				}
 			}
+			
+			// 【検証ログ】実体化前の状態
+			com.vis.core.log.Log.logger.info(String.format("[Paging Debug] Before realize: ZCT=%d, Mag=%.2f, Origin=%s", currentSliceZCT, syncMag, syncOrigin));
 
 			// 1. 画像の実体化（未ロード時のみ発動する）
-			realizeImage(currentSliceZCT, isProcessSeries(), syncMag, syncRot, syncMin, syncMax, syncOrigin);
+			// ★修正：自身に対する遅延UI更新(invokeLater)を防ぎ、二重適用のカクつきを完全になくす
+			realizeImage(currentSliceZCT, false, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			
+			// ==========================================================
+			// ★ 修正: 正しい処理順序に変更
+			// ==========================================================
+
+			// 2. ズーム計算の基準を正常にするため、"先"にサイズを確定させる
+			nextGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
+
+			// 3. パラメータの適用 (サイズが確定しているので正確に計算される)
 			if (Double.isFinite(syncMag))
 				nextGlass.zoom(syncMag, false);
 			if (Double.isFinite(syncRot))
@@ -4154,22 +4211,35 @@ public class Praparat extends JPanel {
 			if (syncMin != null && syncMax != null && Double.isFinite(syncMin) && Double.isFinite(syncMax)) {
 				nextGlass.changeWindowingByMinMax(syncMin, syncMax);
 			}
+
+			// パラメータ適用後に原点座標をセット
 			nextGlass.setDisplayOrigin(syncOrigin);
-			
-			viewPanel.setVisible(false);
+
+			// 【検証ログ】パラメータ適用後の状態
+			com.vis.core.log.Log.logger
+					.info(String.format("[Paging Debug] After params: Size=%dx%d, Mag=%.2f, Origin=(%d,%d)",
+							nextGlass.getWidth(), nextGlass.getHeight(), nextGlass.getMagnification(),
+							nextGlass.getDisplayImageOriginXY().x, nextGlass.getDisplayImageOriginXY().y));
+
+			// 4. 画面に追加する "前" に表示用バッファを更新し、未完成の画像がチラつくのを防ぐ
+			nextGlass.updateDisplayImage();
+						
 			viewPanel.removeAll();
 			viewPanel.add(nextGlass, 0);
 			nextGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
-			
+
 			java.awt.Component cover2 = (java.awt.Component) nextGlass.getGlassAt(SlideGlass.EVENT_LAYER);
-			if (cover2 != null) cover2.requestFocusInWindow();
+			if (cover2 != null)
+				cover2.requestFocusInWindow();
+
+			// ★追加: ホイール操作時のチラつき防止 兼 過去のステートリークの確実なリセット
+			nextGlass.setFocusGained(wasHovered);
 
 			manageCache(currentSliceZCT);
 			nextGlass.updateDisplayImage();
 			nextGlass.requestFocus();
 
 			viewPanel.revalidate();
-			viewPanel.setVisible(true); 
 			viewPanel.repaint();
 		} finally {
 			setWaitCursor(false);
@@ -4557,14 +4627,16 @@ public class Praparat extends JPanel {
 			this.pvcp.setText2InfoLabel(x, y, value, scaleXY, mag, rotate);
 		}
 	}
-	
+
 	/**
 	 * 値の大きさに応じて小数点以下の表示桁数をスマートに切り替えるヘルパーメソッド
 	 */
 	private String formatPixelValue(double value) {
-		if (Double.isNaN(value)) return "NaN";
-		if (value == 0.0) return "0.00";
-		
+		if (Double.isNaN(value))
+			return "NaN";
+		if (value == 0.0)
+			return "0.00";
+
 		double abs = Math.abs(value);
 		if (abs >= 0.01) {
 			// 0.01以上（通常のSUVや、大きなRAW値）は小数点以下2桁固定
@@ -4961,33 +5033,40 @@ public class Praparat extends JPanel {
 			updateFusionParameters(this.currentFusionOpacity, this.fusionOffsetX, this.fusionOffsetY);
 		}
 	}
-	
+
 	/**
 	 * 現在のPraparatの断面の向き（AXIAL, SAGITTAL, CORONAL等）を取得します。
 	 */
 	public com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface getCutSurface() {
 		SlideGlass sg = getCurrentSlide();
-		if (sg == null) return com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN;
+		if (sg == null)
+			return com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN;
 		return com.vis.core.view.D2.ui.orientation.ImageOrientation.getCutSurface(sg.getHeader());
 	}
 
 	/**
-	 * 指定されたIPP(物理座標)に最も近いスライスを探し、5mm以内であれば同期移動します。
-	 * マルチチャンネル・マルチフレーム環境下でも現在のC, Tを維持してZ方向のみを検索します。
+	 * 指定されたIPP(物理座標)に最も近いスライスを探し、5mm以内であれば同期移動します。 マルチチャンネル・マルチフレーム環境下でも現在のC,
+	 * Tを維持してZ方向のみを検索します。
 	 */
-	public void syncSliceToIPP(org.joml.Vector3d sourceIPP, com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface sourceSurface, double toleranceMm) {
-		if (nSlices <= 1 || sourceIPP == null || sourceSurface == null) return;
-		if (sourceSurface == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN) return;
+	public void syncSliceToIPP(org.joml.Vector3d sourceIPP,
+			com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface sourceSurface, double toleranceMm) {
+		if (nSlices <= 1 || sourceIPP == null || sourceSurface == null)
+			return;
+		if (sourceSurface == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.UNKNOWN)
+			return;
 
 		// 1. 断面（CutSurface）が異なる場合は同期しない
-		if (getCutSurface() != sourceSurface) return;
+		if (getCutSurface() != sourceSurface)
+			return;
 
 		// 2. 自身のスライス平面の法線ベクトル(Normal)を取得
 		SlideGlass currentSg = getCurrentSlide();
-		if (currentSg == null) return;
+		if (currentSg == null)
+			return;
 		int frameIdx = isMultiFrame() ? (currentSg.getHeader().getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1) : 0;
 		double[] iop = getSafeIOP(currentSg.getHeader(), frameIdx);
-		if (iop == null || iop.length != 6) return;
+		if (iop == null || iop.length != 6)
+			return;
 
 		org.joml.Vector3d row = new org.joml.Vector3d(iop[0], iop[1], iop[2]);
 		org.joml.Vector3d col = new org.joml.Vector3d(iop[3], iop[4], iop[5]);
@@ -5000,13 +5079,15 @@ public class Praparat extends JPanel {
 
 		for (int z = 0; z < nSlices; z++) {
 			// ★マルチチャンネル対応: ターゲット側の現在のChannel(C)とTime(T)を固定してZだけを走査する
-			int index = calcZctIndex(new int[]{z, currentC, currentT});
+			int index = calcZctIndex(new int[] { z, currentC, currentT });
 			SlideGlass sg = slides.get(index);
-			if (sg == null) continue;
+			if (sg == null)
+				continue;
 
 			int fIdx = isMultiFrame() ? (sg.getHeader().getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1) : 0;
 			double[] ipp = getSafeIPP(sg.getHeader(), fIdx);
-			if (ipp == null || ipp.length != 3) continue;
+			if (ipp == null || ipp.length != 3)
+				continue;
 
 			org.joml.Vector3d myIPP = new org.joml.Vector3d(ipp[0], ipp[1], ipp[2]);
 

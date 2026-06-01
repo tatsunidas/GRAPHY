@@ -932,6 +932,14 @@ public class SlideGlass extends JLayeredPane {
 	public boolean isInverted() {
 		return invertFlag;
 	}
+	
+	/**
+	 * mouse on or not
+	 * @return
+	 */
+	public boolean isHovered() {
+		return this.isHovered;
+	}
 
 	public boolean isRGB() {
 		return isRGB;
@@ -1378,6 +1386,9 @@ public class SlideGlass extends JLayeredPane {
 		if (getWidth() <= 0 || getHeight() <= 0) {
 			if (p != null) {
 				imageSpecimen.updateOrigin(p.x, p.y);
+				this.panningFlag = true;
+			} else {
+				this.panningFlag = false; // ★ ここを追加：nullなら確実に中央配置フラグにする
 			}
 			return;
 		}
@@ -1588,18 +1599,30 @@ public class SlideGlass extends JLayeredPane {
 		}
 	}
 
-	/**
-	 * set slideglass size and update image specimen
+	@Override
+	public void setBounds(int x, int y, int width, int height) {
+		super.setBounds(x, y, width, height);
+		applyComponentSize(width, height);
+	}
+
+	/*
+	 * Borderのサイズにも注意すること。
 	 */
 	@Override
-	public void setSize(int compW, int compH) {
+	public void setSize(int width, int height) {
+		super.setSize(width, height);
+		applyComponentSize(width, height);
+	}
+
+	/**
+	 * サイズ変更やレイアウト確定時に、内部の画像やレイヤーを即座にフィットさせる
+	 */
+	private void applyComponentSize(int compW, int compH) {
 		// 幅や高さが0の場合は計算をスキップ（初期化時のバグ防止）
 		if (compW <= 0 || compH <= 0) {
-			super.setSize(compW, compH);
 			return;
 		}
 
-		super.setSize(compW, compH);
 		super.setPreferredSize(new Dimension(compW, compH));
 		setGlassSize(imageSpecimen, compW, compH);
 		setGlassSize(textOverlay, compW, compH);
@@ -1609,35 +1632,26 @@ public class SlideGlass extends JLayeredPane {
 		// 1. スケール（初期フィット縮小率）を更新
 		updateScale();
 
-		if (!panningFlag) {
-			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
-			if (defaultDim != null && defaultDim.width > 0 && defaultDim.height > 0) {
-				// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
-				int defX = (compW - defaultDim.width) / 2;
-				int defY = (compH - defaultDim.height) / 2;
-				imageSpecimen.updateOrigin(defX, defY);
-			}
-		} else {
-			Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
-			// フィット表示（100%）における、正確な中央マージン（左上座標）を計算
-			int defX = (compW - defaultDim.width) / 2;
-			int defY = (compH - defaultDim.height) / 2;
-			int sx = imageSpecimen.getDisplayOriginX();
-			int sy = imageSpecimen.getDisplayOriginY();
-			// 誤差レベルで中央に戻っていた場合はパンフラグを安全に落とす
-			if (defX == sx && defY == sy && Math.abs(getMagnification() - 1.0) < 1e-3) {
-				panningFlag = false;
+		Dimension defaultDim = imageSpecimen.calcImageSize2FitComponent();
+		if (defaultDim != null && defaultDim.width > 0 && defaultDim.height > 0) {
+			// ★ 修正1: 独自のハードコーディング計算を廃止し、setDisplayOriginと完全に同じ座標計算(4px枠を考慮)に統一する
+			Point defOrigin = imageSpecimen.calcDefaultImageOrigin(defaultDim.width, defaultDim.height);
+
+			if (!panningFlag) {
+				// フィット表示（100%）における、正確な中央マージン（左上座標）をセット
+				imageSpecimen.updateOrigin(defOrigin.x, defOrigin.y);
+			} else {
+				int sx = imageSpecimen.getDisplayOriginX();
+				int sy = imageSpecimen.getDisplayOriginY();
+				// 誤差レベルで中央に戻っていた場合はパンフラグを安全に落とす
+				if (defOrigin.x == sx && defOrigin.y == sy && Math.abs(getMagnification() - 1.0) < 1e-3) {
+					panningFlag = false;
+				}
 			}
 		}
 
-		// ======= ログ追加 =======
-//	    System.out.println("[DEBUG-ZOOM] setSize finished. Size: " + compW + "x" + compH + 
-//	                       " | panningFlag: " + panningFlag + 
-//	                       " | Final Origin: " + imageSpecimen.getDisplayOriginX() + "," + imageSpecimen.getDisplayOriginY());
-		// ======================
-
 		initPrapInfoLabel();
-
+		
 		// 3. 描画更新
 		imageSpecimen.updateDisplayImage();
 		repaint();
@@ -1867,8 +1881,12 @@ public class SlideGlass extends JLayeredPane {
 			double baseH = defaultDim.height;
 
 			// ズームの中心（マウス位置、未設定ならコンポーネント中央）
-			double centerX = (mouseX > 0) ? mouseX : getWidth() / 2.0;
-			double centerY = (mouseY > 0) ? mouseY : getHeight() / 2.0;
+//			double centerX = (mouseX > 0) ? mouseX : getWidth() / 2.0;
+//			double centerY = (mouseY > 0) ? mouseY : getHeight() / 2.0;
+			
+			// ★ 修正: コンポーネント幅が未定(0)の場合は、仮の中心として画像のフィットサイズの中央を使う
+			double centerX = (mouseX > 0) ? mouseX : (getWidth() > 0 ? getWidth() / 2.0 : baseW / 2.0);
+			double centerY = (mouseY > 0) ? mouseY : (getHeight() > 0 ? getHeight() / 2.0 : baseH / 2.0);
 
 			// 現在の画像の見かけの左上座標
 			double currentVisualX = imageSpecimen.originX - (baseW * (currentMag - 1.0) / 2.0);
