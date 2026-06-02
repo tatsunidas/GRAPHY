@@ -107,10 +107,12 @@ public class PraparatShelf {
 		removePraparat((String)uids[0], (String)uids[1], (String)uids[2], (String[])uids[3]);
 	}
 	
-	public Praparat getPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs) {
+	public Praparat getPraparat(String patID,String studyUID,String seriesUID,String[] sopUIDs/*null-able*/) {
 		for(PraparatContext pcon : praparats) {
-			if(pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
-				return pcon.getPraparat();
+			if(sopUIDs != null) {
+				if (pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
+					return pcon.getPraparat();
+				}
 			}
 		}
 		return null;

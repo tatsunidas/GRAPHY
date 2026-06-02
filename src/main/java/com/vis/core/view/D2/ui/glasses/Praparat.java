@@ -196,6 +196,9 @@ public class Praparat extends JPanel {
 	private boolean showGridViewOn = false;// filemGridView
 
 	private boolean crossLineCursorMode = false;// mpr
+	
+	// 3D ROI管理リスト
+	private List<RoiObj> roi3DList = new java.util.concurrent.CopyOnWriteArrayList<>();
 
 	private ReferenceLineMPR refLineMPR;
 
@@ -554,6 +557,22 @@ public class Praparat extends JPanel {
 		SlideGlass sg = slides.get(slidePos);
 		if (sg != null) {
 			sg.addRoi(r);
+		}
+	}
+	
+	public List<RoiObj> getRoi3DList() {
+		return roi3DList;
+	}
+	
+	public void addRoi3D(RoiObj roi3D) {
+		if (roi3D != null && !roi3DList.contains(roi3D)) {
+			roi3DList.add(roi3D);
+		}
+	}
+	
+	public void removeRoi3D(RoiObj roi3D) {
+		if (roi3D != null) {
+			roi3DList.remove(roi3D);
 		}
 	}
 
@@ -2609,7 +2628,28 @@ public class Praparat extends JPanel {
 					if (dimTStr != null)
 						revivedRoi.setProperty(RoiMetaContextKey.Dim_T.name(), dimTStr);
 
-					sg.addRoiFromDB(revivedRoi); // キャンバスへ追加
+					// SphereRoi3D / FreeFormRoi3D は per-slide roiset でなく Praparat の 3D リストで管理する
+					boolean is3DManaged = (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D)
+							|| (revivedRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D);
+					if (is3DManaged) {
+						// meta props 設定後に 3D フィールドを再初期化
+						if (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+							((com.vis.core.view.D3.roi.SphereRoi3D) revivedRoi).initFromProperties();
+						} else {
+							((com.vis.core.view.D3.roi.FreeFormRoi3D) revivedRoi).initFromProperties();
+						}
+						// ROI ID で重複チェック (複数スライスがマッチしても1回だけ追加)
+						String roiId3D = revivedRoi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name());
+						boolean alreadyLoaded = roi3DList.stream().anyMatch(r ->
+								roiId3D != null && roiId3D.equals(
+										r.getProperty(com.vis.configuration.RoiDBKey.RoiID.name())));
+						if (!alreadyLoaded) {
+							addRoi3D(revivedRoi);
+						}
+						break; // このROIの処理完了、他のスライドは不要
+					}
+
+					sg.addRoiFromDB(revivedRoi); // 通常2D ROI はキャンバスへ追加
 				}
 			}
 		}

@@ -350,6 +350,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		
 		if(Viewer2DToolBar.isRoiTool(viewerToolType)) {
 			cg.mouseMoved(e);
+		} else {
+			// ROI ツール以外でも SphereRoi3D のホバー状態を更新 (Cyan 表示のため)
+			cg.update3DRoiHover(x, y);
 		}
 	}
 

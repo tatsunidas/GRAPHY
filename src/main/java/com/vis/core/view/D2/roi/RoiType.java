@@ -56,6 +56,7 @@ public enum RoiType {
 	MULTIPOINT(101),
 	//3d
 	SPHERE_3D(105),
+	FREEFOAM_3D(106),
 	//other
 	TEXT(102),
 	BRUSH(103),

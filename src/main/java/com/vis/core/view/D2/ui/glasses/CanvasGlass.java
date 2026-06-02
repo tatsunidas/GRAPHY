@@ -135,11 +135,25 @@ public class CanvasGlass extends javax.swing.JPanel {
 		ArrayList<RoiObj> rois = getRoiSet();
 		int handle = -1;
 		boolean found = false;
-		if (rois != null && rois.size() > 0) {
-			// reset activate
+
+		// 2D ROI のアクティブ状態をリセット
+		if (rois != null) {
 			for (RoiObj roi : rois) {
 				roi.setActiveOverlayRoi(false);
 			}
+		}
+		// 3D ROI のアクティブ状態もリセット
+		if (pp != null) {
+			java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
+			if (roi3DList != null) {
+				for (RoiObj roi3D : roi3DList) {
+					if (roi3D != null) roi3D.setActiveOverlayRoi(false);
+				}
+			}
+		}
+
+		// 2D ROI から検索
+		if (rois != null && rois.size() > 0) {
 			for (RoiObj roi : rois) {
 				handle = roi.isHandle(screenX, screenY);
 				if (handle >= 0) {
@@ -147,7 +161,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 					currentRoi = roi;
 					found = true;
 					break;
-				} 
+				}
 				if (roi.contains(ix, iy)) {
 					roi.setActiveOverlayRoi(true);
 					currentRoi = roi;
@@ -155,17 +169,42 @@ public class CanvasGlass extends javax.swing.JPanel {
 					break;
 				}
 			}
-			if (handle >= 0) {
-				sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
-			} else if (found && currentRoi.contains(ix, iy)) {
-				sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-			} else {
-				/*
-				 * when no roi at (x,y), current roi set to null.
-				 */
-				sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-				currentRoi = null;
+		}
+
+		// 2D ROI で見つからない場合、Praparat の 3D ROI リストを検索
+		if (!found && pp != null) {
+			java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
+			if (roi3DList != null) {
+				for (RoiObj roi3D : roi3DList) {
+					if (roi3D == null) continue;
+					roi3D.setSlideGlass(sg, false);
+					handle = roi3D.isHandle(screenX, screenY);
+					if (handle >= 0) {
+						roi3D.setActiveOverlayRoi(true);
+						currentRoi = roi3D;
+						found = true;
+						break;
+					}
+					if (roi3D.contains(ix, iy)) {
+						roi3D.setActiveOverlayRoi(true);
+						currentRoi = roi3D;
+						found = true;
+						break;
+					}
+				}
 			}
+		}
+
+		if (handle >= 0) {
+			sg.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		} else if (found && currentRoi != null && currentRoi.contains(ix, iy)) {
+			sg.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+		} else {
+			/*
+			 * when no roi at (x,y), current roi set to null.
+			 */
+			sg.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+			currentRoi = null;
 		}
 		return currentRoi;
 	}
@@ -293,9 +332,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 			roi = new PointRoi(imageX, imageY, RoiType.MULTIPOINT.id(), sg);
 			break;
 		case SPHERE_3D:
-			roi = create3DSphere(imageX,imageY);
+			// 3D ROI は Praparat の 3D リストで管理するため、2D roiset への addRoi は行わない
+			return create3DSphere(imageX, imageY);
 		default:
-			//do nothig
+			//do nothing
 		}
 		if (roi != null) {
 			//insertOrUpdateRoi4DB
@@ -306,84 +346,66 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	/**
-	 * ワンクリックで直径10mm(半径5mm)の3D球マスターROIを生成します。
+	 * ワンクリックで半径5mmの SphereRoi3D を生成し、Praparatの3Dリストに登録します。
+	 * マスター/スレーブ設計は使わず、純粋な SphereRoi3D として管理します。
 	 */
 	public RoiObj create3DSphere(int offScreenX, int offScreenY) {
-		int imageX = offScreenX;
-		int imageY = offScreenY;
-		// 1. 半径5.0mm をピクセル数に変換
 		double pixelSpacingX = sg.getOriginalPixelSpacingX();
 		double pixelSpacingY = sg.getOriginalPixelSpacingY();
-		if (pixelSpacingX <= 0)
-			pixelSpacingX = 1.0;
-		if (pixelSpacingY <= 0)
-			pixelSpacingY = 1.0;
+		if (pixelSpacingX <= 0) pixelSpacingX = 1.0;
+		if (pixelSpacingY <= 0) pixelSpacingY = 1.0;
 
-		double radiusPxX = 5.0 / pixelSpacingX;
-		double radiusPxY = 5.0 / pixelSpacingY;
+		final double radiusMm = 5.0;
+		double radiusPxX = radiusMm / pixelSpacingX;
+		double radiusPxY = radiusMm / pixelSpacingY;
 
-		// 2. 円の左上座標(x, y)と幅・高さを計算 (中心がクリック位置になるように)
-		int startX = (int) (imageX - radiusPxX);
-		int startY = (int) (imageY - radiusPxY);
-		int width = (int) (radiusPxX * 2.0);
+		int startX = (int) (offScreenX - radiusPxX);
+		int startY = (int) (offScreenY - radiusPxY);
+		int width  = (int) (radiusPxX * 2.0);
 		int height = (int) (radiusPxY * 2.0);
 
-		// 3. OvalRoi (マスター) を生成し、ドラッグ状態をスキップして確定させる
-		OvalRoi masterRoi = new OvalRoi(startX, startY, width, height, sg);
-		masterRoi.setState(RoiObj.NORMAL);
+		com.vis.core.view.D3.roi.SphereRoi3D sphere3D =
+				new com.vis.core.view.D3.roi.SphereRoi3D(startX, startY, width, height, sg);
+		sphere3D.setState(RoiObj.NORMAL);
 
-		// 4. 3D用のメタデータ(パラメータ)を付与
-		// ROIグループIDにユニークな値を設定（今回は簡易的に現在時刻ミリ秒）
-		// intの最大値(約21億)を超えないように、ミリ秒の下9桁をグループIDとして使用する
 		int uniqueGroupId = (int) (System.currentTimeMillis() % 1000000000L);
-		String newGroupId = String.valueOf(uniqueGroupId);
-		masterRoi.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+		sphere3D.setProperty(RoiDBKey.RoiGroup.name(), String.valueOf(uniqueGroupId));
 
-		masterRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(), "true");
-		masterRoi.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), "SPHERE");
-		masterRoi.setProperty(RoiMetaContextKey.Sphere_Radius_mm.name(), "5.0");
-
-		// 5. クリックした中心点の 3D空間絶対座標 (IPP) を計算して保存
+		// 3D中心座標 (IPP) の算出: IPP + IOP_row * X * spacingX + IOP_col * Y * spacingY
 		double[] currentIpp = sg.getHeader().getDoubles(Tag.ImagePositionPatient);
+		double[] iop = sg.getHeader().getDoubles(Tag.ImageOrientationPatient);
 		if (currentIpp != null && currentIpp.length == 3) {
-			double[] iop = sg.getHeader().getDoubles(Tag.ImageOrientationPatient);
 			if (iop != null && iop.length == 6) {
-				// DICOM座標変換式: 基準IPP + (Row方向ベクトル * X * 間隔) + (Col方向ベクトル * Y * 間隔)
-				double physX = currentIpp[0] + iop[0] * imageX * pixelSpacingX + iop[3] * imageY * pixelSpacingY;
-				double physY = currentIpp[1] + iop[1] * imageX * pixelSpacingX + iop[4] * imageY * pixelSpacingY;
-				double physZ = currentIpp[2] + iop[2] * imageX * pixelSpacingX + iop[5] * imageY * pixelSpacingY;
-				String centerIppStr = physX + "," + physY + "," + physZ;
-				masterRoi.setProperty("Sphere_Center_IPP", centerIppStr);
+				double physX = currentIpp[0] + iop[0] * offScreenX * pixelSpacingX + iop[3] * offScreenY * pixelSpacingY;
+				double physY = currentIpp[1] + iop[1] * offScreenX * pixelSpacingX + iop[4] * offScreenY * pixelSpacingY;
+				double physZ = currentIpp[2] + iop[2] * offScreenX * pixelSpacingX + iop[5] * offScreenY * pixelSpacingY;
+				sphere3D.setCenterIpp(physX, physY, physZ);
 			} else {
-				masterRoi.setProperty("Sphere_Center_IPP", currentIpp[0] + "," + currentIpp[1] + "," + currentIpp[2]);
+				sphere3D.setCenterIpp(currentIpp[0], currentIpp[1], currentIpp[2]);
 			}
 		}
+		sphere3D.setRadiusMm(radiusMm);
 
-		currentRoi = masterRoi; // 選択状態にする
-
-		// 7. 【次フェーズ】このマスター情報を元に、前後のスライスへスレイブROIを自動展開する
 		if (pp != null) {
-			// ★ 旧: pp.generate3DSphereSlaves(masterRoi);
-			// ★ 新: 3Dオブジェクトを生成して展開を委譲する
-			new com.vis.core.view.D3.roi.SphereRoi3D(masterRoi).generateCrossSections(pp);
+			pp.addRoi3D(sphere3D);
 		}
+		insertOrUpdateRoi4DB(sphere3D);
 
+		// RoiObjManager が開いていれば即座に登録を反映
+		RoiObjManager rom = (RoiObjManager) com.vis.core.facade.WindowManager.getWindow(
+				com.vis.configuration.ConfigInfo.RoiManager.toString());
+		if (rom != null) rom.updateState();
+
+		currentRoi = sphere3D;
 		repaint();
-		return currentRoi;
+		return sphere3D;
 	}
 	
 	public void deleteRoi(int sx, int sy) {
-		if (roiset == null || roiset.size() < 1) {
-			return;
-		}
+		// activateRoiAt は roiset と 3D リストを両方チェックするので、そのまま使う
 		RoiObj roi2remove = activateRoiAt(sx, sy);
 		if (roi2remove != null) {
-			// ==========================================================
-			// ★ 修正: 直接オブジェクト指定の deleteRoi を呼ぶことで、
-			// 必ず brushTool のクリア処理や Undo 保存のルートを通すようにする
-			// ==========================================================
 			deleteRoi(roi2remove);
-			
 			RoiObjManager rom = (RoiObjManager)WindowManager.getWindow(ConfigInfo.RoiManager.toString());
 			if(rom != null) {
 				rom.updateState();
@@ -393,6 +415,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public boolean deleteRoi(RoiObj roi2remove) {
+		if (roi2remove == null) return false;
+		// 3D リスト管理の ROI (SphereRoi3D / FreeFormRoi3D) は専用削除パス
+		if (pp != null && pp.getRoi3DList().contains(roi2remove)) {
+			deleteSphere3D(roi2remove);
+			if (roi2remove == currentRoi) setCurrentRoi2NULL();
+			repaint();
+			return true;
+		}
 		if (roiset == null || roiset.size() < 1) {
 			return false;
 		}
@@ -462,22 +492,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (sg != null) sg.saveUndoState();
 		
 		String shapeType = roi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
-		if ("SPHERE".equals(shapeType) || "FREEFORM".equals(shapeType)) {
-			String groupId = roi.getProperty(RoiDBKey.RoiGroup.name());
-			if (groupId != null) {
-				com.vis.core.view.D3.roi.AbstractRoi3D roi3D = null;
-				if ("SPHERE".equals(shapeType)) {
-					roi3D = new com.vis.core.view.D3.roi.SphereRoi3D(roi);
-				} else {//freedom shape 3d
-					roi3D = new com.vis.core.view.D3.roi.FreeFormRoi3D(roi);
-				}
-				
-				roi3D.deleteGroup(pp); // 一括削除
-				
-				if(Viewer2DScreen.getRoiObjManager() != null) {
-					Viewer2DScreen.getRoiObjManager().updateRoiObjList(sg.getPatientID());
-				}
-				return;
+		if (com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shapeType)
+				|| com.vis.core.view.D3.roi.FreeFormRoi3D.Shape_3D_Type.equals(shapeType)) {
+			if (pp != null) {
+				pp.removeRoi3D(roi);
 			}
 		}
 		
@@ -519,8 +537,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 	
 	public RoiObj getSelectedRoi() {
 		for (RoiObj roi : roiset) {
-			if (roi.isSelected()) {
-				return roi;
+			if (roi.isSelected()) return roi;
+		}
+		// 3D ROI リストも確認
+		if (pp != null) {
+			java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
+			if (roi3DList != null) {
+				for (RoiObj roi3D : roi3DList) {
+					if (roi3D != null && roi3D.isSelected()) return roi3D;
+				}
 			}
 		}
 		return null;
@@ -645,13 +670,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 			}
 			currentRoi.mouseDown(e);
 			
-			/*
-			 * do not use roiType == RoiType.SPHERE_3D.id().
-			 * if Sphere 3d, roiType is Oval.
-			 */
 			String shape_3d_type = currentRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
-			if (shape_3d_type != null && "SPHERE".equals(shape_3d_type)) {
-				currentRoi.setState(RoiObj.MOVING); 
+			if (shape_3d_type != null
+					&& (com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shape_3d_type)
+					||  com.vis.core.view.D3.roi.FreeFormRoi3D.Shape_3D_Type.equals(shape_3d_type))) {
+				currentRoi.setState(RoiObj.MOVING);
 			}
 		}else {
 			if(sg.isHereRoiPopup(e)) {
@@ -1010,23 +1033,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
 			//作成終了時
 			if(currentRoi.getState() != RoiObj.CONSTRUCTING) {
-				/*
-				 * do not use roiType == RoiType.SPHERE_3D.id()
-				 * if sphere 3d, roiType is Oval.
-				 */
 				String shape_3d_type = currentRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
-				if(shape_3d_type != null) {
-					if ("SPHERE".equals(shape_3d_type)) {
-						if (pp != null) {
-							new com.vis.core.view.D3.roi.SphereRoi3D(currentRoi).updateFrom2D(currentRoi);
-						}
-					} else if ("FREEFORM".equals(shape_3d_type)) {
-						if (pp != null) {
-							new com.vis.core.view.D3.roi.FreeFormRoi3D(currentRoi).updateFrom2D(currentRoi);
-						}
+				if (shape_3d_type != null) {
+					if (com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shape_3d_type)
+							|| com.vis.core.view.D3.roi.FreeFormRoi3D.Shape_3D_Type.equals(shape_3d_type)) {
+						// 3D ROI の状態を DB に保存する
+						insertOrUpdateRoi4DB(currentRoi);
 					} else {
-						saveCurrentRoiSate(); // 従来の保存処理
+						saveCurrentRoiSate();
 					}
+				} else {
+					saveCurrentRoiSate();
 				}
 			}
 		}
@@ -1083,6 +1100,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if(currentRoi == null) {
 			return false;
 		}
+
+		// Delete/Backspace でアクティブな 3D ROI を削除
+		if ((keyCode == KeyEvent.VK_DELETE || keyCode == KeyEvent.VK_BACK_SPACE)
+				&& pp != null && pp.getRoi3DList().contains(currentRoi)) {
+			deleteSphere3D(currentRoi);
+			currentRoi = null;
+			repaint();
+			return true;
+		}
+
 		RoiType t = currentRoi.getRoiType();
 		//move roi
 		switch (t) {
@@ -1260,6 +1287,18 @@ public class CanvasGlass extends javax.swing.JPanel {
 		for (int i = 0; i < roiset.size(); i++) {
 			RoiObj roiObj = roiset.get(i);
 			if(roiObj !=null) roiObj.draw(g);
+		}
+		
+		if (pp != null) {
+			java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
+			if (roi3DList != null) {
+				for (RoiObj roi3D : roi3DList) {
+					if (roi3D != null) {
+						roi3D.setSlideGlass(sg, false); // コンテキストを現在のスライドに設定
+						roi3D.draw(g);
+					}
+				}
+			}
 		}
 		
 		if(brush != null) {
@@ -1725,7 +1764,73 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public String sopInstanceUID() {
 		return sopUID;
 	}
-	
+
+	/**
+	 * ROI ツール以外でも 3D ROI のホバー状態を検出し、カレントROIを更新する。
+	 * 2D roiset には触れず、3D ROI リストのみを対象にする。
+	 */
+	void update3DRoiHover(int screenX, int screenY) {
+		if (pp == null) return;
+		java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
+		if (roi3DList == null || roi3DList.isEmpty()) return;
+
+		// 全 3D ROI のアクティブ状態をリセット
+		for (RoiObj roi3D : roi3DList) {
+			if (roi3D != null) roi3D.setActiveOverlayRoi(false);
+		}
+
+		java.awt.Point p;
+		try {
+			p = sg.offScreenCoordinate(screenX, screenY);
+		} catch (java.awt.geom.NoninvertibleTransformException e) {
+			return;
+		}
+		int ix = p.x;
+		int iy = p.y;
+
+		boolean found = false;
+		for (RoiObj roi3D : roi3DList) {
+			if (roi3D == null) continue;
+			roi3D.setSlideGlass(sg, false);
+			if (roi3D.contains(ix, iy)) {
+				roi3D.setActiveOverlayRoi(true);
+				currentRoi = roi3D;
+				sg.setCursor(new java.awt.Cursor(java.awt.Cursor.MOVE_CURSOR));
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			// 現在 3D ROI がカレントなら解除
+			if (currentRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				currentRoi = null;
+			}
+			sg.setCursor(new java.awt.Cursor(java.awt.Cursor.CROSSHAIR_CURSOR));
+		}
+		repaint();
+	}
+
+	/** 3D リスト管理の ROI を Praparat3D リスト・DB・RoiObjManager から一括削除する */
+	private void deleteSphere3D(RoiObj sphere) {
+		sg.saveUndoState();
+		if (pp != null) pp.removeRoi3D(sphere);
+		sphere.notifyListeners(com.vis.core.ui.listener.RoiObjListener.DELETED);
+		HashMap<RoiDBKey, String> uids = sphere.getUIDs();
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) {
+			db.deleteRoi(
+				uids.get(RoiDBKey.PatientID),
+				uids.get(RoiDBKey.StudyInstanceUID),
+				uids.get(RoiDBKey.SeriesInstanceUID),
+				uids.get(RoiDBKey.SOPInstanceUID),
+				uids.get(RoiDBKey.RoiID)
+			);
+		}
+		RoiObjManager rom = (RoiObjManager) com.vis.core.facade.WindowManager.getWindow(
+				com.vis.configuration.ConfigInfo.RoiManager.toString());
+		if (rom != null) rom.updateState();
+	}
+
 	public void updateRoi(RoiObj roi) {
 		String patID = roi.getProperty(RoiDBKey.PatientID.name());
 		String studyUID = roi.getProperty(RoiDBKey.StudyInstanceUID.name());

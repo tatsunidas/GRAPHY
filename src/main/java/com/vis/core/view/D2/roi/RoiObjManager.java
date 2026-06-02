@@ -622,10 +622,17 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 							}
 						}
 					}
+					// Praparat の 3D ROI リスト (SphereRoi3D など) も登録
+					java.util.List<RoiObj> roi3DList = prap.getRoi3DList();
+					if (roi3DList != null) {
+						for (RoiObj roi3D : roi3DList) {
+							if (roi3D != null) addRoiObj(roi3D);
+						}
+					}
 				}
 			}
 		}
-		
+
 		if(isVisible()) {
 			list.repaint();
 		}
@@ -896,22 +903,44 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		for(String k : selectedRois.keySet()) {
 			RoiObj r = selectedRois.get(k);
 			if(r != null) {
-				SlideGlass slide = r.getSlideGlass();
-				if(slide != null) {
-					/*
-					 * save undo
-					 * notify to listener will done in canvas glass.
-					 */
-					slide.deleteRoi(r);
-				}else {
+				SlideGlass roiSlide = r.getSlideGlass();
+				Praparat roiPrap = roiSlide != null ? roiSlide.getPraparat() : null;
+				boolean isIn3DList = roiPrap != null && roiPrap.getRoi3DList().contains(r);
+
+				if (isIn3DList) {
+					// 3D リスト管理 ROI (SphereRoi3D / FreeFormRoi3D) — リストと DB から直接削除
+					if (roiSlide != null) roiSlide.saveUndoState();
+					roiPrap.removeRoi3D(r);
 					HashMap<RoiDBKey, String> uids = r.getUIDs();
-					String patID = uids.get(RoiDBKey.PatientID);
-					String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
-					String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
-					String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
-					String roiID = uids.get(RoiDBKey.RoiID);
-					DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+					DatabaseHandler db = DatabaseHandler.getInstance();
+					if (db != null) {
+						db.deleteRoi(
+							uids.get(RoiDBKey.PatientID),
+							uids.get(RoiDBKey.StudyInstanceUID),
+							uids.get(RoiDBKey.SeriesInstanceUID),
+							uids.get(RoiDBKey.SOPInstanceUID),
+							uids.get(RoiDBKey.RoiID)
+						);
+					}
 					r.notifyListeners(RoiObjListener.DELETED);
+				} else {
+					SlideGlass slide = r.getSlideGlass();
+					if(slide != null) {
+						/*
+						 * save undo
+						 * notify to listener will done in canvas glass.
+						 */
+						slide.deleteRoi(r);
+					}else {
+						HashMap<RoiDBKey, String> uids = r.getUIDs();
+						String patID = uids.get(RoiDBKey.PatientID);
+						String studyUID = uids.get(RoiDBKey.StudyInstanceUID);
+						String seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+						String sopUID = uids.get(RoiDBKey.SOPInstanceUID);
+						String roiID = uids.get(RoiDBKey.RoiID);
+						DatabaseHandler.getInstance().deleteRoi(patID, studyUID, seriesUID, sopUID, roiID);
+						r.notifyListeners(RoiObjListener.DELETED);
+					}
 				}
 			}
 		}

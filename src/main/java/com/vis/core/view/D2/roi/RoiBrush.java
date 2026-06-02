@@ -251,6 +251,12 @@ public class RoiBrush {
 	private void processAdd(ShapeRoi brushSnapshot, boolean isCreating) {
 		RoiObj result;
 		
+		if (internalWorkingRoi instanceof com.vis.core.view.D3.roi.Editable3D) {
+			((com.vis.core.view.D3.roi.Editable3D) internalWorkingRoi).editWithBrush(brushSnapshot, true);
+			updateUiRoi(internalWorkingRoi, false);
+			return;
+		}
+		
 		// ★ 検証ログ 2-1: ADD処理開始
 		com.vis.core.log.Log.logger.info(String.format(
 			"[Brush-Debug 2-1] processAdd Start | isCreating: %b | BrushBounds: %s",
@@ -290,6 +296,12 @@ public class RoiBrush {
 
 	private void processSubtract(ShapeRoi brushSnapshot) {
 		if (internalWorkingRoi == null) return;
+		
+		if (internalWorkingRoi instanceof com.vis.core.view.D3.roi.Editable3D) {
+			((com.vis.core.view.D3.roi.Editable3D) internalWorkingRoi).editWithBrush(brushSnapshot, false);
+			updateUiRoi(internalWorkingRoi, false);
+			return;
+		}
 
 		// ★ 検証ログ 3-1: SUBTRACT処理開始
 		com.vis.core.log.Log.logger.info(String.format(

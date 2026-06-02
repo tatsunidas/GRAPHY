@@ -18,6 +18,8 @@ public enum RoiMetaContextKey {
 	Is3D_Slave,
 	Is3D_Volume,
 	Shape_3D_Type,// "SPHERE" または "FREEFORM"
+	Shape_3D_SPHERE,
+	Shape_3D_FREEFORM,
 	Sphere_Center_IPP,
 	Sphere_Radius_mm,
 	;
