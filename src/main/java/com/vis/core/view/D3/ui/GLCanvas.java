@@ -31,6 +31,8 @@ package com.vis.core.view.D3.ui;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.awt.GLData;
 
+import com.vis.core.view.D3.roi.FreeFormRoi3D;
+
 import static org.lwjgl.opengl.GL33.*;
 
 import java.awt.Color;
@@ -78,7 +80,9 @@ public class GLCanvas extends AWTGLCanvas {
 
 	// 編集対象のデータ参照
 	private VolumeData currentVolumeData;
-
+	
+	private byte[] pendingRoiMask = null;
+	
 	private static final long serialVersionUID = 1L;
 
 	public GLCanvas(GLData data) {
@@ -223,6 +227,102 @@ public class GLCanvas extends AWTGLCanvas {
 
 		this.repaint();
 	}
+	
+	// GLCanvas.java の ROIロードメソッド（前回提案した setRoiData メソッド内）
+	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] origin, double[] iop) {
+	    if (currentVolumeData == null) return;
+	    if (rois == null || rois.isEmpty()) return;
+	    setMultiRoiData(rois, origin, iop);
+	}
+	
+	public void setMultiRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] origin, double[] iop) {
+	    if (currentVolumeData == null || rois.isEmpty()) return;
+	    
+	    // とりあえず代表して最初のROIの色を使う
+	    java.awt.Color roiColor = rois.get(0).getStrokeColor();
+	    if (roiColor == null) roiColor = java.awt.Color.CYAN;
+	    setRoiColor(roiColor, 0.5f);
+	    
+	    new Thread(() -> {
+	        // 全部のROIを1つのマスクに焼き付ける
+	        byte[] mask = createMergedRoiMask(currentVolumeData, rois, origin, iop);
+	        this.pendingRoiMask = mask; 
+	        SwingUtilities.invokeLater(this::repaint);
+	    }).start();
+	}
+
+	// 複数ROI用の合体マスク生成
+	private byte[] createMergedRoiMask(VolumeData vol, java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] volumeOriginIpp, double[] volumeIop) {
+	    int w = vol.width; int h = vol.height; int d = vol.depth;
+	    byte[] mask = new byte[w * h * d];
+	    
+	    double[] n = new double[3];
+	    n[0] = volumeIop[1]*volumeIop[5] - volumeIop[2]*volumeIop[4];
+	    n[1] = volumeIop[2]*volumeIop[3] - volumeIop[0]*volumeIop[5];
+	    n[2] = volumeIop[0]*volumeIop[4] - volumeIop[1]*volumeIop[3];
+
+	    int index = 0;
+	    for (int z = 0; z < d; z++) {
+	        double zOffX = n[0] * (z * vol.sliceThickness);
+	        double zOffY = n[1] * (z * vol.sliceThickness);
+	        double zOffZ = n[2] * (z * vol.sliceThickness);
+
+	        for (int y = 0; y < h; y++) {
+	            double yOffX = volumeIop[3] * (y * vol.pixelSpacingY);
+	            double yOffY = volumeIop[4] * (y * vol.pixelSpacingY);
+	            double yOffZ = volumeIop[5] * (y * vol.pixelSpacingY);
+
+	            for (int x = 0; x < w; x++) {
+	                double xOffX = volumeIop[0] * (x * vol.pixelSpacingX);
+	                double xOffY = volumeIop[1] * (x * vol.pixelSpacingX);
+	                double xOffZ = volumeIop[2] * (x * vol.pixelSpacingX);
+
+	                double px = volumeOriginIpp[0] + xOffX + yOffX + zOffX;
+	                double py = volumeOriginIpp[1] + xOffY + yOffY + zOffY;
+	                double pz = volumeOriginIpp[2] + xOffZ + yOffZ + zOffZ;
+	                
+	                // いずれかのROIに含まれていればマスクを255にする
+	                boolean isInside = false;
+	                for (com.vis.core.view.D3.roi.FreeFormRoi3D roi : rois) {
+	                    if (roi.containsPhysicalPoint(px, py, pz)) {
+	                        isInside = true;
+	                        break;
+	                    }
+	                }
+	                
+	                mask[index] = isInside ? (byte) 255 : 0;
+	                index++;
+	            }
+	        }
+	    }
+	    return mask;
+	}
+
+	// GLCanvas.java に追加
+	public void setShowVolume(boolean show) {
+	    if (volumeRenderer != null) {
+	        volumeRenderer.setVolumeVisible(show);
+	        repaint(); // 設定を変更したら再描画
+	    }
+	}
+
+	public void setShowRoi(boolean show) {
+	    if (volumeRenderer != null) {
+	        volumeRenderer.setRoiVisible(show);
+	        repaint();
+	    }
+	}
+
+	// java.awt.Color を受け取って OpenGL用の 0.0~1.0 に変換する便利なメソッド
+	public void setRoiColor(java.awt.Color color, float alpha) {
+	    if (volumeRenderer != null && color != null) {
+	        float r = color.getRed() / 255.0f;
+	        float g = color.getGreen() / 255.0f;
+	        float b = color.getBlue() / 255.0f;
+	        volumeRenderer.setRoiColor(r, g, b, alpha);
+	        repaint();
+	    }
+	}
 
 	// セッター (スライダーから呼ぶ)
 	public void setSlicePos(float x, float y, float z) {
@@ -340,10 +440,21 @@ public class GLCanvas extends AWTGLCanvas {
 	// 描画のたびに呼ばれる
 	@Override
 	public void paintGL() {
-		// 1. データ転送
+		// 1. ボリュームデータの転送 (既存)
 		if (pendingVolume != null) {
 			volumeRenderer.uploadTexture(pendingVolume);
 			pendingVolume = null;
+		}
+
+		// ==========================================
+		// ★ ここで pendingRoiMask を使います！
+		// ==========================================
+		if (pendingRoiMask != null && currentVolumeData != null) {
+			// GPUへのアップロードを実行
+			volumeRenderer.uploadRoiTexture(pendingRoiMask, currentVolumeData.width, currentVolumeData.height,
+					currentVolumeData.depth);
+			// 転送が終わったらnullにして、毎フレーム転送されるのを防ぐ
+			pendingRoiMask = null;
 		}
 
 		int w = getWidth();

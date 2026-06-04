@@ -187,6 +187,14 @@ public class Viewer3DMain extends JFrame {
 		JSlider sliderZ = new JSlider(0, 100, 50);
 		controlPanel.add(new JLabel("Axial (Z)"));
 		controlPanel.add(sliderZ);
+		
+		JCheckBox chkShowVol = new JCheckBox("Show Volume", true);
+		chkShowVol.addActionListener(e -> canvas.setShowVolume(chkShowVol.isSelected()));
+		controlPanel.add(chkShowVol);
+
+		JCheckBox chkShowRoi = new JCheckBox("Show ROI", true);
+		chkShowRoi.addActionListener(e -> canvas.setShowRoi(chkShowRoi.isSelected()));
+		controlPanel.add(chkShowRoi);
 
 		sliderX.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 		sliderY.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));

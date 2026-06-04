@@ -45,81 +45,6 @@ import static org.lwjgl.opengl.GL30.*; // 3Dテクスチャ・浮動小数点フ
  */
 public class VolumeRenderer {
 
-	// --- 1. バーテックスシェーダー ---
-	private final String vertexShaderSource = "#version 330 core\n" + "layout (location = 0) in vec3 aPos;\n"
-			+ "uniform mat4 mvp;\n" + "out vec3 vPos;\n" + "void main() {\n"
-			+ "    gl_Position = mvp * vec4(aPos, 1.0);\n" + "    vPos = aPos;\n" + "}";
-
-	// --- 2. フラグメントシェーダー (レイキャスティング本番) ---
-	private final String fragmentShaderSource = "#version 330 core\n" + "in vec3 vPos;\n" + "out vec4 FragColor;\n" +
-
-			"uniform sampler3D volumeTex;\n" + "uniform vec3 cameraPos;\n" + "uniform float uMin;\n"
-			+ "uniform float uMax;\n" + "uniform float uWinCenter;\n" + "uniform float uWinWidth;\n" +
-
-			"uniform int uRenderMode;\n" + "uniform sampler1D uLutTex;\n" +
-
-			"bool intersectBox(vec3 origin, vec3 dir, out float tNear, out float tFar) {\n"
-			+ "    vec3 boxMin = vec3(-0.5); vec3 boxMax = vec3(0.5);\n" + "    vec3 invDir = 1.0 / dir;\n"
-			+ "    vec3 tMin = (boxMin - origin) * invDir;\n" + "    vec3 tMax = (boxMax - origin) * invDir;\n"
-			+ "    vec3 t1 = min(tMin, tMax);\n" + "    vec3 t2 = max(tMin, tMax);\n"
-			+ "    tNear = max(max(t1.x, t1.y), t1.z);\n" + "    tFar = min(min(t2.x, t2.y), t2.z);\n"
-			+ "    return tNear <= tFar && tFar > 0.0;\n" + "}\n" +
-
-			"void main() {\n" + "    vec3 rayDir = normalize(vPos - cameraPos);\n" + "    float tNear, tFar;\n"
-			+ "    if (!intersectBox(cameraPos, rayDir, tNear, tFar)) discard;\n" + "    tNear = max(tNear, 0.0);\n" +
-
-			"    vec3 rayStart = cameraPos + rayDir * tNear;\n" + "    vec3 rayStop = cameraPos + rayDir * tFar;\n"
-			+ "    float dist = distance(rayStart, rayStop);\n" + "    int steps = 256;\n"
-			+ "    float stepSize = dist / float(steps);\n" + "    vec3 currentPos = rayStart;\n" +
-
-			"    float maxVal = 0.0;          // MIP用\n"
-			+ "    vec4 accumulatedColor = vec4(0.0); // DVR用 (RGB + Alpha)\n" +
-
-			"    for(int i=0; i<steps; i++) {\n" 
-			+ "        vec3 texCoord = currentPos + 0.5;\n"
-			// ★ 追加: 画像(左上原点)とOpenGL(左下原点)のズレを吸収するため、Y座標を反転
-			+ "        texCoord.y = 1.0 - texCoord.y;\n"
-			+ "        float rawVal = texture(volumeTex, texCoord).r;\n"
-			+ "        float val = (rawVal - uMin) / (uMax - uMin);\n" + "        \n" + "        // Window/Level 適用\n"
-			+ "        float winMin = uWinCenter - (uWinWidth * 0.5);\n" + "        val = (val - winMin) / uWinWidth;\n"
-			+ "        val = clamp(val, 0.0, 1.0);\n" +
-
-			"        if (uRenderMode == 0) {\n" + "            // --- MIP (最大値投影) ---\n"
-			+ "            if(val > maxVal) maxVal = val;\n" + "            if(maxVal >= 1.0) break;\n"
-			+ "        } else {\n" + "            // DVR\n" + "            vec4 srcColor = texture(uLutTex, val);\n"
-			+ "            \n" + "            if (srcColor.a > 0.0) {\n"
-			+ "                accumulatedColor.rgb += (1.0 - accumulatedColor.a) * srcColor.a * srcColor.rgb;\n"
-			+ "                accumulatedColor.a   += (1.0 - accumulatedColor.a) * srcColor.a;\n" + "            }\n"
-			+ "            if (accumulatedColor.a >= 0.95) break;\n" + "        }\n" +
-
-			"        currentPos += rayDir * stepSize;\n" + "    }\n" +
-
-			"    if (uRenderMode == 0) {\n" + "        FragColor = vec4(vec3(maxVal), 1.0);\n" + "    } else {\n"
-			+ "        FragColor = accumulatedColor;\n" + "    }\n" + "}";
-
-	// --- 断面用 バーテックスシェーダー ---
-	private final String sliceVertexShaderSource = "#version 330 core\n" + "layout (location = 0) in vec3 aPos;\n"
-			+ "uniform mat4 mvp;\n" + "uniform mat4 model;\n" + "out vec3 vTexCoord;\n" + "void main() {\n"
-			+ "    gl_Position = mvp * vec4(aPos, 1.0);\n" + "    \n" + "    vec4 worldPos = model * vec4(aPos, 1.0);\n"
-			+ "    vTexCoord = worldPos.xyz + 0.5;\n" + "}";
-
-	// --- 断面用 フラグメントシェーダー ---
-	private final String sliceFragmentShaderSource = "#version 330 core\n" + "in vec3 vTexCoord;\n"
-			+ "out vec4 FragColor;\n" +
-
-			"uniform sampler3D volumeTex;\n" + "uniform sampler1D uLutTex;\n" + "uniform float uMin, uMax;\n"
-			+ "uniform float uWinCenter, uWinWidth;\n" +
-
-			"void main() {\n" 
-			+ "    if (vTexCoord.x < 0.0 || vTexCoord.x > 1.0 ||\n"
-			+ "        vTexCoord.y < 0.0 || vTexCoord.y > 1.0 ||\n"
-			+ "        vTexCoord.z < 0.0 || vTexCoord.z > 1.0) discard;\n" 
-			+ "    vec3 sampleCoord = vec3(vTexCoord.x, 1.0 - vTexCoord.y, vTexCoord.z);\n"
-			+ "    float rawVal = texture(volumeTex, sampleCoord).r;\n"
-			+ "    float val = (rawVal - uMin) / (uMax - uMin);\n"
-			+ "    float winMin = uWinCenter - (uWinWidth * 0.5);\n" + "    val = (val - winMin) / uWinWidth;\n"
-			+ "    val = clamp(val, 0.0, 1.0);\n" + "    \n" + "    FragColor = texture(uLutTex, val);\n" + "}";
-
 	private int textureId = -1;
 
 	private int shaderProgram = -1;
@@ -152,6 +77,13 @@ public class VolumeRenderer {
 	private int sliceMvpLoc, sliceTexLoc, sliceLutLoc;
 	private int sliceWinCenterLoc, sliceWinWidthLoc;
 	private int sliceModelLoc;
+	
+	private int roiTextureId = -1;
+	private int showVolumeLoc, showRoiLoc, roiColorLoc;
+	
+	private boolean isVolumeVisible = true;
+	private boolean isRoiVisible = true;
+	private float roiColorR = 1.0f, roiColorG = 0.0f, roiColorB = 0.0f, roiColorA = 0.5f; // デフォルトは半透明の赤
 
 	public void init() {
 		compileShaders();
@@ -162,11 +94,19 @@ public class VolumeRenderer {
 		maxLoc = glGetUniformLocation(shaderProgram, "uMax");
 		winCenterLoc = glGetUniformLocation(shaderProgram, "uWinCenter");
 		winWidthLoc = glGetUniformLocation(shaderProgram, "uWinWidth");
+		
+		showVolumeLoc = glGetUniformLocation(shaderProgram, "uShowVolume");
+		showRoiLoc = glGetUniformLocation(shaderProgram, "uShowRoi");
+		roiColorLoc = glGetUniformLocation(shaderProgram, "uRoiColor");
 
 		generateLUT(0);
 	}
 
 	public void initSliceRenderer() {
+		
+		String sliceVertexShaderSource = ShaderUtils.loadShaderAsString("/shaders/slice.vert");
+	    String sliceFragmentShaderSource = ShaderUtils.loadShaderAsString("/shaders/slice.frag");
+		
 		int vShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vShader, sliceVertexShaderSource);
 		glCompileShader(vShader);
@@ -209,6 +149,10 @@ public class VolumeRenderer {
 	}
 
 	private void compileShaders() {
+		
+		String vertexShaderSource = ShaderUtils.loadShaderAsString("/shaders/volume.vert");
+	    String fragmentShaderSource = ShaderUtils.loadShaderAsString("/shaders/volume.frag");
+		
 		int vShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vShader, vertexShaderSource);
 		glCompileShader(vShader);
@@ -311,6 +255,21 @@ public class VolumeRenderer {
 	public void setRenderMode(int mode) {
 		this.currentRenderMode = mode;
 	}
+	
+	public void setVolumeVisible(boolean visible) {
+	    this.isVolumeVisible = visible;
+	}
+
+	public void setRoiVisible(boolean visible) {
+	    this.isRoiVisible = visible;
+	}
+
+	public void setRoiColor(float r, float g, float b, float a) {
+	    this.roiColorR = r;
+	    this.roiColorG = g;
+	    this.roiColorB = b;
+	    this.roiColorA = a;
+	}
 
 	public void loadLut(File lutFile) {
 		try {
@@ -386,6 +345,23 @@ public class VolumeRenderer {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_1D, lutTextureId);
 		glUniform1i(glGetUniformLocation(shaderProgram, "uLutTex"), 1);
+		
+		// ★ 修正1: ROIテクスチャがまだ生成されていない(-1)場合は、強制的に uShowRoi を false にする
+		boolean actuallyShowRoi = isRoiVisible && (roiTextureId != -1);
+
+		// UIから設定された状態をシェーダーへ転送
+		glUniform1i(showVolumeLoc, isVolumeVisible ? 1 : 0);
+		glUniform1i(showRoiLoc, actuallyShowRoi ? 1 : 0);
+		glUniform4f(roiColorLoc, roiColorR, roiColorG, roiColorB, roiColorA);
+
+		// ★ 修正2: roiTex が常にTexture Unit 2を参照するように、if文の外で設定する
+		glUniform1i(glGetUniformLocation(shaderProgram, "roiTex"), 2);
+
+		// ROIテクスチャのバインド (Texture Unit 2)
+		if (roiTextureId != -1) {
+		    glActiveTexture(GL_TEXTURE2);
+		    glBindTexture(GL_TEXTURE_3D, roiTextureId);
+		}
 
 		try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
 			glUniformMatrix4fv(mvpLoc, false, mvpMatrix.get(stack.mallocFloat(16)));
@@ -558,6 +534,27 @@ public class VolumeRenderer {
 		}
 
 		glBindTexture(GL_TEXTURE_3D, 0); // バインド解除
+	}
+	
+	// ROIマスクをGPUへ転送するメソッド
+	public void uploadRoiTexture(byte[] roiMask, int w, int h, int d) {
+	    if (roiTextureId != -1) glDeleteTextures(roiTextureId);
+	    
+	    roiTextureId = glGenTextures();
+	    glBindTexture(GL_TEXTURE_3D, roiTextureId);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	    java.nio.ByteBuffer bBuf = MemoryUtil.memAlloc(roiMask.length);
+	    bBuf.put(roiMask).flip();
+	    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, w, h, d, 0, GL_RED, GL_UNSIGNED_BYTE, bBuf);
+	    MemoryUtil.memFree(bBuf);
+	    
+	    glBindTexture(GL_TEXTURE_3D, 0);
 	}
 
 	public void cleanup() {

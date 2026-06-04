@@ -86,6 +86,8 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.SlideGlass;
+import com.vis.core.view.D3.roi.FreeFormRoi3D;
 import com.vis.core.view.D3.ui.Viewer3DMain;
 import com.vis.core.view.D3.ui.VolumeData;
 import com.vis.core.view.D3.ui.VolumeLoader;
@@ -820,6 +822,31 @@ public class Viewer2DToolBar extends JToolBar {
 							if (vol != null) {
 								// Canvasにデータを渡す
 								frame.canvas.setVolumeData(vol); // ← これを使う
+								// ==========================================
+							    // ★ ROIのロード処理を追加
+							    // ==========================================
+							    // Praparatから3D ROIのリストを取得
+							    java.util.List<com.vis.core.view.D2.roi.RoiObj> roi3dList = prap.getRoi3DList();
+							    if (roi3dList != null && !roi3dList.isEmpty()) {
+							        // ボリュームの基準となる物理座標(IPP, IOP)を取得
+							        // (Praparatに含まれる最初のスライスを基準とします)
+							        SlideGlass firstSg = prap.getAllSlides().values().iterator().next();
+							        com.vis.dicom.DicomObject header = firstSg.getHeader();
+							        int frameIdx = prap.isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
+							        
+							        double[] originIpp = prap.getSafeIPP(header, frameIdx);
+							        double[] iop = prap.getSafeIOP(header, frameIdx);
+							        
+							        java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rf3dList = new ArrayList<>();
+								    for(RoiObj r3 : roi3dList) {
+								    	if(r3 instanceof FreeFormRoi3D) {
+								    		rf3dList.add((FreeFormRoi3D)r3);
+								    	}
+								    }
+							        if (originIpp != null && iop != null) {
+							        	frame.canvas.setRoiData(rf3dList, originIpp, iop);
+							        }
+							    }
 							}
 						});
 					}).start();

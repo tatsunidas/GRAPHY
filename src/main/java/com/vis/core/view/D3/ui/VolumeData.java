@@ -4,6 +4,8 @@
  */
 package com.vis.core.view.D3.ui; // パッケージ名は環境に合わせてください
 
+import com.vis.core.view.D3.roi.FreeFormRoi3D;
+
 public class VolumeData {
 
 	// データ型を定義する列挙型（DOUBLEはFLOATとして扱う）
@@ -131,5 +133,39 @@ public class VolumeData {
 		this.minVal = min;
 		this.maxVal = max;
 		System.out.println("Data Type: " + dataType + " | Range: " + minVal + " ~ " + maxVal);
+	}
+	
+	public static byte[] createRoiMask(VolumeData vol, FreeFormRoi3D roi, double[] volumeOriginIpp, double[] volumeIop) {
+	    int w = vol.width;
+	    int h = vol.height;
+	    int d = vol.depth;
+	    byte[] mask = new byte[w * h * d];
+	    
+	    // IOP (Row/Colベクトル) と 法線 (Zベクトル) を計算
+	    double[] n = new double[3];
+	    n[0] = volumeIop[1]*volumeIop[5] - volumeIop[2]*volumeIop[4];
+	    n[1] = volumeIop[2]*volumeIop[3] - volumeIop[0]*volumeIop[5];
+	    n[2] = volumeIop[0]*volumeIop[4] - volumeIop[1]*volumeIop[3];
+
+	    int index = 0;
+	    for (int z = 0; z < d; z++) {
+	        for (int y = 0; y < h; y++) {
+	            for (int x = 0; x < w; x++) {
+	                // ボクセルから物理座標 (mm) を計算
+	                double px = volumeOriginIpp[0] + volumeIop[0]*(x * vol.pixelSpacingX) + volumeIop[3]*(y * vol.pixelSpacingY) + n[0]*(z * vol.sliceThickness);
+	                double py = volumeOriginIpp[1] + volumeIop[1]*(x * vol.pixelSpacingX) + volumeIop[4]*(y * vol.pixelSpacingY) + n[1]*(z * vol.sliceThickness);
+	                double pz = volumeOriginIpp[2] + volumeIop[2]*(x * vol.pixelSpacingX) + volumeIop[5]*(y * vol.pixelSpacingY) + n[2]*(z * vol.sliceThickness);
+	                
+	                // ROIに含まれているかチェック
+	                if (roi.containsPhysicalPoint(px, py, pz)) {
+	                    mask[index] = (byte) 255;
+	                } else {
+	                    mask[index] = 0;
+	                }
+	                index++;
+	            }
+	        }
+	    }
+	    return mask;
 	}
 }
