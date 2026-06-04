@@ -63,13 +63,19 @@ import javax.swing.JLayeredPane;
 import org.joml.Vector3d;
 
 import com.vis.configuration.RoiDBKey;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
+import com.vis.core.ui.dialog.WandToolDialog;
 import com.vis.core.util.MathUtils;
 import com.vis.core.view.D2.processing.ImageProcessing;
+import com.vis.core.view.D2.roi.Arrow;
+import com.vis.core.view.D2.roi.ImageRoi;
+import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
 import com.vis.core.view.D2.roi.RoiType;
+import com.vis.core.view.D2.roi.TextRoi;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
@@ -81,6 +87,7 @@ import com.vis.dicom.image.GDicomTools;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
+import ij.gui.Wand;
 import ij.measure.Calibration;
 import ij.plugin.ContrastEnhancer;
 import ij.process.ColorProcessor;
@@ -397,6 +404,89 @@ public class SlideGlass extends JLayeredPane {
 		roiOverlay.setLocalizerGeometry(localizerGeo);
 		repaintCanvasGlass();
 	}
+	
+	/**
+     * Wandツールを実行し、ROIを生成・追加します。
+     * @param screenX 画面上のX座標
+     * @param screenY 画面上のY座標
+     */
+    public void executeWand(int screenX, int screenY) {
+    	
+    	// WandToolDialog から現在の設定を取得
+        WandToolDialog wandDialog = WandToolDialog.getInstance(null, "Wand Tool");
+        if (wandDialog == null) return;
+        
+        RoiObj clickedRoi = getRoiLocationAt(screenX, screenY);
+        if ( clickedRoi != null) {
+            String shape3dType =  clickedRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
+            if (shape3dType != null || 
+               (com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shape3dType) || 
+                com.vis.core.view.D3.roi.FreeFormRoi3D.Shape_3D_Type.equals(shape3dType))) {
+                
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Wand tool does not support 3D-ROI editing. It is for 2D only.",
+                        "Wand Tool",
+                        javax.swing.JOptionPane.WARNING_MESSAGE);
+                return; // ここで処理を中断
+            }
+            if(clickedRoi instanceof TextRoi || clickedRoi instanceof Arrow || clickedRoi instanceof ImageRoi) {
+            	Log.logger.info("Mouse clicked on Annotation tools, wand execution ignored.");
+            	return;
+            }
+        }
+    	
+        Point p = null;
+        try {
+            p = offScreenCoordinate(screenX, screenY);
+        } catch (NoninvertibleTransformException e) {
+            Log.logger.log(Level.SEVERE, "CanvasGlass::executeWand : Can not translate offscreen coordinates...");
+            return;
+        }
+        int imageX = p.x;
+        int imageY = p.y;
+
+        double tolerance = wandDialog.getTolerance();
+        int mode = wandDialog.getWandMode();
+
+        ImagePlus imp = getOriginalImage();
+        if (imp == null) return;
+        
+        // Tolerance の動的レンジ調整のため、画像の統計情報をダイアログに渡す
+        ij.process.ImageStatistics stats = imp.getStatistics(ij.measure.Measurements.MIN_MAX);
+        wandDialog.setToleranceRange(stats.min, stats.max);
+
+        // Wand アルゴリズムの実行
+        Wand wand = new Wand(imp.getProcessor());
+        wand.autoOutline(imageX, imageY, tolerance, mode);
+
+        if (wand.npoints < 1) {
+            return; // 境界が見つからなかった
+        }
+
+        // PolygonRoi として生成し、RoiObjに変換
+        Roi ijRoi = new ij.gui.PolygonRoi(wand.xpoints, wand.ypoints, wand.npoints, ij.gui.PolygonRoi.TRACED_ROI);
+        ijRoi = new ij.gui.ShapeRoi(ijRoi);
+        RoiObj newRoi = new RoiConverter().convert2RoiObj(ijRoi);
+
+        if (newRoi != null) {
+            // クリックした場所の既存ROIを更新するかどうかの判定
+            
+            if (clickedRoi != null && clickedRoi.isArea()) {
+                newRoi.copyAttributes(clickedRoi);
+                HashMap<RoiDBKey, String> uids = clickedRoi.getUIDs();
+                for (RoiDBKey k : uids.keySet()) {
+                    newRoi.setProperty(k, uids.get(k));
+                }
+            }
+
+            newRoi.setSlideGlass(this, false);
+            newRoi.setState(RoiObj.NORMAL); // 構築完了状態にする
+            addRoi(newRoi);
+            setActiveRoi(newRoi);
+            wandDialog.setTargetRoi(newRoi);
+            repaint();
+        }
+    }
 
 	/**
 	 * Flip by X axis
@@ -634,6 +724,10 @@ public class SlideGlass extends JLayeredPane {
 	 */
 	public RoiObj getRoiLocationAt(int sx, int sy) {
 		return roiOverlay.getRoiLoacationAt(sx, sy);
+	}
+	
+	public void setActiveRoi(RoiObj r) {
+		roiOverlay.setActiveRoi(r);
 	}
 
 	/**

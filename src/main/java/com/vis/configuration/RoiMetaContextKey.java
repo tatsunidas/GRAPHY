@@ -14,10 +14,7 @@ public enum RoiMetaContextKey {
 	Dim_C,
 	Dim_Z,
 	Dim_T,
-	Is3D_Master,
-	Is3D_Slave,
-	Is3D_Volume,
-	Shape_3D_Type,// "SPHERE" または "FREEFORM"
+	Shape_3D_Type,// "Shape_3D_SPHERE" または "Shape_3D_FREEFORM"
 	Shape_3D_SPHERE,
 	Shape_3D_FREEFORM,
 	Sphere_Center_IPP,

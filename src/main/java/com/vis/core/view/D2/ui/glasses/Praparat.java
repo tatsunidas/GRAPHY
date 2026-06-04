@@ -2538,6 +2538,8 @@ public class Praparat extends JPanel {
 		ArrayList<HashMap<String, Object>> seriesRois = db.loadRoiContextFromSeries(patID, studyUID, seriesUID);
 		if (seriesRois == null || seriesRois.isEmpty())
 			return;
+		
+		Log.logger.fine("[DEBUG-LOAD] DBから読み込んだROI総数: " + (seriesRois != null ? seriesRois.size() : 0));
 
 		// 2. ディスパッチ処理: 取得した各ROIを評価
 		for (HashMap<String, Object> roiCtx : seriesRois) {
@@ -2596,6 +2598,9 @@ public class Praparat extends JPanel {
 
 				// マッチング成功！
 				RoiObj revivedRoi = new RoiConverter().buildRoiObj(roiCtx);
+				
+//				Log.logger.info("[DEBUG-LOAD] 復元されたクラス型: " + (revivedRoi != null ? revivedRoi.getClass().getSimpleName() : "null"));
+				
 				if (revivedRoi != null) {
 					revivedRoi.setSlideGlass(sg, false);
 					if (metaProps.containsKey(RoiMetaContextKey.Shape_3D_Type.name())) {
@@ -2610,14 +2615,6 @@ public class Praparat extends JPanel {
 						revivedRoi.setProperty(RoiMetaContextKey.Sphere_Center_IPP.name(),
 								metaProps.get(RoiMetaContextKey.Sphere_Center_IPP.name()));
 					}
-					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Master.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Master.name(),
-								metaProps.get(RoiMetaContextKey.Is3D_Master.name()));
-					}
-					if (metaProps.containsKey(RoiMetaContextKey.Is3D_Slave.name())) {
-						revivedRoi.setProperty(RoiMetaContextKey.Is3D_Slave.name(),
-								metaProps.get(RoiMetaContextKey.Is3D_Slave.name()));
-					}
 
 					// 2Dの各次元情報も確実に同期
 					if (dimCStr != null)
@@ -2631,6 +2628,9 @@ public class Praparat extends JPanel {
 					// SphereRoi3D / FreeFormRoi3D は per-slide roiset でなく Praparat の 3D リストで管理する
 					boolean is3DManaged = (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D)
 							|| (revivedRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D);
+					
+//					Log.logger.info("[DEBUG-LOAD] is3DManaged 判定: " + is3DManaged);
+					
 					if (is3DManaged) {
 						// meta props 設定後に 3D フィールドを再初期化
 						if (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
@@ -2645,6 +2645,7 @@ public class Praparat extends JPanel {
 										r.getProperty(com.vis.configuration.RoiDBKey.RoiID.name())));
 						if (!alreadyLoaded) {
 							addRoi3D(revivedRoi);
+//							Log.logger.info("[DEBUG-LOAD] Praparatの3Dリストに追加しました。現在の3Dリストサイズ: " + roi3DList.size());
 						}
 						break; // このROIの処理完了、他のスライドは不要
 					}

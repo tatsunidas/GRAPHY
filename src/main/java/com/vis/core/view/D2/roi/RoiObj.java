@@ -2756,7 +2756,7 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 					mainProp = true;
 					if(k==RoiDBKey.RoiMetaProperties) {
 						/*
-						 * 単にDBでMetaをグループ化するために利用されるキーのため。
+						 * Metaグループそのもののキーのため。
 						 */
 						Log.logger.log(Level.WARNING, "RoiMetaProperties should not include in roi properties.\nThis ContextKey only used for load/insert/update roi from db.");
 					}

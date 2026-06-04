@@ -292,16 +292,10 @@ public class RoiConverter {
 			oval.setProperties(roiCon);
 			return oval;
 		case FREEROI:
-			if ("FREEFORM".equals(roiCon.get(RoiMetaContextKey.Shape_3D_Type.name()))) {
-				com.vis.core.view.D3.roi.FreeFormRoi3D free3d = new com.vis.core.view.D3.roi.FreeFormRoi3D(x, y, w, h, null);
-				free3d.setProperties(roiCon);
-				free3d.initFromProperties();
-				roi = free3d;
-			} else {
-				RoiObj free = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.FREEROI.id(), null);
-				free.setProperties(roiCon);
-				roi = free;
-			}
+			RoiObj free = new com.vis.core.view.D2.roi.PolygonRoi(pointX, pointY, pointX.length, RoiType.FREEROI.id(),
+					null);
+			free.setProperties(roiCon);
+			roi = free;
 			break;
 		case LINE:
 			RoiObj line = new com.vis.core.view.D2.roi.Line(pointX[0],pointY[0],pointX[1],pointY[1],null);
@@ -313,6 +307,12 @@ public class RoiConverter {
 			sphere.setProperties(roiCon);
 			sphere.initFromProperties();
 			roi = sphere;
+			break;
+		case FREEFOAM_3D:
+			com.vis.core.view.D3.roi.FreeFormRoi3D free3d = new com.vis.core.view.D3.roi.FreeFormRoi3D(x, y, w, h, null);
+			free3d.setProperties(roiCon);
+			free3d.initFromProperties();
+			roi = free3d;
 			break;
 		case ARROW:
 			RoiObj arrow = new com.vis.core.view.D2.roi.Arrow(pointX[0],pointY[0],pointX[1],pointY[1],null);

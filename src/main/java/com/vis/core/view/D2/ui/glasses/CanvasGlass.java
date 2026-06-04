@@ -1459,6 +1459,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		crossLineStrokeSize = strokeSize;
 	}
+	
+	/**
+	 * set current roi
+	 * @param r
+	 */
+	protected void setActiveRoi(RoiObj r) {
+		currentRoi = r;
+	}
 
 	protected void setCurrentRoi2NULL() {
 		currentRoi = null;

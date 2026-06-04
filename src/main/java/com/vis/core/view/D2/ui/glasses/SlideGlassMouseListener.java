@@ -465,6 +465,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		}
 		
 		if (SwingUtilities.isLeftMouseButton(e)) {
+			// ★ Wandツールが選択されている場合のハンドリングを追加
+            if (viewerToolType == Viewer2DToolBar.Wand) {
+                ghostTimer.stop();
+                slide.executeWand(e.getX(), e.getY());
+                return;
+            }
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
 				ghostTimer.stop();
 				cg.mousePressed(e);
