@@ -113,6 +113,15 @@ public class PraparatShelf {
 				if (pcon.equals(patID, studyUID, seriesUID, sopUIDs)) {
 					return pcon.getPraparat();
 				}
+			}else {
+				//if soiUIDs null, return series
+				Object[] conUIDs = pcon.getContextUIDs();
+				String pid = (String)conUIDs[0];
+				String stuid = (String)conUIDs[1];
+				String seuid = (String)conUIDs[2];
+				if(patID.equals(pid) && studyUID.equals(stuid) && seriesUID.equals(seuid)) {
+					return pcon.getPraparat();
+				}
 			}
 		}
 		return null;

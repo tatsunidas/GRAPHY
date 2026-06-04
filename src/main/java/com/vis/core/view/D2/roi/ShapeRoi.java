@@ -338,6 +338,7 @@ public class ShapeRoi extends RoiObj {
 		int roiType = roi.getType();
 		RoiType t = RoiType.find(roiType);
 		switch (t) {
+		case ARROW:
 		case LINE://just line, not area.
 			Line line = (Line) roi;
 			shape = new Line2D.Double((double) (line.x1 - r.x), (double) (line.y1 - r.y), (double) (line.x2 - r.x),

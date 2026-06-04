@@ -638,25 +638,6 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		}
 	}
 	
-	/**
-	 * re-load rois in patient
-	 */
-//	public void updateState() {
-//		updatePatientList();
-//		//clear all info
-//		currentRoi = null;//IMPORTANT to avoid auto save by list selection
-//		resetRoiInfoFields();
-//		if(patList == null || patList.getItemCount()==0) {
-//			return;
-//		}
-//		String selectedPatID = patList.getItemAt(patList.getSelectedIndex());
-//		if (selectedPatID == null) {
-//			return;
-//		}
-//		updateRoiObjList(selectedPatID);// execute from change listener
-//	}
-	
-	// updateState メソッドを丸ごと差し替え
 	public void updateState() {
 		if (isUpdatingList)
 			return; // 二重呼び出し・無限ループを防止
@@ -900,8 +881,8 @@ public class RoiObjManager extends JFrame implements ActionListener, ItemListene
 		if(selectedRois == null || selectedRois.size() < 1) {
 			return;
 		}
-		for(String k : selectedRois.keySet()) {
-			RoiObj r = selectedRois.get(k);
+		List<RoiObj> rois = new ArrayList<>(selectedRois.values());
+		for(RoiObj r : rois) {
 			if(r != null) {
 				SlideGlass roiSlide = r.getSlideGlass();
 				Praparat roiPrap = roiSlide != null ? roiSlide.getPraparat() : null;

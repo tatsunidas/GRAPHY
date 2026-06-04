@@ -12,6 +12,7 @@ import java.util.NoSuchElementException;
 import java.util.logging.Level;
 
 import com.vis.core.log.Log;
+import com.vis.core.ui.listener.RoiObjListener;
 import com.vis.core.view.D2.ui.glasses.*;
 
 import java.awt.event.*;
@@ -77,6 +78,7 @@ public class Line extends RoiObj {
 		mouseUpCount++;
 		if (Prefs.enhancedLineTool && mouseUpCount == 1 && !dragged)
 			return;
+		notifyListeners(RoiObjListener.COMPLETED);
 		state = NORMAL;
 		dragged = false;
 		if (getLength() == 0.0) {
