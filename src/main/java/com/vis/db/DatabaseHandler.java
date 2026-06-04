@@ -224,9 +224,19 @@ public class DatabaseHandler {
 				}
 			}
 		} catch (SQLException e) {
-			logger.severe("database connection is not established...");
-			String msg = "Failed to read the existing database or create a new one.\nIf you have just updated GRAPHY and an existing database is present,\nthis may be caused by SQL differences.\nPlease try backing up or renaming the old '.GRAPHY' folder, and then restart the application.";
-			JOptionPane.showMessageDialog(null, msg);
+			logger.severe("database connection is not established: SQLState=" + e.getSQLState() + ", msg=" + e.getMessage());
+			String msg;
+			if ("XJ040".equals(e.getSQLState())) {
+				// Derby database already locked by another JVM instance → GRAPHY is already running
+				msg = "GRAPHY is already working!\n\nPlease close the existing GRAPHY window before starting a new one.";
+				logger.warning("Derby DB is locked by another process. GRAPHY is likely already running.");
+			} else {
+				msg = "Failed to read the existing database or create a new one.\n"
+						+ "If you have just updated GRAPHY and an existing database is present,\n"
+						+ "this may be caused by SQL differences.\n"
+						+ "Please try backing up or renaming the old '.GRAPHY' folder, and then restart the application.";
+			}
+			JOptionPane.showMessageDialog(null, msg, "GRAPHY", JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 	}
@@ -853,7 +863,8 @@ public class DatabaseHandler {
 							: "";
 					String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle") : "";
 					String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname") : "";
-					Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port") : null;
+					int portVal = serverInfo.getInt("port");
+					Object port = serverInfo.wasNull() ? null : portVal; // fix: Integer.valueOf(int) != null is always true
 					String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers") : "";
 					String retrievetype = serverInfo.getString("retrievetype") != null
 							? serverInfo.getString("retrievetype")
@@ -861,9 +872,8 @@ public class DatabaseHandler {
 					String wadocontext = serverInfo.getString("wadocontext") != null
 							? serverInfo.getString("wadocontext")
 							: "";
-					Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null
-							? serverInfo.getInt("wadoport")
-							: null;
+					int wadoPortVal = serverInfo.getInt("wadoport");
+					Object wadoport = serverInfo.wasNull() ? null : wadoPortVal; // fix: Integer.valueOf(int) != null is always true
 					String wadoprotocol = serverInfo.getString("wadoprotocol") != null
 							? serverInfo.getString("wadoprotocol")
 							: "";
@@ -1155,7 +1165,7 @@ public class DatabaseHandler {
 			} else {
 				statement = statement + " AND SOPInstanceUID=?";
 			}
-			keymap.put(pos, studyIUID);
+			keymap.put(pos, sopIUID); // Bug fix: was incorrectly binding studyIUID here
 			pos++;
 		}
 
@@ -1254,8 +1264,10 @@ public class DatabaseHandler {
 		for (Object m_ : modalities.toArray()) {
 			modalitiesString += (String) m_ + ",";
 		}
-		// remove last comma
-		modalitiesString = modalitiesString.substring(0, modalitiesString.length() - 1);
+		// remove last comma (guard against empty modalities causing StringIndexOutOfBoundsException)
+		if (!modalitiesString.isEmpty()) {
+			modalitiesString = modalitiesString.substring(0, modalitiesString.length() - 1);
+		}
 
 //		infoset.put("Modality", getParticularInfoFromStudy("Modality", patID, studyUID));//, seriesUID));
 		infoset.put("Modality", modalitiesString);
@@ -1345,9 +1357,9 @@ public class DatabaseHandler {
 			}
 			conn.commit();
 			if (map.size() != 0) {
-				return null;
+				return map; // Bug fix: was returning null when data found, and map when empty
 			} else {
-				return map;
+				return null;
 			}
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
@@ -1571,13 +1583,14 @@ public class DatabaseHandler {
 	 */
 	public int getNumOfInstancesInStudy(String studyUid) {
 		int cnt = 0;
-		try (Connection conn = openConnection();) {
-			ResultSet totalInstancesInfo = conn.createStatement()
-					.executeQuery("select count(*) from image where StudyInstanceUID='" + studyUid + "'");
-			if (totalInstancesInfo.next()) {
-				cnt = totalInstancesInfo.getInt(1);
+		String sql = "SELECT COUNT(*) FROM image WHERE StudyInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, studyUid);
+			try (ResultSet totalInstancesInfo = ps.executeQuery()) {
+				if (totalInstancesInfo.next()) {
+					cnt = totalInstancesInfo.getInt(1);
+				}
 			}
-			totalInstancesInfo.close();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
@@ -1663,13 +1676,14 @@ public class DatabaseHandler {
 
 	public int getNumOfSeriesInStudy(String studyUid) {
 		int cnt = 0;
-		try (Connection conn = openConnection();) {
-			ResultSet totalInstancesInfo = conn.createStatement()
-					.executeQuery("select count(*) from SERIES where StudyInstanceUID='" + studyUid + "'");
-			if (totalInstancesInfo.next()) {
-				cnt = totalInstancesInfo.getInt(1);
+		String sql = "SELECT COUNT(*) FROM SERIES WHERE StudyInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, studyUid);
+			try (ResultSet totalInstancesInfo = ps.executeQuery()) {
+				if (totalInstancesInfo.next()) {
+					cnt = totalInstancesInfo.getInt(1);
+				}
 			}
-			totalInstancesInfo.close();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
@@ -1692,20 +1706,12 @@ public class DatabaseHandler {
 		return cnt;
 	}
 
+	/**
+	 * @deprecated Has SQL injection risk. Use {@link #getNumOfStudyByPatient(String)} instead.
+	 */
+	@Deprecated
 	public int getNumOfStudyInPatient(String patID) {
-		int cnt = 0;
-		try (Connection conn = openConnection()) {
-			ResultSet totalInfo = conn.createStatement()
-					.executeQuery("select count(*) from STUDY where PatientID='" + patID + "'");
-			if (totalInfo.next()) {
-				cnt = totalInfo.getInt(1);
-			}
-			totalInfo.close();
-			conn.commit();
-		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}
-		return cnt;
+		return getNumOfStudyByPatient(patID);
 	}
 
 	public int getNumOfStudyByPatient(String patID) {
@@ -2023,7 +2029,8 @@ public class DatabaseHandler {
 							: "";
 					String aetitle = serverInfo.getString("aetitle") != null ? serverInfo.getString("aetitle") : "";
 					String hostname = serverInfo.getString("hostname") != null ? serverInfo.getString("hostname") : "";
-					Object port = Integer.valueOf(serverInfo.getInt("port")) != null ? serverInfo.getInt("port") : null;
+					int portVal = serverInfo.getInt("port");
+					Object port = serverInfo.wasNull() ? null : portVal; // fix: Integer.valueOf(int) != null is always true
 					String ciphers = serverInfo.getString("ciphers") != null ? serverInfo.getString("ciphers") : "";
 					String retrievetype = serverInfo.getString("retrievetype") != null
 							? serverInfo.getString("retrievetype")
@@ -2031,9 +2038,8 @@ public class DatabaseHandler {
 					String wadocontext = serverInfo.getString("wadocontext") != null
 							? serverInfo.getString("wadocontext")
 							: "";
-					Object wadoport = Integer.valueOf(serverInfo.getInt("wadoport")) != null
-							? serverInfo.getInt("wadoport")
-							: null;
+					int wadoPortVal = serverInfo.getInt("wadoport");
+					Object wadoport = serverInfo.wasNull() ? null : wadoPortVal; // fix: Integer.valueOf(int) != null is always true
 					String wadoprotocol = serverInfo.getString("wadoprotocol") != null
 							? serverInfo.getString("wadoprotocol")
 							: "";
@@ -2792,7 +2798,7 @@ public class DatabaseHandler {
 							+ studyDate + "' and upper(study.StudyDescription) like '" + studyDesc
 							+ "' and upper(study.ModalitiesInStudy) like '" + modality + "'");
 			while (matchingInfo.next()) {
-				matchingStudies.put("PatientID", matchingInfo.getString("PatientName"));
+				matchingStudies.put("PatientName", matchingInfo.getString("PatientName")); // Bug fix: key was "PatientID"
 				matchingStudies.put("PatientBirthDate", matchingInfo.getString("PatientBirthDate"));
 				matchingStudies.put("AccessionNumber", matchingInfo.getString("AccessionNumber"));
 				matchingStudies.put("StudyDate", matchingInfo.getString("StudyDate"));
@@ -2836,7 +2842,13 @@ public class DatabaseHandler {
 	public void loadLocalDBLocation() throws Exception {
 		String loc = null;
 		if (derby != null) {
-			loc = getListenerDetails()[3];
+			String[] details = getListenerDetails();
+			if (details == null || details.length < 4 || details[3] == null) {
+				logger.warning("DB:loadLocalDBLocation():: listener details unavailable or incomplete, falling back to prop file.");
+				loc = Utils.getGraphyDBLocationFromProp().getAbsolutePath();
+			} else {
+				loc = details[3];
+			}
 		} else {
 			loc = Utils.getGraphyDBLocationFromProp().getAbsolutePath();
 		}
@@ -2846,131 +2858,84 @@ public class DatabaseHandler {
 		this.dbdir = new File(loc).getAbsolutePath();
 	}
 
+	/**
+	 * Parses a single ROI row from the ResultSet into a context map.
+	 * Shared by loadRoiContext, loadRoiContextFromInstance, loadRoiContextFromPatient, loadRoiContextFromSeries.
+	 */
+	private HashMap<String, Object> parseRoiRow(ResultSet rset) throws SQLException {
+		HashMap<String, Object> roiCon = new HashMap<>();
+		roiCon.put("RoiID", rset.getString("RoiID"));
+		roiCon.put("Name", rset.getString("Name"));
+		roiCon.put("RoiType", rset.getInt("RoiType"));
+		roiCon.put("OriginX", rset.getInt("OriginX"));
+		roiCon.put("OriginY", rset.getInt("OriginY"));
+		roiCon.put("Width", rset.getInt("Width"));
+		roiCon.put("Height", rset.getInt("Height"));
+		roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
+		roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
+		roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
+		roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
+		roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
+		roiCon.put("RoiLabel", rset.getString("RoiLabel"));
+		roiCon.put("ObjectType", rset.getString("ObjectType"));
+		roiCon.put("Organ", rset.getString("Organ"));
+		roiCon.put("Description", rset.getString("Description"));
+		java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
+		if (sd != null) {
+			roiCon.put(RoiDBKey.StudyDate.name(), new SimpleDateFormat("yyyy/MM/dd").format(sd));
+		} else {
+			roiCon.put(RoiDBKey.StudyDate.name(), null);
+		}
+		roiCon.put(RoiDBKey.CrossSection.name(), rset.getString(RoiDBKey.CrossSection.name()));
+		String jsonProperties = rset.getString(RoiDBKey.RoiMetaProperties.name());
+		if (jsonProperties != null) {
+			Gson gson = new Gson();
+			java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {}.getType();
+			roiCon.put(RoiDBKey.RoiMetaProperties.name(), gson.<Map<String, String>>fromJson(jsonProperties, type));
+		}
+		roiCon.put("PatientID", rset.getString("PatientID"));
+		roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
+		roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
+		roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
+		return roiCon;
+	}
+
 	public HashMap<String, Object> loadRoiContext(String roiId, String pid, String studyUid, String seriesUid,
 			String sopUid) {
-
-		HashMap<String, Object> roiCon = new HashMap<>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=? AND RoiID=?";
-
-		// Connection, PreparedStatement, ResultSet を try-with-resources で管理
-		try (Connection conn = openConnection()) {
-			// SELECTのみなので、もし自動コミットがオフなら念のため読み取り専用に設定するか、
-			// 最後に何もせず閉じるだけでOKですが、念のため try 構造を整理します。
-			try (PreparedStatement pstmt = conn.prepareStatement(statement)) {
-				pstmt.setString(1, pid);
-				pstmt.setString(2, studyUid);
-				pstmt.setString(3, seriesUid);
-				pstmt.setString(4, sopUid);
-				pstmt.setString(5, roiId);
-				try (ResultSet rset = pstmt.executeQuery()) {
-					if (rset.next()) {
-						roiCon.put("RoiID", rset.getString("RoiID"));
-						roiCon.put("Name", rset.getString("Name"));
-						roiCon.put("RoiType", rset.getInt("RoiType"));
-						roiCon.put("OriginX", rset.getInt("OriginX"));
-						roiCon.put("OriginY", rset.getInt("OriginY"));
-						roiCon.put("Width", rset.getInt("Width"));
-						roiCon.put("Height", rset.getInt("Height"));
-						roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
-						roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
-						roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-						roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
-						roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
-						roiCon.put("RoiLabel", rset.getString("RoiLabel"));
-						roiCon.put("ObjectType", rset.getString("ObjectType"));
-						roiCon.put("Organ", rset.getString("Organ"));
-						roiCon.put("Description", rset.getString("Description"));
-
-						if (rset.getDate(RoiDBKey.StudyDate.name()) != null) {
-							java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
-							SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
-							roiCon.put(RoiDBKey.StudyDate.name(), f.format(sd));
-						} else {
-							roiCon.put(RoiDBKey.StudyDate.name(), null);
-						}
-
-						roiCon.put(RoiDBKey.CrossSection.name(), rset.getString(RoiDBKey.CrossSection.name()));
-
-						if (rset.getString(RoiDBKey.RoiMetaProperties.name()) != null) {
-							String jsonProperties = rset.getString(RoiDBKey.RoiMetaProperties.name());
-							Gson gson = new Gson();
-							java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
-							}.getType();
-							Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
-							roiCon.put(RoiDBKey.RoiMetaProperties.name(), loadedProps);
-						}
-
-						roiCon.put("PatientID", rset.getString("PatientID"));
-						roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-						roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-						roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-
-						// ここで return せず、ブロックを抜けてから return する
-					} else {
-						return null; // データがなければ null
-					}
+		try (Connection conn = openConnection();
+				PreparedStatement pstmt = conn.prepareStatement(statement)) {
+			pstmt.setString(1, pid);
+			pstmt.setString(2, studyUid);
+			pstmt.setString(3, seriesUid);
+			pstmt.setString(4, sopUid);
+			pstmt.setString(5, roiId);
+			try (ResultSet rset = pstmt.executeQuery()) {
+				if (rset.next()) {
+					HashMap<String, Object> roiCon = parseRoiRow(rset);
+					conn.commit();
+					return roiCon;
 				}
 			}
-			// DBの設定で必須のため、ここで conn.commit(); を実行
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe("Database error in loadRoiContext: " + ex.getMessage());
-			return null;
 		}
-
-		return roiCon;
+		return null;
 	}
 
 	public ArrayList<HashMap<String, Object>> loadRoiContextFromInstance(String pid, String studyUid, String seriesUid,
 			String sopUid) {
 		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND SOPInstanceUID=?";
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)) {
 			pstmt.setString(1, pid);
 			pstmt.setString(2, studyUid);
 			pstmt.setString(3, seriesUid);
 			pstmt.setString(4, sopUid);
-			try (ResultSet rset = pstmt.executeQuery();) {
+			try (ResultSet rset = pstmt.executeQuery()) {
 				while (rset.next()) {
-					HashMap<String, Object> roiCon = new HashMap<>();
-					roiCon.put("RoiID", rset.getString("RoiID"));
-					roiCon.put("Name", rset.getString("Name"));
-					roiCon.put("RoiType", rset.getInt("RoiType"));// int
-					roiCon.put("OriginX", rset.getInt("OriginX"));
-					roiCon.put("OriginY", rset.getInt("OriginY"));
-					roiCon.put("Width", rset.getInt("Width"));
-					roiCon.put("Height", rset.getInt("Height"));
-					roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
-					roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
-					roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
-					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
-					roiCon.put("RoiLabel", rset.getString("RoiLabel"));
-					roiCon.put("ObjectType", rset.getString("ObjectType"));
-					roiCon.put("Organ", rset.getString("Organ"));
-					roiCon.put("Description", rset.getString("Description"));
-					if (rset.getDate(RoiDBKey.StudyDate.name()) != null) {
-						java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
-						SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
-						roiCon.put(RoiDBKey.StudyDate.name(), f.format(sd));
-					} else {
-						roiCon.put(RoiDBKey.StudyDate.name(), null);
-					}
-					roiCon.put(RoiDBKey.CrossSection.name(), rset.getString(RoiDBKey.CrossSection.name()));
-					if (rset.getString(RoiDBKey.RoiMetaProperties.name()) != null) {
-						String jsonProperties = rset.getString(RoiDBKey.RoiMetaProperties.name());
-						Gson gson = new Gson();
-						// JSON -> Map に変換
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
-						}.getType();
-						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
-						roiCon.put(RoiDBKey.RoiMetaProperties.name(), loadedProps);
-					}
-					roiCon.put("PatientID", rset.getString("PatientID"));
-					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-					roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-					set.add(roiCon);
+					set.add(parseRoiRow(rset));
 				}
 			}
 			conn.commit();
@@ -2984,132 +2949,42 @@ public class DatabaseHandler {
 		if (pid == null) {
 			return null;
 		}
-		ArrayList<HashMap<String, Object>> set = new ArrayList<HashMap<String, Object>>();
+		ArrayList<HashMap<String, Object>> set = new ArrayList<>();
 		String statement = "SELECT * FROM ROI WHERE PatientID=?";
-		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)) {
 			pstmt.setString(1, pid);
-			try (ResultSet rset = pstmt.executeQuery();) {
+			try (ResultSet rset = pstmt.executeQuery()) {
 				while (rset.next()) {
-					HashMap<String, Object> roiCon = new HashMap<>();
-					roiCon.put("RoiID", rset.getString("RoiID"));
-					roiCon.put("Name", rset.getString("Name"));
-					roiCon.put("RoiType", rset.getInt("RoiType"));// int
-					roiCon.put("OriginX", rset.getInt("OriginX"));
-					roiCon.put("OriginY", rset.getInt("OriginY"));
-					roiCon.put("Width", rset.getInt("Width"));
-					roiCon.put("Height", rset.getInt("Height"));
-					roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
-					roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
-					roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-					roiCon.put("InstanceNo", rset.getInt("InstanceNo"));// int
-					roiCon.put("RoiGroup", rset.getInt("RoiGroup"));// int
-					roiCon.put("RoiLabel", rset.getString("RoiLabel"));
-					roiCon.put("ObjectType", rset.getString("ObjectType"));
-					roiCon.put("Organ", rset.getString("Organ"));
-					roiCon.put("Description", rset.getString("Description"));
-					if (rset.getDate(RoiDBKey.StudyDate.name()) != null) {
-						java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
-						SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
-						roiCon.put(RoiDBKey.StudyDate.name(), f.format(sd));
-					} else {
-						roiCon.put(RoiDBKey.StudyDate.name(), null);
-					}
-					roiCon.put(RoiDBKey.CrossSection.name(), rset.getString(RoiDBKey.CrossSection.name()));
-					if (rset.getString(RoiDBKey.RoiMetaProperties.name()) != null) {
-						String jsonProperties = rset.getString(RoiDBKey.RoiMetaProperties.name());
-						Gson gson = new Gson();
-						// JSON -> Map に変換
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
-						}.getType();
-						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
-						roiCon.put(RoiDBKey.RoiMetaProperties.name(), loadedProps);
-					}
-					roiCon.put("PatientID", rset.getString("PatientID"));
-					roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-					roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-					roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID"));
-					set.add(roiCon);
+					set.add(parseRoiRow(rset));
 				}
 			}
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		}
-		if (set.size() > 0) {
-			return set;
-		} else {
-			return null;
-		}
+		return set.isEmpty() ? null : set;
 	}
-	
+
 	/**
 	 * シリーズレベルでROIを一括取得します。多次元データのディスパッチに使用します。
 	 */
 	public ArrayList<HashMap<String, Object>> loadRoiContextFromSeries(String pid, String studyUid, String seriesUid) {
-	    ArrayList<HashMap<String, Object>> set = new ArrayList<>();
-	    String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
-	    
-	    try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement);) {
-	        pstmt.setString(1, pid);
-	        pstmt.setString(2, studyUid);
-	        pstmt.setString(3, seriesUid);
-	        
-	        try (ResultSet rset = pstmt.executeQuery();) {
-	            while (rset.next()) {
-	                HashMap<String, Object> roiCon = new HashMap<>();
-	                roiCon.put("RoiID", rset.getString("RoiID"));
-	                roiCon.put("Name", rset.getString("Name"));
-	                roiCon.put("RoiType", rset.getInt("RoiType"));
-	                roiCon.put("OriginX", rset.getInt("OriginX"));
-	                roiCon.put("OriginY", rset.getInt("OriginY"));
-	                roiCon.put("Width", rset.getInt("Width"));
-	                roiCon.put("Height", rset.getInt("Height"));
-	                
-	                // Blobの変換
-	                roiCon.put("PointX", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointX"))));
-	                roiCon.put("PointY", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("PointY"))));
-	                roiCon.put("Shape", doubleArr2floatArr(blob2DoubleArray(rset.getBlob("Shape"))));
-	                
-	                roiCon.put("InstanceNo", rset.getInt("InstanceNo"));
-	                roiCon.put("RoiGroup", rset.getInt("RoiGroup"));
-	                roiCon.put("RoiLabel", rset.getString("RoiLabel"));
-	                roiCon.put("ObjectType", rset.getString("ObjectType"));
-	                roiCon.put("Organ", rset.getString("Organ"));
-	                roiCon.put("Description", rset.getString("Description"));
-	                
-	                if (rset.getDate(RoiDBKey.StudyDate.name()) != null) {
-	                    java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
-	                    SimpleDateFormat f = new SimpleDateFormat("yyyy/MM/dd");
-	                    roiCon.put(RoiDBKey.StudyDate.name(), f.format(sd));
-	                } else {
-	                    roiCon.put(RoiDBKey.StudyDate.name(), null);
-	                }
-	                
-	                roiCon.put(RoiDBKey.CrossSection.name(), rset.getString(RoiDBKey.CrossSection.name()));
-	                
-					// メタプロパティ（JSON）の展開（ここにDim_C, Dim_T, IPPなどが入る）
-					if (rset.getString(RoiDBKey.RoiMetaProperties.name()) != null) {
-						String jsonProperties = rset.getString(RoiDBKey.RoiMetaProperties.name());
-						Gson gson = new Gson();
-						java.lang.reflect.Type type = new TypeToken<HashMap<String, String>>() {
-						}.getType();
-						Map<String, String> loadedProps = gson.fromJson(jsonProperties, type);
-						roiCon.put(RoiDBKey.RoiMetaProperties.name(), loadedProps);
-					}
-	                
-	                roiCon.put("PatientID", rset.getString("PatientID"));
-	                roiCon.put("StudyInstanceUID", rset.getString("StudyInstanceUID"));
-	                roiCon.put("SeriesInstanceUID", rset.getString("SeriesInstanceUID"));
-	                roiCon.put("SOPInstanceUID", rset.getString("SOPInstanceUID")); // 描画元のOriginSOPとして保持
-	                
-	                set.add(roiCon);
-	            }
-	        }
-	        conn.commit();
-	    } catch (SQLException ex) {
-	        logger.severe(ex.getMessage());
-	    }
-	    return set;
+		ArrayList<HashMap<String, Object>> set = new ArrayList<>();
+		String statement = "SELECT * FROM ROI WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)) {
+			pstmt.setString(1, pid);
+			pstmt.setString(2, studyUid);
+			pstmt.setString(3, seriesUid);
+			try (ResultSet rset = pstmt.executeQuery()) {
+				while (rset.next()) {
+					set.add(parseRoiRow(rset));
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return set;
 	}
 
 	public HashMap<String, Object> loadSeriesNodeMaterial(ResultSet seriesInfo, HashMap<String, Object> studyMaterial) {
@@ -3677,7 +3552,22 @@ public class DatabaseHandler {
 
 		try {
 			initDicomServer();
-		} catch (IOException | SQLException e) {
+		} catch (IOException e) {
+			// Walk the cause chain to detect BindException (port already in use → GRAPHY already running)
+			Throwable cause = e;
+			while (cause != null) {
+				if (cause instanceof java.net.BindException) {
+					String msg = "GRAPHY is already working!\n\nThe DICOM server port (" + defaultPort + ") is already in use.\nPlease close the existing GRAPHY window before starting a new one.";
+					JOptionPane.showMessageDialog(null, msg, "GRAPHY", JOptionPane.WARNING_MESSAGE);
+					Log.logger.warning("DICOM server port " + defaultPort + " is already in use. GRAPHY may already be running.");
+					return false;
+				}
+				cause = cause.getCause();
+			}
+			Log.logger.severe("Can not start DcmQRSCP: " + e.getMessage());
+			e.printStackTrace();
+			return false;
+		} catch (SQLException e) {
 			Log.logger.severe("Can not start DcmQRSCP...");
 			e.printStackTrace();
 			return false;
@@ -3808,7 +3698,11 @@ public class DatabaseHandler {
 			}
 		}
 		// start qrscp
-		String details[] = getListenerDetails();
+		String[] details = getListenerDetails();
+		if (details == null || details.length < 4) {
+			logger.severe("DB:initDicomServer():: getListenerDetails() returned null or incomplete data.");
+			throw new IOException("Cannot initialize DICOM server: listener details not found in database.");
+		}
 		String currentAet = details[0];
 		String currentHost = details[1];
 		String currentPort = details[2];
@@ -3865,28 +3759,29 @@ public class DatabaseHandler {
 		}
 	}
 
-	/*
-	 * 
+	/**
+	 * @deprecated Typo in method name. Use {@link #updateTextAnnotation(ArrayList)} instead.
 	 */
+	@Deprecated
 	public void upadateTextAnnotation(ArrayList<Integer> tags) {
-		// first, delete textannotation record
-		try (Connection conn = openConnection();) {
-			conn.createStatement().execute("delete from textannotation");
+		updateTextAnnotation(tags);
+	}
+
+	public void updateTextAnnotation(ArrayList<Integer> tags) {
+		String deleteSql = "DELETE FROM textannotation";
+		String insertSql = "INSERT INTO textannotation(tag) VALUES(?)";
+		try (Connection conn = openConnection()) {
+			conn.createStatement().execute(deleteSql);
+			try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+				for (Integer tag : tags) {
+					ps.setInt(1, tag);
+					ps.addBatch();
+				}
+				ps.executeBatch();
+			}
 			conn.commit();
 		} catch (SQLException ex) {
-			logger.severe(ex.getMessage());
-		}
-		// set new list
-		for (Integer tag : tags) {
-			String sql = "insert into textannotation(tag) values(";
-			sql = sql + String.valueOf(tag) + ")";
-			try (Connection conn = openConnection();) {
-				conn.createStatement().execute(sql);
-				conn.commit();
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				logger.severe(e.getMessage());
-			}
+			logger.severe("updateTextAnnotation failed: " + ex.getMessage());
 		}
 	}
 
@@ -3900,7 +3795,14 @@ public class DatabaseHandler {
 		}
 	}
 
+	/**
+	 * @deprecated The {@code whereField} parameter is declared as {@code int} but is used as a
+	 *             SQL column name, which will produce an invalid SQL statement (e.g. "WHERE 3='value'").
+	 *             Use {@link #update(String, String, int, String, String)} instead.
+	 */
+	@Deprecated
 	public void update(String tableName, String fieldName, int fieldValue, int whereField, String whereValue) {
+		logger.warning("update() called with int whereField — this generates invalid SQL. Use update(String,String,int,String,String) instead.");
 		try (Connection conn = openConnection();) {
 			conn.createStatement().executeUpdate("update " + tableName + " set " + fieldName + "='" + fieldValue
 					+ "' where " + whereField + "='" + whereValue + "'");
@@ -4123,9 +4025,9 @@ public class DatabaseHandler {
 		try (Connection conn = openConnection();) {
 			String statement = "UPDATE ROI ";// need space at end
 			statement = statement
-					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , RoiMetaProperties=?";
+					+ "SET Name=?, RoiType=?, OriginX=?, OriginY=?, Width=?, Height=?, PointX=?, PointY=?, Shape=?, InstanceNo=?, Description=?, RoiGroup=?, RoiLabel=?, ObjectType=?, Organ=?, StudyDate=?, CrossSection=? , RoiMetaProperties=? "; // trailing space required
 			statement = statement
-					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND RoiID=?";
+					+ "WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? AND RoiID=?"; // Bug fix: missing space before WHERE caused SQL syntax error
 			PreparedStatement pstmt = conn.prepareStatement(statement);
 			pstmt.setString(1, name);
 			pstmt.setInt(2, roiType);
@@ -4193,8 +4095,8 @@ public class DatabaseHandler {
 		try (Connection conn = openConnection();) {
 			conn.createStatement()
 					.execute("update study set DownloadStatus=true,NoOfInstances=" + getNumOfInstancesInStudy(studyUid)
-							+ ",NoOfSeries=" + getNumOfInstancesInStudy(studyUid) + " where StudyInstanceUID='"
-							+ studyUid + "'");
+							+ ",NoOfSeries=" + getNumOfSeriesInStudy(studyUid) + " where StudyInstanceUID='"
+							+ studyUid + "'"); // Bug fix: NoOfSeries was calling getNumOfInstancesInStudy
 			conn.createStatement()
 					.execute("update image set ThumbnailStatus=true where StudyInstanceUID='" + studyUid + "'");
 			conn.commit();
