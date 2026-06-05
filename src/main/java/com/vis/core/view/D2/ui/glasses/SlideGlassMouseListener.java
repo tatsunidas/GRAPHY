@@ -35,14 +35,12 @@
  *
  * ***** END LICENSE BLOCK *****
  */
-/* ***** BEGIN LICENSE BLOCK 省略 ***** */
 package com.vis.core.view.D2.ui.glasses;
 
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Graphics2D;
-import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.datatransfer.Transferable;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -50,15 +48,17 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.TransferHandler;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
@@ -72,7 +72,6 @@ import com.vis.core.ui.dialog.DicomTagsViewer;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D2.roi.RoiPopUpDialog;
-import com.vis.core.view.D2.ui.GhostGlassPane;
 import com.vis.core.view.D2.ui.Viewer2DToolBar;
 import com.vis.core.view.D2.ui.cursor.RotateCursor;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -101,6 +100,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
     private static final int FPS = 30;//animation fps
     private static final int ANGLE_STEP = 360 / (pressingTimeToBeGhost / FPS); // 1フレームあたりの進行角度
 		
+    private boolean isNativeDragging = false; 
+    private MouseEvent lastPressedEvent = null; // ★ 追加：マウスプレス時のイベントを保持
+    
 	private Logger logger = Log.logger;
 
 	public SlideGlassMouseListener(SlideGlass slide) {
@@ -110,24 +112,80 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		this.prapManager = pp.getEyepiece();
 
 		ghostTimer = new javax.swing.Timer(FPS, e -> {
-            currentAngle += ANGLE_STEP;
-            
-            if (currentAngle >= 360) {
-                // reach to 100%
-                currentAngle = 0;
-                ghostTimer.stop();
-                slide.setGhostProgress(0, null); // remove indicator
-                
-                startGhostDrag();
-                
-            } else {
-                // update indicator
-                if (dragStartPoint != null) {
-                    slide.setGhostProgress(currentAngle, dragStartPoint);
-                }
-            }
-        });
-		ghostTimer.setRepeats(true); 
+		    currentAngle += ANGLE_STEP;
+		    
+		    if (currentAngle >= 360) {
+		        // 100%に到達
+		        currentAngle = 0;
+		        ghostTimer.stop();
+		        slide.setGhostProgress(0, null); // インジケーターを消去
+		        
+		        // ★ 変更：タイマー完了と同時にOSドラッグを直接発火！
+		        if (lastPressedEvent != null && !isNativeDragging) {
+		            startNativeDrag(lastPressedEvent);
+		        }
+		        
+		    } else {
+		        // インジケーターを更新
+		        if (dragStartPoint != null) {
+		            slide.setGhostProgress(currentAngle, dragStartPoint);
+		        }
+		    }
+		});
+		ghostTimer.setRepeats(true);
+		
+		// SlideGlassMouseListener.java のコンストラクタ内
+
+		new java.awt.dnd.DropTarget(slide, java.awt.dnd.DnDConstants.ACTION_COPY_OR_MOVE, new java.awt.dnd.DropTargetAdapter() {
+		    @Override
+		    public void dragEnter(java.awt.dnd.DropTargetDragEvent dtde) {
+		        if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+		            dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
+		        } else {
+		            dtde.rejectDrag();
+		        }
+		    }
+
+		    @Override
+		    public void dragOver(java.awt.dnd.DropTargetDragEvent dtde) {
+		        if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+		            dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
+		            if (prapManager != null) {
+		                Point p = dtde.getLocation();
+		                Point panelPoint = javax.swing.SwingUtilities.convertPoint(slide, p, (java.awt.Component) prapManager);
+		                prapManager.updateInsertionIndex(panelPoint);
+		                prapManager.repaint(); // ★ 修正：再描画を呼び出して赤い線を更新させる
+		            }
+		        } else {
+		            dtde.rejectDrag();
+		        }
+		    }
+
+		    @Override
+		    public void dragExit(java.awt.dnd.DropTargetEvent dte) {
+		        if (prapManager != null) {
+		            prapManager.clearDragState(); // ★ 修正：マウスがコンポーネントを外れたら線を消す
+		        }
+		    }
+
+		    @Override
+		    public void drop(java.awt.dnd.DropTargetDropEvent dtde) {
+		        if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+		            dtde.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
+		            try {
+		                if (prapManager != null) {
+		                    prapManager.performReorder();
+		                    prapManager.clearDragState(); // ★ 修正：ドロップ完了後に状態リセット
+		                }
+		                dtde.dropComplete(true);
+		            } catch (Exception ex) {
+		                dtde.dropComplete(false);
+		            }
+		        } else {
+		            dtde.rejectDrop();
+		        }
+		    }
+		});
 	}
 
 	@Override
@@ -218,13 +276,19 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
+		
+		/*
+		 * window外でのDragかどうか
+		 */
+		if (isNativeDragging) return; // ★ OSドラッグ中は自前処理をスキップ
+	    
 		int x = e.getX();
 		int y = e.getY();
 		viewerToolType = pp.getViewer2DToolType();
 		boolean isThumbnail = pp.getViewMode() == ViewMode.Thumbnail;
-		
 		boolean isRoiTool = (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType));
 		
+		// --- 既存のホールド解除判定 ---
 		if (dragStartPoint != null) {
             // マウスの移動距離を計算
             double distance = e.getPoint().distance(dragStartPoint);
@@ -266,17 +330,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		} else {
 			if (viewerToolType == Viewer2DToolBar.NONE) viewerToolType = Viewer2DToolBar.Windowing;
 		}
-		
-		if (isGhostDragging) {
-			Component source = (Component) e.getSource();
-			Point screenP = e.getPoint();
-			SwingUtilities.convertPointToScreen(screenP, (Component) e.getSource());
-			pp.getGhostGlassPane().moveDrag(screenP);
-			Point panelPoint = SwingUtilities.convertPoint(source, e.getPoint(), prapManager);
-			prapManager.updateInsertionIndex(panelPoint);
-			pp.getGhostGlassPane().repaint();
-			return;
-		}
+	
 
 		Point current = e.getPoint();
 		Point pressPoint = new Point(slide.lastPressedX, slide.lastPressedY);
@@ -417,6 +471,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			pp.setImagePositionTo(slide);
 		}
 		
+		lastPressedEvent = e; // ★ 追加：イベントを保持しておく
+		
+	    isNativeDragging = false;
 		isGhostDragging = false;
         dragStartPoint = e.getPoint();
         currentAngle = 0;
@@ -481,7 +538,10 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		if (isNativeDragging) return; // ★ OSドラッグ中は自前処理をスキップ
+		
 		ghostTimer.stop();
+		
 		viewerToolType = pp.getViewer2DToolType();
 		
 		//right click
@@ -494,6 +554,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		currentAngle = 0;
 		dragStartPoint = null;
 		slide.setGhostProgress(0, null);
+		
+		slide.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 		
 		if(Viewer2DToolBar.isRoiTool(viewerToolType) || viewerToolType == Viewer2DToolBar.Brush) {
 			cg.mouseReleased(e);
@@ -511,14 +573,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			if(refLines != null) refLines.mouseReleased();
 		}
 		
-		if (isGhostDragging) {
-			prapManager.performReorder();
-			GhostGlassPane ggp = pp.getGhostGlassPane();
-			ggp.setVisible(false);
-			prapManager.setDraggingComponent(null);
-			isGhostDragging = false;
-			e.consume();
-		}
 	}
 
 	@Override
@@ -588,29 +642,95 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 	}
 	
-	private void startGhostDrag() {
-		if (pp == null || prapManager == null || pp.isAttachedToMainFrame()) {
-			isGhostDragging = false;
-			return;
-		}
-		
-		GhostGlassPane ggp = pp.getGhostGlassPane();
-		if (ggp == null) {
-			isGhostDragging = false;
-			return;
-		}
-		
-		prapManager.setDraggingComponent(pp);
-		isGhostDragging = true;
+//	private void startGhostDrag() {
+//		if (pp == null || prapManager == null || pp.isAttachedToMainFrame()) {
+//			isGhostDragging = false;
+//			return;
+//		}
+//		
+//		GhostGlassPane ggp = pp.getGhostGlassPane();
+//		if (ggp == null) {
+//			isGhostDragging = false;
+//			return;
+//		}
+//		
+//		prapManager.setDraggingComponent(pp);
+//		isGhostDragging = true;
+//
+//		Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
+//		BufferedImage img = new BufferedImage(slide.getWidth(), slide.getHeight(), BufferedImage.TYPE_INT_ARGB);
+//		Graphics2D g2 = img.createGraphics();
+//		slide.paint(g2);
+//		g2.dispose();
+//
+//		ggp.startDrag(img, mouseLoc);
+//		ggp.setVisible(true);
+//	}
+	
+	private void startNativeDrag(MouseEvent e) {
+	    if (isNativeDragging) return;
 
-		Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
-		BufferedImage img = new BufferedImage(slide.getWidth(), slide.getHeight(), BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g2 = img.createGraphics();
-		slide.paint(g2);
-		g2.dispose();
+	    try {
+	        // 1. カーソルを通常に戻す
+	        slide.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
-		ggp.startDrag(img, mouseLoc);
-		ggp.setVisible(true);
+	        // 2. 匿名化画像の生成
+	        java.awt.image.BufferedImage exportImage = slide.createCaptureImage();
+	        if (exportImage == null) {
+	            Log.logger.warning("Capture Image is null. Drag aborted.");
+	            return; 
+	        }
+
+	        // 3. 一時ファイル作成
+	        File tempFile = File.createTempFile("dicom_export_", ".png");
+	        tempFile.deleteOnExit();
+	        ImageIO.write(exportImage, "png", tempFile);
+
+	        // 4. コンテナの生成
+	        SlideGlassTransferable transferable = new SlideGlassTransferable(slide, exportImage, tempFile);
+
+	        // 5. ★ Swing公式のドラッグコントローラー（TransferHandler）を使用
+	        TransferHandler th = new TransferHandler() {
+	            @Override
+	            public int getSourceActions(javax.swing.JComponent c) {
+	                return COPY;
+	            }
+
+	            @Override
+	            protected Transferable createTransferable(javax.swing.JComponent c) {
+	                setDragImage(exportImage);
+	                setDragImageOffset(new java.awt.Point(exportImage.getWidth() / 2, exportImage.getHeight() / 2));
+	                return transferable;
+	            }
+
+	            @Override
+	            protected void exportDone(javax.swing.JComponent source, Transferable data, int action) {
+	                // ドラッグ終了時のリセット処理
+	                isNativeDragging = false;
+	                dragStartPoint = null;
+	                if (prapManager != null) {
+	                    prapManager.setDraggingComponent(null);
+	                    prapManager.clearDragState(); // ★ 追加：ここで確実に赤い線と青い枠の残像を消す
+	                }
+	            }
+	        };
+
+	        slide.setTransferHandler(th);
+	        isNativeDragging = true;
+
+	        // ★ ドラッグ開始時に Manager に「今、自分がドラッグされているぞ」と教える
+	        if (prapManager != null) {
+	            prapManager.setDraggingComponent(pp);
+	        }
+
+	        // OSドラッグ発火
+	        th.exportAsDrag(slide, e, TransferHandler.COPY);
+
+	    } catch (Exception ex) {
+	        Log.logger.warning("OS Drag failed: " + ex.getMessage());
+	        ex.printStackTrace();
+	        isNativeDragging = false;
+	    }
 	}
 	
 	private void showPopupMenu(MouseEvent e) {

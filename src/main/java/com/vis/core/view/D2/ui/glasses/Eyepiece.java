@@ -49,7 +49,6 @@ import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.dnd.DnDConstants;
-import java.awt.dnd.DropTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +66,9 @@ import com.vis.db.DatabaseHandler;
 
 import ij.ImagePlus;
 
+/**
+ * @author tatsunidas
+ */
 @SuppressWarnings("serial")
 public class Eyepiece extends JPanel{
 	
@@ -93,8 +95,6 @@ public class Eyepiece extends JPanel{
 	public Eyepiece(String patID) {
 		this.patID = patID;
 		init();
-//		DropTarget dt = new DropTarget(this, DnDConstants.ACTION_COPY_OR_MOVE,new ImageDropTargetListener());
-		new DropTarget(this, DnDConstants.ACTION_COPY_OR_MOVE,new ImageDropTargetListener());
 	}
 	
 	private void init() {
@@ -111,6 +111,42 @@ public class Eyepiece extends JPanel{
 		}
 		setMinimumSize(new Dimension(64,64));
 		setOpaque(false);
+		// ▼▼ 修正：古い ImageDropTargetListener を削除し、パネル移動専用のリスナーに差し替え ▼▼
+	    new java.awt.dnd.DropTarget(this, DnDConstants.ACTION_COPY_OR_MOVE, new java.awt.dnd.DropTargetAdapter() {
+	        @Override
+	        public void dragEnter(java.awt.dnd.DropTargetDragEvent dtde) {
+	            if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+	                dtde.acceptDrag(DnDConstants.ACTION_COPY);
+	            } else {
+	                dtde.rejectDrag();
+	            }
+	        }
+	        @Override
+	        public void dragOver(java.awt.dnd.DropTargetDragEvent dtde) {
+	            if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+	                dtde.acceptDrag(DnDConstants.ACTION_COPY);
+	                updateInsertionIndex(dtde.getLocation());
+	                repaint(); // ★ 必須：赤い線をEyepiece上に描画する
+	            } else {
+	                dtde.rejectDrag();
+	            }
+	        }
+	        @Override
+	        public void dragExit(java.awt.dnd.DropTargetEvent dte) {
+	            clearDragState(); // マウスが外れたら線を消す
+	        }
+	        @Override
+	        public void drop(java.awt.dnd.DropTargetDropEvent dtde) {
+	            if (dtde.isDataFlavorSupported(SlideGlassTransferable.INTERNAL_PANEL_FLAVOR)) {
+	                dtde.acceptDrop(DnDConstants.ACTION_COPY);
+	                performReorder();
+	                clearDragState(); // ドロップ完了後に状態リセット
+	                dtde.dropComplete(true);
+	            } else {
+	                dtde.rejectDrop();
+	            }
+	        }
+	    });
 	}
 	
 	/**
@@ -608,4 +644,13 @@ public class Eyepiece extends JPanel{
             g2.drawLine(x - gapAdjustment, y, x - gapAdjustment, y + h);
         }
     }
+	
+	/**
+	 * ドラッグ終了時やキャンセル時に、赤い挿入ラインや青い枠を消去します。
+	 */
+	public void clearDragState() {
+	    insertionIndex = -1;
+	    fusionTargetComponent = null;
+	    repaint();
+	}
 }

@@ -390,6 +390,26 @@ public class SlideGlass extends JLayeredPane {
 		cropImp.setProcessor(ip);
 		return cropImp;
 	}
+	
+	/**
+	 * 外部エクスポート用の匿名化画像を生成します。
+	 */
+	public java.awt.image.BufferedImage createCaptureImage() {
+	    int w = getWidth();
+	    int h = getHeight();
+	    if (w <= 0 || h <= 0) return null;
+
+	    java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
+	            w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+	    java.awt.Graphics2D g2 = img.createGraphics();
+
+	    // 必要なレイヤーのみを描画（textOverlayとcoverGlassは無視）
+	    if (imageSpecimen != null) imageSpecimen.paint(g2);
+	    if (roiOverlay != null) roiOverlay.paint(g2);
+
+	    g2.dispose();
+	    return img;
+	}
 
 	public boolean deleteRoi(RoiObj roi) {
 		return roiOverlay.deleteRoi(roi);
