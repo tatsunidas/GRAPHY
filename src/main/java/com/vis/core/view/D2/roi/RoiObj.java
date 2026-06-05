@@ -2808,12 +2808,12 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		con.put(RoiGeometry.Shape.name(), null);
 		
 		// --- 検証ログ 2 ---
-		if (con.containsKey(RoiDBKey.RoiMetaProperties.name())) {
-		    com.vis.core.log.Log.logger.info("[DEBUG-2: OBJ] RoiObj.readContext: JSON Output -> " 
-		        + con.get(RoiDBKey.RoiMetaProperties.name()));
-		} else {
-		    com.vis.core.log.Log.logger.warning("[DEBUG-2: OBJ] RoiObj.readContext: RoiMetaProperties is NULL!");
-		}
+//		if (con.containsKey(RoiDBKey.RoiMetaProperties.name())) {
+//		    com.vis.core.log.Log.logger.info("[DEBUG-2: OBJ] RoiObj.readContext: JSON Output -> " 
+//		        + con.get(RoiDBKey.RoiMetaProperties.name()));
+//		} else {
+//		    com.vis.core.log.Log.logger.warning("[DEBUG-2: OBJ] RoiObj.readContext: RoiMetaProperties is NULL!");
+//		}
 		
 		return con;
 	}

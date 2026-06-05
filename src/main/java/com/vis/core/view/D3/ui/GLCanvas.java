@@ -31,7 +31,7 @@ package com.vis.core.view.D3.ui;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.awt.GLData;
 
-import com.vis.core.view.D3.roi.FreeFormRoi3D;
+import com.vis.core.log.Log;
 
 import static org.lwjgl.opengl.GL33.*;
 
@@ -53,8 +53,12 @@ import org.lwjgl.opengl.awt.AWTGLCanvas;
  *
  */
 public class GLCanvas extends AWTGLCanvas {
+	
 	private VolumeRenderer volumeRenderer;
 	private VolumeData pendingVolume = null;
+	
+	private java.util.List<String> currentRoiGroupNames = new java.util.ArrayList<>();
+	private Runnable onRoiLoadedCallback; // UIにロード完了を通知するためのコールバック
 
 	Camera camera = new Camera();
 
@@ -82,6 +86,9 @@ public class GLCanvas extends AWTGLCanvas {
 	private VolumeData currentVolumeData;
 	
 	private byte[] pendingRoiMask = null;
+	
+	private java.util.List<java.awt.Color> currentRoiColors = new java.util.ArrayList<>();
+	private float currentRoiAlpha = 0.5f;
 	
 	private static final long serialVersionUID = 1L;
 
@@ -227,75 +234,120 @@ public class GLCanvas extends AWTGLCanvas {
 
 		this.repaint();
 	}
-	
-	// GLCanvas.java の ROIロードメソッド（前回提案した setRoiData メソッド内）
-	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] origin, double[] iop) {
-	    if (currentVolumeData == null) return;
-	    if (rois == null || rois.isEmpty()) return;
-	    setMultiRoiData(rois, origin, iop);
-	}
-	
-	public void setMultiRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] origin, double[] iop) {
+
+	// ==========================================
+	// グループを解釈して色とIDを割り振る setRoiData
+	// 利用する側は、roiを渡すだけで良い。
+	// ==========================================
+	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] startIpp, double[] iop, double[] stepZ) {
 	    if (currentVolumeData == null || rois.isEmpty()) return;
 	    
-	    // とりあえず代表して最初のROIの色を使う
-	    java.awt.Color roiColor = rois.get(0).getStrokeColor();
-	    if (roiColor == null) roiColor = java.awt.Color.CYAN;
-	    setRoiColor(roiColor, 0.5f);
+	    java.util.Map<String, Integer> groupToIdMap = new java.util.HashMap<>();
+	    java.util.Map<Integer, java.awt.Color> idToColorMap = new java.util.TreeMap<>();
+	    java.util.Map<Integer, String> idToNameMap = new java.util.TreeMap<>(); // ★追加: ID->グループ名マッピング
+	    
+	    int nextId = 1;
+	    int[] mappedIds = new int[rois.size()]; 
+	    
+	    for (int i = 0; i < rois.size(); i++) {
+	        com.vis.core.view.D3.roi.FreeFormRoi3D roi = rois.get(i);
+	        
+	        String groupId = roi.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+	        if (groupId == null || groupId.isEmpty()) {
+	            groupId = roi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name());
+	            if (groupId == null || groupId.isEmpty()) {
+	                groupId = String.valueOf(roi.hashCode());
+	            }
+	        }
+	        
+	        if (!groupToIdMap.containsKey(groupId)) {
+	            if (nextId < 32) {
+	                groupToIdMap.put(groupId, nextId);
+	                java.awt.Color c = roi.getStrokeColor();
+	                if (c == null) c = java.awt.Color.CYAN;
+	                idToColorMap.put(nextId, c);
+	                idToNameMap.put(nextId, "Group: " + groupId); // ★追加: 名前を保存
+	                nextId++;
+	            } else {
+	                groupToIdMap.put(groupId, 31); 
+	            }
+	        }
+	        mappedIds[i] = groupToIdMap.get(groupId);
+	    }
+	    
+	    currentRoiColors.clear();
+	    currentRoiGroupNames.clear(); // ★追加
+	    for (int i = 1; i < nextId; i++) {
+	        currentRoiColors.add(idToColorMap.get(i));
+	        currentRoiGroupNames.add(idToNameMap.get(i)); // ★追加
+	    }
+	    
+	    // UI側にロード完了を通知
+	    if (onRoiLoadedCallback != null) {
+	        SwingUtilities.invokeLater(() -> onRoiLoadedCallback.run());
+	    }
+	    
+	    if (volumeRenderer != null) {
+	        volumeRenderer.setRoiColors(currentRoiColors, currentRoiAlpha);
+	    }
 	    
 	    new Thread(() -> {
-	        // 全部のROIを1つのマスクに焼き付ける
-	        byte[] mask = createMergedRoiMask(currentVolumeData, rois, origin, iop);
+	        byte[] mask = createMergedRoiMask(currentVolumeData, rois, mappedIds, startIpp, iop, stepZ);
 	        this.pendingRoiMask = mask; 
 	        SwingUtilities.invokeLater(this::repaint);
 	    }).start();
 	}
 
-	// 複数ROI用の合体マスク生成
-	private byte[] createMergedRoiMask(VolumeData vol, java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] volumeOriginIpp, double[] volumeIop) {
-	    int w = vol.width; int h = vol.height; int d = vol.depth;
-	    byte[] mask = new byte[w * h * d];
-	    
-	    double[] n = new double[3];
-	    n[0] = volumeIop[1]*volumeIop[5] - volumeIop[2]*volumeIop[4];
-	    n[1] = volumeIop[2]*volumeIop[3] - volumeIop[0]*volumeIop[5];
-	    n[2] = volumeIop[0]*volumeIop[4] - volumeIop[1]*volumeIop[3];
+	// ==========================================
+	// 改良版: 事前計算された mappedIds を使ってマスクを描き込む
+	// ==========================================
+	private byte[] createMergedRoiMask(VolumeData vol, java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois,
+			int[] mappedIds, double[] startIpp, double[] iop, double[] stepZ) {
+		int w = vol.width;
+		int h = vol.height;
+		int d = vol.depth;
+		byte[] mask = new byte[w * h * d];
 
-	    int index = 0;
-	    for (int z = 0; z < d; z++) {
-	        double zOffX = n[0] * (z * vol.sliceThickness);
-	        double zOffY = n[1] * (z * vol.sliceThickness);
-	        double zOffZ = n[2] * (z * vol.sliceThickness);
+		System.out.println("=== Mask Generation Started (Group-Aware ID mode) ===");
 
-	        for (int y = 0; y < h; y++) {
-	            double yOffX = volumeIop[3] * (y * vol.pixelSpacingY);
-	            double yOffY = volumeIop[4] * (y * vol.pixelSpacingY);
-	            double yOffZ = volumeIop[5] * (y * vol.pixelSpacingY);
+		int index = 0;
+		for (int z = 0; z < d; z++) {
+			double zOffX = z * stepZ[0];
+			double zOffY = z * stepZ[1];
+			double zOffZ = z * stepZ[2];
 
-	            for (int x = 0; x < w; x++) {
-	                double xOffX = volumeIop[0] * (x * vol.pixelSpacingX);
-	                double xOffY = volumeIop[1] * (x * vol.pixelSpacingX);
-	                double xOffZ = volumeIop[2] * (x * vol.pixelSpacingX);
+			for (int y = 0; y < h; y++) {
+				double yOffX = iop[3] * (y * vol.pixelSpacingY);
+				double yOffY = iop[4] * (y * vol.pixelSpacingY);
+				double yOffZ = iop[5] * (y * vol.pixelSpacingY);
 
-	                double px = volumeOriginIpp[0] + xOffX + yOffX + zOffX;
-	                double py = volumeOriginIpp[1] + xOffY + yOffY + zOffY;
-	                double pz = volumeOriginIpp[2] + xOffZ + yOffZ + zOffZ;
-	                
-	                // いずれかのROIに含まれていればマスクを255にする
-	                boolean isInside = false;
-	                for (com.vis.core.view.D3.roi.FreeFormRoi3D roi : rois) {
-	                    if (roi.containsPhysicalPoint(px, py, pz)) {
-	                        isInside = true;
-	                        break;
-	                    }
-	                }
-	                
-	                mask[index] = isInside ? (byte) 255 : 0;
-	                index++;
-	            }
-	        }
-	    }
-	    return mask;
+				for (int x = 0; x < w; x++) {
+					double xOffX = iop[0] * (x * vol.pixelSpacingX);
+					double xOffY = iop[1] * (x * vol.pixelSpacingX);
+					double xOffZ = iop[2] * (x * vol.pixelSpacingX);
+
+					double px = startIpp[0] + xOffX + yOffX + zOffX;
+					double py = startIpp[1] + xOffY + yOffY + zOffY;
+					double pz = startIpp[2] + xOffZ + yOffZ + zOffZ;
+
+					int roiId = 0; // 0 は空気
+
+					// 登録されたすべてのROIに対して判定
+					for (int i = 0; i < rois.size(); i++) {
+						if (rois.get(i).containsPhysicalPoint(px, py, pz)) {
+							// ★ 事前計算した配列からIDを引き当てる (超高速)
+							roiId = mappedIds[i];
+							break; // 複数のグループが重なっている場合はリストの前方を優先
+						}
+					}
+
+					mask[index] = (byte) roiId;
+					index++;
+				}
+			}
+		}
+		System.out.println("=== Mask Generation Completed ===");
+		return mask;
 	}
 
 	// GLCanvas.java に追加
@@ -309,17 +361,6 @@ public class GLCanvas extends AWTGLCanvas {
 	public void setShowRoi(boolean show) {
 	    if (volumeRenderer != null) {
 	        volumeRenderer.setRoiVisible(show);
-	        repaint();
-	    }
-	}
-
-	// java.awt.Color を受け取って OpenGL用の 0.0~1.0 に変換する便利なメソッド
-	public void setRoiColor(java.awt.Color color, float alpha) {
-	    if (volumeRenderer != null && color != null) {
-	        float r = color.getRed() / 255.0f;
-	        float g = color.getGreen() / 255.0f;
-	        float b = color.getBlue() / 255.0f;
-	        volumeRenderer.setRoiColor(r, g, b, alpha);
 	        repaint();
 	    }
 	}
@@ -341,6 +382,24 @@ public class GLCanvas extends AWTGLCanvas {
 		// MIPなら0、DVRなら1
 		volumeRenderer.setRenderMode(isMIP ? 0 : 1);
 		repaint();
+	}
+	
+	public void setRoiAlpha(float alpha) {
+	    this.currentRoiAlpha = alpha;
+	    if (volumeRenderer != null) {
+	        // パレット配列だけを更新
+	        volumeRenderer.setRoiColors(currentRoiColors, currentRoiAlpha);
+	        // GPUに再描画を指示（マスク再生成は不要！）
+	        repaint();
+	    }
+	}
+	
+	public void updateRoiColors(java.util.List<java.awt.Color> newColors) {
+	    this.currentRoiColors = newColors;
+	    if (volumeRenderer != null) {
+	        volumeRenderer.setRoiColors(currentRoiColors, currentRoiAlpha);
+	        repaint();
+	    }
 	}
 
 	public void resetCamera() {
@@ -414,6 +473,24 @@ public class GLCanvas extends AWTGLCanvas {
 			System.out.println("No voxels inside contour.");
 		}
 	}
+	
+	public void setOnRoiLoadedCallback(Runnable callback) {
+	    this.onRoiLoadedCallback = callback;
+	}
+
+	public java.util.List<String> getRoiGroupNames() { return currentRoiGroupNames; }
+	public java.util.List<java.awt.Color> getRoiColors() { return currentRoiColors; }
+
+	// ★追加: 特定のインデックス(グループ)の色だけを変更するメソッド
+	public void setRoiGroupColor(int index, java.awt.Color newColor) {
+	    if (index >= 0 && index < currentRoiColors.size()) {
+	        currentRoiColors.set(index, newColor);
+	        if (volumeRenderer != null) {
+	            volumeRenderer.setRoiColors(currentRoiColors, currentRoiAlpha);
+	            repaint(); // 再描画
+	        }
+	    }
+	}
 
 	// --- Swingのオーバーレイ描画 (線を引く) ---
 	// GLCanvasはAWTコンポーネントなので、paint()をオーバーライドして
@@ -446,13 +523,14 @@ public class GLCanvas extends AWTGLCanvas {
 			pendingVolume = null;
 		}
 
-		// ==========================================
-		// ★ ここで pendingRoiMask を使います！
-		// ==========================================
 		if (pendingRoiMask != null && currentVolumeData != null) {
 			// GPUへのアップロードを実行
 			volumeRenderer.uploadRoiTexture(pendingRoiMask, currentVolumeData.width, currentVolumeData.height,
 					currentVolumeData.depth);
+			
+			// ★ 修正: ここで色情報を確実にレンダラーに渡す（ここでは volumeRenderer は絶対に初期化されている）
+			volumeRenderer.setRoiColors(currentRoiColors, currentRoiAlpha);
+			
 			// 転送が終わったらnullにして、毎フレーム転送されるのを防ぐ
 			pendingRoiMask = null;
 		}

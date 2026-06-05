@@ -86,6 +86,8 @@ public class Viewer3DMain extends JFrame {
 	 */
 	private static final long serialVersionUID = 1L;
 	public GLCanvas canvas;
+	
+	private JPanel roiColorPanel;
 
 	public Viewer3DMain() {
 		setTitle("GRAPHY 3D Viewer");
@@ -195,11 +197,37 @@ public class Viewer3DMain extends JFrame {
 		JCheckBox chkShowRoi = new JCheckBox("Show ROI", true);
 		chkShowRoi.addActionListener(e -> canvas.setShowRoi(chkShowRoi.isSelected()));
 		controlPanel.add(chkShowRoi);
+		
+		// ROI Opacity (不透明度) スライダー
+		JSlider sliderRoiAlpha = new JSlider(0, 100, 50); // 0〜100% (初期値50%)
+		sliderRoiAlpha.setToolTipText("Adjust ROI Opacity");
+		controlPanel.add(new JLabel("ROI Opacity"));
+		controlPanel.add(sliderRoiAlpha);
+
+		// スライダーを動かした時のイベント
+		sliderRoiAlpha.addChangeListener(e -> {
+		    if (canvas != null) {
+		        // 0.0 〜 1.0 の float に変換してキャンバスへ渡す
+		        float alpha = sliderRoiAlpha.getValue() / 100.0f;
+		        canvas.setRoiAlpha(alpha);
+		    }
+		});
 
 		sliderX.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 		sliderY.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 		sliderZ.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 
+		// (既存のスライダー等の下に追加します)
+		controlPanel.add(new javax.swing.JSeparator());
+		controlPanel.add(new JLabel("ROI Group Colors"));
+
+		roiColorPanel = new JPanel();
+		roiColorPanel.setLayout(new BoxLayout(roiColorPanel, BoxLayout.Y_AXIS));
+		controlPanel.add(new javax.swing.JScrollPane(roiColorPanel));
+
+		// ★追加: キャンバスから「ROI情報が更新されたよ」という通知を受け取ってUIを作る
+		canvas.setOnRoiLoadedCallback(() -> refreshRoiColorUI());
+		
 		add(controlPanel, BorderLayout.EAST);
 	}
 
@@ -208,5 +236,50 @@ public class Viewer3DMain extends JFrame {
 		float y = sy.getValue() / 100.0f;
 		float z = sz.getValue() / 100.0f;
 		canvas.setSlicePos(x, y, z);
+	}
+	
+	// ==========================================
+	// Viewer3DMainクラス内に新しいメソッドを追加
+	// ==========================================
+	private void refreshRoiColorUI() {
+	    roiColorPanel.removeAll();
+	    java.util.List<String> names = canvas.getRoiGroupNames();
+	    java.util.List<java.awt.Color> colors = canvas.getRoiColors();
+
+	    if (names == null || names.isEmpty()) {
+	        roiColorPanel.add(new JLabel("No ROIs loaded."));
+	    } else {
+	        // 読み込まれたROIグループの数だけボタンを作る
+	        for (int i = 0; i < names.size(); i++) {
+	            final int index = i;
+	            String name = names.get(i);
+	            java.awt.Color c = colors.get(i);
+
+	            JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 5, 2));
+	            
+	            // 色を表示・変更するためのボタン
+	            JButton colorBtn = new JButton();
+	            colorBtn.setPreferredSize(new java.awt.Dimension(20, 20));
+	            colorBtn.setBackground(c);
+	            colorBtn.setOpaque(true); // Windows/Mac等の見た目の違いを吸収
+	            colorBtn.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK));
+
+	            // ボタンを押したらカラーピッカーを開く
+	            colorBtn.addActionListener(e -> {
+	                java.awt.Color newColor = javax.swing.JColorChooser.showDialog(this, "Select Color for " + name, colorBtn.getBackground());
+	                if (newColor != null) {
+	                    colorBtn.setBackground(newColor);
+	                    // Canvasに新しい色を伝える
+	                    canvas.setRoiGroupColor(index, newColor);
+	                }
+	            });
+
+	            row.add(colorBtn);
+	            row.add(new JLabel(name));
+	            roiColorPanel.add(row);
+	        }
+	    }
+	    roiColorPanel.revalidate();
+	    roiColorPanel.repaint();
 	}
 }

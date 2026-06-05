@@ -86,7 +86,6 @@ import com.vis.core.util.Utils;
 import com.vis.core.view.D2.roi.*;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
 import com.vis.core.view.D2.ui.glasses.Praparat;
-import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
 import com.vis.core.view.D3.ui.Viewer3DMain;
 import com.vis.core.view.D3.ui.VolumeData;
@@ -785,77 +784,122 @@ public class Viewer2DToolBar extends JToolBar {
 			});
 			break;
 		case "viewer3d":
-			btn.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent arg0) {
+		    btn.addActionListener(new ActionListener() {
+		        @Override
+		        public void actionPerformed(ActionEvent arg0) {
 
-					Viewer2DScreen own = Viewer2DScreen.getInstance();
-					ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
-					int size = selectedPraps.size();
-					if (selectedPraps == null || size < 1) {
-						return;
-					}
-					// show only first prap
-					Praparat prap = selectedPraps.get(0);
-					new Thread(() -> {
-						SwingUtilities.invokeLater(() -> {
-							Viewer3DMain frame = new Viewer3DMain();
-							frame.setVisible(true); // ウィンドウを表示
-							frame.revalidate();
-							frame.repaint();
+		            Viewer2DScreen own = Viewer2DScreen.getInstance();
+		            ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+		            int size = selectedPraps.size();
+		            if (selectedPraps == null || size < 1) {
+		                return;
+		            }
+		            // show only first prap
+		            Praparat prap = selectedPraps.get(0);
+		            
+		            // ★ スレッドの構造を修正：重い処理を外に出す
+		            new Thread(() -> {
+		                // 1. まずバックグラウンドで重いボリュームデータを読み込む
+		                VolumeData vol = VolumeLoader.loadDicom(prap);
+		                
+		                // 2. 読み込みが完了したら、UIスレッドで画面を構築してデータを渡す
+		                SwingUtilities.invokeLater(() -> {
+		                    Viewer3DMain frame = new Viewer3DMain();
+		                    frame.setVisible(true); // ウィンドウを表示
+		                    frame.revalidate();
+		                    frame.repaint();
 
-							javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
-								if (frame.canvas != null) {
-									/*
-									 * Countermeasure: Caused by: java.awt.AWTException: JAWT_DrawingSurface_Lock()
-									 * failed
-									 */
-									if (frame.canvas.isDisplayable() && frame.canvas.isShowing()) {
-										frame.canvas.render();// これが呼ばれると paintGL() が動く
-										frame.canvas.repaint();
-									}
-								}
-							});
-							timer.setRepeats(true);
-							timer.start();
-							VolumeData vol = VolumeLoader.loadDicom(prap);
-							if (vol != null) {
-								// Canvasにデータを渡す
-								frame.canvas.setVolumeData(vol); // ← これを使う
-								// ==========================================
-							    // ★ ROIのロード処理を追加
-							    // ==========================================
-							    // Praparatから3D ROIのリストを取得
-							    java.util.List<com.vis.core.view.D2.roi.RoiObj> roi3dList = prap.getRoi3DList();
-							    if (roi3dList != null && !roi3dList.isEmpty()) {
-							        // ボリュームの基準となる物理座標(IPP, IOP)を取得
-							        // (Praparatに含まれる最初のスライスを基準とします)
-							        SlideGlass firstSg = prap.getAllSlides().values().iterator().next();
-							        com.vis.dicom.DicomObject header = firstSg.getHeader();
-							        int frameIdx = prap.isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
-							        
-							        double[] originIpp = prap.getSafeIPP(header, frameIdx);
-							        double[] iop = prap.getSafeIOP(header, frameIdx);
-							        
-							        java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rf3dList = new ArrayList<>();
-								    for(RoiObj r3 : roi3dList) {
-								    	if(r3 instanceof FreeFormRoi3D) {
-								    		rf3dList.add((FreeFormRoi3D)r3);
-								    	}
-								    }
-							        if (originIpp != null && iop != null) {
-							        	frame.canvas.setRoiData(rf3dList, originIpp, iop);
-							        }
-							    }
-							}
-						});
-					}).start();
+		                    javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
+		                        if (frame.canvas != null) {
+		                            if (frame.canvas.isDisplayable() && frame.canvas.isShowing()) {
+		                                frame.canvas.render();// これが呼ばれると paintGL() が動く
+		                                frame.canvas.repaint();
+		                            }
+		                        }
+		                    });
+		                    timer.setRepeats(true);
+		                    timer.start();
+		                    
+		                    if (vol != null) {
+		                        // Canvasにデータを渡す
+		                        frame.canvas.setVolumeData(vol); 
+		                        
+		                        // Praparatから3D ROIのリストを取得
+		                        java.util.List<com.vis.core.view.D2.roi.RoiObj> roi3dList = prap.getRoi3DList();
+		                        if (roi3dList != null && !roi3dList.isEmpty()) {
+		                            
+		                            ij.ImagePlus imp = prap.getImagePlus(-1, -1);
+		                            int nSlices = imp.getNSlices();
+		                            
+		                            if (nSlices >= 2) {
+		                                // 最初のスライス(1)と最後のスライス(N)のIPPを実測
+		                                double[] ipp1 = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, 1);
+		                                double[] ippN = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, nSlices);
+		                                
+		                                com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface basePlane = com.vis.core.view.D2.ui.orientation.PlanarSupport.planarOf(imp);
+		                                boolean isHeadFirst = com.vis.core.view.D2.ui.orientation.PlanarSupport.isHeadFirst(imp);
+		                                boolean isReversed = false;
 
-					currentTool = Windowing;
-					setSelectedToolBackground();
-				}
-			});
-			break;
+		                                // VolumeLoaderと同じ反転判定
+		                                if (ipp1 != null && ippN != null) {
+		                                    if (basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.AXIAL || basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.OBLIQUE) {
+		                                        if ((ippN[2] < ipp1[2]) != isHeadFirst) isReversed = true;
+		                                    }
+		                                }
+
+		                                System.out.println("=== 3D Viewer Load Debug Log ===");
+		                                System.out.println("ipp1: [" + ipp1[0] + ", " + ipp1[1] + ", " + ipp1[2] + "]");
+		                                System.out.println("ippN: [" + ippN[0] + ", " + ippN[1] + ", " + ippN[2] + "]");
+		                                System.out.println("isReversed by VolumeLoader: " + isReversed);
+
+		                                // ★追加: 1スライス進むごとの実際の物理移動ベクトル (X, Y, Z)
+		                                double[] stepZ = new double[3];
+		                                stepZ[0] = (ippN[0] - ipp1[0]) / (nSlices - 1);
+		                                stepZ[1] = (ippN[1] - ipp1[1]) / (nSlices - 1);
+		                                stepZ[2] = (ippN[2] - ipp1[2]) / (nSlices - 1);
+
+		                                // VolumeData の [Z=0] に該当する物理座標を確定させる
+		                                double[] volumeStartIpp = ipp1;
+		                                if (isReversed) {
+		                                    volumeStartIpp = ippN; // スタックが反転されたので、[Z=0]はippNになる
+		                                    // 進行方向も逆になる
+		                                    stepZ[0] = -stepZ[0];
+		                                    stepZ[1] = -stepZ[1];
+		                                    stepZ[2] = -stepZ[2];
+		                                }
+
+		                                System.out.println("volumeStartIpp: [" + volumeStartIpp[0] + ", " + volumeStartIpp[1] + ", " + volumeStartIpp[2] + "]");
+		                                System.out.println("stepZ vector:   [" + stepZ[0] + ", " + stepZ[1] + ", " + stepZ[2] + "]");
+
+		                                // IOPの取得
+		                                com.vis.core.view.D2.ui.glasses.SlideGlass firstSg = prap.getAllSlides().get(0);
+		                                if (firstSg == null) firstSg = prap.getAllSlides().values().iterator().next();
+		                                com.vis.dicom.DicomObject header = firstSg.getHeader();
+		                                int frameIdx = prap.isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
+		                                double[] iop = prap.getSafeIOP(header, frameIdx);
+
+		                                java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rf3dList = new ArrayList<>();
+		                                for(com.vis.core.view.D2.roi.RoiObj r3 : roi3dList) {
+		                                    if(r3 instanceof FreeFormRoi3D) {
+		                                        rf3dList.add((FreeFormRoi3D)r3);
+		                                    }
+		                                }
+
+		                                if (volumeStartIpp != null && iop != null && !rf3dList.isEmpty()) {
+		                                    // ★修正: isReversed の代わりに volumeStartIpp と stepZ を直接渡す
+		                                    frame.canvas.setRoiData(rf3dList, volumeStartIpp, iop, stepZ);
+		                                }
+		                            }
+		                        }
+		                    }
+		                });
+		            }).start();
+
+		            currentTool = Windowing;
+		            setSelectedToolBackground();
+		        }
+		    });
+		    break;
 		case "mpr":
 			btn.addActionListener(new ActionListener() {
 				@Override

@@ -186,6 +186,8 @@ public class RoiObjManager extends JFrame
 		instance = this;
 		errorMessage = null;
 		setUp();
+		
+		setAlwaysOnTop(true);
 
 		addWindowListener(new WindowAdapter() {
 			@Override
@@ -201,8 +203,7 @@ public class RoiObjManager extends JFrame
 		});
 
 		WindowManager.addWindow(this);
-//		setAlwaysOnTop(true);
-
+		
 		RoiObjListener rol = new RoiObjListener() {
 			@Override
 			public void roiModified(SlideGlass slide, int actionId) {
@@ -966,8 +967,7 @@ public class RoiObjManager extends JFrame
 		// リストで選択されている複数のROIを取得
 		int[] selectedIndices = list.getSelectedIndices();
 		if (selectedIndices.length < 1) {
-			PopUpMessage.showDialog(list, "Select ROI(s)", "Please select ROIs to bundle into 3D.",
-					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			PopUpMessage.showDialog(list, "Select ROI(s)", "Please select ROIs to bundle into 3D.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -984,8 +984,7 @@ public class RoiObjManager extends JFrame
 				String seriesUID = r.getProperty(RoiDBKey.SeriesInstanceUID.name());
 				if (seriesUID == null) {
 					HashMap<RoiDBKey, String> uids = r.getUIDs();
-					if (uids != null)
-						seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
+					if (uids != null) seriesUID = uids.get(RoiDBKey.SeriesInstanceUID);
 				}
 
 				// 初回ループで基準となるUIDとPraparatを保持
@@ -994,11 +993,11 @@ public class RoiObjManager extends JFrame
 					if (r.getSlideGlass() != null) {
 						targetPraparat = r.getSlideGlass().getPraparat();
 					}
-				}
+				} 
 				// 2回目以降でUIDが基準と一致するかチェック
 				else if (seriesUID != null && !targetSeriesUID.equals(seriesUID)) {
-					PopUpMessage.showDialog(list, "Series Mismatch",
-							"All selected ROIs must belong to the same Series (SeriesInstanceUID).\nOperation aborted.",
+					PopUpMessage.showDialog(list, "Series Mismatch", 
+							"All selected ROIs must belong to the same Series (SeriesInstanceUID).\nOperation aborted.", 
 							JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
 					return;
 				}
@@ -1008,21 +1007,62 @@ public class RoiObjManager extends JFrame
 		}
 
 		if (targetPraparat == null) {
-			PopUpMessage.showDialog(list, "Error", "Cannot find the target Praparat for the selected ROIs.",
-					JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+			PopUpMessage.showDialog(list, "Error", "Cannot find the target Praparat for the selected ROIs.", JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 
 		// 新しい共通のグループIDを生成
 		int uniqueGroupId = (int) (System.currentTimeMillis() % 1000000000L);
 		String newGroupId = String.valueOf(uniqueGroupId);
-
+		
 		try {
 			// 2. ファクトリメソッドで 真の3D ROI を生成
-			com.vis.core.view.D3.roi.FreeFormRoi3D roi3d = com.vis.core.view.D3.roi.FreeFormRoi3D
-					.createFrom2DRois(targetPraparat, targetRois, newGroupId);
-
+			com.vis.core.view.D3.roi.FreeFormRoi3D roi3d = 
+					com.vis.core.view.D3.roi.FreeFormRoi3D.createFrom2DRois(targetPraparat, targetRois, newGroupId);
+			
 			if (roi3d != null) {
+				// ==========================================================
+				// ★ 修正箇所：3D-ROIの中央スライスを算出し、代表Positionとしてセットする
+				// ==========================================================
+				int minZ = Integer.MAX_VALUE;
+				int maxZ = Integer.MIN_VALUE;
+				int targetC = 0, targetT = 0;
+				boolean firstPropsSet = false;
+
+				for (RoiObj r : targetRois) {
+					String zStr = r.getProperty("Dim_Z");
+					int z = (zStr != null && !zStr.isEmpty()) ? Integer.parseInt(zStr) : -1;
+					if (z != -1) {
+						minZ = Math.min(minZ, z);
+						maxZ = Math.max(maxZ, z);
+					}
+					
+					// 最初のROIから C, T の値を拾う
+					if (!firstPropsSet) {
+						String cStr = r.getProperty("Dim_C");
+						String tStr = r.getProperty("Dim_T");
+						targetC = (cStr != null && !cStr.isEmpty()) ? Integer.parseInt(cStr) : 0;
+						targetT = (tStr != null && !tStr.isEmpty()) ? Integer.parseInt(tStr) : 0;
+						firstPropsSet = true;
+					}
+				}
+
+				if (minZ <= maxZ) {
+					int centerZ = minZ + (maxZ - minZ) / 2; // 中央Zの算出
+					int centerZct = targetPraparat.calcZctIndex(new int[]{centerZ, targetC, targetT});
+					
+					roi3d.setProperty("Dim_Z", String.valueOf(centerZ));
+					roi3d.setProperty("Dim_C", String.valueOf(targetC));
+					roi3d.setProperty("Dim_T", String.valueOf(targetT));
+					roi3d.setProperty(RoiDBKey.Position.name(), String.valueOf(centerZct + 1));
+
+					SlideGlass centerSg = targetPraparat.getAllSlides().get(centerZct);
+					if (centerSg != null) {
+						roi3d.setSlideGlass(centerSg, false);
+					}
+				}
+				// ==========================================================
+
 				// 3. 構築した3D ROIを対象のPraparatへ一元管理用に追加
 				targetPraparat.addRoi3D(roi3d);
 
@@ -1042,19 +1082,14 @@ public class RoiObjManager extends JFrame
 
 				// 6. 画面の一斉再描画とリストの同期
 				for (SlideGlass sg : targetPraparat.getAllSlides().values()) {
-					if (sg != null)
-						sg.repaintCanvasGlass();
+					if (sg != null) sg.repaintCanvasGlass();
 				}
 				updateState(); // UIリストのリフレッシュ
-
-				PopUpMessage.showDialog(list, "Success",
-						"Selected ROIs have been successfully bundled into a True 3D ROI.", JOptionPane.OK_OPTION,
-						JOptionPane.INFORMATION_MESSAGE);
+				
+				PopUpMessage.showDialog(list, "Success", "Selected ROIs have been successfully bundled into a True 3D ROI.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			}
 		} catch (IllegalArgumentException e) {
-			// TextやArrowなどのアノテーションが含まれていてファクトリのバリデーションに弾かれた場合
-			PopUpMessage.showDialog(list, "Validation Error", e.getMessage(), JOptionPane.OK_OPTION,
-					JOptionPane.ERROR_MESSAGE);
+			PopUpMessage.showDialog(list, "Validation Error", e.getMessage(), JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
@@ -1214,11 +1249,15 @@ public class RoiObjManager extends JFrame
 				new2d.setStrokeWidth(r.getStrokeWidth());
 
 				// 各次元をセット
-				int[] zct = pp.calcZCTArrayFromIndex(pp.getZCTIndex(new2d.getSlideGlass()));
+				int zctIndex = pp.getZCTIndex(new2d.getSlideGlass());
+				// Positionは 1-based なので +1 してセットする
+				new2d.setProperty(RoiDBKey.Position.name(), String.valueOf(zctIndex + 1));
+
+				int[] zct = pp.calcZCTArrayFromIndex(zctIndex);				
 				new2d.setProperty("Dim_Z", String.valueOf(zct[0]));
 				new2d.setProperty("Dim_C", String.valueOf(zct[1]));
 				new2d.setProperty("Dim_T", String.valueOf(zct[2]));
-
+				
 				new2d.getSlideGlass().addRoi(new2d); // 自動的にDBにも保存される
 			}
 			updated = true;

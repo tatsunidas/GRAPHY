@@ -55,12 +55,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
-import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.TransferHandler;
 
-import com.vis.configuration.ConfigInfo;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.fusion.FusionControlDialog;
 import com.vis.core.log.Log;
@@ -577,8 +575,6 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		JFrame v2d = (JFrame)WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
-		if(v2d != null) v2d.toFront();
 		viewerToolType = pp.getViewer2DToolType();
 		slide.setFocusGained(true);
 		pp.setFocusGained(true);

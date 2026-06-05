@@ -17,7 +17,7 @@ void main() {
         discard;
     }
     
-    vec3 sampleCoord = vec3(vTexCoord.x, 1.0 - vTexCoord.y, vTexCoord.z);
+    vec3 sampleCoord = vec3(vTexCoord.x, 1.0 - vTexCoord.y, 1.0 - vTexCoord.z);
     float rawVal = texture(volumeTex, sampleCoord).r;
     float val = (rawVal - uMin) / (uMax - uMin);
     

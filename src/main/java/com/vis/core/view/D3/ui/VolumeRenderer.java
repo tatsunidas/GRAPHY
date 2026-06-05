@@ -79,12 +79,13 @@ public class VolumeRenderer {
 	private int sliceModelLoc;
 	
 	private int roiTextureId = -1;
-	private int showVolumeLoc, showRoiLoc, roiColorLoc;
+	private int showVolumeLoc, showRoiLoc;
 	
 	private boolean isVolumeVisible = true;
 	private boolean isRoiVisible = true;
-	private float roiColorR = 1.0f, roiColorG = 0.0f, roiColorB = 0.0f, roiColorA = 0.5f; // デフォルトは半透明の赤
-
+	private static final int MAX_ROIS = 32;
+	private float[] roiColorsArray = new float[MAX_ROIS * 4];
+	
 	public void init() {
 		compileShaders();
 		createCube();
@@ -97,7 +98,6 @@ public class VolumeRenderer {
 		
 		showVolumeLoc = glGetUniformLocation(shaderProgram, "uShowVolume");
 		showRoiLoc = glGetUniformLocation(shaderProgram, "uShowRoi");
-		roiColorLoc = glGetUniformLocation(shaderProgram, "uRoiColor");
 
 		generateLUT(0);
 	}
@@ -264,11 +264,18 @@ public class VolumeRenderer {
 	    this.isRoiVisible = visible;
 	}
 
-	public void setRoiColor(float r, float g, float b, float a) {
-	    this.roiColorR = r;
-	    this.roiColorG = g;
-	    this.roiColorB = b;
-	    this.roiColorA = a;
+	public void setRoiColors(java.util.List<java.awt.Color> colors, float alpha) {
+	    java.util.Arrays.fill(roiColorsArray, 0.0f);
+	    
+	    // [0]は空気用なので空け、[1]から格納する
+	    for (int i = 0; i < colors.size() && i < (MAX_ROIS - 1); i++) {
+	        java.awt.Color c = colors.get(i);
+	        int offset = (i + 1) * 4; 
+	        roiColorsArray[offset + 0] = c.getRed() / 255.0f;
+	        roiColorsArray[offset + 1] = c.getGreen() / 255.0f;
+	        roiColorsArray[offset + 2] = c.getBlue() / 255.0f;
+	        roiColorsArray[offset + 3] = alpha;
+	    }
 	}
 
 	public void loadLut(File lutFile) {
@@ -346,26 +353,38 @@ public class VolumeRenderer {
 		glBindTexture(GL_TEXTURE_1D, lutTextureId);
 		glUniform1i(glGetUniformLocation(shaderProgram, "uLutTex"), 1);
 		
-		// ★ 修正1: ROIテクスチャがまだ生成されていない(-1)場合は、強制的に uShowRoi を false にする
+		// =======================================================
+		// UIから設定された状態（表示/非表示フラグ）をシェーダーへ転送
+		// =======================================================
 		boolean actuallyShowRoi = isRoiVisible && (roiTextureId != -1);
-
-		// UIから設定された状態をシェーダーへ転送
 		glUniform1i(showVolumeLoc, isVolumeVisible ? 1 : 0);
 		glUniform1i(showRoiLoc, actuallyShowRoi ? 1 : 0);
-		glUniform4f(roiColorLoc, roiColorR, roiColorG, roiColorB, roiColorA);
 
-		// ★ 修正2: roiTex が常にTexture Unit 2を参照するように、if文の外で設定する
+		// =======================================================
+		// ★ここが置き換わった部分：カラーパレット配列をGPUに送信
+		// =======================================================
+		int colorsArrayLoc = glGetUniformLocation(shaderProgram, "uRoiColors");
+		try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+		    java.nio.FloatBuffer fb = stack.mallocFloat(MAX_ROIS * 4);
+		    fb.put(roiColorsArray).flip();
+		    glUniform4fv(colorsArrayLoc, fb);
+		}
+
+		// =======================================================
+		// ROIテクスチャのバインド (Texture Unit 2) [残す部分]
+		// =======================================================
 		glUniform1i(glGetUniformLocation(shaderProgram, "roiTex"), 2);
-
-		// ROIテクスチャのバインド (Texture Unit 2)
 		if (roiTextureId != -1) {
 		    glActiveTexture(GL_TEXTURE2);
 		    glBindTexture(GL_TEXTURE_3D, roiTextureId);
 		}
 
+		// =======================================================
+		// 3D投影行列とカメラ位置の送信 [絶対に消してはいけない部分！]
+		// =======================================================
 		try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
-			glUniformMatrix4fv(mvpLoc, false, mvpMatrix.get(stack.mallocFloat(16)));
-			glUniform3f(camLoc, cameraPosLocal.x, cameraPosLocal.y, cameraPosLocal.z);
+		    glUniformMatrix4fv(mvpLoc, false, mvpMatrix.get(stack.mallocFloat(16)));
+		    glUniform3f(camLoc, cameraPosLocal.x, cameraPosLocal.y, cameraPosLocal.z);
 		}
 
 		glEnable(GL_BLEND);
@@ -542,8 +561,11 @@ public class VolumeRenderer {
 	    
 	    roiTextureId = glGenTextures();
 	    glBindTexture(GL_TEXTURE_3D, roiTextureId);
-	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	    
+	    // ★修正: GL_LINEAR から GL_NEAREST に変更！ (ID同士が混ざるのを防ぐ)
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	    
 	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);

@@ -186,10 +186,8 @@ public class VolumeEditor {
 
 					// 2. ボクセルの3D座標を正規化座標 (-0.5 ~ 0.5) に変換
 					float lx = (float) x / width - 0.5f;
-					// ★ 修正: シェーダー側のY反転に合わせて、ここでもY軸を反転させる: DICOM空間用
-					// float ly = (float)y / height - 0.5f; <- 古いコード
-					float ly = 0.5f - (float) y / height; // <- 新しいコード
-					float lz = (float) z / depth - 0.5f;
+					float ly = 0.5f - (float) y / height;
+					float lz = 0.5f - (float) z / depth;
 
 					// 3. MVP行列でスクリーン座標へ投影
 					pos.set(lx, ly, lz, 1.0f);

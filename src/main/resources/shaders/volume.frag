@@ -16,7 +16,7 @@ uniform int uRenderMode;
 
 uniform bool uShowVolume;
 uniform bool uShowRoi;
-uniform vec4 uRoiColor;
+uniform vec4 uRoiColors[32]; // 32個のカラーパレット配列
 
 bool intersectBox(vec3 origin, vec3 dir, out float tNear, out float tFar) {
     vec3 boxMin = vec3(-0.5);
@@ -44,19 +44,18 @@ void main() {
     float stepSize = dist / float(steps);
     vec3 currentPos = rayStart;
 
-    float maxVal = 0.0;                // MIP用
-    float hitRoi = 0.0;                // MIP用のROI交差判定
-    vec4 accumulatedColor = vec4(0.0); // DVR用 (RGB + Alpha)
+    float maxVal = 0.0;
+    float bestRoiId = 0.0; // ★変更: MIPで一番明るかった場所のROIを記憶する
+    vec4 accumulatedColor = vec4(0.0);
 
     for(int i = 0; i < steps; i++) {
         vec3 texCoord = currentPos + 0.5;
-        // 画像(左上原点)とOpenGL(左下原点)のズレを吸収するため、Y座標を反転
         texCoord.y = 1.0 - texCoord.y;
+        texCoord.z = 1.0 - texCoord.z;
 
         float val = 0.0;
         vec4 srcColor = vec4(0.0);
 
-        // 1. ボリュームのサンプリング
         if (uShowVolume) {
             float rawVal = texture(volumeTex, texCoord).r;
             val = (rawVal - uMin) / (uMax - uMin);
@@ -65,22 +64,32 @@ void main() {
             srcColor = texture(uLutTex, val);
         }
 
-        // 2. ROIマスクのサンプリングとブレンド
+        int currentRoiId = 0;
         if (uShowRoi) {
-            float roiVal = texture(roiTex, texCoord).r;
-            if (roiVal > 0.5) {
-                hitRoi = 1.0; 
-                srcColor.rgb = mix(srcColor.rgb, uRoiColor.rgb, uRoiColor.a);
-                srcColor.a = max(srcColor.a, uRoiColor.a);
-            }
+            // 値を 0〜255 の ID に戻す
+            float rawRoiVal = texture(roiTex, texCoord).r;
+            currentRoiId = int(rawRoiVal * 255.0 + 0.5);
         }
 
-        // 3. レンダリングモードに応じた合成
+        // --- レンダリングモードに応じた処理 ---
         if (uRenderMode == 0) {
             // --- MIP (最大値投影) ---
-            if(val > maxVal) maxVal = val;
+            if(val > maxVal) {
+                maxVal = val;
+                // ★変更: 最も明るいボクセルを更新した時だけ、その場所のROI IDを記憶する
+                if (currentRoiId > 0 && currentRoiId < 32) {
+                    bestRoiId = float(currentRoiId);
+                } else {
+                    bestRoiId = 0.0; // ROI外ならリセット
+                }
+            }
         } else {
             // --- DVR ---
+            if (currentRoiId > 0 && currentRoiId < 32) {
+                vec4 rColor = uRoiColors[currentRoiId];
+                srcColor.rgb = mix(srcColor.rgb, rColor.rgb, rColor.a);
+                srcColor.a = max(srcColor.a, rColor.a);
+            }
             if (srcColor.a > 0.0) {
                 accumulatedColor.rgb += (1.0 - accumulatedColor.a) * srcColor.a * srcColor.rgb;
                 accumulatedColor.a   += (1.0 - accumulatedColor.a) * srcColor.a;
@@ -93,8 +102,10 @@ void main() {
 
     if (uRenderMode == 0) {
         vec3 mipOutput = vec3(maxVal);
-        if (uShowRoi && hitRoi > 0.5) {
-            mipOutput = mix(mipOutput, uRoiColor.rgb, uRoiColor.a);
+        if (uShowRoi && bestRoiId > 0.5) {
+            int id = int(bestRoiId + 0.5);
+            vec4 rColor = uRoiColors[id];
+            mipOutput = mix(mipOutput, rColor.rgb, rColor.a);
         }
         FragColor = vec4(mipOutput, 1.0);
     } else {
