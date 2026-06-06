@@ -162,6 +162,16 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 	public int[] getDimensions() {
 		return new int[] { dimX, dimY, dimZ };
 	}
+	
+	private SlideGlass getActiveSlideContext() {
+        if (slide == null) return null;
+        Praparat pp = slide.getPraparat();
+        if (pp != null) {
+            SlideGlass currentSg = pp.getCurrentSlide();
+            if (currentSg != null) return currentSg;
+        }
+        return slide;
+    }
 
 	// ========== バイナリマスク操作 ==========
 
@@ -170,6 +180,7 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 			return false;
 		return (mask[j * rowStride + (i >> 6)] & (1L << (i & 63))) != 0;
 	}
+	
 
 	private void setBit(long[] mask, int i, int j, boolean val) {
 		if (i < 0 || i >= dimX || j < 0 || j >= dimY)
@@ -363,30 +374,6 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 		}
 	}
 
-	// ========== contains ==========
-
-	@Override
-	public boolean contains(int x, int y) {
-		if (slide == null || !isInitialized())
-			return false;
-		Praparat pp = slide.getPraparat();
-		int frameIdx = pp.isMultiFrame() ? slide.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
-		double[] sliceIpp = pp.getSafeIPP(slide.getHeader(), frameIdx);
-		double[] sliceIop = pp.getSafeIOP(slide.getHeader(), frameIdx);
-		if (sliceIpp == null || sliceIop == null)
-			return false;
-		int k = getZIndexForSlice(sliceIpp);
-		if (k < 0)
-			return false;
-		long[] mask = maskStack.get(k);
-		if (mask == null)
-			return false;
-		double spX = slide.getPixelSpacingX() <= 0 ? 1.0 : slide.getPixelSpacingX();
-		double spY = slide.getPixelSpacingY() <= 0 ? 1.0 : slide.getPixelSpacingY();
-		int[] v = imageToVolumeIndex(x, y, sliceIpp, sliceIop, spX, spY, k);
-		return v != null && getBit(mask, v[0], v[1]);
-	}
-
 	public boolean containsPhysicalPoint(double px, double py, double pz) {
 		if (!isInitialized())
 			return false;
@@ -503,87 +490,140 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 	// ========== 描画 ==========
 
 	@Override
-	public void draw(Graphics g) {
-		if (slide == null || g == null || !isInitialized())
-			return;
-		Praparat pp = slide.getPraparat();
-		DicomObject header = slide.getHeader();
-		int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
-		double[] sliceIpp = pp.getSafeIPP(header, frameIdx);
-		double[] sliceIop = pp.getSafeIOP(header, frameIdx);
-		if (sliceIpp == null || sliceIop == null)
-			return;
+    public void draw(Graphics g) {
+        SlideGlass contextSg = getActiveSlideContext();
+        if (contextSg == null || g == null || !isInitialized())
+            return;
+        Praparat pp = contextSg.getPraparat();
+        DicomObject header = contextSg.getHeader();
+        int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        double[] sliceIpp = pp.getSafeIPP(header, frameIdx);
+        double[] sliceIop = pp.getSafeIOP(header, frameIdx);
+        if (sliceIpp == null || sliceIop == null)
+            return;
 
-		int k = getZIndexForSlice(sliceIpp);
-		if (k < 0)
-			return;
-		long[] mask = maskStack.get(k);
-		if (mask == null || isEmptyMask(mask))
-			return;
+        int k = getZIndexForSlice(sliceIpp);
+        if (k < 0)
+            return;
+        long[] mask = maskStack.get(k);
+        if (mask == null || isEmptyMask(mask))
+            return;
 
-		double spX = slide.getPixelSpacingX() <= 0 ? 1.0 : slide.getPixelSpacingX();
-		double spY = slide.getPixelSpacingY() <= 0 ? 1.0 : slide.getPixelSpacingY();
-		double[] tf = calcVolumeToImageTransform(sliceIpp, sliceIop, spX, spY, k);
-		if (tf == null)
-			return;
+        double spX = contextSg.getPixelSpacingX() <= 0 ? 1.0 : contextSg.getPixelSpacingX();
+        double spY = contextSg.getPixelSpacingY() <= 0 ? 1.0 : contextSg.getPixelSpacingY();
+        double[] tf = calcVolumeToImageTransform(sliceIpp, sliceIop, spX, spY, k);
+        if (tf == null)
+            return;
 
-		// 状態別カラー
-		Color drawColor;
-		if (isActiveOverlayRoi() || getState() == MOVING) {
-			drawColor = Color.CYAN;
-		} else if (isSelected()) {
-			drawColor = Color.MAGENTA;
-		} else {
-			drawColor = getStrokeColor() != null ? getStrokeColor() : RoiObj.getColor();
-		}
+        // 状態別カラー
+        Color drawColor;
+        if (isActiveOverlayRoi() || getState() == MOVING) {
+            drawColor = Color.CYAN;
+        } else if (isSelected()) {
+            drawColor = Color.MAGENTA;
+        } else {
+            drawColor = getStrokeColor() != null ? getStrokeColor() : RoiObj.getColor();
+        }
 
-		Graphics2D g2 = (Graphics2D) g;
-		g2.setColor(drawColor);
-		g2.setStroke(new BasicStroke(1.0f));
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setColor(drawColor);
+        g2.setStroke(new BasicStroke(1.0f));
 
-		double a00 = tf[0], a01 = tf[1], tx = tf[2];
-		double a10 = tf[3], a11 = tf[4], ty = tf[5];
+        double a00 = tf[0], a01 = tf[1], tx = tf[2];
+        double a10 = tf[3], a11 = tf[4], ty = tf[5];
 
-		// ビットワード単位でゼロスキップしながらエッジピクセルを描画
-		for (int j = 0; j < dimY; j++) {
-			int rowOff = j * rowStride;
-			for (int iw = 0; iw < rowStride; iw++) {
-				long word = mask[rowOff + iw];
-				if (word == 0)
-					continue; // 64 ピクセルを一括スキップ
-				long ww = word;
-				while (ww != 0) {
-					int bit = Long.numberOfTrailingZeros(ww);
-					int i = (iw << 6) | bit;
-					if (i < dimX) {
-						// 4 近傍チェック — いずれか未設定ならエッジ
-						if (!getBit(mask, i - 1, j) || !getBit(mask, i + 1, j) || !getBit(mask, i, j - 1)
-								|| !getBit(mask, i, j + 1)) {
-							int imgX = (int) Math.round(a00 * i + a01 * j + tx);
-							int imgY = (int) Math.round(a10 * i + a11 * j + ty);
-							g2.drawRect(imgX, imgY, 1, 1);
-						}
-					}
-					ww &= ww - 1; // 最低ビットをクリア
-				}
-			}
-		}
+        // ビットワード単位でゼロスキップしながらエッジピクセルを描画
+        for (int j = 0; j < dimY; j++) {
+            int rowOff = j * rowStride;
+            for (int iw = 0; iw < rowStride; iw++) {
+                long word = mask[rowOff + iw];
+                if (word == 0) continue;
+                long ww = word;
+                while (ww != 0) {
+                    int bit = Long.numberOfTrailingZeros(ww);
+                    int i = (iw << 6) | bit;
+                    if (i < dimX) {
+                        // 4 近傍チェック — いずれか未設定ならエッジ
+                        if (!getBit(mask, i - 1, j) || !getBit(mask, i + 1, j) || !getBit(mask, i, j - 1) || !getBit(mask, i, j + 1)) {
+                            int imgX = (int) Math.round(a00 * i + a01 * j + tx);
+                            int imgY = (int) Math.round(a10 * i + a11 * j + ty);
+                            g2.drawRect(imgX, imgY, 1, 1);
+                        }
+                    }
+                    ww &= ww - 1; 
+                }
+            }
+        }
 
-		// ハンドル (アクティブ / 選択時)
-		if (isActiveOverlayRoi() || isSelected()) {
-			Rectangle b = getBoundsOnSlice(mask, tf);
-			if (b != null && b.width > 0) {
-				drawHandle(g, b.x, b.y);
-				drawHandle(g, b.x + b.width / 2, b.y);
-				drawHandle(g, b.x + b.width, b.y);
-				drawHandle(g, b.x, b.y + b.height / 2);
-				drawHandle(g, b.x + b.width, b.y + b.height / 2);
-				drawHandle(g, b.x, b.y + b.height);
-				drawHandle(g, b.x + b.width / 2, b.y + b.height);
-				drawHandle(g, b.x + b.width, b.y + b.height);
-			}
-		}
-	}
+        // ハンドル描画 (省略)
+        if (isActiveOverlayRoi() || isSelected()) {
+            Rectangle b = getBoundsOnSlice(mask, tf);
+            if (b != null && b.width > 0) {
+                drawHandle(g, b.x, b.y);
+                drawHandle(g, b.x + b.width / 2, b.y);
+                drawHandle(g, b.x + b.width, b.y);
+                drawHandle(g, b.x, b.y + b.height / 2);
+                drawHandle(g, b.x + b.width, b.y + b.height / 2);
+                drawHandle(g, b.x, b.y + b.height);
+                drawHandle(g, b.x + b.width / 2, b.y + b.height);
+                drawHandle(g, b.x + b.width, b.y + b.height);
+            }
+        }
+    }
+
+    // ========== contains ==========
+
+    @Override
+    public boolean contains(int x, int y) {
+        SlideGlass contextSg = getActiveSlideContext();
+        if (contextSg == null || !isInitialized())
+            return false;
+        Praparat pp = contextSg.getPraparat();
+        int frameIdx = pp.isMultiFrame() ? contextSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        double[] sliceIpp = pp.getSafeIPP(contextSg.getHeader(), frameIdx);
+        double[] sliceIop = pp.getSafeIOP(contextSg.getHeader(), frameIdx);
+        if (sliceIpp == null || sliceIop == null)
+            return false;
+        int k = getZIndexForSlice(sliceIpp);
+        if (k < 0)
+            return false;
+        long[] mask = maskStack.get(k);
+        if (mask == null)
+            return false;
+        double spX = contextSg.getPixelSpacingX() <= 0 ? 1.0 : contextSg.getPixelSpacingX();
+        double spY = contextSg.getPixelSpacingY() <= 0 ? 1.0 : contextSg.getPixelSpacingY();
+        int[] v = imageToVolumeIndex(x, y, sliceIpp, sliceIop, spX, spY, k);
+        return v != null && getBit(mask, v[0], v[1]);
+    }
+
+    // ========== getBounds ==========
+
+    @Override
+    public Rectangle getBounds() {
+        SlideGlass contextSg = getActiveSlideContext();
+        if (contextSg == null || !isInitialized())
+            return new Rectangle(x, y, width, height);
+        Praparat pp = contextSg.getPraparat();
+        DicomObject header = contextSg.getHeader();
+        int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        double[] sliceIpp = pp.getSafeIPP(header, frameIdx);
+        double[] sliceIop = pp.getSafeIOP(header, frameIdx);
+        if (sliceIpp == null || sliceIop == null)
+            return new Rectangle(0, 0, 0, 0);
+        int k = getZIndexForSlice(sliceIpp);
+        if (k < 0)
+            return new Rectangle(0, 0, 0, 0);
+        long[] mask = maskStack.get(k);
+        if (mask == null)
+            return new Rectangle(0, 0, 0, 0);
+        double spX = contextSg.getPixelSpacingX() <= 0 ? 1.0 : contextSg.getPixelSpacingX();
+        double spY = contextSg.getPixelSpacingY() <= 0 ? 1.0 : contextSg.getPixelSpacingY();
+        double[] tf = calcVolumeToImageTransform(sliceIpp, sliceIop, spX, spY, k);
+        if (tf == null)
+            return new Rectangle(0, 0, 0, 0);
+        Rectangle r = getBoundsOnSlice(mask, tf);
+        return r != null ? r : new Rectangle(0, 0, 0, 0);
+    }
 
 	public void drawHandle(Graphics g, int x, int y) {
 		int sz = 5;
@@ -591,34 +631,6 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 		g.fillRect(x - sz / 2, y - sz / 2, sz, sz);
 		g.setColor(Color.black);
 		g.drawRect(x - sz / 2, y - sz / 2, sz, sz);
-	}
-
-	// ========== getBounds ==========
-
-	@Override
-	public Rectangle getBounds() {
-		if (slide == null || !isInitialized())
-			return new Rectangle(x, y, width, height);
-		Praparat pp = slide.getPraparat();
-		DicomObject header = slide.getHeader();
-		int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
-		double[] sliceIpp = pp.getSafeIPP(header, frameIdx);
-		double[] sliceIop = pp.getSafeIOP(header, frameIdx);
-		if (sliceIpp == null || sliceIop == null)
-			return new Rectangle(0, 0, 0, 0);
-		int k = getZIndexForSlice(sliceIpp);
-		if (k < 0)
-			return new Rectangle(0, 0, 0, 0);
-		long[] mask = maskStack.get(k);
-		if (mask == null)
-			return new Rectangle(0, 0, 0, 0);
-		double spX = slide.getPixelSpacingX() <= 0 ? 1.0 : slide.getPixelSpacingX();
-		double spY = slide.getPixelSpacingY() <= 0 ? 1.0 : slide.getPixelSpacingY();
-		double[] tf = calcVolumeToImageTransform(sliceIpp, sliceIop, spX, spY, k);
-		if (tf == null)
-			return new Rectangle(0, 0, 0, 0);
-		Rectangle r = getBoundsOnSlice(mask, tf);
-		return r != null ? r : new Rectangle(0, 0, 0, 0);
 	}
 
 	private Rectangle getBoundsOnSlice(long[] mask, double[] tf) {

@@ -520,12 +520,27 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		}
 		
 		if (SwingUtilities.isLeftMouseButton(e)) {
-			// ★ Wandツールが選択されている場合のハンドリングを追加
-            if (viewerToolType == Viewer2DToolBar.Wand) {
-                ghostTimer.stop();
-                slide.executeWand(e.getX(), e.getY());
-                return;
-            }
+			if (viewerToolType == Viewer2DToolBar.Wand) {
+				ghostTimer.stop();
+				
+				// ダイアログインスタンスから現在のモードを安全に検知
+				com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog.getInstance(null, "Wand Tool");
+				
+				if (wandDialog != null && wandDialog.is3DMode()) {
+					
+					try {
+						Point p = slide.offScreenCoordinate(e.getX(), e.getY());
+						int[] zct = slide.getPraparat().getZCTArray(slide);
+						wandDialog.setSeedImageCoords(p.x, p.y, zct[0]);
+						slide.executeWand3D(e.getX(), e.getY(), zct[0]); // ★3D Wand 領域拡張の発火
+					} catch (Exception ex) {
+						Log.logger.warning("Coordinate transform failed.");
+					}
+				} else {
+					slide.executeWand(e.getX(), e.getY());  // 従来の2D Wand
+				}
+				return;
+			}
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
 				ghostTimer.stop();
 				cg.mousePressed(e);

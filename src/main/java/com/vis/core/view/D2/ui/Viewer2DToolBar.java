@@ -408,6 +408,21 @@ public class Viewer2DToolBar extends JToolBar {
 		} else if (comp instanceof JCheckBox) {
 			chk = (JCheckBox) comp;
 		}
+		
+//		btn.addActionListener(new ActionListener() {
+//			@Override
+//			public void actionPerformed(ActionEvent e) {
+//				disposeWandDialogBefore();
+//			}
+//		});
+//		
+//		chk.addActionListener(new ActionListener() {
+//			@Override
+//			public void actionPerformed(ActionEvent e) {
+//				disposeWandDialogBefore();
+//			}
+//		});
+		
 		switch (comp.getName()) {
 		case "reset":
 			Log.logger.fine("reset");
@@ -987,6 +1002,16 @@ public class Viewer2DToolBar extends JToolBar {
 			}
 		}
 		return false;
+	}
+	
+	private void disposeWandDialogBefore() {
+		if(currentTool != Wand) {
+			return;
+		}
+		com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog.getInstance(null, "Wand Tool");
+		if(wandDialog != null) {
+			wandDialog.setVisible(false);
+		}
 	}
 
 	/*

@@ -68,6 +68,7 @@ import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.dialog.WandToolDialog;
 import com.vis.core.util.MathUtils;
+import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.Arrow;
 import com.vis.core.view.D2.roi.ImageRoi;
@@ -506,6 +507,260 @@ public class SlideGlass extends JLayeredPane {
             wandDialog.setTargetRoi(newRoi);
             repaint();
         }
+    }
+    
+    /**
+     * 3D Wand（Region Growing）ツールを実行します。
+     * @param seedX 画像上のX座標 (ピクセル)
+     * @param seedY 画像上のY座標 (ピクセル)
+     * @param seedZ クリックされたスライス番号
+     */
+    public void executeWand3D(int seedX, int seedY, int seedZ) {
+        com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog.getInstance(null, "Wand Tool");
+        if (wandDialog == null) return;
+        if (pp == null || pp.getAllSlides() == null) return;
+
+        // 現在のチャンネル・タイムフレームを取得
+        int[] zct = pp.getZCTArray(this);
+        int currentC = zct[1];
+        int currentT = zct[2];
+
+        int dimX = getOriginalImageSize().width;
+        int dimY = getOriginalImageSize().height;
+        int dimZ = pp.getAllSlides().size();
+
+        String groupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
+        String roiId = RoiObj.createRoiIndex();
+
+        com.vis.core.view.D3.roi.FreeFormRoi3D roi3d = new com.vis.core.view.D3.roi.FreeFormRoi3D(0, 0, dimX, dimY, this);
+        roi3d.setProperty(com.vis.configuration.RoiDBKey.RoiID.name(), roiId);
+        roi3d.setProperty(com.vis.configuration.RoiDBKey.RoiGroup.name(), groupId);
+        roi3d.setName("3D Wand ROI (" + getModality() + ")");
+
+        // 例外や範囲外で処理が中断しても連携が切れないようにセット
+        this.setActiveRoi(roi3d);
+        wandDialog.setTargetRoi(roi3d);
+
+        // バウンズチェック（マイナス座標などによるクラッシュ防止）
+        if (seedX < 0 || seedX >= dimX || seedY < 0 || seedY >= dimY || seedZ < 0 || seedZ >= dimZ) {
+            com.vis.core.log.Log.logger.warning(String.format(
+                "[3D Wand] シード座標(X:%d, Y:%d, Z:%d)が画像範囲外のため探索をスキップします。", seedX, seedY, seedZ
+            ));
+            return;
+        }
+
+        // ==========================================================
+        // ★ 修正: シード値の取得を「今見ているスライス」ではなく
+        // 「クリックされた本来の seedZ のスライス」から取得する！
+        // ==========================================================
+        int seedZct = pp.calcZctIndex(new int[]{seedZ, currentC, currentT});
+        SlideGlass seedSg = pp.getSlideGlassAt(seedZct);
+        if (seedSg == null || seedSg.getOriginalImage() == null) return;
+        float seedValue = seedSg.getOriginalImage().getProcessor().getPixelValue(seedX, seedY);
+
+        if (Float.isNaN(seedValue)) {
+            com.vis.core.log.Log.logger.warning("[3D Wand] シード値がNaNのため探索をスキップします。");
+            return;
+        }
+
+        double tolerance = wandDialog.getTolerance();
+        int connectivityMode = wandDialog.getWandMode();
+
+        float lowerBound = (float) (seedValue - tolerance);
+        float upperBound = (float) (seedValue + tolerance);
+
+        com.vis.core.log.Log.logger.info(String.format(
+            "[3D Wand] START - Seed(X:%d, Y:%d, Z:%d), Value: %.2f, Tolerance: %.2f (Range: %.2f - %.2f), Mode: %d",
+            seedX, seedY, seedZ, seedValue, tolerance, lowerBound, upperBound, connectivityMode
+        ));
+
+        // 物理空間座標系の初期セットアップ（Z=0のスライスから取得）
+        int idx0 = pp.calcZctIndex(new int[] { 0, currentC, currentT });
+        SlideGlass sg0 = pp.getSlideGlassAt(idx0);
+        if (sg0 == null) return;
+        
+        DicomObject refHeader0 = sg0.getHeader();
+        int frameIdx0 = pp.isMultiFrame() ? refHeader0.getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        double[] originIpp = pp.getSafeIPP(refHeader0, frameIdx0);
+        double[] iop = pp.getSafeIOP(refHeader0, frameIdx0);
+        
+        double spX = sg0.getPixelSpacingX() <= 0 ? 1.0 : sg0.getPixelSpacingX();
+        double spY = sg0.getPixelSpacingY() <= 0 ? 1.0 : sg0.getPixelSpacingY();
+        double spZ = refHeader0.getDouble(Tag.SpacingBetweenSlices, refHeader0.getDouble(Tag.SliceThickness, 1.0));
+        if (spZ <= 0) spZ = 1.0;
+
+        roi3d.initVolume(originIpp, iop, new double[] { spX, spY, spZ }, new int[] { dimX, dimY, dimZ });
+        
+        // 4. 幅優先探索（BFS）による3D Region Growingアルゴリズムの実行
+        int rowStride = (dimX + 63) >> 6;
+        java.util.Map<Integer, long[]> temporaryMasks = new java.util.HashMap<>();
+        java.util.BitSet visited = new java.util.BitSet(dimX * dimY * dimZ);
+
+        java.util.Queue<int[]> queue = new java.util.LinkedList<>();
+        queue.add(new int[] { seedX, seedY, seedZ });
+        visited.set(seedZ * (dimX * dimY) + seedY * dimX + seedX);
+
+        // 接続モードに応じた近傍オフセット配列の取得
+        java.util.List<int[]> offsets = get3DConnectivityOffsets(connectivityMode);
+
+        ImageProcessor[] sliceProcessors = new ImageProcessor[dimZ];
+        int[] zIndexMap = new int[dimZ]; 
+
+        for (int z = 0; z < dimZ; z++) {
+            int idx = pp.calcZctIndex(new int[] { z, currentC, currentT });
+            SlideGlass sg = pp.getSlideGlassAt(idx);
+            if (sg != null && sg.getOriginalImage() != null) {
+                sliceProcessors[z] = sg.getOriginalImage().getProcessor();
+                double[] ippZ = pp.getSafeIPP(sg.getHeader(), frameIdx0);
+                zIndexMap[z] = roi3d.getZIndexForSlice(ippZ); 
+            } else {
+                zIndexMap[z] = -1;
+            }
+        }
+
+        // BFS ループ処理
+        while (!queue.isEmpty()) {
+            int[] curr = queue.poll();
+            int cx = curr[0];
+            int cy = curr[1];
+            int cz = curr[2];
+
+            int kz = zIndexMap[cz];
+            if (kz < 0) continue; 
+
+            // 探索成功ボクセルのビットマップを生成
+            long[] mask = temporaryMasks.computeIfAbsent(kz, k -> new long[rowStride * dimY]);
+            int bitIdx = cy * rowStride + (cx >> 6);
+            mask[bitIdx] |= (1L << (cx & 63));
+
+            // 近傍周囲の探索
+            for (int[] offset : offsets) {
+                int nx = cx + offset[0];
+                int ny = cy + offset[1];
+                int nz = cz + offset[2];
+
+                // 3Dボリューム境界チェック
+                if (nx < 0 || nx >= dimX || ny < 0 || ny >= dimY || nz < 0 || nz >= dimZ) continue;
+
+                // 訪問済みチェック
+                int vIdx = nz * (dimX * dimY) + ny * dimX + nx;
+                if (visited.get(vIdx)) continue;
+
+                // 輝度許容値（Tolerance）チェック
+                ImageProcessor ipZ = sliceProcessors[nz];
+                if (ipZ == null) continue;
+                float pixelVal = ipZ.getPixelValue(nx, ny);
+
+                if (pixelVal >= lowerBound && pixelVal <= upperBound) {
+                    visited.set(vIdx);
+                    queue.add(new int[] { nx, ny, nz });
+                }
+            }
+        }
+
+        int totalVoxels = 0;
+        for (long[] m : temporaryMasks.values()) {
+            for (long l : m) totalVoxels += Long.bitCount(l);
+        }
+        com.vis.core.log.Log.logger.info(String.format(
+            "[3D Wand] BFS DONE - 見つかったボクセル数: %d voxels, 跨いだスライス数: %d slices.",
+            totalVoxels, temporaryMasks.size()
+        ));
+
+        // 5. 探索結果のビットマップ配列をBase64化し、プロパティ経由で真の3D ROIオブジェクトに一括注入
+        for (java.util.Map.Entry<Integer, long[]> entry : temporaryMasks.entrySet()) {
+            long[] mask = entry.getValue();
+            java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocate(mask.length * 8);
+            for (long l : mask) {
+                bb.putLong(l);
+            }
+            String base64 = java.util.Base64.getEncoder().encodeToString(bb.array());
+            roi3d.setProperty("FreeForm3D_Mask_" + entry.getKey(), base64);
+        }
+        
+        // 3Dの基準インデックス情報も同期
+        roi3d.setProperty("Dim_C", String.valueOf(currentC));
+        roi3d.setProperty("Dim_Z", String.valueOf(seedZ));
+        roi3d.setProperty("Dim_T", String.valueOf(currentT));
+        roi3d.setProperty(com.vis.configuration.RoiDBKey.Position.name(), String.valueOf(pp.getCurrentSlideZCTIndex() + 1));
+
+        roi3d.initFromProperties(); // デコード展開
+
+        // 6. 構築完了した 3D ROI を Praparat および データベースへ永続化登録
+        pp.addRoi3D(roi3d);
+        
+        // ==========================================================
+        // ★ 修正 3: 必ずCanvasGlassの描画リストにも追加する
+        // ==========================================================
+        this.addRoi(roi3d);
+
+        com.vis.core.log.Log.logger.info("[3D Wand] ROIを Praparat および CanvasGlass に登録しました。");
+
+        com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+        if (db != null) {
+            db.insertRoi(roi3d.readContext());
+        }
+
+        // リアルタイムに全スライスのキャンバスへエッジ（輪郭）を描画反映させる
+        for (SlideGlass sg : pp.getAllSlides().values()) {
+            if (sg != null) {
+                sg.repaintCanvasGlass();
+            }
+        }
+
+        // 分析アシスタントマネージャーのUIリストを最新化
+        if (com.vis.core.view.D2.roi.RoiObjManager.getInstance() != null) {
+            com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
+        }
+    }
+
+    /** 3D Wand用の接続性格子オフセット定義ヘルパー */
+    private java.util.List<int[]> get3DConnectivityOffsets(int mode) {
+        java.util.List<int[]> offsets = new java.util.ArrayList<>();
+        
+        // 面を共有する隣接点（6点）：上下・前後・左右
+        offsets.add(new int[]{1, 0, 0});
+        offsets.add(new int[]{-1, 0, 0});
+        offsets.add(new int[]{0, 1, 0});
+        offsets.add(new int[]{0, -1, 0});
+        offsets.add(new int[]{0, 0, 1});
+        offsets.add(new int[]{0, 0, -1});
+
+        if (mode == com.vis.core.ui.dialog.WandToolDialog.THREE_D_6) return offsets;
+
+        // 辺を共有する隣接点（12点）：X, Y, Z軸の周囲
+        int[][] edgeOffsets = {
+            {1, 1, 0}, {1, -1, 0}, {-1, 1, 0}, {-1, -1, 0},
+            {1, 0, 1}, {1, 0, -1}, {-1, 0, 1}, {-1, 0, -1},
+            {0, 1, 1}, {0, 1, -1}, {0, -1, 1}, {0, -1, -1}
+        };
+
+        // 頂点を共有する隣接点（8点）：立方体のコーナー部分
+        int[][] cornerOffsets = {
+            {1, 1, 1}, {1, 1, -1}, {1, -1, 1}, {1, -1, -1},
+            {-1, 1, 1}, {-1, 1, -1}, {-1, -1, 1}, {-1, -1, -1}
+        };
+
+        if (mode == com.vis.core.ui.dialog.WandToolDialog.THREE_D_12) {
+            for (int[] o : edgeOffsets) offsets.add(o);
+            return offsets;
+        }
+        
+        if (mode == com.vis.core.ui.dialog.WandToolDialog.THREE_D_8) {
+            // 仕様「頂点を共有する隣接点（8点）のみ」を厳密に抽出
+            java.util.List<int[]> cornersOnly = new java.util.ArrayList<>();
+            for (int[] o : cornerOffsets) cornersOnly.add(o);
+            return cornersOnly;
+        }
+
+        if (mode == com.vis.core.ui.dialog.WandToolDialog.THREE_D_26) {
+            // 全方位：26点 (6 + 12 + 8)
+            for (int[] o : edgeOffsets) offsets.add(o);
+            for (int[] o : cornerOffsets) offsets.add(o);
+            return offsets;
+        }
+
+        return offsets;
     }
 
 	/**

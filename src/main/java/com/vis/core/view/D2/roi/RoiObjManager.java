@@ -886,19 +886,35 @@ public class RoiObjManager extends JFrame
 				boolean isIn3DList = roiPrap != null && roiPrap.getRoi3DList().contains(r);
 
 				if (isIn3DList) {
-					// 3D リスト管理 ROI (SphereRoi3D / FreeFormRoi3D) — リストと DB から直接削除
-					if (roiSlide != null)
-						roiSlide.saveUndoState();
+					// 1. Praparatの3D管理リストから除外
 					roiPrap.removeRoi3D(r);
-					HashMap<RoiDBKey, String> uids = r.getUIDs();
-					DatabaseHandler db = DatabaseHandler.getInstance();
-					if (db != null) {
-						db.deleteRoi(uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
-								uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID),
-								uids.get(RoiDBKey.RoiID));
+					
+					// ==========================================================
+					// ★ 修正: キャンバス（SlideGlass）の実体からも完全に削除する
+					// これにより、SlideGlass内のundo保存やDB削除も自動で安全に行われます
+					// ==========================================================
+					if (roiSlide != null) {
+						roiSlide.deleteRoi(r); 
+					} else {
+						// スライドが見つからない場合のフォールバック（手動DB削除）
+						HashMap<RoiDBKey, String> uids = r.getUIDs();
+						DatabaseHandler db = DatabaseHandler.getInstance();
+						if (db != null) {
+							db.deleteRoi(uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
+									uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID),
+									uids.get(RoiDBKey.RoiID));
+						}
+						r.notifyListeners(RoiObjListener.DELETED);
 					}
-					r.notifyListeners(RoiObjListener.DELETED);
+					
+					// 3D ROIが消えたので、全スライスを一斉再描画して他断面の残像を消す
+					if (roiPrap != null) {
+					    for (SlideGlass sg : roiPrap.getAllSlides().values()) {
+					        if (sg != null) sg.repaintCanvasGlass();
+					    }
+					}
 				} else {
+					// 従来の 2D ROI 削除処理
 					SlideGlass slide = r.getSlideGlass();
 					if (slide != null) {
 						/*
