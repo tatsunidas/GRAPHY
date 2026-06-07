@@ -782,4 +782,205 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 			}
 		}
 	}
+
+	// ==========================================================
+	// ★ ブーリアン演算 (3D Voxel Boolean Operations)
+	// ==========================================================
+
+	/** 空間情報（次元や原点）が完全に一致しているか検証します */
+	private boolean isSameVolumeSpace(FreeFormRoi3D other) {
+		if (this.dimX != other.dimX || this.dimY != other.dimY || this.dimZ != other.dimZ)
+			return false;
+		if (this.rowStride != other.rowStride)
+			return false;
+		// 厳密には origin や spacing の float 誤差チェックも必要ですが、
+		// 同じ Praparat から生成された前提であれば次元チェックで十分機能します。
+		return true;
+	}
+
+	/** OR (Combine): 両方のボクセルを合成します */
+	public void or(FreeFormRoi3D other) {
+		if (!isSameVolumeSpace(other))
+			return;
+		for (Map.Entry<Integer, long[]> entry : other.maskStack.entrySet()) {
+			int z = entry.getKey();
+			long[] srcMask = entry.getValue();
+			long[] dstMask = this.maskStack.computeIfAbsent(z, k -> newEmptyMask());
+			orMasks(dstMask, srcMask);
+		}
+	}
+
+	/** AND: 両方に共通するボクセルだけを残します */
+	public void and(FreeFormRoi3D other) {
+		if (!isSameVolumeSpace(other))
+			return;
+		// 共通していないZスライスは結果が空になるため削除
+		this.maskStack.keySet().retainAll(other.maskStack.keySet());
+
+		for (Map.Entry<Integer, long[]> entry : this.maskStack.entrySet()) {
+			int z = entry.getKey();
+			long[] dstMask = entry.getValue();
+			long[] srcMask = other.maskStack.get(z);
+
+			if (srcMask == null) {
+				this.maskStack.remove(z);
+			} else {
+				// AND演算: a & b
+				int n = Math.min(dstMask.length, srcMask.length);
+				for (int i = 0; i < n; i++)
+					dstMask[i] &= srcMask[i];
+				if (isEmptyMask(dstMask))
+					this.maskStack.remove(z);
+			}
+		}
+	}
+
+	/** XOR: 重なっている部分をくり抜き、重なっていない部分を残します */
+	public void xor(FreeFormRoi3D other) {
+		if (!isSameVolumeSpace(other))
+			return;
+		for (Map.Entry<Integer, long[]> entry : other.maskStack.entrySet()) {
+			int z = entry.getKey();
+			long[] srcMask = entry.getValue();
+			long[] dstMask = this.maskStack.computeIfAbsent(z, k -> newEmptyMask());
+
+			// XOR演算: a ^ b
+			int n = Math.min(dstMask.length, srcMask.length);
+			for (int i = 0; i < n; i++)
+				dstMask[i] ^= srcMask[i];
+			if (isEmptyMask(dstMask))
+				this.maskStack.remove(z);
+		}
+	}
+	
+	/**
+	 * SphereRoi3D をボクセル化し、FreeFormRoi3D に変換します。
+	 */
+	public static FreeFormRoi3D createFromSphere(Praparat pp, com.vis.core.view.D3.roi.SphereRoi3D sphere, String groupId) {
+		if (pp == null || sphere == null || pp.getAllSlides().isEmpty()) return null;
+
+		SlideGlass firstSg = pp.getAllSlides().get(0);
+		com.vis.dicom.DicomObject header = firstSg.getHeader();
+		int frameIdx = pp.isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
+		double[] originIpp = pp.getSafeIPP(header, frameIdx);
+		double[] iop = pp.getSafeIOP(header, frameIdx);
+
+		double spX = firstSg.getPixelSpacingX() <= 0 ? 1.0 : firstSg.getPixelSpacingX();
+		double spY = firstSg.getPixelSpacingY() <= 0 ? 1.0 : firstSg.getPixelSpacingY();
+		double spZ = header.getDouble(com.vis.dicom.Tag.SpacingBetweenSlices, header.getDouble(com.vis.dicom.Tag.SliceThickness, 1.0));
+		if (spZ <= 0) spZ = 1.0;
+
+		int dimX = firstSg.getOriginalImageSize().width;
+		int dimY = firstSg.getOriginalImageSize().height;
+		int dimZ = pp.getAllSlides().size();
+
+		FreeFormRoi3D roi3d = new FreeFormRoi3D(0, 0, dimX, dimY, firstSg);
+		roi3d.setProperty(com.vis.configuration.RoiDBKey.RoiGroup.name(), groupId);
+		roi3d.initVolume(originIpp, iop, new double[]{spX, spY, spZ}, new int[]{dimX, dimY, dimZ});
+
+		// 球のパラメータ
+		double cx = sphere.getCenterX(), cy = sphere.getCenterY(), cz = sphere.getCenterZ();
+		double r2 = sphere.getRadiusMm() * sphere.getRadiusMm();
+
+		// 法線ベクトル
+		double[] n = roi3d.getNormalUnit();
+		if (n == null) return null;
+
+		// 全ボクセルをスキャンして球の内部にあるか判定して焼き付ける
+		for (int k = 0; k < dimZ; k++) {
+			double oz = originIpp[2] + n[2] * k * spZ;
+			double oy = originIpp[1] + n[1] * k * spZ;
+			double ox = originIpp[0] + n[0] * k * spZ;
+
+			boolean sliceHasData = false;
+			long[] mask = roi3d.newEmptyMask();
+
+			for (int j = 0; j < dimY; j++) {
+				for (int i = 0; i < dimX; i++) {
+					// ボクセルの物理座標 (mm)
+					double px = ox + iop[0] * (i * spX) + iop[3] * (j * spY);
+					double py = oy + iop[1] * (i * spX) + iop[4] * (j * spY);
+					double pz = oz + iop[2] * (i * spX) + iop[5] * (j * spY);
+
+					double dx = px - cx, dy = py - cy, dz = pz - cz;
+					if ((dx*dx + dy*dy + dz*dz) <= r2) {
+						roi3d.setBit(mask, i, j, true);
+						sliceHasData = true;
+					}
+				}
+			}
+			if (sliceHasData) roi3d.maskStack.put(k, mask);
+		}
+		return roi3d;
+	}
+	
+	// ==========================================================
+	// ★ Split: 3D連結成分ラベリング (Connected Component Labeling)
+	// ==========================================================
+
+	public java.util.List<FreeFormRoi3D> splitIntoConnectedComponents() {
+		java.util.List<FreeFormRoi3D> components = new java.util.ArrayList<>();
+		if (!isInitialized() || maskStack.isEmpty())
+			return components;
+
+		// 1. 作業用にマスクの完全なコピーを作成（探索済みのボクセルを削っていくため）
+		Map<Integer, long[]> workStack = new java.util.HashMap<>();
+		for (Map.Entry<Integer, long[]> e : this.maskStack.entrySet()) {
+			workStack.put(e.getKey(), e.getValue().clone());
+		}
+
+		SlideGlass sg = this.getSlideGlass();
+		if (sg == null)
+			return components; // フォールバック
+
+		// 2. 全ボクセルをスキャンしてシード（起点）を探す
+		for (int z = 0; z < dimZ; z++) {
+			long[] maskZ = workStack.get(z);
+			if (maskZ == null)
+				continue;
+
+			for (int j = 0; j < dimY; j++) {
+				for (int i = 0; i < dimX; i++) {
+					if (getBit(maskZ, i, j)) {
+						// 3. シードを発見！新しい塊(FreeFormRoi3D)を作成して探索開始
+						FreeFormRoi3D component = (FreeFormRoi3D) this.clone();
+						component.maskStack.clear(); // 中身を空にする
+						component.setProperty(com.vis.configuration.RoiDBKey.RoiID.name(), RoiObj.createRoiIndex());
+
+						// 幅優先探索 (BFS) で繋がっているボクセルを全て回収
+						java.util.Queue<int[]> queue = new java.util.LinkedList<>();
+						queue.add(new int[] { i, j, z });
+						setBit(maskZ, i, j, false); // 作業用マスクから消去
+
+						while (!queue.isEmpty()) {
+							int[] p = queue.poll();
+							int cx = p[0], cy = p[1], cz = p[2];
+
+							// 塊の方にボクセルを登録
+							long[] compMask = component.maskStack.computeIfAbsent(cz, k -> newEmptyMask());
+							setBit(compMask, cx, cy, true);
+
+							// 6近傍 (上下左右前後) を探索
+							int[][] neighbors = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 },
+									{ 0, 0, -1 } };
+
+							for (int[] dir : neighbors) {
+								int nx = cx + dir[0], ny = cy + dir[1], nz = cz + dir[2];
+								if (nx >= 0 && nx < dimX && ny >= 0 && ny < dimY && nz >= 0 && nz < dimZ) {
+									long[] nMask = workStack.get(nz);
+									if (nMask != null && getBit(nMask, nx, ny)) {
+										setBit(nMask, nx, ny, false); // 消去してキューへ
+										queue.add(new int[] { nx, ny, nz });
+									}
+								}
+							}
+						}
+						// 塊の回収完了
+						components.add(component);
+					}
+				}
+			}
+		}
+		return components;
+	}
 }

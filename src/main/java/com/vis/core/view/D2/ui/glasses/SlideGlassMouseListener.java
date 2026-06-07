@@ -413,7 +413,12 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		viewerToolType = pp.getViewer2DToolType();
 		
 		if (viewerToolType == Viewer2DToolBar.Brush) {
-			return; // ブラシツール中はクリックイベント（選択等）を無視
+			// ==========================================================
+			// ★ 修正: ブラシツール中でも、Shiftキーが押されている場合は選択処理を許可する
+			// ==========================================================
+			if (!e.isShiftDown()) {
+				return; // Shiftなしの純粋なクリックはブラシ描画とみなして無視
+			}
 		}
 		
 		if (SwingUtilities.isLeftMouseButton(e) && e.isShiftDown() && !e.isConsumed()) {
@@ -520,27 +525,46 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		}
 		
 		if (SwingUtilities.isLeftMouseButton(e)) {
-			if (viewerToolType == Viewer2DToolBar.Wand) {
+
+			if (viewerToolType == Viewer2DToolBar.Wand && !e.isShiftDown()) {
 				ghostTimer.stop();
-				
+
 				// ダイアログインスタンスから現在のモードを安全に検知
-				com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog.getInstance(null, "Wand Tool");
-				
-				if (wandDialog != null && wandDialog.is3DMode()) {
-					
+				com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog
+						.getInstance(null, "Wand Tool");
+				if (wandDialog != null) {
+					// クリックした瞬間に画像上の絶対座標(X,Y,Z)を計算してダイアログに記憶させる
 					try {
 						Point p = slide.offScreenCoordinate(e.getX(), e.getY());
 						int[] zct = slide.getPraparat().getZCTArray(slide);
 						wandDialog.setSeedImageCoords(p.x, p.y, zct[0]);
-						slide.executeWand3D(e.getX(), e.getY(), zct[0]); // ★3D Wand 領域拡張の発火
 					} catch (Exception ex) {
 						Log.logger.warning("Coordinate transform failed.");
 					}
-				} else {
-					slide.executeWand(e.getX(), e.getY());  // 従来の2D Wand
+
+					if (wandDialog.is3DMode()) {
+						// 記憶した絶対座標で3D Wandを発火
+						slide.executeWand3D(wandDialog.getSeedImageX(), wandDialog.getSeedImageY(),
+								wandDialog.getSeedImageZ());
+					} else {
+						// 2D Wandは従来通り画面座標で発火
+						slide.executeWand(e.getX(), e.getY());
+					}
 				}
 				return;
 			}
+			// ==========================================================
+			// ★ 追加: ブラシツール使用時、Shiftキーが押されていてマウス直下にROIがある場合は
+			// ブラシ描画(ADDモード)の発火をキャンセルし、選択状態の切り替え(mouseClicked)を優先する
+			// ==========================================================
+			if (viewerToolType == Viewer2DToolBar.Brush && e.isShiftDown()) {
+				RoiObj hitRoi = slide.getRoiLocationAt(e.getX(), e.getY());
+				if (hitRoi != null) {
+					ghostTimer.stop();
+					return; // ブラシの生成をスキップして mouseClicked へ譲る
+				}
+			}
+
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
 				ghostTimer.stop();
 				cg.mousePressed(e);
@@ -558,6 +582,9 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		viewerToolType = pp.getViewer2DToolType();
 		
 		//right click
+		/*
+		 * Show Roi Information
+		 */
 		if (e.isPopupTrigger()) {
 			showPopupMenu(e);
 			return;

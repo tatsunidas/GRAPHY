@@ -1,3 +1,6 @@
+/**
+ * copyright visionary imaging services, inc.
+ */
 package com.vis.core.view.D2.roi;
 
 import java.awt.BorderLayout;
@@ -20,7 +23,6 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.RoiDBKey;
-import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D3.roi.SphereRoi3D;
@@ -33,6 +35,7 @@ import ij.process.ImageStatistics;
 /**
  * ROI の情報を表示する半透明ポップアップダイアログ。
  * SphereRoi3D については 3D中心IPP・半径・体積を表示し、半径の編集に対応する。
+ * FreeFormRoi3D についてはボクセルカウントによる実体積を表示する。
  * 2D ROI については面積・長さ・角度などの計測値を表示する。
  *
  * @author tatsunidas
@@ -109,23 +112,39 @@ public class RoiPopUpDialog extends JDialog {
 	// ------------------------------------------------------------------
 
 	private void buildContent(JPanel panel) {
-		String shape3D = targetRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
-		boolean isSphere3D = SphereRoi3D.Shape_3D_Type.equals(shape3D)
-				&& (targetRoi instanceof SphereRoi3D);
+		boolean isSphere3D = (targetRoi instanceof SphereRoi3D);
+		boolean isFreeForm3D = (targetRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D);
+		String groupId = targetRoi.getProperty(RoiDBKey.RoiGroup.name());
 
 		if (isSphere3D) {
-			// SphereRoi3D: 2D矩形ではなく3D中心IPPを表示
+			// SphereRoi3D
 			SphereRoi3D s = (SphereRoi3D) targetRoi;
 			addInfoRow(panel, "Center IPP:",
 					String.format("(%.2f, %.2f, %.2f)", s.getCenterX(), s.getCenterY(), s.getCenterZ()));
 			buildSphere3DContent(panel, s);
-		} else if (shape3D != null && !shape3D.isEmpty()) {
-			// FreeFormRoi3D などグループベースの3D ROI
+			
+		} else if (isFreeForm3D) {
+			// ==========================================================
+			// ★ 新アーキテクチャ: FreeFormRoi3D
+			// ==========================================================
+			com.vis.core.view.D3.roi.FreeFormRoi3D ff = (com.vis.core.view.D3.roi.FreeFormRoi3D) targetRoi;
+			double[] origin = ff.getOriginIpp();
+			if (origin != null && origin.length >= 3) {
+				addInfoRow(panel, "Origin IPP:", 
+						String.format("(%.2f, %.2f, %.2f)", origin[0], origin[1], origin[2]));
+			}
+			buildFreeForm3DContent(panel, ff);
+			
+		} else if (groupId != null && !groupId.isEmpty()) {
+			// ==========================================================
+			// レガシーな 2D グループ ROI
+			// ==========================================================
 			addInfoRow(panel, "Position (x,y):",
 					String.format("%.1f, %.1f", targetRoi.getXBase(), targetRoi.getYBase()));
-			buildGroup3DContent(panel, shape3D);
+			buildGroup3DContent(panel, groupId);
+			
 		} else {
-			// 通常の2D ROI
+			// 通常の 2D ROI
 			addInfoRow(panel, "Position (x,y):",
 					String.format("%.1f, %.1f", targetRoi.getXBase(), targetRoi.getYBase()));
 			build2DContent(panel);
@@ -148,10 +167,6 @@ public class RoiPopUpDialog extends JDialog {
 		addSphereControlUI(panel, radius);
 	}
 
-	/**
-	 * SphereRoi3D の半径を直接変更する UI。
-	 * Praparat の 3D リストから targetRoi を参照して setRadiusMm を呼ぶ。
-	 */
 	private void addSphereControlUI(JPanel panel, double currentRadius) {
 		JPanel ctrlPanel = new JPanel(new BorderLayout(5, 0));
 		ctrlPanel.setOpaque(false);
@@ -192,14 +207,46 @@ public class RoiPopUpDialog extends JDialog {
 	}
 
 	// ------------------------------------------------------------------
-	// グループベース 3D ROI (FreeFormRoi3D など)
+	// ★ 新規追加: FreeFormRoi3D 専用コンテンツ (ボクセルカウント)
+	// ------------------------------------------------------------------
+	
+	private void buildFreeForm3DContent(JPanel panel, com.vis.core.view.D3.roi.FreeFormRoi3D ff) {
+		String groupId = ff.getProperty(RoiDBKey.RoiGroup.name());
+		addInfoRow(panel, "Mode:", "3D FreeForm (Group: " + (groupId != null ? groupId : "N/A") + ")");
+
+		// 1ボクセルあたりの体積 (mm³)
+		double[] sp = ff.getSpacing();
+		double voxelVolume = sp[0] * sp[1] * sp[2];
+		
+		int[] dims = ff.getDimensions();
+		long voxelCount = 0;
+		
+		// Zスライスごとに有効ボクセルをカウント
+		for (int k = 0; k < dims[2]; k++) {
+			ij.process.ByteProcessor bp = ff.getMaskAsBytes(k);
+			if (bp != null) {
+				byte[] pixels = (byte[]) bp.getPixels();
+				for (byte b : pixels) {
+					if (b != 0) voxelCount++;
+				}
+			}
+		}
+		
+		double totalVolume = voxelCount * voxelVolume;
+
+		addInfoRow(panel, "Volume:", String.format("%.2f mm³", totalVolume));
+		addInfoRow(panel, "Voxel Count:", String.valueOf(voxelCount));
+		addInfoRow(panel, "Volume Dim:", String.format("%d x %d x %d", dims[0], dims[1], dims[2]));
+		addInfoRow(panel, "Spacing:", String.format("%.2f x %.2f x %.2f", sp[0], sp[1], sp[2]));
+	}
+
+	// ------------------------------------------------------------------
+	// レガシーな グループベース 3D ROI
 	// ------------------------------------------------------------------
 
-	private void buildGroup3DContent(JPanel panel, String shape3D) {
-		String groupId = targetRoi.getProperty(RoiDBKey.RoiGroup.name());
-		addInfoRow(panel, "Mode:", "3D Volume (Group: " + groupId + ")");
+	private void buildGroup3DContent(JPanel panel, String groupId) {
+		addInfoRow(panel, "Mode:", "Legacy 2D Bundle (Group: " + groupId + ")");
 
-		// グループに属するROIをスライドのroisetから収集
 		List<RoiObj> groupRois = new ArrayList<>();
 		if (groupId != null && pp != null && pp.getAllSlides() != null) {
 			for (SlideGlass s : pp.getAllSlides().values()) {

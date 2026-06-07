@@ -39,8 +39,14 @@ package com.vis.core.view.D3.ui;
 
 import org.lwjgl.opengl.awt.GLData;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.File;
 
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -51,7 +57,9 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
@@ -148,18 +156,36 @@ public class Viewer3DMain extends JFrame {
 		setJMenuBar(menuBar);
 
 		// 4. ボタンパネルの作成（右側）
-		JPanel controlPanel = new JPanel();
-		controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
-		controlPanel.add(new JLabel("Control Panel"));
-		
+		JPanel controlPanel = new JPanel(new GridBagLayout());
+		controlPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // パネル全体の余白
+		controlPanel.setPreferredSize(new Dimension(320, 800)); // 扱いやすい幅を確保
+
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.gridx = 0;
+		gbc.gridy = 0;
+		gbc.gridwidth = GridBagConstraints.REMAINDER; // 横幅いっぱいに配置
+		gbc.fill = GridBagConstraints.HORIZONTAL; // 横方向に引き伸ばす
+		gbc.insets = new Insets(4, 4, 4, 4); // コンポーネント間の標準的な余白
+		gbc.weightx = 1.0;
+		gbc.weighty = 0.0;
+
+		// タイトルラベル
+		JLabel titleLabel = new JLabel("Control Panel", SwingConstants.CENTER);
+		titleLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+		controlPanel.add(titleLabel, gbc);
+		gbc.gridy++;
+
+		// カメラリセットボタン
 		JButton resetCamera = new JButton("Reset Camera");
 		resetCamera.addActionListener(e -> {
 			new Thread(() -> {
 				canvas.resetCamera();
 			}).start();
 		});
-		controlPanel.add(resetCamera);
+		controlPanel.add(resetCamera, gbc);
+		gbc.gridy++;
 
+		// チェックボックス：MIP
 		JCheckBox showMipChk = new JCheckBox("Show MIP");
 		showMipChk.setSelected(true);
 		showMipChk.addActionListener(e -> {
@@ -168,66 +194,125 @@ public class Viewer3DMain extends JFrame {
 				canvas.setMIPMode(isMip);
 			}).start();
 		});
+		controlPanel.add(showMipChk, gbc);
+		gbc.gridy++;
 
-		controlPanel.add(showMipChk);
-
+		// チェックボックス：Ortho Mode
 		JCheckBox chkOrtho = new JCheckBox("Ortho Slices Mode");
 		chkOrtho.addActionListener(e -> canvas.setOrthoMode(chkOrtho.isSelected()));
-		controlPanel.add(chkOrtho);
+		controlPanel.add(chkOrtho, gbc);
+		gbc.gridy++;
+
+		// 区切り線 1
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
 
 		// X Slider
 		JSlider sliderX = new JSlider(0, 100, 50);
-		controlPanel.add(new JLabel("Sagittal (X)"));
-		controlPanel.add(sliderX);
+		controlPanel.add(new JLabel("Sagittal (X)"), gbc);
+		gbc.gridy++;
+		controlPanel.add(sliderX, gbc);
+		gbc.gridy++;
 
 		// Y Slider
 		JSlider sliderY = new JSlider(0, 100, 50);
-		controlPanel.add(new JLabel("Coronal (Y)"));
-		controlPanel.add(sliderY);
+		controlPanel.add(new JLabel("Coronal (Y)"), gbc);
+		gbc.gridy++;
+		controlPanel.add(sliderY, gbc);
+		gbc.gridy++;
 
 		// Z Slider
 		JSlider sliderZ = new JSlider(0, 100, 50);
-		controlPanel.add(new JLabel("Axial (Z)"));
-		controlPanel.add(sliderZ);
-		
+		controlPanel.add(new JLabel("Axial (Z)"), gbc);
+		gbc.gridy++;
+		controlPanel.add(sliderZ, gbc);
+		gbc.gridy++;
+
+		// 区切り線 2
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
+
+		// チェックボックス：Show Volume
 		JCheckBox chkShowVol = new JCheckBox("Show Volume", true);
 		chkShowVol.addActionListener(e -> canvas.setShowVolume(chkShowVol.isSelected()));
-		controlPanel.add(chkShowVol);
+		controlPanel.add(chkShowVol, gbc);
+		gbc.gridy++;
 
+		// チェックボックス：Show ROI
 		JCheckBox chkShowRoi = new JCheckBox("Show ROI", true);
 		chkShowRoi.addActionListener(e -> canvas.setShowRoi(chkShowRoi.isSelected()));
-		controlPanel.add(chkShowRoi);
-		
-		// ROI Opacity (不透明度) スライダー
-		JSlider sliderRoiAlpha = new JSlider(0, 100, 50); // 0〜100% (初期値50%)
-		sliderRoiAlpha.setToolTipText("Adjust ROI Opacity");
-		controlPanel.add(new JLabel("ROI Opacity"));
-		controlPanel.add(sliderRoiAlpha);
+		controlPanel.add(chkShowRoi, gbc);
+		gbc.gridy++;
 
-		// スライダーを動かした時のイベント
+		// 区切り線 3
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
+
+		// Ortho ROI Display Mode
+		controlPanel.add(new JLabel("Ortho ROI Display Mode"), gbc);
+		gbc.gridy++;
+
+		String[] orthoModes = { "No ROI", "Slice Overlay (2D)", "Float Overlay (3D)", "Embedded (3D)" };
+		javax.swing.JComboBox<String> comboOrthoRoi = new javax.swing.JComboBox<>(orthoModes);
+		comboOrthoRoi.setSelectedIndex(1); // デフォルトは SLICE_2D
+		comboOrthoRoi.addActionListener(e -> {
+			int idx = comboOrthoRoi.getSelectedIndex();
+			if (canvas != null) {
+				if (idx == 0)
+					canvas.setOrthoRoiMode(GLCanvas.OrthoRoiMode.NONE);
+				else if (idx == 1)
+					canvas.setOrthoRoiMode(GLCanvas.OrthoRoiMode.SLICE_2D);
+				else if (idx == 2)
+					canvas.setOrthoRoiMode(GLCanvas.OrthoRoiMode.FLOAT_3D);
+				else if (idx == 3)
+					canvas.setOrthoRoiMode(GLCanvas.OrthoRoiMode.EMBEDDED_3D);
+			}
+		});
+		controlPanel.add(comboOrthoRoi, gbc);
+		gbc.gridy++;
+
+		// ROI Opacity
+		JSlider sliderRoiAlpha = new JSlider(0, 100, 50);
+		sliderRoiAlpha.setToolTipText("Adjust ROI Opacity");
+		controlPanel.add(new JLabel("ROI Opacity"), gbc);
+		gbc.gridy++;
+		controlPanel.add(sliderRoiAlpha, gbc);
+		gbc.gridy++;
+
+		// イベントリスナーの登録
 		sliderRoiAlpha.addChangeListener(e -> {
-		    if (canvas != null) {
-		        // 0.0 〜 1.0 の float に変換してキャンバスへ渡す
-		        float alpha = sliderRoiAlpha.getValue() / 100.0f;
-		        canvas.setRoiAlpha(alpha);
-		    }
+			if (canvas != null) {
+				float alpha = sliderRoiAlpha.getValue() / 100.0f;
+				canvas.setRoiAlpha(alpha);
+			}
 		});
 
 		sliderX.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 		sliderY.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 		sliderZ.addChangeListener(e -> updateSlices(canvas, sliderX, sliderY, sliderZ));
 
-		// (既存のスライダー等の下に追加します)
-		controlPanel.add(new javax.swing.JSeparator());
-		controlPanel.add(new JLabel("ROI Group Colors"));
+		// 区切り線 4
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
+
+		// ROI Group Colors タイトル
+		controlPanel.add(new JLabel("ROI Group Colors"), gbc);
+		gbc.gridy++;
+
+		// ★ここが最大のポイント：JScrollPaneにのみ残りの縦幅を全割り当てする
+		gbc.weighty = 1.0; // 縦方向の拡張ウェイトを設定
+		gbc.fill = GridBagConstraints.BOTH; // 縦横両方に広げる設定に変更
+		gbc.insets = new Insets(4, 4, 0, 4); // 最下部の余白調整
 
 		roiColorPanel = new JPanel();
 		roiColorPanel.setLayout(new BoxLayout(roiColorPanel, BoxLayout.Y_AXIS));
-		controlPanel.add(new javax.swing.JScrollPane(roiColorPanel));
+		JScrollPane roiScrollPane = new JScrollPane(roiColorPanel);
+		roiScrollPane.setMinimumSize(new Dimension(200, 150)); // 最低限の高さ・幅を保証
+		controlPanel.add(roiScrollPane, gbc);
 
 		// ★追加: キャンバスから「ROI情報が更新されたよ」という通知を受け取ってUIを作る
 		canvas.setOnRoiLoadedCallback(() -> refreshRoiColorUI());
-		
+
 		add(controlPanel, BorderLayout.EAST);
 	}
 

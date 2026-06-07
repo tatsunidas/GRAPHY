@@ -21,18 +21,6 @@
  * Contributor(s):
  * See @authors listed below
  *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPL"), or
- * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
- * in which case the provisions of the GPL or the LGPL are applicable instead
- * of those above. If you wish to allow use of your version of this file only
- * under the terms of either the GPL or the LGPL, and not to allow others to
- * use your version of this file under the terms of the MPL, indicate your
- * decision by deleting the provisions above and replace them with the notice
- * and other provisions required by the GPL or the LGPL. If you do not delete
- * the provisions above, a recipient may use your version of this file under
- * the terms of any one of the MPL, the GPL or the LGPL.
- *
  * ***** END LICENSE BLOCK *****
  */
 
@@ -44,12 +32,16 @@ import java.awt.geom.NoninvertibleTransformException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.ui.glasses.*;
+import com.vis.core.view.D3.roi.FreeFormRoi3D;
+import com.vis.core.view.D3.roi.SphereRoi3D;
 
 /**
  * @author tatsunidas
@@ -59,6 +51,7 @@ public class RoiBrush {
 	private int mode = ADD;
 
 	private boolean isNewRoiMode = false;
+	private boolean brushCreationAborted = false; // ★ 追加: エラー時のドラッグ抑止フラグ
 
 	int defaultSize = 15;
 	String defaultType = "Circle";
@@ -67,6 +60,8 @@ public class RoiBrush {
 	ShapeRoi brush = null;
 
 	volatile RoiObj currentBrushingRoi = null;
+
+	@SuppressWarnings("unused")
 	private RoiObj lastOperatedRoi = null;
 
 	private RoiObj internalWorkingRoi = null;
@@ -80,20 +75,43 @@ public class RoiBrush {
 	}
 
 	public void createBrush(MouseEvent pressedEvent) {
-		if (slide == null) return;
+		if (slide == null)
+			return;
+		brushCreationAborted = false;
+
+		// 複数選択などのエラー時は中断
+		if (!determineModeAndTarget(pressedEvent)) {
+			brushCreationAborted = true;
+			return;
+		}
 
 		if (calcExecutor == null || calcExecutor.isShutdown()) {
 			calcExecutor = Executors.newSingleThreadExecutor();
 		}
 
-		determineModeAndTarget(pressedEvent);
 		updateBrushShape(pressedEvent.getX(), pressedEvent.getY());
 
 		final RoiObj startRoi = currentBrushingRoi;
 		calcExecutor.submit(() -> {
 			if (startRoi != null) {
-				if (startRoi instanceof ShapeRoi) {
-					internalWorkingRoi = (RoiObj) ((ShapeRoi) startRoi).clone(); 
+				// ==========================================================
+				// ★ 3D-ROI のクローンとコンバート処理
+				// ==========================================================
+				if (startRoi instanceof FreeFormRoi3D) {
+					internalWorkingRoi = (RoiObj) startRoi.clone();
+				} else if (startRoi instanceof SphereRoi3D) {
+					String groupId = startRoi.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+					if (groupId == null)
+						groupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
+					internalWorkingRoi = FreeFormRoi3D.createFromSphere(slide.getPraparat(), (SphereRoi3D) startRoi,
+							groupId);
+					if (internalWorkingRoi != null) {
+						// DBで上書き保存できるように元のRoiIDを引き継ぐ
+						internalWorkingRoi.setProperty(com.vis.configuration.RoiDBKey.RoiID.name(),
+								startRoi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name()));
+					}
+				} else if (startRoi instanceof ShapeRoi) {
+					internalWorkingRoi = (RoiObj) ((ShapeRoi) startRoi).clone();
 				} else {
 					internalWorkingRoi = new ShapeRoi(startRoi);
 				}
@@ -105,54 +123,88 @@ public class RoiBrush {
 		brushRoi(pressedEvent);
 	}
 
-	private void determineModeAndTarget(MouseEvent e) {
-		Point mousePoint = e.getPoint();
-		RoiObj hitRoi = slide.getRoiLocationAt(mousePoint.x, mousePoint.y);
+	private boolean determineModeAndTarget(MouseEvent e) {
+		RoiObj targetRoi = null;
+		int selectedCount = 0; // ★ 追加: 選択されているROIの数をカウント
 
-		CanvasGlass cg = (CanvasGlass) slide.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
-		RoiObj activeRoi = null;
-		if (cg != null) {
-			activeRoi = cg.getCurrentRoi();
-			if (activeRoi == null) activeRoi = cg.getSelectedRoi();
-		}
-		if (activeRoi == null) activeRoi = lastOperatedRoi;
+		// ==========================================================
+		// 1. ターゲットのロックオン：選択状態のROIを探す
+		// ==========================================================
 
-		boolean isShift = e.isShiftDown();
-		boolean isAlt = e.isAltDown();
-
-		if (isAlt) {
-			mode = SUBTRACT;
-			currentBrushingRoi = (hitRoi != null) ? hitRoi : activeRoi;
-			isNewRoiMode = false;
-		} 
-		else if (isShift) {
-			mode = ADD;
-			currentBrushingRoi = (hitRoi != null) ? hitRoi : activeRoi;
-			if (currentBrushingRoi == null) {
-				java.util.List<RoiObj> rois = slide.getRois();
-				if (rois != null && !rois.isEmpty()) {
-					currentBrushingRoi = rois.get(rois.size() - 1);
+		// 1-1. Praparatの3D-ROIリストから探す
+		if (slide.getPraparat() != null && slide.getPraparat().getRoi3DList() != null) {
+			for (RoiObj r3d : slide.getPraparat().getRoi3DList()) {
+				if (r3d.isSelected()) {
+					selectedCount++;
+					targetRoi = r3d;
+					// 3D-ROIの場合、現在のスライス平面での編集コンテキストを注入
+					r3d.setSlideGlass(slide, false);
 				}
 			}
-			isNewRoiMode = (currentBrushingRoi == null); 
-		} 
-		else {
-			if (hitRoi != null) {
-				mode = ADD;
-				currentBrushingRoi = hitRoi;
-				isNewRoiMode = false;
-			} else {
-				mode = ADD;
-				currentBrushingRoi = null;
-				isNewRoiMode = true;
+		}
+
+		// 1-2. 現在の2Dスライスから探す
+		for (RoiObj r2d : slide.getRois()) {
+			if (r2d.isSelected()) {
+				selectedCount++;
+				if (targetRoi == null)
+					targetRoi = r2d;
 			}
 		}
-		
-		// ★ 検証ログ 1: モード判定結果
+
+		// ==========================================================
+		// ★ 複数選択の警告ポップアップ
+		// ==========================================================
+		if (selectedCount > 1) {
+			PopUpMessage.showDialog(SwingUtilities.getWindowAncestor(slide), "Multiple ROIs Selected",
+					"Multiple ROIs are currently selected.\nPlease select only ONE ROI to edit with the brush.",
+					JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+			return false; // 中断フラグを返す
+		}
+
+		// ==========================================================
+		// 2. モードと新規作成判定
+		// ==========================================================
+		/*
+		 * shiftキーは、Roi選択切り替えと競合するので廃止
+		 */
+		boolean isShift = e.isShiftDown();
+		if (isShift) {
+			return false;
+		}
+
+		boolean isAlt = e.isAltDown();
+
+		if (targetRoi == null) {
+			currentBrushingRoi = null;
+			// ★ 修正: 対象がない状態でAlt(削除)が押された場合は、新規作成せずに空振りのSUBTRACTにする
+			if (isAlt) {
+				isNewRoiMode = false;
+				mode = SUBTRACT;
+			} else {
+				isNewRoiMode = true;
+				mode = ADD;
+			}
+		} else {
+			// ターゲットをロックオン
+			isNewRoiMode = false;
+			currentBrushingRoi = targetRoi;
+
+			if (isAlt) {
+				mode = SUBTRACT;
+			} else if (isShift) {
+				mode = ADD;
+			} else {
+				mode = ADD; // デフォルト
+			}
+		}
+
 		com.vis.core.log.Log.logger.info(String.format(
-			"[Brush-Debug 1] determineModeAndTarget | Keys(Shift:%b, Alt:%b) | Mode: %s | isNew: %b | Target Found: %b",
-			isShift, isAlt, (mode == ADD ? "ADD" : "SUBTRACT"), isNewRoiMode, (currentBrushingRoi != null)
-		));
+				"[Brush-Debug 1] Target Lock-On | Keys(Shift:%b, Alt:%b) | Mode: %s | isNew: %b | Target Found: %b (Type: %s)",
+				isShift, isAlt, (mode == ADD ? "ADD" : "SUBTRACT"), isNewRoiMode, (currentBrushingRoi != null),
+				(currentBrushingRoi != null ? currentBrushingRoi.getClass().getSimpleName() : "None")));
+
+		return true; // 正常続行
 	}
 
 	public void clearCurrentBrushingRoi() {
@@ -161,6 +213,10 @@ public class RoiBrush {
 	}
 
 	public void brushDragged(MouseEvent e) {
+		// ★ エラー時はドラッグ処理をスキップ
+		if (brushCreationAborted)
+			return;
+
 		if (brush == null) {
 			createBrush(e);
 			return;
@@ -168,7 +224,7 @@ public class RoiBrush {
 		updateBrushShape(e.getX(), e.getY());
 		brushRoi(e);
 	}
-	
+
 	private void updateBrushShape(int screenX, int screenY) {
 		Point p = null;
 		try {
@@ -182,44 +238,80 @@ public class RoiBrush {
 
 		String type = getBrushType();
 		int size = getBrushSize();
-		
+
 		if (type.toLowerCase().equals("circle")) {
 			brush = getCircularRoi(ox, oy, size);
 		} else {
 			brush = getSquareRoi(ox, oy, size);
 		}
-		
+
 		brush.setActiveOverlayRoi(false);
 		slide.setRoiBrush(brush);
 
 		slide.lastDraggedX = screenX;
 		slide.lastDraggedY = screenY;
-		slide.repaint(); 
+		slide.repaint();
 	}
 
 	public void brushingEnd() {
+		// ★ エラー時はクリーンアップのみでスキップ
+		if (brushCreationAborted) {
+			brushCreationAborted = false;
+			slide.setRoiBrush(null);
+			slide.repaint();
+			return;
+		}
+
 		slide.setRoiBrush(null);
 		slide.repaint();
-		
+
 		if (calcExecutor != null && !calcExecutor.isShutdown()) {
 			calcExecutor.submit(() -> {
 				final RoiObj roiToSave = internalWorkingRoi;
 
 				SwingUtilities.invokeLater(() -> {
 					if (roiToSave != null) {
-						if (currentBrushingRoi != null) {
-							slide.replaceRoi(currentBrushingRoi.getUIDs(), roiToSave);
+						// ==========================================================
+						// ★ 3D-ROI の保存・反映処理
+						// ==========================================================
+						if (roiToSave instanceof FreeFormRoi3D) {
+							Praparat pp = slide.getPraparat();
+							if (currentBrushingRoi != null && currentBrushingRoi != roiToSave) {
+								pp.removeRoi3D(currentBrushingRoi);
+							}
+							if (!pp.getRoi3DList().contains(roiToSave)) {
+								pp.addRoi3D(roiToSave);
+							}
+
+							com.vis.db.DatabaseHandler db = com.vis.db.DatabaseHandler.getInstance();
+							if (db != null) {
+								db.insertRoi(roiToSave.readContext());
+							}
+
+							lastOperatedRoi = roiToSave;
+							roiToSave.setSelectedState(true);
+							// 全スライスの残像を消すために再描画
+							for (SlideGlass sg : pp.getAllSlides().values()) {
+								if (sg != null)
+									sg.repaintCanvasGlass();
+							}
 						} else {
-							slide.addRoi(roiToSave);
-						}
-						slide.saveRoi(roiToSave);
-						
-						lastOperatedRoi = roiToSave;
-						if (slide != null) {
-							slide.saveUndoState();
+							// 従来の 2D ROI の保存
+							if (currentBrushingRoi != null) {
+								slide.replaceRoi(currentBrushingRoi.getUIDs(), roiToSave);
+							} else {
+								slide.addRoi(roiToSave);
+							}
+							slide.saveRoi(roiToSave);
+
+							lastOperatedRoi = roiToSave;
+							roiToSave.setSelectedState(true);
+							if (slide != null) {
+								slide.saveUndoState();
+							}
 						}
 					}
-					clearCurrentBrushingRoi(); 
+					clearCurrentBrushingRoi();
 				});
 				internalWorkingRoi = null;
 			});
@@ -250,18 +342,17 @@ public class RoiBrush {
 
 	private void processAdd(ShapeRoi brushSnapshot, boolean isCreating) {
 		RoiObj result;
-		
+
+		// ★ 3D編集インタフェースへのルーティング (true = Add)
 		if (internalWorkingRoi instanceof com.vis.core.view.D3.roi.Editable3D) {
 			((com.vis.core.view.D3.roi.Editable3D) internalWorkingRoi).editWithBrush(brushSnapshot, true);
 			updateUiRoi(internalWorkingRoi, false);
 			return;
 		}
-		
-		// ★ 検証ログ 2-1: ADD処理開始
-		com.vis.core.log.Log.logger.info(String.format(
-			"[Brush-Debug 2-1] processAdd Start | isCreating: %b | BrushBounds: %s",
-			isCreating, brushSnapshot.getBounds().toString()
-		));
+
+		com.vis.core.log.Log.logger
+				.info(String.format("[Brush-Debug 2-1] processAdd Start | isCreating: %b | BrushBounds: %s", isCreating,
+						brushSnapshot.getBounds().toString()));
 
 		if (internalWorkingRoi == null) {
 			if (isCreating) {
@@ -270,8 +361,8 @@ public class RoiBrush {
 				return;
 			}
 		} else {
-			ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? 
-							new ShapeRoi(internalWorkingRoi) : new ShapeRoi(internalWorkingRoi);
+			ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? new ShapeRoi(internalWorkingRoi)
+					: new ShapeRoi(internalWorkingRoi);
 			java.util.Properties oldProps = internalWorkingRoi.getProperties();
 
 			base.or(brushSnapshot);
@@ -282,35 +373,33 @@ public class RoiBrush {
 			base.setSlideGlass(slide, false);
 			result = base;
 		}
-		
+
 		internalWorkingRoi = result;
-		
-		// ★ 検証ログ 2-2: ADD処理終了
-		com.vis.core.log.Log.logger.info(String.format(
-			"[Brush-Debug 2-2] processAdd End | ResultBounds: %s | ResultPoints: %d",
-			result.getBounds().toString(), result.getFloatPolygon().npoints
-		));
-		
+
+		com.vis.core.log.Log.logger
+				.info(String.format("[Brush-Debug 2-2] processAdd End | ResultBounds: %s | ResultPoints: %d",
+						result.getBounds().toString(), result.getFloatPolygon().npoints));
+
 		updateUiRoi(result, isCreating);
 	}
 
 	private void processSubtract(ShapeRoi brushSnapshot) {
-		if (internalWorkingRoi == null) return;
-		
+		if (internalWorkingRoi == null)
+			return;
+
+		// ★ 3D編集インタフェースへのルーティング (false = Subtract)
 		if (internalWorkingRoi instanceof com.vis.core.view.D3.roi.Editable3D) {
 			((com.vis.core.view.D3.roi.Editable3D) internalWorkingRoi).editWithBrush(brushSnapshot, false);
 			updateUiRoi(internalWorkingRoi, false);
 			return;
 		}
 
-		// ★ 検証ログ 3-1: SUBTRACT処理開始
-		com.vis.core.log.Log.logger.info(String.format(
-			"[Brush-Debug 3-1] processSubtract Start | TargetBounds: %s | BrushBounds: %s",
-			internalWorkingRoi.getBounds().toString(), brushSnapshot.getBounds().toString()
-		));
+		com.vis.core.log.Log.logger
+				.info(String.format("[Brush-Debug 3-1] processSubtract Start | TargetBounds: %s | BrushBounds: %s",
+						internalWorkingRoi.getBounds().toString(), brushSnapshot.getBounds().toString()));
 
-		ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? 
-						new ShapeRoi(internalWorkingRoi) : new ShapeRoi(internalWorkingRoi);
+		ShapeRoi base = (internalWorkingRoi instanceof ShapeRoi) ? new ShapeRoi(internalWorkingRoi)
+				: new ShapeRoi(internalWorkingRoi);
 
 		base.not(brushSnapshot);
 
@@ -320,40 +409,55 @@ public class RoiBrush {
 		}
 		base.setSlideGlass(slide, false);
 
-		boolean isEmpty = (base.getContainedFloatPoints().xpoints.length <= 4
-				|| (base.width <= 0 && base.height <= 0));
+		boolean isEmpty = (base.getContainedFloatPoints().xpoints.length <= 4 || (base.width <= 0 && base.height <= 0));
 
-		// ★ 検証ログ 3-2: SUBTRACT処理終了
 		com.vis.core.log.Log.logger.info(String.format(
-			"[Brush-Debug 3-2] processSubtract End | ResultBounds: %s | ResultPoints: %d | isEmpty: %b",
-			base.getBounds().toString(), base.getFloatPolygon().npoints, isEmpty
-		));
+				"[Brush-Debug 3-2] processSubtract End | ResultBounds: %s | ResultPoints: %d | isEmpty: %b",
+				base.getBounds().toString(), base.getFloatPolygon().npoints, isEmpty));
 
 		if (isEmpty) {
-			internalWorkingRoi = null; 
+			internalWorkingRoi = null;
 			SwingUtilities.invokeLater(() -> {
 				if (currentBrushingRoi != null)
 					slide.deleteRoi(currentBrushingRoi);
 				currentBrushingRoi = null;
 			});
 		} else {
-			internalWorkingRoi = base; 
+			internalWorkingRoi = base;
 			updateUiRoi(base, false);
 		}
 	}
 
 	private void updateUiRoi(final RoiObj resultRoi, final boolean isFirstCreation) {
 		SwingUtilities.invokeLater(() -> {
-			if (isFirstCreation && currentBrushingRoi == null) {
-				slide.addRoi(resultRoi);
-			} else {
-				if (currentBrushingRoi != null) {
-					slide.replaceRoi(currentBrushingRoi.getUIDs(), resultRoi);
-				} else {
-					slide.updateRoi(resultRoi);
+			// ==========================================================
+			// ★ UIへのリアルタイム反映（3Dと2Dの分岐）
+			// ==========================================================
+			if (resultRoi instanceof FreeFormRoi3D) {
+				Praparat pp = slide.getPraparat();
+				if (currentBrushingRoi != null && currentBrushingRoi != resultRoi) {
+					pp.removeRoi3D(currentBrushingRoi);
 				}
+				if (!pp.getRoi3DList().contains(resultRoi)) {
+					pp.addRoi3D(resultRoi);
+				}
+				currentBrushingRoi = resultRoi;
+				currentBrushingRoi.setSelectedState(true);
+				// スライス平面の編集結果をリアルタイムに見せるための描画更新
+				slide.repaintCanvasGlass();
+			} else {
+				if (isFirstCreation && currentBrushingRoi == null) {
+					slide.addRoi(resultRoi);
+				} else {
+					if (currentBrushingRoi != null) {
+						slide.replaceRoi(currentBrushingRoi.getUIDs(), resultRoi);
+					} else {
+						slide.updateRoi(resultRoi);
+					}
+				}
+				currentBrushingRoi = resultRoi;
+				currentBrushingRoi.setSelectedState(true);
 			}
-			currentBrushingRoi = resultRoi;
 		});
 	}
 
@@ -373,7 +477,8 @@ public class RoiBrush {
 
 	int getBrushSize() {
 		String sizeStr = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.RoiBrushSize);
-		if (sizeStr == null) return defaultSize;
+		if (sizeStr == null)
+			return defaultSize;
 		return Integer.valueOf(sizeStr.trim());
 	}
 

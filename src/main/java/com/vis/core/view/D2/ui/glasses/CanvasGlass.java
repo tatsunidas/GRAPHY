@@ -82,7 +82,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private ArrayList<RoiObj> roiset;
 	private final String sopUID;
 	public boolean paintCaliper = true;
+	
+	/*
+	 * Current/Hovered ROI
+	 */
 	private RoiObj currentRoi = null;
+	
 	private RoiBrush brushTool = null;
 	private RoiObj brush = null;//roi brush, see also draw()
 	
@@ -95,6 +100,8 @@ public class CanvasGlass extends javax.swing.JPanel {
 	private int localizerStrokeSize = 1;
 
 	boolean rect = false;
+	
+	private boolean isMousePressed = false;
 	
 	public CanvasGlass(SlideGlass sg) {
 		setOpaque(false);
@@ -332,14 +339,16 @@ public class CanvasGlass extends javax.swing.JPanel {
 			roi = new PointRoi(imageX, imageY, RoiType.MULTIPOINT.id(), sg);
 			break;
 		case SPHERE_3D:
-			// 3D ROI は Praparat の 3D リストで管理するため、2D roiset への addRoi は行わない
-			return create3DSphere(imageX, imageY);
+			roi = create3DSphere(imageX, imageY);
 		default:
 			//do nothing
 		}
 		if (roi != null) {
 			//insertOrUpdateRoi4DB
 			addRoi(roi);
+			// RoiObjManager が開いていれば即座に登録を反映
+			RoiObjManager rom = RoiObjManager.getInstance();
+			if (rom != null) rom.updateState();
 			repaint();
 		}
 		return roi;
@@ -389,15 +398,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (pp != null) {
 			pp.addRoi3D(sphere3D);
 		}
-		insertOrUpdateRoi4DB(sphere3D);
-
-		// RoiObjManager が開いていれば即座に登録を反映
-		RoiObjManager rom = (RoiObjManager) com.vis.core.facade.WindowManager.getWindow(
-				com.vis.configuration.ConfigInfo.RoiManager.toString());
-		if (rom != null) rom.updateState();
-
 		currentRoi = sphere3D;
-		repaint();
 		return sphere3D;
 	}
 	
@@ -823,6 +824,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 	}
 	
+	public boolean isMousePressed() {
+		return isMousePressed;
+	}
 	
 	public void loadRoiFromDB() {
 		DatabaseHandler db = DatabaseHandler.getInstance();
@@ -924,7 +928,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 	public void mouseMoved(MouseEvent e) {
 		//update currentRoi
 		activateRoiAt(e.getX(), e.getY());
-
+		
 		int type = currentRoi != null ? currentRoi.getType() : -1;
 		if (type>0 && (type==RoiType.POLYGON.id()||type==RoiType.POLYLINE.id()||type==RoiType.ANGLE.id()||type==RoiType.LINE.id()||type==RoiType.MULTIPOINT.id()) 
 		&& currentRoi.getState()==RoiObj.CONSTRUCTING) {
@@ -980,6 +984,9 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 	
 	public void mousePressed(MouseEvent e) {
+		
+		this.isMousePressed = true; // ★ここを追加
+		
 		int toolID = pp.getViewer2DToolType();
 		int sx = e.getX();
 		int sy = e.getY();
@@ -997,11 +1004,17 @@ public class CanvasGlass extends javax.swing.JPanel {
 		}
 		
 		RoiObj hitRoi = activateRoiAt(sx, sy);
-
+		
 		// ==========================================================
 		// ★修正: ハンドル操作（Alt/Shift）の最優先処理（線上も対応）
 		// ==========================================================
 		if (hitRoi != null && hitRoi.getState() == RoiObj.NORMAL) {
+			
+			// マウスが3D-ROIをヒットした時の処理内
+			if (hitRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D || hitRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				sg.getPraparat().setCurrentRoi(hitRoi); // ★Praparatに記憶させる
+			}
+			
 			int handle = hitRoi.isHandle(sx, sy); // ハンドル番号を取得 (-1ならハンドル外)
 			if (handle >= 0) {
 				// 1. ハンドル上の場合
@@ -1010,25 +1023,14 @@ public class CanvasGlass extends javax.swing.JPanel {
 					repaint();
 					return; // 通常の移動や新規作成に進ませない
 				}
-			} 
-			// 選択状態にできなくなるのでコメントアウト
-//			else {
-//				// 2. ハンドル外だが、PolygonRoiの線上・内部でShift/Altが押された場合
-//				if (hitRoi instanceof com.vis.core.view.D2.roi.PolygonRoi) {
-//					if (e.isShiftDown() || e.isAltDown()) {
-//						// 強制的に頂点操作処理へ流す（-1を渡しても内部で一番近い頂点が計算される）
-//						hitRoi.mouseDownInHandle(-1, sx, sy);
-//						repaint();
-//						return; // 新規作成（紫色の線）を完全にブロック！
-//					}
-//				}
-//			}
+			}
 		}
-		
 		roiMouseDown(e);
 	}
 
 	public void mouseReleased(MouseEvent emr) {
+		this.isMousePressed = false; // ★Roiを離したのでフラグを下ろす
+		
 		if(currentRoi != null) {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
 			//作成終了時
@@ -1044,6 +1046,13 @@ public class CanvasGlass extends javax.swing.JPanel {
 					}
 				} else {
 					saveCurrentRoiSate();
+				}
+				
+				// ==========================================================
+				// ★ 追加: 形や位置が確定した「マウスを離した瞬間」に1回だけUndoを保存する
+				// ==========================================================
+				if (sg != null) {
+					sg.saveUndoState();
 				}
 			}
 		}
@@ -1292,11 +1301,15 @@ public class CanvasGlass extends javax.swing.JPanel {
 		if (pp != null) {
 			java.util.List<RoiObj> roi3DList = pp.getRoi3DList();
 			if (roi3DList != null) {
-				for (RoiObj roi3D : roi3DList) {
-					if (roi3D != null) {
-						roi3D.setSlideGlass(sg, false); // コンテキストを現在のスライドに設定
-						roi3D.draw(g);
+				RoiObj activeRoi = pp.getCurrentRoi();
+				for (RoiObj roi3d : roi3DList) {
+					if (roi3d == null)
+						continue;
+					if (roi3d == activeRoi) {
+						roi3d.setActiveOverlayRoi(true);
 					}
+					roi3d.setSlideGlass(sg, false); // コンテキストを現在のスライドに設定
+					roi3d.draw(g);
 				}
 			}
 		}
@@ -1468,7 +1481,7 @@ public class CanvasGlass extends javax.swing.JPanel {
 		currentRoi = r;
 	}
 
-	protected void setCurrentRoi2NULL() {
+	public void setCurrentRoi2NULL() {
 		currentRoi = null;
 	}
 	

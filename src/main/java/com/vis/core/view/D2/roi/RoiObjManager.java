@@ -123,7 +123,6 @@ import ij.io.SaveDialog;
 import ij.process.ColorProcessor;
 import ij.process.FloatPolygon;
 import ij.process.ImageProcessor;
-import ij.process.ImageStatistics;
 
 /**
  * 
@@ -142,7 +141,7 @@ public class RoiObjManager extends JFrame
 	enum Functions {
 		Measure, Delete, LineAndColor, Update, Duplicate, GroupTo3D, Ungroup3D, Move,
 		// add more
-		Open, Save, Fill, Draw, Capture, AND, OR_Combine, XOR, Split, SplineFit, ConvertToPolygon;
+		Open, Save, Fill, Capture, AND, OR_Combine, XOR, Split, SplineFit, ConvertToPolygon;
 	}
 
 	private static final int BUTTONS = 11;// num of functions
@@ -753,23 +752,6 @@ public class RoiObjManager extends JFrame
 		return rois.containsKey(roiID);
 	}
 
-	/*
-	 * old code
-	 */
-//	private void measure() {
-//		if(selectedRois == null || selectedRois.size() < 1) {
-//			return;
-//		}
-//		for(String k : selectedRois.keySet()) {
-//			RoiObj roiObj = selectedRois.get(k);
-//			RoiAnalyzer ana = new RoiAnalyzer(roiObj);
-//			List<HashMap<Measurements/*enum*/, Double>> res = ana.measure();
-//			for(HashMap<Measurements/*enum*/, Double> r : res) {
-//				ana.showInResultWindow(r);
-//			}
-//		}
-//	}
-
 	private void measure() {
 		if (selectedRois == null || selectedRois.size() < 1) {
 			return;
@@ -814,18 +796,7 @@ public class RoiObjManager extends JFrame
 		for (Map.Entry<Integer, List<RoiObj>> entry : groupedRois.entrySet()) {
 			int groupId = entry.getKey();
 			List<RoiObj> groupList = entry.getValue();
-
-			// 複数スライスにまたがっている場合のみ体積計算
-			if (groupList.size() > 1) {
-				measureVolume(groupId, groupList);
-			} else {
-				// グループ設定されているが1枚しかない場合は2Dとして計算
-				RoiAnalyzer ana = new RoiAnalyzer(groupList.get(0));
-				List<HashMap<Measurements, Double>> res = ana.measure();
-				for (HashMap<Measurements, Double> r : res) {
-					ana.showInResultWindow(r);
-				}
-			}
+			measureVolume(groupId, groupList);
 		}
 	}
 
@@ -836,38 +807,72 @@ public class RoiObjManager extends JFrame
 		double totalVolume = 0.0;
 
 		for (RoiObj roi : groupList) {
-			SlideGlass sg = roi.getSlideGlass();
-			if (sg == null)
-				continue;
-
-			// 1. 各ROIの統計情報を取得（ここで物理面積 Area が計算される）
-			ImageStatistics stats = roi.getStatistics();
-			if (stats == null)
-				continue;
-
-			// stats.area は Calibration (ピクセル幅×ピクセル高) が考慮された面積 (mm^2)
-			double area = stats.area;
-
-			// 2. スライスの厚み（Z方向の深さ）を取得
-			ij.measure.Calibration cal = sg.getOriginalCalibration();
-			double sliceThickness = 1.0;
-			if (cal != null && cal.pixelDepth > 0) {
-				sliceThickness = cal.pixelDepth;
-			} else {
-				// フォールバック: CalibrationにpixelDepthがない場合はDICOMヘッダから直接取得
-				com.vis.dicom.DicomObject header = sg.getHeader();
-				if (header != null) {
-					sliceThickness = header.getDouble(com.vis.dicom.Tag.SpacingBetweenSlices,
-							header.getDouble(com.vis.dicom.Tag.SliceThickness, 1.0));
+			
+			if (roi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				// ==========================================================
+				// 1. SphereRoi3D の体積計算 (幾何学公式)
+				// ==========================================================
+				com.vis.core.view.D3.roi.SphereRoi3D sphere = (com.vis.core.view.D3.roi.SphereRoi3D) roi;
+				double r = sphere.getRadiusMm();
+				// 球の体積 V = (4/3) * π * r^3
+				double volume = (4.0 / 3.0) * Math.PI * Math.pow(r, 3);
+				totalVolume += volume;
+				
+			} else if (roi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				// ==========================================================
+				// 2. FreeFormRoi3D の体積計算 (ボクセルカウント)
+				// ==========================================================
+				com.vis.core.view.D3.roi.FreeFormRoi3D ff = (com.vis.core.view.D3.roi.FreeFormRoi3D) roi;
+				
+				// 1ボクセルあたりの体積 (mm^3)
+				double[] sp = ff.getSpacing();
+				double voxelVolume = sp[0] * sp[1] * sp[2];
+				
+				int[] dims = ff.getDimensions();
+				long voxelCount = 0;
+				
+				// 全Zスライスをスキャンして有効ボクセルをカウント
+				for (int k = 0; k < dims[2]; k++) {
+					ij.process.ByteProcessor bp = ff.getMaskAsBytes(k);
+					if (bp != null) {
+						byte[] pixels = (byte[]) bp.getPixels();
+						for (byte b : pixels) {
+							if (b != 0) {
+								voxelCount++;
+							}
+						}
+					}
 				}
-			}
+				totalVolume += (voxelCount * voxelVolume);
+				
+			} else {
+				// ==========================================================
+				// 3. 従来の2D-ROI群の体積計算 (面積 × スライス厚 の積算フォールバック)
+				// ==========================================================
+				SlideGlass sg = roi.getSlideGlass();
+				if (sg == null) continue;
 
-			// 3. 体積を積算: 体積(mm^3) = 面積(mm^2) × 厚み(mm)
-			totalVolume += (area * sliceThickness);
+				ij.process.ImageStatistics stats = roi.getStatistics();
+				if (stats == null) continue;
+
+				double area = stats.area; // すでにCalibration済みの面積 (mm^2)
+
+				ij.measure.Calibration cal = sg.getOriginalCalibration();
+				double sliceThickness = 1.0;
+				if (cal != null && cal.pixelDepth > 0) {
+					sliceThickness = cal.pixelDepth;
+				} else {
+					com.vis.dicom.DicomObject header = sg.getHeader();
+					if (header != null) {
+						sliceThickness = header.getDouble(com.vis.dicom.Tag.SpacingBetweenSlices,
+								header.getDouble(com.vis.dicom.Tag.SliceThickness, 1.0));
+					}
+				}
+				totalVolume += (area * sliceThickness);
+			}
 		}
 
-		// 4. 結果の出力（ここでは仮にコンソールとメッセージダイアログに出力）
-		// ※ 実際は RoiAnalyzer や Measurement Table に新しい行として追加するロジックに繋ぎます
+		// 結果の出力
 		String msg = String.format("3D-ROI Group [%d] Volume: %.2f mm³", groupId, totalVolume);
 		com.vis.core.log.Log.logger.info(msg);
 		javax.swing.JOptionPane.showMessageDialog(this, msg, "Volume Measurement",
@@ -887,31 +892,14 @@ public class RoiObjManager extends JFrame
 
 				if (isIn3DList) {
 					// 1. Praparatの3D管理リストから除外
-					roiPrap.removeRoi3D(r);
-					
-					// ==========================================================
-					// ★ 修正: キャンバス（SlideGlass）の実体からも完全に削除する
-					// これにより、SlideGlass内のundo保存やDB削除も自動で安全に行われます
-					// ==========================================================
-					if (roiSlide != null) {
-						roiSlide.deleteRoi(r); 
-					} else {
-						// スライドが見つからない場合のフォールバック（手動DB削除）
-						HashMap<RoiDBKey, String> uids = r.getUIDs();
-						DatabaseHandler db = DatabaseHandler.getInstance();
-						if (db != null) {
-							db.deleteRoi(uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
-									uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID),
-									uids.get(RoiDBKey.RoiID));
-						}
-						r.notifyListeners(RoiObjListener.DELETED);
-					}
+					purgeRoiFromSystem(roiPrap, r);
+					r.notifyListeners(RoiObjListener.DELETED);
 					
 					// 3D ROIが消えたので、全スライスを一斉再描画して他断面の残像を消す
 					if (roiPrap != null) {
-					    for (SlideGlass sg : roiPrap.getAllSlides().values()) {
-					        if (sg != null) sg.repaintCanvasGlass();
-					    }
+						for (SlideGlass sg : roiPrap.getAllSlides().values()) {
+							if (sg != null) sg.repaintCanvasGlass();
+						}
 					}
 				} else {
 					// 従来の 2D ROI 削除処理
@@ -937,17 +925,18 @@ public class RoiObjManager extends JFrame
 		updateState();
 	}
 
-	// ★ 追加：安全にROIを複製するメソッド
 	private void duplicate() {
 		if (selectedRois.size() < 1) {
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
 
+		boolean needGlobalRepaint = false;
+		Praparat targetPp = null;
+
 		for (String roiID : selectedRois.keySet()) {
 			RoiObj originalRoi = selectedRois.get(roiID);
-			if (originalRoi == null || originalRoi.getSlideGlass() == null)
-				continue;
+			if (originalRoi == null || originalRoi.getSlideGlass() == null) continue;
 
 			// 1. 形状のクローンを作成
 			RoiObj newRoi = (RoiObj) originalRoi.clone();
@@ -971,11 +960,30 @@ public class RoiObjManager extends JFrame
 				newRoi.setName(oldName + " - Copy");
 			}
 
-			// 6. スライドに追加（ここでDBにも自動保存される）
-			originalRoi.getSlideGlass().addRoi(newRoi);
+			// ==========================================================
+			// ★ 修正: 3D-ROIと2D-ROIで登録先を分岐
+			// ==========================================================
+			if (newRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D || 
+				newRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				
+				targetPp = originalRoi.getSlideGlass().getPraparat();
+				if (targetPp != null) {
+					targetPp.addRoi3D(newRoi);
+					DatabaseHandler db = DatabaseHandler.getInstance();
+					if (db != null) db.insertRoi(newRoi.readContext());
+					needGlobalRepaint = true;
+				}
+			} else {
+				// 従来通りスライドに追加（ここでDBにも自動保存される）
+				originalRoi.getSlideGlass().addRoi(newRoi);
+			}
 		}
 
-		// リストを更新して新しいROIを表示
+		if (needGlobalRepaint && targetPp != null) {
+			for (SlideGlass sg : targetPp.getAllSlides().values()) {
+				if (sg != null) sg.repaintCanvasGlass();
+			}
+		}
 		updateState();
 	}
 
@@ -1117,17 +1125,23 @@ public class RoiObjManager extends JFrame
 			return;
 		}
 
-		DatabaseHandler db = DatabaseHandler.getInstance();
 		boolean updated = false;
 		Praparat pp = null;
 
+		// ==========================================================
+		// ★ 爆弾処理：JListのインデックスから安全なリストへ全対象を先にコピー
+		// （ループ中に削除されると list.getModel() が狂って ArrayIndexOutOfBounds になるのを防ぐ）
+		// ==========================================================
+		List<RoiObj> safeTargets = new ArrayList<>();
 		for (int index : selectedIndices) {
-			String rid = list.getModel().getElementAt(index);
-			RoiObj r = selectedRois.get(rid);
+			if (index < list.getModel().getSize()) {
+				String rid = list.getModel().getElementAt(index);
+				RoiObj r = selectedRois.get(rid);
+				if (r != null) safeTargets.add(r);
+			}
+		}
 
-			if (r == null)
-				continue;
-
+		for (RoiObj r : safeTargets) {
 			pp = (r.getSlideGlass() != null) ? r.getSlideGlass().getPraparat() : null;
 			if (pp == null)
 				continue;
@@ -1140,9 +1154,6 @@ public class RoiObjManager extends JFrame
 				continue; // 既に2D ROIの場合はスキップ
 			}
 
-			// ==========================================================
-			// ★ 3D ROI の解体（ボクセル空間から2D平面への投影変換）
-			// ==========================================================
 			String originalName = r.getName() != null ? r.getName() : "Ungrouped";
 			java.util.List<RoiObj> generated2DRois = new ArrayList<>();
 
@@ -1163,7 +1174,6 @@ public class RoiObjManager extends JFrame
 					if (sliceIpp == null || sliceIop == null)
 						continue;
 
-					// 各スライス平面との交差を数学的に計算
 					double nx = sliceIop[1] * sliceIop[5] - sliceIop[2] * sliceIop[4];
 					double ny = sliceIop[2] * sliceIop[3] - sliceIop[0] * sliceIop[5];
 					double nz = sliceIop[0] * sliceIop[4] - sliceIop[1] * sliceIop[3];
@@ -1177,7 +1187,6 @@ public class RoiObjManager extends JFrame
 					double vz = cz - sliceIpp[2];
 					double d = Math.abs(nx * vx + ny * vy + nz * vz);
 
-					// 交差していれば、その断面をOvalRoi（2D）として生成
 					if (d < R) {
 						double r_mm = Math.sqrt(R * R - d * d);
 						double projX = vx * sliceIop[0] + vy * sliceIop[1] + vz * sliceIop[2];
@@ -1217,10 +1226,8 @@ public class RoiObjManager extends JFrame
 					if (k < 0)
 						continue;
 
-					// 対象スライスのバイナリマスク（ビットパック）を抽出
 					ij.process.ByteProcessor bp = freeForm.getMaskAsBytes(k);
 					if (bp != null) {
-						// ImageJのアルゴリズムを利用して、バイナリマスクから2Dベクトル境界線（ROI）を抽出
 						bp.setThreshold(255, 255, ij.process.ImageProcessor.NO_LUT_UPDATE);
 						ij.ImagePlus tempImp = new ij.ImagePlus("", bp);
 						ij.plugin.filter.ThresholdToSelection tts = new ij.plugin.filter.ThresholdToSelection();
@@ -1229,7 +1236,6 @@ public class RoiObjManager extends JFrame
 						ij.gui.Roi ijRoi = tempImp.getRoi();
 
 						if (ijRoi != null) {
-							// 抽出された境界線を Graphy 側の RoiObj に変換
 							RoiObj shapeRoi = new RoiConverter().convert2RoiObj(ijRoi);
 							if (shapeRoi != null) {
 								shapeRoi.setSlideGlass(sg, false);
@@ -1240,33 +1246,17 @@ public class RoiObjManager extends JFrame
 				}
 			}
 
-			// ==========================================================
-			// ★ 旧3D ROIの完全消去と、新2D ROIの登録
-			// ==========================================================
-			pp.removeRoi3D(r); // Praparatの3D管理リストから除外
-			if (r.getSlideGlass() != null)
-				r.getSlideGlass().deleteRoi(r);
-			if (db != null) {
-				HashMap<RoiDBKey, String> uids = r.getUIDs();
-				db.deleteRoi(uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
-						uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID),
-						uids.get(RoiDBKey.RoiID));
-			}
+			purgeRoiFromSystem(pp, r);
 
-			// 解体して出来上がった2D ROIたちをキャンバスに配置して保存
 			for (RoiObj new2d : generated2DRois) {
 				new2d.setName(originalName + " (Ungrouped)");
-				// 3Dとしてのアイデンティティ（メタデータ）を完全に消去
 				new2d.setProperty(RoiMetaContextKey.Shape_3D_Type.name(), null);
 				new2d.setProperty(RoiDBKey.RoiGroup.name(), null);
 
-				// 描画スタイルを引き継ぐ
 				new2d.setStrokeColor(r.getStrokeColor());
 				new2d.setStrokeWidth(r.getStrokeWidth());
 
-				// 各次元をセット
 				int zctIndex = pp.getZCTIndex(new2d.getSlideGlass());
-				// Positionは 1-based なので +1 してセットする
 				new2d.setProperty(RoiDBKey.Position.name(), String.valueOf(zctIndex + 1));
 
 				int[] zct = pp.calcZCTArrayFromIndex(zctIndex);				
@@ -1274,18 +1264,17 @@ public class RoiObjManager extends JFrame
 				new2d.setProperty("Dim_C", String.valueOf(zct[1]));
 				new2d.setProperty("Dim_T", String.valueOf(zct[2]));
 				
-				new2d.getSlideGlass().addRoi(new2d); // 自動的にDBにも保存される
+				new2d.getSlideGlass().addRoi(new2d);
 			}
 			updated = true;
 		}
 
 		if (updated) {
-			updateState(); // リストの同期リフレッシュ
+			updateState(); 
 			PopUpMessage.showDialog(list, "Success",
 					"Selected 3D ROIs have been disassembled into independent 2D ROIs for each slice.",
 					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 
-			// 画面全体の再描画
 			if (pp != null) {
 				for (SlideGlass sg : pp.getAllSlides().values()) {
 					if (sg != null) {
@@ -1670,6 +1659,25 @@ public class RoiObjManager extends JFrame
 		roi.setStrokeWidth((double) w);
 		roi.setStrokeColor(roi.colorFromString(sc, Color.YELLOW));
 		roi.setFillColor(roi.colorFromString(fc, Color.WHITE));
+		
+		if (roi instanceof com.vis.core.view.D3.roi.SphereRoi3D
+				|| roi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+			Praparat pp = roi.getSlideGlass().getPraparat();
+			if (pp != null) {
+				for (SlideGlass sg : pp.getAllSlides().values()) {
+					if (sg != null)
+						sg.repaintCanvasGlass();
+				}
+			}
+		} else {
+			if (roi.getSlideGlass() != null)
+				roi.getSlideGlass().repaintCanvasGlass();
+		}
+
+		// DBへの保存もトリガーしておくのが親切です
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null)
+			db.insertRoi(roi.readContext());
 	}
 
 	/**
@@ -2030,6 +2038,12 @@ public class RoiObjManager extends JFrame
 					RoiEncoder re = new RoiEncoder(out);
 					for (int i = 0; i < keys.length; i++) {
 						RoiObj roiObj = rois.get(keys[i]);
+						// save() のループ内や saveRoi() の冒頭に追加
+						if (roiObj instanceof com.vis.core.view.D3.roi.SphereRoi3D || 
+							roiObj instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+							Log.logger.warning("3D ROIs cannot be exported as standard ImageJ .roi files. Skipping: " + roiObj.getName());
+							continue;
+						}
 						String label = roiObj.getProperty(RoiDBKey.RoiID.name());
 						// ファイル名の先頭に "0005_" のようにポジションを付与する
 						String posStr = roiObj.getProperty(RoiDBKey.Position.name());
@@ -2122,6 +2136,12 @@ public class RoiObjManager extends JFrame
 		if (roiObj == null) {
 			return;
 		}
+		// save() のループ内や saveRoi() の冒頭に追加
+		if (roiObj instanceof com.vis.core.view.D3.roi.SphereRoi3D || 
+			roiObj instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+			Log.logger.warning("3D ROIs cannot be exported as standard ImageJ .roi files. Skipping: " + roiObj.getName());
+			return;
+		}
 		String name = roiObj.getProperty(RoiDBKey.RoiID.name());
 		// ファイル名の先頭に "0005_" のようにポジションを付与する
 		String posStr = roiObj.getProperty(RoiDBKey.Position.name());
@@ -2189,42 +2209,6 @@ public class RoiObjManager extends JFrame
 		}
 	}
 
-	/**
-	 * draw roi on pixel without saving with keep calibaration and bit-depth.
-	 * 
-	 * but, do you need this in image processing ? (I do not think so.)
-	 * 
-	 */
-	@Deprecated
-	void paintRoiOnImage() {
-		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
-			return;
-		} else {
-			int res = JOptionPane.showConfirmDialog(this, "Do you wnat to paint roi to image ?");
-			if (res != JOptionPane.OK_OPTION) {
-				return;
-			}
-		}
-
-		Set<String> keys = selectedRois.keySet();
-		for (String roiID : keys) {
-			RoiObj roi = selectedRois.get(roiID);
-			if (roi == null)
-				continue;
-			SlideGlass slide = roi.getSlideGlass();
-			if (slide == null) {
-				continue;
-			}
-			ImagePlus imp = slide.getOriginalImage();
-			imp.deleteRoi();
-			ImageProcessor ip = imp.getProcessor();
-//			ip.setColor(roi.getStrokeColor());//this needs convert colorprocessor. 
-			ip.snapshot();// backup
-			roi.drawPixels(ip);
-		}
-	}
-
 	/*
 	 * General use. create RGB capture image.
 	 */
@@ -2233,6 +2217,12 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
+		
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+		
 		boolean hasSameImp = reffereingSameImage(selectedRois);
 		if (!hasSameImp) {
 			JOptionPane.showConfirmDialog(this, "Select rois on same image...");
@@ -2264,6 +2254,12 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
+		
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+		
 		boolean hasSameImp = true;
 		Set<String> keys = selectedRois.keySet();
 		ImagePlus firstImp = null;
@@ -2291,23 +2287,41 @@ public class RoiObjManager extends JFrame
 	ImagePlus captureRoi(RoiObj roi, ImagePlus imp) {
 		if (roi == null)
 			return null;
+		if (roi instanceof com.vis.core.view.D3.roi.SphereRoi3D
+				|| roi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+			return null;
+		}
 		imp.deleteRoi();
 		ImageProcessor ip = imp.getProcessor();
-		boolean isRGB = ip != null && ip.getNChannels() == 3;
+		boolean isRGB = ip != null && ip instanceof ColorProcessor;
 		if (isRGB) {
 			ip.setColor(roi.getStrokeColor());// Sets the default fill/draw value
 		}
 		roi.drawPixels(ip);
 		return imp;
 	}
+	
+	// ★ ヘルパーメソッドを追加
+	private boolean contains3DRoi(HashMap<String, RoiObj> rois) {
+		for (RoiObj r : rois.values()) {
+			if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D
+					|| r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	/**
-	 * TODO 20251125 When after filled Image, how to save new series ? Display Image
-	 * is just DISPLAY. If repainted, filled images will vanish... current code...
+	 * 
 	 */
 	void fill() {
 		if (selectedRois.size() < 1) {
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			return;
+		}
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		Set<String> keys = selectedRois.keySet();
@@ -2325,9 +2339,9 @@ public class RoiObjManager extends JFrame
 			ImagePlus imp = slide.getOriginalImage();
 			imp.deleteRoi();
 			ImageProcessor ip = imp.getProcessor();
-			ip.snapshot();// backup
-			boolean isRGB = ip != null && ip.getNChannels() == 3;
+			boolean isRGB = ip != null && (ip instanceof ColorProcessor);
 			if (isRGB) {
+				ip.snapshot();// backup
 				ip.setColor(roi.getFillColor());
 			}
 			Roi fillerRoi = new RoiConverter().convert2Roi(roi);
@@ -2343,6 +2357,10 @@ public class RoiObjManager extends JFrame
 	void splineFit() {
 		if (selectedRois.size() < 1) {
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			return;
+		}
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -2431,6 +2449,10 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "Select roi first...");
 			return;
 		}
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+			return;
+		}
 		Set<String> keys = selectedRois.keySet();
 		for (String roiID : keys) {
 			RoiObj roi = selectedRois.get(roiID);
@@ -2482,25 +2504,27 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "Select rois first...");
 			return;
 		}
+
+		// ★ 3D-ROI が含まれている場合の専用処理へ分岐
+		if (contains3DRoi(selectedRois)) {
+			combine3D(selectedRois);
+			return;
+		}
+
+		// 既存の2Dロジック...
 		RoiObj res = null;
 		if (countPointRois(selectedRois) == selectedRois.size()) {
 			res = combinePoints(selectedRois);
 		} else {
 			res = combineRois(selectedRois);
 		}
-		// save to db
 		if (res != null && res.getSlideGlass() != null) {
 			res.getSlideGlass().addRoi(res);
-//			DatabaseHandler db = DatabaseHandler.getInstance();
-//			db.insertRoi(res.readContext());
-//			res.getSlideGlass().loadRoiFromDB();
 			updateState();
-		} else {
-			Log.logger
-					.fine("RoiObjManager:combine() result does not have slideglass(i.e, image), cancel register to db");
 		}
 	}
 
+	
 	private int countPointRois(HashMap<String, RoiObj> rois) {
 		int nPointRois = 0;
 		for (String roiid : rois.keySet()) {
@@ -2562,6 +2586,11 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "Select a composite roi first...");
 			return;
 		}
+		// ★ 3D-ROI の場合の専用処理へ分岐
+		if (contains3DRoi(selectedRois)) {
+			split3D(selectedRois);
+			return;
+		}
 		String key = selectedRois.keySet().iterator().next();
 		RoiObj roi = selectedRois.get(key);
 		if (roi == null)
@@ -2589,6 +2618,11 @@ public class RoiObjManager extends JFrame
 	void and() {
 		if (selectedRois.size() <= 1) {
 			JOptionPane.showConfirmDialog(this, "Select rois first...");
+			return;
+		}
+		// ★ 3D-ROI が含まれている場合の専用処理へ分岐
+		if (contains3DRoi(selectedRois)) {
+			and3D(selectedRois);
 			return;
 		}
 		if (!reffereingSameImage(selectedRois)) {
@@ -2638,6 +2672,11 @@ public class RoiObjManager extends JFrame
 			JOptionPane.showConfirmDialog(this, "More than one roi must be selected");
 			return;
 		}
+		// ★ 3D-ROI が含まれている場合の専用処理へ分岐
+		if (contains3DRoi(selectedRois)) {
+			xor3D(selectedRois);
+			return;
+		}
 		if (!reffereingSameImage(selectedRois)) {
 			JOptionPane.showConfirmDialog(this, "Select rois from same image...");
 			return;
@@ -2648,7 +2687,235 @@ public class RoiObjManager extends JFrame
 		}
 		updateState();
 	}
+	
+	private void combine3D(HashMap<String, RoiObj> rois) {
+		Praparat pp = null;
+		List<com.vis.core.view.D3.roi.FreeFormRoi3D> target3Ds = new ArrayList<>();
+		String newGroupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
+		List<RoiObj> safeRoiList = new ArrayList<>(rois.values());
 
+		// ★ 追加：同一Praparat (Series) であるかの厳密なチェック
+		String targetSeriesUID = null;
+
+		for (RoiObj r : safeRoiList) {
+			String seriesUID = r.getProperty(RoiDBKey.SeriesInstanceUID.name());
+			if (seriesUID == null && r.getUIDs() != null) seriesUID = r.getUIDs().get(RoiDBKey.SeriesInstanceUID);
+
+			if (targetSeriesUID == null) {
+				targetSeriesUID = seriesUID;
+				if (r.getSlideGlass() != null) pp = r.getSlideGlass().getPraparat();
+			} else if (seriesUID != null && !targetSeriesUID.equals(seriesUID)) {
+				PopUpMessage.showDialog(list, "Mismatch", "All selected ROIs must belong to the same Praparat (Series).", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+
+			if (r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				target3Ds.add((com.vis.core.view.D3.roi.FreeFormRoi3D) r.clone());
+			} else if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				com.vis.core.view.D3.roi.FreeFormRoi3D converted = com.vis.core.view.D3.roi.FreeFormRoi3D.createFromSphere(pp, (com.vis.core.view.D3.roi.SphereRoi3D) r, newGroupId);
+				if (converted != null) target3Ds.add(converted);
+			} else {
+				PopUpMessage.showDialog(list, "Invalid Selection", "Cannot combine 2D ROIs with 3D ROIs directly.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+		}
+
+		if (target3Ds.size() < 2 || pp == null) return;
+
+		com.vis.core.view.D3.roi.FreeFormRoi3D result3D = target3Ds.get(0);
+		result3D.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+		result3D.setProperty(RoiDBKey.RoiID.name(), RoiObj.createRoiIndex());
+		result3D.setName("Combined 3D");
+
+		for (int i = 1; i < target3Ds.size(); i++) {
+			result3D.or(target3Ds.get(i));
+		}
+
+		update3DPositionToCenter(result3D, pp, safeRoiList.get(0));
+
+		for (RoiObj r : safeRoiList) {
+			purgeRoiFromSystem(pp, r);
+		}
+
+		pp.addRoi3D(result3D);
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) db.insertRoi(result3D.readContext());
+
+		for (SlideGlass sg : pp.getAllSlides().values()) {
+			if (sg != null) sg.repaintCanvasGlass();
+		}
+		updateState();
+	}
+
+	private void and3D(HashMap<String, RoiObj> rois) {
+		Praparat pp = null;
+		List<com.vis.core.view.D3.roi.FreeFormRoi3D> target3Ds = new ArrayList<>();
+		String newGroupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
+		List<RoiObj> safeRoiList = new ArrayList<>(rois.values());
+
+		// ★ 追加：同一Praparat (Series) であるかの厳密なチェック
+		String targetSeriesUID = null;
+
+		for (RoiObj r : safeRoiList) {
+			String seriesUID = r.getProperty(RoiDBKey.SeriesInstanceUID.name());
+			if (seriesUID == null && r.getUIDs() != null) seriesUID = r.getUIDs().get(RoiDBKey.SeriesInstanceUID);
+
+			if (targetSeriesUID == null) {
+				targetSeriesUID = seriesUID;
+				if (r.getSlideGlass() != null) pp = r.getSlideGlass().getPraparat();
+			} else if (seriesUID != null && !targetSeriesUID.equals(seriesUID)) {
+				PopUpMessage.showDialog(list, "Mismatch", "All selected ROIs must belong to the same Praparat (Series).", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+
+			if (r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				target3Ds.add((com.vis.core.view.D3.roi.FreeFormRoi3D) r.clone());
+			} else if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				com.vis.core.view.D3.roi.FreeFormRoi3D converted = com.vis.core.view.D3.roi.FreeFormRoi3D.createFromSphere(pp, (com.vis.core.view.D3.roi.SphereRoi3D) r, newGroupId);
+				if (converted != null) target3Ds.add(converted);
+			} else {
+				PopUpMessage.showDialog(list, "Invalid Selection", "Cannot AND 2D ROIs with 3D ROIs directly.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+		}
+
+		if (target3Ds.size() < 2 || pp == null) return;
+
+		com.vis.core.view.D3.roi.FreeFormRoi3D result3D = target3Ds.get(0);
+		result3D.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+		result3D.setProperty(RoiDBKey.RoiID.name(), RoiObj.createRoiIndex());
+		result3D.setName("AND 3D");
+
+		for (int i = 1; i < target3Ds.size(); i++) {
+			result3D.and(target3Ds.get(i));
+		}
+
+		update3DPositionToCenter(result3D, pp, safeRoiList.get(0));
+
+		for (RoiObj r : safeRoiList) {
+			purgeRoiFromSystem(pp, r);
+		}
+
+		pp.addRoi3D(result3D);
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) db.insertRoi(result3D.readContext());
+
+		for (SlideGlass sg : pp.getAllSlides().values()) {
+			if (sg != null) sg.repaintCanvasGlass();
+		}
+		updateState();
+	}
+
+	private void xor3D(HashMap<String, RoiObj> rois) {
+		Praparat pp = null;
+		List<com.vis.core.view.D3.roi.FreeFormRoi3D> target3Ds = new ArrayList<>();
+		String newGroupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
+		List<RoiObj> safeRoiList = new ArrayList<>(rois.values());
+
+		// ★ 追加：同一Praparat (Series) であるかの厳密なチェック
+		String targetSeriesUID = null;
+
+		for (RoiObj r : safeRoiList) {
+			String seriesUID = r.getProperty(RoiDBKey.SeriesInstanceUID.name());
+			if (seriesUID == null && r.getUIDs() != null) seriesUID = r.getUIDs().get(RoiDBKey.SeriesInstanceUID);
+
+			if (targetSeriesUID == null) {
+				targetSeriesUID = seriesUID;
+				if (r.getSlideGlass() != null) pp = r.getSlideGlass().getPraparat();
+			} else if (seriesUID != null && !targetSeriesUID.equals(seriesUID)) {
+				PopUpMessage.showDialog(list, "Mismatch", "All selected ROIs must belong to the same Praparat (Series).", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+
+			if (r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+				target3Ds.add((com.vis.core.view.D3.roi.FreeFormRoi3D) r.clone());
+			} else if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+				com.vis.core.view.D3.roi.FreeFormRoi3D converted = com.vis.core.view.D3.roi.FreeFormRoi3D.createFromSphere(pp, (com.vis.core.view.D3.roi.SphereRoi3D) r, newGroupId);
+				if (converted != null) target3Ds.add(converted);
+			} else {
+				PopUpMessage.showDialog(list, "Invalid Selection", "Cannot XOR 2D ROIs with 3D ROIs directly.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+		}
+
+		if (target3Ds.size() < 2 || pp == null) return;
+
+		com.vis.core.view.D3.roi.FreeFormRoi3D result3D = target3Ds.get(0);
+		result3D.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+		result3D.setProperty(RoiDBKey.RoiID.name(), RoiObj.createRoiIndex());
+		result3D.setName("XOR 3D");
+
+		for (int i = 1; i < target3Ds.size(); i++) {
+			result3D.xor(target3Ds.get(i));
+		}
+
+		update3DPositionToCenter(result3D, pp, safeRoiList.get(0));
+
+		for (RoiObj r : safeRoiList) {
+			purgeRoiFromSystem(pp, r);
+		}
+
+		pp.addRoi3D(result3D);
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) db.insertRoi(result3D.readContext());
+
+		for (SlideGlass sg : pp.getAllSlides().values()) {
+			if (sg != null) sg.repaintCanvasGlass();
+		}
+		updateState();
+	}
+
+	private void split3D(HashMap<String, RoiObj> rois) {
+		List<RoiObj> safeRoiList = new ArrayList<>(rois.values());
+		RoiObj r = safeRoiList.get(0);
+		Praparat pp = r.getSlideGlass() != null ? r.getSlideGlass().getPraparat() : null;
+		if (pp == null) return;
+
+		com.vis.core.view.D3.roi.FreeFormRoi3D targetFF = null;
+		if (r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+			targetFF = (com.vis.core.view.D3.roi.FreeFormRoi3D) r;
+		} else if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+			targetFF = com.vis.core.view.D3.roi.FreeFormRoi3D.createFromSphere(pp, (com.vis.core.view.D3.roi.SphereRoi3D) r, "temp_split");
+		}
+
+		if (targetFF == null) return;
+
+		List<com.vis.core.view.D3.roi.FreeFormRoi3D> components = targetFF.splitIntoConnectedComponents();
+		
+		if (components.isEmpty() || components.size() == 1) {
+			PopUpMessage.showDialog(list, "Split 3D", "The selected 3D ROI is already a single connected component.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		purgeRoiFromSystem(pp, r);
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		int count = 1;
+		String originalName = r.getName() != null ? r.getName() : "Split 3D";
+		
+		for (com.vis.core.view.D3.roi.FreeFormRoi3D comp : components) {
+			String newGroupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L) + count);
+			comp.setProperty(RoiDBKey.RoiGroup.name(), newGroupId);
+			comp.setName(originalName + " - Part " + count);
+			
+			comp.setStrokeColor(r.getStrokeColor());
+			comp.setStrokeWidth(r.getStrokeWidth());
+
+			// ★ 追加：分離されたコンポーネントごとの実際の中心Zを計算してPositionを更新
+			update3DPositionToCenter(comp, pp, r);
+			
+			pp.addRoi3D(comp);
+			if (db != null) db.insertRoi(comp.readContext());
+			count++;
+		}
+
+		for (SlideGlass sg : pp.getAllSlides().values()) {
+			if (sg != null) sg.repaintCanvasGlass();
+		}
+		updateState();
+		PopUpMessage.showDialog(list, "Success", "3D ROI has been split into " + components.size() + " independent components.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+	}
+	
 	boolean reffereingSameImage(HashMap<String, RoiObj> selectedRois) {
 		boolean hasSameImp = true;
 		Set<String> keys = selectedRois.keySet();
@@ -2663,6 +2930,88 @@ public class RoiObjManager extends JFrame
 				hasSameImp = false;
 		}
 		return hasSameImp;
+	}
+	
+	/**
+	 * 3D-ROI をメモリ、全スライドのキャンバス、および DB から完全に消去します。
+	 * （描画コンテキストによる slide プロパティのズレを無効化する安全装置）
+	 */
+	private void purgeRoiFromSystem(Praparat pp, RoiObj r) {
+		if (pp == null || r == null) return;
+		
+		// 1. Praparatの3D管理リストから除外
+		pp.removeRoi3D(r);
+		
+		if(pp.getCurrentRoi() == r) {
+			pp.setCurrentRoi(null);
+		}
+		
+		// 2. 描画コンテキストのズレを考慮し、全スライドの2Dリストから総当たりで強制削除
+		for (SlideGlass sg : pp.getAllSlides().values()) {
+			if (sg != null) {
+				sg.getRois().remove(r); // キャンバスから剥がす
+				CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+				if (cg != null && cg.getCurrentRoi() == r) {
+					cg.setCurrentRoi2NULL(); // マウスイベントのゴースト化を解除
+				}
+			}
+		}
+		
+		// 3. DBからの確実な物理削除
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) {
+			HashMap<RoiDBKey, String> uids = r.getUIDs();
+			if (uids != null) {
+				db.deleteRoi(uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
+							 uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID),
+							 uids.get(RoiDBKey.RoiID));
+			}
+		}
+	}
+	
+	/**
+	 * 3D-ROI の実際のマスクデータから有効な Z 範囲を解析し、
+	 * 塊の中央スライスを代表 Position として再計算・セットします。
+	 */
+	private void update3DPositionToCenter(com.vis.core.view.D3.roi.FreeFormRoi3D result3D, Praparat pp, RoiObj sourceRoi) {
+		if (result3D == null || pp == null || sourceRoi == null) return;
+
+		int[] dims = result3D.getDimensions();
+		if (dims == null || dims.length < 3) return;
+		int dimZ = dims[2];
+
+		int minZ = Integer.MAX_VALUE;
+		int maxZ = Integer.MIN_VALUE;
+		
+		// 実際のマスクデータから有効なZ範囲を調べる
+		for (int k = 0; k < dimZ; k++) {
+			if (result3D.getMaskAsBytes(k) != null) {
+				minZ = Math.min(minZ, k);
+				maxZ = Math.max(maxZ, k);
+			}
+		}
+
+		// 共通の次元（Channel, Time）をソースから引き継ぐ
+		String cStr = sourceRoi.getProperty("Dim_C");
+		String tStr = sourceRoi.getProperty("Dim_T");
+		int targetC = (cStr != null && !cStr.isEmpty()) ? Integer.parseInt(cStr) : 0;
+		int targetT = (tStr != null && !tStr.isEmpty()) ? Integer.parseInt(tStr) : 0;
+
+		// マスクが存在した場合、中央のZを計算して反映
+		if (minZ <= maxZ) {
+			int centerZ = minZ + (maxZ - minZ) / 2;
+			int centerZct = pp.calcZctIndex(new int[]{centerZ, targetC, targetT});
+			
+			result3D.setProperty("Dim_Z", String.valueOf(centerZ));
+			result3D.setProperty("Dim_C", String.valueOf(targetC));
+			result3D.setProperty("Dim_T", String.valueOf(targetT));
+			result3D.setProperty(RoiDBKey.Position.name(), String.valueOf(centerZct + 1));
+			
+			SlideGlass centerSg = pp.getAllSlides().get(centerZct);
+			if (centerSg != null) {
+				result3D.setSlideGlass(centerSg, false);
+			}
+		}
 	}
 
 	RoiObj[] getSelectedRoisAsArray(HashMap<String, RoiObj> selectedRois) {
@@ -2756,8 +3105,6 @@ public class RoiObjManager extends JFrame
 			convert2Polygon();
 		} else if (command.equals(Functions.Fill.name())) {
 			fill();
-		} else if (command.equals(Functions.Draw.name())) {
-			paintRoiOnImage();
 		} else if (command.equals(Functions.Capture.name())) {
 			capture();
 		} else if (command.equals(Functions.OR_Combine.name())) {
@@ -2863,6 +3210,13 @@ public class RoiObjManager extends JFrame
 				currentRoi = rois.get(k);
 
 				Praparat pp = currentRoi.getSlideGlass().getPraparat();
+				if (currentRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D
+						|| currentRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+					pp.setCurrentRoi(currentRoi);
+				} else {
+					pp.setCurrentRoi(null); // 2Dが選ばれたら3Dカレントはクリア
+				}
+				
 				String posStr = currentRoi.getProperty(RoiDBKey.Position.name());
 
 				if (posStr != null && !posStr.isEmpty() && !posStr.equals("0")) {

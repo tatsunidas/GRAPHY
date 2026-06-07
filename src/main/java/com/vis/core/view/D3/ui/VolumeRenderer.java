@@ -86,6 +86,9 @@ public class VolumeRenderer {
 	private static final int MAX_ROIS = 32;
 	private float[] roiColorsArray = new float[MAX_ROIS * 4];
 	
+	private int sliceShowRoiLoc, sliceRoiColorsLoc, sliceRoiTexLoc;
+	private boolean orthoShowRoi = true; // 断面表示時にROIを重ねるかどうかのフラグ
+	
 	public void init() {
 		compileShaders();
 		createCube();
@@ -119,6 +122,10 @@ public class VolumeRenderer {
 		glAttachShader(sliceShaderProgram, vShader);
 		glAttachShader(sliceShaderProgram, fShader);
 		glLinkProgram(sliceShaderProgram);
+		
+		sliceShowRoiLoc = glGetUniformLocation(sliceShaderProgram, "uShowRoi");
+		sliceRoiColorsLoc = glGetUniformLocation(sliceShaderProgram, "uRoiColors");
+		sliceRoiTexLoc = glGetUniformLocation(sliceShaderProgram, "roiTex");
 
 		glDeleteShader(vShader);
 		glDeleteShader(fShader);
@@ -277,6 +284,11 @@ public class VolumeRenderer {
 	        roiColorsArray[offset + 3] = alpha;
 	    }
 	}
+	
+	// ★追加: フラグのセッター
+	public void setOrthoShowRoi(boolean show) {
+		this.orthoShowRoi = show;
+	}
 
 	public void loadLut(File lutFile) {
 		try {
@@ -330,12 +342,8 @@ public class VolumeRenderer {
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 	}
 
-	public void render(org.joml.Matrix4f mvpMatrix, org.joml.Vector3f cameraPosLocal) {
-		if (shaderProgram <= 0 || vaoId <= 0) {
-			System.err.println("CRITICAL: Renderer not initialized! Shader=" + shaderProgram + " VAO=" + vaoId);
-			return;
-		}
-
+	public void render(org.joml.Matrix4f mvpMatrix, org.joml.Vector3f cameraPosLocal, boolean isEmbedded, float sX, float sY, float sZ) {
+		if (shaderProgram <= 0 || vaoId <= 0) return;
 		glUseProgram(shaderProgram);
 
 		glUniform1f(minLoc, normalizedMin);
@@ -352,6 +360,9 @@ public class VolumeRenderer {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_1D, lutTextureId);
 		glUniform1i(glGetUniformLocation(shaderProgram, "uLutTex"), 1);
+		
+		glUniform1i(glGetUniformLocation(shaderProgram, "uIsEmbedded"), isEmbedded ? 1 : 0);
+		glUniform3f(glGetUniformLocation(shaderProgram, "uSlicePos"), sX - 0.5f, sY - 0.5f, sZ - 0.5f);
 		
 		// =======================================================
 		// UIから設定された状態（表示/非表示フラグ）をシェーダーへ転送
@@ -418,7 +429,7 @@ public class VolumeRenderer {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_1D, lutTextureId);
 		glUniform1i(sliceLutLoc, 1);
-
+		
 		glUniform1f(sliceWinCenterLoc, windowCenter);
 		glUniform1f(sliceWinWidthLoc, windowWidth);
 		glUniform1f(glGetUniformLocation(sliceShaderProgram, "uMin"), normalizedMin);
@@ -428,7 +439,22 @@ public class VolumeRenderer {
 
 		glEnable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
+		
+		boolean actuallyShowRoi = orthoShowRoi && (roiTextureId != -1);
+		glUniform1i(sliceShowRoiLoc, actuallyShowRoi ? 1 : 0);
 
+		if (actuallyShowRoi) {
+			try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+				java.nio.FloatBuffer fb = stack.mallocFloat(MAX_ROIS * 4);
+				fb.put(roiColorsArray).flip();
+				glUniform4fv(sliceRoiColorsLoc, fb);
+			}
+			glUniform1i(sliceRoiTexLoc, 2);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_3D, roiTextureId);
+		}
+
+		// X,Y,Zの板を描画する
 		org.joml.Matrix4f modelZ = new org.joml.Matrix4f().translate(0.0f, 0.0f, zSlicePos - 0.5f);
 
 		drawQuad(projViewMatrix, modelZ);
@@ -586,5 +612,13 @@ public class VolumeRenderer {
 
 	public int getTextureId() {
 		return textureId;
+	}
+	
+	public boolean isVolumeVisible() {
+		return isVolumeVisible;
+	}
+	
+	public boolean isRoiVisible() {
+		return isRoiVisible;
 	}
 }

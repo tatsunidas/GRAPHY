@@ -92,6 +92,7 @@ SET "JVM_OPTS=%JVM_OPTS% -Xmx9216m"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.base/java.lang=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.awt=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% --add-exports java.desktop/sun.java2d=ALL-UNNAMED"
+SET "JVM_OPTS=%JVM_OPTS% --add-exports java.base/sun.security.action=ALL-UNNAMED"
 REM For dcm4che imageio
 SET "JVM_OPTS=%JVM_OPTS% --add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED"
 SET "JVM_OPTS=%JVM_OPTS% --add-opens java.base/java.io=ALL-UNNAMED"

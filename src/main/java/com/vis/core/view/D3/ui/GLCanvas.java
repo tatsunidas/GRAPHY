@@ -90,6 +90,15 @@ public class GLCanvas extends AWTGLCanvas {
 	private java.util.List<java.awt.Color> currentRoiColors = new java.util.ArrayList<>();
 	private float currentRoiAlpha = 0.5f;
 	
+	public enum OrthoRoiMode {
+		NONE,
+		SLICE_2D,
+		FLOAT_3D,
+		EMBEDDED_3D // ★新規追加: 埋め込みモード
+	}
+	
+	private OrthoRoiMode orthoRoiMode = OrthoRoiMode.SLICE_2D;
+	
 	private static final long serialVersionUID = 1L;
 
 	public GLCanvas(GLData data) {
@@ -99,7 +108,7 @@ public class GLCanvas extends AWTGLCanvas {
 	// 最初に1回だけ呼ばれる（初期化用）
 	@Override
 	public void initGL() {
-		System.out.println("OpenGL init in Swing!");
+		Log.logger.fine("OpenGL init in Swing!");
 
 		// LWJGLの機能を有効化 (これがないとGL関数が使えません)
 		GL.createCapabilities();
@@ -107,8 +116,8 @@ public class GLCanvas extends AWTGLCanvas {
 		// ★ドライバ情報を出力して、GPUが認識されているか確認
 		String version = org.lwjgl.opengl.GL11.glGetString(org.lwjgl.opengl.GL11.GL_VERSION);
 		String vendor = org.lwjgl.opengl.GL11.glGetString(org.lwjgl.opengl.GL11.GL_VENDOR);
-		System.out.println("OpenGL Version: " + version);
-		System.out.println("OpenGL Vendor: " + vendor);
+		Log.logger.fine("OpenGL Version: " + version);
+		Log.logger.fine("OpenGL Vendor: " + vendor);
 
 		// 背景色設定など
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -193,13 +202,13 @@ public class GLCanvas extends AWTGLCanvas {
 				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_Z) {
 					undoManager.undo();
 					repaint();
-					System.out.println("Undo");
+					Log.logger.fine("Undo");
 				}
 				// Ctrl + Y (Redo)
 				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_Y) {
 					undoManager.redo();
 					repaint();
-					System.out.println("Redo");
+					Log.logger.fine("Redo");
 				}
 			}
 
@@ -308,7 +317,7 @@ public class GLCanvas extends AWTGLCanvas {
 		int d = vol.depth;
 		byte[] mask = new byte[w * h * d];
 
-		System.out.println("=== Mask Generation Started (Group-Aware ID mode) ===");
+		Log.logger.fine("=== Mask Generation Started (Group-Aware ID mode) ===");
 
 		int index = 0;
 		for (int z = 0; z < d; z++) {
@@ -346,7 +355,7 @@ public class GLCanvas extends AWTGLCanvas {
 				}
 			}
 		}
-		System.out.println("=== Mask Generation Completed ===");
+		Log.logger.fine("=== Mask Generation Completed ===");
 		return mask;
 	}
 
@@ -375,6 +384,11 @@ public class GLCanvas extends AWTGLCanvas {
 
 	public void setOrthoMode(boolean enable) {
 		this.isOrthoMode = enable;
+		repaint();
+	}
+	
+	public void setOrthoRoiMode(OrthoRoiMode mode) {
+		this.orthoRoiMode = mode;
 		repaint();
 	}
 
@@ -454,7 +468,7 @@ public class GLCanvas extends AWTGLCanvas {
 		org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
 
 		// 計算実行 (少し時間がかかるかもしれない)
-		System.out.println("Calculating cut...");
+		Log.logger.fine("Calculating cut...");
 
 		// ★修正: 新しい VolumeEditor のメソッドシグネチャに合わせて呼び出し
 		// 返り値も Map<Integer, Number> に変更
@@ -468,9 +482,9 @@ public class GLCanvas extends AWTGLCanvas {
 			});
 
 			undoManager.addCommand(cmd);
-			System.out.println("Cut finished. Modified " + changes.size() + " voxels.");
+			Log.logger.fine("Cut finished. Modified " + changes.size() + " voxels.");
 		} else {
-			System.out.println("No voxels inside contour.");
+			Log.logger.fine("No voxels inside contour.");
 		}
 	}
 	
@@ -576,13 +590,38 @@ public class GLCanvas extends AWTGLCanvas {
 
 		if (isOrthoMode) {
 			org.joml.Matrix4f scaledProjView = new org.joml.Matrix4f(proj).mul(view).mul(model);
+			volumeRenderer.setOrthoShowRoi(orthoRoiMode == OrthoRoiMode.SLICE_2D);
 			volumeRenderer.renderOrthoSlices(scaledProjView, sliceX, sliceY, sliceZ);
+
+			// ★修正: FLOAT_3D または EMBEDDED_3D の場合
+			if ((orthoRoiMode == OrthoRoiMode.FLOAT_3D || orthoRoiMode == OrthoRoiMode.EMBEDDED_3D) && currentVolumeData != null) {
+				boolean tempVolVisible = volumeRenderer.isVolumeVisible();
+				boolean tempRoiVisible = volumeRenderer.isRoiVisible();
+
+				volumeRenderer.setVolumeVisible(false);
+				volumeRenderer.setRoiVisible(true);
+
+				org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
+				org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
+				modelViewInv.getTranslation(camPosLocal);
+
+				// モード判定と、引数への追加
+				boolean isEmbedded = (orthoRoiMode == OrthoRoiMode.EMBEDDED_3D);
+				
+				// ★修正: renderメソッドに isEmbedded フラグと、スライスの位置(X, Y, Z) を渡す
+				volumeRenderer.render(mvp, camPosLocal, isEmbedded, sliceX, sliceY, sliceZ);
+
+				volumeRenderer.setVolumeVisible(tempVolVisible);
+				volumeRenderer.setRoiVisible(tempRoiVisible);
+			}
 		} else {
+			// 通常の3D描画
 			org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
 			org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
 			modelViewInv.getTranslation(camPosLocal);
 
-			volumeRenderer.render(mvp, camPosLocal);
+			// ★修正: 通常モードでは埋め込み処理は不要なので false, 0, 0, 0 を渡す
+			volumeRenderer.render(mvp, camPosLocal, false, 0f, 0f, 0f);
 		}
 
 		// ★修正: 最後にGizmoを描画 (右下にオーバーレイ)

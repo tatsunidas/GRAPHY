@@ -91,6 +91,7 @@ JVM_OPTS+=("-Xmx9216m")
 JVM_OPTS+=("--add-exports=java.base/java.lang=ALL-UNNAMED")
 JVM_OPTS+=("--add-exports=java.desktop/sun.awt=ALL-UNNAMED")
 JVM_OPTS+=("--add-exports=java.desktop/sun.java2d=ALL-UNNAMED")
+JVM_OPTS+=("--add-exports java.base/sun.security.action=ALL-UNNAMED")
 JVM_OPTS+=("--add-opens=java.desktop/javax.imageio.stream=ALL-UNNAMED")
 JVM_OPTS+=("--add-opens=java.base/java.io=ALL-UNNAMED")
 

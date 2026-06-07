@@ -68,7 +68,6 @@ import com.vis.core.log.Log;
 import com.vis.core.slicer.ReferenceLineMPR;
 import com.vis.core.ui.dialog.WandToolDialog;
 import com.vis.core.util.MathUtils;
-import com.vis.core.util.Utils;
 import com.vis.core.view.D2.processing.ImageProcessing;
 import com.vis.core.view.D2.roi.Arrow;
 import com.vis.core.view.D2.roi.ImageRoi;
@@ -199,12 +198,6 @@ public class SlideGlass extends JLayeredPane {
 	public int INTERPOLATION_METHOD = ImageProcessor.NEAREST_NEIGHBOR;
 	ImageProcessing imgProcess = new ImageProcessing();
 	Logger logger = Log.logger;
-
-	// ★ 変更：RoiObjのまま保存せず、DB保存用の「HashMap（値の集合）」に変換してスタックに積む！
-	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> undoStack = new java.util.ArrayDeque<>();
-	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> redoStack = new java.util.ArrayDeque<>();
-	private static final int MAX_UNDO_LIMIT = 20; // upper size of snapshots
-	private boolean isRestoring = false;
 
 	// fusion ghost start timer
 	private int ghostProgressAngle = 0; // 0 〜 360
@@ -520,18 +513,28 @@ public class SlideGlass extends JLayeredPane {
         if (wandDialog == null) return;
         if (pp == null || pp.getAllSlides() == null) return;
 
-        // 現在のチャンネル・タイムフレームを取得
+        // 1. シードポイントの各次元（Z, C, T）インデックスを取得
         int[] zct = pp.getZCTArray(this);
         int currentC = zct[1];
         int currentT = zct[2];
 
+        // ==========================================================
+        // ★ 修正 1: マルチチャンネル環境でも安全な「正確なZスライス数」を算出
+        // ==========================================================
         int dimX = getOriginalImageSize().width;
         int dimY = getOriginalImageSize().height;
-        int dimZ = pp.getAllSlides().size();
+        int maxZ = 0;
+        for (Integer key : pp.getAllSlides().keySet()) {
+            int[] zctArr = pp.calcZCTArrayFromIndex(key);
+            if (zctArr[0] > maxZ) maxZ = zctArr[0];
+        }
+        int dimZ = maxZ + 1; 
 
+        // 新しいユニークなグループIDとRoiIDを生成
         String groupId = String.valueOf((int) (System.currentTimeMillis() % 1000000000L));
         String roiId = RoiObj.createRoiIndex();
 
+        // FreeFormRoi3Dのインスタンス化とメタデータ初期化
         com.vis.core.view.D3.roi.FreeFormRoi3D roi3d = new com.vis.core.view.D3.roi.FreeFormRoi3D(0, 0, dimX, dimY, this);
         roi3d.setProperty(com.vis.configuration.RoiDBKey.RoiID.name(), roiId);
         roi3d.setProperty(com.vis.configuration.RoiDBKey.RoiGroup.name(), groupId);
@@ -549,10 +552,7 @@ public class SlideGlass extends JLayeredPane {
             return;
         }
 
-        // ==========================================================
-        // ★ 修正: シード値の取得を「今見ているスライス」ではなく
-        // 「クリックされた本来の seedZ のスライス」から取得する！
-        // ==========================================================
+        // シード値の取得を「本来の seedZ のスライス」から取得する
         int seedZct = pp.calcZctIndex(new int[]{seedZ, currentC, currentT});
         SlideGlass seedSg = pp.getSlideGlassAt(seedZct);
         if (seedSg == null || seedSg.getOriginalImage() == null) return;
@@ -590,7 +590,7 @@ public class SlideGlass extends JLayeredPane {
         if (spZ <= 0) spZ = 1.0;
 
         roi3d.initVolume(originIpp, iop, new double[] { spX, spY, spZ }, new int[] { dimX, dimY, dimZ });
-        
+
         // 4. 幅優先探索（BFS）による3D Region Growingアルゴリズムの実行
         int rowStride = (dimX + 63) >> 6;
         java.util.Map<Integer, long[]> temporaryMasks = new java.util.HashMap<>();
@@ -600,19 +600,47 @@ public class SlideGlass extends JLayeredPane {
         queue.add(new int[] { seedX, seedY, seedZ });
         visited.set(seedZ * (dimX * dimY) + seedY * dimX + seedX);
 
-        // 接続モードに応じた近傍オフセット配列の取得
         java.util.List<int[]> offsets = get3DConnectivityOffsets(connectivityMode);
 
         ImageProcessor[] sliceProcessors = new ImageProcessor[dimZ];
         int[] zIndexMap = new int[dimZ]; 
 
+        // ==========================================================
+        // ★ 修正 2: キャッシュ外スライスのオンデマンド取得とキャリブレーション同期
+        // ==========================================================
+        ij.measure.Calibration cal = this.getOriginalCalibration();
+
         for (int z = 0; z < dimZ; z++) {
             int idx = pp.calcZctIndex(new int[] { z, currentC, currentT });
             SlideGlass sg = pp.getSlideGlassAt(idx);
-            if (sg != null && sg.getOriginalImage() != null) {
-                sliceProcessors[z] = sg.getOriginalImage().getProcessor();
-                double[] ippZ = pp.getSafeIPP(sg.getHeader(), frameIdx0);
-                zIndexMap[z] = roi3d.getZIndexForSlice(ippZ); 
+            
+            if (sg != null) {
+                // 1. ピクセルデータの取得
+                if (sg.getOriginalImage() != null && sg.getOriginalImage().getProcessor() != null) {
+                    sliceProcessors[z] = sg.getOriginalImage().getProcessor();
+                } else {
+                    // メモリに展開されていないスライスを裏から読む
+                    com.vis.dicom.image.DicomImage dcmImg = sg.getDicomImage();
+                    if (dcmImg != null && dcmImg.ensurePixelDataLoaded()) {
+                        int fIdx = pp.isMultiFrame() ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+                        ImageProcessor rawIp = dcmImg.getImageProcessor(fIdx);
+                        if (rawIp != null) {
+                            // ★ 超重要: RAWデータにキャリブレーション(HU等)を適用し、判定を一致させる
+                            ImagePlus dummyImp = new ImagePlus("", rawIp);
+                            dummyImp.setCalibration(cal);
+                            sliceProcessors[z] = dummyImp.getProcessor();
+                        }
+                    }
+                }
+
+                // 2. 物理インデックスの計算
+                int fIdx = pp.isMultiFrame() ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+                double[] ippZ = pp.getSafeIPP(sg.getHeader(), fIdx);
+                if (ippZ != null) {
+                    zIndexMap[z] = roi3d.getZIndexForSlice(ippZ); 
+                } else {
+                    zIndexMap[z] = -1;
+                }
             } else {
                 zIndexMap[z] = -1;
             }
@@ -2220,162 +2248,29 @@ public class SlideGlass extends JLayeredPane {
 		updatePrapInfoLabel(mouseX, mouseY);
 	}
 
-	/**
-	 * ★ 変更が起きる「直前」にこのメソッドを呼んで、現在の状態を保存します。
-	 */
+	// ==========================================================
+	// ★ Undo / Redo の Praparat 委譲
+	// ==========================================================
+
 	public void saveUndoState() {
-		Log.logger.fine("--- saveUndoState called ---");
-
-		if (isRestoring) {
-			Log.logger.fine("--- saveUndoState called, is restoring is true, return ---");
+		if (roiOverlay != null && roiOverlay.isMousePressed()) {
+			// ★ ガード：マウスドラッグ中（ハンドル操作・移動中）の細かい履歴保存をすべてブロックする
 			return;
 		}
-
-		java.util.List<java.util.HashMap<String, Object>> currentState = createSnapshot();
-
-		Log.logger.fine("Current ROIs count to save: " + currentState.size());
-
-		if (!undoStack.isEmpty() && isSameState(undoStack.peek(), currentState)) {
-			Log.logger.fine("State is identical to the top of undoStack. Skipping save.");
-			return;
+		if (pp != null) {
+			pp.saveUndoState();
 		}
-
-		undoStack.push(currentState);
-		if (undoStack.size() > MAX_UNDO_LIMIT) {
-			undoStack.removeLast();
-		}
-		redoStack.clear();
-		Log.logger.fine(
-				"Saved to undoStack. undoStack size: " + undoStack.size() + ", redoStack size: " + redoStack.size());
-	}
-
-	private java.util.List<java.util.HashMap<String, Object>> createSnapshot() {
-		java.util.List<java.util.HashMap<String, Object>> snapshot = new java.util.ArrayList<>();
-		java.util.List<RoiObj> currentRois = getRois();
-		if (currentRois != null) {
-			for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
-				java.util.HashMap<String, Object> ctx = roi.readContext();
-				snapshot.add(ctx);
-				Log.logger.fine("  -> Snapshot added ROI: " + ctx.get(com.vis.configuration.RoiDBKey.RoiID.name())
-						+ " (Type: " + ctx.get(com.vis.configuration.RoiDBKey.RoiType.name()) + ")");
-			}
-		}
-		return snapshot;
-	}
-
-	private boolean isSameState(java.util.List<java.util.HashMap<String, Object>> state1,
-			java.util.List<java.util.HashMap<String, Object>> state2) {
-		if (state1.size() != state2.size())
-			return false;
-		for (int i = 0; i < state1.size(); i++) {
-			java.util.HashMap<String, Object> r1 = state1.get(i);
-			java.util.HashMap<String, Object> r2 = state2.get(i);
-
-			// 座標やサイズに変化がないか簡易チェック
-			if (!String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name()))
-					.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginX.name())))
-					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name()))
-							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.OriginY.name())))
-					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name()))
-							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Width.name())))
-					|| !String.valueOf(r1.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name()))
-							.equals(String.valueOf(r2.get(com.vis.core.view.D2.roi.RoiGeometry.Height.name())))) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	public void undo() {
-		Log.logger.fine("--- undo called ---");
-		// 過去の履歴がないなら何もしない
-		if (undoStack.isEmpty()) {
-			Log.logger.fine("undoStack is empty.");
-			return;
+		if (pp != null) {
+			pp.undo();
 		}
-
-		// 1. 今見えている画面の状態を Redo スタックに退避する
-		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
-		redoStack.push(currentlyVisibleState);
-
-		// 2. Undo スタックから一番上の過去を取り出す
-		java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
-
-		// ★ 究極のガード：もし取り出した過去が「今の画面と全く同じ」なら、それは「無駄に保存された履歴」なので、
-		// もう一回 pop してさらに過去に遡る！
-		while (!undoStack.isEmpty() && isSameState(stateToRestore, currentlyVisibleState)) {
-			Log.logger.fine("Popped state is identical to current. Popping again to find real history.");
-			stateToRestore = undoStack.pop();
-		}
-
-		// 3. 過去を復元する
-		Log.logger.fine("Restoring past state with " + stateToRestore.size() + " ROIs.");
-		restoreState(stateToRestore);
 	}
 
 	public void redo() {
-		Log.logger.fine("--- redo called ---");
-		if (redoStack.isEmpty())
-			return;
-
-		// 1. 今見えている画面の状態を Undo スタックに退避する
-		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
-		undoStack.push(currentlyVisibleState);
-
-		// 2. Redo スタックから未来を取り出す
-		java.util.List<java.util.HashMap<String, Object>> stateToRestore = redoStack.pop();
-
-		// 3. 未来を復元する
-		restoreState(stateToRestore);
-	}
-
-	/**
-	 * ★ DBとの整合性を保ちながら過去の状態を復元する心臓部
-	 */
-	private void restoreState(java.util.List<java.util.HashMap<String, Object>> pastState) {
-
-		isRestoring = true;
-		Log.logger.fine("restoreState executed, it is restoring...");
-
-		try {
-
-			java.util.List<RoiObj> currentRois = getRois();
-			Log.logger.fine("Clearing current ROIs on slide...");
-			if (currentRois != null) {
-				for (RoiObj roi : new java.util.ArrayList<>(currentRois)) {
-					roiOverlay.deleteRoi(roi);
-				}
-				currentRois.clear();
-			}
-
-			com.vis.core.view.D2.roi.RoiConverter converter = new com.vis.core.view.D2.roi.RoiConverter();
-			int restoredCount = 0;
-			for (java.util.HashMap<String, Object> pastRoiCtx : pastState) {
-				Log.logger
-						.fine("Attempting to build RoiObj from Context. ID: " + pastRoiCtx.get(RoiDBKey.RoiID.name()));
-				RoiObj revivedRoi = converter.buildRoiObj(pastRoiCtx);
-				if (revivedRoi != null) {
-					revivedRoi.setSlideGlass(this, false);
-					this.addRoi(revivedRoi);
-					restoredCount++;
-					Log.logger.fine("Successfully restored ROI ID: " + revivedRoi.getProperty(RoiDBKey.RoiID.name()));
-				} else {
-					Log.logger.severe(
-							"CRITICAL: Failed to build RoiObj! converter.buildRoiObj returned null. Context keys: "
-									+ pastRoiCtx.keySet());
-				}
-			}
-
-			Log.logger.fine("Restore complete. Successfully restored " + restoredCount + " ROIs.");
-			repaint();
-
-			repaint();
-			com.vis.core.view.D2.roi.RoiObjManager.getInstance().updateState();
-
-		} finally {
-			// ★ ガード解除：処理が終わったら（エラーが起きても）必ずフラグを下ろす
-			isRestoring = false;
-			Log.logger.fine("restoreState finished.");
+		if (pp != null) {
+			pp.redo();
 		}
 	}
 

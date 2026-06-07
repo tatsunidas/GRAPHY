@@ -57,8 +57,12 @@ public class WandToolDialog extends JDialog {
     private RoiObj targetRoi;
     
     private double tolerance = 0.0;
-    private int mode = Wand.LEGACY_MODE;
-    private boolean smooth = false;
+    
+    @SuppressWarnings("unused")
+	private int mode = Wand.LEGACY_MODE;
+    
+    @SuppressWarnings("unused")
+	private boolean smooth = false;
     private boolean wasOkPressed = false;
     
     private boolean isAdjusting = false;
@@ -158,7 +162,7 @@ public class WandToolDialog extends JDialog {
             int lastY = sg.lastPressedY;
             
             // ==========================================================
-            // ★ 追加・変更: 2D/3Dモード切り替え時の英語警告ポップアップとロールバック処理
+            // 2D/3Dモード切り替え時の英語警告ポップアップとロールバック処理
             // ==========================================================
             boolean currentRoiIs3D = (targetRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D);
             boolean uiIs3D = is3DMode();
@@ -264,6 +268,7 @@ public class WandToolDialog extends JDialog {
         mainPanel.add(new JLabel("Tolerance:"), gbc);
 
         toleranceSlider = new JSlider(0, SLIDER_MAX, toleranceToSlider(tolerance));
+        toleranceSlider.setValue(50);//default
         gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
         mainPanel.add(toleranceSlider, gbc);
 

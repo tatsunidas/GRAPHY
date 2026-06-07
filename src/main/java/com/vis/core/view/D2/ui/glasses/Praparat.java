@@ -174,6 +174,9 @@ public class Praparat extends JPanel {
 	private double currentFusionOpacity = 0.5;
 	private int fusionOffsetX = 0;
 	private int fusionOffsetY = 0;
+	
+	//基本的に3D-ROI操作用
+	private volatile RoiObj currentRoi = null;
 
 	/*
 	 * SUV calibration factor
@@ -242,6 +245,14 @@ public class Praparat extends JPanel {
 	private int localToolType = -1;
 
 	private JPanel emptyGlassPanel;
+	
+	// ==========================================================
+	// ★ 3D対応統合 Undo/Redo スタック
+	// ==========================================================
+	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> undoStack = new java.util.ArrayDeque<>();
+	private java.util.Deque<java.util.List<java.util.HashMap<String, Object>>> redoStack = new java.util.ArrayDeque<>();
+	private static final int MAX_UNDO_LIMIT = 20; 
+	private boolean isRestoring = false;
 
 	/**
 	 * Load normal praparat
@@ -1171,6 +1182,16 @@ public class Praparat extends JPanel {
 
 	public Eyepiece getEyepiece() {
 		return prapManager;
+	}
+	
+	/** 現在アクティブ（選択・編集対象）な3D-ROIを設定します */
+	public void setCurrentRoi(RoiObj roi) {
+		this.currentRoi = roi;
+	}
+
+	/** 現在アクティブな3D-ROIを取得します */
+	public RoiObj getCurrentRoi() {
+		return this.currentRoi;
 	}
 
 	/**
@@ -5149,6 +5170,223 @@ public class Praparat extends JPanel {
 			if (slider != null && slider.getValue() != (bestZ + 1)) {
 				slider.setPosition(bestZ);
 			}
+		}
+	}
+	
+	// ==========================================================
+	// ★ 3D対応統合 Undo/Redo ロジック (Praparat一元管理)
+	// ==========================================================
+
+	public void saveUndoState() {
+		if (isRestoring)
+			return;
+
+		java.util.List<java.util.HashMap<String, Object>> currentState = createSnapshot();
+
+		if (!undoStack.isEmpty() && isSameState(undoStack.peek(), currentState)) {
+			return; // 状態が変わっていなければスキップ
+		}
+
+		undoStack.push(currentState);
+		if (undoStack.size() > MAX_UNDO_LIMIT) {
+			undoStack.removeLast();
+		}
+		redoStack.clear();
+		com.vis.core.log.Log.logger.fine("Praparat: Saved to undoStack. Size: " + undoStack.size());
+	}
+
+	public void undo() {
+		if (undoStack.isEmpty())
+			return;
+
+		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
+		redoStack.push(currentlyVisibleState);
+
+		java.util.List<java.util.HashMap<String, Object>> stateToRestore = undoStack.pop();
+
+		// 現在と全く同じ状態が積まれていた場合はさらに過去へ遡る
+		while (!undoStack.isEmpty() && isSameState(stateToRestore, currentlyVisibleState)) {
+			stateToRestore = undoStack.pop();
+		}
+
+		restoreState(stateToRestore);
+	}
+
+	public void redo() {
+		if (redoStack.isEmpty())
+			return;
+
+		java.util.List<java.util.HashMap<String, Object>> currentlyVisibleState = createSnapshot();
+		undoStack.push(currentlyVisibleState);
+
+		java.util.List<java.util.HashMap<String, Object>> stateToRestore = redoStack.pop();
+		restoreState(stateToRestore);
+	}
+
+	private java.util.List<java.util.HashMap<String, Object>> createSnapshot() {
+		java.util.List<java.util.HashMap<String, Object>> snapshot = new java.util.ArrayList<>();
+
+		// 1. 3D-ROI の状態を収集
+		for (RoiObj roi3d : roi3DList) {
+			if (roi3d != null)
+				snapshot.add(roi3d.readContext());
+		}
+
+		// 2. 全スライド(2D)のROIの状態を収集
+		if (slides != null) {
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) {
+					com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg
+							.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+					if (cg != null && cg.getRoiSet() != null) {
+						for (RoiObj r2d : cg.getRoiSet()) {
+							snapshot.add(r2d.readContext());
+						}
+					}
+				}
+			}
+		}
+		return snapshot;
+	}
+
+	private boolean isSameState(java.util.List<java.util.HashMap<String, Object>> state1,
+			java.util.List<java.util.HashMap<String, Object>> state2) {
+		if (state1.size() != state2.size())
+			return false;
+
+		// 文字列表現のハッシュを用いて、3Dボクセルの微小な変化も確実に検知する
+		java.util.Map<String, String> map1 = new java.util.HashMap<>();
+		for (java.util.HashMap<String, Object> ctx : state1) {
+			String id = (String) ctx.get(com.vis.configuration.RoiDBKey.RoiID.name());
+			map1.put(id, ctx.toString());
+		}
+
+		for (java.util.HashMap<String, Object> ctx : state2) {
+			String id = (String) ctx.get(com.vis.configuration.RoiDBKey.RoiID.name());
+			if (!map1.containsKey(id) || !map1.get(id).equals(ctx.toString())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private void restoreState(java.util.List<java.util.HashMap<String, Object>> pastState) {
+		isRestoring = true;
+		try {
+			DatabaseHandler db = DatabaseHandler.getInstance();
+
+			// 1. 復元前に、現在のメモリ上にある全ROIを「削除候補」としてリストアップ
+			java.util.List<RoiObj> roisToDelete = new java.util.ArrayList<>(roi3DList);
+			if (slides != null) {
+				for (SlideGlass sg : slides.values()) {
+					if (sg != null) {
+						com.vis.core.view.D2.ui.glasses.CanvasGlass cg = (com.vis.core.view.D2.ui.glasses.CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+						if (cg != null && cg.getRoiSet() != null) {
+							roisToDelete.addAll(cg.getRoiSet());
+							cg.getRoiSet().clear(); // メモリから2Dクリア
+							cg.setCurrentRoi2NULL();
+						}
+					}
+				}
+			}
+			roi3DList.clear(); // メモリから3Dクリア
+
+			// 2. 過去のスナップショットを復元
+			com.vis.core.view.D2.roi.RoiConverter converter = new com.vis.core.view.D2.roi.RoiConverter();
+			java.util.List<String> restoredRoiIds = new java.util.ArrayList<>();
+
+			for (java.util.HashMap<String, Object> ctx : pastState) {
+				// ★ 修正: ROIを復元する「前」に、それが属するべきSlideGlassを特定しておく
+				SlideGlass targetSg = null;
+				boolean is3DManaged = false;
+
+				// コンテキストから3Dかどうかの判定
+				@SuppressWarnings("unchecked")
+				java.util.Map<String, String> metaProps = (java.util.Map<String, String>) ctx.get(com.vis.configuration.RoiDBKey.RoiMetaProperties.name());
+				if (metaProps != null) {
+					String shape3D = metaProps.get(com.vis.configuration.RoiMetaContextKey.Shape_3D_Type.name());
+					is3DManaged = com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shape3D) || 
+								  com.vis.core.view.D3.roi.FreeFormRoi3D.Shape_3D_Type.equals(shape3D);
+					
+					if (!is3DManaged) {
+						int targetZct = -1;
+						String zStr = metaProps.get(RoiMetaContextKey.Dim_Z.name());
+						String cStr = metaProps.get(RoiMetaContextKey.Dim_C.name());
+						String tStr = metaProps.get(RoiMetaContextKey.Dim_T.name());
+						if (zStr != null && cStr != null && tStr != null) {
+							try { targetZct = calcZctIndex(new int[]{Integer.parseInt(zStr), Integer.parseInt(cStr), Integer.parseInt(tStr)}); } catch (Exception e) {}
+						}
+						if (targetZct == -1) {
+							String posStr = (String) ctx.get(com.vis.configuration.RoiDBKey.Position.name());
+							if (posStr != null) {
+								try { targetZct = Integer.parseInt(posStr) - 1; } catch (Exception e) {}
+							}
+						}
+						targetSg = slides.get(targetZct);
+					}
+				}
+
+				if (targetSg == null) targetSg = getCurrentSlide(); // フォールバック
+
+				// ★ 修正: コンバータに targetSg を直接渡す（または生成中のエラーをキャッチする）
+				// RoiConverterの仕様上、引数にSlideGlassを渡せない場合は、
+				// buildRoiObj内部でのイベント発火によるNPEを握り潰して（安全に無視して）処理を続行させる
+				RoiObj revivedRoi = null;
+				try {
+					revivedRoi = converter.buildRoiObj(ctx);
+				} catch (NullPointerException npe) {
+					com.vis.core.log.Log.logger.warning("Caught NPE during buildRoiObj (likely due to missing SlideGlass during event broadcast). Ignoring and recovering.");
+					// もし buildRoiObj が完全に失敗してしまった場合は、このROIの復元は諦めて次へ
+				}
+
+				if (revivedRoi != null) {
+					String roiId = revivedRoi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name());
+					restoredRoiIds.add(roiId);
+
+					if (is3DManaged) {
+						if (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D) {
+							((com.vis.core.view.D3.roi.SphereRoi3D) revivedRoi).initFromProperties();
+						} else {
+							((com.vis.core.view.D3.roi.FreeFormRoi3D) revivedRoi).initFromProperties();
+						}
+						addRoi3D(revivedRoi);
+						if (db != null) db.insertRoi(revivedRoi.readContext()); // 3DはここでDB同期
+					} else {
+						// 2Dの場合
+						if (targetSg != null) {
+							revivedRoi.setSlideGlass(targetSg, false); // ここでついにSlideGlassがセットされる
+							targetSg.addRoi(revivedRoi); // CanvasGlass経由でDB同期される
+						}
+					}
+				}
+			}
+
+			// 3. 復元によって「消えた」未来のROIをDBからも完全に削除する
+			if (db != null) {
+				for (RoiObj oldRoi : roisToDelete) {
+					String oldId = oldRoi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name());
+					if (!restoredRoiIds.contains(oldId)) {
+						java.util.HashMap<RoiDBKey, String> uids = oldRoi.getUIDs();
+						db.deleteRoi(
+							uids.get(RoiDBKey.PatientID), uids.get(RoiDBKey.StudyInstanceUID),
+							uids.get(RoiDBKey.SeriesInstanceUID), uids.get(RoiDBKey.SOPInstanceUID), oldId
+						);
+					}
+				}
+			}
+
+			// 4. UIの強制リフレッシュ
+			for (SlideGlass sg : slides.values()) {
+				if (sg != null) sg.repaintCanvasGlass();
+			}
+			
+			com.vis.core.view.D2.roi.RoiObjManager rom = com.vis.core.view.D2.roi.RoiObjManager.getInstance();
+			if (rom != null && rom.isVisible()) {
+				rom.updateState();
+			}
+
+		} finally {
+			isRestoring = false; // ガード解除
 		}
 	}
 

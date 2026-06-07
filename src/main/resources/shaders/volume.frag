@@ -18,6 +18,9 @@ uniform bool uShowVolume;
 uniform bool uShowRoi;
 uniform vec4 uRoiColors[32]; // 32個のカラーパレット配列
 
+uniform bool uIsEmbedded;
+uniform vec3 uSlicePos;
+
 bool intersectBox(vec3 origin, vec3 dir, out float tNear, out float tFar) {
     vec3 boxMin = vec3(-0.5);
     vec3 boxMax = vec3(0.5);
@@ -36,22 +39,45 @@ void main() {
     float tNear, tFar;
     if (!intersectBox(cameraPos, rayDir, tNear, tFar)) discard;
     tNear = max(tNear, 0.0);
+    
+    if (uIsEmbedded) {
+        // X平面との交差判定
+        if (abs(rayDir.x) > 1e-5) {
+            float t = (uSlicePos.x - cameraPos.x) / rayDir.x;
+            if (t > tNear && t < tFar) tFar = t; // 壁にぶつかったらそこでストップ
+        }
+        // Y平面との交差判定
+        if (abs(rayDir.y) > 1e-5) {
+            float t = (uSlicePos.y - cameraPos.y) / rayDir.y;
+            if (t > tNear && t < tFar) tFar = t;
+        }
+        // Z平面との交差判定
+        if (abs(rayDir.z) > 1e-5) {
+            float t = (uSlicePos.z - cameraPos.z) / rayDir.z;
+            if (t > tNear && t < tFar) tFar = t;
+        }
+    }
 
     vec3 rayStart = cameraPos + rayDir * tNear;
     vec3 rayStop = cameraPos + rayDir * tFar;
     float dist = distance(rayStart, rayStop);
+    
+    if (dist <= 0.0001) discard;
+    
     int steps = 256;
     float stepSize = dist / float(steps);
     vec3 currentPos = rayStart;
 
     float maxVal = 0.0;
-    float bestRoiId = 0.0; // ★変更: MIPで一番明るかった場所のROIを記憶する
+    float frontRoiId = 0.0; // ★変更: MIP用に「一番手前でぶつかったROI」を記憶する
     vec4 accumulatedColor = vec4(0.0);
 
     for(int i = 0; i < steps; i++) {
         vec3 texCoord = currentPos + 0.5;
-        texCoord.y = 1.0 - texCoord.y;
-        texCoord.z = 1.0 - texCoord.z;
+        // 位置反転させる場合
+        // texCoord.x = 1.0 - texCoord.x; // ★追加: 左右の鏡像反転を直す
+        // texCoord.y = 1.0 - texCoord.y;
+        // texCoord.z = 1.0 - texCoord.z;
 
         float val = 0.0;
         vec4 srcColor = vec4(0.0);
@@ -69,6 +95,13 @@ void main() {
             // 値を 0〜255 の ID に戻す
             float rawRoiVal = texture(roiTex, texCoord).r;
             currentRoiId = int(rawRoiVal * 255.0 + 0.5);
+
+            // ★追加: MIPモードの時、最初にぶつかったROIのIDを記憶する
+            if (uRenderMode == 0 && currentRoiId > 0 && currentRoiId < 32) {
+                if (frontRoiId < 0.5) {
+                    frontRoiId = float(currentRoiId);
+                }
+            }
         }
 
         // --- レンダリングモードに応じた処理 ---
@@ -76,12 +109,6 @@ void main() {
             // --- MIP (最大値投影) ---
             if(val > maxVal) {
                 maxVal = val;
-                // ★変更: 最も明るいボクセルを更新した時だけ、その場所のROI IDを記憶する
-                if (currentRoiId > 0 && currentRoiId < 32) {
-                    bestRoiId = float(currentRoiId);
-                } else {
-                    bestRoiId = 0.0; // ROI外ならリセット
-                }
             }
         } else {
             // --- DVR ---
@@ -102,12 +129,23 @@ void main() {
 
     if (uRenderMode == 0) {
         vec3 mipOutput = vec3(maxVal);
-        if (uShowRoi && bestRoiId > 0.5) {
-            int id = int(bestRoiId + 0.5);
+        float outAlpha = 1.0; // これまでの通常動作（ボリュームの箱を不透明にする）
+        
+        if (uShowRoi && frontRoiId > 0.5) {
+            int id = int(frontRoiId + 0.5);
             vec4 rColor = uRoiColors[id];
             mipOutput = mix(mipOutput, rColor.rgb, rColor.a);
+            
+            // ボリューム非表示(Float Overlay等)の時は、ROIの透明度スライダーの値をそのまま使う
+            if (!uShowVolume) {
+                outAlpha = rColor.a;
+            }
+        } else if (!uShowVolume) {
+            // ROIにも当たらず、ボリュームも非表示なら「完全な透明」にして背景(Ortho等)を透かす
+            outAlpha = 0.0;
         }
-        FragColor = vec4(mipOutput, 1.0);
+
+        FragColor = vec4(mipOutput, outAlpha);
     } else {
         FragColor = accumulatedColor;
     }

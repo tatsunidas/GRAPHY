@@ -1004,13 +1004,15 @@ public class Viewer2DToolBar extends JToolBar {
 		return false;
 	}
 	
-	private void disposeWandDialogBefore() {
-		if(currentTool != Wand) {
-			return;
-		}
-		com.vis.core.ui.dialog.WandToolDialog wandDialog = com.vis.core.ui.dialog.WandToolDialog.getInstance(null, "Wand Tool");
-		if(wandDialog != null) {
-			wandDialog.setVisible(false);
+	private void disposeWandDialog() {
+		// getInstance() を呼ぶと強制的に再表示されてしまうため、
+		// 現在メモリ上に開いているウィンドウ一覧から直接探して非表示にします。
+		for (java.awt.Window w : java.awt.Window.getWindows()) {
+			if (w instanceof com.vis.core.ui.dialog.WandToolDialog) {
+				w.setVisible(false);
+				w.dispose(); // インスタンスを破棄してメモリを解放
+				break;
+			}
 		}
 	}
 
@@ -1036,6 +1038,11 @@ public class Viewer2DToolBar extends JToolBar {
 			}
 			windowChk.setBackground(getBackground());
 		}
+		
+		if(currentTool != Wand) {
+			disposeWandDialog();
+		}
+		
 		for (Enumeration<AbstractButton> e = roiGroup.getElements(); e.hasMoreElements();) {
 			AbstractButton chb = e.nextElement();
 			if (!chb.isSelected()) {
