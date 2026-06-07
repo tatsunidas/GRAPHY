@@ -65,6 +65,9 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+
+import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
@@ -500,7 +503,7 @@ public class RadiomicsBatchModePanel extends JPanel {
     
     // ログ出力（コンソールと内部ログの両方）
     private void log(String message) {
-        System.out.println(message);
+        Log.logger.info(message);
         log.append(message).append("\n");
     }
 
@@ -991,7 +994,8 @@ public class RadiomicsBatchModePanel extends JPanel {
 				get();
 				// 3. 成功した場合
 				progressBar.setValue(100); // 100% に
-				JOptionPane.showMessageDialog(comp, "バッチ処理が正常に完了しました。", "Batch process was done.", JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog(comp, Resources.i18n("RadiomicsBatchModePanel.done"),
+						Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
@@ -1011,8 +1015,10 @@ public class RadiomicsBatchModePanel extends JPanel {
 				usageTextArea.append("\n--- エラー発生 --- \n" + errorMessage);
 				usageTextArea.setCaretPosition(usageTextArea.getDocument().getLength());
 
-				JOptionPane.showMessageDialog(comp, "処理中にエラーが発生しました:\n" + errorMessage, "エラー",
-						JOptionPane.ERROR_MESSAGE);
+				Log.logger.severe("Batch radiomics error: " + errorMessage);
+				JOptionPane.showMessageDialog(comp,
+						Resources.i18n("RadiomicsBatchModePanel.error.occurred") + "\n" + errorMessage,
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	} // --- End of BatchWorker inner class ---

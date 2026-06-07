@@ -8,6 +8,8 @@ import java.io.File;
 
 import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
 import ws.schild.jave.Encoder;
 import ws.schild.jave.MultimediaObject;
 import ws.schild.jave.encode.AudioAttributes;
@@ -43,18 +45,19 @@ public class MpegConverter {
         // ※ DICOMのVideoSOPで最も標準的なH.264(MPEG-4 AVC)やH.265(HEVC)、レガシーMPEGを判定
         if (decoderName.contains("h264") || decoderName.contains("hevc") || decoderName.contains("mpeg")) {
             video.setCodec("copy");
-            System.out.println("Info: MPEGコーデック(" + decoderName + ")を検出しました。再圧縮なし(copy)でRemuxします。");
-        } 
-        // 条件2: もし非圧縮なコーデックなら、MPEG(H.264)にする
-        // ※ FFmpegでは非圧縮は通常「rawvideo」や「bmp」「dib」等として認識されます
+            Log.logger.info("MpegConverter: MPEG codec detected (" + decoderName + "). Remuxing without re-compression.");
+        }
+        // condition 2: uncompressed codec → encode to H.264
         else if (decoderName.contains("rawvideo") || decoderName.contains("raw") || decoderName.contains("bmp") || decoderName.contains("dib")) {
-            video.setCodec("libx264"); // H.264へエンコード
-            System.out.println("Info: 非圧縮コーデック(" + decoderName + ")を検出しました。H.264(MPEG)へエンコードします。");
-        } 
-        // 条件3: コーデックがMPEGでも非圧縮形式でもない場合、エラーをだす
-        // ※ 例: mjpeg, vp8, vp9, wmv など
+            video.setCodec("libx264");
+            Log.logger.info("MpegConverter: Uncompressed codec detected (" + decoderName + "). Encoding to H.264.");
+        }
+        // condition 3: unsupported codec
         else {
-        	JOptionPane.showMessageDialog(null, "Error: This codec is not supported. (" + decoderName + "), you can input MPEG-family or non-compression type to convert it DICOM.");
+            Log.logger.warning("MpegConverter: Unsupported codec: " + decoderName);
+        	JOptionPane.showMessageDialog(null,
+                    String.format(Resources.i18n("MpegConverter.error.codec"), decoderName),
+                    Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
             return null;
         	// throw new IllegalArgumentException("Error: This codec is not supported. (" + decoderName + "), you can input MPEG-family or non-compression type to convert it DICOM.");
         }

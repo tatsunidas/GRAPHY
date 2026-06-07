@@ -50,6 +50,8 @@ import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 
+import com.vis.configuration.Resources;
+
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
@@ -126,9 +128,9 @@ public class ApplicationFacade{
 			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH, "false");
 			if(pluginShelf.getLoadedPluginNames() != null) {
 				int numOfPlugin = pluginShelf.getLoadedPluginNames().size();
-				splash.startProgressAndClose(ResourceBundle.getBundle("i18n.i18n").getString("ApplicationFacade.loadingPlugin"), numOfPlugin);
+				splash.startProgressAndClose(Resources.i18n("ApplicationFacade.loadingPlugin"), numOfPlugin);
 			}else {
-				splash.startProgressAndClose(ResourceBundle.getBundle("i18n.i18n").getString("ApplicationFacade.loadingPlugin"), 0);
+				splash.startProgressAndClose(Resources.i18n("ApplicationFacade.loadingPlugin"), 0);
 			}
 		}else {
 			PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.NO_SPLASH, "true");
@@ -301,7 +303,8 @@ public class ApplicationFacade{
 		Log.logger.log(Level.INFO, "All optional windows were closed.");
 		
 		if(level == Level.INFO) {
-			int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Close the window ? (application will close)");
+			int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), Resources.i18n("ApplicationFacade.confirmClose"),
+					Resources.i18n("dialog.title.graphy"), JOptionPane.YES_NO_OPTION);
 			if(res == JOptionPane.OK_OPTION || res == JOptionPane.YES_OPTION) {
 				// application will close without any errors.
 				if(db != null) {

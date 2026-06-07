@@ -505,8 +505,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 				String path = fc.getSelectedFile().getAbsolutePath();
 				onLoadImage(path);
 			} catch (Exception ex) {
-				JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error",
-						JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(this,
+						Resources.i18n("RadiomicsVisualizationPanel.error.loadImage") + " " + ex.getMessage(),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	}
@@ -526,7 +527,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 			String seUid = GDicomTools.getTag(originalImage, Tag.SeriesInstanceUID);
 			String siUid = GDicomTools.getTag(originalImage, Tag.SOPInstanceUID);
 			if(pid == null || stUid == null || seUid == null || siUid == null) {
-				JOptionPane.showConfirmDialog(this, "This images do not have essential UIDs to load Radiomics Function.\n Select DICOM series again.");
+				JOptionPane.showConfirmDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.noUIDs"));
 				return;
 			}
 			originalImagePanel.reloadSlideGlasses(originalImage);
@@ -538,7 +539,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	@SuppressWarnings("unused")
 	private void onLoadMask() {
 		if(originalImagePanel.getAllSlides() == null || originalImagePanel.getAllSlides().size() == 0) {
-			JOptionPane.showConfirmDialog(this, "Please load src images first. After that, try again loading masks.");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.loadSrcFirst"));
 			return;
 		}
 		JFileChooser fc = new JFileChooser();
@@ -548,8 +549,9 @@ public class RadiomicsVisualizationPanel extends JPanel {
 				String path = fc.getSelectedFile().getAbsolutePath();
 				onLoadMask(path);
 			} catch (Exception ex) {
-				JOptionPane.showMessageDialog(this, "Failed to load mask: " + ex.getMessage(), "Error",
-						JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(this,
+						Resources.i18n("RadiomicsVisualizationPanel.error.loadMask") + " " + ex.getMessage(),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			}
 		}
 	}
@@ -759,7 +761,7 @@ public class RadiomicsVisualizationPanel extends JPanel {
 				radiomicsMapPanel.setImagePositionUsingSlider(zct);
 			}
 		} else {
-			JOptionPane.showConfirmDialog(this, "Radiomics map was not created... Please check logs. ");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.mapNotCreated"));
 		}
 
 		// Fusion画像を更新
@@ -980,7 +982,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	 */
 	private void onSaveMap(boolean outdcm) {
 		if (this.radiomicsMap == null) {
-			JOptionPane.showMessageDialog(this, "保存する可視化マップがありません。", "Warning", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.noMap"),
+					Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		
@@ -1001,12 +1004,16 @@ public class RadiomicsVisualizationPanel extends JPanel {
 					}
 					FileSaver fs = new FileSaver(this.radiomicsMap);
 					if (fs.saveAsTiff(path)) {
-						JOptionPane.showMessageDialog(this, "Tiff可視化マップを保存しました。");
+						JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.done.tiffSaved"),
+								Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 					}
 					return;
 				} catch (Exception ex) {
+					Log.logger.severe("Error saving radiomics tiff: " + ex.getMessage());
 					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, "保存中にエラーが発生しました: " + ex.getMessage());
+					JOptionPane.showMessageDialog(this,
+							Resources.i18n("RadiomicsVisualizationPanel.error.saveFailed") + " " + ex.getMessage(),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 					return;
 				}
 			}
@@ -1034,8 +1041,11 @@ public class RadiomicsVisualizationPanel extends JPanel {
 						writer.write(im.getHeader(), UID.ImplicitVRLittleEndian.uid(), parent_path+File.separator+instNo+".dcm");
 					}
 				} catch (Exception ex) {
+					Log.logger.severe("Error saving radiomics DICOM: " + ex.getMessage());
 					ex.printStackTrace();
-					JOptionPane.showMessageDialog(this, "Error occuered when saving: " + ex.getMessage());
+					JOptionPane.showMessageDialog(this,
+							Resources.i18n("RadiomicsVisualizationPanel.error.saveFailed") + " " + ex.getMessage(),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		}
@@ -1046,8 +1056,8 @@ public class RadiomicsVisualizationPanel extends JPanel {
 	 */
 	private void onSaveMapToDb() {
 		if (this.radiomicsMap == null) {
-			JOptionPane.showMessageDialog(this, "Radiomics Map not ready.\nPlease create Radiomics Map first.",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.mapNotReady"),
+					Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		// copy and replace meta data to new series.
@@ -1055,21 +1065,23 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if (db == null) {
-			JOptionPane.showMessageDialog(this, "GRAPHY DB does not ready, can not save to DB.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.dbNotReady"),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 		String pid = GDicomTools.getTag(radiomicsMap, Tag.PatientID);
 		String studyUID = GDicomTools.getTag(radiomicsMap, Tag.StudyInstanceUID);
 		String seriesUID = GDicomTools.getTag(radiomicsMap, Tag.SeriesInstanceUID);
 		if (pid == null || studyUID == null || seriesUID == null) {
-			JOptionPane.showMessageDialog(this,
-					"Can not create new series, this images does not have dicom attributes.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.noDicomAttr"),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 		try {
 			db.storeDicomImagesToDb(dcms);
 			com.vis.core.ui.main.MainScreen.getInstance().loadLocalStudiesBySearchKey();
-			JOptionPane.showMessageDialog(this, "Save radiomics map series was done.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.done.mapSaved"),
+					Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 		} catch (Exception e1) {
 			e1.printStackTrace();
 			Log.logger.warning("Something happen, can not store radiomics map to db ...");
@@ -1124,27 +1136,27 @@ public class RadiomicsVisualizationPanel extends JPanel {
 
 	private boolean validateInputs() {
 		if (calcImage == null) {
-			JOptionPane.showMessageDialog(this, "Please load image first.", "Input Required",
-					JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.loadImageFirst"),
+					Resources.i18n("dialog.title.inputRequired"), JOptionPane.WARNING_MESSAGE);
 			return false;
 		}
 
 		if (alignedMask != null) {
 			if (calcImage.getNSlices() != alignedMask.getNSlices()) {
-				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
-						JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.sizeMismatch"),
+						Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 
 			if (calcImage.getWidth() != alignedMask.getWidth()) {
-				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
-						JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.sizeMismatch"),
+						Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 
 			if (calcImage.getHeight() != alignedMask.getHeight()) {
-				JOptionPane.showMessageDialog(this, "Please load same size images and masks.", "Mask is invalid.",
-						JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("RadiomicsVisualizationPanel.error.sizeMismatch"),
+						Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 		}

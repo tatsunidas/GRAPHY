@@ -58,6 +58,7 @@ import java.awt.Insets;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
@@ -345,7 +346,7 @@ public class GeneralPrefs extends JPanel{
 					textField_db.setText(defaultLoc);
 					btnNewButton.setEnabled(false);
 					//restart
-					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart (You have to re-open) ?");
+					int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), Resources.i18n("GeneralPrefs.confirm.restart"), Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 					if(res ==JOptionPane.OK_OPTION) {
 						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, defaultLoc);
 						PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.UseDefaultLocalDBLocation, "true");
@@ -386,7 +387,7 @@ public class GeneralPrefs extends JPanel{
 					if(selectPath.equals(dbDir)) {
 						return;
 					}else {
-						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Need restart. \nAre you ready to restart ?");
+						int res_sub = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), Resources.i18n("GeneralPrefs.confirm.restartSimple"), Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 						if(res_sub==JOptionPane.OK_OPTION) {
 							PropertiesUtil.setPropertyAt(ConfigInfo.GRAPHY_Props, GraphyProp.LocalDBLocation, selectPath);
 							Utils.restart();

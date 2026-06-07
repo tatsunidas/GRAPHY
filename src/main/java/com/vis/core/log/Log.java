@@ -24,6 +24,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
+import com.vis.configuration.Resources;
+
 import com.vis.configuration.ConfigInfo;
 import com.vis.core.util.Utils;
 
@@ -130,7 +132,8 @@ public class Log extends JFrame{
 		if (logTextArea != null) {
 			Document text = logTextArea.getDocument();
 			if (text.getLength() == 0) {
-				JOptionPane.showMessageDialog(this, "There is no text to save (empty text)...");
+				JOptionPane.showMessageDialog(this, Resources.i18n("Log.error.emptyText"),
+						Resources.i18n("dialog.title.information"), JOptionPane.INFORMATION_MESSAGE);
 				return;
 			}
 			String log = null;
@@ -192,8 +195,8 @@ public class Log extends JFrame{
 		    
 		    String originalMessage = getFormatter().format(record);
 		    
-		    // (2) コンソールには色付きメッセージを出力する
-		    System.out.println(message(record.getLevel(), originalMessage));
+		    // (2) Output colored message to console (intentional System.out for developer visibility)
+		    System.out.println(message(record.getLevel(), originalMessage)); // NOSONAR: intentional console output for log display
 		    
 		    // (3) JTextAreaには元のメッセージを追記する
 		    SwingUtilities.invokeLater(() -> {

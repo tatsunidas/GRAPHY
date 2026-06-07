@@ -50,6 +50,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.media.DicomToAviConverter;
@@ -123,7 +124,7 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
@@ -142,7 +143,7 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
@@ -162,7 +163,7 @@ public class MainScreenMenu extends JMenuBar{
 						ArrayList<String> paths = db.getFileLocationsSeriesLevel(stUid, seUid);
 						
 						if(paths == null || paths.isEmpty()) {
-							JOptionPane.showMessageDialog(main, "Please select MultiFrame(Video) Dicom Series.(File path not found)");
+							JOptionPane.showMessageDialog(main, Resources.i18n("MainScreenMenu.error.videoNotFound"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 							return;
 						}
 						//image.isMultiframe() do not use
@@ -170,10 +171,10 @@ public class MainScreenMenu extends JMenuBar{
 						if(video.isMultiFrame()) {
 							new DicomToAviConverter(paths.get(0), 10/*fallback fps*/);
 						}else{
-							JOptionPane.showMessageDialog(main, "This series is not MultiFrame(Video) Dicom. Interrupt converting AVI.");
+							JOptionPane.showMessageDialog(main, Resources.i18n("MainScreenMenu.error.notVideo"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 						}
 					}else {
-						JOptionPane.showMessageDialog(main, "Please select MultiFrame(Video) Dicom Series.");
+						JOptionPane.showMessageDialog(main, Resources.i18n("MainScreenMenu.error.selectVideoSeries"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					}
 				}
 			}
@@ -186,10 +187,10 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
-				if(JOptionPane.showConfirmDialog(null, "Do you want to delete current selected images ?", "Delete images...", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION){
+				if(JOptionPane.showConfirmDialog(null, Resources.i18n("MainScreenMenu.confirm.deleteImages"), Resources.i18n("dialog.title.delete"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION){
 					Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());
 					if(win != null) {
 						MainScreen main = (MainScreen)win;
@@ -209,7 +210,7 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				new SeriesSeparator().separateSeries();
@@ -222,7 +223,7 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				new SeriesIntegrator().integrateSeries();
@@ -235,7 +236,7 @@ public class MainScreenMenu extends JMenuBar{
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(!HOMEinAction()) {
-					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "This action recquire selections from only HOME TreeTable.");
+					JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("MainScreenMenu.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				Window win = WindowManager.getWindow(ConfigInfo.MainScreen.toString());

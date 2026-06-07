@@ -13,6 +13,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
@@ -81,7 +82,8 @@ public class SUVCalibrationDialog extends JDialog {
 			}
 		}
 		if (this.header == null) {
-			JOptionPane.showMessageDialog(getOwner(), "This series does not have any images.");
+			JOptionPane.showMessageDialog(getOwner(), Resources.i18n("SUVCalibrationDialog.error.noImages"),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			SwingUtilities.invokeLater(() -> {
 				dispose();
 			});
@@ -366,8 +368,8 @@ public class SUVCalibrationDialog extends JDialog {
 			// 空白チェックとパース
 			if (txtWeight.getText().trim().isEmpty() || txtDose.getText().trim().isEmpty()
 					|| txtHalfLife.getText().trim().isEmpty()) {
-				JOptionPane.showMessageDialog(this, "Weight, Total Dose, and Half-life are required.", "Input Warning",
-						JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("SUVCalibrationDialog.error.missingFields"),
+						Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
 				return;
 			}
 
@@ -452,11 +454,13 @@ public class SUVCalibrationDialog extends JDialog {
 			dispose();
 
 		} catch (java.time.format.DateTimeParseException ex) {
-			JOptionPane.showMessageDialog(this, "Time format must be HH:mm:ss (e.g., 13:45:00).", "Format Error",
-					JOptionPane.ERROR_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("SUVCalibrationDialog.error.timeFormat"),
+					Resources.i18n("dialog.title.formatError"), JOptionPane.ERROR_MESSAGE);
 		} catch (Exception ex) {
-			JOptionPane.showMessageDialog(this, "Invalid inputs: " + ex.getMessage(), "Error",
-					JOptionPane.ERROR_MESSAGE);
+			Log.logger.warning("SUV calibration invalid inputs: " + ex.getMessage());
+			JOptionPane.showMessageDialog(this,
+					Resources.i18n("SUVCalibrationDialog.error.invalidInputs") + " " + ex.getMessage(),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 		}
 	}
 

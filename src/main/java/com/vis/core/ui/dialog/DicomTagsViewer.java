@@ -17,7 +17,9 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Highlighter;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.db.DatabaseHandler;
 
@@ -79,7 +81,8 @@ public class DicomTagsViewer extends javax.swing.JFrame {
 
 	public DicomTagsViewer(DICOMNode node) {
 		if (node.getLevel() != DICOMNode.IMAGE) {
-			JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "-DicomTagsViewer-\nPlease select image row.");
+			Log.logger.warning("DicomTagsViewer: node is not an image level node.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("DicomTagsViewer.error.selectRow"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		setLocationRelativeTo(WindowManager.getMainScreen());

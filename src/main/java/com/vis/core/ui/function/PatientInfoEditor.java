@@ -49,6 +49,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.PopUpMessage;
@@ -100,7 +101,7 @@ public class PatientInfoEditor {
 			PopUpMessage.showDialog(WindowManager.getMainScreen(), "Patient Info Editor", "Please select same patient images.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), constructPanel(), "Edit patient information", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), constructPanel(), Resources.i18n("PatientInfoEditor.title"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res == JOptionPane.OK_OPTION) {
 			if(previousPID == null || previousPID.length() == 0) {
 				Log.logger.fine("patientID not found. return");
@@ -112,7 +113,8 @@ public class PatientInfoEditor {
 			String newSex = selectSexGroup.getSelection().getActionCommand();//Male, Female, Other
 			boolean editAllStudies = editAllStudy.isSelected();
 			if(newPID.length() == 0) {
-				JOptionPane.showMessageDialog(WindowManager.getMainScreen(),"PatientInfoEditor: Please input PatientID.");
+				Log.logger.warning("PatientInfoEditor: PatientID is empty.");
+				JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("PatientInfoEditor.error.noPatientID"), Resources.i18n("dialog.title.inputRequired"), JOptionPane.WARNING_MESSAGE);
 				return;
 			}
 			if(previousPID.equals(newPID) && previousPNAME.equals(newPNAME) && previousSEX.equals(newSex) && previousBOD.equals(newBOD)) {
@@ -141,7 +143,8 @@ public class PatientInfoEditor {
 		String pid = selected.get(0).getData(DICOMNode.PatientID);
 		for (int i = 1; i < selected.size(); i++) {
 			if (!pid.equals(selected.get(i).getData(DICOMNode.PatientID))) {
-				JOptionPane.showMessageDialog(null,"PatientInfoEditor: Please select single Patient.");
+				Log.logger.warning("PatientInfoEditor: multiple different patients selected.");
+				JOptionPane.showMessageDialog(null, Resources.i18n("PatientInfoEditor.error.selectSinglePatient"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 				return false;
 			}
 		}
@@ -268,7 +271,7 @@ public class PatientInfoEditor {
 				db.updatePatientInformationAndStore2DB(imageUIDs,pmap);
 			}
 			// delete
-			if (JOptionPane.showConfirmDialog(null, "Delete these files after re-write ?", "Delete ?",
+			if (JOptionPane.showConfirmDialog(null, Resources.i18n("PatientInfoEditor.confirm.deleteAfterRewrite"), Resources.i18n("dialog.title.delete"),
 					JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_NO_OPTION) {
 				DeleteImage.deleteImagesByFilePath(files);
 			}

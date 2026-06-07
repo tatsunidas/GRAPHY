@@ -41,7 +41,9 @@ import java.util.ArrayList;
 
 import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.DBUtils;
 
@@ -58,15 +60,17 @@ public class SeriesSeparator {
 	
 	public void separateSeries(ArrayList<DICOMNode> selected) {
 		if(!isSeparateReady(selected)) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Not ready to separate. Please select images from a series on HOME TreeTable.");
+			Log.logger.warning("SeriesSeparator: not ready to separate.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("SeriesSeparator.error.notReady"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		this.selected = selected;
 		//show custom popup
-		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Do you want to separate series current selected images ?");
+		int res = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), Resources.i18n("SeriesSeparator.confirm.separateSeries"), Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if(res == JOptionPane.OK_OPTION) {
+			Log.logger.info("SeriesSeparator: separating series.");
 			separate();
-			int res2 = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), "Do you want to delete selected images from current series ?");
+			int res2 = JOptionPane.showConfirmDialog(WindowManager.getMainScreen(), Resources.i18n("SeriesSeparator.confirm.deleteFromSeries"), Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 			if(res2 == JOptionPane.OK_OPTION) {
 				delete();
 			}

@@ -927,7 +927,7 @@ public class RoiObjManager extends JFrame
 
 	private void duplicate() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -1290,7 +1290,7 @@ public class RoiObjManager extends JFrame
 	// ==========================================================
 	private void moveRois() {
 		if (selectedRois == null || selectedRois.size() < 1) {
-			JOptionPane.showMessageDialog(this, "Select ROI(s) first.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("RoiObjManager.error.selectRoisFirst"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -1794,7 +1794,7 @@ public class RoiObjManager extends JFrame
 		}
 		ArrayList<Praparat> praps = eye.getSelectingPraparats();
 		if (praps.size() == 0) {
-			JOptionPane.showConfirmDialog(this, "Please select series to load rois by (Shift + Left Click).");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectSeriesForRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -1819,7 +1819,7 @@ public class RoiObjManager extends JFrame
 		if (roi != null) {
 			loadRoi2Slide(roi, selectedPatID, praps);
 		} else {
-			JOptionPane.showConfirmDialog(this, "Unable to open ROI at " + path);
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.loadRoiFailed") + " " + path, Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 		}
 	}
 
@@ -2214,18 +2214,18 @@ public class RoiObjManager extends JFrame
 	 */
 	void capture() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		
+
 		if (contains3DRoi(selectedRois)) {
 			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
 			return;
 		}
-		
+
 		boolean hasSameImp = reffereingSameImage(selectedRois);
 		if (!hasSameImp) {
-			JOptionPane.showConfirmDialog(this, "Select rois on same image...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectSameImage"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		Set<String> keys = selectedRois.keySet();
@@ -2251,15 +2251,15 @@ public class RoiObjManager extends JFrame
 	 */
 	void captureWithKeepImageContext() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		
+
 		if (contains3DRoi(selectedRois)) {
 			PopUpMessage.showDialog(this, "Not Supported", "This operation is for 2D ROIs only. 3D ROIs are not supported.", JOptionPane.OK_OPTION, JOptionPane.WARNING_MESSAGE);
 			return;
 		}
-		
+
 		boolean hasSameImp = true;
 		Set<String> keys = selectedRois.keySet();
 		ImagePlus firstImp = null;
@@ -2273,7 +2273,7 @@ public class RoiObjManager extends JFrame
 				hasSameImp = false;
 		}
 		if (!hasSameImp) {
-			JOptionPane.showConfirmDialog(this, "Select rois on same image...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectSameImage"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		ImagePlus dup = firstImp.duplicate();
@@ -2317,7 +2317,7 @@ public class RoiObjManager extends JFrame
 	 */
 	void fill() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		if (contains3DRoi(selectedRois)) {
@@ -2356,7 +2356,7 @@ public class RoiObjManager extends JFrame
 
 	void splineFit() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		if (contains3DRoi(selectedRois)) {
@@ -2446,7 +2446,7 @@ public class RoiObjManager extends JFrame
 
 	void convert2Polygon() {
 		if (selectedRois.size() < 1) {
-			JOptionPane.showConfirmDialog(this, "Select roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		if (contains3DRoi(selectedRois)) {
@@ -2501,7 +2501,7 @@ public class RoiObjManager extends JFrame
 
 	private void combine() {
 		if (selectedRois.size() < 2) {
-			JOptionPane.showConfirmDialog(this, "Select rois first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRois"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -2583,7 +2583,7 @@ public class RoiObjManager extends JFrame
 	 */
 	void split() {
 		if (selectedRois.size() != 1) {
-			JOptionPane.showConfirmDialog(this, "Select a composite roi first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectCompositeRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		// ★ 3D-ROI の場合の専用処理へ分岐
@@ -2617,7 +2617,7 @@ public class RoiObjManager extends JFrame
 	 */
 	void and() {
 		if (selectedRois.size() <= 1) {
-			JOptionPane.showConfirmDialog(this, "Select rois first...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectRois"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		// ★ 3D-ROI が含まれている場合の専用処理へ分岐
@@ -2626,7 +2626,7 @@ public class RoiObjManager extends JFrame
 			return;
 		}
 		if (!reffereingSameImage(selectedRois)) {
-			JOptionPane.showConfirmDialog(this, "Select rois from same image...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectSameImage"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		int nPointRois = countPointRois(selectedRois);
@@ -2669,7 +2669,7 @@ public class RoiObjManager extends JFrame
 	 */
 	void xor() {
 		if (selectedRois.size() < 2) {
-			JOptionPane.showConfirmDialog(this, "More than one roi must be selected");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.moreThanOne"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		// ★ 3D-ROI が含まれている場合の専用処理へ分岐
@@ -2678,7 +2678,7 @@ public class RoiObjManager extends JFrame
 			return;
 		}
 		if (!reffereingSameImage(selectedRois)) {
-			JOptionPane.showConfirmDialog(this, "Select rois from same image...");
+			JOptionPane.showConfirmDialog(this, Resources.i18n("RoiObjManager.error.selectSameImage"), Resources.i18n("dialog.title.graphy"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 		RoiObj roi2 = RoiObj.xor(getSelectedRoisAsArray(selectedRois));
@@ -3209,6 +3209,14 @@ public class RoiObjManager extends JFrame
 				String k = key.iterator().next();
 				currentRoi = rois.get(k);
 
+				if (currentRoi == null) {
+					Log.logger.warning("RoiObjManager: currentRoi is null, skipping.");
+					return;
+				}
+				if (currentRoi.getSlideGlass() == null) {
+					Log.logger.warning("RoiObjManager: currentRoi.getSlideGlass() is null, skipping.");
+					return;
+				}
 				Praparat pp = currentRoi.getSlideGlass().getPraparat();
 				if (currentRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D
 						|| currentRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
@@ -3291,7 +3299,7 @@ public class RoiObjManager extends JFrame
 				dateFormat.parse(text);
 				return true;
 			} catch (ParseException e) {
-				JOptionPane.showMessageDialog(input, "Date is formatted by " + dateFormat.toPattern() + ".");
+				JOptionPane.showMessageDialog(input, String.format(Resources.i18n("RoiObjManager.info.dateFormat"), dateFormat.toPattern()), Resources.i18n("dialog.title.information"), JOptionPane.INFORMATION_MESSAGE);
 				return false;
 			}
 		}

@@ -62,6 +62,7 @@ import com.vis.cdw.common.CDRToolsProperties;
 import com.vis.cdw.common.DriveUtil;
 import com.vis.cdw.common.MediaCreationException;
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.util.Utils;
@@ -113,8 +114,8 @@ public class BurnerWindow extends JFrame implements WindowListener{
 		this.simulate = debug;
 
 		if (!burnDestDirInTemp.exists()) {
-			JOptionPane.showConfirmDialog(MainScreen.getInstance(), "Could not find the burn target folder, please re-try.",
-					"Something strange about burn target media..?? return", JOptionPane.WARNING_MESSAGE);
+			Log.logger.warning("BurnerWindow: burn target folder not found: " + burnDestDirInTemp.getAbsolutePath());
+			JOptionPane.showMessageDialog(MainScreen.getInstance(), Resources.i18n("BurnerWindow.error.noBurnTarget"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		
@@ -137,7 +138,8 @@ public class BurnerWindow extends JFrame implements WindowListener{
 
 		List<String> drives = DriveUtil.getAvailableDriveNames();
 		if (drives == null || drives.size() < 1) {
-			JOptionPane.showConfirmDialog(null, "GRAPHY can not detect any drive devices, please check device.");
+			Log.logger.warning("BurnerWindow: no drive devices detected.");
+			JOptionPane.showMessageDialog(null, Resources.i18n("BurnerWindow.error.noDevices"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		comboBoxDrive = new JComboBox<String>(drives.toArray(new String[0]));
@@ -211,7 +213,7 @@ public class BurnerWindow extends JFrame implements WindowListener{
 //				}else {
 //					anonymizer.setVisible(true);
 //				}
-				JOptionPane.showConfirmDialog(null, "Anonymize function is under development...");
+				JOptionPane.showMessageDialog(null, Resources.i18n("BurnerWindow.info.underDevelopment"), Resources.i18n("dialog.title.information"), JOptionPane.INFORMATION_MESSAGE);
 			}
 		});
 
@@ -376,16 +378,17 @@ public class BurnerWindow extends JFrame implements WindowListener{
 				DicomUtilities.attachDICOMDIRTo(burnFileInTemp.getAbsolutePath());
 				Utils.copyDirectory(ConfigInfo.WEASIS.toString(), burnFileInTemp.getAbsolutePath());
 			} catch (Exception e) {
-				e.printStackTrace();
-				JOptionPane.showMessageDialog(this, "データ準備に失敗しました: " + e.getMessage());
+				Log.logger.severe("BurnerWindow: data preparation failed: " + e.getMessage());
+				JOptionPane.showMessageDialog(this, Resources.i18n("BurnerWindow.error.dataPreparation") + " " + e.getMessage(), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 		}
-		
+
 		long requiredBlocks = DriveUtil.getIsoSizeInBlocks(burnFileInTemp);
 
 		if (requiredBlocks == -1) {
-			JOptionPane.showMessageDialog(this, "データサイズの計算に失敗しました。");
+			Log.logger.severe("BurnerWindow: failed to calculate data size.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("BurnerWindow.error.calcSize"), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 		Log.logger.info("Required blocks: " + requiredBlocks);
@@ -411,24 +414,24 @@ public class BurnerWindow extends JFrame implements WindowListener{
                 Log.logger.info("Media free blocks: " + freeBlocks);
 
                 if (freeBlocks > requiredBlocks) {
-                    // OK: 容量も足りている
+                    // OK: capacity is sufficient
                     readyToBurn = true;
                 } else if (freeBlocks == -1) {
-                    // 容量取得失敗 -> ユーザー判断
-                    int ret = JOptionPane.showConfirmDialog(this, 
-                            "メディアの空き容量を取得できませんでした。\n構わず書き込みを続行しますか？", 
-                            "容量不明", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                    // capacity retrieval failed -> user decision
+                    int ret = JOptionPane.showConfirmDialog(this,
+                            Resources.i18n("BurnerWindow.error.mediaCapacityUnknown"),
+                            Resources.i18n("dialog.title.warning"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
                     if (ret == JOptionPane.YES_OPTION) readyToBurn = true;
                 } else {
-                    // NG: 容量不足
+                    // NG: insufficient capacity
                     long diffMB = (requiredBlocks - freeBlocks) * 2048 / 1024 / 1024;
-                    String msg = String.format("メディアの容量が不足しています。\n不足: 約 %d MB\n入れ替えてください。", diffMB);
-                    int option = JOptionPane.showConfirmDialog(this, msg, "容量不足", 
+                    String msg = String.format(Resources.i18n("BurnerWindow.error.mediaInsufficient"), diffMB);
+                    int option = JOptionPane.showConfirmDialog(this, msg, Resources.i18n("dialog.title.warning"),
                             JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
                     if (option != JOptionPane.YES_OPTION) {
                         cleanUp(); return;
                     }
-                    continue; // ループ継続
+                    continue; // continue loop
                 }
             } else {
                 // ディスクが入っていない、または検出エラー(Windowsで頻発)
@@ -475,16 +478,17 @@ public class BurnerWindow extends JFrame implements WindowListener{
 					// ここで時間がかかる処理を実行
 					burner.burn(burnFileInTemp, new File(burnFileInTemp.getAbsolutePath() + ".iso"));
 
-					// 完了後のUI更新だけ invokeLater を使う
+					// Update UI on EDT after completion
 					javax.swing.SwingUtilities.invokeLater(() -> {
-						JOptionPane.showMessageDialog(null, "書き込みが完了しました。");
+						Log.logger.info("BurnerWindow: writing completed successfully.");
+						JOptionPane.showMessageDialog(null, Resources.i18n("BurnerWindow.done"), Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 						cleanUp();
 					});
 
 				} catch (MediaCreationException e) {
-					e.printStackTrace();
+					Log.logger.severe("BurnerWindow: writing failed: " + e.getMessage());
 					javax.swing.SwingUtilities.invokeLater(() -> {
-						JOptionPane.showMessageDialog(null, "書き込みに失敗しました。\n" + e.getMessage(), "エラー",
+						JOptionPane.showMessageDialog(null, Resources.i18n("BurnerWindow.error.writeFailed") + "\n" + e.getMessage(), Resources.i18n("dialog.title.error"),
 								JOptionPane.ERROR_MESSAGE);
 						cleanUp();
 					});

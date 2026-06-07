@@ -504,7 +504,7 @@ public class Eyepiece extends JPanel{
 	                         */
 	                        
 	                    } else {
-	                        javax.swing.JOptionPane.showMessageDialog(bgPrap, "Fusion alignment failed.");
+	                        javax.swing.JOptionPane.showMessageDialog(bgPrap, Resources.i18n("Eyepiece.error.fusionFailed"), Resources.i18n("dialog.title.graphy"), javax.swing.JOptionPane.INFORMATION_MESSAGE);
 	                    }
 	                } catch (Exception ex) {
 	                    com.vis.core.log.Log.logger.log(java.util.logging.Level.SEVERE, "Error during fusion", ex);

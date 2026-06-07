@@ -14,6 +14,9 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
+
 public class NestedTagBuilderDialog extends JDialog {
 
     private static final long serialVersionUID = 1L;
@@ -116,7 +119,7 @@ public class NestedTagBuilderDialog extends JDialog {
                     txtPrivateTag.setText("");
                     txtPrivateName.setText("");
                 } else {
-                    JOptionPane.showMessageDialog(this, "Invalid Tag Format. Please use 'XXXX,XXXX'.", "Format Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, Resources.i18n("NestedTagBuilderDialog.error.invalidTag"), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
                 }
             } else {
                 String selected = listDict.getSelectedValue();

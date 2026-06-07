@@ -16,6 +16,7 @@ import javax.swing.JOptionPane;
 
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.util.Utils;
@@ -110,17 +111,17 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 						String baseDest = ConfigInfo.getPath(ConfigInfo.TemporalDirName);
 						if(patID == null || patID.equals("") || patID.contentEquals(" ") || patID.equals("null")) {
 							patID = "NULL-PatientID";
-							System.out.println("patID is null");
+							Log.logger.warning("DICOMNodeDragGestureListener: patID is null, using fallback.");
 						}
 						String studyDesc = db.getValueFromStudy("StudyDescription", patID, studyIUID);
 						if(studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
 							studyDesc = "no-studydesc";
-							System.out.println("studyDesc is null");
+							Log.logger.fine("DICOMNodeDragGestureListener: studyDesc is null, using fallback.");
 						}
 						String seriesDesc = db.getValueFromSeries("SeriesDescription", patID, studyIUID, seriesIUID);
 						if(seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
 							seriesDesc = "no-seriesDesc";
-							System.out.println("seriesDesc is null");
+							Log.logger.fine("DICOMNodeDragGestureListener: seriesDesc is null, using fallback.");
 						}
 						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
 						String destParent = baseDest+File.separator+patID+File.separator+studyDesc+File.separator+seriesDesc;
@@ -153,8 +154,9 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 			}
 		}
 		if(fileNotFoundInDB) {
+			Log.logger.warning("DICOMNodeDragGestureListener: missing files detected in DB, export aborted.");
 			javax.swing.SwingUtilities.invokeLater(() -> {
-				JOptionPane.showConfirmDialog(null, "Missing files(maybe linked images...) in DB detected, would not export.");
+				JOptionPane.showMessageDialog(null, Resources.i18n("DICOMNodeDragGestureListener.error.missingFiles"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			});
 			return new ArrayList<>();
 		}

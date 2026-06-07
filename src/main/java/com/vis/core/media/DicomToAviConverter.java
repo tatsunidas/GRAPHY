@@ -27,6 +27,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.Tag;
+import com.vis.configuration.Resources;
 import com.vis.dicom.dcm4cheImpl.DecompressorChe;
 
 /**
@@ -54,7 +55,7 @@ public class DicomToAviConverter {
 
         // 3. Check if user cancelled the dialog
         if (directory == null || fileName == null) {
-            System.out.println("Conversion cancelled by the user (No save path selected).");
+            Log.logger.info("DicomToAviConverter: Conversion cancelled by the user (no save path selected).");
             return;
         }
 
@@ -175,7 +176,8 @@ public class DicomToAviConverter {
             pm.close();
             if (!pm.isCanceled()) {
                 SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(null, "AVI conversion completed.\nOutput: " + outputAviPath, "Complete", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(null, Resources.i18n("DicomToAviConverter.done") + " " + outputAviPath,
+                            Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
                 });
             }
 
@@ -243,11 +245,12 @@ public class DicomToAviConverter {
 
             pm.close();
             if (pm.isCanceled()) {
-                System.out.println("Conversion was cancelled.");
+                Log.logger.info("DicomToAviConverter: Conversion was cancelled.");
                 // 必要であれば、作りかけの出力ファイルを削除する処理をここに追加
             } else {
                 SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(null, "AVI conversion completed.\nOutput: " + outputAviPath, "Complete", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(null, Resources.i18n("DicomToAviConverter.done") + " " + outputAviPath,
+                            Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
                 });
             }
 
@@ -298,10 +301,9 @@ public class DicomToAviConverter {
      * Safely displays an error dialog.
      */
     private void showErrorDialog(String message) {
-        System.err.println(message);
-        // Safely show dialog on the UI thread
+        Log.logger.severe("DicomToAviConverter error: " + message);
         SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(null, message, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, message, Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
         });
     }
 }

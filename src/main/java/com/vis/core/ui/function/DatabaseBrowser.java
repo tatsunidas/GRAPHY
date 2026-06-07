@@ -41,6 +41,7 @@ import javax.swing.table.DefaultTableModel;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
@@ -383,7 +384,8 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 						passwordField.getText());
 				return true;
 			} catch (Exception e) {
-				JOptionPane.showMessageDialog(this, "Error connecting to " + "database: " + e.getMessage());
+				Log.logger.severe("DatabaseBrowser: connection failed: " + e.getMessage());
+				JOptionPane.showMessageDialog(this, Resources.i18n("DatabaseBrowser.error.connectFailed") + " " + e.getMessage(), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			}
 			return false;
 		}
@@ -447,7 +449,7 @@ public class DatabaseBrowser extends JDialog implements WindowListener {
 
 	@Override
 	public void windowClosed(WindowEvent arg0) {
-		System.out.println("unconnect");
+		Log.logger.info("DatabaseBrowser: disconnecting from database.");
 		try {
 			if (!conn.isClosed()) {
 				conn.close();

@@ -85,6 +85,7 @@ import javax.swing.table.TableColumnModel;
 import javax.swing.text.NumberFormatter;
 import javax.swing.JScrollPane;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
@@ -182,9 +183,10 @@ public class PACSConnectionPrefs extends JPanel {
 				try {
 					DatabaseHandler db = DatabaseHandler.getInstance();
 					db.initDicomServer();
+					Log.logger.info("PACSConnectionPrefs: DICOM server restarted successfully after node deletion.");
 				} catch (IOException | SQLException e) {
 					Log.logger.severe("Can not start DcmQRSCP...");
-					JOptionPane.showMessageDialog(null, "Something happen when adding DICOM node, GRAPHY-DB can not restart correctly, please restart GRAPHY...");
+					JOptionPane.showMessageDialog(null, Resources.i18n("AddDicomCommunicationNodeWin.error.restartRequired"), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				}
 				WindowManager.getMainScreen().updateQRTreeTables();
 			}
@@ -436,7 +438,7 @@ public class PACSConnectionPrefs extends JPanel {
 			public void actionPerformed(ActionEvent e) {
 				
 				MainScreen ms = WindowManager.getMainScreen();
-				int res = JOptionPane.showConfirmDialog(ms, "This will shutting down graphy automatically.\nPlease restart after that.\nWill you continue ?", "Continue ?", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);			
+				int res = JOptionPane.showConfirmDialog(ms, Resources.i18n("PACSConnectionPrefs.confirm.shutdown"), Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 				if(res != JOptionPane.OK_OPTION) {
 					return;
 				}
@@ -444,19 +446,22 @@ public class PACSConnectionPrefs extends JPanel {
 				String aet = t1.getText();
 				String host = ipAddressField.getText();
 				String port = t3.getText();
-				
+
 				if(StringUtils.isInvalidAET(aet)) {
-					JOptionPane.showMessageDialog(null, "AET is invalid value. Please input correctlly.");
+					Log.logger.warning("PACSConnectionPrefs: invalid AET value: " + aet);
+					JOptionPane.showMessageDialog(null, Resources.i18n("PACSConnectionPrefs.error.invalidAET"), Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
-				
+
 				if(StringUtils.isInvalidHostIP(host)) {
-					JOptionPane.showMessageDialog(null, "IP_Address is invalid value. Please input correctlly.");
+					Log.logger.warning("PACSConnectionPrefs: invalid IP address value: " + host);
+					JOptionPane.showMessageDialog(null, Resources.i18n("PACSConnectionPrefs.error.invalidIP"), Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
-				
+
 				if(StringUtils.isInvalidPort(port)) {
-					JOptionPane.showMessageDialog(null, "Port number is invalid value. Please input correctlly.");
+					Log.logger.warning("PACSConnectionPrefs: invalid port number value: " + port);
+					JOptionPane.showMessageDialog(null, Resources.i18n("PACSConnectionPrefs.error.invalidPort"), Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
 				

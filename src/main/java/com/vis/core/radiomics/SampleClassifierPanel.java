@@ -76,7 +76,9 @@ import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.configuration.RoiDBKey;
+import com.vis.core.log.Log;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.view.D2.roi.RoiConverter;
@@ -308,7 +310,7 @@ public class SampleClassifierPanel extends JPanel{
 	
 	public void addNewClass(String name) {
 		if(isDuplicateName(name)) {
-			JOptionPane.showConfirmDialog(null, "This class already exists !");
+			JOptionPane.showConfirmDialog(null, Resources.i18n("SampleClassifierPanel.error.classExists"));
 			return;
 		}
 		ClassPanel cp = (ClassPanel) createNewClass(name);
@@ -395,10 +397,10 @@ public class SampleClassifierPanel extends JPanel{
 			 */
 			pipeline.saveDatasetARFF(selectedDirectory.getAbsolutePath() + File.separator + "traindataset");
 		} else {
-			System.out.println("フォルダ選択がキャンセルされました。");
+			Log.logger.info("Save configuration folder selection was canceled.");
 		}
 	}
-	
+
 	public void saveRois(HashMap<String, List<RoiObj>> roiset, File dir) {
 		try {
 			File saveTo = new File(dir.getCanonicalPath()+File.separator+"ROI");
@@ -431,16 +433,16 @@ public class SampleClassifierPanel extends JPanel{
 			// 4. Properties オブジェクトをファイルに保存
 			// store(OutputStream out, String comments) メソッドを使用
 			config.store(fos, "radiomics segmentation configuration file");
-			System.out.println("Propertiesファイルが正常に保存されました: " + dest);
+			Log.logger.info("Properties file saved successfully: " + dest);
 		} catch (IOException e) {
-			System.err.println("Propertiesファイルの保存中にエラーが発生しました: " + e.getMessage());
+			Log.logger.severe("Error saving properties file: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			if (fos != null) {
 				try {
 					fos.close();
 				} catch (IOException e) {
-					System.err.println("FileOutputStreamのクローズ中にエラーが発生しました: " + e.getMessage());
+					Log.logger.warning("Error closing FileOutputStream: " + e.getMessage());
 				}
 			}
 		}
@@ -473,10 +475,10 @@ public class SampleClassifierPanel extends JPanel{
 				}
 			}
 		} else {
-			System.out.println("フォルダ選択がキャンセルされました。");
+			Log.logger.info("Load configuration folder selection was canceled.");
 		}
 	}
-	
+
 	/**
 	 * 関連のあるシリーズが解析対象だった場合にのみ、
 	 * クラスパネルへROIをロードする。
@@ -484,10 +486,10 @@ public class SampleClassifierPanel extends JPanel{
 	 * @param roiDir
 	 */
 	public void loadRois(File roiDir) {
-		System.out.println("Start LOAD ROI...");
+		Log.logger.info("Start LOAD ROI...");
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if (!pipeline.isPraparatReady() || db == null) {
-			System.out.println("Praparat or Database is not ready, can not load rois.");
+			Log.logger.warning("Praparat or Database is not ready, cannot load ROIs.");
 			return;
 		}
 		
@@ -517,7 +519,7 @@ public class SampleClassifierPanel extends JPanel{
 					try {
 						Roi r_ = new RoiDecoder(r.getAbsolutePath()).getRoi();
 						if(r_ == null) {
-							System.out.println("Null ROI... skip. :"+r.getAbsolutePath());
+							Log.logger.warning("Null ROI, skipping: " + r.getAbsolutePath());
 							continue;
 						}
 						RoiObj ro = new RoiConverter().convert2RoiObj(r_);
@@ -525,7 +527,7 @@ public class SampleClassifierPanel extends JPanel{
 							//already done add new class
 							getClassPanel(className).add(ro);
 						} else {
-							System.out.println("This roi does not match to current series.");
+							Log.logger.fine("ROI does not match current series, skipping.");
 						}
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -581,7 +583,7 @@ public class SampleClassifierPanel extends JPanel{
 			Classifier clf = (Classifier) SerializationHelper.read(f.getAbsolutePath());
 			m_ClassifierEditor.setValue(clf);//be careful, this is a reason for locating loadModel() in this class.
 			pipeline.modelIs(clf);
-			System.out.println("Model is loaded successfully.");
+			Log.logger.info("Model loaded successfully.");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -646,7 +648,7 @@ public class SampleClassifierPanel extends JPanel{
 						 * slice 1 : proba image
 						 */
 						pred = pipeline.predict(pp.getCurrentSlidePos());
-						System.out.println("PREDICTION was done !");
+						Log.logger.info("Prediction completed.");
 					}
 				});
 			}else if(name.equals(SHOW_RESULTS)) {
@@ -680,12 +682,12 @@ public class SampleClassifierPanel extends JPanel{
 					        String savePath = directory + fileName;
 
 					        // 結果をログに表示
-					        System.out.println("選択された保存パス: " + savePath);
-					        
+					        Log.logger.info("Save path selected: " + savePath);
+
 					        // 4. 取得したパスを使って画像を保存
 					        // このsaveAsメソッドが実際の保存処理を行います
 					        IJ.saveAs(pred, "tiff", savePath);
-					        System.out.println("完了:"+savePath + " に画像を保存しました。");
+					        Log.logger.info("Prediction image saved to: " + savePath);
 						}
 					}
 				});
@@ -714,17 +716,17 @@ public class SampleClassifierPanel extends JPanel{
 				btn.addActionListener(new ActionListener() {
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						String className = JOptionPane.showInputDialog("Please input new class name:", null);
+						String className = JOptionPane.showInputDialog(Resources.i18n("SampleClassifierPanel.input.newClass"), null);
 						if (className != null) {
 							if (!className.trim().isEmpty()) {
-								System.out.println("入力されたクラス名: " + className);
+								Log.logger.info("New class name entered: " + className);
 								addNewClass(className);
 							} else {
 								// 空白のみ、または何も入力せずにOKを押した場合
-								System.out.println("クラス名が入力されませんでした。");
+								Log.logger.fine("No class name was entered.");
 							}
 						} else {
-							System.out.println("入力がキャンセルされました。");
+							Log.logger.info(Resources.i18n("SampleClassifierPanel.canceled"));
 						}
 					}
 				});
@@ -753,12 +755,13 @@ public class SampleClassifierPanel extends JPanel{
 				        if (result == JOptionPane.OK_OPTION) {
 				            // OKボタンが押された場合、選択されたアイテムを取得
 				            String selectedOption = (String) comboBox.getSelectedItem();
-				            System.out.println("選択されたクラス: " + selectedOption);
+				            Log.logger.info("Class selected for deletion: " + selectedOption);
 				            deleteClass(selectedOption);
 				        } else {
 				            // Cancelボタンが押されたか、ダイアログが閉じられた場合
-				            System.out.println("選択がキャンセルされました。");
-				            JOptionPane.showMessageDialog(null, "選択がキャンセルされました。", "キャンセル", JOptionPane.INFORMATION_MESSAGE);
+				            Log.logger.info(Resources.i18n("SampleClassifierPanel.canceled"));
+				            JOptionPane.showMessageDialog(null, Resources.i18n("SampleClassifierPanel.canceled"),
+				            		Resources.i18n("dialog.title.canceled"), JOptionPane.INFORMATION_MESSAGE);
 				        }
 					}
 				});
@@ -808,7 +811,7 @@ public class SampleClassifierPanel extends JPanel{
 				public void actionPerformed(ActionEvent e) {
 					Viewer2DScreen screen = (Viewer2DScreen) WindowManager.getWindow(ConfigInfo.D2ViewerWindow);
 					if(screen == null) {
-						System.out.println("2DViewer is NULL !!!");
+						Log.logger.warning("2DViewer is null, cannot add ROI.");
 						return;
 					}
 					ArrayList<Praparat> praps = screen.getSelectedPraps();
@@ -822,7 +825,7 @@ public class SampleClassifierPanel extends JPanel{
 							}
 						}
 					}else {
-						System.out.println("Any praparats are not selected, cannot find roi... ");
+						Log.logger.warning("No praparat selected; cannot find ROI.");
 					}
 				}
 			});
@@ -856,11 +859,11 @@ public class SampleClassifierPanel extends JPanel{
 		void add(RoiObj r) {
 			String roiId = r.getUIDs().get(RoiDBKey.RoiID);
 			if(roiId == null) {
-				System.out.println("Cannot load. This roi is not created by GRAPHY...:"+r.getName());
+				Log.logger.warning("Cannot load ROI - not created by GRAPHY: " + r.getName());
 				return;
 			}
 			if(listModel.contains(r)) {
-				System.out.println(roiId + " is already listed.");
+				Log.logger.fine(roiId + " is already listed.");
 				return;
 			}
 			for(int i=0; i<listModel.size(); i++) {
@@ -883,11 +886,11 @@ public class SampleClassifierPanel extends JPanel{
 		
 		void updateOrReplace(int row/*0 to n-1*/, RoiObj r) {
 			if(row < 0 || row > listModel.getSize()) {
-				System.out.println("RadiomicsPanel.ClassPanle:updateOrReplace:: Out Of Range ! "+row);
+				Log.logger.warning("ClassPanel.updateOrReplace: index out of range: " + row);
 				return;
 			}
 			if(r == null) {
-				System.out.println("RadiomicsPanel.ClassPanle:updateOrReplace:: Rois is NULL ! "+row);
+				Log.logger.warning("ClassPanel.updateOrReplace: ROI is null at row: " + row);
 				return;
 			}
 			listModel.set(row, r);

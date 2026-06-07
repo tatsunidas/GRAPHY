@@ -7,6 +7,7 @@ import javax.swing.JOptionPane;
 
 import org.joml.Vector3d;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.roi.RoiConverter;
 import com.vis.core.view.D2.roi.RoiObj;
@@ -136,7 +137,7 @@ public class ImageProcessing {
 		RoiObj roi = rectRoi;
 		RoiType type = roi.getRoiType();
 		if (type != RoiType.RECTANGLE && type != RoiType.OVAL && type != RoiType.POLYGON) {
-			JOptionPane.showMessageDialog(null, "Sorry, RoiType should be Rectangle. Cropping was canceled.", "Crop Tool", JOptionPane.INFORMATION_MESSAGE);
+			JOptionPane.showMessageDialog(null, Resources.i18n("ImageProcessing.error.notRectangle"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
 		Rectangle2D rect = roi.getBounds();
@@ -196,7 +197,7 @@ public class ImageProcessing {
 		RoiType roiType = roi.getRoiType();
 		if (roiType == RoiType.ANGLE || roiType == RoiType.ARROW || roiType == RoiType.FREELINE || roiType == RoiType.POINT
 				|| roiType == RoiType.LINE) {
-			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), "You need set closed type roi. return null.");
+			JOptionPane.showMessageDialog(Viewer2DScreen.getInstance(), Resources.i18n("ImageProcessing.error.needClosedRoi"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
 		Calibration cal = imp.getCalibration().copy();

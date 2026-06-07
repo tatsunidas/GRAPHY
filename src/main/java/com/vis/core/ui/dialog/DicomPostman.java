@@ -59,7 +59,9 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.JComboBox;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
+import com.vis.core.log.Log;
 import com.vis.core.ui.main.AnimatingSheet;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.core.util.Utils;
@@ -98,15 +100,17 @@ public class DicomPostman extends JDialog implements Runnable{
 	
 	public DicomPostman(ArrayList<DICOMNode> selectedNodes) {
 		if(selectedNodes == null || selectedNodes.size() < 1) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Select data to send from home treetable.");
+			Log.logger.warning("DicomPostman: no nodes selected.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("DicomPostman.error.noSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		db = DatabaseHandler.getInstance();
-		
+
 		//check servers
 		ArrayList<HashMap<String,Object>> serverMaterials = db.getCommunicationServerList();
 		if(serverMaterials == null || serverMaterials.isEmpty()) {
-			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), "Can not detect communicationable remote servers.");
+			Log.logger.warning("DicomPostman: no communicable remote servers found.");
+			JOptionPane.showMessageDialog(WindowManager.getMainScreen(), Resources.i18n("DicomPostman.error.noServers"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		servers = new ArrayList<DicomCommunicationNode>();

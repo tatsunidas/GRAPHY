@@ -7,6 +7,7 @@ package com.vis.core.anonymize;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 
 import java.awt.*;
@@ -140,8 +141,8 @@ public class AttributeAnonymizerPanel extends JPanel {
                 // 処理中の場合、中断するか確認
                 int result = JOptionPane.showConfirmDialog(
                     AttributeAnonymizerPanel.this,
-                    "Anonymization process is currently running.\nAre you sure you want to cancel and close?",
-                    "Confirm Exit",
+                    Resources.i18n("AttributeAnonymizerPanel.confirm.cancelRunning"),
+                    Resources.i18n("dialog.title.confirm"),
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE
                 );
@@ -326,7 +327,7 @@ public class AttributeAnonymizerPanel extends JPanel {
     	        currentConfig.setRandomSeed(Long.parseLong(seedStr));
     	    } catch (NumberFormatException e) {
     	        // 文字列のハッシュ値をシードにするなどのフォールバック
-    	    	JOptionPane.showConfirmDialog(this, "No numerical value was inputed, will not randomize studies.");
+    	    	JOptionPane.showConfirmDialog(this, Resources.i18n("AttributeAnonymizerPanel.error.noNumerical"));
     	    	Log.logger.log(Level.WARNING, "No numerical value was inputed, will not use random seed.");
     	        currentConfig.setRandomSeed(null);
     	    }
@@ -357,7 +358,8 @@ public class AttributeAnonymizerPanel extends JPanel {
         String destPath = txtDestDir.getText().trim();
 
         if (srcPath.isEmpty() || destPath.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please select source and destination directories.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, Resources.i18n("AttributeAnonymizerPanel.error.noDirs"),
+                    Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -411,13 +413,18 @@ public class AttributeAnonymizerPanel extends JPanel {
                         get(); // 処理中に投げられた例外をキャッチ
                         appendLog("Finished successfully!", false);
                         progressBar.setString("100%");
-                        JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this, "Anonymization Completed!");
+                        JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
+                                Resources.i18n("AttributeAnonymizerPanel.done"),
+                                Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
                     }
                 } catch (Exception ex) {
                     appendLog("Error: " + ex.getMessage(), false);
+                    Log.logger.severe("Anonymization error: " + ex.getMessage());
                     ex.printStackTrace();
                     progressBar.setString("Error");
-                    JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this, "Error occurred:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
+                            Resources.i18n("AttributeAnonymizerPanel.error.occurred") + " " + ex.getMessage(),
+                            Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setUiEnabled(true);
                     progressBar.setValue(0);

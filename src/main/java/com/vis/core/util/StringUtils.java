@@ -332,6 +332,7 @@ public class StringUtils {
     }
 
     public static String truncate(String s, int maxlen) {
+        if (s == null) return null;
         return s.length() > maxlen ? s.substring(0, maxlen) : s;
     }
 
@@ -340,6 +341,7 @@ public class StringUtils {
     }
 
     public static String replaceSystemProperties(String s) {
+        if (s == null) return null;
         int i = s.indexOf("${");
         if (i == -1)
             return s;
@@ -374,6 +376,7 @@ public class StringUtils {
     }
 
     public static boolean isUpperCase(String s) {
+        if (s == null) return false;
         int len = s.length();
         for (int i = 0; i < len; i++) {
             char ch = s.charAt(i);
@@ -384,6 +387,7 @@ public class StringUtils {
     }
 
     public static boolean isIPAddr(String s) {
+        if (s == null || s.isEmpty()) return false;
         String[] ss = split(s, ':');
         if (ss.length > 1)
             return ss.length == 8;

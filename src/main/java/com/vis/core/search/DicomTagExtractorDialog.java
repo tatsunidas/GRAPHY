@@ -42,6 +42,7 @@ import javax.swing.TransferHandler;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -104,7 +105,7 @@ public class DicomTagExtractorDialog extends JDialog {
 		if (mainScreen != null) {
 			this.cachedSelectedNodes = mainScreen.getSelectedNode();
 			if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
-				int res = JOptionPane.showConfirmDialog(this, "No selected series from the TreeTable, would you continue to use choose directory function?");
+				int res = JOptionPane.showConfirmDialog(this, Resources.i18n("DicomTagExtractorDialog.confirm.noSelection"));
 				if(res != JOptionPane.YES_OPTION) {
 					/*
 					 * ここでそのままdisposeするとフリーズする。 
@@ -206,7 +207,7 @@ public class DicomTagExtractorDialog extends JDialog {
 	private void executeExport() {
 		// 1. ユーザー入力の取得（UI操作）
 		if (selectedListModel.isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Please select at least one tag to extract.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.noTags"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -217,7 +218,7 @@ public class DicomTagExtractorDialog extends JDialog {
 		boolean isTreeTable = rbTreeTable.isSelected();
 
 		if (!isTreeTable && selectedFolder == null) {
-			JOptionPane.showMessageDialog(this, "Please select a target folder.");
+			JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.noFolder"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
@@ -263,7 +264,7 @@ public class DicomTagExtractorDialog extends JDialog {
 			//selectedNodes = ((MainScreen) WindowManager.getMainScreen()).getSelectedNode();
 			selectedNodes = this.cachedSelectedNodes;//use directly
 			if (selectedNodes == null || selectedNodes.isEmpty()) {
-				JOptionPane.showMessageDialog(this, "Please select at least one series from the TreeTable.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.noSeriesFromTree"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
 				return;
 			}
 		} else {
@@ -395,7 +396,7 @@ public class DicomTagExtractorDialog extends JDialog {
 							logWriter.println(logMsg);
 						}
 					} catch (Exception e) {
-						e.printStackTrace(); // ログ書き込み失敗時
+						Log.logger.warning("DicomTagExtractorDialog: Failed to write log file: " + e.getMessage());
 					}
 				}
 				
@@ -420,10 +421,10 @@ public class DicomTagExtractorDialog extends JDialog {
 				});
 			} catch (Exception ex) {
 				if (!cancelRequested) {
-					ex.printStackTrace();
+					Log.logger.warning("DicomTagExtractorDialog: " + ex.getMessage());
 					SwingUtilities.invokeLater(() -> {
-						JOptionPane.showMessageDialog(this, "Error during export: " + ex.getMessage(), "Error",
-								JOptionPane.ERROR_MESSAGE);
+						JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.export") + " " + ex.getMessage(), Resources.i18n("dialog.title.error"),
+							JOptionPane.ERROR_MESSAGE);
 						btnExport.setEnabled(true);
 						btnSelectFolder.setEnabled(true);
 						rbTreeTable.setEnabled(true);
@@ -666,7 +667,7 @@ public class DicomTagExtractorDialog extends JDialog {
 					}
 					return true;
 				} catch (Exception e) {
-					e.printStackTrace();
+					Log.logger.warning("DicomTagExtractorDialog: Error during drag-and-drop import: " + e.getMessage());
 				}
 				return false;
 			}
@@ -760,8 +761,8 @@ public class DicomTagExtractorDialog extends JDialog {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(this, "Failed to load properties file.", "Error", JOptionPane.ERROR_MESSAGE);
+			Log.logger.warning("DicomTagExtractorDialog: Failed to load properties file: " + e.getMessage());
+			JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.loadProperties"), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
@@ -850,8 +851,7 @@ public class DicomTagExtractorDialog extends JDialog {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println("TagDictからのタグリスト取得に失敗しました。");
+			Log.logger.warning("DicomTagExtractorDialog: Failed to load DICOM tag dictionary.");
 			// フォールバック
 			allTagsList.add("0010,0010 - PatientName");
 			allTagsList.add("0020,000D - StudyInstanceUID");

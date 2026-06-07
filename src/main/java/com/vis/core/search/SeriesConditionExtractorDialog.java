@@ -46,6 +46,7 @@ import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -104,7 +105,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
         if (mainScreen != null) {
             this.cachedSelectedNodes = mainScreen.getSelectedNode();
             if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
-                int res = JOptionPane.showConfirmDialog(this, "No selected series from the TreeTable, would you continue to use choose directory function?");
+                int res = JOptionPane.showConfirmDialog(this, Resources.i18n("SeriesConditionExtractorDialog.confirm.noSelection"));
                 if(res != JOptionPane.YES_OPTION) {
 					/*
 					 * ここでそのままdisposeするとフリーズする。 
@@ -522,8 +523,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println("TagDictからのタグリスト取得に失敗しました。");
+			Log.logger.warning("SeriesConditionExtractorDialog: Failed to load DICOM tag dictionary.");
 			allTagsList.add("0010,0010 - PatientName");
 			allTagsList.add("0020,000D - StudyInstanceUID");
 			for (String str : allTagsList) {
@@ -537,7 +537,7 @@ public class SeriesConditionExtractorDialog extends JDialog {
     	// ★ 修正: 条件リストが空でも、撮影断面が指定されていれば検証を実行できるように緩和する
         List<String> allowedPlanes = getAllowedPlanes();
         if (conditionPanels.isEmpty() && (allowedPlanes == null || allowedPlanes.isEmpty())) {
-            JOptionPane.showMessageDialog(this, "Please add at least one condition or select an Image Plane.");
+            JOptionPane.showMessageDialog(this, Resources.i18n("SeriesConditionExtractorDialog.error.noCondition"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
@@ -765,13 +765,13 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     get(); // 例外チェック用
                     txtVerificationResult.append("Extraction successfully completed!\nSaved to: " + destinationFolder.getAbsolutePath() + "\n");
                     if(doRename) {
-                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, "Extraction and renaming completed successfully!\nMapping saved to mapping_table.csv.");
+                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.done.mapping"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
                     }else {
-                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, "Extraction and renaming completed successfully!\nExported list saved to extracted_series_list.csv.");
+                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("DicomTagExtractorDialog.done"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
                     }
                     dispose();
                 } catch (InterruptedException | ExecutionException ex) {
-                    JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, "Error during extraction: " + ex.getCause().getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.error.extraction") + " " + ex.getMessage(), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
                     txtVerificationResult.append("Error: " + ex.getCause().getMessage() + "\n");
                 } finally {
                     btnExtract.setEnabled(true);

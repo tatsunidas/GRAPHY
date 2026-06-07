@@ -11,6 +11,9 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
+
 @SuppressWarnings("serial")
 public class AdvancedSettingsDialog extends JDialog {
 
@@ -255,7 +258,8 @@ public class AdvancedSettingsDialog extends JDialog {
 	private void handleSafeClose() {
         // isConfirmed は初期値の false のまま。
         // workingConfig の内容はオリジナルの config にコピーされないため、安全です。
-		int res = JOptionPane.showConfirmDialog(this, "Are you sure you want to discard the changes?");
+		int res = JOptionPane.showConfirmDialog(this, Resources.i18n("AdvancedSettingsDialog.confirm.discard"),
+				Resources.i18n("dialog.title.confirm"), JOptionPane.YES_NO_OPTION);
 		if(res == JOptionPane.OK_OPTION) {
 			closeDialog();
 		}else {

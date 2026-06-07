@@ -3599,6 +3599,10 @@ public class DatabaseHandler {
 					continue;
 
 				// Get SOPInstanceUID from the header to ensure a unique filename
+				if (dcmImg.getHeader() == null) {
+					logger.warning("storeDicomImagesToDb: DicomImage header is null for key=" + key + ", skipping.");
+					continue;
+				}
 				String sopUID = dcmImg.getHeader().getString(Tag.SOPInstanceUID);
 				if (sopUID == null || sopUID.trim().isEmpty()) {
 					sopUID = "slice_" + key;
@@ -4191,10 +4195,13 @@ public class DatabaseHandler {
 						DicomObject orgDcm = dr.getHeader();
 						String tsUID = dr.checkTSUID().uid();
 
-						String newPID = patInfoMap.get("PatientID").trim();
-						String newPNAME = patInfoMap.get("PatientName").trim();
-						String newBOD = patInfoMap.get("PatientBirthDate").trim().replace("/", "");
-						String newSex = patInfoMap.get("PatientSex").trim();
+						String newPID = patInfoMap.get("PatientID") != null ? patInfoMap.get("PatientID").trim() : "";
+						String newPNAME = patInfoMap.get("PatientName") != null ? patInfoMap.get("PatientName").trim() : "";
+						String newBOD = patInfoMap.get("PatientBirthDate") != null ? patInfoMap.get("PatientBirthDate").trim().replace("/", "") : "";
+						String newSex = patInfoMap.get("PatientSex") != null ? patInfoMap.get("PatientSex").trim() : "";
+						if (newPID.isEmpty()) {
+							logger.warning("updatePatientInformationAndStore2DB: PatientID is null/empty in patInfoMap.");
+						}
 						
 						orgDcm.setString(Tag.Patient​ID, VR.LO, newPID);
 						orgDcm.setString(Tag.Patient​Name, VR.PN, newPNAME);

@@ -50,6 +50,7 @@ import javax.swing.JOptionPane;
 
 import org.apache.commons.io.FileUtils;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.main.MainScreen;
@@ -198,8 +199,8 @@ public class DicomDuplicator {
 		try {
 			tempParent = Files.createTempDirectory(null);
 		} catch (IOException e) {
+			Log.logger.severe("Cannot create TempDir to create duplicate dcm files.");
 			e.printStackTrace();
-			System.out.println("Cannot create TempDir to create duplicate dcm files.");
 			return;
 		}
 		File tempDir = tempParent.toFile();
@@ -254,12 +255,13 @@ public class DicomDuplicator {
 	@Deprecated
 	public static void createNewSeriesAndStore2DB(Praparat prap, boolean secondaryCapture) throws Exception {
 		if (prap == null) {
-			throw new IllegalArgumentException("duplicate target is null");	
+			throw new IllegalArgumentException("duplicate target is null");
 		}
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		HashMap<Integer,DicomImage> dcmImages = prap.getDicomImages();
 		if(dcmImages == null) {
-			JOptionPane.showMessageDialog(null, "Dicom images are empty."); 
+			Log.logger.warning("DicomDuplicator: DICOM images are empty.");
+			JOptionPane.showMessageDialog(null, Resources.i18n("DicomDuplicator.error.emptyImages"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		db.storeDicomImagesToDb(dcmImages);

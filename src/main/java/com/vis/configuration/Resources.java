@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Locale;
+import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 import javax.swing.ImageIcon;
@@ -358,7 +360,46 @@ public enum Resources {
         return nameList.toArray(new String[0]);
     }
 	
+	// Cached bundles per locale for performance
+	private static final HashMap<Locale, ResourceBundle> bundleCache = new HashMap<>();
+
+	/**
+	 * Returns the localized string for the given key using the current system locale.
+	 * Supported locales: en (default) and ja_JP.
+	 * Falls back to the key itself if the key is missing, to prevent MissingResourceException crashes.
+	 */
 	public static String i18n(String key) {
-		return ResourceBundle.getBundle("i18n.i18n").getString(key);
+		return i18n(key, Locale.getDefault());
+	}
+
+	/**
+	 * Returns the localized string for the given key using the specified locale.
+	 * Falls back to the key itself if the key is missing.
+	 */
+	public static String i18n(String key, Locale locale) {
+		if (key == null) {
+			Log.logger.warning("i18n() called with null key.");
+			return "";
+		}
+		ResourceBundle bundle = bundleCache.computeIfAbsent(locale, l -> {
+			try {
+				return ResourceBundle.getBundle("i18n.i18n", l);
+			} catch (MissingResourceException e) {
+				Log.logger.warning("i18n bundle not found for locale: " + l + ". Falling back to default.");
+				return ResourceBundle.getBundle("i18n.i18n", Locale.ENGLISH);
+			}
+		});
+		try {
+			return bundle.getString(key);
+		} catch (MissingResourceException e) {
+			Log.logger.warning("i18n key not found: [" + key + "] for locale: " + locale);
+			return key; // return the key itself as fallback so the UI still shows something meaningful
+		}
+	}
+
+	/** Clears the locale cache. Call when the user changes the application language at runtime. */
+	public static void clearI18nCache() {
+		bundleCache.clear();
+		Log.logger.info("i18n bundle cache cleared.");
 	}
 }

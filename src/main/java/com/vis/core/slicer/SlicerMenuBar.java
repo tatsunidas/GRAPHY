@@ -49,6 +49,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
 import com.vis.core.ui.dialog.SaveImage;
 import com.vis.core.view.D2.ui.glasses.Praparat;
@@ -123,7 +124,8 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				String extensionWithDot = ".tif";
 				SaveImage.save(recon, title, defaultDir, defaultName, extensionWithDot);
 			}else {
-				JOptionPane.showMessageDialog(this, "Can not save it, do reslice first.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.cannotSave"),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 		}else if(item.getName().equals("Save reslice images as dicom format")) {
@@ -134,10 +136,11 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				String studyUID = (String)pp.getUIDs()[1];
 				String seriesUID = (String)pp.getUIDs()[2];
 				if(pid == null || studyUID == null || seriesUID == null) {
-					JOptionPane.showMessageDialog(this, "Can not create new series, this images does not have dicom attributes.");
+					JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.noDicomAttr"),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 					return;
 				}
-				
+
 				JFileChooser chooser = new JFileChooser(new File(System.getProperty("user.home")));
 				chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -177,15 +180,18 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 					DicomImage dcm = images.get(i).getDicomImage();
 					writer.write(dcm.getHeader(), UID.ImplicitVRLittleEndian.uid(), destChi.getAbsolutePath()+File.separator+sopUID);
 				}
-				JOptionPane.showMessageDialog(this, "Reslice series was saved !");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.info.resliceSaved"),
+						Resources.i18n("dialog.title.information"), JOptionPane.INFORMATION_MESSAGE);
 			}else {
-				JOptionPane.showMessageDialog(this, "Can not create new series, do reslice first.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.resliceFirst"),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 		}else if(item.getName().equals("Save reslice images to DB")) {
 			DatabaseHandler db = DatabaseHandler.getInstance();
 			if(db == null) {
-				JOptionPane.showMessageDialog(this, "GRAPHY DB does not ready, can not save to DB.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.dbNotReady"),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 			ImagePlus recon = win.reconImage();
@@ -194,23 +200,32 @@ public class SlicerMenuBar extends JMenuBar implements ActionListener{
 				String studyUID = DicomTools.getTag(recon, studyUIDTag);
 				String seriesUID = DicomTools.getTag(recon, seriesUIDTag);
 				if(pid == null || studyUID == null || seriesUID == null) {
-					JOptionPane.showMessageDialog(this, "Can not create new series, this images does not have dicom attributes.");
+					JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.noDicomAttr"),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 					return;
 				}
 				try {
 					Praparat reslice = win.getPraparatAt(CutSurface.OBLIQUE);
+					if (reslice == null) {
+						Log.logger.warning("Reslice praparat is null.");
+						return;
+					}
 					HashMap<Integer, DicomImage> dcmImages = reslice.getDicomImages();
 					if(dcmImages == null) {
-						JOptionPane.showMessageDialog(this, "Dicom images are empty.\nDo reslice first.");
+						JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.emptyImages"),
+								Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 						return;
 					}
 					db.storeDicomImagesToDb(dcmImages);
 				} catch (Exception e1) {
+					Log.logger.severe("Failed to save reslice series to DB: " + e1.getMessage());
 					e1.printStackTrace();
 				}
-				JOptionPane.showMessageDialog(this, "Done, save reslice series.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.done.saveReslice"),
+						Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 			}else {
-				JOptionPane.showMessageDialog(this, "Can not create new series, do reslice first.");
+				JOptionPane.showMessageDialog(this, Resources.i18n("SlicerMenuBar.error.resliceFirst"),
+						Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 		}

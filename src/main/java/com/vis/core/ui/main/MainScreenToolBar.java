@@ -206,10 +206,10 @@ public class MainScreenToolBar extends JToolBar {
 					MainScreen ms = WindowManager.getMainScreen();
 					if (!ms.isHomeTop()) {
 						JOptionPane.showMessageDialog(ms,
-								"You cannot delete files on external dicom network node. Use 'HOME' instead.");
+								Resources.i18n("MainScreenToolBar.error.requireHomeSelection"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 						return;
 					}
-					int res = JOptionPane.showConfirmDialog(ms, "Delete selected records from DB ?");
+					int res = JOptionPane.showConfirmDialog(ms, Resources.i18n("MainScreenToolBar.confirm.deleteRecords"), Resources.i18n("dialog.title.delete"), JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 					if (res == JOptionPane.OK_OPTION) {
 						ArrayList<DICOMNode> selected = ms.getSelectedNode();
 						// run with another thread. (no EDT thread.)

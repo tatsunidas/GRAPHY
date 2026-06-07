@@ -57,6 +57,7 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.task.Task;
@@ -327,8 +328,9 @@ public class DicomExporter extends JFrame implements Task {
 			@Override
 			public void run() {
 				// show result
-				JOptionPane.showOptionDialog(WindowManager.getMainScreen(), "Export was done.",
-						"Complete -Export images-", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE, null,
+				Log.logger.info("DicomExporter: export completed.");
+				JOptionPane.showOptionDialog(WindowManager.getMainScreen(), Resources.i18n("DicomExporter.done"),
+						Resources.i18n("dialog.title.complete"), JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE, null,
 						new String[] { "OK" }, "default");
 			}
 		});
@@ -364,7 +366,7 @@ public class DicomExporter extends JFrame implements Task {
 				try {
 					Thread.sleep(1000); // 1秒ごとに監視
 					tasks.removeIf(Future<?>::isDone);
-					System.out.println("Remaining tasks: " + tasks.size());
+					Log.logger.fine("Remaining tasks: " + tasks.size());
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 					break;
@@ -372,7 +374,7 @@ public class DicomExporter extends JFrame implements Task {
 			}
 			TaskManager tm = TaskManager.getInstance();
 			tm.removeCompletedTasks();
-			System.out.println("Task completed or cancelled.");
+			Log.logger.info("DicomExporter: all tasks completed or cancelled.");
 		}).start();
 	}
 	

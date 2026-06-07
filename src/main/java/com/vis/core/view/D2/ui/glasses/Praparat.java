@@ -73,6 +73,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.Resources;
 import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.RoiMetaContextKey;
 import com.vis.core.log.Log;
@@ -764,7 +765,7 @@ public class Praparat extends JPanel {
 		}
 		ConcurrentHashMap<Integer, SlideGlass> srcSlides = p.getAllSlides();
 		if (srcSlides == null || srcSlides.size() < 1) {
-			System.out.println("Slides have no images...");
+			Log.logger.info("Praparat: Slides have no images, returning.");
 			return;
 		}
 		// init
@@ -2898,7 +2899,7 @@ public class Praparat extends JPanel {
 	public void loadSeries(String patID, String studyUID, String seriesUID, String[] sopUIDs,
 			List<String> pathToImages) {
 		if (pathToImages == null || pathToImages.isEmpty()) {
-			System.out.println("prap needs path to images..., return.");
+			Log.logger.warning("Praparat: pathToImages is null or empty, returning.");
 			return;
 		}
 		viewPanel.removeAll();
@@ -2998,7 +2999,7 @@ public class Praparat extends JPanel {
 	public void loadSeries(ImagePlus images, boolean sortZCT) {
 		if (images == null || images.getStackSize() == 0) {
 			if (Utils.isDebug)
-				System.out.println("praparat needs images..., return.");
+				Log.logger.fine("Praparat: images is null or empty, returning.");
 			return;
 		}
 		currentSliceZCT = -1;
@@ -3043,7 +3044,7 @@ public class Praparat extends JPanel {
 	public void loadSeries(List<String> dcm_paths) {
 		if (dcm_paths == null || dcm_paths.size() == 0) {
 			if (Utils.isDebug)
-				System.out.println("praparat needs images..., return.");
+				Log.logger.fine("Praparat: dcm_paths is null or empty, returning.");
 			return;
 		}
 
@@ -3076,7 +3077,7 @@ public class Praparat extends JPanel {
 		updateSlidersVisibility();
 
 		if (Utils.isDebug) {
-			System.out.println(slides.size() + " images loaded.");
+			Log.logger.fine("Praparat: " + slides.size() + " images loaded.");
 		}
 	}
 
@@ -3306,14 +3307,14 @@ public class Praparat extends JPanel {
 		CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
 		RoiObj roi = cg.getSelectedRoi();
 		if (roi == null) {
-			JOptionPane.showMessageDialog(this, "Please select/create roi first. Can not cropping.", "Crop Tool",
+			JOptionPane.showMessageDialog(this, Resources.i18n("Praparat.error.noRoi"), Resources.i18n("dialog.title.graphy"),
 					JOptionPane.INFORMATION_MESSAGE);
 			return null;
 		}
 
 		RoiObj rect = new RoiObj(roi.getXBase(), roi.getYBase(), roi.getBounds().width, roi.getBounds().height, null);
 
-		int res = JOptionPane.showConfirmDialog(this, "Process all slides in this series ?", "Crop series ?",
+		int res = JOptionPane.showConfirmDialog(this, Resources.i18n("Praparat.confirm.processAllSlides"), Resources.i18n("dialog.title.graphy"),
 				JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		final ImagePlus crop;
 		if (res != JOptionPane.YES_OPTION) {
@@ -3356,7 +3357,7 @@ public class Praparat extends JPanel {
 		// currentRoi.getBounds().width, currentRoi.getBounds().height, null);
 
 		final ImagePlus cut;
-		int res = JOptionPane.showConfirmDialog(this, "Process all slide in this series ?", "Cut...",
+		int res = JOptionPane.showConfirmDialog(this, Resources.i18n("Praparat.confirm.processAllSlides"), Resources.i18n("dialog.title.graphy"),
 				JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 		if (res != JOptionPane.YES_OPTION) {
 			ImagePlus imp2 = getImagePlus();

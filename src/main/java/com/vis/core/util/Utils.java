@@ -74,6 +74,9 @@ import java.util.logging.Level;
 
 import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
+
 import org.apache.commons.io.FileUtils;
 
 import com.vis.configuration.ConfigInfo;
@@ -281,7 +284,7 @@ public class Utils {
                 // コピー先にディレクトリを作成 (存在しない場合のみ)
                 // createDirectories は親ディレクトリも含めて作成してくれる
                 Files.createDirectories(targetDir);
-                System.out.println("Created directory: " + targetDir); // ログ出力例
+                Log.logger.fine("Created directory: " + targetDir);
                 return FileVisitResult.CONTINUE;
             }
 
@@ -293,7 +296,7 @@ public class Utils {
                 Path targetFile = destDir.resolve(relativePath);
                 // ファイルをコピー (既存のファイルを上書きする場合は REPLACE_EXISTING を追加)
                 Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                System.out.println("Copied file: " + file + " to " + targetFile); // ログ出力例
+                Log.logger.fine("Copied file: " + file + " to " + targetFile);
                 return FileVisitResult.CONTINUE;
             }
 
@@ -545,15 +548,15 @@ public class Utils {
 			// jarファイル自身の絶対パスを引数としてスクリプトに渡す
 //			command.add(jarFile.getAbsolutePath());
 
-			System.out.println("Executing command: " + command);
+			Log.logger.info("Executing reboot command: " + command);
 			new ProcessBuilder(command).start();
 			/////////////////
 			System.exit(0);
 			/////////////////
 		} catch (URISyntaxException | IOException e) {
-			e.printStackTrace();
-			System.out.println("Reboot was failed, please restart manualy...");
-			JOptionPane.showConfirmDialog(null, "Reboot was failed, please restart manualy...");
+			Log.logger.log(Level.SEVERE, "Reboot failed.", e);
+			JOptionPane.showMessageDialog(null, Resources.i18n("Utils.error.rebootFailed"),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 		}
 	}
 }

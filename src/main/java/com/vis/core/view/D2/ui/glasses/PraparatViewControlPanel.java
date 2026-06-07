@@ -12,6 +12,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 import com.vis.configuration.Resources;
+import com.vis.core.log.Log;
 import com.vis.core.util.ImageUtils;
 import com.vis.core.util.Utils;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
@@ -218,7 +219,7 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 			num = new JComboBox<String>(new String[] {"1","2","3","4","5","6","7","8","9","10", "11", "12"});//remove reset
 		}
 		panel.add(num);
-		int result = JOptionPane.showOptionDialog(this, panel, "Choose a Num of Columns", JOptionPane.YES_NO_OPTION,
+		int result = JOptionPane.showOptionDialog(this, panel, Resources.i18n("PraparatViewControlPanel.input.numColumns"), JOptionPane.YES_NO_OPTION,
 				JOptionPane.PLAIN_MESSAGE, null, options1, null);
 		if (result == JOptionPane.YES_OPTION) {
 			try{
@@ -250,13 +251,13 @@ public class PraparatViewControlPanel extends JPanel implements ItemListener{
 	public void itemStateChanged(ItemEvent ie) {
 		String name = ((Component) ie.getSource()).getName();
 		if(name.equals("roi")) {
-			if(Utils.isDebug) System.out.println("roi item changed "+isShowRoi());
+			if(Utils.isDebug) Log.logger.fine("roi item changed " + isShowRoi());
 			pp.setAnnotationVisible(isShowRoi());
 		}else if(name.equals("text")) {
-			if(Utils.isDebug) System.out.println("text item changed "+isShowInfo());
+			if(Utils.isDebug) Log.logger.fine("text item changed " + isShowInfo());
 			pp.setTextVisible(isShowInfo());
 		}else if(name.equals("series")) {
-			if(Utils.isDebug) System.out.println("process series changed "+processSeries());
+			if(Utils.isDebug) Log.logger.fine("process series changed " + processSeries());
 			if(processSeries()) {
 				pp.resetWindow();//todo, should do current slide contrast set to all.
 			}

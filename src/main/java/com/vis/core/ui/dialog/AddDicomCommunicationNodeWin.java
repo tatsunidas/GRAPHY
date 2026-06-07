@@ -9,6 +9,7 @@ import java.awt.GridBagConstraints;
 import java.awt.Insets;
 import javax.swing.JTextField;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.ui.settings.*;
@@ -175,23 +176,24 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 	public void addQRTreeTable(String nickname){
 		DatabaseHandler db = DatabaseHandler.getInstance();
 		if(nickname == null || nickname.equals("") || db.isAlreadyRegisteredServer(nickname)) {
-			JOptionPane.showMessageDialog(null,"Already registered , please set identical nickname.");
+			Log.logger.warning("AddDicomCommunicationNodeWin: nickname already registered or empty: " + nickname);
+			JOptionPane.showMessageDialog(null, Resources.i18n("AddDicomCommunicationNodeWin.error.alreadyRegistered"), Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		String aet = aeText.getText().trim();
 		String Host = hostText.getText().trim();
 		String Port = portText.getText().trim();
-		
+
 		if(StringUtils.isInvalidAET(aet)) {
-			System.out.println("AET is invalid.:"+aet);
+			Log.logger.warning("AET is invalid: " + aet);
 			return;
 		}
 		if(StringUtils.isInvalidHostIP(Host)) {
-			System.out.println("HOST IP ADDRESS is invalid.:"+Host);
+			Log.logger.warning("HOST IP ADDRESS is invalid: " + Host);
 			return;
 		}
 		if(StringUtils.isInvalidPort(Port)) {
-			System.out.println("Port is invalid.:"+Port);
+			Log.logger.warning("Port is invalid: " + Port);
 			return;
 		}
 		
@@ -214,9 +216,10 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		//restart DicomServer
 		try {
 			db.initDicomServer();
+			Log.logger.info("AddDicomCommunicationNodeWin: DICOM server restarted successfully.");
 		} catch (IOException | SQLException e) {
 			Log.logger.severe("Can not start DcmQRSCP...");
-			JOptionPane.showMessageDialog(null, "Something happen when adding DICOM node, GRAPHY-DB can not restart correctly, please restart GRAPHY...");
+			JOptionPane.showMessageDialog(null, Resources.i18n("AddDicomCommunicationNodeWin.error.restartRequired"), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 		}
 		
 		pacsPrefPanel.constructTableModel(pacsPrefPanel.getTable());

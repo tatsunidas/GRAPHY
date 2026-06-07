@@ -57,6 +57,7 @@ import javax.swing.SwingUtilities;
 import org.joml.Vector3d;
 
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Eyepiece;
@@ -373,9 +374,10 @@ public class SlicerWindow extends JFrame {
 		} catch (Exception e) {
 			Log.logger.log(Level.SEVERE, "Failed to initialize MPR Slicer Window", e);
 			e.printStackTrace();
-			javax.swing.JOptionPane.showMessageDialog(null, 
-					"Initialization failed:\n" + e.getMessage(), "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
-			return; 
+			javax.swing.JOptionPane.showMessageDialog(null,
+					Resources.i18n("SlicerWindow.error.initFailed") + "\n" + e.getMessage(),
+					Resources.i18n("dialog.title.error"), javax.swing.JOptionPane.ERROR_MESSAGE);
+			return;
 		}
 
 		buildGUI();

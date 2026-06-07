@@ -11,6 +11,7 @@ import javax.swing.tree.DefaultTreeModel;
 
 import org.dcm4che3.data.UID;
 
+import com.vis.configuration.Resources;
 import com.vis.configuration.RoiDBKey;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
@@ -227,15 +228,15 @@ public class PixelAnonymizerPanel extends JPanel {
 	private void onExecuteClicked(ActionEvent e) {
 		String destPath = attrAnonPanel.getDestDirectory();
 		if (destPath == null || destPath.isEmpty()) {
-			JOptionPane.showMessageDialog(this, "Please select an output destination directory.", "Error",
-					JOptionPane.ERROR_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("PixelAnonymizerPanel.error.noOutputDir"),
+					Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 			return;
 		}
 
 		List<HashMap<String, String>> targets = getTargetSeriesList();
 		if (targets.isEmpty()) {
-			JOptionPane.showMessageDialog(this, "No series selected. Please check at least one series in the tree.",
-					"Warning", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, Resources.i18n("PixelAnonymizerPanel.error.noSeries"),
+					Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -312,20 +313,23 @@ public class PixelAnonymizerPanel extends JPanel {
 				try {
 					if (isCancelled()) {
 						progressBar.setString("Canceled");
-						JOptionPane.showMessageDialog(PixelAnonymizerPanel.this, "Process was canceled.", "Canceled",
-								JOptionPane.WARNING_MESSAGE);
+						JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
+								Resources.i18n("PixelAnonymizerPanel.canceled"),
+								Resources.i18n("dialog.title.canceled"), JOptionPane.WARNING_MESSAGE);
 					} else {
 						get();
 						progressBar.setValue(100);
 						progressBar.setString("Completed");
 						JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
-								"Pixel and Attribute Anonymization Completed Successfully!", "Success",
-								JOptionPane.INFORMATION_MESSAGE);
+								Resources.i18n("PixelAnonymizerPanel.done"),
+								Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 					}
 				} catch (Exception ex) {
 					progressBar.setString("Error");
-					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this, "Error occurred:\n" + ex.getMessage(),
-							"Error", JOptionPane.ERROR_MESSAGE);
+					Log.logger.severe("Pixel anonymization error: " + ex.getMessage());
+					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
+							Resources.i18n("PixelAnonymizerPanel.error.occurred") + " " + ex.getMessage(),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 					ex.printStackTrace();
 				}finally {
 					progressBar.setValue(0);
@@ -941,9 +945,11 @@ public class PixelAnonymizerPanel extends JPanel {
 					updateMaskRoiListForCurrentSeries();
 
 				} catch (Exception ex) {
+					Log.logger.severe("Failed to load series: " + ex.getMessage());
 					ex.printStackTrace();
 					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
-							"Failed to load series: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+							Resources.i18n("PixelAnonymizerPanel.error.loadSeries") + " " + ex.getMessage(),
+							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				} finally {
 					// マウスカーソル等を元に戻す
 					currentActivePraparat.setCursor(Cursor.getDefaultCursor());
@@ -978,7 +984,7 @@ public class PixelAnonymizerPanel extends JPanel {
 				if (currentActivePraparat == null) {
 					return;
 				}
-				System.out.println("ToolType: " + toolType);
+				Log.logger.info("ToolType: " + toolType);
 				currentActivePraparat.setLocalToolType(toolType);
 			}
 		});
@@ -992,15 +998,15 @@ public class PixelAnonymizerPanel extends JPanel {
 	private void setActionApplyToAllSeries(JButton btnApplyAll) {
 		btnApplyAll.addActionListener(e -> {
 			if (tempRois.isEmpty()) {
-				JOptionPane.showMessageDialog(this, "No ROIs to apply.", "Information",
-						JOptionPane.INFORMATION_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("PixelAnonymizerPanel.error.noRoi"),
+						Resources.i18n("dialog.title.information"), JOptionPane.INFORMATION_MESSAGE);
 				return;
 			}
 
 			DatabaseHandler db = DatabaseHandler.getInstance();
 			if (db == null) {
-				JOptionPane.showMessageDialog(this, "Databse no visible, please use it from GRAPHY.", "Warinig",
-						JOptionPane.WARNING_MESSAGE);
+				JOptionPane.showMessageDialog(this, Resources.i18n("PixelAnonymizerPanel.error.dbNotVisible"),
+						Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
 				return;
 			}
 
@@ -1544,7 +1550,7 @@ public class PixelAnonymizerPanel extends JPanel {
 					sg.deleteRoi(roi);
 				}
 			} catch (Exception ex) {
-				System.err.println("Failed to delete temp ROI: " + ex.getMessage());
+				Log.logger.warning("Failed to delete temp ROI: " + ex.getMessage());
 			}
 		}
 		tempRois.clear(); // 削除完了したらリストを空にする
