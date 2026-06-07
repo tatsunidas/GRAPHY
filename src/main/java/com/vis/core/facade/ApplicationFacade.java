@@ -47,7 +47,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Properties;
-import java.util.ResourceBundle;
 import java.util.logging.Level;
 
 import com.vis.configuration.Resources;

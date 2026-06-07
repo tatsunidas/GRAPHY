@@ -329,7 +329,7 @@ public class ImportNIfTIPanel extends JPanel {
 	}
 	
 	void whetherItCanBeAddedToStudy(String pid) {
-		boolean nostudy = db.getNumOfStudyInPatient(pid) == 0;
+		boolean nostudy = db.getNumOfStudyByPatient(pid) == 0;
 		if(!nostudy) initComboBox(pid);
 		changeStateThereAreNoStudies(nostudy);
 	}

@@ -991,7 +991,12 @@ public class RoiObjManager extends JFrame
 		// リストで選択されている複数のROIを取得
 		int[] selectedIndices = list.getSelectedIndices();
 		if (selectedIndices.length < 1) {
-			PopUpMessage.showDialog(list, "Select ROI(s)", "Please select ROIs to bundle into 3D.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			PopUpMessage.showDialog(list, "Select ROI(s)", "Please select 2D-ROIs to bundle into 3D.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		
+		if (contains3DRoi(selectedRois)) {
+			PopUpMessage.showDialog(list, "Select ROI(s)", "Please select only 2D-ROIs, you are selecting 3D-ROI in list.", JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 

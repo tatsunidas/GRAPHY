@@ -83,7 +83,6 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.launcher.Launcher;
-import com.vis.core.log.Log;
 import com.vis.db.DatabaseHandler;
 
 /**

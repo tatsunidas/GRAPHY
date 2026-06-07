@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.vis.configuration.Resources;
-import com.vis.core.log.Log;
 
 @SuppressWarnings("serial")
 public class AdvancedSettingsDialog extends JDialog {

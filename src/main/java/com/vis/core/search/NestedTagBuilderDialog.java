@@ -15,7 +15,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import com.vis.configuration.Resources;
-import com.vis.core.log.Log;
 
 public class NestedTagBuilderDialog extends JDialog {
 
