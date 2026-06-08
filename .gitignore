@@ -15,3 +15,5 @@
 
 # Clause Code
 .claude/
+/bin/
+/.classpath
