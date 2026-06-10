@@ -1,3 +1,4 @@
+/target/
 /temp/
 /conf/
 /log/
@@ -12,25 +13,7 @@
 /PS3_15_tableE1-1.ipynb
 /test_fusion/
 
-.github/
-
-# Mavenによって生成されるビルド成果物
-target/
-
-# コンパイル済みのアーカイブファイル
-*.jar
-*.war
-*.ear
-
-# お使いのIDE（統合開発環境）の個別設定ファイルなど（必要に応じて）
-# Eclipse
-.settings/
-.classpath
-.project
-# IntelliJ IDEA
-.idea/
-*.iml
-
 # Clause Code
 .claude/
+/bin/
 /.classpath
