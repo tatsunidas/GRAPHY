@@ -243,6 +243,10 @@ public class GLCanvas extends AWTGLCanvas {
 
 		this.repaint();
 	}
+	
+	public VolumeData getVolumeData() {
+		return this.currentVolumeData;
+	}
 
 	// ==========================================
 	// グループを解釈して色とIDを割り振る setRoiData

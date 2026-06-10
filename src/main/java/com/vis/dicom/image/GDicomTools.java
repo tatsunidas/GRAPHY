@@ -254,6 +254,17 @@ public class GDicomTools extends ij.util.DicomTools {
 		}
 		return arr;
 	}
+	
+	public static double[] getDoubles(ImagePlus imp, int z, int c, int t, int tag) {
+		String res = getTag(imp, z, c, t, tag);
+		if (res == null) return null;
+		String[] xyz = res.split("\\\\");
+		double[] arr = new double[xyz.length];
+		for (int i = 0; i < xyz.length; i++) {
+			arr[i] = ij.util.Tools.parseDouble(xyz[i]);
+		}
+		return arr;
+	}
 
 	/**
 	 * Single stack
@@ -691,6 +702,56 @@ public class GDicomTools extends ij.util.DicomTools {
 					int index = from.getStackIndex(c, z, t);
 					String hdr = from.getStack().getSliceLabel(index);
 					to.getStack().setSliceLabel(hdr, index);
+				}
+			}
+		}
+	}
+	
+	public static void copyPivotalMeta(ImagePlus from, ImagePlus to, boolean newSeries) {
+		// ★ 1. 次元（C, Z, T）と全体サイズが完全に一致しているかを厳密にチェック
+		if (from.getNChannels() != to.getNChannels() || 
+			from.getNSlices() != to.getNSlices() || 
+			from.getNFrames() != to.getNFrames() ||
+			from.getStackSize() != to.getStackSize()) {
+			Log.logger.info("Can not copy header, not matching dimensions or stack sizes.");
+			return;
+		}
+
+		int cTotal = from.getNChannels();
+		int zTotal = from.getNSlices();
+		int tTotal = from.getNFrames();
+		
+		if (from.isHyperStack() || cTotal > 1 || zTotal > 1 || tTotal > 1) {
+			to.setDimensions(cTotal, zTotal, tTotal);
+			to.setOpenAsHyperStack(from.getOpenAsHyperStack());
+		}
+		
+		String pid = GDicomTools.getTag(from, Tag.PatientID);
+		String stuid = GDicomTools.getTag(from, Tag.StudyInstanceUID);
+		String seuid = GDicomTools.getTag(from, Tag.SeriesInstanceUID);
+		if(newSeries) {
+			seuid = UIDUtils.createUID();
+		}
+
+		// ZCTを明示して処理する
+		for (int t = 1; t <= tTotal; t++) {
+			for (int z = 1; z <= zTotal; z++) {
+				for (int c = 1; c <= cTotal; c++) {
+					// ImageJのAPIに「C, Z, T」を渡して、stack index (実際の1Dインデックス)を安全に取得
+					int index = from.getStackIndex(c, z, t);
+					GDicomTools.setTag(to, index, "0010,0020", pid);
+					GDicomTools.setTag(to, index, "0020,000D", stuid);
+					GDicomTools.setTag(to, index, "0020,000E", seuid);
+					GDicomTools.setTag(to, index, "0008,0018", UIDUtils.createUID());
+					double[] ipp = GDicomTools.getDoubles(from, index, "0020,0032");
+					double[] iop = GDicomTools.getDoubles(from, index, "0020,0037");
+					double[] pixSpa = GDicomTools.getDoubles(from, index, "0028,0030");
+					double d = from.getCalibration().pixelDepth;
+					GDicomTools.setDoubles(to, index, "0020,0032", ipp);
+					GDicomTools.setDoubles(to, index, "0020,0037", iop);
+					GDicomTools.setDoubles(to, index, "0028,0030", pixSpa);
+					GDicomTools.setTag(to, index, "0018,0050", String.valueOf(d));
+					GDicomTools.setTag(to, index, "0020,0013", String.valueOf(index));
 				}
 			}
 		}
