@@ -99,6 +99,11 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	private OrthoRoiMode orthoRoiMode = OrthoRoiMode.SLICE_2D;
 	
+	/**
+	 * ダブルバッファの自動スワップを行う
+	 */
+	private boolean autoSwapBuffer = true;
+	
 	private static final long serialVersionUID = 1L;
 
 	public GLCanvas(GLData data) {
@@ -223,6 +228,10 @@ public class GLCanvas extends AWTGLCanvas {
 			repaint();
 		});
 	}
+	
+	public void setAutoSwapBuffer(boolean auto) {
+        this.autoSwapBuffer = auto;
+    }
 
 	public void setVolumeData(VolumeData vol) {
 		this.currentVolumeData = vol;
@@ -246,6 +255,14 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	public VolumeData getVolumeData() {
 		return this.currentVolumeData;
+	}
+	
+	public com.vis.core.view.D3.ui.Camera getCamera() {
+		return this.camera;
+	}
+
+	public org.joml.Matrix4f getModelMatrix() {
+		return calculateModelMatrix();
 	}
 
 	// ==========================================
@@ -509,6 +526,36 @@ public class GLCanvas extends AWTGLCanvas {
 	        }
 	    }
 	}
+	
+	// ==========================================
+	// ★追加: コントラスト（Window Level）の自動最適化
+	// ==========================================
+	public void optimizeContrast() {
+		if (currentVolumeData != null && volumeRenderer != null) {
+			float minN = currentVolumeData.minVal;
+			float maxN = currentVolumeData.maxVal;
+
+			// OpenGLの 0.0 ~ 1.0 空間のスケールに合わせる
+			if (currentVolumeData.dataType == VolumeData.DataType.SHORT) {
+				minN /= 65535.0f;
+				maxN /= 65535.0f;
+			} else if (currentVolumeData.dataType == VolumeData.DataType.BYTE) {
+				minN /= 255.0f;
+				maxN /= 255.0f;
+			}
+
+			// データの最小〜最大値のど真ん中を中心（Center）にする
+			float center = (minN + maxN) / 2.0f;
+			// データの幅をそのまま Window Width にする（少しだけ余裕を持たせる）
+			float width = (maxN - minN) * 1.1f;
+
+			if (width < 0.001f)
+				width = 1.0f; // ゼロ除算防止
+
+			volumeRenderer.setWindowLevel(center, width);
+			repaint();
+		}
+	}
 
 	// --- Swingのオーバーレイ描画 (線を引く) ---
 	// GLCanvasはAWTコンポーネントなので、paint()をオーバーライドして
@@ -628,12 +675,25 @@ public class GLCanvas extends AWTGLCanvas {
 			volumeRenderer.render(mvp, camPosLocal, false, 0f, 0f, 0f);
 		}
 
-		// ★修正: 最後にGizmoを描画 (右下にオーバーレイ)
+		// 最後にGizmoを描画 (右下にオーバーレイ)
 		// Gizmoにも物理ピクセルサイズを渡さないと、位置がズレたり小さくなったりします
 		if (axesGizmo != null) {
 			axesGizmo.render(camera.getViewMatrix(), physW, physH);
 		}
 
-		org.lwjgl.opengl.GL11.glFlush();
+		if (autoSwapBuffer) {
+			// 親クラス単体で起動している場合（ダブルバッファ環境）
+			try {
+				swapBuffers(); // swapBuffersが内部で自動的にフラッシュを兼ねるため、直前のglFlushは不要
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} else {
+			// 子クラス（AneurysmGLCanvas）が後から描き足す場合
+			// ダブルバッファ（doubleBuffer=true）環境なので、ここでglFlush()を呼ばなくても
+			// コマンドは裏画面のバッファに安全に蓄積されます。
+			// 最終的に子クラスの最末尾で描き終わった後に一括してスワップ・出力されるため、
+			// 親クラスのこの場所では、glFlush()すら「完全に何も書かない」のが最も効率的で綺麗です。
+		}
 	}
 }

@@ -37,11 +37,13 @@
  */
 package com.vis.core.view.D2.ui;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 
+import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -49,6 +51,7 @@ import javax.swing.SwingUtilities;
 
 import com.vis.core.ui.dialog.SaveImage;
 import com.vis.core.view.D2.ui.glasses.Praparat;
+import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
 
 import ij.ImagePlus;
 
@@ -85,6 +88,10 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 	Praparat prap;
 	boolean save_closing = false;
 	
+	public SeriesWindow(ImagePlus imp, Color studyColor, ViewMode mode) {
+		this(new Praparat(imp, studyColor, mode, true));
+	}
+	
 	public SeriesWindow(Praparat prap) {
 		super();
 		addWindowListener(this);
@@ -94,6 +101,7 @@ public class SeriesWindow extends javax.swing.JFrame implements java.awt.event.W
 		add(prap, java.awt.BorderLayout.CENTER);
 //		setMinimumSize(new Dimension(30,30));
 		setSize(512,512);
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // サブウィンドウとして開く
 		setPreferredSize(new Dimension(512, 512));
 		pack();
 		setLocationRelativeTo(null);

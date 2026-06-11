@@ -507,6 +507,8 @@ public class PlanarSupport {
             reverseStack(imp);
             Log.logger.log(Level.INFO, "Stack order reversed to LPS standard: " + basePlane);
         }
+        
+        Log.logger.info("Volume orientation was standardized.");
     }
 
     private static void reverseStack(ImagePlus imp) {

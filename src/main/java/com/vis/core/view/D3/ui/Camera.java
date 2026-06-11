@@ -75,12 +75,21 @@ public class Camera {
         return view;
     }
     
+	// ==========================================
+	// ★追加: 特定の座標を注視し、ズームする
+	// ==========================================
+	public void lookAt(float tx, float ty, float tz, float newDistance) {
+		this.target.set(tx, ty, tz);
+		this.distance = newDistance;
+	}
+    
     /**
      * カメラを初期状態に戻す
      * (Reset Camera ボタンから呼ばれる想定)
      */
-    public void reset() {
-        rotation.identity(); // 回転をリセット (0,0,0)
+	public void reset() {
+        rotation.identity(); // 回転をリセット
         distance = 1.5f;     // 初期距離に戻す
+        target.set(0.0f, 0.0f, 0.0f); // ★追加: ターゲットも中央に戻す
     }
 }

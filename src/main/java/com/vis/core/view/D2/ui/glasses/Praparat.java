@@ -4253,7 +4253,7 @@ public class Praparat extends JPanel {
 			}
 			
 			// 【検証ログ】実体化前の状態
-			com.vis.core.log.Log.logger.info(String.format("[Paging Debug] Before realize: ZCT=%d, Mag=%.2f, Origin=%s", currentSliceZCT, syncMag, syncOrigin));
+			com.vis.core.log.Log.logger.fine(String.format("[Paging Debug] Before realize: ZCT=%d, Mag=%.2f, Origin=%s", currentSliceZCT, syncMag, syncOrigin));
 
 			// 1. 画像の実体化（未ロード時のみ発動する）
 			// ★修正：自身に対する遅延UI更新(invokeLater)を防ぎ、二重適用のカクつきを完全になくす
@@ -4280,7 +4280,7 @@ public class Praparat extends JPanel {
 
 			// 【検証ログ】パラメータ適用後の状態
 			com.vis.core.log.Log.logger
-					.info(String.format("[Paging Debug] After params: Size=%dx%d, Mag=%.2f, Origin=(%d,%d)",
+					.fine(String.format("[Paging Debug] After params: Size=%dx%d, Mag=%.2f, Origin=(%d,%d)",
 							nextGlass.getWidth(), nextGlass.getHeight(), nextGlass.getMagnification(),
 							nextGlass.getDisplayImageOriginXY().x, nextGlass.getDisplayImageOriginXY().y));
 

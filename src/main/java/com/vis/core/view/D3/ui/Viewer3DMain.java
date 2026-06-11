@@ -79,13 +79,17 @@ public class Viewer3DMain extends JFrame {
 			frame.repaint();
 
 			javax.swing.Timer timer = new javax.swing.Timer(16, e -> { // 約60FPS
-				if (frame.canvas != null) {
+				if (frame.canvas != null && frame.canvas.isDisplayable()) {
 					frame.canvas.render(); // これが呼ばれると paintGL() が動く
 					frame.canvas.repaint();
+				}else {
+					// ウィンドウが閉じられてキャンバスが破棄されたら、このタイマー自体を安全に停止させる
+					((javax.swing.Timer) e.getSource()).stop();
 				}
 			});
 			timer.setRepeats(true);
 			timer.start();
+						
 		});
 	}
 
@@ -111,8 +115,11 @@ public class Viewer3DMain extends JFrame {
 		// OpenGL >= 3.2 
 		data.profile = GLData.Profile.CORE;
 
-		// ダブルバッファはfalse：swapBufferのため
-		data.doubleBuffer = false;
+		/*
+		 * doubleBuffer = trueのとき、
+		 * GLCanvas.paintGL()内でswapBufferを有効にしておくこと
+		 */
+		data.doubleBuffer = true;
 		
 		data.forwardCompatible = true;
 
