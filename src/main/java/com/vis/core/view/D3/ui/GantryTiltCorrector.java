@@ -233,6 +233,8 @@ public class GantryTiltCorrector {
 		String sopClassUID = GDicomTools.getTag(imp, "0008,0016");
 		String refUID = GDicomTools.getTag(imp, "0020,0052");
 		
+		double[] pixsp = GDicomTools.getDoubles(imp, "0028,0030");
+		
 		for (int z = 0; z < depthNew; z++) {
 //		    double newX = newIpps[z][0];
 //		    double newY = newIpps[z][1];
@@ -248,7 +250,10 @@ public class GantryTiltCorrector {
 		    GDicomTools.setTag(correctedImp, z+1, "0008,0018", UIDUtils.createUID()/*SOPInstUID*/);
 		    GDicomTools.setTag(correctedImp, z+1, "0008,0016", sopClassUID);
 		    GDicomTools.setTag(correctedImp, z+1, "0020,0052", refUID);
-		}
+
+		    GDicomTools.setTag(correctedImp, z+1, "0028,0030", pixelSpacingY + "\\" + pixsp[1]);
+            GDicomTools.setTag(correctedImp, z+1, "0018,0050", String.valueOf(reconSliceSpacing));
+        }
 		
 		if (imp.getCalibration() != null) {
 			Calibration cal = imp.getCalibration().copy();
