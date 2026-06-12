@@ -74,6 +74,13 @@ public class GLCanvas extends AWTGLCanvas {
 	private boolean isOrthoMode = false;
 
 	private AxesGizmo axesGizmo; // ★追加
+	
+	private MeshRenderer meshRenderer;
+	private MeshData pendingMesh = null;
+	private MeshData currentMeshData = null;
+	private java.awt.Color currentMeshColor = new java.awt.Color(200, 200, 200, 255);
+	private float currentMeshAlpha = 1.0f;
+	private boolean isMeshVisible = true;
 
 	// Undo/Redo
 	private UndoManager undoManager = new UndoManager();
@@ -89,6 +96,8 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	private java.util.List<java.awt.Color> currentRoiColors = new java.util.ArrayList<>();
 	private float currentRoiAlpha = 0.5f;
+	
+	private java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> currentRois = new java.util.ArrayList<>();
 	
 	public enum OrthoRoiMode {
 		NONE,
@@ -227,6 +236,9 @@ public class GLCanvas extends AWTGLCanvas {
 			camera.zoom((float) e.getWheelRotation());
 			repaint();
 		});
+		
+		meshRenderer = new MeshRenderer();
+		meshRenderer.init();
 	}
 	
 	public void setAutoSwapBuffer(boolean auto) {
@@ -271,6 +283,8 @@ public class GLCanvas extends AWTGLCanvas {
 	// ==========================================
 	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] startIpp, double[] iop, double[] stepZ) {
 	    if (currentVolumeData == null || rois.isEmpty()) return;
+	    
+	    this.currentRois = new java.util.ArrayList<>(rois);
 	    
 	    java.util.Map<String, Integer> groupToIdMap = new java.util.HashMap<>();
 	    java.util.Map<Integer, java.awt.Color> idToColorMap = new java.util.TreeMap<>();
@@ -326,6 +340,38 @@ public class GLCanvas extends AWTGLCanvas {
 	        this.pendingRoiMask = mask; 
 	        SwingUtilities.invokeLater(this::repaint);
 	    }).start();
+	}
+	
+	// ==========================================
+	// ★追加: 特定のグループに属するROIのリストを取得する
+	// ==========================================
+	public java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> getRoisByGroup(String targetGroupName) {
+		java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> result = new java.util.ArrayList<>();
+		if (currentRois == null || targetGroupName == null)
+			return result;
+
+		for (com.vis.core.view.D3.roi.FreeFormRoi3D roi : currentRois) {
+			// GLCanvas内でのグループID決定ロジックと同じ方法でIDを取得
+			String groupId = roi.getProperty(com.vis.configuration.RoiDBKey.RoiGroup.name());
+			if (groupId == null || groupId.isEmpty()) {
+				groupId = roi.getProperty(com.vis.configuration.RoiDBKey.RoiID.name());
+				if (groupId == null || groupId.isEmpty()) {
+					groupId = String.valueOf(roi.hashCode());
+				}
+			}
+
+			// プレーンなID（例: "123"）、またはUI表示用の名前（例: "Group: 123"）のどちらでもヒットするようにする
+			String groupDisplayName = "Group: " + groupId;
+			if (targetGroupName.equals(groupId) || targetGroupName.equals(groupDisplayName)) {
+				result.add(roi);
+			}
+		}
+		return result;
+	}
+
+	// （おまけ）保持しているすべてのROIを取得したい場合用
+	public java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> getAllRois() {
+		return currentRois;
 	}
 
 	// ==========================================
@@ -556,6 +602,28 @@ public class GLCanvas extends AWTGLCanvas {
 			repaint();
 		}
 	}
+	
+	// --- メッシュ制御用の新しいメソッドを追加 ---
+	public void setMeshData(MeshData mesh) {
+	    this.currentMeshData = mesh;
+	    this.pendingMesh = mesh;
+	    repaint();
+	}
+
+	public void setMeshVisible(boolean visible) {
+	    this.isMeshVisible = visible;
+	    repaint();
+	}
+
+	public void setMeshColor(java.awt.Color color) {
+	    this.currentMeshColor = color;
+	    repaint();
+	}
+
+	public void setMeshAlpha(float alpha) {
+	    this.currentMeshAlpha = alpha;
+	    repaint();
+	}
 
 	// --- Swingのオーバーレイ描画 (線を引く) ---
 	// GLCanvasはAWTコンポーネントなので、paint()をオーバーライドして
@@ -587,6 +655,12 @@ public class GLCanvas extends AWTGLCanvas {
 			volumeRenderer.uploadTexture(pendingVolume);
 			pendingVolume = null;
 		}
+		
+		// ★追加: メッシュデータの転送
+	    if (pendingMesh != null) {
+	        meshRenderer.uploadMesh(pendingMesh);
+	        pendingMesh = null;
+	    }
 
 		if (pendingRoiMask != null && currentVolumeData != null) {
 			// GPUへのアップロードを実行
@@ -674,6 +748,15 @@ public class GLCanvas extends AWTGLCanvas {
 			// ★修正: 通常モードでは埋め込み処理は不要なので false, 0, 0, 0 を渡す
 			volumeRenderer.render(mvp, camPosLocal, false, 0f, 0f, 0f);
 		}
+		
+		// ★追加: メッシュのレンダリング (ボリューム描画の後に配置します)
+	    if (isMeshVisible && currentMeshData != null) {
+	        org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
+	        org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
+	        modelViewInv.getTranslation(camPosLocal);
+	        
+	        meshRenderer.render(mvp, model, camPosLocal, currentMeshColor, currentMeshAlpha);
+	    }
 
 		// 最後にGizmoを描画 (右下にオーバーレイ)
 		// Gizmoにも物理ピクセルサイズを渡さないと、位置がズレたり小さくなったりします
