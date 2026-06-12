@@ -40,7 +40,6 @@ package com.vis.core.view.D3.ui;
 import org.lwjgl.opengl.awt.GLData;
 
 import com.vis.core.log.Log;
-import com.vis.core.view.D2.roi.RoiObj;
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
 
 import java.awt.BorderLayout;
@@ -554,26 +553,49 @@ public class Viewer3DMain extends JFrame {
 	// メッシュの座標をGLCanvasのボリューム描画空間にピッタリ合わせる
 	// ==========================================================
 	private void alignMeshToVolume(MeshData mesh, VolumeData vol) {
-		// ボリュームの物理的なサイズ(mm)
-		float physX = vol.width * (float) vol.pixelSpacingX;
-		float physY = vol.height * (float) vol.pixelSpacingY;
-		float physZ = vol.depth * (float) vol.sliceThickness;
+		float spacingX = (float) vol.pixelSpacingX;
+		float spacingY = (float) vol.pixelSpacingY;
+		float spacingZ = (float) vol.sliceThickness;
 
-		// 最大の辺（GLCanvasの calculateModelMatrix と同じ基準）
+		float physX = vol.width * spacingX;
+		float physY = vol.height * spacingY;
+		float physZ = vol.depth * spacingZ;
+
 		float maxDim = Math.max(physX, Math.max(physY, physZ));
 
-		// ボリュームの物理的な中心座標
 		float cx = physX / 2.0f;
 		float cy = physY / 2.0f;
 		float cz = physZ / 2.0f;
+		
+		// ==========================================================
+		// ★ 追加：半ボクセル分のズレを補正するためのオフセット値
+		// ==========================================================
+		float offsetX = spacingX * 0.5f;
+		float offsetY = spacingY * 0.5f;
+		float offsetZ = spacingZ * 0.5f;
 
-		// すべての頂点を中心(0,0,0)に移動させ、最大辺が1.0になるように縮小
+		// ==========================================================
+		// ★ 軸の反転（フリップ）スイッチ
+		// 環境に合わせて true / false を切り替えるだけで位置が合います
+		// ==========================================================
+		/*
+		 * DICOMのスライスが進む方向（奥に向かってインデックスが増える）と、
+		 * OpenGLの標準的な空間（奥に向かってマイナスになる「右手系」）の向きが逆になっているため
+		 */
+		boolean flipX = false;
+		boolean flipY = false; // 画像は上から下へ描画されることが多いため、Yは反転(true)が基本です
+		boolean flipZ = true;
+
 		for (int i = 0; i < mesh.vertices.length; i += 3) {
-			// GLCanvasのボリューム描画ではY軸やZ軸が反転している場合があるため、
-			// もしメッシュが上下逆・前後逆に出る場合は、ここの符号を反転(- を + にするなど)して調整します。
-			mesh.vertices[i] = (mesh.vertices[i] - cx) / maxDim;
-			mesh.vertices[i + 1] = (mesh.vertices[i + 1] - cy) / maxDim;
-			mesh.vertices[i + 2] = (mesh.vertices[i + 2] - cz) / maxDim;
+			// 1. 半ボクセル分足して位置を補正し、そこから中心(cx, cy, cz)を引く
+			float x = (mesh.vertices[i]     + offsetX - cx) / physX;
+			float y = (mesh.vertices[i + 1] + offsetY - cy) / physY;
+			float z = (mesh.vertices[i + 2] + offsetZ - cz) / physZ;
+
+			// 2. 軸の反転を適用
+			mesh.vertices[i]     = flipX ? -x : x;
+			mesh.vertices[i + 1] = flipY ? -y : y;
+			mesh.vertices[i + 2] = flipZ ? -z : z;
 		}
 	}
 	
