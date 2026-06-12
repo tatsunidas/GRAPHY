@@ -34,3 +34,4 @@ target/
 # Clause Code
 .claude/
 /.classpath
+/bin/

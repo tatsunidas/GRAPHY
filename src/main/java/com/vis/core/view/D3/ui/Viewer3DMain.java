@@ -48,6 +48,7 @@ import java.io.File;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup; // 追加
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
@@ -57,14 +58,14 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton; // 追加
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * 
- * @author tatsunidas
+ * * @author tatsunidas
  *
  */
 public class Viewer3DMain extends JFrame {
@@ -94,8 +95,7 @@ public class Viewer3DMain extends JFrame {
 	}
 
 	/**
-	 * 
-	 */
+	 * */
 	private static final long serialVersionUID = 1L;
 	public GLCanvas canvas;
 	
@@ -192,23 +192,54 @@ public class Viewer3DMain extends JFrame {
 		controlPanel.add(resetCamera, gbc);
 		gbc.gridy++;
 
-		// チェックボックス：MIP
-		JCheckBox showMipChk = new JCheckBox("Show MIP");
-		showMipChk.setSelected(true);
-		showMipChk.addActionListener(e -> {
-			new Thread(() -> {
-				boolean isMip = showMipChk.isSelected();
-				canvas.setMIPMode(isMip);
-			}).start();
-		});
-		controlPanel.add(showMipChk, gbc);
+		// ---------------------------------------------------------
+		// ★変更点：レンダリングモードをラジオボタンで択一化
+		// ---------------------------------------------------------
+		controlPanel.add(new JLabel("Rendering Mode", SwingConstants.LEFT), gbc);
 		gbc.gridy++;
 
-		// チェックボックス：Ortho Mode
-		JCheckBox chkOrtho = new JCheckBox("Ortho Slices Mode");
-		chkOrtho.addActionListener(e -> canvas.setOrthoMode(chkOrtho.isSelected()));
-		controlPanel.add(chkOrtho, gbc);
+		JRadioButton radioVR = new JRadioButton("Volume Rendering (VR)");
+		JRadioButton radioMIP = new JRadioButton("MIP");
+		JRadioButton radioOrtho = new JRadioButton("Ortho Slices");
+
+		// 元のコードの挙動に合わせて初期状態をMIPに設定
+		radioMIP.setSelected(true);
+
+		ButtonGroup renderGroup = new ButtonGroup();
+		renderGroup.add(radioVR);
+		renderGroup.add(radioMIP);
+		renderGroup.add(radioOrtho);
+
+		// モード切替リスナー
+		java.awt.event.ActionListener modeListener = e -> {
+			new Thread(() -> {
+				if (radioVR.isSelected()) {
+					canvas.setShowVolume(true);
+					canvas.setMIPMode(false);
+					canvas.setOrthoMode(false);
+				} else if (radioMIP.isSelected()) {
+					canvas.setShowVolume(true);
+					canvas.setMIPMode(true);
+					canvas.setOrthoMode(false);
+				} else if (radioOrtho.isSelected()) {
+					canvas.setShowVolume(false); // Orthoモード時はボリューム非表示
+					canvas.setMIPMode(false);
+					canvas.setOrthoMode(true);
+				}
+			}).start();
+		};
+
+		radioVR.addActionListener(modeListener);
+		radioMIP.addActionListener(modeListener);
+		radioOrtho.addActionListener(modeListener);
+
+		controlPanel.add(radioVR, gbc);
 		gbc.gridy++;
+		controlPanel.add(radioMIP, gbc);
+		gbc.gridy++;
+		controlPanel.add(radioOrtho, gbc);
+		gbc.gridy++;
+		// ---------------------------------------------------------
 
 		// 区切り線 1
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
@@ -239,13 +270,7 @@ public class Viewer3DMain extends JFrame {
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
-		// チェックボックス：Show Volume
-		JCheckBox chkShowVol = new JCheckBox("Show Volume", true);
-		chkShowVol.addActionListener(e -> canvas.setShowVolume(chkShowVol.isSelected()));
-		controlPanel.add(chkShowVol, gbc);
-		gbc.gridy++;
-
-		// チェックボックス：Show ROI
+		// チェックボックス：Show ROI (※Show Volumeは上のラジオボタンに統合したため削除)
 		JCheckBox chkShowRoi = new JCheckBox("Show ROI", true);
 		chkShowRoi.addActionListener(e -> canvas.setShowRoi(chkShowRoi.isSelected()));
 		controlPanel.add(chkShowRoi, gbc);

@@ -287,7 +287,8 @@ public class PixelAnonymizerPanel extends JPanel {
 				engine.setProgressListener((current, total, message) -> {
 					int percent = (int) (((double) current / total) * 100);
 					setProgress(percent);
-					publish(message);
+					// ★ パーセンテージも文字に含めて publish する
+					publish(String.format("Attribute Anonymizing: %d%% - %s", percent, message));
 				});
 
 				engine.transcodeDirectory(tempDir, destDir, config);
@@ -302,6 +303,10 @@ public class PixelAnonymizerPanel extends JPanel {
 			protected void process(List<String> chunks) {
 				for (String msg : chunks) {
 					Log.logger.info(msg);
+					// ★ プログレスバーのテキストも更新する
+					if (progressBar != null) {
+						progressBar.setString(msg);
+					}
 				}
 			}
 
