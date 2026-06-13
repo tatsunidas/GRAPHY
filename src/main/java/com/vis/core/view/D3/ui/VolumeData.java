@@ -19,6 +19,12 @@ public class VolumeData {
 	public double pixelSpacingX;
 	public double pixelSpacingY;
 	public double sliceThickness;
+	// ==========================================================
+    // ★追加: このボリュームの3D空間における絶対的な幾何情報（World Coordinates）
+    // ==========================================================
+    public double[] startIpp; // ボリュームの原点（最初のボクセルの物理座標）
+    public double[] iop;      // 方向ベクトル (Row X,Y,Z, Col X,Y,Z)
+    public double[] stepZ;    // スライス進行方向のベクトル
 
 	// どの型のデータかを保持
 	public DataType dataType;

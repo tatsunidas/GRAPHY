@@ -842,69 +842,13 @@ public class Viewer2DToolBar extends JToolBar {
 		                        // Praparatから3D ROIのリストを取得
 		                        java.util.List<com.vis.core.view.D2.roi.RoiObj> roi3dList = prap.getRoi3DList();
 		                        if (roi3dList != null && !roi3dList.isEmpty()) {
-		                            
-		                            ij.ImagePlus imp = prap.getImagePlus(-1, -1);
-		                            int nSlices = imp.getNSlices();
-		                            
-		                            if (nSlices >= 2) {
-		                                // 最初のスライス(1)と最後のスライス(N)のIPPを実測
-		                                double[] ipp1 = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, 1);
-		                                double[] ippN = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, nSlices);
-		                                
-		                                com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface basePlane = com.vis.core.view.D2.ui.orientation.PlanarSupport.planarOf(imp);
-		                                boolean isHeadFirst = com.vis.core.view.D2.ui.orientation.PlanarSupport.isHeadFirst(imp);
-		                                boolean isReversed = false;
-
-		                                // VolumeLoaderと同じ反転判定
-		                                if (ipp1 != null && ippN != null) {
-		                                    if (basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.AXIAL || basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.OBLIQUE) {
-		                                        if ((ippN[2] < ipp1[2]) != isHeadFirst) isReversed = true;
-		                                    }
-		                                }
-
-		                                System.out.println("=== 3D Viewer Load Debug Log ===");
-		                                System.out.println("ipp1: [" + ipp1[0] + ", " + ipp1[1] + ", " + ipp1[2] + "]");
-		                                System.out.println("ippN: [" + ippN[0] + ", " + ippN[1] + ", " + ippN[2] + "]");
-		                                System.out.println("isReversed by VolumeLoader: " + isReversed);
-
-		                                // ★追加: 1スライス進むごとの実際の物理移動ベクトル (X, Y, Z)
-		                                double[] stepZ = new double[3];
-		                                stepZ[0] = (ippN[0] - ipp1[0]) / (nSlices - 1);
-		                                stepZ[1] = (ippN[1] - ipp1[1]) / (nSlices - 1);
-		                                stepZ[2] = (ippN[2] - ipp1[2]) / (nSlices - 1);
-
-		                                // VolumeData の [Z=0] に該当する物理座標を確定させる
-		                                double[] volumeStartIpp = ipp1;
-		                                if (isReversed) {
-		                                    volumeStartIpp = ippN; // スタックが反転されたので、[Z=0]はippNになる
-		                                    // 進行方向も逆になる
-		                                    stepZ[0] = -stepZ[0];
-		                                    stepZ[1] = -stepZ[1];
-		                                    stepZ[2] = -stepZ[2];
-		                                }
-
-		                                System.out.println("volumeStartIpp: [" + volumeStartIpp[0] + ", " + volumeStartIpp[1] + ", " + volumeStartIpp[2] + "]");
-		                                System.out.println("stepZ vector:   [" + stepZ[0] + ", " + stepZ[1] + ", " + stepZ[2] + "]");
-
-		                                // IOPの取得
-		                                com.vis.core.view.D2.ui.glasses.SlideGlass firstSg = prap.getAllSlides().get(0);
-		                                if (firstSg == null) firstSg = prap.getAllSlides().values().iterator().next();
-		                                com.vis.dicom.DicomObject header = firstSg.getHeader();
-		                                int frameIdx = prap.isMultiFrame() ? header.getInt(com.vis.dicom.Tag.InstanceNumber, 1) - 1 : 0;
-		                                double[] iop = prap.getSafeIOP(header, frameIdx);
-
-		                                java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rf3dList = new ArrayList<>();
-		                                for(com.vis.core.view.D2.roi.RoiObj r3 : roi3dList) {
-		                                    if(r3 instanceof FreeFormRoi3D) {
-		                                        rf3dList.add((FreeFormRoi3D)r3);
-		                                    }
-		                                }
-
-		                                if (volumeStartIpp != null && iop != null && !rf3dList.isEmpty()) {
-		                                    // ★修正: isReversed の代わりに volumeStartIpp と stepZ を直接渡す
-		                                    frame.canvas.setRoiData(rf3dList, volumeStartIpp, iop, stepZ);
-		                                }
-		                            }
+		                            java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rf3dList = new ArrayList<>();
+	                                for(com.vis.core.view.D2.roi.RoiObj r3 : roi3dList) {
+	                                    if(r3 instanceof FreeFormRoi3D) {
+	                                        rf3dList.add((FreeFormRoi3D)r3);
+	                                    }
+	                                }
+	                                frame.canvas.setRoiData(rf3dList);
 		                        }
 		                    }
 		                });

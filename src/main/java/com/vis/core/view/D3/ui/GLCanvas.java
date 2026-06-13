@@ -54,6 +54,27 @@ import org.lwjgl.opengl.awt.AWTGLCanvas;
  */
 public class GLCanvas extends AWTGLCanvas {
 	
+	// ==========================================================
+	// ★ 修正: OpenGL上のメッシュリソースをカプセル化する構造体
+	// ==========================================================
+	private static class MeshGLResource {
+		MeshData meshData;
+		int vao = 0;
+		int vboVertices = 0;
+		int vboNormals = 0;
+		int ibo = 0;
+		int indexCount = 0;
+		boolean needsUpload = true;
+		boolean visible = true;
+		java.awt.Color color = new java.awt.Color(200, 200, 200); // ★追加: 個別のメッシュ色
+	}
+
+	// 複数のメッシュを名前（グループ名）で管理するスレッドセーフなMap
+	private final java.util.Map<String, MeshGLResource> glMeshMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+	// 現在アクティブ（選択中）なメッシュの名前
+	private String activeMeshName = null;
+	
 	private VolumeRenderer volumeRenderer;
 	private VolumeData pendingVolume = null;
 	
@@ -77,7 +98,6 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	private MeshRenderer meshRenderer;
 	private MeshData pendingMesh = null;
-	private MeshData currentMeshData = null;
 	private java.awt.Color currentMeshColor = new java.awt.Color(200, 200, 200, 255);
 	private float currentMeshAlpha = 1.0f;
 	private boolean isMeshVisible = true;
@@ -281,7 +301,7 @@ public class GLCanvas extends AWTGLCanvas {
 	// グループを解釈して色とIDを割り振る setRoiData
 	// 利用する側は、roiを渡すだけで良い。
 	// ==========================================
-	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois, double[] startIpp, double[] iop, double[] stepZ) {
+	public void setRoiData(java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois) {
 	    if (currentVolumeData == null || rois.isEmpty()) return;
 	    
 	    this.currentRois = new java.util.ArrayList<>(rois);
@@ -336,7 +356,7 @@ public class GLCanvas extends AWTGLCanvas {
 	    }
 	    
 	    new Thread(() -> {
-	        byte[] mask = createMergedRoiMask(currentVolumeData, rois, mappedIds, startIpp, iop, stepZ);
+	        byte[] mask = createMergedRoiMask(currentVolumeData, rois, mappedIds);
 	        this.pendingRoiMask = mask; 
 	        SwingUtilities.invokeLater(this::repaint);
 	    }).start();
@@ -378,11 +398,15 @@ public class GLCanvas extends AWTGLCanvas {
 	// 改良版: 事前計算された mappedIds を使ってマスクを描き込む
 	// ==========================================
 	private byte[] createMergedRoiMask(VolumeData vol, java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> rois,
-			int[] mappedIds, double[] startIpp, double[] iop, double[] stepZ) {
+			int[] mappedIds) {
 		int w = vol.width;
 		int h = vol.height;
 		int d = vol.depth;
 		byte[] mask = new byte[w * h * d];
+		
+		double[] startIpp = vol.startIpp;
+		double[] iop = vol.iop;
+		double[] stepZ = vol.stepZ;
 
 		Log.logger.fine("=== Mask Generation Started (Group-Aware ID mode) ===");
 
@@ -604,10 +628,51 @@ public class GLCanvas extends AWTGLCanvas {
 	}
 	
 	// --- メッシュ制御用の新しいメソッドを追加 ---
-	public void setMeshData(MeshData mesh) {
-	    this.currentMeshData = mesh;
-	    this.pendingMesh = mesh;
-	    repaint();
+	// ==========================================================
+	// ★ 新設: メッシュの追加・更新
+	// ==========================================================
+	public void addOrUpdateMesh(String name, MeshData mesh) {
+		if (mesh == null)
+			return;
+
+		// 既存のメッシュがあれば取得、なければ新規作成
+		MeshGLResource res = glMeshMap.computeIfAbsent(name, k -> new MeshGLResource());
+		res.meshData = mesh;
+		res.indexCount = mesh.indices.length;
+		res.needsUpload = true; // 描画スレッド側でVBOを再生成させる
+
+		this.activeMeshName = name;
+	}
+
+	// ★ 新設: 特定のメッシュの色を個別に変更する
+	public void setMeshColor(String name, java.awt.Color color) {
+		MeshGLResource res = glMeshMap.get(name);
+		if (res != null && color != null) {
+			res.color = color;
+			repaint();
+		}
+	}
+
+	// ★ 新設: 特定のメッシュの現在の色を取得する
+	public java.awt.Color getMeshColor(String name) {
+		MeshGLResource res = glMeshMap.get(name);
+		return res != null ? res.color : new java.awt.Color(200, 200, 200);
+	}
+
+	// ★ 新設: アクティブなメッシュの指定
+	public void setActiveMeshName(String name) {
+		this.activeMeshName = name;
+	}
+
+	// ★ 新設: 特定のメッシュの削除（OpenGLリソースの解放を伴うため重要）
+	public void removeMesh(String name) {
+		MeshGLResource res = glMeshMap.remove(name);
+		if (res != null) {
+			// OpenGLスレッド以外からDelを呼ぶと危険なため、一時的にフラグ等で処理するか、
+			// 描画ループの中でまとめて glDeleteX を呼ぶのが安全です（後述の描画処理で対応）
+			res.needsUpload = false;
+			// 簡易的に、次の描画時にコンテキスト上で消去するためにマークするなどの処理
+		}
 	}
 
 	public void setMeshVisible(boolean visible) {
@@ -713,12 +778,18 @@ public class GLCanvas extends AWTGLCanvas {
 
 		org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
 
+		// ==========================================================
+		// ★修正: カメラ位置の計算を if文の外に引き上げる（メッシュ描画でも共通で使うため）
+		// ==========================================================
+		org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
+		org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
+		modelViewInv.getTranslation(camPosLocal);
+
 		if (isOrthoMode) {
 			org.joml.Matrix4f scaledProjView = new org.joml.Matrix4f(proj).mul(view).mul(model);
 			volumeRenderer.setOrthoShowRoi(orthoRoiMode == OrthoRoiMode.SLICE_2D);
 			volumeRenderer.renderOrthoSlices(scaledProjView, sliceX, sliceY, sliceZ);
 
-			// ★修正: FLOAT_3D または EMBEDDED_3D の場合
 			if ((orthoRoiMode == OrthoRoiMode.FLOAT_3D || orthoRoiMode == OrthoRoiMode.EMBEDDED_3D) && currentVolumeData != null) {
 				boolean tempVolVisible = volumeRenderer.isVolumeVisible();
 				boolean tempRoiVisible = volumeRenderer.isRoiVisible();
@@ -726,14 +797,7 @@ public class GLCanvas extends AWTGLCanvas {
 				volumeRenderer.setVolumeVisible(false);
 				volumeRenderer.setRoiVisible(true);
 
-				org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
-				org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
-				modelViewInv.getTranslation(camPosLocal);
-
-				// モード判定と、引数への追加
 				boolean isEmbedded = (orthoRoiMode == OrthoRoiMode.EMBEDDED_3D);
-				
-				// ★修正: renderメソッドに isEmbedded フラグと、スライスの位置(X, Y, Z) を渡す
 				volumeRenderer.render(mvp, camPosLocal, isEmbedded, sliceX, sliceY, sliceZ);
 
 				volumeRenderer.setVolumeVisible(tempVolVisible);
@@ -741,22 +805,86 @@ public class GLCanvas extends AWTGLCanvas {
 			}
 		} else {
 			// 通常の3D描画
-			org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
-			org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
-			modelViewInv.getTranslation(camPosLocal);
-
-			// ★修正: 通常モードでは埋め込み処理は不要なので false, 0, 0, 0 を渡す
 			volumeRenderer.render(mvp, camPosLocal, false, 0f, 0f, 0f);
 		}
 		
-		// ★追加: メッシュのレンダリング (ボリューム描画の後に配置します)
-	    if (isMeshVisible && currentMeshData != null) {
-	        org.joml.Matrix4f modelViewInv = new org.joml.Matrix4f(view).mul(model).invert();
-	        org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
-	        modelViewInv.getTranslation(camPosLocal);
-	        
-	        meshRenderer.render(mvp, model, camPosLocal, currentMeshColor, currentMeshAlpha);
-	    }
+		// ==========================================================
+		// ★ 修正・完全版: 登録されているすべてのメッシュをループ描画する
+		// ==========================================================
+		if (isMeshVisible && meshRenderer != null) { 
+
+			for (java.util.Map.Entry<String, MeshGLResource> entry : glMeshMap.entrySet()) {
+				String name = entry.getKey();
+				MeshGLResource res = entry.getValue();
+
+				if (!res.visible) continue;
+
+				// 【A】メインスレッドから送られてきた新規データをGPUに安全に転送する処理
+				if (res.needsUpload) {
+					if (res.vao != 0) {
+						org.lwjgl.opengl.GL30.glDeleteVertexArrays(res.vao);
+						org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboVertices);
+						org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboNormals); // 法線も削除
+						org.lwjgl.opengl.GL15.glDeleteBuffers(res.ibo);
+					}
+
+					res.vao = org.lwjgl.opengl.GL30.glGenVertexArrays();
+					res.vboVertices = org.lwjgl.opengl.GL15.glGenBuffers();
+					res.vboNormals = org.lwjgl.opengl.GL15.glGenBuffers(); // 法線用
+					res.ibo = org.lwjgl.opengl.GL15.glGenBuffers();
+
+					org.lwjgl.opengl.GL30.glBindVertexArray(res.vao);
+
+					// 1. 頂点バッファ (Location 0)
+					org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, res.vboVertices);
+					java.nio.FloatBuffer verticesBuffer = org.lwjgl.system.MemoryUtil.memAllocFloat(res.meshData.vertices.length);
+					verticesBuffer.put(res.meshData.vertices).flip();
+					org.lwjgl.opengl.GL15.glBufferData(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, verticesBuffer, org.lwjgl.opengl.GL15.GL_STATIC_DRAW);
+					org.lwjgl.opengl.GL20.glVertexAttribPointer(0, 3, org.lwjgl.opengl.GL11.GL_FLOAT, false, 0, 0);
+					org.lwjgl.opengl.GL20.glEnableVertexAttribArray(0);
+					org.lwjgl.system.MemoryUtil.memFree(verticesBuffer);
+
+					// 2. 法線バッファ (Location 1) - 光の計算に必須！
+					org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, res.vboNormals);
+					java.nio.FloatBuffer normalsBuffer = org.lwjgl.system.MemoryUtil.memAllocFloat(res.meshData.normals.length);
+					normalsBuffer.put(res.meshData.normals).flip();
+					org.lwjgl.opengl.GL15.glBufferData(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, normalsBuffer, org.lwjgl.opengl.GL15.GL_STATIC_DRAW);
+					org.lwjgl.opengl.GL20.glVertexAttribPointer(1, 3, org.lwjgl.opengl.GL11.GL_FLOAT, false, 0, 0);
+					org.lwjgl.opengl.GL20.glEnableVertexAttribArray(1);
+					org.lwjgl.system.MemoryUtil.memFree(normalsBuffer);
+
+					// 3. インデックスバッファ
+					org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER, res.ibo);
+					java.nio.IntBuffer indicesBuffer = org.lwjgl.system.MemoryUtil.memAllocInt(res.meshData.indices.length);
+					indicesBuffer.put(res.meshData.indices).flip();
+					org.lwjgl.opengl.GL15.glBufferData(org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER, indicesBuffer, org.lwjgl.opengl.GL15.GL_STATIC_DRAW);
+					org.lwjgl.system.MemoryUtil.memFree(indicesBuffer);
+
+					org.lwjgl.opengl.GL30.glBindVertexArray(0);
+					res.needsUpload = false;
+				}
+
+				// 【B】実際の描画処理
+				if (res.vao != 0 && res.indexCount > 0) {
+					// ★ 修正: 単一の固定色ではなく、メッシュ個別の色を使用する
+					java.awt.Color renderColor = res.color;
+					
+					// ★ 修正: 操作対象（アクティブ）のメッシュを強調表示するロジック
+					if (name.equals(activeMeshName)) {
+						// 選択中のメッシュは、その固有の色をベースに少し明るく(明度1.3倍)してハイライトする
+						int r = Math.min(255, (int)(renderColor.getRed() * 1.3));
+						int g = Math.min(255, (int)(renderColor.getGreen() * 1.3));
+						int b = Math.min(255, (int)(renderColor.getBlue() * 1.3));
+						renderColor = new java.awt.Color(r, g, b, renderColor.getAlpha());
+					}
+
+					// MeshRendererに行列・カメラ・個別色を適用して描画
+					meshRenderer.renderMesh(res.vao, res.indexCount, mvp, model, camPosLocal, renderColor, currentMeshAlpha);
+				}
+			}
+		}
+
+		// 最後にGizmoを描画 (右下にオーバーレイ)
 
 		// 最後にGizmoを描画 (右下にオーバーレイ)
 		// Gizmoにも物理ピクセルサイズを渡さないと、位置がズレたり小さくなったりします

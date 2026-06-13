@@ -292,6 +292,12 @@ public class GDicomTools extends ij.util.DicomTools {
 		return getDoubles(imp, imp.getCurrentSlice(), tag);
 	}
 	
+	public static double[] getDoubles(ImagePlus imp, int tag) {
+		String tagString = TagUtils.toString(tag);
+		tagString = tagString.substring(1,10);
+		return getDoubles(imp, imp.getCurrentSlice(), tagString);
+	}
+	
 	public static void setTag(ImagePlus imp, int zct/* 1 to N */, int tag/* only one tag */, String value) {
 		/*
 		 * DICOM tag is hex, be keep upper case.

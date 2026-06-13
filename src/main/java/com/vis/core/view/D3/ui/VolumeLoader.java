@@ -39,6 +39,7 @@ package com.vis.core.view.D3.ui;
 
 import java.io.File;
 
+import com.vis.core.log.Log;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface;
 import com.vis.core.view.D2.ui.orientation.PlanarSupport;
@@ -78,6 +79,8 @@ public class VolumeLoader {
 	public static VolumeData loadDicom(Praparat pp) {
 		System.out.println("Loading DICOM/Image from Praparat.");
 		ImagePlus imp = pp.getImagePlus(-1,-1);
+		// see, loadDicom
+//		PlanarSupport.standardizeStackOrientation(imp);
 		return loadDicom(imp);
 	}
 
@@ -103,13 +106,13 @@ public class VolumeLoader {
 		checkSpatialCalibration(imp);
 
 		// ★ 追加2: DICOM空間でのスライス順序（Z方向）の標準化
-		standardizeStackOrientation(imp);
+		PlanarSupport.standardizeStackOrientation(imp);
 
 		// 3. SagittalやCoronalの場合、Axial (X=LR, Y=AP, Z=SI) に再配置する
 		ImagePlus axialImp = convertToAxialIfNecessary(imp);
 		if (axialImp != imp) {
 			imp.close(); // 古い(Axial以外の)メモリを解放
-			imp = axialImp; // 以降は標準化されたAxialとして扱う
+			imp = axialImp; // 以降はスライスオーダーが標準化されたVolとして扱う
 		}
 		
 		// --- 以下はすべて「Axial化され、DICOM空間に一致した」データとしての処理 ---
@@ -125,8 +128,8 @@ public class VolumeLoader {
 		double spaY = cal.pixelHeight;
 		double spaZ = cal.pixelDepth;
 
-		System.out.println(String.format("Stack Size: %d x %d x %d", w, h, d));
-		System.out.println(String.format("Stack Spacing: %.3f x %.3f x %.3f", spaX, spaY, spaZ));
+		Log.logger.fine(String.format("Stack Size: %d x %d x %d", w, h, d));
+		Log.logger.fine(String.format("Stack Spacing: %.3f x %.3f x %.3f", spaX, spaY, spaZ));
 
 		// 3. ピクセルデータの抽出
 		// ImageJのデータ型に応じて適切な配列を作成します
@@ -180,7 +183,75 @@ public class VolumeLoader {
 		volume.pixelSpacingX = spaX;
 		volume.pixelSpacingY = spaY;
 		volume.sliceThickness = spaZ;
+		
+        int nSlices = d;
+        
+        if (nSlices >= 2) {
+            // 最初のスライス(1)と最後のスライス(N)のIPPを実測
+            double[] ipp1 = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, 1);
+            double[] ippN = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, nSlices);
+            
+            com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface basePlane = com.vis.core.view.D2.ui.orientation.PlanarSupport.planarOf(imp);
+            boolean isHeadFirst = com.vis.core.view.D2.ui.orientation.PlanarSupport.isHeadFirst(imp);
+            boolean isReversed = false;
 
+            // VolumeLoaderと同じ反転判定
+            if (ipp1 != null && ippN != null) {
+                if (basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.AXIAL || basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.OBLIQUE) {
+                    if ((ippN[2] < ipp1[2]) != isHeadFirst) isReversed = true;
+                }
+            }
+
+            System.out.println("=== Volume Loader Debug Log ===");
+            System.out.println("ipp1: [" + ipp1[0] + ", " + ipp1[1] + ", " + ipp1[2] + "]");
+            System.out.println("ippN: [" + ippN[0] + ", " + ippN[1] + ", " + ippN[2] + "]");
+            /*
+             * オーダーは標準化しているので、常にfalse
+             */
+            System.out.println("isReversed by VolumeLoader: " + isReversed);
+
+            // ★追加: 1スライス進むごとの実際の物理移動ベクトル (X, Y, Z)
+            double[] stepZ = new double[3];
+            stepZ[0] = (ippN[0] - ipp1[0]) / (nSlices - 1);
+            stepZ[1] = (ippN[1] - ipp1[1]) / (nSlices - 1);
+            stepZ[2] = (ippN[2] - ipp1[2]) / (nSlices - 1);
+
+            // VolumeData の [Z=0] に該当する物理座標を確定させる
+            double[] volumeStartIpp = ipp1;
+            //fail safe
+            if (isReversed) {
+                volumeStartIpp = ippN; // スタックが反転されたので、[Z=0]はippNになる
+                // 進行方向も逆になる
+                stepZ[0] = -stepZ[0];
+                stepZ[1] = -stepZ[1];
+                stepZ[2] = -stepZ[2];
+            }
+
+            System.out.println("volumeStartIpp: [" + volumeStartIpp[0] + ", " + volumeStartIpp[1] + ", " + volumeStartIpp[2] + "]");
+            System.out.println("stepZ vector:   [" + stepZ[0] + ", " + stepZ[1] + ", " + stepZ[2] + "]");
+
+            // IOPの取得
+            double[] iop = GDicomTools.getDoubles(imp, Tag.ImageOrientationPatient);
+            
+            volume.startIpp = volumeStartIpp;
+            volume.iop = iop;
+            volume.stepZ = stepZ;
+        }else {//only have a image
+        	volume.startIpp = GDicomTools.getDoubles(imp, Tag.ImagePositionPatient);
+            
+        	if(volume.startIpp == null) {
+        		volume.startIpp = new double[] {0.,0.,0.};
+        	}
+        	
+        	volume.iop = GDicomTools.getDoubles(imp, Tag.ImageOrientationPatient);
+            
+        	if(volume.iop == null) {
+        		volume.iop = new double[] {1.,0.,0.,0.,1.,0.};
+        	}
+        	
+        	volume.stepZ = calculateDummyStepZ(volume.iop, spaZ);
+        }
+        
 		// ImageJのメモリ解放を促進
 		imp.close();
 
@@ -207,58 +278,6 @@ public class VolumeLoader {
 		if (!Double.isNaN(depth) && depth > 0) {
 			cal.pixelDepth = depth;
 		}
-	}
-
-	private static void standardizeStackOrientation(ImagePlus imp) {
-		int nSlices = imp.getNSlices();
-		if (nSlices < 2)
-			return;
-
-		CutSurface basePlane = PlanarSupport.planarOf(imp);
-		boolean isHeadFirst = PlanarSupport.isHeadFirst(imp);
-
-		double[] ipp1 = GDicomTools.getImagePositionPatient(imp, 1);
-		double[] ippN = GDicomTools.getImagePositionPatient(imp, nSlices);
-		if (ipp1 == null || ippN == null)
-			return;
-
-		boolean needsReversal = false;
-
-		if (basePlane == CutSurface.AXIAL || basePlane == CutSurface.OBLIQUE) {
-			boolean isCurrentlyDescending = ippN[2] < ipp1[2];
-			boolean targetDescending = isHeadFirst;
-			if (isCurrentlyDescending != targetDescending) {
-				needsReversal = true;
-			}
-		} else if (basePlane == CutSurface.CORONAL) {
-			boolean isCurrentlyAscending = ippN[1] > ipp1[1];
-			boolean targetAscending = isHeadFirst;
-			if (isCurrentlyAscending != targetAscending) {
-				needsReversal = true;
-			}
-		} else if (basePlane == CutSurface.SAGITTAL) {
-			boolean isCurrentlyAscending = ippN[0] > ipp1[0];
-			boolean targetAscending = isHeadFirst;
-			if (isCurrentlyAscending != targetAscending) {
-				needsReversal = true;
-			}
-		}
-
-		if (needsReversal) {
-			reverseStack(imp);
-			System.out.println("Stack order reversed to match standard anatomical orientation.");
-		}
-	}
-
-	private static void reverseStack(ImagePlus imp) {
-		ImageStack stack = imp.getStack();
-		int n = stack.getSize();
-		ImageStack reversedStack = new ImageStack(stack.getWidth(), stack.getHeight());
-
-		for (int i = n; i >= 1; i--) {
-			reversedStack.addSlice(stack.getSliceLabel(i), stack.getProcessor(i));
-		}
-		imp.setStack(reversedStack);
 	}
 
 	/**
@@ -376,5 +395,30 @@ public class VolumeLoader {
 		axImp.setCalibration(axCal);
 
 		return axImp;
+	}
+	
+	// ==========================================================
+	// 画像が1枚しかない場合の stepZ の計算ロジック
+	// ==========================================================
+	private static double[] calculateDummyStepZ(double[] iop, double sliceThickness) {
+		// スライス厚が0や未定義の場合は、最低限の厚みとして 1.0mm を仮定する
+		double thickness = (sliceThickness > 0) ? sliceThickness : 1.0;
+
+		if (iop != null && iop.length >= 6) {
+			// IOPから外積を計算して法線ベクトルを求める
+			double nx = iop[1] * iop[5] - iop[2] * iop[4];
+			double ny = iop[2] * iop[3] - iop[0] * iop[5];
+			double nz = iop[0] * iop[4] - iop[1] * iop[3];
+
+			// 長さを1に正規化（DICOMのIOPは通常すでに正規化されていますが念のため）
+			double len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+			if (len > 0.000001) {
+				return new double[] { (nx / len) * thickness, (ny / len) * thickness, (nz / len) * thickness };
+			}
+		}
+
+		// IOPすら存在しない最悪のケースの究極のフォールバック
+		// (純粋なアキシャル面を仮定して、Z軸方向にのみ厚みを持たせる)
+		return new double[] { 0.0, 0.0, thickness };
 	}
 }

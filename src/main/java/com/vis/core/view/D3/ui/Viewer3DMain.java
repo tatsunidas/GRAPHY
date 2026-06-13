@@ -41,6 +41,7 @@ import org.lwjgl.opengl.awt.GLData;
 
 import com.vis.core.log.Log;
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
+import com.vis.core.view.D3.util.MeshExporter;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -88,14 +89,14 @@ public class Viewer3DMain extends JFrame {
 				if (frame.canvas != null && frame.canvas.isDisplayable()) {
 					frame.canvas.render(); // これが呼ばれると paintGL() が動く
 					frame.canvas.repaint();
-				}else {
+				} else {
 					// ウィンドウが閉じられてキャンバスが破棄されたら、このタイマー自体を安全に停止させる
 					((javax.swing.Timer) e.getSource()).stop();
 				}
 			});
 			timer.setRepeats(true);
 			timer.start();
-						
+
 		});
 	}
 
@@ -103,8 +104,19 @@ public class Viewer3DMain extends JFrame {
 	 * */
 	private static final long serialVersionUID = 1L;
 	public GLCanvas canvas;
-	
+
 	private JPanel roiColorPanel;
+	private JCheckBox chkShowMesh;
+
+	// ★ 追加: 現在選択（アクティブ）になっているROIグループ名を保持する変数
+	private String selectedRoiGroupName = null;
+	private java.util.Map<String, MeshData> rawMeshMap = new java.util.LinkedHashMap<>();
+
+	// 追加：現在メッシュリストで選択（アクティブ）されているメッシュ名
+	private String selectedMeshName = null;
+
+	// 追加：メッシュ一覧を表示するためのUIパネル
+	private JPanel meshListPanel;
 
 	public Viewer3DMain() {
 		setTitle("GRAPHY 3D Viewer");
@@ -115,17 +127,16 @@ public class Viewer3DMain extends JFrame {
 		// 1. OpenGLの設定データを作成
 		GLData data = new GLData();
 		data.majorVersion = 3;
-		data.minorVersion = 3;//3.2 or above
+		data.minorVersion = 3;// 3.2 or above
 
-		// OpenGL >= 3.2 
+		// OpenGL >= 3.2
 		data.profile = GLData.Profile.CORE;
 
 		/*
-		 * doubleBuffer = trueのとき、
-		 * GLCanvas.paintGL()内でswapBufferを有効にしておくこと
+		 * doubleBuffer = trueのとき、 GLCanvas.paintGL()内でswapBufferを有効にしておくこと
 		 */
 		data.doubleBuffer = true;
-		
+
 		data.forwardCompatible = true;
 
 		// 2. キャンバスを作成して中央に配置
@@ -161,42 +172,86 @@ public class Viewer3DMain extends JFrame {
 			}
 		});
 		fileMenu.add(openItem);
-		
+
 		JMenuItem openMeshItem = new JMenuItem("Open Mesh (OBJ/STL)...");
 		openMeshItem.addActionListener(e -> {
-		    JFileChooser fileChooser = new JFileChooser();
-		    fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-		    fileChooser.setCurrentDirectory(new File("."));
-		    int result = fileChooser.showOpenDialog(this);
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+			fileChooser.setCurrentDirectory(new File("."));
+			
+			// 拡張子フィルタを設定しておくと親切です
+			fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("3D Mesh Files (*.obj, *.stl)", "obj", "stl"));
+			
+			int result = fileChooser.showOpenDialog(this);
 
-		    if (result == JFileChooser.APPROVE_OPTION) {
-		        String path = fileChooser.getSelectedFile().getAbsolutePath();
-		        
-		        // 別スレッドでメッシュを読み込み
-		        new Thread(() -> {
-		            MeshData mesh = MeshLoader.load(path);
-		            if (mesh != null) {
-		                // Canvasにデータを渡す
-		                canvas.setMeshData(mesh);
-		            }
-		        }).start();
-		    }
+			if (result == JFileChooser.APPROVE_OPTION) {
+				File selectedFile = fileChooser.getSelectedFile();
+				String path = selectedFile.getAbsolutePath();
+				
+				// ==========================================================
+				// ★ 修正: ファイル名から拡張子を取り除いて「メッシュ名」にする
+				// 例: "tumor_mesh.stl" -> "tumor_mesh"
+				// ==========================================================
+				String fileName = selectedFile.getName();
+				String meshName = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+
+				// 別スレッドでメッシュを読み込み
+				new Thread(() -> {
+					MeshData mesh = MeshLoader.load(path);
+					if (mesh != null) {
+						
+						// 1. エクスポート等のために、実寸(mm)のオリジナルデータをMapに登録
+						MeshData rawClone = new MeshData(
+								mesh.vertices.clone(), 
+								mesh.normals.clone(), 
+								mesh.indices.clone()
+						);
+						rawMeshMap.put(meshName, rawClone);
+						selectedMeshName = meshName;
+
+						// 2. 描画用に、ボリュームの描画空間（-0.5〜0.5）へ位置合わせを行う
+						// (すでにDICOMボリュームがロードされている場合のみ実行)
+						if (canvas.getVolumeData() != null) {
+							alignMeshToVolume(mesh, canvas.getVolumeData());
+						}
+
+						// 3. 描画スレッドでCanvasへの登録とUI更新を行う
+						SwingUtilities.invokeLater(() -> {
+							// 名前付きで複数管理としてGLCanvasに登録
+							canvas.addOrUpdateMesh(meshName, mesh);
+							
+							canvas.setMeshVisible(true);
+							if (chkShowMesh != null) chkShowMesh.setSelected(true);
+							
+							// ★ メッシュリストのUIを最新状態にリフレッシュ！
+							refreshMeshListUI();
+							
+							JOptionPane.showMessageDialog(this, "Mesh '" + meshName + "' imported successfully!", "Success",
+									JOptionPane.INFORMATION_MESSAGE);
+						});
+					} else {
+						SwingUtilities.invokeLater(() -> {
+							JOptionPane.showMessageDialog(this, "Failed to load mesh file.", "Error", JOptionPane.ERROR_MESSAGE);
+						});
+					}
+				}).start();
+			}
 		});
 		fileMenu.add(openMeshItem);
-		
+
 		JMenuItem exit = new JMenuItem("Exit");
 		exit.addActionListener(e -> {
 			dispose();
 		});
 		fileMenu.add(exit);
-		
+
 		menuBar.add(fileMenu);
 		setJMenuBar(menuBar);
 
 		// 4. ボタンパネルの作成（右側）
 		JPanel controlPanel = new JPanel(new GridBagLayout());
 		controlPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // パネル全体の余白
-		//controlPanel.setPreferredSize(new Dimension(320, 800)); // 扱いやすい幅を確保
+		// controlPanel.setPreferredSize(new Dimension(320, 800)); // 扱いやすい幅を確保
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.gridx = 0;
@@ -361,102 +416,52 @@ public class Viewer3DMain extends JFrame {
 		// ROI Group Colors タイトル
 		controlPanel.add(new JLabel("ROI Group Colors"), gbc);
 		gbc.gridy++;
-		
+
+		roiColorPanel = new JPanel();
+		roiColorPanel.setLayout(new BoxLayout(roiColorPanel, BoxLayout.Y_AXIS));
+		JScrollPane roiScrollPane = new JScrollPane(roiColorPanel);
+		roiScrollPane.setMinimumSize(new Dimension(200, 150));
+		roiScrollPane.setPreferredSize(new Dimension(300, 200)); // ←★この行を追加
+		controlPanel.add(roiScrollPane, gbc);
+		// ★追加: キャンバスから「ROI情報が更新されたよ」という通知を受け取ってUIを作る
+		canvas.setOnRoiLoadedCallback(() -> refreshRoiColorUI());
+
 		// 区切り線
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
 		// メッシュ表示切り替えチェックボックス
-		JCheckBox chkShowMesh = new JCheckBox("Show Mesh", true);
+		chkShowMesh = new JCheckBox("Show Mesh", true);
 		chkShowMesh.addActionListener(e -> {
-		    if (canvas != null) {
-		        canvas.setMeshVisible(chkShowMesh.isSelected());
-		    }
+			if (canvas != null) {
+				canvas.setMeshVisible(chkShowMesh.isSelected());
+			}
 		});
 		controlPanel.add(chkShowMesh, gbc);
 		gbc.gridy++;
-		
+
 		// 区切り線
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
 		// ==========================================================
-		// ★追加: Marching Cubes によるメッシュ生成ボタン
+		// Marching Cubes による選択グループのメッシュ生成ボタン（フェーズ1対応）
 		// ==========================================================
-		JButton btnGenerateMesh = new JButton("Generate Mesh from Mask");
-		btnGenerateMesh.setToolTipText("Run Marching Cubes on current volume");
-		btnGenerateMesh.addActionListener(e -> {
-			if (canvas.getVolumeData() == null)
-				return;
-
-			// UIが固まらないようにボタンを一時無効化
-			btnGenerateMesh.setEnabled(false);
-			btnGenerateMesh.setText("Generating...");
-			
-			// 重い処理なので別スレッドで実行
-			new Thread(() -> {
-				try {
-					VolumeData vol = canvas.getVolumeData();
-
-					// 閾値（アイソバリュー）をデータの最小・最大の中間に設定
-					// マスクデータ(0と255)なら 127.5 になります
-					float isoLevel = (vol.minVal + vol.maxVal) / 2.0f;
-
-					// 先ほど作った最強のアルゴリズムを実行！
-					MeshData generatedMesh = MarchingCubes.generateMesh(vol, isoLevel);
-
-					if (generatedMesh != null) {
-						// ★重要: ボリュームの描画スケール(-0.5〜0.5空間)と完全に位置を一致させる
-						alignMeshToVolume(generatedMesh, vol);
-
-						// 生成完了したら画面に反映してボタンを戻す
-						SwingUtilities.invokeLater(() -> {
-							canvas.setMeshData(generatedMesh);
-							canvas.setMeshVisible(true);
-							chkShowMesh.setSelected(true); // チェックボックスもONにする
-							btnGenerateMesh.setText("Generate Mesh from Mask");
-							btnGenerateMesh.setEnabled(true);
-						});
-					}
-				} catch (Exception ex) {
-					ex.printStackTrace();
-					SwingUtilities.invokeLater(() -> {
-						btnGenerateMesh.setText("Generate Mesh from Mask");
-						btnGenerateMesh.setEnabled(true);
-					});
-				}
-			}).start();
-		});
-
-		controlPanel.add(btnGenerateMesh, gbc);
-		gbc.gridy++;
-		
 		JButton btnGenerateMeshRoi = new JButton("Generate Mesh from Roi");
-		btnGenerateMeshRoi.setToolTipText("Run Marching Cubes on current roi");
-		// ==========================================================
-		// Marching Cubes による選択グループのメッシュ生成ボタン（改良版）
-		// ==========================================================
+		btnGenerateMeshRoi.setToolTipText("Run Marching Cubes on current selected roi");
 		btnGenerateMeshRoi.addActionListener(e -> {
 			if (canvas.getVolumeData() == null)
 				return;
 
-			// 1. 現在存在するROIのグループ名一覧を取得
-			java.util.List<String> groupNames = canvas.getRoiGroupNames();
-			if (groupNames == null || groupNames.isEmpty()) {
-				JOptionPane.showMessageDialog(this, "No ROI groups available to generate mesh.", "Info",
+			// ★ 修正: ポップアップダイアログを廃止し、ラジオボタンで選択中のグループを利用する
+			if (selectedRoiGroupName == null) {
+				JOptionPane.showMessageDialog(this, "Please select an ROI group from the list first.", "Info",
 						JOptionPane.INFORMATION_MESSAGE);
 				return;
 			}
 
-			// 2. ユーザーにどのグループを3Dメッシュ化するか選ばせるポップアップを表示
-			String[] choices = groupNames.toArray(new String[0]);
-			String selectedGroup = (String) JOptionPane.showInputDialog(this,
-					"Select an ROI group to convert into a 3D Mesh:", "Select ROI Group", JOptionPane.QUESTION_MESSAGE,
-					null, choices, choices[0]);
-
-			// キャンセルされた場合は終了
-			if (selectedGroup == null)
-				return;
+			// 確定したグループ名を変数に入れる
+			String selectedGroup = selectedRoiGroupName;
 
 			// UIの無効化
 			btnGenerateMeshRoi.setEnabled(false);
@@ -465,30 +470,49 @@ public class Viewer3DMain extends JFrame {
 			// 重い処理なので別スレッドで実行
 			new Thread(() -> {
 				try {
-					// 3. GLCanvasに追加したメソッドを使い、選択されたグループの全ROIを回収
+					// 1. GLCanvasから幾何情報とVolumeData、対象ROIを取得
+					VolumeData currentVol = canvas.getVolumeData();
 					java.util.List<FreeFormRoi3D> targetRois = canvas.getRoisByGroup(selectedGroup);
 
-					if (targetRois.isEmpty()) {
-						Log.logger.warning("No ROI objects found for the group: " + selectedGroup);
-						return;
-					}
-
-					// 4. 複数ROIを1つにまとめてメッシュ化するパイプラインを実行
-					Log.logger.info("Merging and converting group [" + selectedGroup + "] to 3D mesh...");
-					MeshData generatedMesh = convertRoiGroupToMesh(targetRois);
+					// 2.物理座標ベースでメッシュをクリーンに生成
+					Log.logger.info("Converting group [" + selectedGroup + "] to standard 3D mesh...");
+					MeshData generatedMesh = convertRoiGroupToMesh(targetRois, currentVol);
 
 					if (generatedMesh != null) {
-						// 5. ボリュームの描画スケール(-0.5〜0.5空間)と位置を完全に同期
+						MeshData rawClone = new MeshData(
+								generatedMesh.vertices.clone(), 
+								generatedMesh.normals.clone(), 
+								generatedMesh.indices.clone()
+						);
+						rawMeshMap.put(selectedGroup, rawClone);
+						selectedMeshName = selectedGroup;
+
+						// ボリュームの描画スケール(-0.5〜0.5空間)と位置を完全に同期
 						alignMeshToVolume(generatedMesh, canvas.getVolumeData());
 
 						// 生成完了したら描画スレッドで画面に反映
 						SwingUtilities.invokeLater(() -> {
-							canvas.setMeshData(generatedMesh);
+							// 名前付きで複数管理のMapに登録
+							canvas.addOrUpdateMesh(selectedGroup, generatedMesh); 
+							
+							// ==========================================================
+							// ★ 追加: 元になったROIの色をメッシュの初期色として自動同期する
+							// ==========================================================
+							java.util.List<String> roiNames = canvas.getRoiGroupNames();
+							java.util.List<java.awt.Color> roiColors = canvas.getRoiColors();
+							int roiIndex = roiNames.indexOf(selectedGroup);
+							if (roiIndex != -1) {
+								canvas.setMeshColor(selectedGroup, roiColors.get(roiIndex));
+							}
+							
 							canvas.setMeshVisible(true);
 							chkShowMesh.setSelected(true);
 							btnGenerateMeshRoi.setText("Generate Mesh from Roi");
 							btnGenerateMeshRoi.setEnabled(true);
-							JOptionPane.showMessageDialog(this, "3D Mesh generated successfully!", "Success",
+							
+							refreshMeshListUI();
+							
+							JOptionPane.showMessageDialog(this, "3D Mesh generated and added to list!", "Success",
 									JOptionPane.INFORMATION_MESSAGE);
 						});
 					}
@@ -501,40 +525,94 @@ public class Viewer3DMain extends JFrame {
 				}
 			}).start();
 		});
-
 		controlPanel.add(btnGenerateMeshRoi, gbc);
+		gbc.gridy++;
+
+		// ==========================================================
+		//  STLエクスポートボタン（選択メッシュ対象）
+		// ==========================================================
+		JButton btnExportStl = new JButton("Export Mesh to STL...");
+		btnExportStl.setToolTipText("Save the generated 3D mesh as a file for 3D printing");
+		btnExportStl.addActionListener(e -> {
+			// ★ 修正: 選択されているアクティブなメッシュがあるかチェック
+			if (selectedMeshName == null || !rawMeshMap.containsKey(selectedMeshName)) {
+				JOptionPane.showMessageDialog(this, "Please select a 3D mesh from the list to export.", "Warning",
+						JOptionPane.WARNING_MESSAGE);
+				return;
+			}
+
+			// ファイル保存ダイアログの表示
+			javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+			fileChooser.setDialogTitle("Export Selected 3D Mesh as Binary STL");
+			fileChooser.setSelectedFile(
+					new File("exported_" + selectedMeshName.replace(":", "").replace(" ", "_") + ".stl"));
+
+			fileChooser.setFileFilter(
+					new javax.swing.filechooser.FileNameExtensionFilter("Stereolithography (*.stl)", "stl"));
+
+			int userSelection = fileChooser.showSaveDialog(this);
+			if (userSelection == javax.swing.JFileChooser.APPROVE_OPTION) {
+				File fileToSave = fileChooser.getSelectedFile();
+
+				if (!fileToSave.getName().toLowerCase().endsWith(".stl")) {
+					fileToSave = new File(fileToSave.getAbsolutePath() + ".stl");
+				}
+
+				try {
+					// ★ 修正: リストで選択されている「実寸(mm)のオリジナルメッシュ」を取得して投入！
+					MeshData activeRawMesh = rawMeshMap.get(selectedMeshName);
+					MeshExporter.exportToBinarySTL(fileToSave, activeRawMesh);
+
+					JOptionPane.showMessageDialog(this, "Mesh successfully exported to:\n" + fileToSave.getName(),
+							"Export Success", JOptionPane.INFORMATION_MESSAGE);
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					JOptionPane.showMessageDialog(this, "Failed to export STL:\n" + ex.getMessage(), "Error",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
+
+		controlPanel.add(btnExportStl, gbc);
 		gbc.gridy++;
 
 		// メッシュの透明度スライダー (オプション)
 		JSlider sliderMeshAlpha = new JSlider(0, 100, 100);
 		sliderMeshAlpha.setToolTipText("Adjust Mesh Opacity");
+		sliderMeshAlpha.addChangeListener(e -> {
+			if (canvas != null) {
+				float alpha = sliderMeshAlpha.getValue() / 100.0f;
+				canvas.setMeshAlpha(alpha);
+			}
+		});
 		controlPanel.add(new JLabel("Mesh Opacity"), gbc);
 		gbc.gridy++;
 		controlPanel.add(sliderMeshAlpha, gbc);
 		gbc.gridy++;
+		
+		// 区切り線
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
 
-		sliderMeshAlpha.addChangeListener(e -> {
-		    if (canvas != null) {
-		        float alpha = sliderMeshAlpha.getValue() / 100.0f;
-		        canvas.setMeshAlpha(alpha);
-		    }
-		});
+		// ==========================================================
+		// ★ 追加: 3D メッシュリスト（レイヤー管理パネル）の配置
+		// ==========================================================
+		controlPanel.add(new JLabel("Generated 3D Meshes"), gbc);
+		gbc.gridy++;
+
+		meshListPanel = new JPanel();
+		meshListPanel.setLayout(new BoxLayout(meshListPanel, BoxLayout.Y_AXIS));
+		JScrollPane meshScrollPane = new JScrollPane(meshListPanel);
+		meshScrollPane.setMinimumSize(new Dimension(200, 100));
+		meshScrollPane.setPreferredSize(new Dimension(300, 120)); // 程よい高さを確保
+		controlPanel.add(meshScrollPane, gbc);
+		gbc.gridy++;
+		
 
 		// ★ここが最大のポイント：JScrollPaneにのみ残りの縦幅を全割り当てする
 		gbc.weighty = 1.0; // 縦方向の拡張ウェイトを設定
 		gbc.fill = GridBagConstraints.BOTH; // 縦横両方に広げる設定に変更
 		gbc.insets = new Insets(4, 4, 0, 4); // 最下部の余白調整
-
-		// ★追加/変更: 内側のROIリストが潰れないように推奨サイズ(PreferredSize)を明示する
-		roiColorPanel = new JPanel();
-		roiColorPanel.setLayout(new BoxLayout(roiColorPanel, BoxLayout.Y_AXIS));
-		JScrollPane roiScrollPane = new JScrollPane(roiColorPanel);
-		roiScrollPane.setMinimumSize(new Dimension(200, 150));
-		roiScrollPane.setPreferredSize(new Dimension(300, 200)); // ←★この行を追加
-		controlPanel.add(roiScrollPane, gbc);
-
-		// ★追加: キャンバスから「ROI情報が更新されたよ」という通知を受け取ってUIを作る
-		canvas.setOnRoiLoadedCallback(() -> refreshRoiColorUI());
 
 		// ==========================================================
 		// ★ここから修正: controlPanelを直接addせず、JScrollPaneでラップする
@@ -548,7 +626,7 @@ public class Viewer3DMain extends JFrame {
 
 		add(mainControlScroll, BorderLayout.EAST);
 	}
-	
+
 	// ==========================================================
 	// メッシュの座標をGLCanvasのボリューム描画空間にピッタリ合わせる
 	// ==========================================================
@@ -561,12 +639,10 @@ public class Viewer3DMain extends JFrame {
 		float physY = vol.height * spacingY;
 		float physZ = vol.depth * spacingZ;
 
-		float maxDim = Math.max(physX, Math.max(physY, physZ));
-
 		float cx = physX / 2.0f;
 		float cy = physY / 2.0f;
 		float cz = physZ / 2.0f;
-		
+
 		// ==========================================================
 		// ★ 追加：半ボクセル分のズレを補正するためのオフセット値
 		// ==========================================================
@@ -574,117 +650,90 @@ public class Viewer3DMain extends JFrame {
 		float offsetY = spacingY * 0.5f;
 		float offsetZ = spacingZ * 0.5f;
 
-		// ==========================================================
-		// ★ 軸の反転（フリップ）スイッチ
-		// 環境に合わせて true / false を切り替えるだけで位置が合います
-		// ==========================================================
-		/*
-		 * DICOMのスライスが進む方向（奥に向かってインデックスが増える）と、
-		 * OpenGLの標準的な空間（奥に向かってマイナスになる「右手系」）の向きが逆になっているため
-		 */
-		boolean flipX = false;
-		boolean flipY = false; // 画像は上から下へ描画されることが多いため、Yは反転(true)が基本です
-		boolean flipZ = true;
-
 		for (int i = 0; i < mesh.vertices.length; i += 3) {
 			// 1. 半ボクセル分足して位置を補正し、そこから中心(cx, cy, cz)を引く
-			float x = (mesh.vertices[i]     + offsetX - cx) / physX;
+			float x = (mesh.vertices[i] + offsetX - cx) / physX;
 			float y = (mesh.vertices[i + 1] + offsetY - cy) / physY;
 			float z = (mesh.vertices[i + 2] + offsetZ - cz) / physZ;
 
 			// 2. 軸の反転を適用
-			mesh.vertices[i]     = flipX ? -x : x;
-			mesh.vertices[i + 1] = flipY ? -y : y;
-			mesh.vertices[i + 2] = flipZ ? -z : z;
+			mesh.vertices[i] = x;
+			mesh.vertices[i + 1] = y;
+			mesh.vertices[i + 2] = z;
 		}
 	}
-	
+
 	// ==========================================================
-	// 指定されたグループの全ROIを1つの3Dメッシュに結合・変換する
+	// 【新方針】物理座標ベースで標準VolumeにROIを焼き付けてメッシュ化する
 	// ==========================================================
-	private MeshData convertRoiGroupToMesh(java.util.List<FreeFormRoi3D> rois) {
-		if (rois == null || rois.isEmpty())
+	private MeshData convertRoiGroupToMesh(java.util.List<FreeFormRoi3D> rois, VolumeData standardVol) {
+
+		if (rois == null || rois.isEmpty() || standardVol == null)
 			return null;
 
-		// 1. 空間基準となる最初のROIから次元（ボクセル数）やピクセル間隔を取得
-		FreeFormRoi3D firstRoi = rois.get(0);
-		int[] dims = firstRoi.getDimensions();
-		int dimX = dims[0];
-		int dimY = dims[1];
-		int dimZ = dims[2];
-		double[] spacing = firstRoi.getSpacing();
+		int w = standardVol.width;
+		int h = standardVol.height;
+		int d = standardVol.depth;
 
-		// 2. 3D空間全体を格納する1次元の巨大なbyte配列を用意（初期値はすべて0）
-		byte[] mergedVolumeBytes = new byte[dimX * dimY * dimZ];
+		double[] startIpp = standardVol.startIpp;
+		double[] iop = standardVol.iop;
+		double[] stepZ = standardVol.stepZ;
 
-		// 3. グループに属するすべてのROIの全スライスを走査し、1つのボリュームにマージ(OR)する
-		for (FreeFormRoi3D roi : rois) {
-			for (int z = 0; z < dimZ; z++) {
-				// 各ROIが保持するZスライスのマスクデータ（0 or 255）を取得
-				ij.process.ByteProcessor bp = roi.getMaskAsBytes(z);
-				if (bp != null) {
-					byte[] slicePixels = (byte[]) bp.getPixels();
-					int offset = z * dimX * dimY;
+		// 1. 標準空間と全く同じサイズの空のマスク配列を用意
+		byte[] bakedVolumeBytes = new byte[w * h * d];
 
-					// マスクが存在する（255の）ピクセルを、結合先配列に上書きマージ
-					for (int i = 0; i < slicePixels.length; i++) {
-						if (slicePixels[i] != 0) {
-							mergedVolumeBytes[offset + i] = (byte) 255;
+		Log.logger.info("Baking ROIs into standard volume space via physical coordinates...");
+
+		// 2. 標準空間の全ボクセルを走査し、物理座標(mm)ベースでROIを焼き付ける
+		int index = 0;
+		for (int z = 0; z < d; z++) {
+			double zOffX = z * stepZ[0];
+			double zOffY = z * stepZ[1];
+			double zOffZ = z * stepZ[2];
+
+			for (int y = 0; y < h; y++) {
+				double yOffX = iop[3] * (y * standardVol.pixelSpacingY);
+				double yOffY = iop[4] * (y * standardVol.pixelSpacingY);
+				double yOffZ = iop[5] * (y * standardVol.pixelSpacingY);
+
+				for (int x = 0; x < w; x++) {
+					double xOffX = iop[0] * (x * standardVol.pixelSpacingX);
+					double xOffY = iop[1] * (x * standardVol.pixelSpacingX);
+					double xOffZ = iop[2] * (x * standardVol.pixelSpacingX);
+
+					// 標準Volumeにおける現在のボクセルの物理座標 (mm)
+					double px = startIpp[0] + xOffX + yOffX + zOffX;
+					double py = startIpp[1] + xOffY + yOffY + zOffY;
+					double pz = startIpp[2] + xOffZ + yOffZ + zOffZ;
+
+					// 対象グループのいずれかのROIにこの物理座標が含まれているか判定
+					boolean isInside = false;
+					for (FreeFormRoi3D roi : rois) {
+						if (roi.containsPhysicalPoint(px, py, pz)) {
+							isInside = true;
+							break;
 						}
 					}
+
+					// 含まれていればボクセルをON(255)にする
+					if (isInside) {
+						bakedVolumeBytes[index] = (byte) 255;
+					}
+					index++;
 				}
 			}
 		}
 
-		// 4. MarchingCubesに流し込むためのVolumeData（マージ版ダミー）を構築
-		VolumeData mergedVolume = new VolumeData(dimX, dimY, dimZ, mergedVolumeBytes);
-		mergedVolume.pixelSpacingX = spacing[0];
-		mergedVolume.pixelSpacingY = spacing[1];
-		mergedVolume.sliceThickness = spacing[2];
-		mergedVolume.minVal = 0;
-		mergedVolume.maxVal = 255;
+		// 3. MarchingCubesに流し込むためのVolumeData（焼き付け版ダミー）を構築
+		VolumeData meshVolume = new VolumeData(w, h, d, bakedVolumeBytes);
+		meshVolume.pixelSpacingX = standardVol.pixelSpacingX;
+		meshVolume.pixelSpacingY = standardVol.pixelSpacingY;
+		meshVolume.sliceThickness = standardVol.sliceThickness;
+		meshVolume.minVal = 0;
+		meshVolume.maxVal = 255;
 
-		// 5. 自作した最強の MarchingCubes アルゴリズムで一発生成！
-		return MarchingCubes.generateMesh(mergedVolume, 127.5f);
-	}
-	
-	// ==========================================================
-	// FreeFormRoi3D を MeshData に変換するパイプライン
-	// ==========================================================
-	private MeshData convertRoiToMesh(FreeFormRoi3D roi) {
-		if (!roi.isInitialized())
-			return null;
-
-		int[] dims = roi.getDimensions();
-		int dimX = dims[0];
-		int dimY = dims[1];
-		int dimZ = dims[2];
-		double[] spacing = roi.getSpacing();
-
-		// 1. 3D空間全体を格納する1次元byte配列を用意
-		byte[] volumeBytes = new byte[dimX * dimY * dimZ];
-
-		// 2. ROIの各Zスライスからマスク(0 or 255)を取り出し、配列にコピー
-		for (int z = 0; z < dimZ; z++) {
-			ij.process.ByteProcessor bp = roi.getMaskAsBytes(z);
-			if (bp != null) {
-				byte[] slicePixels = (byte[]) bp.getPixels();
-				int offset = z * dimX * dimY;
-				System.arraycopy(slicePixels, 0, volumeBytes, offset, slicePixels.length);
-			}
-		}
-
-		// 3. MarchingCubesに渡すためのVolumeData(ダミー)を構築
-		VolumeData roiVolume = new VolumeData(dimX, dimY, dimZ, volumeBytes);
-		roiVolume.pixelSpacingX = spacing[0];
-		roiVolume.pixelSpacingY = spacing[1];
-		roiVolume.sliceThickness = spacing[2];
-		roiVolume.dataType = VolumeData.DataType.BYTE;
-		roiVolume.minVal = 0;
-		roiVolume.maxVal = 255;
-
-		// 4. メッシュ生成！(閾値は0と255の中間)
-		return MarchingCubes.generateMesh(roiVolume, 127.5f);
+		// 4. 標準空間に完全に準拠したメッシュを生成！
+		return MarchingCubes.generateMesh(meshVolume, 127.5f);
 	}
 
 	private void updateSlices(GLCanvas canvas, JSlider sx, JSlider sy, JSlider sz) {
@@ -693,49 +742,150 @@ public class Viewer3DMain extends JFrame {
 		float z = sz.getValue() / 100.0f;
 		canvas.setSlicePos(x, y, z);
 	}
-	
+
 	// ==========================================
-	// Viewer3DMainクラス内に新しいメソッドを追加
+	// ROIリストパネルの構築 (フェーズ1: ラジオボタン対応版)
 	// ==========================================
 	private void refreshRoiColorUI() {
-	    roiColorPanel.removeAll();
-	    java.util.List<String> names = canvas.getRoiGroupNames();
-	    java.util.List<java.awt.Color> colors = canvas.getRoiColors();
+		// まずパネルの中身を一度すべてクリアする
+		roiColorPanel.removeAll();
 
-	    if (names == null || names.isEmpty()) {
-	        roiColorPanel.add(new JLabel("No ROIs loaded."));
-	    } else {
-	        // 読み込まれたROIグループの数だけボタンを作る
-	        for (int i = 0; i < names.size(); i++) {
-	            final int index = i;
-	            String name = names.get(i);
-	            java.awt.Color c = colors.get(i);
+		// Canvasから読み込み済みのグループ名と色のリストを取得
+		java.util.List<String> names = canvas.getRoiGroupNames();
+		java.util.List<java.awt.Color> colors = canvas.getRoiColors();
 
-	            JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 5, 2));
-	            
-	            // 色を表示・変更するためのボタン
-	            JButton colorBtn = new JButton();
-	            colorBtn.setPreferredSize(new java.awt.Dimension(20, 20));
-	            colorBtn.setBackground(c);
-	            colorBtn.setOpaque(true); // Windows/Mac等の見た目の違いを吸収
-	            colorBtn.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK));
+		// ROIが1つもない場合のフォールバック表示
+		if (names == null || names.isEmpty()) {
+			roiColorPanel.add(new JLabel("No ROIs loaded."));
+			selectedRoiGroupName = null; // リセット
+		} else {
+			// ラジオボタンを1つだけ選択できるようにするためのボタングループ
+			ButtonGroup bg = new ButtonGroup();
 
-	            // ボタンを押したらカラーピッカーを開く
-	            colorBtn.addActionListener(e -> {
-	                java.awt.Color newColor = javax.swing.JColorChooser.showDialog(this, "Select Color for " + name, colorBtn.getBackground());
-	                if (newColor != null) {
-	                    colorBtn.setBackground(newColor);
-	                    // Canvasに新しい色を伝える
-	                    canvas.setRoiGroupColor(index, newColor);
-	                }
-	            });
+			// 選択状態が空、または既に存在しないグループを指している場合は、先頭をデフォルト選択にする
+			if (selectedRoiGroupName == null || !names.contains(selectedRoiGroupName)) {
+				selectedRoiGroupName = names.get(0);
+			}
 
-	            row.add(colorBtn);
-	            row.add(new JLabel(name));
-	            roiColorPanel.add(row);
-	        }
-	    }
-	    roiColorPanel.revalidate();
-	    roiColorPanel.repaint();
+			// 読み込まれたROIグループの数だけ行（JPanel）を作る
+			for (int i = 0; i < names.size(); i++) {
+				final int index = i;
+				String name = names.get(i);
+				java.awt.Color c = colors.get(i);
+
+				// 左詰めの行パネルを作成
+				JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 5, 2));
+
+				// 1. アクティブ選択用のラジオボタン
+				JRadioButton radioBtn = new JRadioButton();
+				bg.add(radioBtn);
+				if (name.equals(selectedRoiGroupName)) {
+					radioBtn.setSelected(true);
+				}
+				radioBtn.addActionListener(e -> {
+					selectedRoiGroupName = name; // クリックで選択中グループを更新
+				});
+
+				// 2. 色を表示・変更するためのカラーボタン
+				JButton colorBtn = new JButton();
+				colorBtn.setPreferredSize(new java.awt.Dimension(20, 20));
+				colorBtn.setBackground(c);
+				colorBtn.setOpaque(true);
+				colorBtn.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK));
+
+				// ボタンを押したら標準のカラーピッカーを開く
+				colorBtn.addActionListener(e -> {
+					java.awt.Color newColor = javax.swing.JColorChooser.showDialog(this, "Select Color for " + name,
+							colorBtn.getBackground());
+					if (newColor != null) {
+						colorBtn.setBackground(newColor);
+						canvas.setRoiGroupColor(index, newColor); // Canvasの色情報を更新し、再描画
+					}
+				});
+
+				// 3. 行パネルにコンポーネントを配置
+				row.add(radioBtn);
+				row.add(colorBtn);
+				row.add(new JLabel(name));
+
+				// 出来上がった行をリストパネルに追加
+				roiColorPanel.add(row);
+			}
+		}
+
+		// Swingのレイアウト再計算と再描画を明示的に呼び出す
+		roiColorPanel.revalidate();
+		roiColorPanel.repaint();
+	}
+	
+	// ==========================================================
+	// メッシュリストパネルの構築 (フェーズ2: 個別カラーボタン追加版)
+	// ==========================================================
+	private void refreshMeshListUI() {
+		meshListPanel.removeAll();
+
+		if (rawMeshMap.isEmpty()) {
+			meshListPanel.add(new JLabel("No meshes generated yet."));
+			selectedMeshName = null;
+		} else {
+			ButtonGroup bg = new ButtonGroup();
+
+			if (selectedMeshName == null || !rawMeshMap.containsKey(selectedMeshName)) {
+				String lastKey = null;
+				for (String key : rawMeshMap.keySet()) {
+					lastKey = key;
+				}
+				selectedMeshName = lastKey;
+			}
+
+			// 保持しているすべてのメッシュを行として描画
+			for (String meshName : rawMeshMap.keySet()) {
+				JPanel row = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 5, 2));
+
+				// 1. アクティブ選択用のラジオボタン
+				JRadioButton radioBtn = new JRadioButton();
+				bg.add(radioBtn);
+				if (meshName.equals(selectedMeshName)) {
+					radioBtn.setSelected(true);
+				}
+				radioBtn.addActionListener(e -> {
+					selectedMeshName = meshName;
+					canvas.setActiveMeshName(meshName);
+				});
+
+				// ==========================================================
+				// ★ 追加: 2. メッシュ個別のカラーピッカー用ボタン
+				// ==========================================================
+				JButton colorBtn = new JButton();
+				colorBtn.setPreferredSize(new java.awt.Dimension(20, 20));
+
+				// Canvasから現在のこのメッシュの色を取得して背景色にする
+				java.awt.Color currentMColor = canvas.getMeshColor(meshName);
+				colorBtn.setBackground(currentMColor);
+				colorBtn.setOpaque(true);
+				colorBtn.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK));
+
+				// カラーボタンクリックでダイアログを展開
+				colorBtn.addActionListener(e -> {
+					java.awt.Color newColor = javax.swing.JColorChooser.showDialog(this,
+							"Select Color for Mesh [" + meshName + "]", colorBtn.getBackground());
+					if (newColor != null) {
+						colorBtn.setBackground(newColor);
+						canvas.setMeshColor(meshName, newColor); // Canvas側の個別色を更新
+					}
+				});
+
+				// 3. メッシュ名のラベル
+				JLabel nameLabel = new JLabel(meshName);
+
+				// レイアウトへ順次配置
+				row.add(radioBtn);
+				row.add(colorBtn); // ★ラジオボタンの隣に色ボタンを配置
+				row.add(nameLabel);
+				meshListPanel.add(row);
+			}
+		}
+		meshListPanel.revalidate();
+		meshListPanel.repaint();
 	}
 }
