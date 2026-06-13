@@ -41,6 +41,7 @@ import org.lwjgl.opengl.awt.GLData;
 
 import com.vis.core.log.Log;
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
+import com.vis.core.view.D3.util.AlignMesh;
 import com.vis.core.view.D3.util.MeshExporter;
 
 import java.awt.BorderLayout;
@@ -212,7 +213,7 @@ public class Viewer3DMain extends JFrame {
 						// 2. 描画用に、ボリュームの描画空間（-0.5〜0.5）へ位置合わせを行う
 						// (すでにDICOMボリュームがロードされている場合のみ実行)
 						if (canvas.getVolumeData() != null) {
-							alignMeshToVolume(mesh, canvas.getVolumeData());
+							AlignMesh.alignMeshToVolume(mesh, canvas.getVolumeData());
 						}
 
 						// 3. 描画スレッドでCanvasへの登録とUI更新を行う
@@ -488,7 +489,7 @@ public class Viewer3DMain extends JFrame {
 						selectedMeshName = selectedGroup;
 
 						// ボリュームの描画スケール(-0.5〜0.5空間)と位置を完全に同期
-						alignMeshToVolume(generatedMesh, canvas.getVolumeData());
+						AlignMesh.alignMeshToVolume(generatedMesh, canvas.getVolumeData());
 
 						// 生成完了したら描画スレッドで画面に反映
 						SwingUtilities.invokeLater(() -> {
@@ -625,42 +626,6 @@ public class Viewer3DMain extends JFrame {
 		mainControlScroll.getVerticalScrollBar().setUnitIncrement(16); // ★重要: マウスホイールでのスクロール速度を快適にする
 
 		add(mainControlScroll, BorderLayout.EAST);
-	}
-
-	// ==========================================================
-	// メッシュの座標をGLCanvasのボリューム描画空間にピッタリ合わせる
-	// ==========================================================
-	private void alignMeshToVolume(MeshData mesh, VolumeData vol) {
-		float spacingX = (float) vol.pixelSpacingX;
-		float spacingY = (float) vol.pixelSpacingY;
-		float spacingZ = (float) vol.sliceThickness;
-
-		float physX = vol.width * spacingX;
-		float physY = vol.height * spacingY;
-		float physZ = vol.depth * spacingZ;
-
-		float cx = physX / 2.0f;
-		float cy = physY / 2.0f;
-		float cz = physZ / 2.0f;
-
-		// ==========================================================
-		// ★ 追加：半ボクセル分のズレを補正するためのオフセット値
-		// ==========================================================
-		float offsetX = spacingX * 0.5f;
-		float offsetY = spacingY * 0.5f;
-		float offsetZ = spacingZ * 0.5f;
-
-		for (int i = 0; i < mesh.vertices.length; i += 3) {
-			// 1. 半ボクセル分足して位置を補正し、そこから中心(cx, cy, cz)を引く
-			float x = (mesh.vertices[i] + offsetX - cx) / physX;
-			float y = (mesh.vertices[i + 1] + offsetY - cy) / physY;
-			float z = (mesh.vertices[i + 2] + offsetZ - cz) / physZ;
-
-			// 2. 軸の反転を適用
-			mesh.vertices[i] = x;
-			mesh.vertices[i + 1] = y;
-			mesh.vertices[i + 2] = z;
-		}
 	}
 
 	// ==========================================================

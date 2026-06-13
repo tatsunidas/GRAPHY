@@ -104,7 +104,6 @@ public class MeshRepairer {
         Log.logger.info(String.format("Auto-Repair Result: Removed %d unused/invalid vertices and %d invalid triangles.", removedVertices, removedTriangles));
         
         MeshData repairedMesh = new MeshData(finalVertices, finalNormals, finalIndices);
-        repairedMesh.color = mesh.color;
         repairedMesh.visible = mesh.visible;
 
         return repairedMesh;

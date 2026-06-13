@@ -17,6 +17,7 @@ public class MeshRenderer {
 
     // uniform変数へのロケーション
     private int mvpLoc, modelLoc, colorLoc, lightPosLoc;
+    private int useVertexColorLoc; // ★ 追加: 頂点カラー使用フラグのロケーション
 
     public void init() {
         compileShaders();
@@ -53,6 +54,7 @@ public class MeshRenderer {
         modelLoc = glGetUniformLocation(shaderProgram, "model");
         colorLoc = glGetUniformLocation(shaderProgram, "uColor");
         lightPosLoc = glGetUniformLocation(shaderProgram, "uLightPos");
+        useVertexColorLoc = glGetUniformLocation(shaderProgram, "uUseVertexColor");
     }
 
     /**
@@ -145,36 +147,35 @@ public class MeshRenderer {
     }
     
     /**
-     * 外部で管理されたVAOを指定してメッシュを描画します。（複数メッシュ同時表示用）
+     * 外部で管理されたVAOを指定してメッシュを描画します。
+     * ★ 修正: 引数に boolean useVertexColor を追加
      */
-    public void renderMesh(int targetVao, int targetIndexCount, Matrix4f mvpMatrix, Matrix4f modelMatrix, Vector3f cameraPosLocal, java.awt.Color meshColor, float alpha) {
+    public void renderMesh(int targetVao, int targetIndexCount, Matrix4f mvpMatrix, Matrix4f modelMatrix, Vector3f cameraPosLocal, java.awt.Color meshColor, float alpha, boolean useVertexColor) {
         if (shaderProgram <= 0 || targetVao <= 0 || targetIndexCount == 0) return;
 
         glUseProgram(shaderProgram);
 
-        // 1. 行列の送信 (MVPで位置とサイズ、Modelで回転を制御)
         try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
             glUniformMatrix4fv(mvpLoc, false, mvpMatrix.get(stack.mallocFloat(16)));
             glUniformMatrix4fv(modelLoc, false, modelMatrix.get(stack.mallocFloat(16)));
         }
 
-        // 2. 光源位置の送信
         glUniform3f(lightPosLoc, cameraPosLocal.x, cameraPosLocal.y, cameraPosLocal.z);
 
-        // 3. 色と透明度の送信
         float r = meshColor.getRed() / 255.0f;
         float g = meshColor.getGreen() / 255.0f;
         float b = meshColor.getBlue() / 255.0f;
         glUniform4f(colorLoc, r, g, b, alpha);
 
-        // 4. ステート設定
+        // ★ 追加: 頂点カラーを使うかどうかのフラグを送信
+        glUniform1i(useVertexColorLoc, useVertexColor ? 1 : 0);
+
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
-        // 5. 指定されたVAOをバインドして描画！
         glBindVertexArray(targetVao);
         glDrawElements(GL_TRIANGLES, targetIndexCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);

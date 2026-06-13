@@ -62,6 +62,7 @@ public class GLCanvas extends AWTGLCanvas {
 		int vao = 0;
 		int vboVertices = 0;
 		int vboNormals = 0;
+		int vboColors = 0; // ★ 追加: 頂点カラー用VBO
 		int ibo = 0;
 		int indexCount = 0;
 		boolean needsUpload = true;
@@ -98,9 +99,10 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	private MeshRenderer meshRenderer;
 	private MeshData pendingMesh = null;
-	private java.awt.Color currentMeshColor = new java.awt.Color(200, 200, 200, 255);
 	private float currentMeshAlpha = 1.0f;
 	private boolean isMeshVisible = true;
+	
+	private final LegendConfig legendConfig = new LegendConfig();
 
 	// Undo/Redo
 	private UndoManager undoManager = new UndoManager();
@@ -680,14 +682,27 @@ public class GLCanvas extends AWTGLCanvas {
 	    repaint();
 	}
 
-	public void setMeshColor(java.awt.Color color) {
-	    this.currentMeshColor = color;
-	    repaint();
-	}
-
 	public void setMeshAlpha(float alpha) {
 	    this.currentMeshAlpha = alpha;
 	    repaint();
+	}
+	
+	// ==========================================================
+	// ★ 新設: 汎用カラーバーレジェンドの追加・設定
+	// ==========================================================
+	public void addLegend(double min, double max, String title, LegendPosition pos, ij.process.LUT lut) {
+		this.legendConfig.minVal = min;
+		this.legendConfig.maxVal = max;
+		this.legendConfig.title = title;
+		this.legendConfig.position = pos;
+		this.legendConfig.lut = lut; // 受け取ったLUTをセット
+		this.legendConfig.visible = true;
+		repaint();
+	}
+
+	public void setLegendVisible(boolean visible) {
+		this.legendConfig.visible = visible;
+		repaint();
 	}
 
 	// --- Swingのオーバーレイ描画 (線を引く) ---
@@ -709,6 +724,90 @@ public class GLCanvas extends AWTGLCanvas {
 			Point start = currentPath.get(0);
 			Point end = currentPath.get(currentPath.size() - 1);
 			g.drawLine(end.x, end.y, start.x, start.y);
+		}
+		
+		if (legendConfig.visible) {
+			java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+			int canvasW = getWidth();
+			int canvasH = getHeight();
+
+			int barWidth = 16;
+			int barHeight = 160;
+			int margin = 30; // 画面端からの余白
+
+			// 選択された配置位置(Position)に応じて始点座標(startX, startY)を自動計算
+			int startX = 0;
+			int startY = 0;
+
+			switch (legendConfig.position) {
+				case TOP_LEFT:
+					startX = margin + 15;
+					startY = margin + 30;
+					break;
+				case TOP_RIGHT:
+					startX = canvasW - margin - barWidth - 50;
+					startY = margin + 30;
+					break;
+				case BOTTOM_LEFT:
+					startX = margin + 15;
+					startY = canvasH - margin - barHeight - 20;
+					break;
+				case BOTTOM_RIGHT:
+				default:
+					startX = canvasW - margin - barWidth - 50;
+					startY = canvasH - margin - barHeight - 20;
+					break;
+			}
+
+			// 1. 半透明の黒い背景パネル
+			g2d.setColor(new java.awt.Color(0, 0, 0, 160));
+			g2d.fillRoundRect(startX - 15, startY - 30, barWidth + 65, barHeight + 50, 10, 10);
+
+			// 2. グラデーションバーの描画
+			for (int i = 0; i < barHeight; i++) {
+				float norm = 1.0f - ((float) i / barHeight);
+				int lutIndex = Math.max(0, Math.min(255, (int) (norm * 255.0f))); // 0〜255の階調にマッピング
+
+				if (legendConfig.lut != null) {
+					// ★ LUTが指定されている場合は、そこからRGBを引いてくる
+					int r_ = legendConfig.lut.getRed(lutIndex);
+					int g_ = legendConfig.lut.getGreen(lutIndex);
+					int b_ = legendConfig.lut.getBlue(lutIndex);
+					g2d.setColor(new java.awt.Color(r_, g_, b_));
+				} else {
+					// フォールバック: LUTが無い場合は従来の青〜赤のグラデーション
+					float hue = (float) ((1.0 - norm) * 240.0 / 360.0);
+					g2d.setColor(java.awt.Color.getHSBColor(hue, 1.0f, 1.0f));
+				}
+
+				g2d.drawLine(startX, startY + i, startX + barWidth, startY + i);
+			}
+
+			// 3. 外枠
+			g2d.setColor(java.awt.Color.WHITE);
+			g2d.drawRect(startX, startY, barWidth, barHeight);
+
+			// 4. テキストラベル（引数の値とタイトルを動的描画）
+			g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 12));
+			
+			// タイトル
+			g2d.drawString(legendConfig.title, startX - 10, startY - 12);
+			
+			// 最大値 (上側)
+			g2d.drawString(String.format("%.2f+", legendConfig.maxVal), startX + barWidth + 6, startY + 8);
+			
+			// 中間値
+			double midVal = (legendConfig.minVal + legendConfig.maxVal) / 2.0;
+			g2d.drawLine(startX + barWidth, startY + barHeight / 2, startX + barWidth + 4, startY + barHeight / 2);
+			g2d.drawString(String.format("%.2f", midVal), startX + barWidth + 6, startY + barHeight / 2 + 5);
+			
+			// 最小値 (下側)
+			g2d.drawString(String.format("%.2f", legendConfig.minVal), startX + barWidth + 6, startY + barHeight);
+
+			g2d.dispose();
 		}
 	}
 
@@ -824,13 +923,14 @@ public class GLCanvas extends AWTGLCanvas {
 					if (res.vao != 0) {
 						org.lwjgl.opengl.GL30.glDeleteVertexArrays(res.vao);
 						org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboVertices);
-						org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboNormals); // 法線も削除
+						org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboNormals);
+						if (res.vboColors != 0) org.lwjgl.opengl.GL15.glDeleteBuffers(res.vboColors); // ★ 追加
 						org.lwjgl.opengl.GL15.glDeleteBuffers(res.ibo);
 					}
 
 					res.vao = org.lwjgl.opengl.GL30.glGenVertexArrays();
 					res.vboVertices = org.lwjgl.opengl.GL15.glGenBuffers();
-					res.vboNormals = org.lwjgl.opengl.GL15.glGenBuffers(); // 法線用
+					res.vboNormals = org.lwjgl.opengl.GL15.glGenBuffers();
 					res.ibo = org.lwjgl.opengl.GL15.glGenBuffers();
 
 					org.lwjgl.opengl.GL30.glBindVertexArray(res.vao);
@@ -844,7 +944,7 @@ public class GLCanvas extends AWTGLCanvas {
 					org.lwjgl.opengl.GL20.glEnableVertexAttribArray(0);
 					org.lwjgl.system.MemoryUtil.memFree(verticesBuffer);
 
-					// 2. 法線バッファ (Location 1) - 光の計算に必須！
+					// 2. 法線バッファ (Location 1)
 					org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, res.vboNormals);
 					java.nio.FloatBuffer normalsBuffer = org.lwjgl.system.MemoryUtil.memAllocFloat(res.meshData.normals.length);
 					normalsBuffer.put(res.meshData.normals).flip();
@@ -853,7 +953,21 @@ public class GLCanvas extends AWTGLCanvas {
 					org.lwjgl.opengl.GL20.glEnableVertexAttribArray(1);
 					org.lwjgl.system.MemoryUtil.memFree(normalsBuffer);
 
-					// 3. インデックスバッファ
+					// ==========================================================
+					// ★ 追加: 3. 頂点カラーバッファ (Location 2)
+					// ==========================================================
+					if (res.meshData.colors != null) {
+						res.vboColors = org.lwjgl.opengl.GL15.glGenBuffers();
+						org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, res.vboColors);
+						java.nio.FloatBuffer colorsBuffer = org.lwjgl.system.MemoryUtil.memAllocFloat(res.meshData.colors.length);
+						colorsBuffer.put(res.meshData.colors).flip();
+						org.lwjgl.opengl.GL15.glBufferData(org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER, colorsBuffer, org.lwjgl.opengl.GL15.GL_STATIC_DRAW);
+						org.lwjgl.opengl.GL20.glVertexAttribPointer(2, 4, org.lwjgl.opengl.GL11.GL_FLOAT, false, 0, 0);
+						org.lwjgl.opengl.GL20.glEnableVertexAttribArray(2);
+						org.lwjgl.system.MemoryUtil.memFree(colorsBuffer);
+					}
+
+					// 4. インデックスバッファ
 					org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER, res.ibo);
 					java.nio.IntBuffer indicesBuffer = org.lwjgl.system.MemoryUtil.memAllocInt(res.meshData.indices.length);
 					indicesBuffer.put(res.meshData.indices).flip();
@@ -866,20 +980,18 @@ public class GLCanvas extends AWTGLCanvas {
 
 				// 【B】実際の描画処理
 				if (res.vao != 0 && res.indexCount > 0) {
-					// ★ 修正: 単一の固定色ではなく、メッシュ個別の色を使用する
 					java.awt.Color renderColor = res.color;
 					
-					// ★ 修正: 操作対象（アクティブ）のメッシュを強調表示するロジック
 					if (name.equals(activeMeshName)) {
-						// 選択中のメッシュは、その固有の色をベースに少し明るく(明度1.3倍)してハイライトする
 						int r = Math.min(255, (int)(renderColor.getRed() * 1.3));
 						int g = Math.min(255, (int)(renderColor.getGreen() * 1.3));
 						int b = Math.min(255, (int)(renderColor.getBlue() * 1.3));
 						renderColor = new java.awt.Color(r, g, b, renderColor.getAlpha());
 					}
 
-					// MeshRendererに行列・カメラ・個別色を適用して描画
-					meshRenderer.renderMesh(res.vao, res.indexCount, mvp, model, camPosLocal, renderColor, currentMeshAlpha);
+					// ★ 修正: 頂点カラー配列を持っているか(colors != null)の判定フラグを追加して renderMesh に渡す
+					boolean hasVertexColors = (res.meshData.colors != null);
+					meshRenderer.renderMesh(res.vao, res.indexCount, mvp, model, camPosLocal, renderColor, currentMeshAlpha, hasVertexColors);
 				}
 			}
 		}
