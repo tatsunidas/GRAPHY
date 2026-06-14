@@ -711,7 +711,10 @@ public class GLCanvas extends AWTGLCanvas {
 	@Override
 	public void paint(Graphics g) {
 		super.paint(g); // これがOpenGL描画を呼び出す(paintGL)
-
+		drawOverlay(g);
+	}
+	
+	public void drawOverlay(Graphics g) {
 		// その上に線を引く
 		if (isCuttingMode && currentPath.size() > 1) {
 			g.setColor(Color.YELLOW);
@@ -725,11 +728,12 @@ public class GLCanvas extends AWTGLCanvas {
 			Point end = currentPath.get(currentPath.size() - 1);
 			g.drawLine(end.x, end.y, start.x, start.y);
 		}
-		
+
 		if (legendConfig.visible) {
 			java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
 			g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-			g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+					java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
 			int canvasW = getWidth();
 			int canvasH = getHeight();
@@ -743,23 +747,23 @@ public class GLCanvas extends AWTGLCanvas {
 			int startY = 0;
 
 			switch (legendConfig.position) {
-				case TOP_LEFT:
-					startX = margin + 15;
-					startY = margin + 30;
-					break;
-				case TOP_RIGHT:
-					startX = canvasW - margin - barWidth - 50;
-					startY = margin + 30;
-					break;
-				case BOTTOM_LEFT:
-					startX = margin + 15;
-					startY = canvasH - margin - barHeight - 20;
-					break;
-				case BOTTOM_RIGHT:
-				default:
-					startX = canvasW - margin - barWidth - 50;
-					startY = canvasH - margin - barHeight - 20;
-					break;
+			case TOP_LEFT:
+				startX = margin + 15;
+				startY = margin + 30;
+				break;
+			case TOP_RIGHT:
+				startX = canvasW - margin - barWidth - 50;
+				startY = margin + 30;
+				break;
+			case BOTTOM_LEFT:
+				startX = margin + 15;
+				startY = canvasH - margin - barHeight - 20;
+				break;
+			case BOTTOM_RIGHT:
+			default:
+				startX = canvasW - margin - barWidth - 50;
+				startY = canvasH - margin - barHeight - 20;
+				break;
 			}
 
 			// 1. 半透明の黒い背景パネル
@@ -792,18 +796,18 @@ public class GLCanvas extends AWTGLCanvas {
 
 			// 4. テキストラベル（引数の値とタイトルを動的描画）
 			g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 12));
-			
+
 			// タイトル
 			g2d.drawString(legendConfig.title, startX - 10, startY - 12);
-			
+
 			// 最大値 (上側)
 			g2d.drawString(String.format("%.2f+", legendConfig.maxVal), startX + barWidth + 6, startY + 8);
-			
+
 			// 中間値
 			double midVal = (legendConfig.minVal + legendConfig.maxVal) / 2.0;
 			g2d.drawLine(startX + barWidth, startY + barHeight / 2, startX + barWidth + 4, startY + barHeight / 2);
 			g2d.drawString(String.format("%.2f", midVal), startX + barWidth + 6, startY + barHeight / 2 + 5);
-			
+
 			// 最小値 (下側)
 			g2d.drawString(String.format("%.2f", legendConfig.minVal), startX + barWidth + 6, startY + barHeight);
 
