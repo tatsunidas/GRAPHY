@@ -435,37 +435,13 @@ public class SimpleMPRViewer extends JFrame {
 		ij.process.ImageProcessor extractedIp = null;
 
 		if (basePlane == CutSurface.AXIAL) {
-//			if (willCreatePlane == CutSurface.SAGITTAL) {
-//				extractedIp = new ij.process.FloatProcessor(h, d);
-//				for (int zIdx = 1; zIdx <= d; zIdx++) {
-//					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
-//					for (int yIdx = 0; yIdx < h; yIdx++) {
-//						extractedIp.setf(yIdx, zIdx - 1, slice.getf(x, yIdx));
-//					}
-//				}
-//				px = baseCal.pixelHeight;
-//				py = (baseCal.pixelDepth * d) / targetH;
-//				pz = baseCal.pixelWidth;
-//			} else if (willCreatePlane == CutSurface.CORONAL) {
-//				extractedIp = new ij.process.FloatProcessor(w, d);
-//				for (int zIdx = 1; zIdx <= d; zIdx++) {
-//					ij.process.ImageProcessor slice = stack.getProcessor(zIdx);
-//					for (int xIdx = 0; xIdx < w; xIdx++) {
-//						extractedIp.putPixelValue(xIdx, zIdx - 1, slice.getPixelValue(xIdx, y));
-//					}
-//				}
-//				px = baseCal.pixelWidth;
-//				py = (baseCal.pixelDepth * d) / targetH;
-//				pz = baseCal.pixelHeight;
-//			}
 			if (willCreatePlane == CutSurface.SAGITTAL) {
 				// Sagittal: 横軸は Axial Y (A->P), 縦軸は Axial Z (S->I)
 				extractedIp = new ij.process.FloatProcessor(h, d);
-				for (int zIdx = 1; zIdx <= d; zIdx++) {
-					ImageProcessor slice = stack.getProcessor(zIdx);
+				for (int zIdx = 0; zIdx < d; zIdx++) {
+					ImageProcessor slice = stack.getProcessor(zIdx+1);
 					for (int yIdx = 0; yIdx < h; yIdx++) {
-						// X = Axial Y, Y = Axial Z(反転)
-						extractedIp.setf(yIdx, d - zIdx, slice.getf(x, yIdx));
+						extractedIp.setf(yIdx, zIdx, slice.getf(x, yIdx));
 					}
 				}
 				px = baseCal.pixelHeight;
@@ -474,11 +450,10 @@ public class SimpleMPRViewer extends JFrame {
 			} else if (willCreatePlane == CutSurface.CORONAL) {
 				// Coronal: 横軸は Axial X (R->L), 縦軸は Axial Z (S->I)
 				extractedIp = new ij.process.FloatProcessor(w, d);
-				for (int zIdx = 1; zIdx <= d; zIdx++) {
-					ImageProcessor slice = stack.getProcessor(zIdx);
+				for (int zIdx = 0; zIdx < d; zIdx++) {
+					ImageProcessor slice = stack.getProcessor(zIdx+1);
 					for (int xIdx = 0; xIdx < w; xIdx++) {
-						// X = Axial X, Y = Axial Z(反転)
-						extractedIp.setf(xIdx, d - zIdx, slice.getf(xIdx, y));
+						extractedIp.setf(xIdx, zIdx, slice.getf(xIdx, y));
 					}
 				}
 				px = baseCal.pixelWidth;
@@ -488,11 +463,11 @@ public class SimpleMPRViewer extends JFrame {
 		} else if (basePlane == CutSurface.SAGITTAL) {
 			if (willCreatePlane == CutSurface.AXIAL) {
 				extractedIp = new ij.process.FloatProcessor(d, w);
-				for (int xIdx = 1; xIdx <= d; xIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
+				for (int xIdx = 0; xIdx < d; xIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(xIdx+1);
 					for (int yIdx = 0; yIdx < w; yIdx++) {
 						// SagittalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
-						extractedIp.putPixelValue(xIdx - 1, yIdx, slice.getPixelValue(yIdx, y));
+						extractedIp.putPixelValue(xIdx, yIdx, slice.getPixelValue(yIdx, y));
 					}
 				}
 				px = baseCal.pixelDepth;
@@ -500,11 +475,11 @@ public class SimpleMPRViewer extends JFrame {
 				pz = baseCal.pixelHeight;
 			} else if (willCreatePlane == CutSurface.CORONAL) {
 				extractedIp = new ij.process.FloatProcessor(d, h);
-				for (int xIdx = 1; xIdx <= d; xIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(xIdx);
+				for (int xIdx = 0; xIdx < d; xIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(xIdx+1);
 					for (int zIdx = 0; zIdx < h; zIdx++) {
 						// SagittalベースでCoronalを抽出: 固定するのは解剖学的Y (幅=x)
-						extractedIp.putPixelValue(xIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
+						extractedIp.putPixelValue(xIdx, zIdx, slice.getPixelValue(x, zIdx));
 					}
 				}
 				px = baseCal.pixelDepth;
@@ -514,11 +489,11 @@ public class SimpleMPRViewer extends JFrame {
 		} else if (basePlane == CutSurface.CORONAL) {
 			if (willCreatePlane == CutSurface.AXIAL) {
 				extractedIp = new ij.process.FloatProcessor(w, d);
-				for (int yIdx = 1; yIdx <= d; yIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
+				for (int yIdx = 0; yIdx < d; yIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(yIdx+1);
 					for (int xIdx = 0; xIdx < w; xIdx++) {
 						// CoronalベースでAxialを抽出: 固定するのは解剖学的Z (高さ=y)
-						extractedIp.putPixelValue(xIdx, yIdx - 1, slice.getPixelValue(xIdx, y));
+						extractedIp.putPixelValue(xIdx, yIdx, slice.getPixelValue(xIdx, y));
 					}
 				}
 				px = baseCal.pixelWidth;
@@ -526,11 +501,11 @@ public class SimpleMPRViewer extends JFrame {
 				pz = baseCal.pixelHeight;
 			} else if (willCreatePlane == CutSurface.SAGITTAL) {
 				extractedIp = new ij.process.FloatProcessor(d, h);
-				for (int yIdx = 1; yIdx <= d; yIdx++) {
-					ij.process.ImageProcessor slice = stack.getProcessor(yIdx);
+				for (int yIdx = 0; yIdx < d; yIdx++) {
+					ij.process.ImageProcessor slice = stack.getProcessor(yIdx+1);
 					for (int zIdx = 0; zIdx < h; zIdx++) {
 						// CoronalベースでSagittalを抽出: 固定するのは解剖学的X (幅=x)
-						extractedIp.putPixelValue(yIdx - 1, zIdx, slice.getPixelValue(x, zIdx));
+						extractedIp.putPixelValue(yIdx, zIdx, slice.getPixelValue(x, zIdx));
 					}
 				}
 				px = baseCal.pixelDepth;

@@ -480,8 +480,8 @@ public class PlanarSupport {
         CutSurface basePlane = ImageOrientation.getCutSurface(imp);
 
         if (basePlane == CutSurface.AXIAL) {
-            // 目標: Z増加 (-100 -> 100)。 現在が Z減少 (100 -> -100) なら反転。
-            if (ipp1[2] > ippN[2]) needsReversal = true;
+            // 目標: Z減少 (100 -> -100)。 現在が Z増加 (-100 -> 100) なら反転。
+            if (ippN[2] > ipp1[2]) needsReversal = true;
         } else if (basePlane == CutSurface.CORONAL) {
             // 目標: Y増加 (-100 -> 100)。 現在が Y減少 (100 -> -100) なら反転。
             if (ipp1[1] > ippN[1]) needsReversal = true;
@@ -495,7 +495,7 @@ public class PlanarSupport {
             double dz = Math.abs(ippN[2] - ipp1[2]);
 
             if (dz >= dx && dz >= dy) { // Axial寄り
-                if (ipp1[2] > ippN[2]) needsReversal = true;
+                if (ippN[2] > ipp1[2]) needsReversal = true;
             } else if (dy >= dx && dy >= dz) { // Coronal寄り
                 if (ipp1[1] > ippN[1]) needsReversal = true;
             } else { // Sagittal寄り
