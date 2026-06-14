@@ -260,45 +260,6 @@ public class SlicerWindow extends JFrame {
 		return imp;
 	}
 
-//	private void init() {
-//		srcCutSurface = ImageOrientation.getCutSurface(imp);
-//		initImages();
-//		buildGUI();
-//		initReferenceLine();
-//		revalidate();
-//		setVisible(true);
-//
-//		SwingUtilities.invokeLater(new Runnable() {
-//			@Override
-//			public void run() {
-//				// ★ デバッグログ: 自動調整の「前」の状態を確認
-//				logDisplayStatus("Before AutoWindow XY (Axial)", xy_image);
-//				logDisplayStatus("Before AutoWindow XZ (Coronal)", xz_image);
-//				logDisplayStatus("Before AutoWindow YZ (Sagittal)", yz_image);
-//
-//				// 各断面の表示を自動調整 (※ここが原因の可能性大)
-//				xy_prap.applyGlobalAutoWindow();
-//				yz_prap.applyGlobalAutoWindow();
-//				xz_prap.applyGlobalAutoWindow();
-//
-//				// ★ デバッグログ: 自動調整の「後」の状態を確認
-//				logDisplayStatus("After AutoWindow XY (Axial)", xy_image);
-//				logDisplayStatus("After AutoWindow XZ (Coronal)", xz_image);
-//				logDisplayStatus("After AutoWindow YZ (Sagittal)", yz_image);
-//
-//				// スライダーを中央に移動
-//				if (xy_image != null)
-//					xy_prap.setImagePositionUsingSlider(xy_image.getNSlices() / 2);
-//				if (xz_image != null)
-//					xz_prap.setImagePositionUsingSlider(xz_image.getNSlices() / 2);
-//				if (yz_image != null)
-//					yz_prap.setImagePositionUsingSlider(yz_image.getNSlices() / 2);
-//
-//				recon_prap.setImagePositionUsingSlider(0);
-//			}
-//		});
-//	}
-
 	private void init() {
 		srcCutSurface = ImageOrientation.getCutSurface(imp);
 
@@ -646,93 +607,6 @@ public class SlicerWindow extends JFrame {
 	synchronized void update() {
 		notify();
 	}
-
-//	ImagePlus constructXY(ImagePlus src, boolean isSigned) {
-//		ImagePlus xy = null;
-//		Calibration cal = null;
-//		if (srcCutSurface == CutSurface.CORONAL) {
-//			xy = new OrthogonalSlice().coronalToAxial(src, isSigned);
-//		} else if (srcCutSurface == CutSurface.SAGITTAL) {
-//			xy = new OrthogonalSlice().sagittalToAxial(src, isSigned);
-//		} else {
-//			throw new IllegalArgumentException("Cannnot create Axial images.");
-//		}
-//		cal = xy.getCalibration();
-//		String seriesUID = UIDUtils.createUID();
-//		int size = xy.getNSlices();
-//		for (int z = 1; z <= size; z++) {
-//			addUIDs(xy, z, seriesUID);
-//		}
-//		Calibration calHolder = this.imp.getCalibration().copy();// with density calibration
-//		calHolder.pixelWidth = cal.pixelWidth;
-//		calHolder.pixelHeight = cal.pixelHeight;
-//		calHolder.pixelDepth = cal.pixelDepth;
-//		calHolder.setXUnit(cal.getXUnit());
-//		calHolder.setYUnit(cal.getYUnit());
-//		calHolder.setZUnit(cal.getZUnit());
-//		xy.setCalibration(calHolder);
-//		xy.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-//		return xy;
-//	}
-//
-//	ImagePlus constructXZ(ImagePlus src, boolean isSigned) {
-//		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
-//			throw new IllegalArgumentException("Cannot create XZ...");
-//		}
-//		OrthogonalSlice orthTool = new OrthogonalSlice();
-//		ImageStack stack = new ImageStack();
-//		String seriesUID = UIDUtils.createUID();
-//		int size = src.getHeight();
-//		Calibration cal = null;
-//		for (int y = 0; y < size; y++) {
-//			ImagePlus xz_ = orthTool.cutHorizontally(src, y);
-//			if (cal == null) {
-//				cal = xz_.getCalibration();
-//			}
-//
-//			//set pixel representation
-//			GDicomTools.setTag(xz_, 1, "0028,0103", isSigned ? "1" : "0");
-//
-//			addUIDs(xz_, 1, seriesUID);
-//			stack.addSlice(xz_.getProcessor());
-//			/*
-//			 * xz_ is non-stack image plus. Tags set to properties.
-//			 */
-//			stack.setSliceLabel(xz_.getInfoProperty(), y + 1);
-//		}
-//		ImagePlus xz_imp = new ImagePlus("XZ", stack);
-////		String header = xz_imp.getStack().getSliceLabel(1);
-//		xz_imp.setCalibration(cal);
-//		xz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-//		return xz_imp;
-//	}
-//
-//	ImagePlus constructYZ(ImagePlus src, boolean isSigned) {
-//		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {
-//			throw new IllegalArgumentException("Cannot create YZ...");
-//		}
-//		OrthogonalSlice orthTool = new OrthogonalSlice();
-//		ImageStack stack = new ImageStack();
-//		Calibration cal = null;
-//		String seriesUID = UIDUtils.createUID();
-//		int width = src.getWidth();
-//		for (int w = 0; w < width; w++) {
-//			ImagePlus yz_ = orthTool.cutVertically(src, w);
-//			if (cal == null) {
-//				cal = yz_.getCalibration();
-//			}
-//			
-//			//set pixel representation
-//			GDicomTools.setTag(yz_, 1, "0028,0103", isSigned ? "1" : "0");
-//			
-//			addUIDs(yz_, 1, seriesUID);
-//			stack.addSlice(yz_.getInfoProperty(), yz_.getProcessor());
-//		}
-//		ImagePlus yz_imp = new ImagePlus("YZ", stack);
-//		yz_imp.setCalibration(cal);
-//		yz_imp.setDisplayRange(src.getDisplayRangeMin(), src.getDisplayRangeMax());
-//		return yz_imp;
-//	}
 
 	ImagePlus constructXZ(ImagePlus src, boolean isSigned, ProgressListener listener, int startProg, int endProg) {
 		if (ImageOrientation.getCutSurface(src) != CutSurface.AXIAL) {

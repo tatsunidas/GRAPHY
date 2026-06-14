@@ -190,8 +190,7 @@ public class OrthogonalSlice {
 			short[] newPix = new short[width * nSlices];
 			for (int i = 0; i < nSlices; i++) {
 				short[] srcPix = (short[]) srcStack.getPixels(i + 1);
-				// ★修正: 足(1)〜頭(N)のデータを、画像の下〜上に逆順にマッピングする
-				int targetRow = (nSlices - 1) - i;
+				int targetRow = i;
 				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
 			}
 			return new ShortProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
@@ -200,7 +199,7 @@ public class OrthogonalSlice {
 			byte[] newPix = new byte[width * nSlices];
 			for (int i = 0; i < nSlices; i++) {
 				byte[] srcPix = (byte[]) srcStack.getPixels(i + 1);
-				int targetRow = (nSlices - 1) - i;
+				int targetRow = i;
 				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
 			}
 			return new ByteProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
@@ -209,7 +208,7 @@ public class OrthogonalSlice {
 			float[] newPix = new float[width * nSlices];
 			for (int i = 0; i < nSlices; i++) {
 				float[] srcPix = (float[]) srcStack.getPixels(i + 1);
-				int targetRow = (nSlices - 1) - i;
+				int targetRow = i;
 				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
 			}
 			return new FloatProcessor(width, nSlices, newPix, templateIp.getCurrentColorModel());
@@ -218,7 +217,7 @@ public class OrthogonalSlice {
 			int[] newPix = new int[width * nSlices];
 			for (int i = 0; i < nSlices; i++) {
 				int[] srcPix = (int[]) srcStack.getPixels(i + 1);
-				int targetRow = (nSlices - 1) - i;
+				int targetRow = i;
 				System.arraycopy(srcPix, width * y, newPix, width * targetRow, width);
 			}
 			return new ColorProcessor(width, nSlices, newPix);
@@ -288,8 +287,8 @@ public class OrthogonalSlice {
 			Vector3d zVec = PlanarSupport.crossProduct(colY, rowX, true);
 			double[] sagIop = new double[] { colY.x, colY.y, colY.z, zVec.x, zVec.y, zVec.z };
 
-			// ★修正: 新しい画像の一番上(row 0)は頭なので、IPPは nSlices 番目のスライスから取得する
-			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedOrientSrc, x, 0, nSlices);
+			// ★修正: 新しい画像の一番上(row 0)は頭なので、IPPは 1 番目のスライスから取得する
+			Vector3d ippVec = PlanarSupport.getNewImagePositionPatient2D(standardizedOrientSrc, x, 0, 1);
 			if (ippVec != null) {
 				double[] ipp = new double[] { ippVec.x(), ippVec.y(), ippVec.z() };
 				GDicomTools.setImagePositionPatient(yzImage, 1, ipp);
@@ -319,8 +318,7 @@ public class OrthogonalSlice {
 			short[] newPix = new short[height * nSlices];
 			for (int z = 0; z < nSlices; z++) {
 				short[] srcPix = (short[]) srcStack.getPixels(z + 1);
-				// ★修正: 足(1)〜頭(N)のデータを、画像の下〜上に逆順にマッピングする
-				int targetRow = (nSlices - 1) - z;
+				int targetRow = z;
 				for (int y = 0; y < height; y++) {
 					newPix[targetRow * height + y] = srcPix[x + y * width];
 				}
@@ -331,7 +329,7 @@ public class OrthogonalSlice {
 			byte[] newPix = new byte[height * nSlices];
 			for (int z = 0; z < nSlices; z++) {
 				byte[] srcPix = (byte[]) srcStack.getPixels(z + 1);
-				int targetRow = (nSlices - 1) - z;
+				int targetRow = z;
 				for (int y = 0; y < height; y++) {
 					newPix[targetRow * height + y] = srcPix[x + y * width];
 				}
@@ -342,7 +340,7 @@ public class OrthogonalSlice {
 			float[] newPix = new float[height * nSlices];
 			for (int z = 0; z < nSlices; z++) {
 				float[] srcPix = (float[]) srcStack.getPixels(z + 1);
-				int targetRow = (nSlices - 1) - z;
+				int targetRow = z;
 				for (int y = 0; y < height; y++) {
 					newPix[targetRow * height + y] = srcPix[x + y * width];
 				}
@@ -353,7 +351,7 @@ public class OrthogonalSlice {
 			int[] newPix = new int[height * nSlices];
 			for (int z = 0; z < nSlices; z++) {
 				int[] srcPix = (int[]) srcStack.getPixels(z + 1);
-				int targetRow = (nSlices - 1) - z;
+				int targetRow = z;
 				for (int y = 0; y < height; y++) {
 					newPix[targetRow * height + y] = srcPix[x + y * width];
 				}
