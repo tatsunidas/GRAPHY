@@ -106,6 +106,40 @@ public class MeshAnalyzer {
         return totalArea;
     }
     
+    public static double[] calculateMeshVolumeAndSurfaceArea(com.vis.core.view.D3.ui.MeshData mesh) {
+		float[] v = mesh.vertices;
+		int[] ind = mesh.indices;
+		double volume = 0.0;
+		double surfaceArea = 0.0;
+		
+		validateMeshScale(v);
+
+		// 3つの頂点(三角形)ごとに処理
+		for (int i = 0; i < ind.length; i += 3) {
+			int i1 = ind[i] * 3;
+			int i2 = ind[i + 1] * 3;
+			int i3 = ind[i + 2] * 3;
+
+			// GRAPHYのMarchingCubesは既に物理座標(mm)になっている
+			double x1 = v[i1], y1 = v[i1 + 1], z1 = v[i1 + 2];
+			double x2 = v[i2], y2 = v[i2 + 1], z2 = v[i2 + 2];
+			double x3 = v[i3], y3 = v[i3 + 1], z3 = v[i3 + 2];
+
+			// 1. ダイバージェンス定理による四面体の符号付き体積の計算
+			volume += (x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1);
+
+			// 2. クロス積による三角形の面積の計算
+			double v1x = x2 - x1, v1y = y2 - y1, v1z = z2 - z1;
+			double v2x = x3 - x1, v2y = y3 - y1, v2z = z3 - z1;
+			double cx = v1y * v2z - v1z * v2y;
+			double cy = v1z * v2x - v1x * v2z;
+			double cz = v1x * v2y - v1y * v2x;
+			surfaceArea += Math.sqrt(cx * cx + cy * cy + cz * cz);
+		}
+
+		return new double[] { Math.abs(volume) / 6.0, surfaceArea / 2.0 };
+	}
+    
 	// ==========================================================
 	// ★ 追加：フェイルセーフのためのスケール検証メソッド
 	// ==========================================================

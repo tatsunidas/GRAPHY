@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
-public class FreeFormRoi3D extends RoiObj implements Editable3D {
+public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 
 	public static final String Shape_3D_Type = RoiMetaContextKey.Shape_3D_FREEFORM.name();
 
@@ -983,4 +983,38 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D {
 		}
 		return components;
 	}
+	
+	@Override
+    public double getCalculatedVolumeMm3() {
+        // FreeFormの場合はボクセルカウントから体積を計算
+        long voxelCount = 0;
+        for (int z = 0; z < dimZ; z++) {
+            ij.process.ByteProcessor bp = getMaskAsBytes(z);
+            if (bp != null) {
+                byte[] pixels = (byte[]) bp.getPixels();
+                for (byte b : pixels) {
+                    if (b != 0) voxelCount++;
+                }
+            }
+        }
+        return voxelCount * (spacingX * spacingY * spacingZ);
+    }
+
+    @Override
+    public com.vis.core.view.D3.ui.VolumeData getVolumeDataForMesh() {
+        byte[] volPixels = new byte[dimX * dimY * dimZ];
+        for (int z = 0; z < dimZ; z++) {
+            ij.process.ByteProcessor bp = getMaskAsBytes(z);
+            if (bp != null) {
+                byte[] slicePix = (byte[]) bp.getPixels();
+                System.arraycopy(slicePix, 0, volPixels, z * dimX * dimY, slicePix.length);
+            }
+        }
+        
+        com.vis.core.view.D3.ui.VolumeData vData = new com.vis.core.view.D3.ui.VolumeData(dimX, dimY, dimZ, volPixels);
+        vData.pixelSpacingX = spacingX;
+        vData.pixelSpacingY = spacingY;
+        vData.sliceThickness = spacingZ;
+        return vData;
+    }
 }

@@ -498,6 +498,12 @@ public class MarchingCubes {
         }
     }
     
+    public static void applyLaplacianSmoothing(com.vis.core.view.D3.ui.MeshData mesh, int iterations, float alpha) {
+    	float[] vertices = mesh.vertices;
+    	int[] indices = mesh.indices;
+    	applyLaplacianSmoothing(vertices, indices, iterations, alpha);
+    }
+    
  // ----------------------------------------------------
     // ラプラシアンスムージング (Laplacian Smoothing)
     // 頂点を周囲の頂点の平均位置に近づけることで、階段状のメッシュを滑らかにします

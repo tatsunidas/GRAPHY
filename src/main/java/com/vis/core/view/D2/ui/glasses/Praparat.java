@@ -1685,6 +1685,18 @@ public class Praparat extends JPanel {
 		return currentLutName;
 	}
 
+	public int getNChannels() {
+		return nChannels;
+	}
+	
+	public int getNSlices() {
+		return nSlices;
+	}
+	
+	public int getNFrames() {
+		return nFrames;
+	}
+	
 	public int getNumberOfImages() {
 		return slides.size();
 	}

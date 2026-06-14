@@ -20,7 +20,7 @@ import java.awt.geom.NoninvertibleTransformException;
 /**
  * @author tatsunidas
  */
-public class SphereRoi3D extends RoiObj {
+public class SphereRoi3D extends RoiObj implements RoiObj3D {
 
     private static final long serialVersionUID = 1L;
 
@@ -301,5 +301,138 @@ public class SphereRoi3D extends RoiObj {
         r.lastDragImageX = -1;
         r.lastDragImageY = -1;
         return r;
+    }
+
+	// ==========================================================
+	// ★ RoiObj3D インターフェースの実装
+	// ==========================================================
+
+    private SlideGlass getFirstValidSlide() {
+        if (slide == null || slide.getPraparat() == null) return null;
+        return slide.getPraparat().getFirstNoEmptySlide();
+    }
+
+    @Override
+    public double[] getOriginIpp() {
+        SlideGlass sg = getFirstValidSlide();
+        if (sg == null) return new double[]{0, 0, 0};
+        Praparat pp = slide.getPraparat();
+        int frameIdx = pp.isMultiFrame() ? sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        return pp.getSafeIPP(sg.getHeader(), frameIdx);
+    }
+
+    @Override
+    public double[] getIop() {
+        SlideGlass sg = getFirstValidSlide();
+        if (sg == null) return new double[]{1,0,0, 0,1,0};
+        Praparat pp = slide.getPraparat();
+        int frameIdx = pp.isMultiFrame() ? sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
+        return pp.getSafeIOP(sg.getHeader(), frameIdx);
+    }
+
+    @Override
+    public double[] getSpacing() {
+        SlideGlass sg = getFirstValidSlide();
+        if (sg == null) return new double[]{1.0, 1.0, 1.0};
+        double spX = sg.getPixelSpacingX() <= 0 ? 1.0 : sg.getPixelSpacingX();
+        double spY = sg.getPixelSpacingY() <= 0 ? 1.0 : sg.getPixelSpacingY();
+        DicomObject header = sg.getHeader();
+        double spZ = header.getDouble(Tag.SpacingBetweenSlices, header.getDouble(Tag.SliceThickness, 1.0));
+        if (spZ <= 0) spZ = 1.0;
+        return new double[]{spX, spY, spZ};
+    }
+
+    @Override
+    public int[] getDimensions() {
+        SlideGlass sg = getFirstValidSlide();
+        if (sg == null) return new int[]{0, 0, 0};
+        int dimX = sg.getOriginalImageSize().width;
+        int dimY = sg.getOriginalImageSize().height;
+        int dimZ = slide.getPraparat().getAllSlides().size();
+        return new int[]{dimX, dimY, dimZ};
+    }
+
+    @Override
+    public double getCalculatedVolumeMm3() {
+        // 球の場合は、純粋な数学的体積 (4/3) * π * r^3
+        return (4.0 / 3.0) * Math.PI * Math.pow(this.radiusMm, 3);
+    }
+
+    @Override
+    public ij.process.ByteProcessor getMaskAsBytes(int z) {
+        int[] dims = getDimensions();
+        if (dims[0] == 0) return null;
+        
+        double[] origin = getOriginIpp();
+        double[] iop = getIop();
+        double[] sp = getSpacing();
+
+        int dimX = dims[0], dimY = dims[1];
+        ij.process.ByteProcessor bp = new ij.process.ByteProcessor(dimX, dimY);
+        byte[] pixels = (byte[]) bp.getPixels();
+
+        // 1. Z方向の法線ベクトルを算出
+        double nx = iop[1] * iop[5] - iop[2] * iop[4];
+        double ny = iop[2] * iop[3] - iop[0] * iop[5];
+        double nz = iop[0] * iop[4] - iop[1] * iop[3];
+        double len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+        if (len > 0) { nx /= len; ny /= len; nz /= len; }
+
+        // 2. 要求されたスライス Z における原点座標(IPP)を計算
+        double oz = origin[2] + nz * z * sp[2];
+        double oy = origin[1] + ny * z * sp[2];
+        double ox = origin[0] + nx * z * sp[2];
+
+        double r2 = this.radiusMm * this.radiusMm;
+        boolean hasData = false;
+
+        // 3. スライス内の全ピクセルを走査して、球の内側なら白(255)で塗る
+        for (int j = 0; j < dimY; j++) {
+            for (int i = 0; i < dimX; i++) {
+                // ピクセルの物理座標(mm)
+                double px = ox + iop[0] * (i * sp[0]) + iop[3] * (j * sp[1]);
+                double py = oy + iop[1] * (i * sp[0]) + iop[4] * (j * sp[1]);
+                double pz = oz + iop[2] * (i * sp[0]) + iop[5] * (j * sp[1]);
+
+                double dx = px - this.cx;
+                double dy = py - this.cy;
+                double dz = pz - this.cz;
+                
+                // 球の半径内かどうかの判定
+                if ((dx*dx + dy*dy + dz*dz) <= r2) {
+                    pixels[j * dimX + i] = (byte) 255;
+                    hasData = true;
+                }
+            }
+        }
+        
+        // そのスライスに球の断面が全く存在しない場合は null を返す
+        return hasData ? bp : null; 
+    }
+
+    @Override
+    public com.vis.core.view.D3.ui.VolumeData getVolumeDataForMesh() {
+        int[] dims = getDimensions();
+        if (dims[0] == 0) return null;
+        
+        int w = dims[0], h = dims[1], d = dims[2];
+        byte[] volPixels = new byte[w * h * d];
+        
+        // Z方向にループしてマスクを結合していく
+        for (int z = 0; z < d; z++) {
+            ij.process.ByteProcessor bp = getMaskAsBytes(z);
+            if (bp != null) {
+                byte[] slicePix = (byte[]) bp.getPixels();
+                System.arraycopy(slicePix, 0, volPixels, z * w * h, slicePix.length);
+            }
+        }
+        
+        com.vis.core.view.D3.ui.VolumeData vData = new com.vis.core.view.D3.ui.VolumeData(w, h, d, volPixels);
+        double[] sp = getSpacing();
+        vData.pixelSpacingX = sp[0];
+        vData.pixelSpacingY = sp[1];
+        vData.sliceThickness = sp[2];
+        
+        return vData;
     }
 }
