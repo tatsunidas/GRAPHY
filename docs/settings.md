@@ -179,8 +179,9 @@ GRAPHY はプラグインによる機能拡張に対応しています。
 ### プラグインの配置
 
 ```
-~/.graphy/plugins/
-  └── your-plugin.jar
+{GRAPHYを起動したフォルダ}/
+  └── plugins/
+       └── your-plugin.jar
 ```
 
 ### プラグインの実装
