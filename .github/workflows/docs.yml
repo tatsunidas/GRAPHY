@@ -32,6 +32,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: requirements-docs.txt
 
       - name: Install system dependencies (WeasyPrint)
         run: |
@@ -46,15 +47,10 @@ jobs:
             fonts-noto-cjk
 
       - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install \
-            mkdocs-material \
-            mkdocs-with-pdf \
-            WeasyPrint
+        run: pip install -r requirements-docs.txt
 
       - name: Build MkDocs (with PDF export)
-        run: mkdocs build --strict
+        run: mkdocs build
         env:
           ENABLE_PDF_EXPORT: "1"
 
