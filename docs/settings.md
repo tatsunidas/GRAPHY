@@ -5,14 +5,22 @@ GRAPHY の動作はプロパティファイル（`graphy.properties`）で管理
 
 ## 設定ファイルの場所
 
-=== "Windows"
+`graphy.properties` は、GRAPHY を起動したフォルダ直下の `conf/` サブフォルダに配置されています。
+
+```
+{GRAPHYを起動したフォルダ}/
+  └── conf/
+       └── graphy.properties
+```
+
+=== "Windows（例）"
     ```
-    C:\Users\{ユーザー名}\.graphy\graphy.properties
+    C:\Users\{ユーザー名}\GRAPHY\conf\graphy.properties
     ```
 
-=== "Linux / macOS"
+=== "Linux / macOS（例）"
     ```
-    ~/.graphy/graphy.properties
+    ~/GRAPHY/conf/graphy.properties
     ```
 
 !!! tip
@@ -126,7 +134,7 @@ GRAPHY の動作はプロパティファイル（`graphy.properties`）で管理
 ### graphy.properties の直接編集
 
 1. GRAPHY を終了する
-2. `~/.graphy/graphy.properties` をテキストエディタで開く
+2. `{GRAPHYを起動したフォルダ}/conf/graphy.properties` をテキストエディタで開く
 3. 設定値を変更して保存する
 4. GRAPHY を再起動する
 
