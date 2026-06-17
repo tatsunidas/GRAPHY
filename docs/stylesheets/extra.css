@@ -1,0 +1,51 @@
+/* ===== PDF PAGE BREAK CONTROL (WeasyPrint) ===== */
+
+/* H2 heading directly before a new PDF page */
+@media print {
+  h2 {
+    break-before: page;
+  }
+  /* first h2 on a page should not add a blank page before it */
+  h1 + h2,
+  .md-content__inner > h2:first-child {
+    break-before: avoid;
+  }
+}
+
+/* Manual page break tag: place <!-- new-page --> as a raw HTML div */
+.new-page {
+  break-before: page;
+}
+
+/* Screenshot placeholder (visible on web, styled for PDF) */
+.screenshot-placeholder {
+  border: 2px dashed #aaa;
+  background: #f8f8f8;
+  padding: 1.5rem;
+  text-align: center;
+  color: #888;
+  border-radius: 4px;
+  margin: 1rem 0;
+  font-style: italic;
+}
+
+/* ===== WEB ONLY STYLES ===== */
+.md-content img {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  max-width: 100%;
+}
+
+/* Key bindings styling */
+kbd {
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+  color: #333;
+  display: inline-block;
+  font-size: 0.85em;
+  line-height: 1.4;
+  padding: 0.1em 0.4em;
+}
