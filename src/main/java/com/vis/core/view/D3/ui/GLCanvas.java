@@ -32,12 +32,14 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.awt.GLData;
 
 import com.vis.core.log.Log;
+import com.vis.core.view.D3.endo.EndoCamera;
+import com.vis.core.view.D3.endo.EndoCommands;
+import com.vis.core.view.D3.endo.EndoPath3D;
+import com.vis.core.view.D3.endo.EndoPathPicker;
 
 import static org.lwjgl.opengl.GL33.*;
 
-import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Point;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
@@ -110,6 +112,7 @@ public class GLCanvas extends AWTGLCanvas {
 	// Contour (カッティング用の線)
 	private List<java.awt.Point> currentPath = new ArrayList<>();
 	private boolean isCuttingMode = false; // 右ドラッグ等をカットモードにするか
+	private CutLineRenderer cutLineRenderer; // ★カット輪郭線をGL側で描画する（Graphics2Dオーバーレイは表示されないため）
 
 	// 編集対象のデータ参照
 	private VolumeData currentVolumeData;
@@ -129,7 +132,26 @@ public class GLCanvas extends AWTGLCanvas {
 	}
 	
 	private OrthoRoiMode orthoRoiMode = OrthoRoiMode.SLICE_2D;
-	
+
+	// 仮想内視鏡（フライスルー）モード
+	private boolean endoscopyMode = false;
+	// 常にnon-null。EndoCameraが同一インスタンスへの参照を保持し続けるため再代入しない。
+	private final EndoPath3D endoPath = new EndoPath3D();
+	private final EndoCamera endoCamera = new EndoCamera(endoPath);
+	private EndoPathRenderer endoPathRenderer; // initGL()で生成
+	private boolean showEndoPath = true;
+	private EndoOrientationIndicator endoOrientationIndicator; // initGL()で生成
+
+	// パス編集モード
+	private boolean endoPathEditMode = false;
+	private int selectedEndoPointIndex = -1;
+	private int draggingEndoPointIndex = -1;
+	private float draggingEndoPointDepth = 0f;
+	private org.joml.Vector3f dragOriginalPosition = null;
+	private final org.joml.Matrix4f lastMvp = new org.joml.Matrix4f(); // paintGL()で毎フレーム更新、ピッキングに使う
+	// 内視鏡モード中のマウスルック感度（既存のCamera.rotate()内の感度と合わせる）
+	private static final float ENDO_LOOK_SENSITIVITY = 0.005f;
+
 	/**
 	 * ダブルバッファの自動スワップを行う
 	 */
@@ -139,6 +161,8 @@ public class GLCanvas extends AWTGLCanvas {
 
 	public GLCanvas(GLData data) {
 		super(data);
+		// ★Undo/Redo等のキーボードショートカットがKeyListenerで効くようにフォーカス可能にする
+		setFocusable(true);
 	}
 
 	// 最初に1回だけ呼ばれる（初期化用）
@@ -166,16 +190,57 @@ public class GLCanvas extends AWTGLCanvas {
 		axesGizmo = new AxesGizmo();
 		axesGizmo.init();
 
+		cutLineRenderer = new CutLineRenderer();
+		cutLineRenderer.init();
+
+		endoPathRenderer = new EndoPathRenderer();
+		endoPathRenderer.init();
+
+		endoOrientationIndicator = new EndoOrientationIndicator();
+		endoOrientationIndicator.init();
+
 		// Mouse Adapter (クリック、リリース)
 		this.addMouseListener(new java.awt.event.MouseAdapter() {
 			@Override
 			public void mousePressed(java.awt.event.MouseEvent e) {
+				// ★Undo/Redoのキー入力(Ctrl+Z等)を受け取れるよう、操作開始時にフォーカスを取得する
+				requestFocusInWindow();
+
 				if (SwingUtilities.isLeftMouseButton(e)) {
-					// 左クリック: カメラ回転開始
-					lastX = e.getX();
-					lastY = e.getY();
-				} else if (SwingUtilities.isRightMouseButton(e) && e.isControlDown()) {
-					// ★ Ctrl + 右クリック: カット開始
+					if (endoPathEditMode && e.isControlDown()) {
+						// ★ Ctrl+左クリック: パスに新規点を追加して即座にコマンド発行・選択
+						org.joml.Vector3f hit = EndoPathPicker.computeAddPointPosition(lastMvp, e.getX(), e.getY(),
+								getWidth(), getHeight());
+						if (hit != null) {
+							int insertIndex = endoPath.size();
+							undoManager.addCommand(new EndoCommands.InsertPointCommand(endoPath, insertIndex, hit));
+							selectedEndoPointIndex = insertIndex;
+							repaint();
+						}
+					} else if (endoPathEditMode) {
+						// ★ 既存点のクリック: 選択してドラッグ開始（外れたら通常のオービット回転にフォールバック）
+						int hitIdx = EndoPathPicker.hitTestNearestPoint(endoPath, lastMvp, e.getX(), e.getY(),
+								getWidth(), getHeight(), 10f);
+						if (hitIdx >= 0) {
+							selectedEndoPointIndex = hitIdx;
+							draggingEndoPointIndex = hitIdx;
+							draggingEndoPointDepth = EndoPathPicker.computeForwardDepth(lastMvp,
+									endoPath.getPoint(hitIdx).getPosition());
+							dragOriginalPosition = endoPath.getPoint(hitIdx).getPosition();
+							// lastX/lastYは更新しない -> mouseDraggedでオービット回転に落ちないようにする
+						} else {
+							lastX = e.getX();
+							lastY = e.getY();
+						}
+					} else {
+						// 左クリック: カメラ回転開始
+						lastX = e.getX();
+						lastY = e.getY();
+					}
+				} else if (SwingUtilities.isRightMouseButton(e) && e.isControlDown() && !endoscopyMode
+						&& !endoPathEditMode) {
+					// ★ Ctrl + 右クリック: カット開始（内視鏡モード・パス編集モード中は、表示中のビューと
+					// performCut()が再計算するビューが食い違うため、そもそもカットモードに入らせない）
 					isCuttingMode = true;
 					currentPath.clear();
 					currentPath.add(e.getPoint());
@@ -190,6 +255,18 @@ public class GLCanvas extends AWTGLCanvas {
 					isCuttingMode = false;
 					currentPath.clear();
 					repaint(); // 線を消すために再描画
+				} else if (draggingEndoPointIndex >= 0) {
+					// ★ パス点のドラッグ確定: ライブプレビューで書き換わった値を一旦「変更前」に戻してから
+					// MovePointCommandを構築する（コンストラクタがこの時点のpathの値を"old"として捕捉するため）
+					int idx = draggingEndoPointIndex;
+					org.joml.Vector3f currentLivePos = endoPath.getPoint(idx).getPosition();
+					if (!currentLivePos.equals(dragOriginalPosition, 1e-6f)) {
+						endoPath.setPointPosition(idx, dragOriginalPosition);
+						undoManager.addCommand(new EndoCommands.MovePointCommand(endoPath, idx, currentLivePos));
+					}
+					draggingEndoPointIndex = -1;
+					dragOriginalPosition = null;
+					repaint();
 				}
 			}
 		});
@@ -202,14 +279,32 @@ public class GLCanvas extends AWTGLCanvas {
 					// ★ 線を記録して描画
 					currentPath.add(e.getPoint());
 					repaint(); // paintComponentを呼んで線を書かせる
+				} else if (draggingEndoPointIndex >= 0) {
+					// ★ パス点のライブプレビュー（コマンドはmouseReleasedで1回だけ発行する）
+					org.joml.Vector3f hit = EndoPathPicker.computeDragPosition(lastMvp, e.getX(), e.getY(),
+							getWidth(), getHeight(), draggingEndoPointDepth);
+					if (hit != null) {
+						endoPath.setPointPosition(draggingEndoPointIndex, hit);
+						repaint();
+					}
 				} else if (SwingUtilities.isLeftMouseButton(e)) {
-					// カメラ回転
-					float dx = (e.getX() - lastX) * 0.5f;
-					float dy = (e.getY() - lastY) * 0.5f;
-					camera.rotate(dx, dy);
-					lastX = e.getX();
-					lastY = e.getY();
-					repaint();
+					if (endoscopyMode) {
+						// ★マイクラ風マウスルック: 内視鏡視点中は見ている方向だけをドラッグで変える
+						float dx = (e.getX() - lastX) * ENDO_LOOK_SENSITIVITY;
+						float dy = (e.getY() - lastY) * ENDO_LOOK_SENSITIVITY;
+						endoCamera.addLookDelta(dx, -dy);
+						lastX = e.getX();
+						lastY = e.getY();
+						repaint();
+					} else {
+						// カメラ回転
+						float dx = (e.getX() - lastX) * 0.5f;
+						float dy = (e.getY() - lastY) * 0.5f;
+						camera.rotate(dx, dy);
+						lastX = e.getX();
+						lastY = e.getY();
+						repaint();
+					}
 				} else if (SwingUtilities.isRightMouseButton(e)) {
 					// Window/Level (Ctrlなしの場合)
 					if (!e.isControlDown()) {
@@ -234,17 +329,26 @@ public class GLCanvas extends AWTGLCanvas {
 
 			@Override
 			public void keyPressed(KeyEvent e) {
-				// Ctrl + Z (Undo)
-				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_Z) {
-					undoManager.undo();
-					repaint();
-					Log.logger.fine("Undo");
-				}
-				// Ctrl + Y (Redo)
-				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_Y) {
+				if (e.getKeyCode() == KeyEvent.VK_Z && e.isControlDown() && e.isShiftDown()) {
+					// Ctrl + Shift + Z (Redo)
 					undoManager.redo();
 					repaint();
 					Log.logger.fine("Redo");
+				} else if (e.getKeyCode() == KeyEvent.VK_Z && e.isControlDown()) {
+					// Ctrl + Z (Undo)
+					undoManager.undo();
+					repaint();
+					Log.logger.fine("Undo");
+				} else if (e.getKeyCode() == KeyEvent.VK_Y && e.isControlDown()) {
+					// Ctrl + Y (Redo、互換用の別ショートカット)
+					undoManager.redo();
+					repaint();
+					Log.logger.fine("Redo");
+				} else if (e.getKeyCode() == KeyEvent.VK_DELETE && endoPathEditMode && selectedEndoPointIndex >= 0) {
+					// ★パス編集モード中、選択中の点をDeleteキーで削除
+					undoManager.addCommand(new EndoCommands.RemovePointCommand(endoPath, selectedEndoPointIndex));
+					selectedEndoPointIndex = -1;
+					repaint();
 				}
 			}
 
@@ -276,6 +380,11 @@ public class GLCanvas extends AWTGLCanvas {
 			this.undoManager.clear();
 		}
 
+		// ★追加: 内視鏡パスはボクセル次元基準のローカル座標を保持しているため、
+		// ボリュームが変わると無意味になる。新しいボリュームに合わせてリセットする。
+		this.endoPath.clear();
+		this.endoCamera.setU(0f);
+
 		// ★追加2: 断面位置（スライダー）を中心に戻す
 		this.sliceX = 0.5f;
 		this.sliceY = 0.5f;
@@ -297,6 +406,55 @@ public class GLCanvas extends AWTGLCanvas {
 
 	public org.joml.Matrix4f getModelMatrix() {
 		return calculateModelMatrix();
+	}
+
+	// ==========================================
+	// 仮想内視鏡（フライスルー）モード
+	// ==========================================
+	public void setEndoscopyMode(boolean enabled) {
+		this.endoscopyMode = enabled;
+		if (enabled && endoPathEditMode) {
+			setEndoPathEditMode(false); // 相互排他 + 選択状態のクリーンアップを再利用
+		}
+		repaint();
+	}
+
+	public boolean isEndoscopyMode() {
+		return endoscopyMode;
+	}
+
+	public EndoPath3D getEndoPath() {
+		return endoPath;
+	}
+
+	public EndoCamera getEndoCamera() {
+		return endoCamera;
+	}
+
+	/** EndoCommands等をpushするための既存Undo履歴への導線（カット機能と共用） */
+	public UndoManager getUndoManager() {
+		return undoManager;
+	}
+
+	public void setShowEndoPath(boolean show) {
+		this.showEndoPath = show;
+		repaint();
+	}
+
+	public void setEndoPathEditMode(boolean enabled) {
+		this.endoPathEditMode = enabled;
+		if (enabled) {
+			this.endoscopyMode = false;
+		} else {
+			this.selectedEndoPointIndex = -1;
+			this.draggingEndoPointIndex = -1;
+			this.dragOriginalPosition = null;
+		}
+		repaint();
+	}
+
+	public boolean isEndoPathEditMode() {
+		return endoPathEditMode;
 	}
 
 	// ==========================================
@@ -715,19 +873,9 @@ public class GLCanvas extends AWTGLCanvas {
 	}
 	
 	public void drawOverlay(Graphics g) {
-		// その上に線を引く
-		if (isCuttingMode && currentPath.size() > 1) {
-			g.setColor(Color.YELLOW);
-			for (int i = 0; i < currentPath.size() - 1; i++) {
-				Point p1 = currentPath.get(i);
-				Point p2 = currentPath.get(i + 1);
-				g.drawLine(p1.x, p1.y, p2.x, p2.y);
-			}
-			// 閉じた線にする場合
-			Point start = currentPath.get(0);
-			Point end = currentPath.get(currentPath.size() - 1);
-			g.drawLine(end.x, end.y, start.x, start.y);
-		}
+		// ★カット輪郭線はpaintGL()内でGL描画するため、ここでは描画しない
+		// (Timerからrender()を直接呼ぶ構成のため、Graphics2Dでの描画はpaint()経由でしか効かず
+		//  次のTimer Tickで即座に上書きされてしまい表示されなかった)
 
 		if (legendConfig.visible) {
 			java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
@@ -874,12 +1022,17 @@ public class GLCanvas extends AWTGLCanvas {
 
 		org.joml.Matrix4f proj = new org.joml.Matrix4f().setPerspective((float) Math.toRadians(45.0f), aspect, 0.01f,
 				100.0f);
-		org.joml.Matrix4f view = camera.getViewMatrix();
 
 		// (以前追加した calculateModelMatrix() を呼び出す)
 		org.joml.Matrix4f model = calculateModelMatrix();
 
+		// ★内視鏡モード中（パスが2点以上ある場合のみ）は内視鏡カメラのビュー行列を使う。
+		// パスが未定義の間は自動的にオービットカメラにフォールバックする。
+		org.joml.Matrix4f view = (endoscopyMode && endoPath.size() >= 2) ? endoCamera.getViewMatrix(model)
+				: camera.getViewMatrix();
+
 		org.joml.Matrix4f mvp = new org.joml.Matrix4f(proj).mul(view).mul(model);
+		lastMvp.set(mvp); // ★パス編集のピッキング(EndoPathPicker)が使う最新のmvpを保持
 
 		// ==========================================================
 		// ★修正: カメラ位置の計算を if文の外に引き上げる（メッシュ描画でも共通で使うため）
@@ -1005,7 +1158,25 @@ public class GLCanvas extends AWTGLCanvas {
 		// 最後にGizmoを描画 (右下にオーバーレイ)
 		// Gizmoにも物理ピクセルサイズを渡さないと、位置がズレたり小さくなったりします
 		if (axesGizmo != null) {
-			axesGizmo.render(camera.getViewMatrix(), physW, physH);
+			// ★修正: camera.getViewMatrix()を再計算せず、上で使った現在の view（内視鏡モード中はそちら）を再利用する。
+			// 以前は常にオービットカメラの向きを表示しており、内視鏡モードでも実際の視点と食い違っていた。
+			axesGizmo.render(view, physW, physH);
+		}
+
+		// ★4.1: 内視鏡モード中のみ、ミニ方位インジケーター（ワールドの上方向）を表示
+		if (endoscopyMode && endoOrientationIndicator != null) {
+			endoOrientationIndicator.render(view, physW, physH);
+		}
+
+		// ★カット中の輪郭線を最前面に描画（論理ピクセル基準。MouseEventの座標系と一致させる）
+		if (isCuttingMode && currentPath.size() > 1 && cutLineRenderer != null) {
+			cutLineRenderer.render(currentPath, w, h);
+		}
+
+		// ★内視鏡パス（曲線＋制御点）とカメラ位置・向きマーカーを描画
+		if (showEndoPath && endoPathRenderer != null && !endoPath.isEmpty()) {
+			endoPathRenderer.render(endoPath, mvp, selectedEndoPointIndex);
+			endoPathRenderer.renderCameraMarker(endoCamera, mvp); // ★4.2
 		}
 
 		if (autoSwapBuffer) {

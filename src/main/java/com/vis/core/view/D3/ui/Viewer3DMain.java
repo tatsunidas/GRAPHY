@@ -40,6 +40,9 @@ package com.vis.core.view.D3.ui;
 import org.lwjgl.opengl.awt.GLData;
 
 import com.vis.core.log.Log;
+import com.vis.core.view.D3.endo.EndoCamera;
+import com.vis.core.view.D3.endo.EndoCommands;
+import com.vis.core.view.D3.endo.EndoPath3D;
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
 import com.vis.core.view.D3.util.AlignMesh;
 import com.vis.core.view.D3.util.MeshExporter;
@@ -108,6 +111,11 @@ public class Viewer3DMain extends JFrame {
 
 	private JPanel roiColorPanel;
 	private JCheckBox chkShowMesh;
+
+	// 仮想内視鏡: uスライダーのドラッグ開始時の値（ドラッグ確定時のコマンド構築用）
+	private Float endoUDragStartValue = null;
+	// 仮想内視鏡: 再生Timer等がプログラムからsliderEndoUを更新する際、ChangeListenerのコマンド化処理を抑制するフラグ
+	private boolean suppressEndoUCommit = false;
 
 	// ★ 追加: 現在選択（アクティブ）になっているROIグループ名を保持する変数
 	private String selectedRoiGroupName = null;
@@ -445,6 +453,196 @@ public class Viewer3DMain extends JFrame {
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
+		// 仮想内視鏡パスの編集モード切り替え／内視鏡視点切り替え（相互排他のため先に両方を宣言する）
+		JCheckBox chkEndoPathEdit = new JCheckBox("Edit Endoscopy Path", false);
+		JCheckBox chkEndoscopyView = new JCheckBox("Endoscopy View (Fly-Through)", false);
+
+		chkEndoPathEdit.setToolTipText(
+				"Ctrl+左クリック: 点を追加 / 左クリック+ドラッグ: 点を移動 / Delete: 選択中の点を削除");
+		chkEndoPathEdit.addActionListener(e -> {
+			if (canvas == null) return;
+			boolean enabled = chkEndoPathEdit.isSelected();
+			canvas.setEndoPathEditMode(enabled);
+			if (enabled) {
+				chkEndoscopyView.setSelected(false);
+			}
+			canvas.repaint();
+		});
+		controlPanel.add(chkEndoPathEdit, gbc);
+		gbc.gridy++;
+
+		chkEndoscopyView.setToolTipText("内視鏡カメラ視点に切り替える（パスに2点以上必要）");
+		chkEndoscopyView.addActionListener(e -> {
+			if (canvas == null) return;
+			boolean enabled = chkEndoscopyView.isSelected();
+			canvas.setEndoscopyMode(enabled);
+			if (enabled) {
+				chkEndoPathEdit.setSelected(false);
+			}
+			canvas.repaint();
+		});
+		controlPanel.add(chkEndoscopyView, gbc);
+		gbc.gridy++;
+
+		// 仮想内視鏡: 再生位置(u)のスライダー（既存sliderX/Y/Zと同じ0-100の規約）
+		controlPanel.add(new JLabel("Endoscopy Position"), gbc);
+		gbc.gridy++;
+
+		JSlider sliderEndoU = new JSlider(0, 100, 0);
+		sliderEndoU.addChangeListener(e -> {
+			if (canvas == null || suppressEndoUCommit) return; // ★再生中などプログラムからの更新は無視
+			EndoCamera cam = canvas.getEndoCamera();
+			float u = sliderEndoU.getValue() / 100.0f;
+			if (sliderEndoU.getValueIsAdjusting()) {
+				if (endoUDragStartValue == null) {
+					endoUDragStartValue = cam.getU(); // ドラッグ開始時の値を1度だけ記録
+				}
+				cam.setU(u); // ライブプレビューのみ（コマンドは発行しない）
+				canvas.repaint();
+			} else {
+				float startU = (endoUDragStartValue != null) ? endoUDragStartValue : cam.getU();
+				endoUDragStartValue = null;
+				if (Math.abs(u - startU) > 1e-6f) {
+					cam.setU(startU); // 一旦ドラッグ開始時の値に戻してからコマンドを構築する
+					canvas.getUndoManager().addCommand(new EndoCommands.SetCameraUCommand(cam, u));
+				}
+				canvas.repaint();
+			}
+		});
+		controlPanel.add(sliderEndoU, gbc);
+		gbc.gridy++;
+
+		// 仮想内視鏡: ジャンプボタン（先頭/前の点/次の点/末尾）
+		JPanel endoJumpRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 4, 2));
+		JButton btnJumpStart = new JButton("|< Start");
+		JButton btnPrevPoint = new JButton("< Point");
+		JButton btnNextPoint = new JButton("Point >");
+		JButton btnJumpEnd = new JButton("End >|");
+
+		btnJumpStart.addActionListener(e -> jumpEndoCamera(sliderEndoU, 0f));
+		btnJumpEnd.addActionListener(e -> jumpEndoCamera(sliderEndoU, 1f));
+		btnPrevPoint.addActionListener(e -> {
+			EndoPath3D path = canvas.getEndoPath();
+			if (path.size() >= 2) {
+				int idx = path.findPreviousPointIndex(canvas.getEndoCamera().getU());
+				jumpEndoCamera(sliderEndoU, path.getNormalizedDistanceAtPoint(idx));
+			}
+		});
+		btnNextPoint.addActionListener(e -> {
+			EndoPath3D path = canvas.getEndoPath();
+			if (path.size() >= 2) {
+				int idx = path.findNextPointIndex(canvas.getEndoCamera().getU());
+				jumpEndoCamera(sliderEndoU, path.getNormalizedDistanceAtPoint(idx));
+			}
+		});
+		endoJumpRow.add(btnJumpStart);
+		endoJumpRow.add(btnPrevPoint);
+		endoJumpRow.add(btnNextPoint);
+		endoJumpRow.add(btnJumpEnd);
+		controlPanel.add(endoJumpRow, gbc);
+		gbc.gridy++;
+
+		// 仮想内視鏡: Undo/Redoボタン（カット・パス編集と共通のundoManagerに委譲）
+		JPanel endoUndoRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 4, 2));
+		JButton btnEndoUndo = new JButton("Undo");
+		JButton btnEndoRedo = new JButton("Redo");
+		btnEndoUndo.addActionListener(e -> {
+			canvas.getUndoManager().undo();
+			sliderEndoU.setValue(Math.round(canvas.getEndoCamera().getU() * 100));
+			canvas.repaint();
+		});
+		btnEndoRedo.addActionListener(e -> {
+			canvas.getUndoManager().redo();
+			sliderEndoU.setValue(Math.round(canvas.getEndoCamera().getU() * 100));
+			canvas.repaint();
+		});
+		endoUndoRow.add(btnEndoUndo);
+		endoUndoRow.add(btnEndoRedo);
+		controlPanel.add(endoUndoRow, gbc);
+		gbc.gridy++;
+
+		// 仮想内視鏡: 再生速度
+		controlPanel.add(new JLabel("Playback Speed"), gbc);
+		gbc.gridy++;
+		JSlider sliderEndoSpeed = new JSlider(10, 300, 100); // 10=0.1x, 100=1.0x, 300=3.0x
+		sliderEndoSpeed.setToolTipText("1.0x = パス全体を約10秒で通過");
+		controlPanel.add(sliderEndoSpeed, gbc);
+		gbc.gridy++;
+
+		// 仮想内視鏡: 再生/一時停止/停止
+		final float baseSpeedPerSecond = 0.1f; // 1.0x時、全体の通過に約10秒
+
+		JPanel endoPlaybackRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 4, 2));
+		JButton btnEndoPlay = new JButton("Play");
+		JButton btnEndoPause = new JButton("Pause");
+		JButton btnEndoStop = new JButton("Stop");
+
+		javax.swing.Timer endoPlaybackTimer = new javax.swing.Timer(16, evt -> {
+			if (canvas == null) return;
+			EndoPath3D path = canvas.getEndoPath();
+			EndoCamera cam = canvas.getEndoCamera();
+			if (path.size() < 2) return;
+
+			float speedMultiplier = sliderEndoSpeed.getValue() / 100.0f;
+			float dt = 0.016f; // Timerの間隔(16ms)を固定ステップとして使う（既存のレンダリングTimerと同じ簡易方式）
+			float newU = cam.getU() + dt * baseSpeedPerSecond * speedMultiplier;
+
+			boolean reachedEnd = newU >= 1f;
+			if (reachedEnd) newU = 1f;
+			cam.setU(newU);
+
+			suppressEndoUCommit = true;
+			sliderEndoU.setValue(Math.round(newU * 100));
+			suppressEndoUCommit = false;
+			canvas.repaint();
+
+			if (reachedEnd) {
+				((javax.swing.Timer) evt.getSource()).stop(); // 終端到達で自動停止（ループ再生は将来項目）
+				setComponentsEnabled(true, chkEndoPathEdit, chkEndoscopyView, sliderEndoU,
+						btnJumpStart, btnPrevPoint, btnNextPoint, btnJumpEnd);
+			}
+		});
+		endoPlaybackTimer.setRepeats(true);
+
+		btnEndoPlay.addActionListener(e -> {
+			if (canvas == null || canvas.getEndoPath().size() < 2) return;
+
+			// 編集操作との排他: 再生中はパス編集を切り、内視鏡視点に入る
+			chkEndoPathEdit.setSelected(false);
+			canvas.setEndoPathEditMode(false);
+			chkEndoscopyView.setSelected(true);
+			canvas.setEndoscopyMode(true);
+
+			setComponentsEnabled(false, chkEndoPathEdit, chkEndoscopyView, sliderEndoU,
+					btnJumpStart, btnPrevPoint, btnNextPoint, btnJumpEnd);
+			endoPlaybackTimer.start();
+		});
+
+		btnEndoPause.addActionListener(e -> {
+			endoPlaybackTimer.stop();
+			setComponentsEnabled(true, chkEndoPathEdit, chkEndoscopyView, sliderEndoU,
+					btnJumpStart, btnPrevPoint, btnNextPoint, btnJumpEnd);
+		});
+
+		btnEndoStop.addActionListener(e -> {
+			endoPlaybackTimer.stop();
+			setComponentsEnabled(true, chkEndoPathEdit, chkEndoscopyView, sliderEndoU,
+					btnJumpStart, btnPrevPoint, btnNextPoint, btnJumpEnd);
+			if (canvas != null) {
+				canvas.getEndoCamera().setU(0f);
+				suppressEndoUCommit = true;
+				sliderEndoU.setValue(0);
+				suppressEndoUCommit = false;
+				canvas.repaint();
+			}
+		});
+
+		endoPlaybackRow.add(btnEndoPlay);
+		endoPlaybackRow.add(btnEndoPause);
+		endoPlaybackRow.add(btnEndoStop);
+		controlPanel.add(endoPlaybackRow, gbc);
+		gbc.gridy++;
+
 		// ==========================================================
 		// Marching Cubes による選択グループのメッシュ生成ボタン（フェーズ1対応）
 		// ==========================================================
@@ -706,6 +904,25 @@ public class Viewer3DMain extends JFrame {
 		float y = sy.getValue() / 100.0f;
 		float z = sz.getValue() / 100.0f;
 		canvas.setSlicePos(x, y, z);
+	}
+
+	// 複数のコンポーネントのenabled状態を一括で切り替える（再生中の編集系UIロックに使う）
+	private void setComponentsEnabled(boolean enabled, java.awt.Component... components) {
+		for (java.awt.Component c : components) {
+			c.setEnabled(enabled);
+		}
+	}
+
+	// 仮想内視鏡カメラをnewU(正規化距離)へジャンプさせ、Undo可能なコマンドとして発行する
+	private void jumpEndoCamera(JSlider sliderEndoU, float newU) {
+		EndoCamera cam = canvas.getEndoCamera();
+		float oldU = cam.getU();
+		if (Math.abs(newU - oldU) > 1e-6f) {
+			canvas.getUndoManager().addCommand(new EndoCommands.SetCameraUCommand(cam, newU));
+		}
+		// この変更でChangeEventが飛ぶが、cam.getU()は既にnewUなのでコマンドは二重発行されない
+		sliderEndoU.setValue(Math.round(newU * 100));
+		canvas.repaint();
 	}
 
 	// ==========================================

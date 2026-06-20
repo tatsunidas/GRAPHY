@@ -185,9 +185,12 @@ public class VolumeEditor {
 					}
 
 					// 2. ボクセルの3D座標を正規化座標 (-0.5 ~ 0.5) に変換
+					// ※ volume.frag のレイマーチングでは texCoord = localPos + 0.5 をそのまま使っており、
+					//   X/Y/Zとも反転させていないため、ここも同じ符号規則で揃える（以前はY/Zだけ符号が逆で、
+					//   画面上で選択した領域と実際にカットされる領域が上下・前後反転していた）。
 					float lx = (float) x / width - 0.5f;
-					float ly = 0.5f - (float) y / height;
-					float lz = 0.5f - (float) z / depth;
+					float ly = (float) y / height - 0.5f;
+					float lz = (float) z / depth - 0.5f;
 
 					// 3. MVP行列でスクリーン座標へ投影
 					pos.set(lx, ly, lz, 1.0f);
