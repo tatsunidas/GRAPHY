@@ -189,43 +189,87 @@ public class VolumeRenderer {
 		camLoc = glGetUniformLocation(shaderProgram, "cameraPos");
 	}
 
+	private static final int LUT_SIZE = 256;
+	/** Color part of the LUT (RGB only), set by generateLUT()/applyLut(). */
+	private byte[] currentLutRgb = defaultGrayscaleRgb();
+	/**
+	 * Opacity part of the LUT, set independently by applyOpacityCurve() so
+	 * picking a different color map never discards a manually tuned opacity
+	 * curve, and vice versa. Defaults to a plain linear ramp (same shape the
+	 * old combined grayscale LUT used).
+	 */
+	private byte[] currentOpacity = defaultLinearOpacity();
+
+	private static byte[] defaultGrayscaleRgb() {
+		byte[] rgb = new byte[LUT_SIZE * 3];
+		for (int i = 0; i < LUT_SIZE; i++) {
+			byte v = (byte) i;
+			rgb[i * 3] = v;
+			rgb[i * 3 + 1] = v;
+			rgb[i * 3 + 2] = v;
+		}
+		return rgb;
+	}
+
+	private static byte[] defaultLinearOpacity() {
+		byte[] a = new byte[LUT_SIZE];
+		for (int i = 0; i < LUT_SIZE; i++) {
+			a[i] = (byte) i;
+		}
+		return a;
+	}
+
+	/**
+	 * Switch to one of the built-in procedural color maps (0 = grayscale,
+	 * anything else = the original hot/rainbow-style ramp). Only the RGB part
+	 * changes - the current opacity curve (see applyOpacityCurve) is kept.
+	 */
 	public void generateLUT(int type) {
-		int size = 256;
-		java.nio.ByteBuffer buffer = org.lwjgl.system.MemoryUtil.memAlloc(size * 4);
-
-		for (int i = 0; i < size; i++) {
-			float t = (float) i / (size - 1);
-			float r = 0, g = 0, b = 0, a = t;
-
+		for (int i = 0; i < LUT_SIZE; i++) {
+			float t = (float) i / (LUT_SIZE - 1);
+			float r, g, b;
 			if (type == 0) {
 				r = g = b = t;
 			} else {
 				r = Math.max(0, Math.min(1, Math.abs(t * 4 - 3) - 1));
 				g = Math.max(0, Math.min(1, 2 - Math.abs(t * 4 - 2)));
 				b = Math.max(0, Math.min(1, 2 - Math.abs(t * 4 - 1)));
-				a = (t < 0.1f) ? 0.0f : t * 0.8f;
 			}
+			currentLutRgb[i * 3] = (byte) (r * 255);
+			currentLutRgb[i * 3 + 1] = (byte) (g * 255);
+			currentLutRgb[i * 3 + 2] = (byte) (b * 255);
+		}
+		rebuildAndUploadLut();
+	}
 
-			buffer.put((byte) (r * 255));
-			buffer.put((byte) (g * 255));
-			buffer.put((byte) (b * 255));
-			buffer.put((byte) (a * 255));
+	/**
+	 * Replace the opacity-vs-value curve (256 entries, 0-255) used across
+	 * VR/MIP/Ortho, leaving the current color map untouched. Called by the
+	 * volume opacity curve editor dialog.
+	 */
+	public void applyOpacityCurve(byte[] opacity256) {
+		if (opacity256 == null || opacity256.length != LUT_SIZE) {
+			throw new IllegalArgumentException("opacity curve must have exactly " + LUT_SIZE + " entries");
+		}
+		this.currentOpacity = opacity256;
+		rebuildAndUploadLut();
+	}
+
+	public byte[] getCurrentOpacityCurve() {
+		return currentOpacity.clone();
+	}
+
+	private void rebuildAndUploadLut() {
+		java.nio.ByteBuffer buffer = MemoryUtil.memAlloc(LUT_SIZE * 4);
+		for (int i = 0; i < LUT_SIZE; i++) {
+			buffer.put(currentLutRgb[i * 3]);
+			buffer.put(currentLutRgb[i * 3 + 1]);
+			buffer.put(currentLutRgb[i * 3 + 2]);
+			buffer.put(currentOpacity[i]);
 		}
 		buffer.flip();
-
-		if (lutTextureId == -1)
-			lutTextureId = glGenTextures();
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_1D, lutTextureId);
-
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-
-		org.lwjgl.system.MemoryUtil.memFree(buffer);
+		uploadLutToGPU(buffer, LUT_SIZE);
+		MemoryUtil.memFree(buffer);
 	}
 
 	private void createCube() {
@@ -293,39 +337,45 @@ public class VolumeRenderer {
 	public void loadLut(File lutFile) {
 		try {
 			IndexColorModel cm = LutLoader.open(lutFile.getAbsolutePath());
-
 			if (cm == null) {
 				System.err.println("Failed to load LUT: " + lutFile.getName());
 				return;
 			}
-
-			int size = cm.getMapSize();
-			byte[] r = new byte[size];
-			byte[] g = new byte[size];
-			byte[] b = new byte[size];
-
-			cm.getReds(r);
-			cm.getGreens(g);
-			cm.getBlues(b);
-
-			java.nio.ByteBuffer buffer = MemoryUtil.memAlloc(size * 4);
-
-			for (int i = 0; i < size; i++) {
-				buffer.put(r[i]);
-				buffer.put(g[i]);
-				buffer.put(b[i]);
-				byte alpha = (byte) i;
-				buffer.put(alpha);
-			}
-			buffer.flip();
-
-			uploadLutToGPU(buffer, size);
-			MemoryUtil.memFree(buffer);
+			applyLut(cm);
 			System.out.println("Loaded LUT: " + lutFile.getName());
-
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Upload an already-resolved color model (e.g. ij.process.LUT, which extends
+	 * IndexColorModel) directly to the GPU, without going through a file. Used
+	 * by the UI's color map picker, which resolves named LUTs (including the
+	 * built-in bundled .lut files under luts/) via Resources.loadLUT(name).
+	 */
+	public void applyLut(IndexColorModel cm) {
+		int size = cm.getMapSize();
+		if (size != LUT_SIZE) {
+			// Bundled .lut files and ij.process.LUT are always 256 entries;
+			// guard anyway so a malformed file can't corrupt currentLutRgb.
+			System.err.println("applyLut: unexpected LUT size " + size + ", expected " + LUT_SIZE);
+			return;
+		}
+		byte[] r = new byte[size];
+		byte[] g = new byte[size];
+		byte[] b = new byte[size];
+
+		cm.getReds(r);
+		cm.getGreens(g);
+		cm.getBlues(b);
+
+		for (int i = 0; i < size; i++) {
+			currentLutRgb[i * 3] = r[i];
+			currentLutRgb[i * 3 + 1] = g[i];
+			currentLutRgb[i * 3 + 2] = b[i];
+		}
+		rebuildAndUploadLut();
 	}
 
 	private void uploadLutToGPU(java.nio.ByteBuffer buffer, int size) {

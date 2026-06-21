@@ -140,7 +140,58 @@ public class VolumeData {
 		this.maxVal = max;
 		System.out.println("Data Type: " + dataType + " | Range: " + minVal + " ~ " + maxVal);
 	}
-	
+
+	/**
+	 * Bucket the raw voxel values into numBins bins spanning [minVal, maxVal],
+	 * using the same unsigned interpretation as calculateMinMax(). Used by the
+	 * 3D viewer's opacity curve editor to draw a histogram behind the curve.
+	 */
+	public int[] computeHistogram(int numBins) {
+		int[] hist = new int[numBins];
+		float range = maxVal - minVal;
+		if (range <= 0f) {
+			return hist;
+		}
+		switch (dataType) {
+		case BYTE: {
+			byte[] arr = (byte[]) data;
+			for (byte b : arr) {
+				float val = b & 0xFF;
+				hist[binIndex(val, range, numBins)]++;
+			}
+			break;
+		}
+		case SHORT: {
+			short[] arr = (short[]) data;
+			for (short s : arr) {
+				float val = s & 0xFFFF;
+				hist[binIndex(val, range, numBins)]++;
+			}
+			break;
+		}
+		case FLOAT: {
+			float[] arr = (float[]) data;
+			for (float f : arr) {
+				if (!Float.isNaN(f)) {
+					hist[binIndex(f, range, numBins)]++;
+				}
+			}
+			break;
+		}
+		default:
+			// RGB packed data has no single intensity histogram.
+			break;
+		}
+		return hist;
+	}
+
+	private int binIndex(float val, float range, int numBins) {
+		int idx = (int) (((val - minVal) / range) * (numBins - 1));
+		if (idx < 0) idx = 0;
+		if (idx > numBins - 1) idx = numBins - 1;
+		return idx;
+	}
+
 	public static byte[] createRoiMask(VolumeData vol, FreeFormRoi3D roi, double[] volumeOriginIpp, double[] volumeIop) {
 	    int w = vol.width;
 	    int h = vol.height;

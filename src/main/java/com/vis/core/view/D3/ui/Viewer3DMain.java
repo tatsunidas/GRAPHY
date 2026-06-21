@@ -111,6 +111,12 @@ public class Viewer3DMain extends JFrame {
 
 	private JPanel roiColorPanel;
 	private JCheckBox chkShowMesh;
+	/**
+	 * Opacity curve control points, shared with VolumeOpacityCurveEditorDialog
+	 * so the edited curve survives closing and reopening the dialog within
+	 * this viewer window's lifetime.
+	 */
+	private final java.util.List<OpacityCurvePanel.ControlPoint> opacityCurvePoints = new java.util.ArrayList<>();
 
 	// 仮想内視鏡: uスライダーのドラッグ開始時の値（ドラッグ確定時のコマンド構築用）
 	private Float endoUDragStartValue = null;
@@ -337,6 +343,45 @@ public class Viewer3DMain extends JFrame {
 		// ---------------------------------------------------------
 
 		// 区切り線 1
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
+
+		// ---------------------------------------------------------
+		// Color Map (LUT) - applies to the volume texture, shared by VR/MIP/
+		// Ortho since they all sample the same 1D LUT texture in the shader.
+		// ---------------------------------------------------------
+		controlPanel.add(new JLabel("Color Map (LUT)", SwingConstants.LEFT), gbc);
+		gbc.gridy++;
+
+		String[] lutNames = com.vis.configuration.Resources.getLutNames();
+		javax.swing.JComboBox<String> comboLut = new javax.swing.JComboBox<>(lutNames);
+		comboLut.setSelectedItem("Grayscale");
+		comboLut.addActionListener(e -> {
+			String selectedLutName = (String) comboLut.getSelectedItem();
+			new Thread(() -> {
+				if ("Grayscale".equals(selectedLutName)) {
+					canvas.setLutType(0);
+				} else {
+					ij.process.LUT selectedLut = com.vis.configuration.Resources.loadLUT(selectedLutName);
+					if (selectedLut != null) {
+						canvas.applyLut(selectedLut);
+					}
+				}
+			}).start();
+		});
+		controlPanel.add(comboLut, gbc);
+		gbc.gridy++;
+
+		// Opacity curve editor: edits the alpha part of the LUT independently
+		// of the color map above, against a histogram of the loaded volume.
+		JButton btnEditOpacity = new JButton("Edit Opacity Curve...");
+		btnEditOpacity.addActionListener(e -> {
+			VolumeOpacityCurveEditorDialog dlg = new VolumeOpacityCurveEditorDialog(this, canvas, opacityCurvePoints);
+			dlg.setVisible(true);
+		});
+		controlPanel.add(btnEditOpacity, gbc);
+		gbc.gridy++;
+
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
