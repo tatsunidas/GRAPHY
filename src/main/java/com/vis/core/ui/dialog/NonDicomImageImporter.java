@@ -73,7 +73,13 @@ public class NonDicomImageImporter extends JDialog implements Runnable{
 		jfc.setAccessory(panel);
 		jfc.setApproveButtonText(approveButtonText);
 //		jfc.setApproveButtonToolTipText(approveToolTip);
-		doAction(jfc.showOpenDialog(this));
+		/*
+		 * "this" JDialog is never shown (the real UI here is the JFileChooser),
+		 * so it has no peer/X11 window yet. Using it as the chooser's owner makes
+		 * AWT throw "IllegalArgumentException: Window must not be zero". Anchor
+		 * on the already-realized parent instead.
+		 */
+		doAction(jfc.showOpenDialog(parent));
 	}
 	
 	void doAction(int res) {

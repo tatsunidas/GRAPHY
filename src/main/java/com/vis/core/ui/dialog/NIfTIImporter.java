@@ -89,7 +89,9 @@ public class NIfTIImporter extends JDialog implements Runnable {
 		jfc.setApproveButtonText("Convert & Import");
 		
 		// JFileChooser はモーダルで開く
-		doAction(jfc.showOpenDialog(this));
+		// "this" is never shown (same issue as NonDicomImageImporter) - anchor on
+		// the already-realized parent to avoid "Window must not be zero".
+		doAction(jfc.showOpenDialog(parent));
 	}
 	
 	private void doAction(int res) {

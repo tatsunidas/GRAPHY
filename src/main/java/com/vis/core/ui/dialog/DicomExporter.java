@@ -352,7 +352,14 @@ public class DicomExporter extends JFrame implements Task {
 		jfc.setAccessory(eop);
 		jfc.setApproveButtonText(approveButtonText);
 		jfc.setApproveButtonToolTipText("Export to selected folder");
-		return jfc.showOpenDialog(this);
+		/*
+		 * "this" (the DicomExporter JFrame) is never shown - it's only a Task/logic
+		 * holder, so it has no peer/X11 window yet. Using it as the JFileChooser's
+		 * owner makes the chooser's internal modal dialog throw
+		 * "IllegalArgumentException: Window must not be zero". Anchor on the
+		 * already-realized main screen instead.
+		 */
+		return jfc.showOpenDialog(WindowManager.getMainScreen());
 	}
 	
 	public int getTaskId() {
