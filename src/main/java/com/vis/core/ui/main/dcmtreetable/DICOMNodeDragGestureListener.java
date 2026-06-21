@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.HashSet;
 
 import javax.swing.JOptionPane;
 
@@ -58,8 +57,20 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 		 * feel responsive instead of blocking on I/O.
 		 */
 		final ArrayList<DICOMNode> capturedNodes = new ArrayList<>(nodes);
-		dge.startDrag(cursor, new FileTransferable(() -> prepareExportFiles(capturedNodes)), new DICOMNodeDragSourceListener());
-		
+		try {
+			dge.startDrag(cursor, new FileTransferable(() -> prepareExportFiles(capturedNodes)), new DICOMNodeDragSourceListener());
+		} catch (java.awt.dnd.InvalidDnDOperationException e) {
+			/*
+			 * The native DnD machinery still considers the previous drag "in
+			 * progress" (it won't finish until that drag's getTransferData()
+			 * call - i.e. prepareExportFiles() - returns). Starting a new drag
+			 * gesture before that resolves throws here; without this catch the
+			 * exception was silently swallowed by AWT and the new drag simply
+			 * never started. Log it instead of crashing the gesture recognizer.
+			 */
+			Log.logger.warning("DICOMNodeDragGestureListener: drag already in progress, ignoring new gesture. " + e.getMessage());
+		}
+
 		/**
 		 * TODO 20230825
 		 */
@@ -83,74 +94,63 @@ public class DICOMNodeDragGestureListener implements DragGestureListener{
 			return new ArrayList<>();
 		}
 		
-		ArrayList<String> patIDs = new ArrayList<String>();
-		ArrayList<String> studyIUIDs = new ArrayList<String>();
-		ArrayList<String> seriesIUIDs = new ArrayList<String>();
-		ArrayList<String> sopIUIDs = new ArrayList<String>();
-		for(String[] info:instlist) {
-			 patIDs.add(info[0]);
-			 studyIUIDs.add(info[1]);
-			 seriesIUIDs.add(info[2]);
-			 sopIUIDs.add(info[3]);
-		}
-		patIDs = new ArrayList<>(new HashSet<>(patIDs));
-		studyIUIDs = new ArrayList<>(new HashSet<>(studyIUIDs));
-		seriesIUIDs = new ArrayList<>(new HashSet<>(seriesIUIDs));
-		sopIUIDs = new ArrayList<>(new HashSet<>(sopIUIDs));
-		
 		ArrayList<File> exportFiles = new ArrayList<File>();
 		boolean fileNotFoundInDB = false;
-		
-		for (String patID : patIDs) {
-			for(String studyIUID:studyIUIDs) {
-				for(String seriesIUID:seriesIUIDs) {
-					for(String sopIUID:sopIUIDs) {
-						if(!db.checkImageRecordExists(studyIUID, seriesIUID, sopIUID)) {
-							continue;
-						}
-						String baseDest = ConfigInfo.getPath(ConfigInfo.TemporalDirName);
-						if(patID == null || patID.equals("") || patID.contentEquals(" ") || patID.equals("null")) {
-							patID = "NULL-PatientID";
-							Log.logger.warning("DICOMNodeDragGestureListener: patID is null, using fallback.");
-						}
-						String studyDesc = db.getValueFromStudy("StudyDescription", patID, studyIUID);
-						if(studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
-							studyDesc = "no-studydesc";
-							Log.logger.fine("DICOMNodeDragGestureListener: studyDesc is null, using fallback.");
-						}
-						String seriesDesc = db.getValueFromSeries("SeriesDescription", patID, studyIUID, seriesIUID);
-						if(seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
-							seriesDesc = "no-seriesDesc";
-							Log.logger.fine("DICOMNodeDragGestureListener: seriesDesc is null, using fallback.");
-						}
-						int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
-						String destParent = baseDest+File.separator+patID+File.separator+studyDesc+File.separator+seriesDesc;
-						String dest = destParent+File.separator+instNo+".dcm";
-						File destDir = new File(destParent);
-						if(!destDir.exists()) {
-							destDir.mkdirs();
-						}
-						String destRoot = baseDest+File.separator+patID;
-						if(!exportFiles.contains(new File(destRoot))) {
-							exportFiles.add(new File(baseDest+File.separator+patID));
-						}
-						String dcmPath = db.getValueFromImage("FileStoreUrl", patID,studyIUID, seriesIUID, sopIUID);
-						File from = new File(dcmPath);
-						File to = new File(dest);
-						if(!from.exists()) {
-							fileNotFoundInDB = true;
-							continue;
-						}
-						synchronized(exportFiles) {
-							try {
-								Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
-							} catch (IOException e) {
-								e.printStackTrace();
-								return new ArrayList<>();
-							}
-						}
-					}
-				}
+
+		/*
+		 * instlist already holds one correctly correlated
+		 * {patID, studyIUID, seriesIUID, sopIUID} tuple per instance
+		 * (see DICOMTreeTable.createNoDuplicateImageList). Iterate it directly
+		 * instead of rebuilding the cartesian product of each column's distinct
+		 * values - that previous approach multiplied the number of
+		 * checkImageRecordExists() DB round-trips far beyond the actual instance
+		 * count (e.g. 1 study x 3 series x 300 images => 900 lookups instead of
+		 * 300), which is what made the drop feel stuck before the copy started.
+		 */
+		for (String[] info : instlist) {
+			String patID = info[0];
+			String studyIUID = info[1];
+			String seriesIUID = info[2];
+			String sopIUID = info[3];
+
+			String baseDest = ConfigInfo.getPath(ConfigInfo.TemporalDirName);
+			if(patID == null || patID.equals("") || patID.contentEquals(" ") || patID.equals("null")) {
+				patID = "NULL-PatientID";
+				Log.logger.warning("DICOMNodeDragGestureListener: patID is null, using fallback.");
+			}
+			String studyDesc = db.getValueFromStudy("StudyDescription", patID, studyIUID);
+			if(studyDesc == null || studyDesc.equals("") || studyDesc.equals(" ")) {
+				studyDesc = "no-studydesc";
+				Log.logger.fine("DICOMNodeDragGestureListener: studyDesc is null, using fallback.");
+			}
+			String seriesDesc = db.getValueFromSeries("SeriesDescription", patID, studyIUID, seriesIUID);
+			if(seriesDesc == null || seriesDesc.equals("") || seriesDesc.equals(" ")) {
+				seriesDesc = "no-seriesDesc";
+				Log.logger.fine("DICOMNodeDragGestureListener: seriesDesc is null, using fallback.");
+			}
+			int instNo = db.getInstanceNo(studyIUID, seriesIUID, sopIUID);
+			String destParent = baseDest+File.separator+patID+File.separator+studyDesc+File.separator+seriesDesc;
+			String dest = destParent+File.separator+instNo+".dcm";
+			File destDir = new File(destParent);
+			if(!destDir.exists()) {
+				destDir.mkdirs();
+			}
+			String destRoot = baseDest+File.separator+patID;
+			if(!exportFiles.contains(new File(destRoot))) {
+				exportFiles.add(new File(baseDest+File.separator+patID));
+			}
+			String dcmPath = db.getValueFromImage("FileStoreUrl", patID,studyIUID, seriesIUID, sopIUID);
+			File from = new File(dcmPath);
+			File to = new File(dest);
+			if(!from.exists()) {
+				fileNotFoundInDB = true;
+				continue;
+			}
+			try {
+				Files.copy(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			} catch (IOException e) {
+				e.printStackTrace();
+				return new ArrayList<>();
 			}
 		}
 		if(fileNotFoundInDB) {
