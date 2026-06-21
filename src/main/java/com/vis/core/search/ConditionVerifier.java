@@ -4,6 +4,7 @@
  */
 package com.vis.core.search;
 
+import com.vis.core.log.Log;
 import com.vis.dicom.DICOMBackend;
 import com.vis.dicom.DicomObject;
 import com.vis.dicom.image.DicomImage;
@@ -46,7 +47,12 @@ public class ConditionVerifier {
 
             try {
                 DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), false, backend);
-                DicomObject header = dcm.getHeader();
+                // ★ backendの実装によってはnullが返るため、ヘッダ未取得時はこのファイルをスキップする
+                DicomObject header = (dcm != null) ? dcm.getHeader() : null;
+                if (header == null) {
+                    Log.logger.warning("ConditionVerifier: Failed to read DICOM header, skipping: " + f.getAbsolutePath());
+                    continue;
+                }
 
                 if (SeriesConditionEvaluator.evaluate(header, conditions, allowedPlanes)) {
                     result.validTargetFiles.add(f);
@@ -69,7 +75,7 @@ public class ConditionVerifier {
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.logger.warning("ConditionVerifier: Failed to evaluate series file: " + f.getAbsolutePath() + " (" + e.getMessage() + ")");
             }
         }
 
@@ -89,7 +95,7 @@ public class ConditionVerifier {
             for (File f : entry.getValue()) {
                 try {
                     DicomImage dcm = DicomImage.newDicomImage(f.getCanonicalPath(), false, backend);
-                    String expectedFolderName = generateUniqueFolderName(dcm.getHeader());
+                    String expectedFolderName = generateUniqueFolderName((dcm != null) ? dcm.getHeader() : null);
                     tree.append(" |   |- ").append(expectedFolderName).append("\n");
                 } catch (Exception e) {
                     tree.append(" |   |- ERROR_READING_FILE\n");
@@ -105,6 +111,10 @@ public class ConditionVerifier {
      * DICOMヘッダから安全でユニークなフォルダ名を生成します
      */
     public static String generateUniqueFolderName(DicomObject header) {
+        // ★ ヘッダを読み込めなかったファイル向けのフォールバック（NPE回避）
+        if (header == null) {
+            return "NoPatient_NoDate_NoProtocol_0000";
+        }
         String patId = header.getString(0x00100020);
         String studyDate = header.getString(0x00080020);
         String protocolName = header.getString(0x00181030);

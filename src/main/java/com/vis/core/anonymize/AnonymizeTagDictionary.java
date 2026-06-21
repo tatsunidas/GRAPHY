@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import com.vis.configuration.Resources;
 import com.vis.core.anonymize.AnonymizeConfig.Option;
 import com.vis.core.anonymize.DicomTagRule.Action;
+import com.vis.core.log.Log;
 
 /*
  * import pandas as pd
@@ -61,7 +62,7 @@ public class AnonymizeTagDictionary {
 	private static void loadRulesFromCsv() {
 		try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(Resources.PS3_15_TableE1_1.path())) {
 			if (is == null) {
-				System.err.println("CSV file not found: " + Resources.PS3_15_TableE1_1.toString());
+				Log.logger.severe("AnonymizeTagDictionary: CSV file not found: " + Resources.PS3_15_TableE1_1.toString());
 				return;
 			}
 
@@ -143,10 +144,10 @@ public class AnonymizeTagDictionary {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			Log.logger.severe("AnonymizeTagDictionary: Failed to load anonymization rules from CSV: " + e.getMessage());
 		}
 	}
-	
+
 	private static void loadSrCleanCodesFromCsv() {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(Resources.PS3_15_TableE3_4_1.path())) {
             if (is == null) return;
@@ -168,7 +169,7 @@ public class AnonymizeTagDictionary {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.logger.severe("AnonymizeTagDictionary: Failed to load SR clean codes from CSV: " + e.getMessage());
         }
     }
 
@@ -206,10 +207,10 @@ public class AnonymizeTagDictionary {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.logger.severe("AnonymizeTagDictionary: Failed to load safe private attributes from CSV: " + e.getMessage());
         }
     }
-	
+
     private static void applyOptions(DicomTagRule rule, String[] cols) {
 	    applyOptionIfPresent(rule, cols[5], Option.RetainSafePrivate);
 	    applyOptionIfPresent(rule, cols[6], Option.RetainUIDs);

@@ -96,7 +96,8 @@ public class AdvancedSettingsDialog extends JDialog {
 				}
 
 				if (column == COL_VALUE) {
-					boolean isRetained = (Boolean) getValueAt(row, COL_RETAIN);
+					Boolean retained = (Boolean) getValueAt(row, COL_RETAIN);
+					boolean isRetained = retained != null && retained;
 					// Retainチェックが入っていなければ、元のActionに関わらず
 					// 任意のタグにカスタムダミー値を書き込んで「強制Dアクション化」できる
 					return !isRetained;
@@ -142,7 +143,8 @@ public class AdvancedSettingsDialog extends JDialog {
 				Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
 				// 1. その行の Retain 列 (COL_RETAIN) の値を取得
-				boolean isRetained = (Boolean) table.getValueAt(row, COL_RETAIN);
+				Boolean retained = (Boolean) table.getValueAt(row, COL_RETAIN);
+				boolean isRetained = retained != null && retained;
 
 				if (isRetained) {
 					// 2. Retain されている場合（編集不可）：背景を薄いグレー、文字を濃いグレーに
@@ -259,7 +261,8 @@ public class AdvancedSettingsDialog extends JDialog {
         // workingConfig の内容はオリジナルの config にコピーされないため、安全です。
 		int res = JOptionPane.showConfirmDialog(this, Resources.i18n("AdvancedSettingsDialog.confirm.discard"),
 				Resources.i18n("dialog.title.confirm"), JOptionPane.YES_NO_OPTION);
-		if(res == JOptionPane.OK_OPTION) {
+		// ★ YES_NO_OPTIONダイアログなのでYES_OPTIONで判定する（OK_OPTIONと同値だが意味的に正しい方を使う）
+		if(res == JOptionPane.YES_OPTION) {
 			closeDialog();
 		}else {
 			return;

@@ -327,7 +327,9 @@ public class AttributeAnonymizerPanel extends JPanel {
     	        currentConfig.setRandomSeed(Long.parseLong(seedStr));
     	    } catch (NumberFormatException e) {
     	        // 文字列のハッシュ値をシードにするなどのフォールバック
-    	    	JOptionPane.showConfirmDialog(this, Resources.i18n("AttributeAnonymizerPanel.error.noNumerical"));
+    	    	// ★ 単なる警告メッセージのため、Yes/No/Cancelが出るshowConfirmDialogではなくshowMessageDialogを使う
+    	    	JOptionPane.showMessageDialog(this, Resources.i18n("AttributeAnonymizerPanel.error.noNumerical"),
+    	    			Resources.i18n("dialog.title.graphy"), JOptionPane.WARNING_MESSAGE);
     	    	Log.logger.log(Level.WARNING, "No numerical value was inputed, will not use random seed.");
     	        currentConfig.setRandomSeed(null);
     	    }
@@ -375,15 +377,20 @@ public class AttributeAnonymizerPanel extends JPanel {
         progressBar.setString("0%");
 
         currentWorker = new SwingWorker<Void, String>() {
+            // ★ 1件も処理されなかった場合（対象ファイルが見つからない等）を判定するためのフラグ
+            private volatile boolean anyFileProcessed = false;
+
             @Override
             protected Void doInBackground() throws Exception {
                 DicomAnonymizerEngine engine = new DicomAnonymizerEngine();
-                
+
                 // エンジンからプログレスとログのコールバックを受け取る
                 engine.setProgressListener(new DicomAnonymizerEngine.ProgressListener() {
                     @Override
                     public void onProgress(int current, int total, String message) {
-                        int percent = (int) (((double) current / total) * 100);
+                        anyFileProcessed = true;
+                        // ★ totalが0の場合の0除算（setProgressの範囲外例外）を防ぐ
+                        int percent = total > 0 ? (int) (((double) current / total) * 100) : 0;
                         setProgress(percent); // PropertyChangeListener に通知
                         if (message != null) {
                             publish(message); // process メソッドにログを送信
@@ -411,19 +418,29 @@ public class AttributeAnonymizerPanel extends JPanel {
                         progressBar.setString("Canceled");
                     } else {
                         get(); // 処理中に投げられた例外をキャッチ
-                        appendLog("Finished successfully!", false);
-                        progressBar.setString("100%");
-                        JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
-                                Resources.i18n("AttributeAnonymizerPanel.done"),
-                                Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
+                        if (!anyFileProcessed) {
+                            // ★ 対象ファイルが1件も見つからなかった場合は、成功扱いにせず明確に伝える
+                            appendLog("No DICOM files were found to anonymize.", false);
+                            progressBar.setString("No files found");
+                            JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
+                                    Resources.i18n("AttributeAnonymizerPanel.warn.noFilesFound"),
+                                    Resources.i18n("dialog.title.graphy"), JOptionPane.WARNING_MESSAGE);
+                        } else {
+                            appendLog("Finished successfully!", false);
+                            progressBar.setString("100%");
+                            JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
+                                    Resources.i18n("AttributeAnonymizerPanel.done"),
+                                    Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
+                        }
                     }
                 } catch (Exception ex) {
-                    appendLog("Error: " + ex.getMessage(), false);
-                    Log.logger.severe("Anonymization error: " + ex.getMessage());
+                    String detail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+                    appendLog("Error: " + detail, false);
+                    Log.logger.severe("Anonymization error: " + detail);
                     ex.printStackTrace();
                     progressBar.setString("Error");
                     JOptionPane.showMessageDialog(AttributeAnonymizerPanel.this,
-                            Resources.i18n("AttributeAnonymizerPanel.error.occurred") + " " + ex.getMessage(),
+                            Resources.i18n("AttributeAnonymizerPanel.error.occurred") + " " + detail,
                             Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setUiEnabled(true);

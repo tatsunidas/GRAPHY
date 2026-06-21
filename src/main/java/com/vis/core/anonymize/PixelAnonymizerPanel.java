@@ -274,7 +274,13 @@ public class PixelAnonymizerPanel extends JPanel {
 					String seUid = series.get(RoiDBKey.SeriesInstanceUID.name());
 					publish(String.format("Masking series (%d/%d): %s", currentSeries, totalSeries, seUid));
 
-					processPixelMaskingToTemp(seUid, tempDir, this);
+					// ★ 1シリーズの読み込み・処理失敗がパイプライン全体を中断させないようにする
+					try {
+						processPixelMaskingToTemp(seUid, tempDir, this);
+					} catch (Exception ex) {
+						Log.logger.severe("Failed to mask series: " + seUid + " (" + ex.getMessage() + ")");
+						publish("Skipped (failed to mask): " + seUid);
+					}
 				}
 
 				if (isCancelled()) {
@@ -285,7 +291,8 @@ public class PixelAnonymizerPanel extends JPanel {
 				publish("Step 2: Anonymizing DICOM attributes and exporting to destination...");
 				DicomAnonymizerEngine engine = new DicomAnonymizerEngine();
 				engine.setProgressListener((current, total, message) -> {
-					int percent = (int) (((double) current / total) * 100);
+					// ★ totalが0の場合の0除算（setProgressの範囲外例外）を防ぐ
+					int percent = total > 0 ? (int) (((double) current / total) * 100) : 0;
 					setProgress(percent);
 					// ★ パーセンテージも文字に含めて publish する
 					publish(String.format("Attribute Anonymizing: %d%% - %s", percent, message));
@@ -330,10 +337,11 @@ public class PixelAnonymizerPanel extends JPanel {
 								Resources.i18n("dialog.title.complete"), JOptionPane.INFORMATION_MESSAGE);
 					}
 				} catch (Exception ex) {
+					String detail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
 					progressBar.setString("Error");
-					Log.logger.severe("Pixel anonymization error: " + ex.getMessage());
+					Log.logger.severe("Pixel anonymization error: " + detail);
 					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
-							Resources.i18n("PixelAnonymizerPanel.error.occurred") + " " + ex.getMessage(),
+							Resources.i18n("PixelAnonymizerPanel.error.occurred") + " " + detail,
 							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 					ex.printStackTrace();
 				}finally {
@@ -374,6 +382,11 @@ public class PixelAnonymizerPanel extends JPanel {
 			com.vis.dicom.DicomObject header = reader.getHeader();
 			com.vis.dicom.DicomObject fmi = reader.getFileMetaInfomation();
 			com.vis.dicom.UID tsuid = reader.checkTSUID();
+
+			// ★ 破損ファイル等でheader/tsuidがnullのまま返るケースを明示的に処理する
+			if (header == null || fmi == null || tsuid == null) {
+				throw new java.io.IOException("Failed to read DICOM file: " + filePath);
+			}
 
 			boolean isMpeg = tsuid.uid().startsWith("1.2.840.10008.1.2.4.10");
 
@@ -460,6 +473,13 @@ public class PixelAnonymizerPanel extends JPanel {
 				reader.read(filePath, true);
 				DicomObject dcm = reader.getHeader();
 				com.vis.dicom.DicomObject fmi = reader.getFileMetaInfomation();
+
+				// ★ 破損ファイル等でheaderがnullのまま返るケースを明示的に処理し、このファイルだけをスキップする
+				if (dcm == null || fmi == null) {
+					Log.logger.warning("Failed to read DICOM file, skipping: " + filePath);
+					continue;
+				}
+
 				String sop = dcm.getString(com.vis.dicom.Tag.SOPInstanceUID);
 				Integer zctIdx = sopToZctMap.get(sop);
 				com.vis.dicom.UID tsuid = reader.checkTSUID();
@@ -950,10 +970,11 @@ public class PixelAnonymizerPanel extends JPanel {
 					updateMaskRoiListForCurrentSeries();
 
 				} catch (Exception ex) {
-					Log.logger.severe("Failed to load series: " + ex.getMessage());
+					String detail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+					Log.logger.severe("Failed to load series: " + detail);
 					ex.printStackTrace();
 					JOptionPane.showMessageDialog(PixelAnonymizerPanel.this,
-							Resources.i18n("PixelAnonymizerPanel.error.loadSeries") + " " + ex.getMessage(),
+							Resources.i18n("PixelAnonymizerPanel.error.loadSeries") + " " + detail,
 							Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
 				} finally {
 					// マウスカーソル等を元に戻す
@@ -1084,10 +1105,11 @@ public class PixelAnonymizerPanel extends JPanel {
 				}
 			}
 
-			JOptionPane.showMessageDialog(
-					this, "Masks successfully applied to " + (targetSeriesList.size() - 1) + " other series.\n"
-							+ "(Total " + copiedCount + " ROIs copied)",
-					"Apply to All", JOptionPane.INFORMATION_MESSAGE);
+			// ★ 既存のi18nキー(PixelAnonymizerPanel.info.maskCopied)が使われていなかったため、正しく利用する
+			String msg = java.text.MessageFormat.format(Resources.i18n("PixelAnonymizerPanel.info.maskCopied"),
+					targetSeriesList.size() - 1, copiedCount);
+			JOptionPane.showMessageDialog(this, msg, Resources.i18n("dialog.title.information"),
+					JOptionPane.INFORMATION_MESSAGE);
 		});
 	}
 
@@ -1197,7 +1219,8 @@ public class PixelAnonymizerPanel extends JPanel {
 				return;
 
 			int result = JOptionPane.showConfirmDialog(this,
-					"Are you sure you want to clear all ROIs in the current series?", "Clear All ROIs",
+					Resources.i18n("PixelAnonymizerPanel.confirm.clearAllRois"),
+					Resources.i18n("PixelAnonymizerPanel.title.clearAllRois"),
 					JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
 			if (result == JOptionPane.YES_OPTION) {
@@ -1389,7 +1412,8 @@ public class PixelAnonymizerPanel extends JPanel {
 								for (SlideGlass sg : allSlides.values()) {
 									List<RoiObj> roisCopy = new ArrayList<>(sg.getRois());
 									for(RoiObj ro: roisCopy) {
-										if(ro.getProperty(RoiDBKey.RoiID).equals(rid)) {
+										// ★ RoiIDが未設定(null)のROIが存在してもNPEにならないようにする
+										if(java.util.Objects.equals(ro.getProperty(RoiDBKey.RoiID), rid)) {
 											sg.deleteRoi(ro);
 										}
 									}

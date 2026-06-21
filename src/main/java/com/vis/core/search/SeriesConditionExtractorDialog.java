@@ -53,6 +53,7 @@ import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomObject;
 import com.vis.dicom.DicomUtilities;
 import com.vis.dicom.TagDict;
 import com.vis.dicom.image.DicomImage;
@@ -94,6 +95,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
     private JCheckBox chkRenameSequential;
     
     private SwingWorker<Void, Object> extractionWorker;
+    // ★ 追加: 検証中のWorkerも追跡し、ウィンドウを閉じる際の確認対象に含める
+    private SwingWorker<?, ?> verificationWorker;
     
     //ADMIN_TAGS is keep empty.
     private static final List<String> ADMIN_TAGS = java.util.Arrays.asList();
@@ -367,24 +370,28 @@ public class SeriesConditionExtractorDialog extends JDialog {
     }
     
     private void checkSureInterruption() {
-        // パターンA: 抽出処理が実行中の場合
+        // パターンA: 抽出処理または検証処理が実行中の場合
+        SwingWorker<?, ?> runningWorker = null;
         if (extractionWorker != null && !extractionWorker.isDone()) {
-            String msg = "Would you cancel the current extraction process?\n\n";
-            msg += "[YES] -> Cancel extraction & copy.\n";
-            msg += "[NO] -> Return to window and continue process.";
-            
+            runningWorker = extractionWorker;
+        } else if (verificationWorker != null && !verificationWorker.isDone()) {
+            runningWorker = verificationWorker;
+        }
+
+        if (runningWorker != null) {
             // YES / NO の2択ボタンにする
-            int res = JOptionPane.showConfirmDialog(this, msg, "Confirm Cancel", 
+            int res = JOptionPane.showConfirmDialog(this, Resources.i18n("SeriesConditionExtractorDialog.confirm.cancelExtraction"),
+                    Resources.i18n("SeriesConditionExtractorDialog.title.confirmCancel"),
                     JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            
+
             if (res == JOptionPane.YES_OPTION) {
-                extractionWorker.cancel(true); // 即座に割り込み
+                runningWorker.cancel(true); // 即座に割り込み
                 this.dispose(); // キャンセルした場合のみ画面を閉じる
             }
             // NOの場合は何もしない（画面は開いたまま、裏の処理も継続される）
-            
+
         } else {
-            // パターンB: 抽出処理が動いていない（開始前 or 完了後）場合
+            // パターンB: 抽出処理も検証処理も動いていない（開始前 or 完了後）場合
             this.dispose(); // そのまま安全に画面を閉じる
         }
     }
@@ -594,13 +601,18 @@ public class SeriesConditionExtractorDialog extends JDialog {
                         btnExtract.setEnabled(result.matchedSeries > 0);
                     }
                 } catch (InterruptedException | ExecutionException ex) {
-                    txtVerificationResult.setText("Error during verification: " + ex.getMessage());
+                    String detail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+                    txtVerificationResult.setText("Error during verification: " + detail);
+                } catch (java.util.concurrent.CancellationException ce) {
+                    // ★ ウィンドウを閉じる際にキャンセルされた場合はダイアログが既にdispose済みのため、これ以上UIを触らない
+                    Log.logger.info("SeriesConditionExtractorDialog: Verification was cancelled by the user.");
                 } finally {
                     btnVerify.setEnabled(true);
                     progressBar.setVisible(false); // 終わったら隠す
                 }
             }
         };
+        verificationWorker = worker;
         worker.execute();
     }
 
@@ -635,9 +647,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
 
 			if (conflict) {
 				JOptionPane.showMessageDialog(this,
-						"The selected folder already contains sequential folders (e.g., 001, 002).\n"
-								+ "To prevent data mixing or overwrite errors, please select a different or empty folder.",
-						"Folder Conflict", JOptionPane.WARNING_MESSAGE);
+						Resources.i18n("SeriesConditionExtractorDialog.warn.folderConflict"),
+						Resources.i18n("SeriesConditionExtractorDialog.title.folderConflict"), JOptionPane.WARNING_MESSAGE);
 
 				// 次回「Extract」ボタンを押した時に再度フォルダ選択ダイアログが出るようにリセット
 				destinationFolder = null;
@@ -670,28 +681,36 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 	
                     File repFile = lastVerificationResult.validTargetFiles.get(i);
                     DicomImage dcm = DicomImage.newDicomImage(repFile.getCanonicalPath(), false, backend);
-                    
-                    String uniqueFolderName = ConditionVerifier.generateUniqueFolderName(dcm.getHeader());
-                    File seriesDestDir = new File(destinationFolder, uniqueFolderName);
-                    if (!seriesDestDir.exists()) seriesDestDir.mkdirs();
-                    copiedUniqueFolders.add(seriesDestDir);
+                    // ★ backendの実装によってはnullが返るため、ヘッダ未取得時はこのシリーズをスキップする
+                    DicomObject header = (dcm != null) ? dcm.getHeader() : null;
 
-                    String studyUid = dcm.getHeader().getString(0x0020000D);
-                    String seriesUid = dcm.getHeader().getString(0x0020000E);
-                    List<File> filesToCopy = getSeriesFiles(isTreeTable, studyUid, seriesUid, repFile);
+                    if (header == null) {
+                        String msg = "Skipped (failed to read DICOM file): " + repFile.getAbsolutePath();
+                        Log.logger.warning("SeriesConditionExtractorDialog: " + msg);
+                        publish(msg);
+                    } else {
+                        String uniqueFolderName = ConditionVerifier.generateUniqueFolderName(header);
+                        File seriesDestDir = new File(destinationFolder, uniqueFolderName);
+                        if (!seriesDestDir.exists()) seriesDestDir.mkdirs();
+                        copiedUniqueFolders.add(seriesDestDir);
 
-                    // ★微調整: nullチェックを追加し、安全にループを回す
-                    if (filesToCopy != null) {
-                        for (File srcFile : filesToCopy) {
-                        	if (isCancelled()) {
-                                publish("Extraction was cancelled by the user.");
-                                return null;
+                        String studyUid = header.getString(0x0020000D);
+                        String seriesUid = header.getString(0x0020000E);
+                        List<File> filesToCopy = getSeriesFiles(isTreeTable, studyUid, seriesUid, repFile);
+
+                        // ★微調整: nullチェックを追加し、安全にループを回す
+                        if (filesToCopy != null) {
+                            for (File srcFile : filesToCopy) {
+                                if (isCancelled()) {
+                                    publish("Extraction was cancelled by the user.");
+                                    return null;
+                                }
+                                File destFile = new File(seriesDestDir, srcFile.getName());
+                                Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                             }
-                            File destFile = new File(seriesDestDir, srcFile.getName());
-                            Files.copy(srcFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         }
                     }
-                    publish(i + 1); // 進捗を送信
+                    publish(i + 1); // 進捗を送信（スキップした場合でも進捗は進める）
                 }
 
                 // ★微調整: ログ出力と同時に、UI(テキストエリア)にもメッセージを送る
@@ -767,12 +786,18 @@ public class SeriesConditionExtractorDialog extends JDialog {
                     if(doRename) {
                     	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.done.mapping"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
                     }else {
-                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("DicomTagExtractorDialog.done"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
+                    	JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.done.exported"), Resources.i18n("dialog.title.graphy"), JOptionPane.INFORMATION_MESSAGE);
                     }
                     dispose();
                 } catch (InterruptedException | ExecutionException ex) {
-                    JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.error.extraction") + " " + ex.getMessage(), Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
-                    txtVerificationResult.append("Error: " + ex.getCause().getMessage() + "\n");
+                    Throwable cause = ex.getCause();
+                    String detail = cause != null && cause.getMessage() != null ? cause.getMessage()
+                            : (ex.getMessage() != null ? ex.getMessage() : ex.toString());
+                    JOptionPane.showMessageDialog(SeriesConditionExtractorDialog.this, Resources.i18n("SeriesConditionExtractorDialog.error.extraction") + " " + detail, Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
+                    txtVerificationResult.append("Error: " + detail + "\n");
+                } catch (java.util.concurrent.CancellationException ce) {
+                    // ★ ウィンドウを閉じる際にキャンセルされた場合はダイアログが既にdispose済みのため、これ以上UIを触らない
+                    Log.logger.info("SeriesConditionExtractorDialog: Extraction was cancelled by the user.");
                 } finally {
                     btnExtract.setEnabled(true);
                     btnVerify.setEnabled(true);
@@ -909,7 +934,8 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 if (children != null) {
                     for (File f : children) {
                         if (f.isFile() && DicomUtilities.isDicomFile(f) && !DicomUtilities.isDICOMDIR(f)) {
-                            if (seriesUid.equals(DicomUtilities.getSeriesInstanceUID(f.getAbsolutePath()))) {
+                            // ★ seriesUidがnullの場合でもNPEにならないよう、Objects.equalsで比較する
+                            if (java.util.Objects.equals(seriesUid, DicomUtilities.getSeriesInstanceUID(f.getAbsolutePath()))) {
                                 files.add(f);
                             }
                         }

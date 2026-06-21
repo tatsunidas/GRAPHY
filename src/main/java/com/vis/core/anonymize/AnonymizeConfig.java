@@ -91,6 +91,9 @@ public class AnonymizeConfig {
      * （AdvancedSettingsDialog でのロック状態やベースアクションの表示に使用）
      */
     public DicomTagRule.Action getActionByOptionsAndDefault(DicomTagRule rule) {
+        if (rule == null) {
+            return DicomTagRule.Action.X;
+        }
         DicomTagRule.Action targetAction = null;
 
         // ONになっているオプションの中で、ルールに定義されたアクションを探す
@@ -114,11 +117,16 @@ public class AnonymizeConfig {
      * エンジンが最終的に実行するアクションを決定する（完全版）
      */
     public DicomTagRule.Action determineFinalAction(DicomTagRule rule) {
-    	
+
+        // ★ 辞書に未登録のタグ（ruleがnull）の場合は、安全側に倒して削除(X)とする
+        if (rule == null) {
+            return DicomTagRule.Action.X;
+        }
+
     	// =========================================================
         // 患者IDと患者名の特別ルール（Advanced Settingsを無視して最優先）
         // =========================================================
-        if (rule.getTag() == 0x00100020) { 
+        if (rule.getTag() == 0x00100020) {
             // PatientID (0010,0020) は常に置換(D)
             return DicomTagRule.Action.D;
         }

@@ -15,6 +15,7 @@ import java.awt.event.WindowEvent;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
 import com.vis.core.ui.main.dcmtreetable.DICOMNode;
 
 @SuppressWarnings("serial")
@@ -71,8 +72,8 @@ public class PixelAnonymizerDialog extends JDialog {
         if (anonymizerPanel.isExecuting()) {
             int result = JOptionPane.showConfirmDialog(
                     this,
-                    "Anonymization is currently in progress.\nDo you want to stop the process and close?",
-                    "Confirm Interruption",
+                    Resources.i18n("PixelAnonymizerDialog.confirm.interrupt"),
+                    Resources.i18n("PixelAnonymizerDialog.title.confirmInterrupt"),
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE
             );

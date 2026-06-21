@@ -191,8 +191,8 @@ public class DicomTagExtractorDialog extends JDialog {
 	private void handleClose() {
 		if (isExporting) {
 			int result = JOptionPane.showConfirmDialog(this,
-					"The export process is currently running. Are you sure you want to cancel and close?",
-					"Confirm Exit", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+					Resources.i18n("DicomTagExtractorDialog.confirm.cancelExport"),
+					Resources.i18n("DicomTagExtractorDialog.title.confirmExit"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
 			if (result == JOptionPane.YES_OPTION) {
 				cancelRequested = true; // スレッドに中断を要求
@@ -202,6 +202,23 @@ public class DicomTagExtractorDialog extends JDialog {
 		} else {
 			dispose(); // 実行中でなければそのまま閉じる
 		}
+	}
+
+	// ★ 追加: 実行中ロック対象のUIコンポーネントをまとめて有効/無効化する
+	private void setControlsEnabled(boolean enabled) {
+		btnExport.setEnabled(enabled);
+		btnSelectFolder.setEnabled(enabled);
+		rbTreeTable.setEnabled(enabled);
+		rbFolder.setEnabled(enabled);
+		txtSearch.setEnabled(enabled);
+		listDict.setEnabled(enabled);
+		listSelected.setEnabled(enabled);
+	}
+
+	// ★ 追加: プログレスバーを初期状態（非表示・0）に戻す
+	private void resetProgressBar() {
+		progressBar.setValue(0);
+		progressBar.setVisible(false);
 	}
 
 	private void executeExport() {
@@ -244,8 +261,8 @@ public class DicomTagExtractorDialog extends JDialog {
 			// 上書きチェック
 			if (outputFile.exists()) {
 				JOptionPane.showMessageDialog(this,
-						"The file already exists. Overwriting is not allowed.\nPlease choose a different file name.",
-						"File Already Exists", JOptionPane.WARNING_MESSAGE);
+						Resources.i18n("DicomTagExtractorDialog.warn.fileExists"),
+						Resources.i18n("DicomTagExtractorDialog.title.fileExists"), JOptionPane.WARNING_MESSAGE);
 				// ループが継続し、再度 showSaveDialog が開く
 			} else {
 				fileValid = true; // 存在しないパスが選ばれたのでループ脱出
@@ -272,13 +289,7 @@ public class DicomTagExtractorDialog extends JDialog {
 		}
 
 		// ★ 二重実行を防ぐため、UIコンポーネントをロック（無効化）する
-		btnExport.setEnabled(false);
-		btnSelectFolder.setEnabled(false);
-		rbTreeTable.setEnabled(false);
-		rbFolder.setEnabled(false);
-		txtSearch.setEnabled(false);
-		listDict.setEnabled(false);
-		listSelected.setEnabled(false);
+		setControlsEnabled(false);
 
 		// 2. バックグラウンド処理の開始
 		new Thread(() -> {
@@ -322,6 +333,20 @@ public class DicomTagExtractorDialog extends JDialog {
 				
 				// ★追加：プログレスバーの初期化
 				int totalSeries = targetDicomFiles.size();
+
+				if (totalSeries == 0) {
+					if (csvWriter != null) {
+						csvWriter.close();
+					}
+					SwingUtilities.invokeLater(() -> {
+						JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.warn.noFilesFound"),
+								Resources.i18n("dialog.title.graphy"), JOptionPane.WARNING_MESSAGE);
+						setControlsEnabled(true);
+						resetProgressBar();
+					});
+					return;
+				}
+
 				SwingUtilities.invokeLater(() -> {
 					progressBar.setMaximum(totalSeries);
 					progressBar.setValue(0);
@@ -329,66 +354,29 @@ public class DicomTagExtractorDialog extends JDialog {
 				});
 
 				for (int i =0; i < totalSeries; i++) {
-					
+
 					if (cancelRequested) {
 						Log.logger.info("Extraction process was interrupted.");
 						break; // ループを中断
 					}
-					
+
 					File dcmFile = targetDicomFiles.get(i);
-					StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
-					DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(),false, backend);
-					DicomObject header = dcm.getHeader();
-
-					// ★抽出対象の全リスト（管理タグ + ユーザー指定タグ）を連結
-					List<String> totalTags = new ArrayList<>(ADMIN_TAGS);
-					totalTags.addAll(tagsToExtract);
-
-					for (String tagStr : totalTags) {
-						String val = "N/A";
-						if (header != null) {
-							try {
-								String[] pathParts = tagStr.split(" > ");
-								DicomObject currentObj = header;
-								
-								for (int j = 0; j < pathParts.length; j++) {
-									String hexTag = pathParts[j].substring(0, 9).replace(",", "");
-									int tagInt = Integer.parseUnsignedInt(hexTag, 16);
-									
-									if (j == pathParts.length - 1) {
-										String[] vals = currentObj.getStrings(tagInt);
-										if (vals != null && vals.length > 0) {
-											val = String.join("\\", vals);
-										} else {
-											String singleVal = currentObj.getString(tagInt);
-											if (singleVal != null) val = singleVal;
-										}
-									} else {
-										currentObj = currentObj.getNestedDataset(tagInt);
-										if (currentObj == null) break;
-									}
-								}
-							} catch (Exception e) {
-								val = "ERROR";
-							}
-						}
-						row.append(",\"").append(val.replace("\"", "\"\"")).append("\"");
+					// ★ 1ファイルの読み込み失敗が全体を中断させないよう、ファイル単位で例外を処理する
+					try {
+						csvWriter.println(buildCsvRow(dcmFile, backend, tagsToExtract));
+					} catch (Exception e) {
+						errorLog.add("Error: Failed to read DICOM file: " + dcmFile.getAbsolutePath() + " (" + e.getMessage() + ")");
 					}
-					csvWriter.println(row.toString());
+
 					// プログレスバーの更新
 					final int currentProgress = i + 1;
 					SwingUtilities.invokeLater(() -> progressBar.setValue(currentProgress));
 				}
-				
-				/*
-				 *ここまで処理できていたら、ほぼ完了なので、最後まで実行する 
-				 */
-//				if (cancelRequested) {
-//					Log.logger.info("Extraction process was interrupted.");
-//					return;
-//				}
-				
-				// ログの書き出し処理
+
+				// ★ ループ終了直後の状態を確定させる（後続のEDT処理中にフラグが変化しないようにするため）
+				final boolean wasCancelled = cancelRequested;
+
+				// ログの書き出し処理（キャンセル時でも、それまでの処理結果は残す）
 				if (!errorLog.isEmpty()) {
 					File logFile = new File(finalOutputFile.getAbsolutePath().replace(".csv", "_log.txt"));
 					try (PrintWriter logWriter = new PrintWriter(new FileWriter(logFile))) {
@@ -399,7 +387,7 @@ public class DicomTagExtractorDialog extends JDialog {
 						Log.logger.warning("DicomTagExtractorDialog: Failed to write log file: " + e.getMessage());
 					}
 				}
-				
+
 				// CSVと同じ階層に出力したタグリストが記録された .propertiesファイル を自動出力
 				File propFile = new File(finalOutputFile.getAbsolutePath().replace(".csv", ".properties"));
 				java.util.Properties props = new java.util.Properties();
@@ -410,28 +398,29 @@ public class DicomTagExtractorDialog extends JDialog {
 					props.store(fw, "DICOM Tag Extractor Profile");
 				}
 
-				// 3. 完了通知（UIスレッドに戻す）
-				SwingUtilities.invokeLater(() -> {
-					String msg = "Export successfully completed!\n" + finalOutputFile.getAbsolutePath();
-					if (!errorLog.isEmpty()) {
-						msg += "\n\n(See _log.txt for warnings/errors.)";
-					}
-					JOptionPane.showMessageDialog(this, msg);
-					dispose();
-				});
+				if (wasCancelled) {
+					// ★ キャンセル時はダイアログが既にdispose済みのため、これ以上UIを触らない
+					Log.logger.info("Extraction process was cancelled by the user. Partial output saved to: " + finalOutputFile.getAbsolutePath());
+				} else {
+					// 3. 完了通知（UIスレッドに戻す）
+					SwingUtilities.invokeLater(() -> {
+						String msg = "Export successfully completed!\n" + finalOutputFile.getAbsolutePath();
+						if (!errorLog.isEmpty()) {
+							msg += "\n\n(See _log.txt for warnings/errors.)";
+						}
+						JOptionPane.showMessageDialog(this, msg);
+						dispose();
+					});
+				}
 			} catch (Exception ex) {
 				if (!cancelRequested) {
 					Log.logger.warning("DicomTagExtractorDialog: " + ex.getMessage());
 					SwingUtilities.invokeLater(() -> {
-						JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.export") + " " + ex.getMessage(), Resources.i18n("dialog.title.error"),
+						String detail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+						JOptionPane.showMessageDialog(this, Resources.i18n("DicomTagExtractorDialog.error.export") + " " + detail, Resources.i18n("dialog.title.error"),
 							JOptionPane.ERROR_MESSAGE);
-						btnExport.setEnabled(true);
-						btnSelectFolder.setEnabled(true);
-						rbTreeTable.setEnabled(true);
-						rbFolder.setEnabled(true);
-						txtSearch.setEnabled(true);
-						listDict.setEnabled(true);
-						listSelected.setEnabled(true);
+						setControlsEnabled(true);
+						resetProgressBar();
 					});
 				}
 			}finally {
@@ -442,6 +431,51 @@ public class DicomTagExtractorDialog extends JDialog {
 				isExporting = false; 
 			}
 		}).start();
+	}
+
+	// ★ 追加: 1ファイル分のCSV行を構築する。backendの実装によってはDicomImageがnullを返すため、
+	// その場合はheaderもnull扱いとし、各タグの値は既存ロジックの"N/A"フォールバックに委ねる。
+	private String buildCsvRow(File dcmFile, DICOMBackend backend, List<String> tagsToExtract) throws java.io.IOException {
+		StringBuilder row = new StringBuilder(dcmFile.getCanonicalPath());
+
+		DicomImage dcm = DicomImage.newDicomImage(dcmFile.getCanonicalPath(), false, backend);
+		DicomObject header = (dcm != null) ? dcm.getHeader() : null;
+
+		// ★抽出対象の全リスト（管理タグ + ユーザー指定タグ）を連結
+		List<String> totalTags = new ArrayList<>(ADMIN_TAGS);
+		totalTags.addAll(tagsToExtract);
+
+		for (String tagStr : totalTags) {
+			String val = "N/A";
+			if (header != null) {
+				try {
+					String[] pathParts = tagStr.split(" > ");
+					DicomObject currentObj = header;
+
+					for (int j = 0; j < pathParts.length; j++) {
+						String hexTag = pathParts[j].substring(0, 9).replace(",", "");
+						int tagInt = Integer.parseUnsignedInt(hexTag, 16);
+
+						if (j == pathParts.length - 1) {
+							String[] vals = currentObj.getStrings(tagInt);
+							if (vals != null && vals.length > 0) {
+								val = String.join("\\", vals);
+							} else {
+								String singleVal = currentObj.getString(tagInt);
+								if (singleVal != null) val = singleVal;
+							}
+						} else {
+							currentObj = currentObj.getNestedDataset(tagInt);
+							if (currentObj == null) break;
+						}
+					}
+				} catch (Exception e) {
+					val = "ERROR";
+				}
+			}
+			row.append(",\"").append(val.replace("\"", "\"\"")).append("\"");
+		}
+		return row.toString();
 	}
 
 	// --- ファイル収集用のヘルパーメソッド群 ---

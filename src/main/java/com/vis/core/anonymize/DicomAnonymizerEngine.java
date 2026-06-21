@@ -37,9 +37,10 @@ public class DicomAnonymizerEngine {
 
     // =========================================================================
     // 高速検索用のルールマップ (O(1) でのルール検索用)
+    // ★ AnonymizeTagDictionary.RULE_MAP と内容が同一になる重複Mapだったため、
+    //   そちらを直接参照するように統一した（二重管理による不整合を防止）
     // =========================================================================
-    private static final Map<Integer, DicomTagRule> RULE_MAP = new HashMap<>();
-    
+
     // ★ 追加: 匿名化の対象外とする（絶対に保護する）DICOM必須UIDのリスト
     private static final Set<Integer> PROTECTED_UIDS = new HashSet<>(Arrays.asList(
             Tag.TransferSyntaxUID,          // (0002,0010)
@@ -49,13 +50,6 @@ public class DicomAnonymizerEngine {
             Tag.RelatedGeneralSOPClassUID,  // (0008,001A)
             Tag.OriginalSpecializedSOPClassUID // (0008,001B)
     ));
-    
-    static {
-        // クラスロード時にTAG_RULESをHashMapに変換しておく
-        for (DicomTagRule rule : AnonymizeTagDictionary.TAG_RULES) {
-            RULE_MAP.put(rule.getTag(), rule);
-        }
-    }
 
     // =========================================================================
     // 内部マッピング用クラス群 (ツリー構造)
@@ -146,6 +140,12 @@ public class DicomAnonymizerEngine {
                 reader.read(f.getCanonicalPath(), true);
                 DicomObject dataset = reader.getHeader();
 
+                // ★ 破損ファイルや非DICOM相当のファイルではheaderがnullのまま返るため、明示的にスキップする
+                if (dataset == null) {
+                    Log.logger.log(Level.WARNING, "Failed to read DICOM header, skipping: " + f.getName());
+                    continue;
+                }
+
                 String origPatId_ = dataset.getString(Tag.PatientID);
                 if (origPatId_ == null || origPatId_.trim().isEmpty()) origPatId_ = "UNKNOWN";
                 final String origPatId = origPatId_;
@@ -159,9 +159,9 @@ public class DicomAnonymizerEngine {
                     continue;
                 }
                 
-                boolean retainStudyUid = config.determineFinalAction(RULE_MAP.get(Tag.StudyInstanceUID)) == DicomTagRule.Action.K;
-                boolean retainSeriesUid = config.determineFinalAction(RULE_MAP.get(Tag.SeriesInstanceUID)) == DicomTagRule.Action.K;
-                boolean retainSopUid = config.determineFinalAction(RULE_MAP.get(Tag.SOPInstanceUID)) == DicomTagRule.Action.K;
+                boolean retainStudyUid = config.determineFinalAction(AnonymizeTagDictionary.RULE_MAP.get(Tag.StudyInstanceUID)) == DicomTagRule.Action.K;
+                boolean retainSeriesUid = config.determineFinalAction(AnonymizeTagDictionary.RULE_MAP.get(Tag.SeriesInstanceUID)) == DicomTagRule.Action.K;
+                boolean retainSopUid = config.determineFinalAction(AnonymizeTagDictionary.RULE_MAP.get(Tag.SOPInstanceUID)) == DicomTagRule.Action.K;
 
                 // Patient レベル
                 PatientMapping pMap = patientTree.computeIfAbsent(origPatId, k -> {
@@ -177,9 +177,8 @@ public class DicomAnonymizerEngine {
                     stMap = new StudyMapping();
                     stMap.origStudyUid = origStudyUid;
                     // 保持(K)ならオリジナルUIDをそのまま使い、それ以外なら新規発行する
-                    stMap.newStudyUid = globalUidMap.computeIfAbsent(origStudyUid, 
+                    stMap.newStudyUid = globalUidMap.computeIfAbsent(origStudyUid,
                             k -> retainStudyUid ? origStudyUid : UIDUtils.createUID());
-                    stMap.newStudyUid = globalUidMap.computeIfAbsent(origStudyUid, k -> UIDUtils.createUID());
                     stMap.studyDate = dataset.getString(Tag.StudyDate);
                     stMap.studyTime = dataset.getString(Tag.StudyTime);
                     stMap.modality = dataset.getString(Tag.Modality);
@@ -303,6 +302,13 @@ public class DicomAnonymizerEngine {
 							DicomObject fmi = reader.getFileMetaInfomation();
 							DicomObject dataset = reader.getHeader();
 
+							// ★ 破損ファイル等でheader/fmiがnullのまま返るケースを明示的に処理する
+							if (dataset == null || fmi == null) {
+								Log.logger.log(Level.SEVERE, "Failed to read DICOM file, skipping: " + iMap.sourceFile.getName());
+								notifyProgress(processedCount, totalFiles, "Failed (unreadable file): " + iMap.sourceFile.getName());
+								continue;
+							}
+
 							deidentify(dataset, config, pMap, globalUidMap);
 
 							String tsuid = fmi.getString(Tag.TransferSyntaxUID);
@@ -413,7 +419,7 @@ public class DicomAnonymizerEngine {
 				continue;
 			VR vr = vrTypes[0];
 
-			DicomTagRule rule = RULE_MAP.get(tag); // ★ O(1)で高速検索
+			DicomTagRule rule = AnonymizeTagDictionary.RULE_MAP.get(tag); // ★ O(1)で高速検索
 			
 			// ==========================================================
 			// ★ ステップ1: タグに対する「最終アクション」を確定する
@@ -713,30 +719,20 @@ public class DicomAnonymizerEngine {
 					"Original PatientID,Original PatientName,StudyDate,StudyTime,Modality,Original StudyInstUID,New PatientName,New PatientID,New StudyInstUID");
 
 			for (CsvRecord r : records) {
-				pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n", r.origPatId,
-						r.origPatName, r.studyDate, r.studyTime, r.modality, r.origStudyUid, r.newPatName, r.newPatId,
-						r.newStudyUid);
+				// ★ フィールドがnullの場合、CSVに文字列"null"が出力されてしまうのを防ぐ
+				pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n", nullToEmpty(r.origPatId),
+						nullToEmpty(r.origPatName), nullToEmpty(r.studyDate), nullToEmpty(r.studyTime), nullToEmpty(r.modality),
+						nullToEmpty(r.origStudyUid), nullToEmpty(r.newPatName), nullToEmpty(r.newPatId),
+						nullToEmpty(r.newStudyUid));
 			}
 		} catch (IOException e) {
 			Log.logger.log(Level.SEVERE, "Failed to write CSV mapping.", e);
 		}
 	}
 
-//    private void writeCsvMapping(File destDir, List<CsvRecord> records) {
-//        File csvFile = new File(destDir, "Anonymize_Mapping.csv");
-//        try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(csvFile), "UTF-8"))) {
-//            pw.write('\ufeff'); // BOM
-//            pw.println("Original PatientID,Original PatientName,StudyDate,StudyTime,Modality,Original StudyInstUID,New PatientName,New PatientID,New StudyInstUID");
-//            
-//            for (CsvRecord r : records) {
-//                pw.printf("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
-//                        r.origPatId, r.origPatName, r.studyDate, r.studyTime, r.modality, r.origStudyUid,
-//                        r.newPatName, r.newPatId, r.newStudyUid);
-//            }
-//        } catch (IOException e) {
-//            Log.logger.log(Level.SEVERE, "Failed to write CSV mapping.", e);
-//        }
-//    }
+	private static String nullToEmpty(String s) {
+		return s != null ? s : "";
+	}
 
     private List<File> findAllDicomFiles(File dir) {
         List<File> results = new ArrayList<>();
