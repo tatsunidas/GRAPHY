@@ -1,5 +1,8 @@
 # DICOM Viewer/Workstation
 
+# User Manual
+https://tatsunidas.github.io/GRAPHY/
+
 # Core Features
 
 - DICOM I/O (Local DIMSE)
