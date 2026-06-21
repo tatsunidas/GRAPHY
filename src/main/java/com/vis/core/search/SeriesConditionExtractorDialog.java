@@ -108,7 +108,9 @@ public class SeriesConditionExtractorDialog extends JDialog {
         if (mainScreen != null) {
             this.cachedSelectedNodes = mainScreen.getSelectedNode();
             if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
-                int res = JOptionPane.showConfirmDialog(this, Resources.i18n("SeriesConditionExtractorDialog.confirm.noSelection"));
+                // "this" has no peer yet at construction time (same issue as
+                // DicomTagExtractorDialog) - anchor on the realized parent instead.
+                int res = JOptionPane.showConfirmDialog(parent, Resources.i18n("SeriesConditionExtractorDialog.confirm.noSelection"));
                 if(res != JOptionPane.YES_OPTION) {
 					/*
 					 * ここでそのままdisposeするとフリーズする。 

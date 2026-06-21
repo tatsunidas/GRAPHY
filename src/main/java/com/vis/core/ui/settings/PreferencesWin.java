@@ -38,6 +38,8 @@
 package com.vis.core.ui.settings;
 
 import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -67,6 +69,22 @@ public class PreferencesWin extends JFrame{
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setLocationRelativeTo(WindowManager.getMainScreen());
 		pack();
+		/*
+		 * DISPOSE_ON_CLOSE destroys the native peer, but the static singleton
+		 * reference below would otherwise keep pointing at this now-invalid
+		 * Frame. A stale Frame left in Frame.getFrames() with no peer makes
+		 * any later modal Dialog.setVisible(true) throw
+		 * "IllegalArgumentException: Window must not be zero" while AWT
+		 * walks all frames to set up modal blocking. Clear it on close so
+		 * getInstance() creates a fresh window next time.
+		 */
+		addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosed(WindowEvent e) {
+				WindowManager.removeWindow(PreferencesWin.this);
+				prefWin = null;
+			}
+		});
 	}
 	
 	public static PreferencesWin getInstance() {

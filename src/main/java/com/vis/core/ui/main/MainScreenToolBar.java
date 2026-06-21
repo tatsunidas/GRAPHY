@@ -341,9 +341,7 @@ public class MainScreenToolBar extends JToolBar {
 					/* if showing, show to top, else, create new window */
 					Frame[] allFrames = Frame.getFrames();
 					for (Frame fr : allFrames) {
-						String specificFrameName = fr.getClass().getName();
-						if (specificFrameName.equals("com.vis.environment.PreferencesWin")) {
-							// close the frame
+						if (fr instanceof PreferencesWin) {
 							if (fr.isShowing()) {
 								fr.toFront();
 								return;

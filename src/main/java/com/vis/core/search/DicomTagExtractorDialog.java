@@ -105,7 +105,13 @@ public class DicomTagExtractorDialog extends JDialog {
 		if (mainScreen != null) {
 			this.cachedSelectedNodes = mainScreen.getSelectedNode();
 			if (this.cachedSelectedNodes == null || this.cachedSelectedNodes.isEmpty()) {
-				int res = JOptionPane.showConfirmDialog(this, Resources.i18n("DicomTagExtractorDialog.confirm.noSelection"));
+				/*
+				 * "this" dialog has not been shown yet at this point in the constructor,
+				 * so it has no X11 window/peer. Passing it as the JOptionPane parent makes
+				 * AWT throw "IllegalArgumentException: Window must not be zero" while
+				 * setting up modal blocking. Anchor on the already-realized parent instead.
+				 */
+				int res = JOptionPane.showConfirmDialog(parent, Resources.i18n("DicomTagExtractorDialog.confirm.noSelection"));
 				if(res != JOptionPane.YES_OPTION) {
 					/*
 					 * ここでそのままdisposeするとフリーズする。 

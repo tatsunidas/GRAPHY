@@ -263,7 +263,14 @@ public class SlicerWindow extends JFrame {
 	private void init() {
 		srcCutSurface = ImageOrientation.getCutSurface(imp);
 
-		final javax.swing.JDialog progressDialog = new javax.swing.JDialog((java.awt.Frame) null, "MPR Initializing", true);
+		/*
+		 * A modal JDialog with a null owner relies on AWT's internal shared-owner
+		 * Frame, which is not always realized (no X11 window) by the time
+		 * setVisible(true) sets up modal blocking here - that throws
+		 * "IllegalArgumentException: Window must not be zero". Anchor on the
+		 * already-realized main screen instead.
+		 */
+		final javax.swing.JDialog progressDialog = new javax.swing.JDialog(WindowManager.getMainScreen(), "MPR Initializing", true);
 		final javax.swing.JProgressBar progressBar = new javax.swing.JProgressBar(0, 100);
 		final javax.swing.JLabel progressLabel = new javax.swing.JLabel("Initializing volume...");
 

@@ -1607,7 +1607,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 		// 1. 基本パラメータの計算
 		Dimension orgDim = sg.getOriginalImageSize();
+		if (orgDim == null || orgDim.height <= 0 || orgDim.width <= 0 || getWidth() <= 0 || getHeight() <= 0)
+			return; // コンポーネントや画像サイズが未確定（リサイズ中など）の場合は描画をスキップする
 		double viewScale = (double) getHeight() / orgDim.height; // 現在の表示倍率
+		if (!Double.isFinite(viewScale) || viewScale <= 0)
+			return;
 
 		// 2. 単位とスペーシングの決定
 		String rawUnit = sg.getPixelSpacingUnit();
@@ -1731,6 +1735,11 @@ public class CanvasGlass extends javax.swing.JPanel {
 		// ※厳密に0.1mm単位などを描画したい場合はループのステップを変更する必要があります。
 
 		int totalUnits = (int) targetPhysicalSize;
+		// 異常な拡大率や画像サイズによって totalUnits が極端に大きくなり、
+		// 描画ループが暴走して EDT をフリーズさせることがあるため、安全な上限を設ける。
+		final int MAX_TICKS = 2000;
+		if (totalUnits > MAX_TICKS)
+			totalUnits = MAX_TICKS;
 
 		if (totalUnits > 0) {
 			for (int i = 1; i < totalUnits; i++) {
