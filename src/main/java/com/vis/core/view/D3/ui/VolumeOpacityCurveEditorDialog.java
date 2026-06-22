@@ -47,8 +47,9 @@ public class VolumeOpacityCurveEditorDialog extends JDialog {
 		int[] histogram = (vol != null) ? vol.computeHistogram(256) : new int[256];
 		float dataMin = (vol != null) ? vol.minVal : 0f;
 		float dataMax = (vol != null) ? vol.maxVal : 255f;
+		ij.measure.Calibration calibration = (vol != null) ? vol.calibration : null;
 
-		curvePanel = new OpacityCurvePanel(histogram, dataMin, dataMax, sharedPoints);
+		curvePanel = new OpacityCurvePanel(histogram, dataMin, dataMax, sharedPoints, calibration);
 		curvePanel.setOnChange(this::applyCurve);
 
 		JPanel root = new JPanel(new BorderLayout(8, 8));

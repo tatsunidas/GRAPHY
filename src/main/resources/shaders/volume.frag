@@ -107,7 +107,9 @@ void main() {
         // --- レンダリングモードに応じた処理 ---
         if (uRenderMode == 0) {
             // --- MIP (最大値投影) ---
-            if(val > maxVal) {
+            // 不透明度カーブで0にされた値域は投影の対象から除外する。
+            // (VRモードのアルファ合成と同様、カーブでコントラストを制限できるようにする)
+            if (srcColor.a > 0.0 && val > maxVal) {
                 maxVal = val;
             }
         } else {

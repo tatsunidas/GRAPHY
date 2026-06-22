@@ -6,6 +6,8 @@ package com.vis.core.view.D3.ui; // パッケージ名は環境に合わせて�
 
 import com.vis.core.view.D3.roi.FreeFormRoi3D;
 
+import ij.measure.Calibration;
+
 public class VolumeData {
 
 	// データ型を定義する列挙型（DOUBLEはFLOATとして扱う）
@@ -35,6 +37,24 @@ public class VolumeData {
 	// float型データにも対応できるよう、最小・最大値は float に変更
 	public float minVal;
 	public float maxVal;
+
+	/**
+	 * Density/value calibration (e.g. DICOM RescaleSlope/Intercept -> HU),
+	 * set by VolumeLoader from the source ImagePlus when available. minVal/
+	 * maxVal and computeHistogram() stay in raw voxel units; use
+	 * calibration.getCValue(raw) to convert a raw value for display.
+	 */
+	public Calibration calibration;
+
+	/** True if calibration is set and actually carries a value function (not just spatial). */
+	public boolean isValueCalibrated() {
+		return calibration != null && calibration.calibrated();
+	}
+
+	/** Converts a raw voxel value to its calibrated equivalent (e.g. HU), or returns it unchanged if uncalibrated. */
+	public double toCalibrated(double rawValue) {
+		return isValueCalibrated() ? calibration.getCValue(rawValue) : rawValue;
+	}
 
 	// ==========================================
 	// コンストラクタのオーバーロード

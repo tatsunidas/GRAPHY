@@ -118,7 +118,55 @@ public class ViewerMenu extends JMenuBar {
 			}
 		});
 		mnImage.add(mntmWWWL);
-		
+
+		JMenuItem mntmCurvedMpr = new JMenuItem("Curved MPR...");
+		mntmCurvedMpr.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if(own == null) {
+					Log.logger.info("Ouch, viewer is null...");
+					return;
+				}
+				ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+				for(Praparat pp : selectedPraps) {
+					try {
+						CurvedMprDialog.showDialog(pp, own);
+					} catch (Exception e1) {
+						e1.printStackTrace();
+					}
+					//do just first pp.
+					break;
+				}
+			}
+		});
+		mnImage.add(mntmCurvedMpr);
+
+		JMenu mnProcess = new JMenu("Process");
+		add(mnProcess);
+		JMenuItem mntmHistogram = new JMenuItem("Histogram...");
+		mntmHistogram.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if(own == null) {
+					Log.logger.info("Ouch, viewer is null...");
+					return;
+				}
+				ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+				for(Praparat pp : selectedPraps) {
+					try {
+						HistogramDialog.showDialog(pp, own);
+					} catch (Exception e1) {
+						e1.printStackTrace();
+					}
+					//do just first pp.
+					break;
+				}
+			}
+		});
+		mnProcess.add(mntmHistogram);
+
 		pluginMenu = new JMenu("Plugins");
 		add(pluginMenu);
 		updatePluginsMenuItem();

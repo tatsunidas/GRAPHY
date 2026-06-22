@@ -125,9 +125,13 @@ public class NonDicomImportOrchestrator {
             SwingUtilities.invokeLater(() -> pm.setProgress(100));
 
         } finally {
-            // エラー時も含め、確実にダイアログを閉じる
+            // エラー時も含め、確実にダイアログを閉じる。
+            // setProgress/setNoteと同様、ProgressMonitorの操作は必ずEDTで行う必要がある。
+            // ここだけバックグラウンドスレッドから直接close()していたため、EDT側で進行中の
+            // ダイアログ生成処理と競合してNullPointerException (ProgressMonitor.close()内)
+            // になることがあった。
             if (pm != null) {
-                pm.close();
+                SwingUtilities.invokeLater(pm::close);
             }
         }
     }

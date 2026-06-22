@@ -20,12 +20,19 @@ import java.util.List;
 
 import javax.swing.JPanel;
 
+import ij.measure.Calibration;
+
 /**
  * Draws the voxel value histogram of the current volume and an editable
  * opacity-vs-value curve on top of it. The curve is defined by a small list
  * of draggable control points (value 0-255, opacity 0-1); values in between
  * are linearly interpolated when the curve is resolved to a 256-entry byte
  * array for upload to the GPU LUT texture.
+ *
+ * Histogram bins and control point values are always in raw voxel units;
+ * only the axis tick labels are converted through {@code calibration} (when
+ * present) so the displayed numbers match calibrated units (e.g. CT/HU)
+ * instead of the underlying raw pixel value.
  */
 public class OpacityCurvePanel extends JPanel {
 
@@ -51,6 +58,7 @@ public class OpacityCurvePanel extends JPanel {
 	private final int[] histogram; // 256 raw bin counts
 	private final float dataMin;
 	private final float dataMax;
+	private final Calibration calibration; // may be null (no value calibration available)
 	private int histogramDisplayMax = 1; // peak-clipped, for bar scaling
 
 	private final List<ControlPoint> points;
@@ -58,14 +66,28 @@ public class OpacityCurvePanel extends JPanel {
 	private Runnable onChange;
 
 	public OpacityCurvePanel(int[] histogram, float dataMin, float dataMax, List<ControlPoint> initialPoints) {
+		this(histogram, dataMin, dataMax, initialPoints, null);
+	}
+
+	public OpacityCurvePanel(int[] histogram, float dataMin, float dataMax, List<ControlPoint> initialPoints,
+			Calibration calibration) {
 		this.histogram = histogram;
 		this.dataMin = dataMin;
 		this.dataMax = dataMax;
+		this.calibration = calibration;
 		this.points = initialPoints;
 		computeHistogramDisplayMax();
 		setBackground(Color.BLACK);
 		setPreferredSize(new Dimension(560, 260));
 		installMouseHandlers();
+	}
+
+	/** Converts a raw axis value to calibrated units (e.g. HU) when a value calibration is available. */
+	private float toDisplayValue(float rawValue) {
+		if (calibration != null && calibration.calibrated()) {
+			return (float) calibration.getCValue(rawValue);
+		}
+		return rawValue;
 	}
 
 	public void setOnChange(Runnable onChange) {
@@ -82,8 +104,7 @@ public class OpacityCurvePanel extends JPanel {
 	 */
 	public byte[] resolveTo256() {
 		byte[] out = new byte[256];
-		List<ControlPoint> sorted = new ArrayList<>(points);
-		Collections.sort(sorted, Comparator.comparingInt(p -> p.value));
+		List<ControlPoint> sorted = sortedPoints();
 		for (int i = 0; i < sorted.size() - 1; i++) {
 			ControlPoint a = sorted.get(i);
 			ControlPoint b = sorted.get(i + 1);
@@ -193,7 +214,7 @@ public class OpacityCurvePanel extends JPanel {
 			int x = left + plotW * i / 4;
 			float val = dataMin + (dataMax - dataMin) * i / 4f;
 			g2.drawLine(x, bottom, x, bottom + 4);
-			String label = formatValue(val);
+			String label = formatValue(toDisplayValue(val));
 			int labelW = g2.getFontMetrics().stringWidth(label);
 			g2.drawString(label, Math.max(0, x - labelW / 2), bottom + 18);
 		}
@@ -201,8 +222,7 @@ public class OpacityCurvePanel extends JPanel {
 		g2.drawString("0.0", 4, bottom);
 
 		// Curve.
-		List<ControlPoint> sorted = new ArrayList<>(points);
-		Collections.sort(sorted, Comparator.comparingInt(p -> p.value));
+		List<ControlPoint> sorted = sortedPoints();
 		g2.setColor(Color.YELLOW);
 		g2.setStroke(new BasicStroke(1.8f));
 		for (int i = 0; i < sorted.size() - 1; i++) {
@@ -242,6 +262,17 @@ public class OpacityCurvePanel extends JPanel {
 		return -1;
 	}
 
+	/**
+	 * points is kept in insertion order (new points are appended), not value
+	 * order, so "first/last" must be resolved by sorted position - never by
+	 * raw list index, which only reflects creation order.
+	 */
+	private List<ControlPoint> sortedPoints() {
+		List<ControlPoint> sorted = new ArrayList<>(points);
+		Collections.sort(sorted, Comparator.comparingInt(p -> p.value));
+		return sorted;
+	}
+
 	private void installMouseHandlers() {
 		addMouseListener(new MouseAdapter() {
 			@Override
@@ -249,12 +280,16 @@ public class OpacityCurvePanel extends JPanel {
 				int idx = findPointAt(e.getX(), e.getY());
 				if (e.getButton() == MouseEvent.BUTTON3) {
 					// Right-click an existing interior point removes it; the
-					// two endpoints (first/last) are kept so the curve always
-					// spans the full value range.
-					if (idx > 0 && idx < points.size() - 1) {
-						points.remove(idx);
-						repaint();
-						fireChange();
+					// two endpoints (first/last by value, not by list index)
+					// are kept so the curve always spans the full value range.
+					if (idx >= 0) {
+						List<ControlPoint> sorted = sortedPoints();
+						int sortedIdx = sorted.indexOf(points.get(idx));
+						if (sortedIdx > 0 && sortedIdx < sorted.size() - 1) {
+							points.remove(idx);
+							repaint();
+							fireChange();
+						}
 					}
 					return;
 				}
@@ -279,10 +314,17 @@ public class OpacityCurvePanel extends JPanel {
 			public void mouseDragged(MouseEvent e) {
 				if (draggingIndex < 0) return;
 				ControlPoint p = points.get(draggingIndex);
-				int minValue = (draggingIndex == 0) ? 0 : points.get(draggingIndex - 1).value + 1;
-				int maxValue = (draggingIndex == points.size() - 1) ? 255 : points.get(draggingIndex + 1).value - 1;
-				if (draggingIndex == 0) minValue = maxValue = 0; // first point pinned at value 0
-				if (draggingIndex == points.size() - 1) minValue = maxValue = 255; // last point pinned at 255
+
+				// Bound the drag by this point's neighbors *by value*, not by
+				// its position in the (creation-ordered) points list.
+				List<ControlPoint> sorted = sortedPoints();
+				int sortedIdx = sorted.indexOf(p);
+				boolean isFirst = sortedIdx <= 0;
+				boolean isLast = sortedIdx >= sorted.size() - 1;
+				int minValue = isFirst ? 0 : sorted.get(sortedIdx - 1).value + 1;
+				int maxValue = isLast ? 255 : sorted.get(sortedIdx + 1).value - 1;
+				if (isFirst) minValue = maxValue = 0; // first point pinned at value 0
+				if (isLast) minValue = maxValue = 255; // last point pinned at 255
 				int newValue = Math.max(minValue, Math.min(maxValue, xToValue(e.getX())));
 				p.value = newValue;
 				p.opacity = yToOpacity(e.getY());

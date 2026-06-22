@@ -489,7 +489,10 @@ public class VolumeRenderer {
 
 		glEnable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
-		
+		// 不透明度カーブのアルファをスライス表示にも反映させる (VRモードと同様のブレンド)
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 		boolean actuallyShowRoi = orthoShowRoi && (roiTextureId != -1);
 		glUniform1i(sliceShowRoiLoc, actuallyShowRoi ? 1 : 0);
 

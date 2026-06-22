@@ -975,6 +975,29 @@ public class Praparat extends JPanel {
 
 		Log.logger.info("Auto-detected Dimensions -> Slices: " + nSlices + ", Channels: " + nChannels);
 
+		// ★ チャンネル(C)を、Zグループ内のソート順(i)ではなく、ファイル自身が持つ
+		// SeriesInstanceUID（チャンネルごとに別シリーズとして撮像/再構成されるのが一般的）
+		// から決定する。i は「そのZ位置で何番目に並んだか」でしかなく、Z位置ごとに
+		// ソート順（InstanceNumber等）の相対関係が変わるデータでは、同じcでも
+		// Zが変わると実体は別チャンネルを指したり、特定のcだけ常に同じ実体を指す、
+		// といった不整合が起きる。SeriesInstanceUIDで綺麗にnChannels種に分かれる場合
+		// のみ、これを優先的なチャンネル割り当てとして使う。
+		Map<String, Integer> channelKeyToIndex = null;
+		if (!isSegmentation && this.nChannels > 1) {
+			java.util.LinkedHashSet<String> keysInOrder = new java.util.LinkedHashSet<>();
+			for (SlidePos sp : spList) {
+				keysInOrder.add(multiChannelKeyOf(sp.sg));
+			}
+			if (keysInOrder.size() == this.nChannels) {
+				channelKeyToIndex = new java.util.HashMap<>();
+				int idx = 0;
+				for (String key : keysInOrder) {
+					channelKeyToIndex.put(key, idx++);
+				}
+			}
+		}
+		final Map<String, Integer> resolvedChannelKeyToIndex = channelKeyToIndex;
+
 		// 5. 1Dマップ（slides）への再マッピング
 		slides.clear();
 		for (int sliceIdx = 0; sliceIdx < sliceGroups.size(); sliceIdx++) {
@@ -1014,13 +1037,18 @@ public class Praparat extends JPanel {
 				if (tIdx < 0)
 					tIdx = 0; // フォールバック
 
-				int c = i; // デフォルトはリストの順番
+				int c = i; // デフォルトはリストの順番（フォールバック）
 				if (isSegmentation) {
 					int frameIdx = sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1;
 					int segNum = getSegmentNumber(sg.getHeader(), frameIdx);
 					if (segNum > 0) {
 						c = segNum - 1; // 1ベースのSegmentNumberを0ベースのチャンネルIndexに変換
 					}
+				} else if (resolvedChannelKeyToIndex != null) {
+					// SeriesInstanceUID等で全スライスを通じて一貫したチャンネル番号を解決できる場合は
+					// それを優先する（Z位置ごとの相対ソート順に依存しないため、Zを変えてもチャンネルの
+					// 実体がぶれない）。
+					c = resolvedChannelKeyToIndex.get(multiChannelKeyOf(sg));
 				} else if (this.nFrames > 1) {
 					// ★ 汎用5D対応: Timeが存在する場合、残りの重なり順(i)をチャンネルとして分配
 					c = i % this.nChannels;
@@ -1033,6 +1061,16 @@ public class Praparat extends JPanel {
 		}
 		// 最後に次元情報をUIに反映させる
 		SwingUtilities.invokeLater(() -> updateSlidersVisibility());
+	}
+
+	/**
+	 * チャンネル判定用のキー。SeriesInstanceUID(0020,000E)を直接の整数タグで参照する
+	 * (Tag.SeriesInstanceUIDのような名前付き定数は、このファイルで使われている
+	 * 一部のTag定数同様、識別子内に通常の入力では再現できない制御文字が含まれて
+	 * いるため、ここでは16進整数リテラルで直接指定する)。
+	 */
+	private static String multiChannelKeyOf(SlideGlass sg) {
+		return sg.getHeader().getString(0x0020000E /* SeriesInstanceUID */, "");
 	}
 
 	/**
@@ -3621,6 +3659,17 @@ public class Praparat extends JPanel {
 				}
 			}
 		}
+	}
+
+	/**
+	 * manageCache()によってunloadImage()された(getOriginalImage()がnullになった)
+	 * SlideGlassを、表示中のビューア(currentSliceZCT)や同期UI状態(zoom/rotate/windowing)
+	 * に一切影響を与えずに、メモリ上へ実体化し直すための公開ラッパー。
+	 * Histogramダイアログ等、Praparatの外からピクセルデータへ直接アクセスする側が、
+	 * 読む前に呼び出すことを想定している。
+	 */
+	public void realizeImage(int zctIndex) {
+		realizeImage(zctIndex, false, null, null, null, null, null);
 	}
 
 	/**

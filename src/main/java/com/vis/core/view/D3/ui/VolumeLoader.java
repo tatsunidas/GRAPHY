@@ -85,11 +85,39 @@ public class VolumeLoader {
 	}
 
 	public static VolumeData loadDicom(ImagePlus imp) {
+		return loadDicom(imp, true);
+	}
+
+	/**
+	 * Like {@link #loadDicom(Praparat)}, but without the OpenGL-only X-axis
+	 * mirror (see {@link #loadDicom(ImagePlus, boolean)}). Use this for any
+	 * consumer that is not the 3D GLCanvas/VolumeRenderer pipeline - e.g.
+	 * the 2D viewer's Curved MPR, which must keep the same left/right
+	 * orientation the user already sees in the normal 2D slice view.
+	 */
+	public static VolumeData loadVolumeData(Praparat pp) {
+		System.out.println("Loading DICOM/Image from Praparat (physical space, no GL mirror).");
+		ImagePlus imp = pp.getImagePlus(-1, -1);
+		return loadDicom(imp, false);
+	}
+
+	public static VolumeData loadVolumeData(ImagePlus imp) {
+		return loadDicom(imp, false);
+	}
+
+	/**
+	 * @param mirrorXForOpenGL when true, flips the X axis (pixels + IOP/IPP)
+	 *        to match the 3D GLCanvas/VolumeRenderer's right-handed
+	 *        convention. Only the D3 volume viewer needs this; any consumer
+	 *        that displays/measures in patient space directly (e.g. Curved
+	 *        MPR) must pass false to keep the true LPS left/right sense.
+	 */
+	private static VolumeData loadDicom(ImagePlus imp, boolean mirrorXForOpenGL) {
 		if (imp == null) {
 			System.err.println("Failed to load image.");
 			return null;
 		}
-		
+
 		//at first, know what is modality
 		Modality m = Modality.is(GDicomTools.getTag(imp, Tag.Modality));
 		CutSurface plane = PlanarSupport.planarOf(imp);
@@ -144,8 +172,9 @@ public class VolumeLoader {
 					int dstOffset = z * sliceSize + y * w;
 					int srcOffset = y * w;
 					for (int x = 0; x < w; x++) {
-						// ★ 左右反転させて格納, open glの右手系に合わせる
-						volumeData[dstOffset + x] = slice[srcOffset + (w - 1 - x)];
+						// ★ open glの右手系に合わせる場合のみ左右反転させて格納
+						int srcX = mirrorXForOpenGL ? (w - 1 - x) : x;
+						volumeData[dstOffset + x] = slice[srcOffset + srcX];
 					}
 				}
 			}
@@ -160,7 +189,8 @@ public class VolumeLoader {
 					int dstOffset = z * sliceSize + y * w;
 					int srcOffset = y * w;
 					for (int x = 0; x < w; x++) {
-						volumeData[dstOffset + x] = slice[srcOffset + (w - 1 - x)];
+						int srcX = mirrorXForOpenGL ? (w - 1 - x) : x;
+						volumeData[dstOffset + x] = slice[srcOffset + srcX];
 					}
 				}
 			}
@@ -175,7 +205,8 @@ public class VolumeLoader {
 					int dstOffset = z * sliceSize + y * w;
 					int srcOffset = y * w;
 					for (int x = 0; x < w; x++) {
-						volumeData[dstOffset + x] = slice[srcOffset + (w - 1 - x)];
+						int srcX = mirrorXForOpenGL ? (w - 1 - x) : x;
+						volumeData[dstOffset + x] = slice[srcOffset + srcX];
 					}
 				}
 			}
@@ -190,7 +221,8 @@ public class VolumeLoader {
 					int dstOffset = z * sliceSize + y * w;
 					int srcOffset = y * w;
 					for (int x = 0; x < w; x++) {
-						volumeData[dstOffset + x] = slice[srcOffset + (w - 1 - x)];
+						int srcX = mirrorXForOpenGL ? (w - 1 - x) : x;
+						volumeData[dstOffset + x] = slice[srcOffset + srcX];
 					}
 				}
 			}
@@ -205,56 +237,43 @@ public class VolumeLoader {
 		volume.pixelSpacingX = spaX;
 		volume.pixelSpacingY = spaY;
 		volume.sliceThickness = spaZ;
+		// 輝度値の較正情報（DICOM RescaleSlope/Intercept由来のHU変換など）をセット。
+		// minVal/maxValやヒストグラムはRaw値のまま保持し、表示時にのみ較正する。
+		volume.calibration = cal;
 		
         int nSlices = d;
         
         if (nSlices >= 2) {
-            // 最初のスライス(1)と最後のスライス(N)のIPPを実測
+            // 最初のスライス(1)と最後のスライス(N)のIPPを実測。
+            // スタックは AxialConverter.convertIfNeeded() 内の
+            // standardizeStackOrientation() で既にLPSの解剖学的標準順序
+            // (Axial: Z減少, slice1が物理的な先頭) に並べ替え済みなので、
+            // volumeData[z=0] は常にスライス1=ipp1に対応する。患者の向き
+            // (Head/Feet First)はIPP(絶対座標)に既に反映されているため、
+            // ここで isHeadFirst を使って再度向きを判定・反転する必要はない
+            // (それを行うと Feet First の症例でZ軸が逆転するバグになる)。
             double[] ipp1 = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, 1);
             double[] ippN = com.vis.dicom.image.GDicomTools.getImagePositionPatient(imp, nSlices);
-            
-            com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface basePlane = com.vis.core.view.D2.ui.orientation.PlanarSupport.planarOf(imp);
-            boolean isHeadFirst = com.vis.core.view.D2.ui.orientation.PlanarSupport.isHeadFirst(imp);
-            boolean isReversed = false;
-
-            // VolumeLoaderと同じ反転判定
-            if (ipp1 != null && ippN != null) {
-                if (basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.AXIAL || basePlane == com.vis.core.view.D2.ui.orientation.ImageOrientation.CutSurface.OBLIQUE) {
-                    if ((ippN[2] < ipp1[2]) != isHeadFirst) isReversed = true;
-                }
-            }
 
             System.out.println("=== Volume Loader Debug Log ===");
             System.out.println("ipp1: [" + ipp1[0] + ", " + ipp1[1] + ", " + ipp1[2] + "]");
             System.out.println("ippN: [" + ippN[0] + ", " + ippN[1] + ", " + ippN[2] + "]");
-            /*
-             * オーダーは標準化しているので、常にfalse
-             */
-            System.out.println("isReversed by VolumeLoader: " + isReversed);
 
-            // ★追加: 1スライス進むごとの実際の物理移動ベクトル (X, Y, Z)
+            // 1スライス進むごとの実際の物理移動ベクトル (X, Y, Z)
             double[] stepZ = new double[3];
             stepZ[0] = (ippN[0] - ipp1[0]) / (nSlices - 1);
             stepZ[1] = (ippN[1] - ipp1[1]) / (nSlices - 1);
             stepZ[2] = (ippN[2] - ipp1[2]) / (nSlices - 1);
 
-            // VolumeData の [Z=0] に該当する物理座標を確定させる
+            // VolumeData の [Z=0] (= スライス1) に該当する物理座標
             double[] volumeStartIpp = ipp1;
-            //fail safe
-            if (isReversed) {
-                volumeStartIpp = ippN; // スタックが反転されたので、[Z=0]はippNになる
-                // 進行方向も逆になる
-                stepZ[0] = -stepZ[0];
-                stepZ[1] = -stepZ[1];
-                stepZ[2] = -stepZ[2];
-            }
 
             System.out.println("volumeStartIpp: [" + volumeStartIpp[0] + ", " + volumeStartIpp[1] + ", " + volumeStartIpp[2] + "]");
             System.out.println("stepZ vector:   [" + stepZ[0] + ", " + stepZ[1] + ", " + stepZ[2] + "]");
 
             // IOPの取得
             double[] iop = GDicomTools.getDoubles(imp, Tag.ImageOrientationPatient);
-            
+
             volume.startIpp = volumeStartIpp;
             volume.iop = iop;
             volume.stepZ = stepZ;
@@ -277,8 +296,9 @@ public class VolumeLoader {
 		// ==========================================================
 		// ★ 追加: Z軸オーダー標準化に伴う3D空間の左手系（鏡像）化を右手系に補正する
 		// ピクセル配列のX軸を反転させたことに合わせて、空間情報のX軸（Rowベクトル）と原点を反転させます
+		// (mirrorXForOpenGL=falseの場合はピクセルを反転していないので、この補正も不要)
 		// ==========================================================
-		if (volume != null && volume.startIpp != null && volume.iop != null && volume.iop.length >= 6) {
+		if (mirrorXForOpenGL && volume != null && volume.startIpp != null && volume.iop != null && volume.iop.length >= 6) {
 			double[] origIpp = volume.startIpp;
 			double[] origIop = volume.iop;
 

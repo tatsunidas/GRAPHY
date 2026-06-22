@@ -711,7 +711,9 @@ public class GLCanvas extends AWTGLCanvas {
 	 * opacity curve editor dialog.
 	 */
 	public void applyOpacityCurve(byte[] opacity256) {
-		volumeRenderer.applyOpacityCurve(opacity256);
+		// Deferred to paintGL() - see pendingLutUpdate. A direct call here
+		// would race the GL context the same way loadLut()/applyLut() did.
+		pendingLutUpdate = () -> volumeRenderer.applyOpacityCurve(opacity256);
 		repaint();
 	}
 
@@ -1009,7 +1011,13 @@ public class GLCanvas extends AWTGLCanvas {
 			volumeRenderer.uploadTexture(pendingVolume);
 			pendingVolume = null;
 		}
-		
+
+		// LUT/不透明度カーブの更新 (GLコンテキストが有効なここで初めて反映する)
+		if (pendingLutUpdate != null) {
+			pendingLutUpdate.run();
+			pendingLutUpdate = null;
+		}
+
 		// ★追加: メッシュデータの転送
 	    if (pendingMesh != null) {
 	        meshRenderer.uploadMesh(pendingMesh);
