@@ -116,7 +116,15 @@ public class GLCanvas extends AWTGLCanvas {
 
 	// 編集対象のデータ参照
 	private VolumeData currentVolumeData;
-	
+
+	// 中心線解析（CenterlineAnalysisDialog）のグラフ・オーバーレイ表示
+	private CenterlineGraphRenderer centerlineGraphRenderer;
+	private com.vis.core.centerline.CenterlineGraph currentCenterlineGraph;
+	private com.vis.core.slicer.VolumeSampler centerlineRenderSampler;
+	private java.util.Set<Integer> selectedCenterlineBranchIds = new java.util.HashSet<>();
+	private java.util.Set<Integer> selectedCenterlineNodeIds = new java.util.HashSet<>();
+	private com.vis.core.slicer.Centerline3D selectedCenterlineCurve;
+
 	private byte[] pendingRoiMask = null;
 	/**
 	 * AWTGLCanvas only has a valid/current GL context inside paintGL(); GL
@@ -206,6 +214,9 @@ public class GLCanvas extends AWTGLCanvas {
 
 		endoOrientationIndicator = new EndoOrientationIndicator();
 		endoOrientationIndicator.init();
+
+		centerlineGraphRenderer = new CenterlineGraphRenderer();
+		centerlineGraphRenderer.init();
 
 		// Mouse Adapter (クリック、リリース)
 		this.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -721,6 +732,46 @@ public class GLCanvas extends AWTGLCanvas {
 		return volumeRenderer.getCurrentOpacityCurve();
 	}
 
+	// ==========================================================
+	// 中心線解析（CenterlineAnalysisDialog）のオーバーレイ表示
+	// ==========================================================
+	public void setCenterlineGraph(com.vis.core.centerline.CenterlineGraph graph,
+			com.vis.core.slicer.VolumeSampler renderSampler) {
+		this.currentCenterlineGraph = graph;
+		this.centerlineRenderSampler = renderSampler;
+		repaint();
+	}
+
+	public void clearCenterlineGraph() {
+		this.currentCenterlineGraph = null;
+		this.centerlineRenderSampler = null;
+		this.selectedCenterlineBranchIds.clear();
+		this.selectedCenterlineNodeIds.clear();
+		this.selectedCenterlineCurve = null;
+		repaint();
+	}
+
+	public void setSelectedCenterlineBranches(java.util.Set<Integer> branchIds) {
+		this.selectedCenterlineBranchIds = branchIds != null ? branchIds : new java.util.HashSet<>();
+		repaint();
+	}
+
+	public void setSelectedCenterlineNodes(java.util.Set<Integer> nodeIds) {
+		this.selectedCenterlineNodeIds = nodeIds != null ? nodeIds : new java.util.HashSet<>();
+		repaint();
+	}
+
+	/**
+	 * The curve currently being previewed for CPR/Straighten - a single
+	 * branch's curve, or a multi-branch path - drawn live on top of the
+	 * graph overlay regardless of which (if any) existing branch IDs it
+	 * corresponds to.
+	 */
+	public void setSelectedCenterlineCurve(com.vis.core.slicer.Centerline3D curve) {
+		this.selectedCenterlineCurve = curve;
+		repaint();
+	}
+
 	// --- 追加: ボクセルサイズに基づくスケール行列を計算するメソッド ---
 	private org.joml.Matrix4f calculateModelMatrix() {
 		float scaleX = 1.0f, scaleY = 1.0f, scaleZ = 1.0f;
@@ -1197,6 +1248,12 @@ public class GLCanvas extends AWTGLCanvas {
 					meshRenderer.renderMesh(res.vao, res.indexCount, mvp, model, camPosLocal, renderColor, currentMeshAlpha, hasVertexColors);
 				}
 			}
+		}
+
+		// 中心線解析グラフのオーバーレイ（枝＋端点/分岐点）＋選択中の曲線のLive表示
+		if (centerlineRenderSampler != null && centerlineGraphRenderer != null) {
+			centerlineGraphRenderer.render(currentCenterlineGraph, centerlineRenderSampler, mvp,
+					selectedCenterlineBranchIds, selectedCenterlineNodeIds, selectedCenterlineCurve);
 		}
 
 		// 最後にGizmoを描画 (右下にオーバーレイ)

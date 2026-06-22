@@ -382,6 +382,13 @@ public class Viewer3DMain extends JFrame {
 		controlPanel.add(btnEditOpacity, gbc);
 		gbc.gridy++;
 
+		// General-purpose 3D centerline analysis: skeleton extraction from a mask ROI,
+		// branch/path pruning, vascular CPR, and Straighten (2D or 3D).
+		JButton btnCenterline = new JButton("Centerline Analysis...");
+		btnCenterline.addActionListener(e -> CenterlineAnalysisDialog.showDialog(canvas, this));
+		controlPanel.add(btnCenterline, gbc);
+		gbc.gridy++;
+
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 

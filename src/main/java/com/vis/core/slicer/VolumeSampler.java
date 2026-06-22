@@ -106,6 +106,20 @@ public class VolumeSampler {
 	}
 
 	/**
+	 * Physical (mm) point converted to the object-space coordinates
+	 * GLCanvas's volume ray-marching shader assumes: a fixed unit cube
+	 * centered on the origin, [-0.5, 0.5] along every axis, regardless of
+	 * the volume's physical (possibly anisotropic) extent - per-axis
+	 * physical scaling is applied afterwards by GLCanvas's model matrix,
+	 * not before. Points converted this way land in the same space as the
+	 * volume cube currently being rendered.
+	 */
+	public Vector3d toLocalRenderSpace(Vector3d physicalPointMm) {
+		double[] idx = toVoxelIndex(physicalPointMm);
+		return new Vector3d(idx[0] / volume.width - 0.5, idx[1] / volume.height - 0.5, idx[2] / volume.depth - 0.5);
+	}
+
+	/**
 	 * Trilinearly interpolated raw voxel value at the given physical point.
 	 * Returns {@code outOfBoundsValue} when the point falls (even partially,
 	 * for the surrounding 8 voxels) outside the volume.

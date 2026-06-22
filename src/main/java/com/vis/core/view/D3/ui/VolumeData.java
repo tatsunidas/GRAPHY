@@ -212,6 +212,82 @@ public class VolumeData {
 		return idx;
 	}
 
+	/**
+	 * Crops a BYTE mask volume down to the bounding box of its non-zero
+	 * voxels (plus a margin), carrying startIpp/iop/stepZ over correctly
+	 * adjusted so the result still maps to the same physical space.
+	 *
+	 * Some mask sources (e.g. FreeFormRoi3D.getVolumeDataForMesh()) size
+	 * their voxel grid to the whole parent series rather than the drawn
+	 * ROI's own extent, which makes voxel-count-sensitive operations like
+	 * 3D skeletonization needlessly slow - this trims that down to just the
+	 * region that actually matters.
+	 */
+	public VolumeData cropToOccupiedBoundingBox(int marginVoxels) {
+		if (dataType != DataType.BYTE) {
+			throw new UnsupportedOperationException("cropToOccupiedBoundingBox only supports BYTE mask volumes");
+		}
+		byte[] src = (byte[]) data;
+		int sliceSize = width * height;
+
+		int minX = width, maxX = -1, minY = height, maxY = -1, minZ = depth, maxZ = -1;
+		for (int z = 0; z < depth; z++) {
+			int zBase = z * sliceSize;
+			for (int y = 0; y < height; y++) {
+				int rowBase = zBase + y * width;
+				for (int x = 0; x < width; x++) {
+					if (src[rowBase + x] != 0) {
+						if (x < minX) minX = x;
+						if (x > maxX) maxX = x;
+						if (y < minY) minY = y;
+						if (y > maxY) maxY = y;
+						if (z < minZ) minZ = z;
+						if (z > maxZ) maxZ = z;
+					}
+				}
+			}
+		}
+		if (maxX < 0) {
+			// Nothing occupied; keep the caller from dividing by zero downstream.
+			minX = minY = minZ = 0;
+			maxX = maxY = maxZ = 0;
+		}
+
+		minX = Math.max(0, minX - marginVoxels);
+		minY = Math.max(0, minY - marginVoxels);
+		minZ = Math.max(0, minZ - marginVoxels);
+		maxX = Math.min(width - 1, maxX + marginVoxels);
+		maxY = Math.min(height - 1, maxY + marginVoxels);
+		maxZ = Math.min(depth - 1, maxZ + marginVoxels);
+
+		int newW = maxX - minX + 1;
+		int newH = maxY - minY + 1;
+		int newD = maxZ - minZ + 1;
+		byte[] cropped = new byte[newW * newH * newD];
+		for (int z = 0; z < newD; z++) {
+			for (int y = 0; y < newH; y++) {
+				int srcOffset = (z + minZ) * sliceSize + (y + minY) * width + minX;
+				int dstOffset = z * newW * newH + y * newW;
+				System.arraycopy(src, srcOffset, cropped, dstOffset, newW);
+			}
+		}
+
+		VolumeData out = new VolumeData(newW, newH, newD, cropped);
+		out.pixelSpacingX = pixelSpacingX;
+		out.pixelSpacingY = pixelSpacingY;
+		out.sliceThickness = sliceThickness;
+		out.calibration = calibration;
+		if (startIpp != null && iop != null && iop.length >= 6 && stepZ != null) {
+			out.startIpp = new double[] {
+					startIpp[0] + iop[0] * minX * pixelSpacingX + iop[3] * minY * pixelSpacingY + stepZ[0] * minZ,
+					startIpp[1] + iop[1] * minX * pixelSpacingX + iop[4] * minY * pixelSpacingY + stepZ[1] * minZ,
+					startIpp[2] + iop[2] * minX * pixelSpacingX + iop[5] * minY * pixelSpacingY + stepZ[2] * minZ };
+			out.iop = iop.clone();
+			out.stepZ = stepZ.clone();
+		}
+		return out;
+	}
+
 	public static byte[] createRoiMask(VolumeData vol, FreeFormRoi3D roi, double[] volumeOriginIpp, double[] volumeIop) {
 	    int w = vol.width;
 	    int h = vol.height;
