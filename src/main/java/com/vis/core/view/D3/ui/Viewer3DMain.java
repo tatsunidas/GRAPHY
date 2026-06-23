@@ -302,6 +302,11 @@ public class Viewer3DMain extends JFrame {
 		JRadioButton radioVR = new JRadioButton("Volume Rendering (VR)");
 		JRadioButton radioMIP = new JRadioButton("MIP");
 		JRadioButton radioOrtho = new JRadioButton("Ortho Slices");
+		JRadioButton radioCinematic = new JRadioButton("Cinematic Rendering");
+		radioCinematic.setToolTipText(
+				"<html>モンテカルロ・パストレーシングで光源の陰影・セルフシャドウを再現する表示モード。<br>"
+				+ "通常のVR/MIPと違い照明計算を行うため、初めはノイズが見えるが静止していると自動的に収束する。<br>"
+				+ "下のLight/Ambient/Shadow/Exposure系のスライダーで陰影の見え方を調整できる。</html>");
 
 		// 元のコードの挙動に合わせて初期状態をMIPに設定
 		radioMIP.setSelected(true);
@@ -310,6 +315,7 @@ public class Viewer3DMain extends JFrame {
 		renderGroup.add(radioVR);
 		renderGroup.add(radioMIP);
 		renderGroup.add(radioOrtho);
+		renderGroup.add(radioCinematic);
 
 		// モード切替リスナー
 		java.awt.event.ActionListener modeListener = e -> {
@@ -318,14 +324,20 @@ public class Viewer3DMain extends JFrame {
 					canvas.setShowVolume(true);
 					canvas.setMIPMode(false);
 					canvas.setOrthoMode(false);
+					canvas.setCinematicMode(false);
 				} else if (radioMIP.isSelected()) {
 					canvas.setShowVolume(true);
 					canvas.setMIPMode(true);
 					canvas.setOrthoMode(false);
+					canvas.setCinematicMode(false);
 				} else if (radioOrtho.isSelected()) {
 					canvas.setShowVolume(false); // Orthoモード時はボリューム非表示
 					canvas.setMIPMode(false);
 					canvas.setOrthoMode(true);
+					canvas.setCinematicMode(false);
+				} else if (radioCinematic.isSelected()) {
+					canvas.setOrthoMode(false);
+					canvas.setCinematicMode(true);
 				}
 			}).start();
 		};
@@ -333,6 +345,7 @@ public class Viewer3DMain extends JFrame {
 		radioVR.addActionListener(modeListener);
 		radioMIP.addActionListener(modeListener);
 		radioOrtho.addActionListener(modeListener);
+		radioCinematic.addActionListener(modeListener);
 
 		controlPanel.add(radioVR, gbc);
 		gbc.gridy++;
@@ -340,6 +353,96 @@ public class Viewer3DMain extends JFrame {
 		gbc.gridy++;
 		controlPanel.add(radioOrtho, gbc);
 		gbc.gridy++;
+		controlPanel.add(radioCinematic, gbc);
+		gbc.gridy++;
+
+		// シネマティック・レンダリング専用コントロール（選択中のみ操作の意味がある）
+		JLabel lblCinematicBackend = new JLabel("GPU: " + canvas.getCinematicBackendName());
+		lblCinematicBackend.setToolTipText(
+				"シネマティック・レンダリングを計算しているGPUバックエンド。CUDA対応GPUが検出できた場合はCUDA、できなければOpenGLにフォールバックする。");
+		controlPanel.add(lblCinematicBackend, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Light Azimuth"), gbc);
+		gbc.gridy++;
+		JSlider sliderLightAzimuth = new JSlider(0, 360, 45);
+		sliderLightAzimuth.setToolTipText("光源の水平方向の向き（0〜360度）。変えると、構造の側面に当たる陰影の出方が変わる。");
+		controlPanel.add(sliderLightAzimuth, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Light Elevation"), gbc);
+		gbc.gridy++;
+		JSlider sliderLightElevation = new JSlider(-90, 90, 60);
+		sliderLightElevation.setToolTipText(
+				"光源の高さ方向の角度（-90=真下、0=真横、90=真上から照らす）。浅い角度にすると表面の凹凸がより強調された陰影になる。");
+		controlPanel.add(sliderLightElevation, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Light Intensity"), gbc);
+		gbc.gridy++;
+		JSlider sliderLightIntensity = new JSlider(0, 400, 150);
+		sliderLightIntensity.setToolTipText(
+				"主光源の明るさ（0.0〜4.0）。上げるほど光が当たる面と影の面のコントラストが強くなる。2.0〜3.0程度にすると陰影が分かりやすい。");
+		controlPanel.add(sliderLightIntensity, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Ambient Intensity"), gbc);
+		gbc.gridy++;
+		JSlider sliderAmbient = new JSlider(0, 100, 25);
+		sliderAmbient.setToolTipText(
+				"影の部分にも均等に加わる環境光の強さ（0.0〜1.0）。下げるほど影が濃くなり立体感が増す。0.1前後まで下げると陰影がはっきり見える。");
+		controlPanel.add(sliderAmbient, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Shadow Softness"), gbc);
+		gbc.gridy++;
+		JSlider sliderShadowSoftness = new JSlider(0, 30, 8);
+		sliderShadowSoftness.setToolTipText(
+				"影の輪郭のやわらかさ（光源を点ではなく面として扱う角度、0〜30度）。大きいほど影がぼやけるが、ノイズが収束するまでのフレーム数も増える。0なら硬い輪郭の影になる。");
+		controlPanel.add(sliderShadowSoftness, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Exposure"), gbc);
+		gbc.gridy++;
+		JSlider sliderExposure = new JSlider(10, 400, 150);
+		sliderExposure.setToolTipText(
+				"蓄積済みの画像に後から掛ける明るさの補正（0.1〜4.0）。蓄積をリセットせず即座に反映されるので、明るさだけ素早く調整したいときに使う。");
+		controlPanel.add(sliderExposure, gbc);
+		gbc.gridy++;
+
+		controlPanel.add(new JLabel("Samples / Frame"), gbc);
+		gbc.gridy++;
+		JSlider sliderSamples = new JSlider(1, 16, 1);
+		sliderSamples.setMajorTickSpacing(5);
+		sliderSamples.setMinorTickSpacing(1);
+		sliderSamples.setPaintTicks(true);
+		sliderSamples.setPaintLabels(true);
+		sliderSamples.setToolTipText(
+				"<html>1フレームあたりに計算してから平均するパストレーシングのサンプル数（1〜16）。<br>"
+				+ "静止中は複数フレームにわたって自動的にノイズが収束していくため、通常は1で十分。<br>"
+				+ "カメラを動かしている最中のちらつきを減らしたい場合だけ2〜4程度に上げる。<br>"
+				+ "値を上げるほど1フレームの計算量が増え、フレームレートが大きく低下する点に注意。</html>");
+		controlPanel.add(sliderSamples, gbc);
+		gbc.gridy++;
+
+		Runnable applyCinematicParams = () -> {
+			com.vis.core.view.D3.ui.cinematic.CinematicParams params = canvas.getCinematicParams();
+			params.lightAzimuth = (float) Math.toRadians(sliderLightAzimuth.getValue());
+			params.lightElevation = (float) Math.toRadians(sliderLightElevation.getValue());
+			params.lightIntensity = sliderLightIntensity.getValue() / 100.0f;
+			params.ambientIntensity = sliderAmbient.getValue() / 100.0f;
+			params.lightAngularRadius = (float) Math.toRadians(sliderShadowSoftness.getValue());
+			params.exposure = sliderExposure.getValue() / 100.0f;
+			params.samplesPerFrame = sliderSamples.getValue();
+			canvas.invalidateCinematicAccumulation();
+		};
+		sliderLightAzimuth.addChangeListener(e -> applyCinematicParams.run());
+		sliderLightElevation.addChangeListener(e -> applyCinematicParams.run());
+		sliderLightIntensity.addChangeListener(e -> applyCinematicParams.run());
+		sliderAmbient.addChangeListener(e -> applyCinematicParams.run());
+		sliderShadowSoftness.addChangeListener(e -> applyCinematicParams.run());
+		sliderExposure.addChangeListener(e -> applyCinematicParams.run());
+		sliderSamples.addChangeListener(e -> applyCinematicParams.run());
 		// ---------------------------------------------------------
 
 		// 区切り線 1
@@ -550,6 +653,7 @@ public class Viewer3DMain extends JFrame {
 					endoUDragStartValue = cam.getU(); // ドラッグ開始時の値を1度だけ記録
 				}
 				cam.setU(u); // ライブプレビューのみ（コマンドは発行しない）
+				cam.resetLook(); // パスの移動中は常に進行方向を向かせる
 				canvas.repaint();
 			} else {
 				float startU = (endoUDragStartValue != null) ? endoUDragStartValue : cam.getU();
@@ -558,6 +662,7 @@ public class Viewer3DMain extends JFrame {
 					cam.setU(startU); // 一旦ドラッグ開始時の値に戻してからコマンドを構築する
 					canvas.getUndoManager().addCommand(new EndoCommands.SetCameraUCommand(cam, u));
 				}
+				cam.resetLook();
 				canvas.repaint();
 			}
 		});
@@ -642,6 +747,7 @@ public class Viewer3DMain extends JFrame {
 			boolean reachedEnd = newU >= 1f;
 			if (reachedEnd) newU = 1f;
 			cam.setU(newU);
+			cam.resetLook(); // 再生中は常にパスの進行方向を向かせる
 
 			suppressEndoUCommit = true;
 			sliderEndoU.setValue(Math.round(newU * 100));
@@ -682,6 +788,7 @@ public class Viewer3DMain extends JFrame {
 					btnJumpStart, btnPrevPoint, btnNextPoint, btnJumpEnd);
 			if (canvas != null) {
 				canvas.getEndoCamera().setU(0f);
+				canvas.getEndoCamera().resetLook();
 				suppressEndoUCommit = true;
 				sliderEndoU.setValue(0);
 				suppressEndoUCommit = false;
@@ -972,6 +1079,7 @@ public class Viewer3DMain extends JFrame {
 		if (Math.abs(newU - oldU) > 1e-6f) {
 			canvas.getUndoManager().addCommand(new EndoCommands.SetCameraUCommand(cam, newU));
 		}
+		cam.resetLook(); // ポイント間ジャンプでは常にパスの進行方向を向かせる
 		// この変更でChangeEventが飛ぶが、cam.getU()は既にnewUなのでコマンドは二重発行されない
 		sliderEndoU.setValue(Math.round(newU * 100));
 		canvas.repaint();

@@ -71,6 +71,7 @@ public class VolumeRenderer {
 	private int renderModeLoc;
 	private int currentRenderMode = 0;
 	private int lutTextureId = -1;
+	private int lutGeneration = 0;
 
 	private int sliceShaderProgram = -1;
 	private int sliceVaoId, sliceVboId;
@@ -270,6 +271,12 @@ public class VolumeRenderer {
 		buffer.flip();
 		uploadLutToGPU(buffer, LUT_SIZE);
 		MemoryUtil.memFree(buffer);
+		lutGeneration++;
+	}
+
+	/** Bumped every time the color map and/or opacity curve changes; lets callers detect a stale cache. */
+	public int getLutGeneration() {
+		return lutGeneration;
 	}
 
 	private void createCube() {
@@ -666,7 +673,19 @@ public class VolumeRenderer {
 	public int getTextureId() {
 		return textureId;
 	}
-	
+
+	public int getLutTextureId() {
+		return lutTextureId;
+	}
+
+	public float getNormalizedMin() {
+		return normalizedMin;
+	}
+
+	public float getNormalizedMax() {
+		return normalizedMax;
+	}
+
 	public boolean isVolumeVisible() {
 		return isVolumeVisible;
 	}

@@ -97,6 +97,19 @@ public class GLCanvas extends AWTGLCanvas {
 	// 表示モード (trueならOrtho, falseならVolume)
 	private boolean isOrthoMode = false;
 
+	// シネマティック・レンダリング（モンテカルロ・パストレーシング）モード
+	private boolean isCinematicMode = false;
+	private com.vis.core.view.D3.ui.cinematic.CinematicRenderer cinematicRenderer;
+	private final com.vis.core.view.D3.ui.cinematic.CinematicParams cinematicParams =
+			new com.vis.core.view.D3.ui.cinematic.CinematicParams();
+	// 直前フレームの状態フィンガープリント。カメラ操作やW/L・LUT・ライト設定の変化を検知して
+	// 蓄積バッファをリセットするために使う（静止中だけノイズが収束していくプログレッシブ表示のため）。
+	private String cinematicLastFingerprint = null;
+	// invalidateAccumulation()はGL呼び出しを含むため、paintGL()の外（別スレッドのボタン
+	// リスナーやEDT上のスライダーリスナー）から直接呼ぶとコンテキストが無く失敗する/効かない。
+	// pendingLutUpdate等と同じく、フラグだけ立てて実際の呼び出しはpaintGL()内で行う。
+	private volatile boolean cinematicResetRequested = false;
+
 	private AxesGizmo axesGizmo; // ★追加
 	
 	private MeshRenderer meshRenderer;
@@ -158,6 +171,14 @@ public class GLCanvas extends AWTGLCanvas {
 	private boolean showEndoPath = true;
 	private EndoOrientationIndicator endoOrientationIndicator; // initGL()で生成
 
+	// endoPathの元になった中心線（CenterlineAnalysisDialog由来）。解析ダイアログを閉じてCenterline
+	// Analysisのオーバーレイ（currentCenterlineGraph等）が消えた後も、また内視鏡視点(endoscopyMode)中も
+	// 常に強調曲線として描画し続けるための参照（setEndoPathFromCenterlineで設定）。
+	private com.vis.core.slicer.Centerline3D endoPathSourceCurve;
+	private com.vis.core.slicer.VolumeSampler endoPathSourceSampler;
+	// CenterlineAnalysisDialogの「現在選択中」のライブカーブ(白)と同時に描画されても見分けられるように
+	private static final org.joml.Vector3f ENDO_PATH_SOURCE_CURVE_COLOR = new org.joml.Vector3f(1f, 0.55f, 0f);
+
 	// パス編集モード
 	private boolean endoPathEditMode = false;
 	private int selectedEndoPointIndex = -1;
@@ -202,6 +223,10 @@ public class GLCanvas extends AWTGLCanvas {
 		volumeRenderer = new VolumeRenderer();
 		volumeRenderer.init();
 		volumeRenderer.initSliceRenderer();
+
+		// ★Phase 1: 常にOpenGL実装。CUDA対応GPUが検出できる場合の高速版は将来追加予定。
+		cinematicRenderer = new com.vis.core.view.D3.ui.cinematic.CinematicRendererGL();
+		cinematicRenderer.init();
 
 		axesGizmo = new AxesGizmo();
 		axesGizmo.init();
@@ -402,7 +427,10 @@ public class GLCanvas extends AWTGLCanvas {
 		// ★追加: 内視鏡パスはボクセル次元基準のローカル座標を保持しているため、
 		// ボリュームが変わると無意味になる。新しいボリュームに合わせてリセットする。
 		this.endoPath.clear();
+		this.endoPath.setLinearInterpolation(false);
 		this.endoCamera.setU(0f);
+		this.endoPathSourceCurve = null;
+		this.endoPathSourceSampler = null;
 
 		// ★追加2: 断面位置（スライダー）を中心に戻す
 		this.sliceX = 0.5f;
@@ -474,6 +502,68 @@ public class GLCanvas extends AWTGLCanvas {
 
 	public boolean isEndoPathEditMode() {
 		return endoPathEditMode;
+	}
+
+	private static final double ENDO_PATH_FROM_CENTERLINE_STEP_MM = 1.0;
+
+	/**
+	 * Replaces the virtual endoscopy path with a dense resampling of
+	 * {@code curve} (physical LPS mm, as produced by
+	 * {@link CenterlineAnalysisDialog}), each sample converted into this
+	 * canvas's local render-space cube via {@code sampler} - the same
+	 * conversion {@link CenterlineGraphRenderer} uses to overlay the curve.
+	 *
+	 * Resamples in physical space first rather than handing {@code curve}'s
+	 * own (sparse) control points straight to {@link EndoPath3D}: the local
+	 * cube normalizes each axis independently (x/width, y/height, z/depth),
+	 * which is anisotropic relative to true mm distances whenever the
+	 * volume's physical extents differ per axis (slice spacing vs. in-plane
+	 * spacing) - the canvas's model matrix corrects this back to true
+	 * proportions for already-computed point positions, but not for the
+	 * Centripetal Catmull-Rom math EndoPath3D itself does between control
+	 * points.
+	 *
+	 * Dense sampling alone only shrinks that drift, it doesn't remove it -
+	 * Catmull-Rom's chord-length-based knot parameterization is still
+	 * evaluated in the skewed space, so high-curvature stretches (tight
+	 * turns near a bifurcation) still pull the camera measurably off the
+	 * true centerline between points. So the path is also switched to plain
+	 * linear interpolation ({@link EndoPath3D#setLinearInterpolation}):
+	 * with ~1mm spacing a straight segment between consecutive points is
+	 * visually indistinguishable from a curve, and unlike Catmull-Rom it
+	 * can never deviate from the (correctly placed) points themselves -
+	 * matching the straight-segment polyline {@link CenterlineGraphRenderer}
+	 * already draws for the same dense samples.
+	 *
+	 * Also remembers {@code curve}/{@code sampler} so the source centerline
+	 * keeps being drawn (highlighted, the same way {@link CenterlineAnalysisDialog}
+	 * shows it) regardless of camera mode and even after that dialog is
+	 * closed - otherwise there'd be no visual confirmation a path is loaded
+	 * once the analysis overlay disappears.
+	 */
+	public void setEndoPathFromCenterline(com.vis.core.slicer.Centerline3D curve,
+			com.vis.core.slicer.VolumeSampler sampler) {
+		if (curve == null || sampler == null || curve.size() < 2) return;
+
+		double length = curve.getTotalLength();
+		int samples = Math.max(2, (int) Math.ceil(length / ENDO_PATH_FROM_CENTERLINE_STEP_MM) + 1);
+
+		this.endoPath.clear();
+		for (int i = 0; i < samples; i++) {
+			double s = (samples == 1) ? 0 : length * i / (samples - 1);
+			org.joml.Vector3d physical = curve.positionAt(s);
+			org.joml.Vector3d local = sampler.toLocalRenderSpace(physical);
+			this.endoPath.addPoint(new org.joml.Vector3f((float) local.x, (float) local.y, (float) local.z));
+		}
+		this.endoPath.setLinearInterpolation(true);
+		this.endoCamera.setU(0f);
+		this.endoCamera.resetLook();
+		this.selectedEndoPointIndex = -1;
+		this.draggingEndoPointIndex = -1;
+		this.dragOriginalPosition = null;
+		this.endoPathSourceCurve = curve;
+		this.endoPathSourceSampler = sampler;
+		repaint();
 	}
 
 	// ==========================================
@@ -662,6 +752,32 @@ public class GLCanvas extends AWTGLCanvas {
 		repaint();
 	}
 
+	public void setCinematicMode(boolean enable) {
+		this.isCinematicMode = enable;
+		if (enable) {
+			cinematicResetRequested = true; // 実際のリセットはpaintGL()内で行う（GLコンテキストが必要なため）
+		}
+		repaint();
+	}
+
+	public boolean isCinematicMode() {
+		return isCinematicMode;
+	}
+
+	public com.vis.core.view.D3.ui.cinematic.CinematicParams getCinematicParams() {
+		return cinematicParams;
+	}
+
+	/** Call after changing fields on {@link #getCinematicParams()} so progressive accumulation restarts. */
+	public void invalidateCinematicAccumulation() {
+		cinematicResetRequested = true; // 実際のリセットはpaintGL()内で行う（GLコンテキストが必要なため）
+		repaint();
+	}
+
+	public String getCinematicBackendName() {
+		return cinematicRenderer != null ? cinematicRenderer.getBackendName() : "-";
+	}
+
 	public void setMIPMode(boolean isMIP) {
 		// MIPなら0、DVRなら1
 		volumeRenderer.setRenderMode(isMIP ? 0 : 1);
@@ -693,6 +809,7 @@ public class GLCanvas extends AWTGLCanvas {
 	public void loadLut(java.io.File file) {
 		// Deferred to paintGL() - see pendingLutUpdate.
 		pendingLutUpdate = () -> volumeRenderer.loadLut(file);
+		cinematicResetRequested = true; // 新しいLUTを即座に反映させる（蓄積済みの古いLUTの絵と混ざらないように）
 		repaint();
 	}
 
@@ -703,6 +820,7 @@ public class GLCanvas extends AWTGLCanvas {
 	 */
 	public void applyLut(java.awt.image.IndexColorModel cm) {
 		pendingLutUpdate = () -> volumeRenderer.applyLut(cm);
+		cinematicResetRequested = true;
 		repaint();
 	}
 
@@ -713,6 +831,7 @@ public class GLCanvas extends AWTGLCanvas {
 	 */
 	public void setLutType(int type) {
 		pendingLutUpdate = () -> volumeRenderer.generateLUT(type);
+		cinematicResetRequested = true;
 		repaint();
 	}
 
@@ -725,6 +844,7 @@ public class GLCanvas extends AWTGLCanvas {
 		// Deferred to paintGL() - see pendingLutUpdate. A direct call here
 		// would race the GL context the same way loadLut()/applyLut() did.
 		pendingLutUpdate = () -> volumeRenderer.applyOpacityCurve(opacity256);
+		cinematicResetRequested = true;
 		repaint();
 	}
 
@@ -770,6 +890,34 @@ public class GLCanvas extends AWTGLCanvas {
 	public void setSelectedCenterlineCurve(com.vis.core.slicer.Centerline3D curve) {
 		this.selectedCenterlineCurve = curve;
 		repaint();
+	}
+
+	/**
+	 * シネマティック・レンダリングの蓄積バッファを継続/リセットすべきか判定するための、
+	 * 「見た目に影響するすべての状態」の文字列フィンガープリント。カメラ・W/L・LUT・
+	 * ライト設定のいずれかが前フレームと変われば別の文字列になり、呼び出し側で
+	 * invalidateAccumulation()のトリガーに使う。samplesPerFrameは蓄積済みの値の
+	 * 有効性に影響しないので意図的に含めていない。
+	 */
+	private String cinematicFingerprint(org.joml.Matrix4f mvp) {
+		StringBuilder sb = new StringBuilder(160);
+		float[] m = new float[16];
+		mvp.get(m);
+		for (float v : m) {
+			sb.append(Float.floatToIntBits(v)).append(',');
+		}
+		sb.append(volumeRenderer.getWindowCenter()).append(',');
+		sb.append(volumeRenderer.getWindowWidth()).append(',');
+		sb.append(volumeRenderer.getLutGeneration()).append(',');
+		sb.append(cinematicParams.lightAzimuth).append(',');
+		sb.append(cinematicParams.lightElevation).append(',');
+		sb.append(cinematicParams.lightIntensity).append(',');
+		sb.append(cinematicParams.ambientIntensity).append(',');
+		sb.append(cinematicParams.scatteringAnisotropy).append(',');
+		sb.append(cinematicParams.lightAngularRadius);
+		// uExposure is intentionally excluded: it's a post-process multiplier applied in the
+		// present pass only, so changing it doesn't invalidate already-accumulated radiance.
+		return sb.toString();
 	}
 
 	// --- 追加: ボクセルサイズに基づくスケール行列を計算するメソッド ---
@@ -1138,7 +1286,17 @@ public class GLCanvas extends AWTGLCanvas {
 		org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
 		modelViewInv.getTranslation(camPosLocal);
 
-		if (isOrthoMode) {
+		if (isCinematicMode && cinematicRenderer != null) {
+			cinematicRenderer.resize(physW, physH);
+			String fingerprint = cinematicFingerprint(mvp);
+			boolean fingerprintChanged = !fingerprint.equals(cinematicLastFingerprint);
+			if (fingerprintChanged || cinematicResetRequested) {
+				cinematicRenderer.invalidateAccumulation();
+				cinematicLastFingerprint = fingerprint;
+				cinematicResetRequested = false;
+			}
+			cinematicRenderer.render(mvp, camPosLocal, volumeRenderer, cinematicParams);
+		} else if (isOrthoMode) {
 			org.joml.Matrix4f scaledProjView = new org.joml.Matrix4f(proj).mul(view).mul(model);
 			volumeRenderer.setOrthoShowRoi(orthoRoiMode == OrthoRoiMode.SLICE_2D);
 			volumeRenderer.renderOrthoSlices(scaledProjView, sliceX, sliceY, sliceZ);
@@ -1254,6 +1412,15 @@ public class GLCanvas extends AWTGLCanvas {
 		if (centerlineRenderSampler != null && centerlineGraphRenderer != null) {
 			centerlineGraphRenderer.render(currentCenterlineGraph, centerlineRenderSampler, mvp,
 					selectedCenterlineBranchIds, selectedCenterlineNodeIds, selectedCenterlineCurve);
+		}
+
+		// 内視鏡パスの元になった中心線：解析ダイアログを閉じた後も、内視鏡視点(endoscopyMode)中も、
+		// 常に強調曲線として描画する（モードを問わずFly-Through対象が見える状態を保つ）。
+		// ダイアログが開いたまま別の枝/パスが選択されていると、そちらのライブカーブ(白)と同時に
+		// 表示されることがあるため、混同しないよう専用の色(オレンジ)を使う。
+		if (endoPathSourceCurve != null && endoPathSourceSampler != null && centerlineGraphRenderer != null) {
+			centerlineGraphRenderer.render(null, endoPathSourceSampler, mvp, null, null, endoPathSourceCurve,
+					ENDO_PATH_SOURCE_CURVE_COLOR);
 		}
 
 		// 最後にGizmoを描画 (右下にオーバーレイ)

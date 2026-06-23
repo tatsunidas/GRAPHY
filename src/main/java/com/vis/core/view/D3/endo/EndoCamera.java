@@ -118,6 +118,16 @@ public class EndoCamera {
 	}
 
 	/**
+	 * 見回しオフセットをゼロに戻し、パスの接線方向を正面に向ける。
+	 * ポイント間ジャンプや再生でuを進める際に呼ぶ想定（{@link #addLookDelta}でユーザーが
+	 * 見回した後も、その場に残ったオフセットが次の移動先でずれた向きを向かせてしまうのを防ぐ）。
+	 */
+	public void resetLook() {
+		this.lookYaw = 0f;
+		this.lookPitch = 0f;
+	}
+
+	/**
 	 * 現在のuにおけるワールド/レンダー空間のビュー行列を返す。
 	 * パスの接線方向を基準に、{@link #addLookDelta(float, float)}で設定した見回しオフセット(yaw->pitch)を適用する。
 	 *

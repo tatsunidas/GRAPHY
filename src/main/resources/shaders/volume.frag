@@ -69,6 +69,7 @@ void main() {
     vec3 currentPos = rayStart;
 
     float maxVal = 0.0;
+    vec3 maxValColor = vec3(0.0); // MIPで最大値を出したサンプルのLUT色（Color Map反映用）
     float frontRoiId = 0.0; // ★変更: MIP用に「一番手前でぶつかったROI」を記憶する
     vec4 accumulatedColor = vec4(0.0);
 
@@ -111,6 +112,7 @@ void main() {
             // (VRモードのアルファ合成と同様、カーブでコントラストを制限できるようにする)
             if (srcColor.a > 0.0 && val > maxVal) {
                 maxVal = val;
+                maxValColor = srcColor.rgb; // 最大値を出した位置のLUT色を記憶（Color Map変更を反映するため）
             }
         } else {
             // --- DVR ---
@@ -130,7 +132,9 @@ void main() {
     }
 
     if (uRenderMode == 0) {
-        vec3 mipOutput = vec3(maxVal);
+        // ★修正: vec3(maxVal)（生の輝度値そのまま=常にグレースケール）ではなく、
+        // 最大値を出したサンプルのLUT色を使う。これによりMIPでもColor Map選択が反映される。
+        vec3 mipOutput = maxValColor;
         float outAlpha = 1.0; // これまでの通常動作（ボリュームの箱を不透明にする）
         
         if (uShowRoi && frontRoiId > 0.5) {

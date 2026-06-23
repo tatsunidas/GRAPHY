@@ -839,6 +839,12 @@ public class Viewer2DToolBar extends JToolBar {
 		                        // Canvasにデータを渡す
 		                        frame.canvas.setVolumeData(vol); 
 		                        
+		                        // Praparatに設定済みLUTがあれば、3D表示にもそのまま引き継ぐ
+		                        ij.process.LUT prapLut = prap.getLUT();
+		                        if (prapLut != null) {
+		                            frame.canvas.applyLut(prapLut);
+		                        }
+		                        
 		                        // Praparatから3D ROIのリストを取得
 		                        java.util.List<com.vis.core.view.D2.roi.RoiObj> roi3dList = prap.getRoi3DList();
 		                        if (roi3dList != null && !roi3dList.isEmpty()) {

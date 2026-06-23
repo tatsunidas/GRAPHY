@@ -11,6 +11,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +20,7 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -76,11 +78,13 @@ public class CenterlineAnalysisDialog extends JDialog {
 	private JSpinner pruneLengthSpinner;
 	private DefaultListModel<BranchItem> branchListModel;
 	private JList<BranchItem> branchList;
+	private JCheckBox sortBranchesByLengthCheck;
 	private JComboBox<NodeItem> nodeACombo;
 	private JComboBox<NodeItem> nodeBCombo;
 	private JComboBox<FrameMode> frameModeCombo;
 	private JButton show2DButton;
 	private JButton show3DButton;
+	private JButton useAsEndoPathButton;
 
 	public static void showDialog(GLCanvas canvas, Window owner) {
 		CenterlineAnalysisDialog dlg = new CenterlineAnalysisDialog(canvas, owner);
@@ -108,7 +112,13 @@ public class CenterlineAnalysisDialog extends JDialog {
 		JScrollPane branchScroll = new JScrollPane(branchList);
 		branchScroll.setBorder(BorderFactory.createTitledBorder("Branches (select one to prune to it)"));
 		branchScroll.setPreferredSize(new Dimension(320, 240));
-		root.add(branchScroll, BorderLayout.CENTER);
+
+		JPanel branchPanel = new JPanel(new BorderLayout(4, 4));
+		sortBranchesByLengthCheck = new JCheckBox("Sort by length (desc)");
+		sortBranchesByLengthCheck.addActionListener(e -> populateBranchList());
+		branchPanel.add(sortBranchesByLengthCheck, BorderLayout.NORTH);
+		branchPanel.add(branchScroll, BorderLayout.CENTER);
+		root.add(branchPanel, BorderLayout.CENTER);
 
 		root.add(buildPathAndActionsPanel(), BorderLayout.SOUTH);
 
@@ -181,7 +191,10 @@ public class CenterlineAnalysisDialog extends JDialog {
 
 	/** Re-syncs the branch list/node combos/3D overlay/selection state with whatever `graph` currently is. */
 	private void refreshGraphUi() {
-		canvas.setCenterlineGraph(graph, mainSampler);
+		// Drawing every branch/node of a freshly extracted graph at once is too cluttered to read -
+		// keep the sampler ready (for the live-curve highlight below) but withhold the full overlay
+		// until the user picks a branch or extracts a path.
+		canvas.setCenterlineGraph(null, mainSampler);
 		populateBranchList();
 		populateNodeCombos();
 		selectedCurve = null;
@@ -190,6 +203,7 @@ public class CenterlineAnalysisDialog extends JDialog {
 		canvas.setSelectedCenterlineNodes(new HashSet<>());
 		show2DButton.setEnabled(false);
 		show3DButton.setEnabled(false);
+		useAsEndoPathButton.setEnabled(false);
 		statusLabel.setText("Showing " + graph.getBranches().size() + " branches.");
 	}
 
@@ -234,6 +248,14 @@ public class CenterlineAnalysisDialog extends JDialog {
 		show3DButton.setEnabled(false);
 		show3DButton.addActionListener(e -> show3D());
 		panel.add(show3DButton, gbc);
+
+		gbc.gridx++;
+		useAsEndoPathButton = new JButton("Use as Endoscopy Path");
+		useAsEndoPathButton.setToolTipText(
+				"Loads this curve into the 3D viewer's virtual endoscopy path (Endoscopy View / Fly-Through).");
+		useAsEndoPathButton.setEnabled(false);
+		useAsEndoPathButton.addActionListener(e -> useAsEndoscopyPath());
+		panel.add(useAsEndoPathButton, gbc);
 
 		gbc.gridx++;
 		JButton close = new JButton("Close");
@@ -327,7 +349,11 @@ public class CenterlineAnalysisDialog extends JDialog {
 
 	private void populateBranchList() {
 		branchListModel.clear();
-		for (CenterlineBranch b : graph.getBranches()) {
+		List<CenterlineBranch> branches = new ArrayList<>(graph.getBranches());
+		if (sortBranchesByLengthCheck.isSelected()) {
+			branches.sort((a, b) -> Double.compare(b.getLengthMm(), a.getLengthMm()));
+		}
+		for (CenterlineBranch b : branches) {
 			branchListModel.addElement(new BranchItem(b));
 		}
 	}
@@ -356,6 +382,7 @@ public class CenterlineAnalysisDialog extends JDialog {
 		canvas.setSelectedCenterlineCurve(selectedCurve);
 		show2DButton.setEnabled(true);
 		show3DButton.setEnabled(true);
+		useAsEndoPathButton.setEnabled(true);
 	}
 
 	private void onExtractPath() {
@@ -382,6 +409,7 @@ public class CenterlineAnalysisDialog extends JDialog {
 			canvas.setSelectedCenterlineCurve(selectedCurve);
 			show2DButton.setEnabled(true);
 			show3DButton.setEnabled(true);
+			useAsEndoPathButton.setEnabled(true);
 		} catch (Exception ex) {
 			JOptionPane.showMessageDialog(this, "No path between the selected nodes: " + ex.getMessage());
 		}
@@ -454,6 +482,18 @@ public class CenterlineAnalysisDialog extends JDialog {
 		timer.start();
 
 		frame.canvas.setVolumeData(straightened);
+	}
+
+	/**
+	 * Sends the currently selected branch/path to the 3D viewer's virtual
+	 * endoscopy path, so it can be flown through with Endoscopy View
+	 * (Fly-Through) instead of requiring the path to be traced by hand.
+	 */
+	private void useAsEndoscopyPath() {
+		if (!hasUsableSelectedCurve()) return;
+		canvas.setEndoPathFromCenterline(selectedCurve, mainSampler);
+		canvas.setShowEndoPath(true);
+		statusLabel.setText("Endoscopy path loaded (" + selectedCurve.size() + " control points).");
 	}
 
 	private static BufferedImage renderGray(float[] values, int w, int h, float winMin, float winMax) {

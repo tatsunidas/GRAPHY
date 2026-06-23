@@ -118,6 +118,19 @@ public class CenterlineGraphRenderer {
 	 */
 	public void render(CenterlineGraph graph, VolumeSampler sampler, Matrix4f mvp, Set<Integer> selectedBranchIds,
 			Set<Integer> selectedNodeIds, Centerline3D liveCurve) {
+		render(graph, sampler, mvp, selectedBranchIds, selectedNodeIds, liveCurve, LIVE_CURVE_COLOR);
+	}
+
+	/**
+	 * Same as {@link #render(CenterlineGraph, VolumeSampler, Matrix4f, Set, Set, Centerline3D)},
+	 * but with an explicit {@code liveCurveColor} - needed when more than one
+	 * "live curve" overlay can be on screen at once (e.g. GLCanvas keeps
+	 * drawing the centerline an endoscopy path was loaded from, separately
+	 * from whatever CenterlineAnalysisDialog currently has selected) and
+	 * they'd otherwise be indistinguishable.
+	 */
+	public void render(CenterlineGraph graph, VolumeSampler sampler, Matrix4f mvp, Set<Integer> selectedBranchIds,
+			Set<Integer> selectedNodeIds, Centerline3D liveCurve, Vector3f liveCurveColor) {
 		if (programId <= 0 || sampler == null) {
 			return;
 		}
@@ -139,7 +152,7 @@ public class CenterlineGraphRenderer {
 		if (liveCurve != null && liveCurve.size() >= 2) {
 			glLineWidth(3f);
 			float[] pts = sampleCurveLocal(liveCurve, sampler);
-			uploadAndDrawHeap(lineVao, lineVbo, pts, LIVE_CURVE_COLOR, GL_LINE_STRIP);
+			uploadAndDrawHeap(lineVao, lineVbo, pts, liveCurveColor, GL_LINE_STRIP);
 			glLineWidth(1f);
 		}
 

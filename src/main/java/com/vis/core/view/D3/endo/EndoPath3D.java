@@ -62,6 +62,14 @@ public class EndoPath3D {
 
 	private final List<EndoPathPoint3D> points = new ArrayList<>();
 
+	// trueの間はCatmull-Romを使わず、隣接する制御点を直線でつなぐ。中心線解析から密に
+	// (区分線形で滑らかに見える間隔で)再サンプリングした点を流し込む場合に使う - そうした
+	// 点にさらにCatmull-Romをかけると、各点はそのまま通るものの、点と点の間で本来の中心線
+	// から逸れてしまう(局所的なローカル座標系の軸ごとの歪みにCatmull-Romの弦長パラメータ化が
+	// 敏感なため)。手動編集（Edit Endoscopy Path）の少数の制御点では、滑らかな補間の方が
+	// 望ましいのでfalseのままにする。
+	private boolean linearInterpolation = false;
+
 	private boolean dirty = true;
 	private float[] sampleArcLength;
 	private Vector3f[] samplePosition;
@@ -118,6 +126,16 @@ public class EndoPath3D {
 		markDirty();
 	}
 
+	/** trueにすると、Catmull-Romではなく隣接制御点間の直線補間でパスを評価する。see {@link #linearInterpolation}. */
+	public void setLinearInterpolation(boolean linear) {
+		this.linearInterpolation = linear;
+		markDirty();
+	}
+
+	public boolean isLinearInterpolation() {
+		return linearInterpolation;
+	}
+
 	// ===================== スプライン評価 =====================
 
 	/**
@@ -139,9 +157,9 @@ public class EndoPath3D {
 		}
 		float s = ct - segIndex;
 
-		if (points.size() == 2) {
-			Vector3f p0 = points.get(0).getPosition();
-			Vector3f p1 = points.get(1).getPosition();
+		if (linearInterpolation || points.size() == 2) {
+			Vector3f p0 = points.get(segIndex).getPosition();
+			Vector3f p1 = points.get(segIndex + 1).getPosition();
 			return lerp(p0, p1, s);
 		}
 
