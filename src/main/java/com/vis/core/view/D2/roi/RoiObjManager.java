@@ -185,8 +185,10 @@ public class RoiObjManager extends JFrame
 		instance = this;
 		errorMessage = null;
 		setUp();
-		
-		setAlwaysOnTop(true);
+
+		// ★削除: setAlwaysOnTop(true) はこのウィンドウだけでなく、ImageJ等の外部ウィンドウも含めた
+		// OS全体のウィンドウスタッキングに影響し、2D Viewerが開いている間は他の全ウィンドウの描画/
+		// クリックを妨害してしまっていた。必要なときはtoFront()で前面に出せるので、それで足りる。
 
 		addWindowListener(new WindowAdapter() {
 			@Override
@@ -508,10 +510,8 @@ public class RoiObjManager extends JFrame
 
 					} else {
 						// ==========================================================
-						// ★ 2D-ROI（単独更新 ＆ 物理引越し対応）
+						// ★ 2D-ROI（単独更新）
 						// ==========================================================
-						SlideGlass oldSg = r.getSlideGlass();
-
 						for (String k : mainProps.keySet()) {
 							r.setProperty(k, mainProps.get(k));
 						}
@@ -524,16 +524,6 @@ public class RoiObjManager extends JFrame
 							String calculatedPos = String.valueOf(newZctIndex + 1);
 							r.setProperty(RoiDBKey.Position.name(), calculatedPos);
 							roiInfoFields.get(RoiDBKey.Position.name()).setText(calculatedPos);
-
-							// 2Dの引越し処理
-							SlideGlass newSg = pp.getAllSlides().get(newZctIndex);
-							if (newSg != null && oldSg != newSg) {
-								if (oldSg != null)
-									oldSg.getRois().remove(r);
-								r.setSlideGlass(newSg, false);
-								if (!newSg.getRois().contains(r))
-									newSg.getRois().add(r);
-							}
 						} else {
 							r.setProperty(RoiDBKey.Position.name(), "0");
 							roiInfoFields.get(RoiDBKey.Position.name()).setText("0");
@@ -541,6 +531,20 @@ public class RoiObjManager extends JFrame
 
 						if (db != null)
 							db.insertRoi(r.readContext());
+
+						// ★修正: 以前はnewC/newZ/newTが全て具体値の場合だけ、oldSg/newSg間で
+						// ROIオブジェクトを手動で引っ越していたが、いずれかを-1(ALL/グローバル)に
+						// 変更したケースは何もしておらず、ROIは元のSlideGlassに残ったまま他スライドへ
+						// 伝播しなかった(=Updateしても画面に反映されない/グローバル化できないバグ)。
+						// redispatchRoi()はDBの最新プロパティ(今保存した値)に基づき、まず全スライドから
+						// このROIを除去し、Dim_C/Dim_Z/Dim_Tの一致条件(-1はALL)で正しいスライド群へ
+						// 再配布するため、単一スライス化・グローバル化どちらの変更も即座に正しく反映される。
+						if (pp != null) {
+							String roiId = r.getProperty(RoiDBKey.RoiID.name());
+							if (roiId != null) {
+								pp.redispatchRoi(roiId);
+							}
+						}
 					}
 
 					// 画面全体の再描画
@@ -1961,6 +1965,15 @@ public class RoiObjManager extends JFrame
 			Log.logger.fine("Cannot import roi...");
 			return;
 		}
+
+		// ★検証ログ: ImageJ側のRoiが実際に保持している位置情報を確認する(デバッグモードのみ)
+		if (Utils.isDebug) {
+			Log.logger.info(String.format(
+					"[DEBUG-ROI-IMPORT] roi.getPosition()=%d, roi.getZPosition()=%d, roi.getCPosition()=%d, roi.getTPosition()=%d, hasHyperStackPosition=%b",
+					roi.getPosition(), roi.getZPosition(), roi.getCPosition(), roi.getTPosition(),
+					roi.hasHyperStackPosition()));
+		}
+
 		/*
 		 * Load on all selected series. If consistent, load only that slide. If there is
 		 * no consistency, priority is given to the instance number. If there is no
@@ -1970,7 +1983,13 @@ public class RoiObjManager extends JFrame
 			// set roi to series
 			int roiFramePos = getSlicePosition(prap, roi);
 			int instNo = -1;
+			if (Utils.isDebug) {
+				Log.logger.info("[DEBUG-ROI-IMPORT] getSlicePosition(UID match) result: " + roiFramePos);
+			}
 			if (roiFramePos >= 0) {
+				// ★修正: MPEG動画等は遅延生成のため、まだ訪れていないフレームはslidesに存在しない。
+				// realizeImage()で明示的に実体化してから取得する。
+				prap.realizeImage(roiFramePos);
 				SlideGlass s = prap.getAllSlides().get(roiFramePos);
 				roiObj.setSlideGlass(s, false);
 				s.addRoi(roiObj);
@@ -1983,6 +2002,9 @@ public class RoiObjManager extends JFrame
 					} catch (NumberFormatException e) {
 						// do nothing
 					}
+				}
+				if (Utils.isDebug) {
+					Log.logger.info("[DEBUG-ROI-IMPORT] instNo: " + instNo);
 				}
 				if (instNo >= 0) {
 					/*
@@ -1997,13 +2019,50 @@ public class RoiObjManager extends JFrame
 						}
 					}
 				} else {
-					// set current slide
-					SlideGlass s = prap.getCurrentSlide();
-					roiObj.setSlideGlass(s, false);
-					s.addRoi(roiObj);
+					// ★修正: GRAPHY独自のUID/InstanceNoを持たない"純正"のImageJ ROIの場合、
+					// ImageJ自身が保持しているスライス位置(getZPosition(), 1-based。
+					// hyperstackのsetPosition(c,z,t)にも対応)を使って対応するスライドを特定する。
+					// これが無いと常に「現在表示中のスライド」に落ち着いてしまい、ROIが元々
+					// どのスライスに描かれていたか(Position/ZCT)が失われてしまう。
+					int zPos = roi.getZPosition(); // 1-based. 0 = 位置情報なし
+					if (Utils.isDebug) {
+						Log.logger.info("[DEBUG-ROI-IMPORT] zPos from roi.getZPosition(): " + zPos);
+					}
+					SlideGlass s = null;
+					if (zPos > 0) {
+						int targetIndex = zPos - 1;
+						// ★修正: MPEG動画等は遅延生成のため、まだ訪れていないフレームはslidesに
+						// 存在せずget()がnullを返し、常に現在のスライドへフォールバックしてしまっていた。
+						// realizeImage()で明示的に実体化してから取得する。
+						prap.realizeImage(targetIndex);
+						s = prap.getAllSlides().get(targetIndex);
+						if (Utils.isDebug) {
+							Log.logger.info("[DEBUG-ROI-IMPORT] targetIndex=" + targetIndex + ", resolved slide=" + (s != null));
+						}
+					}
+					if (s == null) {
+						// 位置情報が無い、または対応するスライドが存在しない場合は現在表示中のスライドへ
+						s = prap.getCurrentSlide();
+						if (Utils.isDebug) {
+							Log.logger.info("[DEBUG-ROI-IMPORT] falling back to current slide");
+						}
+					}
+					if (s != null) {
+						roiObj.setSlideGlass(s, false);
+						s.addRoi(roiObj);
+					}
 				}
 			}
 		}
+
+		// ★検証ログ: 最終的にROIへ設定されたPosition/ZCTを確認する(デバッグモードのみ)
+		if (Utils.isDebug) {
+			Log.logger.info("[DEBUG-ROI-IMPORT] Final Position=" + roiObj.getProperty(RoiDBKey.Position.name())
+					+ ", Dim_Z=" + roiObj.getProperty(RoiMetaContextKey.Dim_Z.name())
+					+ ", Dim_C=" + roiObj.getProperty(RoiMetaContextKey.Dim_C.name())
+					+ ", Dim_T=" + roiObj.getProperty(RoiMetaContextKey.Dim_T.name()));
+		}
+
 		/*
 		 * update
 		 */

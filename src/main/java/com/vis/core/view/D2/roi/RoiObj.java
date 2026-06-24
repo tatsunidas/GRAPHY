@@ -54,6 +54,7 @@ import java.awt.geom.*;
 
 import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.RoiDBKey;
+import com.vis.configuration.RoiMetaContextKey;
 import com.vis.configuration.GraphyProp;
 import com.vis.core.log.Log;
 import com.vis.core.ui.listener.RoiObjListener;
@@ -2123,6 +2124,16 @@ public class RoiObj extends Object implements Cloneable, java.io.Serializable, I
 		// 見つかったら、1-based (index + 1) で Position にセットする
 		if (index != -1) {
 			setProperty(RoiDBKey.Position.name(), String.valueOf(index + 1));
+			// ★修正: Position(1-based)だけでなく、ZCT(Dim_Z/Dim_C/Dim_T, 0-based)も設定する。
+			// これが無いと、ImageJ純正のROI(GRAPHY独自プロパティを持たない)をインポートした際、
+			// Positionは正しいフレームを指すのに、ZCTは常に[0,0,0]として扱われ、特定スライスのみに
+			// 表示すべきROIが意図せず別フレーム/全フレームへ表示されてしまう。
+			// 純正のImageJ ROIはチャンネル/フレームの概念を持たないフラットなスライス番号(Position)
+			// しか持たないため、Praparatの多次元構造(calcZCTArrayFromIndex)で分解するのではなく、
+			// 単純にZ=Position-1(=index), C=0, T=0として読み込む。
+			setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(index));
+			setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(0));
+			setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(0));
 		}
 	}
 

@@ -71,6 +71,8 @@ import java.util.logging.*;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerListModel;
 import javax.swing.SwingUtilities;
 
 import com.vis.configuration.Resources;
@@ -114,6 +116,7 @@ import ij.ImageStack;
 import ij.gui.Overlay;
 import ij.measure.Calibration;
 import ij.process.ColorProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.LUT;
 
@@ -161,6 +164,11 @@ public class Praparat extends JPanel {
 	private CineSlider channelSlider; // C (Channel) slider
 	private CineSlider frameSlider; // T (Time/Frame) slider
 	private JPanel sliderPanel; // スライダーを縦に並べるためのコンテナ
+	// ★ Thick Slab(デジタルスライス厚)用UI: Sliceスライダー(再生ボタンを含む)と並べて置く兄弟パネル
+	private JPanel sliceRowPanel;
+	private JSpinner thickSlabSpinner;
+	private static final String[] THICK_SLAB_OPTIONS = { "Original", "0.5", "1.0", "1.5", "2.0", "2.5", "3.0", "3.5",
+			"4.0", "4.5", "5.0" };
 
 	private Color studyColor = Color.CYAN;
 	private LUT lut;// null-able
@@ -195,6 +203,43 @@ public class Praparat extends JPanel {
 	private int filmGridColumns = 5;
 	private boolean isMultiFrame = false;/* to set video option */
 	private boolean isPDF = false;
+	/*
+	 * MPEG/H.264/HEVC encapsulated video series. Random-access decode of such a
+	 * frame is expensive (JCodec must replay from the nearest keyframe, often
+	 * frame 0), so prefetch/auto-window logic must avoid jumping to far-away
+	 * frames for this case. Must NOT affect ordinary multi-channel/multi-slice
+	 * (ZCT) series, where any-frame access is a cheap array lookup.
+	 */
+	private boolean isMpegVideoSeries = false;
+	/*
+	 * MPEG動画シリーズ用：InstanceNumberでソート済みのDicomImage一覧。
+	 * SlideGlass(JLayeredPane: 子4枚+リスナー複数)を数千フレーム分EDTで一括生成すると、
+	 * それだけで数十秒EDTを占有してフリーズするため、ここに保持して ensureSlideGlassAt() で
+	 * 実際に必要なフレームだけ遅延生成する。通常の多チャンネル/多スライスシリーズでは使用しない。
+	 */
+	private java.util.List<DicomImage> mpegFrameSource = null;
+	/*
+	 * MPEG動画シリーズ用：Dim_Z=-1(グローバル)なROIのコンテキストをRoiIDで保持しておくキャッシュ。
+	 * 通常系列はslidesが全フレーム分先行生成されているため、loadRoisFromDB/redispatchRoiの
+	 * slides.entrySet()走査だけで全フレームに配布できるが、MPEG動画は表示・先読みされた
+	 * フレームしかslidesに存在しない(遅延生成)。そのため、まだ見ていないフレームをensureSlideGlassAt()
+	 * で後から生成した瞬間に、ここを見てグローバルROIを後付けする(でなければ「数枚だけグローバル表示」になる)。
+	 */
+	private final java.util.Map<String, java.util.HashMap<String, Object>> globalZRoiContexts = new java.util.concurrent.ConcurrentHashMap<>();
+	/*
+	 * Thick Slab(デジタルスライス厚)。0.0 = Original/OFF。MPEG動画シリーズ(isMpegVideoSeries)
+	 * では常に無効。非MPEGの多チャンネル/多フレームでも、実Zスタック(nSlices>1)があれば
+	 * C/Tに関係なく有効化できる。値はmm単位、ON時はZ方向の隣接スライスをTrilinear補間で
+	 * サブサンプリングして平均化した合成画像をそのスライスとして表示する。
+	 */
+	private double thickSlabThicknessMm = 0.0;
+	/*
+	 * computeThickSlabProcessor()の計算結果(合成済みImageProcessor)を、通常のslidesと同じ
+	 * フラットZCTキーでキャッシュする。Thick Slab合成はW×H×depth×Nオーダーで通常の単純デコード
+	 * より明確に重いため、manageCache()の既存の先読み窓(±PREFETCH_RANGE)に乗せて
+	 * バックグラウンドで一度だけ計算し、再表示時はキャッシュを使う(都度再計算しない)。
+	 */
+	private final ConcurrentHashMap<Integer, ImageProcessor> thickSlabCache = new ConcurrentHashMap<>();
 	private boolean selected = false;
 	private boolean focusGained = false;
 	private boolean showGridViewOn = false;// filemGridView
@@ -387,11 +432,14 @@ public class Praparat extends JPanel {
 		if (slides == null || slides.isEmpty())
 			return;
 
-		// 1. 真ん中のスライスを代表として選ぶ
+		// 1. 代表スライスを選ぶ
 		// ★ 修正: ZCT対応。実際に存在するキーをソートし、その中央値を取得することで空きマスを確実に回避
+		// ★ MPEG動画シリーズは中央フレームへのランダムアクセスが非常に高コスト（JCodecが直近キーフレーム、
+		// 多くの場合フレーム0から再デコードするため）なので、代表フレームは常に先頭(コスト最小)を使う。
+		// 通常の多チャンネル/多スライスシリーズの選択ロジックは変更しない。
 		List<Integer> keys = new ArrayList<>(slides.keySet());
 		java.util.Collections.sort(keys);
-		int midKey = keys.get(keys.size() / 2);
+		int midKey = isMpegVideoSeries ? keys.get(0) : keys.get(keys.size() / 2);
 
 		SlideGlass midSlide = slides.get(midKey);
 		if (midSlide == null)
@@ -1191,7 +1239,10 @@ public class Praparat extends JPanel {
 		/*
 		 * Explicit code.
 		 */
-		SlideGlass sg = slides.get(currentSliceZCT);
+		// ★ slides.get()ではなくensureSlideGlassAt()：MPEG動画でcurrentSliceZCTがまだ遅延生成
+		// されていないタイミングでnullを返すと、ColorBar等のgetCurrentSlide()直接呼び出し側で
+		// NPEになるため、ここでも遅延生成を経由させる(通常系列ではslides.get()と同じ結果)。
+		SlideGlass sg = ensureSlideGlassAt(currentSliceZCT);
 		if (sg != null) {
 			return sg;
 		} else {
@@ -1736,7 +1787,9 @@ public class Praparat extends JPanel {
 	}
 	
 	public int getNumberOfImages() {
-		return slides.size();
+		// ★ MPEG動画は遅延生成のため、構築済み件数(slides.size())ではなく総フレーム数を返す。
+		// 通常の多チャンネル/多スライス(SEGスパース等含む)シリーズは既存仕様通りslides.size()を返す。
+		return isMpegVideoSeries ? (nChannels * nSlices * nFrames) : slides.size();
 	}
 
 	public ReferenceLineMPR getReferenceLineMPR() {
@@ -2359,7 +2412,20 @@ public class Praparat extends JPanel {
 		slider = new CineSlider(this, "Slice"); // ★ 引数にラベルを追加できるよう後でCineSliderも改修します
 		channelSlider = new CineSlider(this, "Channel");
 		frameSlider = new CineSlider(this, "Time");
-		sliderPanel.add(slider);
+
+		// ★ Thick Slab(デジタルスライス厚): Sliceスライダー(再生ボタンを含む)と並べて表示する
+		thickSlabSpinner = new JSpinner(new SpinnerListModel(THICK_SLAB_OPTIONS));
+		thickSlabSpinner.setValue("Original");
+		thickSlabSpinner.addChangeListener(e -> {
+			String selected = (String) thickSlabSpinner.getValue();
+			double mm = "Original".equals(selected) ? 0.0 : Double.parseDouble(selected);
+			setThickSlabThickness(mm);
+		});
+		sliceRowPanel = new JPanel(new BorderLayout());
+		sliceRowPanel.add(slider, BorderLayout.CENTER);
+		sliceRowPanel.add(thickSlabSpinner, BorderLayout.EAST);
+
+		sliderPanel.add(sliceRowPanel);
 		southComponentPanel.add(sliderPanel, BorderLayout.SOUTH);
 
 		/*
@@ -2533,16 +2599,37 @@ public class Praparat extends JPanel {
 
 	/**
 	 * SlideGlassの空間（IPP/FoR）と、ROIが持つ空間情報が一致するかを判定します。
+	 *
+	 * @param currentZ 判定対象スライドのZ(slice)インデックス。calcZCTArrayFromIndex(...)[0]と同じ並び。
+	 * @param targetZ  ROI保存時のDim_Z。未設定(レガシーROI)の場合は -99 を渡すこと。
 	 */
-	private boolean isSpatialMatch(SlideGlass sg, String roiIppStr, String roiForUid, String originSop) {
+	private boolean isSpatialMatch(SlideGlass sg, String roiIppStr, String roiForUid, String originSop, int currentZ,
+			int targetZ) {
+		// ★修正: Dim_Zが-1(ALL/グローバル)の場合は、IPPの有無にかかわらず常に一致とする
+		// (Dim_C/Dim_Tの-1=ALL判定と同じ扱い)。これが無いと、IPPを持つ通常のCT/MR等のシリーズでは
+		// 常にIPP距離判定に入ってしまい、Z=-1を指定しても元のスライス1枚にしかマッチせず、
+		// グローバル化できなかった。
+		if (targetZ == -1) {
+			return true;
+		}
+
 		DicomObject header = sg.getHeader();
 		int frameIdx = isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
 
 		// SlideGlass側のIPPを取得
 		double[] currentIpp = getSafeIPP(header, frameIdx);
 
-		// 1. IPPが存在しない（完全な2D画像）場合のフォールバック判定
+		// 1. IPPが存在しない（マルチフレームDICOM/動画等、空間概念がない）場合のフォールバック判定
 		if (currentIpp == null || roiIppStr == null) {
+			// ★修正: マルチフレームDICOM(MPEG動画等)は、その中の全フレームが同一のSOPInstanceUIDを
+			// 共有するため、SOPの一致だけでは「どのフレームか」を区別できず、Dim_Zに-1(ALL)以外の
+			// 値が入っていても常に全フレームへマッチしてしまっていた(=常時グローバル表示されるバグ)。
+			// Dim_Zが分かっている場合は、Dim_C/Dim_Tと同様にそちらを優先して使い、正しいフレームだけに
+			// 一致させる(targetZ==-1は関数先頭で既にtrue確定済みのため、ここに来るのは具体値のみ)。
+			// Dim_Zが無い(レガシーROI)場合のみ、従来通りSOPの厳密一致にフォールバックする。
+			if (targetZ != -99) {
+				return targetZ == currentZ;
+			}
 			// 空間の概念がないため、厳密なSOPの一致のみを許可する（C=ALLなどの共有を遮断）
 			String currentSop = sg.getSOPInstanceUID();
 			return currentSop != null && currentSop.equals(originSop);
@@ -2613,6 +2700,9 @@ public class Praparat extends JPanel {
 		
 		Log.logger.fine("[DEBUG-LOAD] DBから読み込んだROI総数: " + (seriesRois != null ? seriesRois.size() : 0));
 
+		// ★ MPEG動画の遅延生成フレーム用キャッシュをこのシリーズの最新状態で作り直す
+		globalZRoiContexts.clear();
+
 		// 2. ディスパッチ処理: 取得した各ROIを評価
 		for (HashMap<String, Object> roiCtx : seriesRois) {
 
@@ -2628,11 +2718,23 @@ public class Praparat extends JPanel {
 
 			String dimCStr = metaProps.get("Dim_C");
 			String dimTStr = metaProps.get("Dim_T");
+			String dimZStrForMatch = metaProps.get("Dim_Z");
 
 			// NULLの場合は "NULL" という特別な状態として保持しておく
 			int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99;
 			int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99;
+			int targetZ = (dimZStrForMatch != null && !dimZStrForMatch.trim().isEmpty())
+					? Integer.parseInt(dimZStrForMatch)
+					: -99;
 			String originSop = (String) roiCtx.get("SOPInstanceUID");
+
+			// ★ MPEG動画でDim_Z=-1(グローバル)なら、まだ遅延生成されていないフレーム用にキャッシュしておく
+			if (isMpegVideoSeries && targetZ == -1) {
+				String roiId = (String) roiCtx.get(RoiDBKey.RoiID.name());
+				if (roiId != null) {
+					globalZRoiContexts.put(roiId, roiCtx);
+				}
+			}
 
 			for (Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
 				int zctIndex = entry.getKey();
@@ -2656,7 +2758,7 @@ public class Praparat extends JPanel {
 				// ========================================================
 				// ★判定B: 空間（Z座標 / IPP）とSOPのマッチング
 				// ========================================================
-				boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
+				boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop, currentZCT[0], targetZ);
 
 				// DimがNULL(-99)のレガシーROI/新規ROIの場合は、空間が一致してもSOPが違えば弾く（単一スライス表示）
 				if (targetC == -99 || targetT == -99) {
@@ -2804,12 +2906,25 @@ public class Praparat extends JPanel {
 
 		String dimCStr = metaProps.get("Dim_C");
 		String dimTStr = metaProps.get("Dim_T");
+		String dimZStrForMatch = metaProps.get("Dim_Z");
 		int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99;
 		int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99;
+		int targetZ = (dimZStrForMatch != null && !dimZStrForMatch.trim().isEmpty()) ? Integer.parseInt(dimZStrForMatch)
+				: -99;
 		String originSop = (String) targetRoiCtx.get("SOPInstanceUID");
 
 		com.vis.core.log.Log.logger.info(String.format(
 				"[DEBUG-4: DISPATCH] Loaded from DB: Target C=%d, T=%d | OriginSOP=%s", targetC, targetT, originSop));
+
+		// ★ MPEG動画でDim_Z=-1(グローバル)に変更された場合は、まだ遅延生成されていないフレーム用に
+		// キャッシュを更新する(具体値に戻された場合はキャッシュから外す)
+		if (isMpegVideoSeries) {
+			if (targetZ == -1) {
+				globalZRoiContexts.put(targetRoiId, targetRoiCtx);
+			} else {
+				globalZRoiContexts.remove(targetRoiId);
+			}
+		}
 
 		for (java.util.Map.Entry<Integer, SlideGlass> entry : slides.entrySet()) {
 			int zctIndex = entry.getKey();
@@ -2828,7 +2943,7 @@ public class Praparat extends JPanel {
 				continue;
 
 			// 判定B: 空間
-			boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop);
+			boolean spatialMatch = isSpatialMatch(sg, roiIppStr, roiForUid, originSop, currentZCT[0], targetZ);
 
 			com.vis.core.log.Log.logger
 					.fine(String.format("[DEBUG-4: MATCHING] Slide(Z=%d, C=%d, T=%d) | SpatialMatch=%b", currentZCT[0],
@@ -2974,18 +3089,50 @@ public class Praparat extends JPanel {
 					// バックグラウンド処理の結果（全画像データ）を取得
 					java.util.List<DicomImage> dcmImages = get();
 
-					slides = new java.util.concurrent.ConcurrentHashMap<>();
-					java.util.List<SlideGlass> slideList = new java.util.ArrayList<>();
+					// ★ MPEG動画シリーズかどうかを一度だけ判定して保持（多チャンネル系シリーズの挙動には影響させない）
+					isMpegVideoSeries = !dcmImages.isEmpty() && dcmImages.get(0).getTSUID() != null
+							&& dcmImages.get(0).getTSUID().isMpeg();
 
-					// 2. EDT（UIスレッド）上で安全にSlideGlassを一括生成
-					for (int i = 0; i < dcmImages.size(); i++) {
-						SlideGlass sg = new SlideGlass(Praparat.this, dcmImages.get(i));
-						slides.put(i, sg);
-						slideList.add(sg);
+					// ★ Thick Slab: 別シリーズの設定を持ち込まないよう、ロードごとにリセットする
+					thickSlabThicknessMm = 0.0;
+					thickSlabCache.clear();
+					if (thickSlabSpinner != null) {
+						thickSlabSpinner.setValue("Original");
 					}
 
-					// 3. ★全スライドが揃った状態で計算を実行（ここでスライダーの最大値や適正コントラストが確定する）
-					organizeMultiDimensionalSlides(slideList);
+					slides = new java.util.concurrent.ConcurrentHashMap<>();
+
+					if (isMpegVideoSeries) {
+						// ★ MPEG動画は数千フレームに及ぶことがあり、毎フレーム分のSlideGlass
+						// (JLayeredPane: 子4枚+リスナー複数)をEDT上で全件先行生成すると、
+						// それだけで数十秒EDTを占有し「フリーズして見える」原因になる。
+						// ここではDicomImageの並び替えのみ行い、SlideGlassは表示・先読みで
+						// 実際に必要になったフレームだけ ensureSlideGlassAt() で遅延生成する。
+						// 通常の多チャンネル/多スライスシリーズ(organizeMultiDimensionalSlides)には影響させない。
+						dcmImages.sort((a, b) -> Integer.compare(a.getHeader().getInt(Tag.InstanceNumber, 0),
+								b.getHeader().getInt(Tag.InstanceNumber, 0)));
+						mpegFrameSource = dcmImages;
+						nSlices = dcmImages.size();
+						nChannels = 1;
+						nFrames = 1;
+						// 先頭フレームだけは即時に実体化（AutoWindow/初回表示に必要）
+						if (!dcmImages.isEmpty()) {
+							ensureSlideGlassAt(0);
+						}
+						SwingUtilities.invokeLater(() -> updateSlidersVisibility());
+					} else {
+						java.util.List<SlideGlass> slideList = new java.util.ArrayList<>();
+
+						// 2. EDT（UIスレッド）上で安全にSlideGlassを一括生成
+						for (int i = 0; i < dcmImages.size(); i++) {
+							SlideGlass sg = new SlideGlass(Praparat.this, dcmImages.get(i));
+							slides.put(i, sg);
+							slideList.add(sg);
+						}
+
+						// 3. ★全スライドが揃った状態で計算を実行（ここでスライダーの最大値や適正コントラストが確定する）
+						organizeMultiDimensionalSlides(slideList);
+					}
 					applyGlobalAutoWindow();
 
 					// 4. UI状態の更新
@@ -3525,10 +3672,22 @@ public class Praparat extends JPanel {
 			for (int i = -PREFETCH_RANGE; i <= PREFETCH_RANGE; i++) {
 				if (requestId != latestCacheRequest.get())
 					return;
-				int targetIndex = (currentIndex + i + capacity) % capacity;
+				int targetIndex;
+				if (isMpegVideoSeries) {
+					// ★ MPEG動画は周回(リングバッファ)にしない。先頭/末尾をまたぐラップを行うと、
+					// JCodecが現在位置から大きく離れたフレームを直近キーフレーム（多くの場合フレーム0）
+					// から再デコードする必要が生じ、極端に重くなる（2D Viewerフリーズの原因）。
+					// 通常の多チャンネル/多スライスシリーズの周回プリフェッチには影響させない。
+					targetIndex = currentIndex + i;
+					if (targetIndex < 0 || targetIndex >= capacity) {
+						continue;
+					}
+				} else {
+					targetIndex = (currentIndex + i + capacity) % capacity;
+				}
 				// ★修正: 現在表示中の画像(currentIndex)に対する非同期のUI上書きを防ぎ、カクつきをなくす
 				boolean shouldSync = processSeries && (targetIndex != currentIndex);
-				
+
 				realizeImage(targetIndex, shouldSync, syncMag, syncRot, syncMin, syncMax, syncOrigin);
 			}
 
@@ -3547,7 +3706,10 @@ public class Praparat extends JPanel {
 			if (capacity > (PREFETCH_RANGE * 2 + 1) && requestId == latestCacheRequest.get()) {
 				// ★ 修正: keysetで回すことで、存在する要素だけを安全に解放
 				for (Integer j : slides.keySet()) {
-					if (!isWithinCircularRange(j, currentIndex, capacity, PREFETCH_RANGE)) {
+					// ★ MPEG動画は周回距離ではなく直線距離で判定する（上の周回禁止ロードと整合させる）
+					boolean withinRange = isMpegVideoSeries ? Math.abs(j - currentIndex) <= PREFETCH_RANGE
+							: isWithinCircularRange(j, currentIndex, capacity, PREFETCH_RANGE);
+					if (!withinRange) {
 						unloadImage(j);
 					}
 				}
@@ -3642,7 +3804,7 @@ public class Praparat extends JPanel {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param index : zct
 	 */
 	private void unloadImage(int index) {
@@ -3658,6 +3820,334 @@ public class Praparat extends JPanel {
 					sg.getDicomImage().releasePixelBulkFromHeader();
 				}
 			}
+		}
+		// ★ 修正: MPEG動画でもSlideGlass自体はslidesに残し、ピクセルだけ解放する(他の系列と同じ既存仕様)。
+		// 一度はSlideGlassをここから完全に除去してメモリを回収しようとしたが、
+		// getCurrentSlide()等の直接slides.get()参照側がensureSlideGlassAt()を経由しないケースと
+		// 組み合わさるとnullを引き戻すタイミングが生まれてしまうため、安全性を優先して撤回した。
+
+		// ★ Thick Slab: 先読み窓の外に出たスライドの合成キャッシュも、通常のピクセル解放と
+		// 同じタイミングで解放する(メモリを(2*PREFETCH_RANGE+1)枚相当に有界にする)。
+		thickSlabCache.remove(index);
+	}
+
+	/**
+	 * Thick Slab(デジタルスライス厚)が、このシリーズで利用可能かどうか。
+	 * MPEG動画シリーズ(実空間Z情報を持たず、遅延デコードという別アーキテクチャ)は対象外。
+	 * RGB/カラー系列もv1では対象外(float合成の型分岐を避けるため)。
+	 * 実Zスタック(nSlices&gt;1)を持つ非MPEGの多チャンネル/多フレームシリーズで有効。
+	 */
+	public boolean isThickSlabAvailable() {
+		if (isMpegVideoSeries || nSlices <= 1 || slides == null || slides.isEmpty()) {
+			return false;
+		}
+		SlideGlass sg = getCurrentSlide();
+		if (sg == null) {
+			sg = getFirstNoEmptySlide();
+		}
+		return sg != null && !sg.isRGB();
+	}
+
+	private boolean isThickSlabEnabled() {
+		return thickSlabThicknessMm > 0 && isThickSlabAvailable();
+	}
+
+	/**
+	 * シリーズ代表のZ間隔(mm)。スライス間隔は均一であることを前提にする(既存のgetPixelSpacingZ()と同じ前提)。
+	 */
+	private double getRepresentativeSpacingZ() {
+		SlideGlass sg = getCurrentSlide();
+		if (sg == null) {
+			sg = getFirstNoEmptySlide();
+		}
+		double sp = (sg != null) ? sg.getPixelSpacingZ() : 1.0;
+		return sp > 0 ? sp : 1.0;
+	}
+
+	/**
+	 * Thick Slab有効時、1つの「デジタルスライス」が束ねる実スライス枚数(小数)。
+	 * 無効時は1.0(= 実スライス1枚 = デジタルスライス1枚)。
+	 */
+	private double getThickSlabSlicesPerDigitalStep() {
+		if (!isThickSlabEnabled()) {
+			return 1.0;
+		}
+		return Math.max(1.0, thickSlabThicknessMm / getRepresentativeSpacingZ());
+	}
+
+	/**
+	 * Thick Slab有効時のスライダー上の総「デジタルスライス」数。
+	 * 厚さ分だけ実スライスをまとめるため、実スライス数より少なくなる(ユーザー要望: スライス厚に
+	 * 合わせてデジタルなスライス数にスライダーを更新する)。無効時はnSlicesそのもの。
+	 */
+	private int getDigitalSliceCount() {
+		if (!isThickSlabEnabled()) {
+			return nSlices;
+		}
+		double slicesPerStep = getThickSlabSlicesPerDigitalStep();
+		return Math.max(1, (int) Math.ceil(nSlices / slicesPerStep));
+	}
+
+	/**
+	 * デジタルスライス位置(0-based, スライダーが見せる側)を、実Z位置(0-based, calcZctIndex等が
+	 * 使う既存の座標系)へ変換する。各デジタルスライスの「中心」となる実Zを返すことで、
+	 * computeThickSlabProcessor()の既存の中心クランプ処理(端では半分だけ使う)が
+	 * そのまま正しく機能する。
+	 */
+	private int digitalZToOriginalZ(int digitalZ) {
+		if (!isThickSlabEnabled()) {
+			return digitalZ;
+		}
+		double slicesPerStep = getThickSlabSlicesPerDigitalStep();
+		int z = (int) Math.round((digitalZ + 0.5) * slicesPerStep);
+		return Math.max(0, Math.min(nSlices - 1, z));
+	}
+
+	/**
+	 * 実Z位置(0-based)を、対応するデジタルスライス位置(0-based)へ変換する(digitalZToOriginalZの逆)。
+	 * Thick Slabの厚さ変更時や、ROI等から実Z位置へジャンプした際に、スライダーの表示位置を
+	 * 正しく同期させるために使う。
+	 */
+	private int originalZToDigitalZ(int originalZ) {
+		if (!isThickSlabEnabled()) {
+			return originalZ;
+		}
+		double slicesPerStep = getThickSlabSlicesPerDigitalStep();
+		int digitalCount = getDigitalSliceCount();
+		int di = (int) Math.floor(originalZ / slicesPerStep);
+		return Math.max(0, Math.min(digitalCount - 1, di));
+	}
+
+	/**
+	 * デジタルスライス厚(mm)を設定する。0以下、または現在シリーズのネイティブなスライス間隔と
+	 * ほぼ同じ値("Original"相当)であれば無効化する。値の変更は既存の合成キャッシュを全てクリアし、
+	 * 現在位置を即時再実体化、先読み窓(manageCache)を再構築する。
+	 */
+	public void setThickSlabThickness(double mm) {
+		if (!isThickSlabAvailable()) {
+			thickSlabThicknessMm = 0.0;
+			return;
+		}
+		SlideGlass currentSg = getCurrentSlide();
+		double nativeSpacing = currentSg != null ? currentSg.getPixelSpacingZ() : 1.0;
+		double newThickness = (mm <= 0 || Math.abs(mm - nativeSpacing) < 0.01) ? 0.0 : mm;
+		if (newThickness == thickSlabThicknessMm) {
+			return;
+		}
+		thickSlabThicknessMm = newThickness;
+		thickSlabCache.clear();
+		// 既存のoriginalImageは「無印デコード」or「古い厚さでの合成」のままなので、
+		// 表示中・先読み済みのスライドを全て未実体化状態に戻して再構築させる。
+		for (SlideGlass sg : slides.values()) {
+			if (sg != null) {
+				sg.imageSpecimen.setOriginalImage(null);
+			}
+		}
+		// ★ ユーザー要望: スライス厚に合わせてデジタルなスライス数にスライダーを更新する。
+		// initContext()はスライダーを一旦先頭(デジタル位置0)へ戻すため、その直後に現在の
+		// 実Z位置に対応するデジタル位置へ再同期する。
+		updateSlidersVisibility();
+		if (currentSliceZCT >= 0) {
+			int originalZ = calcZCTArrayFromIndex(currentSliceZCT)[0];
+			slider.setPosition(originalZToDigitalZ(originalZ));
+			realizeImage(currentSliceZCT, false, null, null, null, null, null);
+			SlideGlass sg = slides.get(currentSliceZCT);
+			if (sg != null) {
+				sg.updateDisplayImage();
+				sg.repaint();
+			}
+			manageCache(currentSliceZCT);
+		}
+	}
+
+	public double getThickSlabThickness() {
+		return thickSlabThicknessMm;
+	}
+
+	/**
+	 * 指定ZCTインデックスのスライスを中心に、Z方向の隣接スライスをTrilinear補間でサブサンプリングし
+	 * 平均化(Average projection)した合成ImageProcessorを構築する。
+	 * 端のスライス(Z=0、Z=nSlices-1)では、利用可能な範囲だけを使う(パディング/ミラーはしない。
+	 * 結果として端では実効厚さが半分になる)。
+	 * 近傍の探索は常にclampされたZ添字の直接計算のみを用い、周回(% capacity)は使わない。
+	 */
+	private ImageProcessor computeThickSlabProcessor(int index) {
+		int[] zct = calcZCTArrayFromIndex(index);
+		int z = zct[0];
+		int c = zct[1];
+		int t = zct[2];
+
+		SlideGlass centerSg = slides.get(index);
+		if (centerSg == null || centerSg.getDicomImage() == null) {
+			return null;
+		}
+		double spacingZ = centerSg.getPixelSpacingZ();
+		if (spacingZ <= 0) {
+			spacingZ = 1.0;
+		}
+		double halfSlices = (thickSlabThicknessMm / 2.0) / spacingZ;
+
+		// ★ クランプのみ。周回(% capacity)もパディング/ミラーも行わない。
+		double zStartF = Math.max(0, z - halfSlices);
+		double zEndF = Math.min(nSlices - 1, z + halfSlices);
+
+		int zLo = (int) Math.floor(zStartF);
+		int zHi = (int) Math.ceil(zEndF);
+		int depth = zHi - zLo + 1;
+
+		// 中心スライス自身のピクセルを確実にロードしてW/Hを確定する
+		DicomImage centerDcm = centerSg.getDicomImage();
+		centerDcm.ensurePixelDataLoaded();
+		int w = centerDcm.getWidth();
+		int h = centerDcm.getHeight();
+		if (w <= 0 || h <= 0) {
+			return null;
+		}
+
+		float[] volume = new float[w * h * depth]; // z*w*h + y*w + x 順
+		for (int zi = zLo; zi <= zHi; zi++) {
+			SlideGlass neighborSg = slides.get(calcZctIndex(new int[] { zi, c, t }));
+			if (neighborSg == null || neighborSg.getDicomImage() == null) {
+				continue; // スパースな空きマスはゼロ埋めのまま(通常系列では基本起きない)
+			}
+			DicomImage neighborDcm = neighborSg.getDicomImage();
+			neighborDcm.ensurePixelDataLoaded();
+			int framePos = isMultiFrame() ? (neighborSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
+			ImageProcessor ip = neighborDcm.getImageProcessor(framePos);
+			if (ip == null) {
+				continue;
+			}
+			// ★ 修正: 生のストア値のまま平均化する(キャリブレーション済み値には変換しない)。
+			// 既存のウィンドウィング/表示パイプラインは「生のストア値 + 別途Calibrationで変換」を
+			// 前提としており(ImageJの標準的な設計: 表示レンジは生値ベース、Calibrationは数値表示用)、
+			// ここで先にHU等へ変換すると合成画像のスケールが既存のWindow/Level(生値基準)と
+			// 食い違い、表示レンジが実際のデータ範囲から外れて画面が真っ黒になる。
+			// (RescaleSlope/Interceptがスライス間で異なるケースは稀かつ既存コードベース全体で
+			// 未対応のため、本機能でも生値の単純平均とする)
+			int base = (zi - zLo) * w * h;
+			int size = w * h;
+			for (int p = 0; p < size; p++) {
+				volume[base + p] = ip.getf(p);
+			}
+		}
+
+		// CurvedReformatter.projectBand と同型: N点等間隔サンプル -> 平均
+		int n = Math.max(2, Math.min(9, (int) Math.round(zEndF - zStartF) + 1));
+		float[] result = new float[w * h];
+		int size = w * h;
+		for (int p = 0; p < size; p++) {
+			int x = p % w;
+			int y = p / w;
+			double sum = 0;
+			for (int k = 0; k < n; k++) {
+				double zSample = zStartF + (zEndF - zStartF) * k / (n - 1);
+				double zLocal = zSample - zLo;
+				// ★ RadiomicsJは範囲外で無条件に0を返すため、自前で安全クランプしてから渡す
+				zLocal = Math.min(Math.max(zLocal, 0), depth - 1 - 1e-6);
+				sum += io.github.tatsunidas.radiomics.main.Utils.TrilinearInterpolation(volume, w, h, depth, x, y,
+						zLocal);
+			}
+			result[p] = (float) (sum / n);
+		}
+
+		return new FloatProcessor(w, h, result);
+	}
+
+	/**
+	 * 指定インデックスのSlideGlassを返す。存在しなければ、MPEG動画シリーズの場合に限り
+	 * mpegFrameSourceから遅延生成する（通常の多チャンネル/多スライスシリーズはスパースな
+	 * 空きマスをそのままnullとして扱う既存仕様を変更しない）。
+	 * SlideGlassはSwingコンポーネント(JLayeredPane)であるため、必ずEDT上で生成する。
+	 */
+	private SlideGlass ensureSlideGlassAt(int index) {
+		SlideGlass sg = slides.get(index);
+		if (sg != null) {
+			return sg;
+		}
+		if (!isMpegVideoSeries || mpegFrameSource == null || index < 0 || index >= mpegFrameSource.size()) {
+			return null;
+		}
+		DicomImage dcmImg = mpegFrameSource.get(index);
+		if (dcmImg == null) {
+			return null;
+		}
+		if (SwingUtilities.isEventDispatchThread()) {
+			return buildAndStoreSlideGlass(index, dcmImg);
+		}
+		final SlideGlass[] holder = new SlideGlass[1];
+		try {
+			SwingUtilities.invokeAndWait(() -> holder[0] = buildAndStoreSlideGlass(index, dcmImg));
+		} catch (Exception e) {
+			Log.logger.warning("Failed to lazily build SlideGlass at index " + index + ": " + e.getMessage());
+		}
+		return holder[0];
+	}
+
+	/**
+	 * ensureSlideGlassAt()専用。必ずEDT上で呼び出すこと。
+	 */
+	private SlideGlass buildAndStoreSlideGlass(int index, DicomImage dcmImg) {
+		SlideGlass existing = slides.get(index);
+		if (existing != null) {
+			return existing;
+		}
+		SlideGlass created = new SlideGlass(this, dcmImg);
+		slides.put(index, created);
+		attachGlobalZRoisIfNeeded(index, created);
+		return created;
+	}
+
+	/**
+	 * MPEG動画シリーズで、まだ訪れていなかったフレームのSlideGlassが今まさに遅延生成された際、
+	 * Dim_Z=-1(グローバル)指定のROIをここで後付けする。
+	 * loadRoisFromDB()/redispatchRoi()はslides.entrySet()(=既に生成済みのフレームのみ)を走査するため、
+	 * 数千フレームある動画のうち訪れた数枚にしかグローバルROIが配布されない問題があった。
+	 * 通常の多チャンネル/多スライスシリーズはslidesが常に全件先行生成されているため、この経路を通らない。
+	 */
+	private void attachGlobalZRoisIfNeeded(int index, SlideGlass sg) {
+		if (globalZRoiContexts.isEmpty()) {
+			return;
+		}
+		int[] currentZCT = calcZCTArrayFromIndex(index);
+		int currentC = currentZCT[1];
+		int currentT = currentZCT[2];
+
+		for (java.util.HashMap<String, Object> roiCtx : globalZRoiContexts.values()) {
+			@SuppressWarnings("unchecked")
+			Map<String, String> metaProps = (Map<String, String>) roiCtx.get(RoiDBKey.RoiMetaProperties.name());
+			if (metaProps == null) {
+				metaProps = new HashMap<>();
+			}
+			String dimCStr = metaProps.get("Dim_C");
+			String dimTStr = metaProps.get("Dim_T");
+			int targetC = (dimCStr != null && !dimCStr.trim().isEmpty()) ? Integer.parseInt(dimCStr) : -99;
+			int targetT = (dimTStr != null && !dimTStr.trim().isEmpty()) ? Integer.parseInt(dimTStr) : -99;
+
+			// 判定A: 次元のマッチング（loadRoisFromDBと同じルール）
+			if (targetC != -1 && targetC != -99 && targetC != currentC)
+				continue;
+			if (targetT != -1 && targetT != -99 && targetT != currentT)
+				continue;
+
+			RoiObj revivedRoi = new RoiConverter().buildRoiObj(roiCtx);
+			if (revivedRoi == null) {
+				continue;
+			}
+			// SphereRoi3D/FreeFormRoi3DはPraparatの3DリストでROI ID単位に管理するため、ここでは扱わない
+			boolean is3DManaged = (revivedRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D)
+					|| (revivedRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D);
+			if (is3DManaged) {
+				continue;
+			}
+
+			if (dimCStr != null)
+				revivedRoi.setProperty(RoiMetaContextKey.Dim_C.name(), dimCStr);
+			revivedRoi.setProperty(RoiMetaContextKey.Dim_Z.name(), "-1");
+			if (dimTStr != null)
+				revivedRoi.setProperty(RoiMetaContextKey.Dim_T.name(), dimTStr);
+
+			revivedRoi.setSlideGlass(sg, false);
+			sg.addRoiFromDB(revivedRoi);
 		}
 	}
 
@@ -3682,7 +4172,8 @@ public class Praparat extends JPanel {
 		if (index < 0 || index >= capacity) {
 			return;
 		}
-		SlideGlass sg = slides.get(index);
+		// ★ MPEG動画シリーズはここで初めてSlideGlassを遅延生成する（通常系列は既存のslides.get()と同じ挙動）
+		SlideGlass sg = ensureSlideGlassAt(index);
 		// ★ 該当座標にSEGマスクが存在しない（スパースデータの空きマス）場合はスキップ
 		if (sg == null) {
 			return;
@@ -3695,19 +4186,32 @@ public class Praparat extends JPanel {
 			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
 			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
 			boolean isUnpackedMosaic = isMosaic(sg) && this.mode != ViewMode.Thumbnail;
+			// ★ Thick Slab: 有効時はZ方向近傍を合成したキャッシュ済みプロセッサを使う
+			boolean usedThickSlab = isThickSlabEnabled();
 
 			// モザイク画像(fMRI)の場合はファイルからの再ロードを行わず、メモリのデータを直接使う
 			if (isFileBacked && !isUnpackedMosaic) {
 				// 1. ファイルからピクセルを読み込む
 				if (dcmimg.ensurePixelDataLoaded()) {
-					ImagePlus im = new ImagePlus("" + index, dcmimg.getImageProcessor(frame_pos));
+					ImageProcessor ip = usedThickSlab ? thickSlabCache.computeIfAbsent(index, this::computeThickSlabProcessor)
+							: dcmimg.getImageProcessor(frame_pos);
+					if (ip == null) {
+						usedThickSlab = false;
+						ip = dcmimg.getImageProcessor(frame_pos);
+					}
+					ImagePlus im = new ImagePlus("" + index, ip);
 					sg.imageSpecimen.setOriginalImage(im);
 				}
 			} else {
 				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合、およびMosaicの処理
 				if (dcmimg != null) {
 					// ※ すでにメモリ上にあるピクセルデータを取得して表示に使う
-					ImageProcessor ip = dcmimg.getImageProcessor(frame_pos);
+					ImageProcessor ip = usedThickSlab ? thickSlabCache.computeIfAbsent(index, this::computeThickSlabProcessor)
+							: dcmimg.getImageProcessor(frame_pos);
+					if (ip == null) {
+						usedThickSlab = false;
+						ip = dcmimg.getImageProcessor(frame_pos);
+					}
 					if (ip != null) {
 						ImagePlus im = new ImagePlus("" + index, ip);
 						sg.imageSpecimen.setOriginalImage(im);
@@ -3716,6 +4220,11 @@ public class Praparat extends JPanel {
 			}
 
 			sg.initCalibrationAndLUT();
+			// ★ Thick Slab合成画像も「生のストア値(符号オフセット込み)の単純平均」であり、
+			// 通常のスライドと同じ表現のままなので、initCalibrationAndLUT()が中心スライスの
+			// RescaleSlope/Intercept/signed/bitsAllocatedから計算する通常のCalibrationを
+			// そのまま適用してよい(恒等化やスキップは不要。むしろ恒等化すると、表示レンジ
+			// (Window/Level)が生値基準のまま噛み合わなくなり画面が真っ黒になっていた)。
 
 			String modalityStr = sg.getHeader().getString(Tag.Modality, "");
 			double realMaxPixelVal = 0.0;
@@ -4236,8 +4745,13 @@ public class Praparat extends JPanel {
 				viewPanel.add(currentGlass, 0);
 
 				java.awt.Component cover1 = (java.awt.Component) currentGlass.getGlassAt(SlideGlass.EVENT_LAYER);
-				if (cover1 != null)
+				if (cover1 != null) {
 					cover1.requestFocusInWindow();
+					// ★ removeAll/addで剥がし直した直後はAWTのフォーカス遷移がまだ確定しておらず、
+					// この直後に矢印キーを連打すると最初の1回だけ効いて以降効かなくなることがあるため、
+					// revalidate/repaintが落ち着いた次のEDTサイクルでも再度要求して取りこぼしを防ぐ。
+					SwingUtilities.invokeLater(cover1::requestFocusInWindow);
+				}
 
 				// ★追加: 初回表示時もホバー状態を安全にリセットし、ステートリークを防ぐ
 				currentGlass.setFocusGained(false);
@@ -4289,7 +4803,13 @@ public class Praparat extends JPanel {
 			}
 
 			currentSliceZCT = sliceZctIndex;
-			SlideGlass nextGlass = this.slides.get(currentSliceZCT);
+			// ★ slides.get()ではなくensureSlideGlassAt()を使う：MPEG動画はここがプリフェッチされていない
+			// 新規フレームへの直接ジャンプ(スライダー等)で初めて参照される最初の箇所であり、
+			// 素のslides.get()では「まだ遅延生成されていない」を「空きマス(データ無し)」と誤判定し、
+			// 黒い"No Data"パネル表示や、その後のgetCurrentSlide()のnull化(NPE)を引き起こしていた。
+			// 通常の多チャンネル/多スライスシリーズ(SEGスパース含む)はensureSlideGlassAtが
+			// slides.get()と同じ結果を返すため、既存仕様を変更しない。
+			SlideGlass nextGlass = ensureSlideGlassAt(currentSliceZCT);
 			if (nextGlass == null) {
 				viewPanel.removeAll();
 				viewPanel.add(getEmptyGlassPanel(), BorderLayout.CENTER);
@@ -4353,8 +4873,13 @@ public class Praparat extends JPanel {
 			nextGlass.setSize(viewPanel.getWidth(), viewPanel.getHeight());
 
 			java.awt.Component cover2 = (java.awt.Component) nextGlass.getGlassAt(SlideGlass.EVENT_LAYER);
-			if (cover2 != null)
+			if (cover2 != null) {
 				cover2.requestFocusInWindow();
+				// ★ removeAll/addで剥がし直した直後はAWTのフォーカス遷移がまだ確定しておらず、
+				// この直後に矢印キーを連打すると最初の1回だけ効いて以降効かなくなることがあるため、
+				// revalidate/repaintが落ち着いた次のEDTサイクルでも再度要求して取りこぼしを防ぐ。
+				SwingUtilities.invokeLater(cover2::requestFocusInWindow);
+			}
 
 			// ★追加: ホイール操作時のチラつき防止 兼 過去のステートリークの確実なリセット
 			nextGlass.setFocusGained(wasHovered);
@@ -4409,8 +4934,10 @@ public class Praparat extends JPanel {
 				frameSlider.setPosition(t);
 				sliderUpdated = true;
 			}
-			if (nSlices > 1 && slider.getValue() != (z + 1)) {
-				slider.setPosition(z);
+			// ★ Thick Slab有効時、sliderはデジタルスライス位置で表示するため、実Z位置から変換する
+			int digitalZ = originalZToDigitalZ(z);
+			if (nSlices > 1 && slider.getValue() != (digitalZ + 1)) {
+				slider.setPosition(digitalZ);
 				sliderUpdated = true;
 			}
 			if (nChannels > 1 && channelSlider.getValue() != (c + 1)) {
@@ -4868,10 +5395,13 @@ public class Praparat extends JPanel {
 
 		// Z(Slice)スライダー
 		if (nSlices > 1) {
-			sliderPanel.add(slider);
-			slider.initContext(nSlices);
+			sliderPanel.add(sliceRowPanel);
+			// ★ Thick Slab有効時は、実スライス数ではなくデジタルスライス数(厚さでまとめた枚数)を使う
+			slider.initContext(getDigitalSliceCount());
 			slider.setSliderVisible(true);
 			slider.setCineButtonVisible(true); // スライス再生有効
+			// ★ Thick Slab: MPEG動画や単一スライスでは無効/非表示にする
+			thickSlabSpinner.setVisible(isThickSlabAvailable());
 		} else {
 			// 枚数が1枚なら追加しない
 			slider.initContext(1);
@@ -4906,7 +5436,8 @@ public class Praparat extends JPanel {
 	 */
 	public void notifyDimensionChanged(String dimName, int value) {
 		if ("Slice".equals(dimName)) {
-			this.currentZ = value;
+			// ★ Thick Slab有効時、sliderはデジタルスライス位置を渡してくるため、実Z位置へ変換する
+			this.currentZ = digitalZToOriginalZ(value);
 		} else if ("Channel".equals(dimName)) {
 			this.currentC = value;
 		} else if ("Time".equals(dimName)) {
@@ -5475,19 +6006,11 @@ public class Praparat extends JPanel {
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-//		if(slides != null) {
-//			if(getViewMode() == ViewMode.FilmGrid) {
-//				for (int instNo : slides.keySet()) {
-//					SlideGlass sg = slides.get(instNo);
-//					sg.repaint();
-//				}
-//			}else {
-//				SlideGlass current = getCurrentSlide();
-//				if(current != null) {
-//					current.repaint();
-//				}
-//			}
-//		}
-		pvcp.repaint();
+		// ★削除: 以前はここで毎回pvcp.repaint()を呼んでいたが、pvcpの表示内容は
+		// setText2InfoLabel(...)等が呼ばれた時点でSwingの通常の仕組みにより自動的に
+		// 再描画される。親のpaintComponent()から子の再描画を無条件に要求すると、
+		// Praparatインスタンスが表示されている間（2D Viewer本体やMainScreenの
+		// BirdsEyeViewのサムネイル等、すべて含む）EDTに継続的な再描画要求を積み続け、
+		// 他のトップレベルウィンドウ（外部のImageJ等）の描画/入力処理を妨害してしまう。
 	}
 }

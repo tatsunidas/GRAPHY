@@ -6,7 +6,6 @@ package com.vis.core.view.D3.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Frame;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.BorderFactory;

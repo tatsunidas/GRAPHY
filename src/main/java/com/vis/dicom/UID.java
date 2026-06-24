@@ -1587,4 +1587,12 @@ public enum UID {
 	public String uid() {
 		return uid;
 	}
+
+	/**
+	 * True for MPEG2/MPEG4(H.264)/HEVC(H.265) encapsulated video TransferSyntaxes.
+	 * See also DecompressorChe#isMpeg / DicomImageChe MPEG bypass route.
+	 */
+	public boolean isMpeg() {
+		return uid != null && uid.startsWith("1.2.840.10008.1.2.4.10");
+	}
 }

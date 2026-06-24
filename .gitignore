@@ -35,3 +35,4 @@ target/
 /.classpath
 /bin/
 /sample.stl
+/KNOWN_ISSUES.md

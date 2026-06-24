@@ -161,6 +161,23 @@ class VideoReaderJCodec implements VideoReader{
 	class MpegVirtualStack extends VirtualStack {
 		private File videoFile;
 
+		/*
+		 * ★ 連番アクセス高速化用のデコーダ状態キャッシュ。
+		 * JCodecのFrameGrabは「直近のキーフレーム（GOP構造によっては実質フレーム0しかない）から
+		 * 対象フレームまで毎回デコードし直す」ため、毎呼び出しごとに新規FrameGrabを作って
+		 * seekToFramePrecise()するだけでは、後方のフレームほど線形にコストが増大する
+		 * (=2D Viewer起動直後のプリフェッチやAutoWindowでフリーズする原因)。
+		 * 直前にデコードしたフレーム番号とFrameGrabを保持し、前方への連番/近傍アクセスを
+		 * 「続きから少し進めるだけ」にすることで、その場合のコストをO(1)〜O(差分)に抑える。
+		 * 後方アクセスや初回は従来通りseekToFramePreciseで再構築する（挙動は変えない）。
+		 */
+		private FileChannelWrapper persistentChannel;
+		private FrameGrab persistentGrab;
+		private int lastDecodedFrame = -1; // 0-based. -1 = 未デコード
+		// ★ 直前に正常デコードできた画像。範囲外アクセスやデコード失敗時のフォールバックに使う
+		// (真っ黒な画像を返すより、直前のフレームを表示し続ける方がユーザーへの混乱が少ない)
+		private BufferedImage lastGoodImage;
+
 		public MpegVirtualStack(int width, int height, int size, File videoFile) {
 			super(width, height, size);
 			this.videoFile = videoFile;
@@ -170,50 +187,72 @@ class VideoReaderJCodec implements VideoReader{
 		 * ImageJから「n番目(1始まり)の画像」が要求された時に呼ばれる
 		 */
 		@Override
-		public ImageProcessor getProcessor(int n) {
-			FileChannelWrapper in = null;
+		public synchronized ImageProcessor getProcessor(int n) {
+			// VirtualStackは1始まりだが、JCodecのシークは0始まり
+			int target = n - 1;
+
+			// ★ DICOMヘッダのNumberOfFramesは動画から推定した値(duration*fps)であり、
+			// 実際にJCodecが復号できるフレーム数(=getSize())と食い違うことがある。
+			// 食い違った状態で範囲外のフレームをseek/decodeしようとすると、EOFに達して
+			// 何も得られず「真っ黒」になる（スライダーで大きいインデックスへ移動した時の症状）。
+			// ここで実際に存在する範囲にクランプし、黒画面化を防ぐ。
+			int maxFrame = getSize() - 1;
+			if (target > maxFrame) {
+				target = maxFrame;
+			}
+			if (target < 0) {
+				target = 0;
+			}
+
 			try {
-				in = NIOUtils.readableChannel(videoFile);
-				FrameGrab grab = FrameGrab.createFrameGrab(in);
-				
-				// VirtualStackは1始まりだが、JCodecのシークは0始まり
-				grab.seekToFramePrecise(n - 1);
-				Picture pic = grab.getNativeFrame();
-				
-				if (pic != null) {
-					BufferedImage bi = AWTUtil.toBufferedImage(pic);
-					
-					// ★ 【デバッグ機能】最初のフレーム(1枚目)が要求された時、PNGとして保存する
-//					if (n == 1) {
-//						try {
-//							// ユーザーのホームディレクトリ(Windowsなら C:\Users\ユーザー名) に保存
-//							File debugFile = new File(System.getProperty("user.home"), "graphy_debug_frame1.png");
-//							javax.imageio.ImageIO.write(bi, "png", debugFile);
-//							Log.logger.info("【デバッグ】フレーム1のピクセル抽出に成功しました。画像を保存しました: " + debugFile.getAbsolutePath());
-//						} catch (Exception ex) {
-//							Log.logger.warning("デバッグ画像の保存に失敗: " + ex.getMessage());
-//						}
-//					}
-					
-					return new ColorProcessor(bi);
-//					int type = bi.getType();
-//					if (type == BufferedImage.TYPE_BYTE_GRAY || type == BufferedImage.TYPE_BYTE_BINARY) {
-//						return new ByteProcessor(bi);
-//					} else if (type == BufferedImage.TYPE_USHORT_GRAY) {
-//						return new ShortProcessor(bi);
-//					} else {
-//						return new ColorProcessor(bi);
-//					}
+				Picture pic;
+				if (persistentGrab != null && target == lastDecodedFrame + 1) {
+					// ★ 直前のフレームの続き：シーク不要、1枚進めるだけ（高速パス）
+					pic = persistentGrab.getNativeFrame();
+				} else if (persistentGrab != null && target > lastDecodedFrame) {
+					// ★ 前方への範囲内ジャンプ：既存のデコーダ位置から差分だけ読み進める
+					// (フレーム0からの再デコードを避けられる)
+					for (int f = lastDecodedFrame + 1; f < target; f++) {
+						persistentGrab.getNativeFrame();
+					}
+					pic = persistentGrab.getNativeFrame();
+				} else {
+					// ★ 後方アクセス、または初回アクセス：再オープンしてシークする(従来通り)
+					closePersistent();
+					persistentChannel = NIOUtils.readableChannel(videoFile);
+					persistentGrab = FrameGrab.createFrameGrab(persistentChannel);
+					persistentGrab.seekToFramePrecise(target);
+					pic = persistentGrab.getNativeFrame();
 				}
+
+				if (pic != null) {
+					lastDecodedFrame = target;
+					BufferedImage bi = AWTUtil.toBufferedImage(pic);
+					lastGoodImage = bi;
+					return new ColorProcessor(bi);
+				}
+				// ★ デコーダがEOF等でnullを返した場合は状態をリセットし、次回は再構築させる
+				closePersistent();
+				lastDecodedFrame = -1;
 			} catch (Exception e) {
 				Log.logger.warning("フレーム抽出に失敗しました (Frame " + n + "): " + e.getMessage());
-			} finally {
-				// リソースリークを防ぐため確実に閉じる
-				NIOUtils.closeQuietly(in);
+				// ★ デコーダの状態が壊れている可能性があるため、次回アクセス時に再構築させる
+				closePersistent();
+				lastDecodedFrame = -1;
 			}
-			
-			// 抽出失敗時は黒い画像を返してクラッシュを防ぐ
+
+			// ★ 抽出失敗時は、可能なら直前に成功した画像を返す（真っ黒よりはるかに分かりやすい）。
+			// 一度も成功していない場合のみ、クラッシュ防止のため黒画像を返す。
+			if (lastGoodImage != null) {
+				return new ColorProcessor(lastGoodImage);
+			}
 			return new ColorProcessor(getWidth(), getHeight());
+		}
+
+		private void closePersistent() {
+			NIOUtils.closeQuietly(persistentChannel);
+			persistentChannel = null;
+			persistentGrab = null;
 		}
 	}
 }

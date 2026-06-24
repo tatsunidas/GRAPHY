@@ -64,7 +64,7 @@ public class VideoToDicomConverter {
 
 			// ★ 修正点: 厳しいMpegConverterのチェックを使わず、JAVE2で直接H.264(MP4)へ強制トランスコードする
 			ws.schild.jave.MultimediaObject multimediaObject = new ws.schild.jave.MultimediaObject(videoFile);
-			
+
 			ws.schild.jave.encode.VideoAttributes videoAttrs = new ws.schild.jave.encode.VideoAttributes();
 			videoAttrs.setCodec("libx264"); // DICOM仕様に適合する標準的なH.264コーデックを指定
 
@@ -72,8 +72,20 @@ public class VideoToDicomConverter {
 			encodingAttrs.setOutputFormat("mp4");
 			encodingAttrs.setVideoAttributes(videoAttrs);
 
+			// ★ 短いキーフレーム(GOP)間隔を強制する：
+			// JCodecでの再生時、ランダムアクセス(離れたフレームへのジャンプ)は直近のキーフレームから
+			// 対象フレームまで逐次デコードし直す必要があるため、キーフレームが動画先頭の1個しかないと
+			// 終端付近へのジャンプが全フレーム再デコードに近いコストになり非常に重くなる(2D Viewerで確認)。
+			// -g でGOPサイズの上限を指定し、最大でもGOP_SIZE_FRAMES枚先読みすれば
+			// 任意のフレームに到達できるようにする(ジャンプのコストをO(全長)からO(GOPサイズ)に抑える)。
+			// 既にDICOM化済みの動画には遡って効果はなく、今後の取り込みにのみ適用される。
+			final int GOP_SIZE_FRAMES = 30;
+			java.util.List<ws.schild.jave.encode.EncodingArgument> currOptions = java.util.Collections.singletonList(
+					new ws.schild.jave.encode.ValueArgument(ws.schild.jave.encode.ArgType.OUTFILE, "-g",
+							ea -> java.util.Optional.of(String.valueOf(GOP_SIZE_FRAMES))));
+
 			ws.schild.jave.Encoder encoder = new ws.schild.jave.Encoder();
-			encoder.encode(multimediaObject, tempMp4, encodingAttrs, new EncoderProgressListener() {
+			encoder.encode(java.util.Collections.singletonList(multimediaObject), tempMp4, encodingAttrs, new EncoderProgressListener() {
 				@Override
 				public void sourceInfo(ws.schild.jave.info.MultimediaInfo info) {}
 
@@ -88,7 +100,7 @@ public class VideoToDicomConverter {
 
 				@Override
 				public void message(String message) {}
-			});
+			}, currOptions);
 
 			// 変換後のMP4ファイルからメタ情報を取得
 			ws.schild.jave.MultimediaObject mp4Object = new ws.schild.jave.MultimediaObject(tempMp4);

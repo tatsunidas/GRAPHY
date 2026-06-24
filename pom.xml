@@ -427,6 +427,10 @@
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version></dependency>
+        <!-- シネマティック・レンダリングのCUDA高速化パス用。純粋なJavaバインディングでnativesクラシファイアは存在せず、
+             実行時にOSのCUDAドライバ(nvcuda)を動的ロードする。NVIDIA GPU/ドライバが無い環境では検出に失敗し、
+             CinematicGpuDetector経由でOpenGL実装に自動フォールバックする（macOSは常にこちら）。 -->
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-cuda</artifactId><version>${lwjgl.version}</version></dependency>
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-assimp</artifactId><version>${lwjgl.version}</version></dependency>
 
         <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>natives-linux</classifier><scope>runtime</scope></dependency>

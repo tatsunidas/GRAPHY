@@ -83,6 +83,11 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	private java.util.List<String> currentRoiGroupNames = new java.util.ArrayList<>();
 	private Runnable onRoiLoadedCallback; // UIにロード完了を通知するためのコールバック
+	// initGL()はGLコンテキストが出来てから（Viewer3DMainのコンストラクタより後）に呼ばれるため、
+	// コンストラクタ内でgetCinematicBackendName()を一度だけ読んでラベルを作ると、まだ
+	// cinematicRendererがnullの状態（"GPU: -"）が固定表示されてしまう。cinematicRenderer確定後に
+	// UI側でラベルを更新し直せるよう、ここでも同じ「ロード完了通知」パターンを使う。
+	private Runnable onCinematicReadyCallback;
 
 	Camera camera = new Camera();
 
@@ -224,9 +229,13 @@ public class GLCanvas extends AWTGLCanvas {
 		volumeRenderer.init();
 		volumeRenderer.initSliceRenderer();
 
-		// ★Phase 1: 常にOpenGL実装。CUDA対応GPUが検出できる場合の高速版は将来追加予定。
-		cinematicRenderer = new com.vis.core.view.D3.ui.cinematic.CinematicRendererGL();
-		cinematicRenderer.init();
+		// ★Phase 2: CUDA対応GPUが検出できればCinematicRendererCudaを使い、
+		// 検出失敗(GPU無し/ドライバ無し/macOS等)や初期化中の例外は握ってOpenGL実装にフォールバックする。
+		// (createCinematicRenderer()が選んだ実装のinit()まで内部で呼び終えた状態で返す)
+		cinematicRenderer = createCinematicRenderer();
+		if (onCinematicReadyCallback != null) {
+			SwingUtilities.invokeLater(() -> onCinematicReadyCallback.run());
+		}
 
 		axesGizmo = new AxesGizmo();
 		axesGizmo.init();
@@ -893,6 +902,28 @@ public class GLCanvas extends AWTGLCanvas {
 	}
 
 	/**
+	 * CUDA対応GPUが検出できれば{@code CinematicRendererCuda}を、それ以外（GPU/ドライバ無し、
+	 * macOS等）では常に{@code CinematicRendererGL}を返す。検出・初期化のどこで失敗しても
+	 * （例外はCinematicGpuDetector内で握っているが、CinematicRendererCuda.init()自体が
+	 * 投げる可能性もここで保険として握る）、OpenGL実装に確実にフォールバックする。
+	 */
+	private com.vis.core.view.D3.ui.cinematic.CinematicRenderer createCinematicRenderer() {
+		if (com.vis.core.view.D3.ui.cinematic.CinematicGpuDetector.isCudaAvailable()) {
+			try {
+				com.vis.core.view.D3.ui.cinematic.CinematicRenderer cuda =
+						new com.vis.core.view.D3.ui.cinematic.CinematicRendererCuda();
+				cuda.init();
+				return cuda;
+			} catch (Throwable t) {
+				System.err.println("GLCanvas: CinematicRendererCuda init failed, falling back to OpenGL (" + t + ")");
+			}
+		}
+		com.vis.core.view.D3.ui.cinematic.CinematicRenderer gl = new com.vis.core.view.D3.ui.cinematic.CinematicRendererGL();
+		gl.init();
+		return gl;
+	}
+
+	/**
 	 * シネマティック・レンダリングの蓄積バッファを継続/リセットすべきか判定するための、
 	 * 「見た目に影響するすべての状態」の文字列フィンガープリント。カメラ・W/L・LUT・
 	 * ライト設定のいずれかが前フレームと変われば別の文字列になり、呼び出し側で
@@ -980,6 +1011,10 @@ public class GLCanvas extends AWTGLCanvas {
 	
 	public void setOnRoiLoadedCallback(Runnable callback) {
 	    this.onRoiLoadedCallback = callback;
+	}
+
+	public void setOnCinematicReadyCallback(Runnable callback) {
+		this.onCinematicReadyCallback = callback;
 	}
 
 	public java.util.List<String> getRoiGroupNames() { return currentRoiGroupNames; }

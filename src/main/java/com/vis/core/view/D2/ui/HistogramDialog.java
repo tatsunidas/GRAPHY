@@ -8,7 +8,6 @@ import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
@@ -26,7 +25,6 @@ import javax.swing.JSpinner;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingConstants;
 
 import com.vis.core.histogram.BinSpec;
 import com.vis.core.histogram.HistogramAnalyzer;

@@ -37,6 +37,10 @@
             <outputDirectory>/lib/native_opencv/linux-aarch64</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.basedir}/native/native_cuda/linux-x86-64</directory>
+            <outputDirectory>/lib/native_cuda/linux-x86-64</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.basedir}/jre-bins/linux</directory>
             <outputDirectory>/jre</outputDirectory>
         </fileSet>

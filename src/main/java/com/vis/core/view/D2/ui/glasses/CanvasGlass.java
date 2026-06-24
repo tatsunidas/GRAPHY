@@ -778,10 +778,23 @@ public class CanvasGlass extends javax.swing.JPanel {
 			String ippStr = ipp[0] + "," + ipp[1] + "," + ipp[2];
 			roi.setProperty(RoiMetaContextKey.ReferenceImagePositionPatient.name(), ippStr);
 		}
+		// ★修正: すでにDim_Z/Dim_C/Dim_Tが設定されている場合は上書きしない。
+		// このメソッドは常にroiが現在乗っているスライド(sg)自身のコンテキストで呼ばれるため、
+		// 新規描画(プロパティ未設定)の場合のみ pp.getZCTArray(sg) から算出する必要がある。
+		// インポート直後のROI(RoiObjManagerのOpenでRoiObj#updatePositionPropertyにより
+		// Z=Position-1, C=0, T=0が設定済み、またはGRAPHY書き出しのROIで復元済み)は、
+		// ここで多次元構造(calcZCTArrayFromIndex)による値に無条件で上書きされてしまい、
+		// インポート時に正しく設定したZCTが失われていた。
 		int[] zct = pp.getZCTArray(sg);
-		roi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
-		roi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
-		roi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
+		if (roi.getProperty(RoiMetaContextKey.Dim_Z.name()) == null) {
+			roi.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
+		}
+		if (roi.getProperty(RoiMetaContextKey.Dim_C.name()) == null) {
+			roi.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
+		}
+		if (roi.getProperty(RoiMetaContextKey.Dim_T.name()) == null) {
+			roi.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
+		}
 
 		String frameOfRef = sg.getHeader().getString(Tag.FrameOfReferenceUID);
 

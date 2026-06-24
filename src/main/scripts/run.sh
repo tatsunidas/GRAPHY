@@ -94,6 +94,13 @@ esac
 
 NATIVE_CDR_LIB_PATH="${SCRIPT_DIR}/lib/native_cdrtools/${NATIVE_CDRTOOL_SUFFIX}"
 
+# CUDA(NVRTC)再配布ライブラリ。無ければCinematicGpuDetectorが検出に失敗してOpenGL実装に
+# 自動フォールバックするだけなので任意扱い（Linux x86_64のみ; macOSはCUDA非対応のため対象外）。
+NATIVE_CUDA_LIB_PATH=""
+if [ "$OS_NAME" = "Linux" ] && [ "$NATIVE_LIB_SUFFIX" = "linux-x86-64" ]; then
+    NATIVE_CUDA_LIB_PATH="${SCRIPT_DIR}/lib/native_cuda/linux-x86-64"
+fi
+
 echo "Changing directory to: $SCRIPT_DIR"
 cd "$SCRIPT_DIR"
 
@@ -110,7 +117,11 @@ LIB_DIR="${SCRIPT_DIR}/jars"
 CLASS_PATH="${APP_JAR}:${LIB_DIR}/*"
 
 # JVM options
-JVM_OPTS="-Djava.library.path=${NATIVE_LIB_PATH}:${NATIVE_CDR_LIB_PATH}"
+LIBRARY_PATH="${NATIVE_LIB_PATH}:${NATIVE_CDR_LIB_PATH}"
+if [ -d "$NATIVE_CUDA_LIB_PATH" ]; then
+    LIBRARY_PATH="${LIBRARY_PATH}:${NATIVE_CUDA_LIB_PATH}"
+fi
+JVM_OPTS="-Djava.library.path=${LIBRARY_PATH}"
 JVM_OPTS="$JVM_OPTS -Dj3d.allowNullGraphicsConfig=true"
 JVM_OPTS="$JVM_OPTS -Xms512m"
 JVM_OPTS="$JVM_OPTS -Xmx9216m"
@@ -148,6 +159,7 @@ fi
 echo "Using Java command: $JAVA_CMD" # どのJavaを使用するか表示
 echo "Using native library path: $NATIVE_LIB_PATH"
 echo "Using native cdrtools path: $NATIVE_CDR_LIB_PATH"
+echo "Using native cuda path: ${NATIVE_CUDA_LIB_PATH:-(not bundled)}"
 echo "Starting application with JVM options: $JVM_OPTS"
 echo "Classpath: $CLASS_PATH"
 echo "Main Class: com.vis.core.launcher.Launcher"

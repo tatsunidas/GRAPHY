@@ -357,11 +357,15 @@ public class Viewer3DMain extends JFrame {
 		gbc.gridy++;
 
 		// シネマティック・レンダリング専用コントロール（選択中のみ操作の意味がある）
+		// ★この時点ではcanvasのGLコンテキストはまだ無く、cinematicRendererは未確定(null)のため
+		// getCinematicBackendName()は"-"を返す。initGL()完了後にonCinematicReadyCallbackで更新する。
 		JLabel lblCinematicBackend = new JLabel("GPU: " + canvas.getCinematicBackendName());
 		lblCinematicBackend.setToolTipText(
 				"シネマティック・レンダリングを計算しているGPUバックエンド。CUDA対応GPUが検出できた場合はCUDA、できなければOpenGLにフォールバックする。");
 		controlPanel.add(lblCinematicBackend, gbc);
 		gbc.gridy++;
+		canvas.setOnCinematicReadyCallback(
+				() -> lblCinematicBackend.setText("GPU: " + canvas.getCinematicBackendName()));
 
 		controlPanel.add(new JLabel("Light Azimuth"), gbc);
 		gbc.gridy++;

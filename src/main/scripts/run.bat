@@ -66,6 +66,13 @@ SET "NATIVE_CDR_LIB_PATH=%SCRIPT_DIR%lib\native_cdrtools\%NATIVE_CDRTOOL_SUFFIX%
 
 echo native_cdrtools : %NATIVE_CDR_LIB_PATH%
 
+REM --- CUDA(NVRTC) redistributable DLLs for Cinematic Rendering, if bundled ---
+REM 無ければCinematicGpuDetectorが検出に失敗してOpenGL実装に自動フォールバックするだけなので、
+REM native_opencv/native_cdrtoolsと同じくIF EXISTで任意扱いにする。
+SET "NATIVE_CUDA_LIB_PATH=%SCRIPT_DIR%lib\native_cuda\windows-x86-64"
+
+echo native_cuda : %NATIVE_CUDA_LIB_PATH%
+
 REM --- Combine library paths using semicolon (;) ---
 REM Ensure paths exist before adding to avoid unnecessary semicolons or errors if optional
 SET "COMBINED_LIB_PATH="
@@ -74,6 +81,9 @@ IF EXIST "%NATIVE_LIB_PATH%" (
 )
 IF EXIST "%NATIVE_CDR_LIB_PATH%" (
     SET "COMBINED_LIB_PATH=%COMBINED_LIB_PATH%%NATIVE_CDR_LIB_PATH%;"
+)
+IF EXIST "%NATIVE_CUDA_LIB_PATH%" (
+    SET "COMBINED_LIB_PATH=%COMBINED_LIB_PATH%%NATIVE_CUDA_LIB_PATH%;"
 )
 REM Remove trailing semicolon if exists
 IF "%COMBINED_LIB_PATH:~-1%"==";" SET "COMBINED_LIB_PATH=%COMBINED_LIB_PATH:~0,-1%"

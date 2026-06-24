@@ -33,6 +33,10 @@
             <outputDirectory>/lib/native_opencv/windows-x86</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.basedir}/native/native_cuda/windows-x86-64</directory>
+            <outputDirectory>/lib/native_cuda/windows-x86-64</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.basedir}/jre-bins/windows</directory>
             <outputDirectory>/jre</outputDirectory>
         </fileSet>

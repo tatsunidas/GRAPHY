@@ -865,6 +865,81 @@ public class Viewer2DToolBar extends JToolBar {
 		        }
 		    });
 		    break;
+		case "imagej":
+		    btn.addActionListener(new ActionListener() {
+		        @Override
+		        public void actionPerformed(ActionEvent arg0) {
+
+		            Viewer2DScreen own = Viewer2DScreen.getInstance();
+		            ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+		            com.vis.core.ui.main.MainScreen ms = WindowManager.getMainScreen();
+
+		            // ★ ImageJ未起動なら、ここで(EDT上で)先に起動する。
+		            // ★ new ij.ImageJ()（無引数）はスタンドアロン起動用で、ImageJがJVMを単独所有する
+		            // 前提になっている（ウィンドウを閉じるとSystem.exit()でGRAPHY自体が落ちる恐れが
+		            // ある）。GRAPHYに埋め込む場合はij.ImageJ.EMBEDDEDモードを明示的に使う。
+		            // ★ 重要: ij.ImagePlusは「private ImageJ ij = IJ.getInstance();」という
+		            // フィールド初期化子を持ち、これはnew ImagePlus(...)した瞬間に一度だけ評価される。
+		            // そのため、Praparat.getImagePlus()（ImagePlusの生成）より後にImageJを起動すると、
+		            // 生成済みのImagePlusの内部ij参照はnullに固定されたままになり、IJ.showStatus()系の
+		            // 輝度値ステータス表示が永久に動かなくなる。ImageJの起動を必ず先に行うこと。
+		            if (ij.IJ.getInstance() == null) {
+		                // ★ ImageJのToolbar/ImageCanvasはjava.awt.Canvas（重量級）で自前描画している。
+		                // SlideGlass.paintComponent()はroiOverlay.repaint()を毎回呼んでおり
+		                // （getIgnoreRepaint()==falseの間、ROIを滑らかに表示するための既存の仕組み）、
+		                // 2D Viewer/MainScreenのBirdsEyeViewのSlideGlassが表示されている間ずっと
+		                // EDTに再描画要求を積み続ける。これがImageJのような重量級Canvasの描画/入力
+		                // 処理を妨害するため、ImageJを使っている間は一時的にこの再描画を止める
+		                // （IJ自身を閉じるまで維持し、閉じたタイミングで元に戻す）。
+		                if (ms != null) {
+		                    ms.ignoreRepaintBirdsEye(true);
+		                }
+		                own.ignoreRepaintAllSlides(true);
+		                ij.ImageJ ijInstance = new ij.ImageJ(ij.ImageJ.EMBEDDED);
+		                ijInstance.exitWhenQuitting(false); // ImageJを閉じてもGRAPHY自体は終了させない
+		                // ★ IJ本体を閉じても開いている画像ウィンドウ(ImagePlus)が残ってしまうため、
+		                // IJのWindowListenerに加えて、こちらでも明示的に全画像を閉じる
+		                // (java.awt.Windowは複数リスナーを登録できるので、IJ自身のリスナーとは
+		                // 競合しない)。あわせて、上で止めた2D Viewer側の再描画もここで元に戻す。
+		                ijInstance.addWindowListener(new java.awt.event.WindowAdapter() {
+		                    @Override
+		                    public void windowClosing(java.awt.event.WindowEvent e) {
+		                        ij.WindowManager.closeAllWindows();
+		                        own.ignoreRepaintAllSlides(false);
+		                        if (ms != null) {
+		                            ms.ignoreRepaintBirdsEye(false);
+		                        }
+		                    }
+		                });
+		            }
+
+		            // ★ Praparat→ImagePlus変換(getImagePlus()、ハイパースタック対応済み)はDICOMピクセル
+		            // データの読み込みを伴い重いので、viewer3dボタンと同様に別スレッドで行う。
+		            // ImageJの起動は上で既に済んでいるので、ここで生成されるImagePlusは正しいij参照を
+		            // 持つ。
+		            new Thread(() -> {
+		                java.util.List<ij.ImagePlus> toShow = new java.util.ArrayList<>();
+		                if (selectedPraps != null) {
+		                    for (Praparat prap : selectedPraps) {
+		                        ij.ImagePlus imp = prap.getImagePlus();
+		                        if (imp != null) {
+		                            toShow.add(imp);
+		                        }
+		                    }
+		                }
+		                SwingUtilities.invokeLater(() -> {
+		                    for (ij.ImagePlus imp : toShow) {
+		                        // show()でImageJのWindowManagerに自動登録される
+		                        imp.show();
+		                    }
+		                });
+		            }).start();
+
+		            currentTool = Windowing;
+		            setSelectedToolBackground();
+		        }
+		    });
+		    break;
 		case "mpr":
 			btn.addActionListener(new ActionListener() {
 				@Override
@@ -937,6 +1012,8 @@ public class Viewer2DToolBar extends JToolBar {
 		map.put("slicer", Resources.SlicerIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
+		// ★暫定でRadiomicsJIconを流用（専用アイコン未用意のため、後で差し替え可能）
+		map.put("imagej", Resources.RadiomicsJIcon);
 //		map.put("radiomics", Resources.RadiomicsJIcon);
 		return map;
 	}

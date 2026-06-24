@@ -238,7 +238,23 @@ public class RoiConverter {
 				roiCon.put(key.name(), value);
 			}
 		}
-		
+
+		// ★修正: GRAPHYがエクスポートしたRoi(Dim_Z/Dim_C/Dim_T等のRoiMetaContextKeyプロパティを
+		// .roiファイルのプロパティ欄に保持している)を再インポートする際、それらを読み戻す。
+		// RoiDBKeyではないため上のループでは拾えないので別途処理する。
+		// "純粋な"(GRAPHY以外で作成された)Roiにはこれらのプロパティが存在しないため何もせず、
+		// その場合はRoiObj#updatePositionPropertyによる0-basedのZCT自動導出に委ねる。
+		HashMap<String, String> metaProp = new HashMap<>();
+		for (RoiMetaContextKey key : RoiMetaContextKey.values()) {
+			String value = roi.getProperty(key.name());
+			if (value != null) {
+				metaProp.put(key.name(), value);
+			}
+		}
+		if (!metaProp.isEmpty()) {
+			roiCon.put(RoiDBKey.RoiMetaProperties.name(), metaProp);
+		}
+
 		return buildRoiObj(roiCon);
 	}
 	
