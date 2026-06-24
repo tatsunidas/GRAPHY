@@ -100,6 +100,12 @@ import com.vis.core.view.mpr.SimpleMPRViewer;
 @SuppressWarnings("serial")
 public class Viewer2DToolBar extends JToolBar {
 
+	// ★ "imagej"ボタンでGRAPHYから渡したImagePlusを自前で記録するためのリスト。
+	// IJ自身のwindowClosing(quit())がWindowManagerの登録だけ解除して実際のウィンドウの
+	// dispose()には失敗するケースがあり、その場合WindowManager.getIDList()はもう空になって
+	// いるため、IJを閉じた時にこちら側で直接close()できるよう、GRAPHY側で保持しておく。
+	private static final java.util.List<ij.ImagePlus> ijShownImages = new java.util.concurrent.CopyOnWriteArrayList<>();
+
 	/* roi tool ids */
 	/**
 	 * RoiType.XXX.id(); will cause "case expressions must be constant expressions"
@@ -902,13 +908,35 @@ public class Viewer2DToolBar extends JToolBar {
 		                // (java.awt.Windowは複数リスナーを登録できるので、IJ自身のリスナーとは
 		                // 競合しない)。あわせて、上で止めた2D Viewer側の再描画もここで元に戻す。
 		                ijInstance.addWindowListener(new java.awt.event.WindowAdapter() {
-		                    @Override
-		                    public void windowClosing(java.awt.event.WindowEvent e) {
-		                        ij.WindowManager.closeAllWindows();
+		                    // ★ WindowManager.getIDList()は、IJ自身のwindowClosing(quit())が
+		                    // 登録だけ解除して実際のウィンドウのdispose()には失敗するケースがあり、
+		                    // その場合ここで呼んだ時点でもう空(null)になっていて使えなかった。
+		                    // そのためGRAPHY側で記録しておいたijShownImagesを直接close()する。
+		                    private void closeAllImages() {
+		                        for (ij.ImagePlus imp : ijShownImages) {
+		                            imp.changes = false;
+		                            imp.close();
+		                            ij.gui.ImageWindow win = imp.getWindow();
+		                            if (win != null && win.isDisplayable()) {
+		                                // close()で閉じられなかった場合の保険として直接dispose()する。
+		                                win.dispose();
+		                            }
+		                        }
+		                        ijShownImages.clear();
 		                        own.ignoreRepaintAllSlides(false);
 		                        if (ms != null) {
 		                            ms.ignoreRepaintBirdsEye(false);
 		                        }
+		                    }
+
+		                    @Override
+		                    public void windowClosing(java.awt.event.WindowEvent e) {
+		                        closeAllImages();
+		                    }
+
+		                    @Override
+		                    public void windowClosed(java.awt.event.WindowEvent e) {
+		                        closeAllImages();
 		                    }
 		                });
 		            }
@@ -931,6 +959,7 @@ public class Viewer2DToolBar extends JToolBar {
 		                    for (ij.ImagePlus imp : toShow) {
 		                        // show()でImageJのWindowManagerに自動登録される
 		                        imp.show();
+		                        ijShownImages.add(imp);
 		                    }
 		                });
 		            }).start();

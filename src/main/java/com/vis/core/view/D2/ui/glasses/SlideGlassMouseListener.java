@@ -566,6 +566,19 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 			}
 
 			if (viewerToolType == Viewer2DToolBar.Brush || Viewer2DToolBar.isRoiTool(viewerToolType)) {
+				// ★ Thick Slab有効時はROIの新規作成・編集を禁止する。合成(平均化)画像は単一の実スライスに
+				// 一意対応しないため、その上で描いたROIを安全に保存できない(ユーザー確認済み: option 1)。
+				// 誤操作だと気づきやすいようポップアップで案内し、ログにも残す。
+				if (pp.isThickSlabEnabled()) {
+					ghostTimer.stop();
+					Log.logger.warning(
+							"Thick Slab有効中にROIの新規作成/編集が試行されたためブロックしました。SlideGlass=" + slide);
+					javax.swing.JOptionPane.showMessageDialog(pp,
+							"Thick Slab(デジタルスライス厚)が有効な間は、ROIの新規作成・編集はできません。\n"
+									+ "ROIを編集するには、Thick SlabをOriginalに戻してください。",
+							"Thick Slabが有効です", javax.swing.JOptionPane.WARNING_MESSAGE);
+					return;
+				}
 				ghostTimer.stop();
 				cg.mousePressed(e);
 				return;

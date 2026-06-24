@@ -85,12 +85,46 @@ public class SphereRoi3D extends RoiObj implements RoiObj3D {
     public double getCenterZ() { return cz; }
 
     /**
+     * このROIが指定スライドのチャンネル(C)/フレーム(T)で表示対象かどうかを判定する。
+     * Dim_C/Dim_TプロパティはDB保存/再読込のタイミングでのみtargetC/targetTフィールドへ反映される
+     * ため(initFromProperties())、保存前のセッション中の編集にも追従できるよう、ここでは
+     * プロパティを直接読む(キャッシュされたフィールドには依存しない)。未設定(NULL)の場合は
+     * 全チャンネル/全フレーム共通として扱う(球は元々Z方向には複数スライスに渡るのが仕様であり、
+     * C/Tだけ未指定なら同様に「全チャンネル共通」が安全な既定値)。
+     */
+    private boolean matchesChannelAndTime(SlideGlass currentSg) {
+        String cStr = getProperty(RoiMetaContextKey.Dim_C.name());
+        String tStr = getProperty(RoiMetaContextKey.Dim_T.name());
+        boolean hasC = cStr != null && !cStr.trim().isEmpty();
+        boolean hasT = tStr != null && !tStr.trim().isEmpty();
+        if (!hasC && !hasT) {
+            return true;
+        }
+        Praparat pp = currentSg.getPraparat();
+        if (pp == null) {
+            return true;
+        }
+        int[] zct = pp.getZCTArray(currentSg);
+        if (zct == null || zct[0] < 0) {
+            return true;
+        }
+        if (hasC && Integer.parseInt(cStr.trim()) != zct[1]) {
+            return false;
+        }
+        if (hasT && Integer.parseInt(tStr.trim()) != zct[2]) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * 現在スライスと球の交差円を計算する。
      * 戻り値: [centerX_px, centerY_px, radiusX_px, radiusY_px] (画像ピクセル座標)。
      * 交差しない場合は null。
      */
     private double[] calcIntersectionOnCurrentSlice(SlideGlass currentSg) {
         if (currentSg == null) return null;
+        if (!matchesChannelAndTime(currentSg)) return null;
 
         Praparat pp = currentSg.getPraparat();
         DicomObject header = currentSg.getHeader();
@@ -144,6 +178,7 @@ public class SphereRoi3D extends RoiObj implements RoiObj3D {
     @Override
     public boolean contains(int x, int y) {
         if (slide == null) return false;
+        if (!matchesChannelAndTime(slide)) return false;
         Praparat pp = slide.getPraparat();
         int frameIdx = pp.isMultiFrame() ? slide.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
         double[] sliceIpp = pp.getSafeIPP(slide.getHeader(), frameIdx);

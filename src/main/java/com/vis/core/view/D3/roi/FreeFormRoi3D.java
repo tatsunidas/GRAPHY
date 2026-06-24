@@ -173,6 +173,41 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
         return slide;
     }
 
+	/**
+	 * このROIが指定スライドのチャンネル(C)/フレーム(T)で表示対象かどうかを判定する。
+	 * FreeFormRoi3Dは元々Z(空間)のみで管理しており、Dim_C/Dim_Tは一切参照していなかった
+	 * (SphereRoi3Dと同種のバグ)。保存前のセッション中の編集にも追従できるよう、プロパティを
+	 * 直接読む(キャッシュフィールドには依存しない)。未設定(NULL)の場合は全チャンネル/全フレーム
+	 * 共通として扱う。
+	 */
+	private boolean matchesChannelAndTime(SlideGlass contextSg) {
+		String cStr = getProperty(RoiMetaContextKey.Dim_C.name());
+		String tStr = getProperty(RoiMetaContextKey.Dim_T.name());
+		boolean hasC = cStr != null && !cStr.trim().isEmpty();
+		boolean hasT = tStr != null && !tStr.trim().isEmpty();
+		if (!hasC && !hasT) {
+			return true;
+		}
+		if (contextSg == null) {
+			return true;
+		}
+		Praparat pp = contextSg.getPraparat();
+		if (pp == null) {
+			return true;
+		}
+		int[] zct = pp.getZCTArray(contextSg);
+		if (zct == null || zct[0] < 0) {
+			return true;
+		}
+		if (hasC && Integer.parseInt(cStr.trim()) != zct[1]) {
+			return false;
+		}
+		if (hasT && Integer.parseInt(tStr.trim()) != zct[2]) {
+			return false;
+		}
+		return true;
+	}
+
 	// ========== バイナリマスク操作 ==========
 
 	private boolean getBit(long[] mask, int i, int j) {
@@ -494,6 +529,8 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
         SlideGlass contextSg = getActiveSlideContext();
         if (contextSg == null || g == null || !isInitialized())
             return;
+        if (!matchesChannelAndTime(contextSg))
+            return;
         Praparat pp = contextSg.getPraparat();
         DicomObject header = contextSg.getHeader();
         int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;
@@ -578,6 +615,8 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
         SlideGlass contextSg = getActiveSlideContext();
         if (contextSg == null || !isInitialized())
             return false;
+        if (!matchesChannelAndTime(contextSg))
+            return false;
         Praparat pp = contextSg.getPraparat();
         int frameIdx = pp.isMultiFrame() ? contextSg.getHeader().getInt(Tag.InstanceNumber, 1) - 1 : 0;
         double[] sliceIpp = pp.getSafeIPP(contextSg.getHeader(), frameIdx);
@@ -603,6 +642,8 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
         SlideGlass contextSg = getActiveSlideContext();
         if (contextSg == null || !isInitialized())
             return new Rectangle(x, y, width, height);
+        if (!matchesChannelAndTime(contextSg))
+            return new Rectangle(0, 0, 0, 0);
         Praparat pp = contextSg.getPraparat();
         DicomObject header = contextSg.getHeader();
         int frameIdx = pp.isMultiFrame() ? header.getInt(Tag.InstanceNumber, 1) - 1 : 0;

@@ -234,12 +234,27 @@ public class Praparat extends JPanel {
 	 */
 	private double thickSlabThicknessMm = 0.0;
 	/*
-	 * computeThickSlabProcessor()の計算結果(合成済みImageProcessor)を、通常のslidesと同じ
-	 * フラットZCTキーでキャッシュする。Thick Slab合成はW×H×depth×Nオーダーで通常の単純デコード
-	 * より明確に重いため、manageCache()の既存の先読み窓(±PREFETCH_RANGE)に乗せて
-	 * バックグラウンドで一度だけ計算し、再表示時はキャッシュを使う(都度再計算しない)。
+	 * computeThickSlabProcessor()の計算結果(合成済みImageProcessor)を「デジタルZCTキー」
+	 * (calcDigitalZctIndex参照、c/tは実ZCTと共通、Zだけデジタルスライス数を母数にしたもの)でキャッシュする。
+	 * Thick Slab合成はW×H×depth×Nオーダーで通常の単純デコードより明確に重いため、manageCache()の
+	 * 既存の先読み窓(±PREFETCH_RANGE)に乗せてバックグラウンドで一度だけ計算し、再表示時はキャッシュを使う
+	 * (都度再計算しない)。★ デジタルキーが必要な理由: 厚さがネイティブ間隔より薄い(アップサンプリング)場合、
+	 * 複数のデジタルスライス位置が同じ実スライド(slidesの同じキー)に丸め込まれるため、実ZCTキーのままだと
+	 * 異なるデジタル位置の結果が衝突してしまう。
 	 */
 	private final ConcurrentHashMap<Integer, ImageProcessor> thickSlabCache = new ConcurrentHashMap<>();
+	/*
+	 * 各実ZCTインデックス(slidesのキー)に、現在その originalImage が「どのデジタルZ位置」用に
+	 * 構築されたものかを記録する。アップサンプリング時は複数のデジタル位置が同じ実スライドを
+	 * 共有するため、realizeImage()の「originalImageがnullなら未実体化」という既存の判定だけでは
+	 * 不十分(古いデジタル位置の画像が残ったまま「実体化済み」と誤判定される)になるため追加した。
+	 */
+	private final ConcurrentHashMap<Integer, Integer> renderedDigitalZByNativeIndex = new ConcurrentHashMap<>();
+	/*
+	 * 現在表示しようとしているデジタルZ位置。Thick Slab有効時、スライダー/キー操作/ホイール操作の
+	 * いずれの経路でも、currentZ(実Zの丸め参照)と一緒に必ず更新する(notifyDimensionChanged等)。
+	 */
+	private int currentDigitalSliceZ = 0;
 	private boolean selected = false;
 	private boolean focusGained = false;
 	private boolean showGridViewOn = false;// filemGridView
@@ -1134,8 +1149,18 @@ public class Praparat extends JPanel {
 
 		// 現在の値と最大枚数、対象のスライダーを特定
 		if ("Slice".equals(dimName)) {
-			val = currentZ;
-			max = nSlices;
+			// ★ Thick Slab有効時、sliderはデジタルスライス単位で動くため、デジタル位置の基準として
+			// currentDigitalSliceZ(現在表示中の正確なデジタル位置)を使う。
+			// originalZToDigitalZ(currentZ)で実Zから逆算すると、アップサンプリング時(複数の
+			// デジタル位置が同じネイティブZに丸め込まれる)に非可逆な変換となり、現在地とは異なる
+			// 代表デジタル位置に飛んでしまう(ホイール操作が1ステップずつ進まなくなるバグの原因だった)。
+			if (isThickSlabEnabled()) {
+				val = currentDigitalSliceZ;
+				max = getDigitalSliceCount();
+			} else {
+				val = currentZ;
+				max = nSlices;
+			}
 			targetSlider = slider;
 		} else if ("Channel".equals(dimName)) {
 			val = currentC;
@@ -1847,6 +1872,15 @@ public class Praparat extends JPanel {
 		int c = zct[1];
 		int t = zct[2];
 		return t * (nChannels * nSlices) + z * nChannels + c;
+	}
+
+	/**
+	 * calcZctIndex()のThick Slab版。母数をnSlicesではなくgetDigitalSliceCount()にした、
+	 * thickSlabCache/renderedDigitalZByNativeIndex専用のキー(C/Tは実ZCTと共通)。
+	 */
+	private int calcDigitalZctIndex(int digitalZ, int c, int t) {
+		int digitalCount = getDigitalSliceCount();
+		return t * (nChannels * digitalCount) + digitalZ * nChannels + c;
 	}
 
 	public int[] getZCTArray(SlideGlass slide) {
@@ -3096,6 +3130,8 @@ public class Praparat extends JPanel {
 					// ★ Thick Slab: 別シリーズの設定を持ち込まないよう、ロードごとにリセットする
 					thickSlabThicknessMm = 0.0;
 					thickSlabCache.clear();
+					renderedDigitalZByNativeIndex.clear();
+					currentDigitalSliceZ = 0;
 					if (thickSlabSpinner != null) {
 						thickSlabSpinner.setValue("Original");
 					}
@@ -3828,7 +3864,13 @@ public class Praparat extends JPanel {
 
 		// ★ Thick Slab: 先読み窓の外に出たスライドの合成キャッシュも、通常のピクセル解放と
 		// 同じタイミングで解放する(メモリを(2*PREFETCH_RANGE+1)枚相当に有界にする)。
-		thickSlabCache.remove(index);
+		// thickSlabCacheはデジタルZCTキーで管理しているため、このnativeIndexに最後に焼き込まれていた
+		// デジタル位置を引いてから、対応するキャッシュエントリを解放する(indexそのものはキーではない)。
+		Integer renderedDigitalZ = renderedDigitalZByNativeIndex.remove(index);
+		if (renderedDigitalZ != null) {
+			int[] zct = calcZCTArrayFromIndex(index);
+			thickSlabCache.remove(calcDigitalZctIndex(renderedDigitalZ, zct[1], zct[2]));
+		}
 	}
 
 	/**
@@ -3848,7 +3890,8 @@ public class Praparat extends JPanel {
 		return sg != null && !sg.isRGB();
 	}
 
-	private boolean isThickSlabEnabled() {
+	/* package-private: SlideGlassMouseListener等、同パッケージのROI操作ガードから参照する */
+	boolean isThickSlabEnabled() {
 		return thickSlabThicknessMm > 0 && isThickSlabAvailable();
 	}
 
@@ -3867,12 +3910,16 @@ public class Praparat extends JPanel {
 	/**
 	 * Thick Slab有効時、1つの「デジタルスライス」が束ねる実スライス枚数(小数)。
 	 * 無効時は1.0(= 実スライス1枚 = デジタルスライス1枚)。
+	 * ★ 1.0未満も許容する: 厚さがネイティブのスライス間隔より「薄い」場合
+	 * (例: 5mm撮影を1mmで観察したい)は、実スライスより多いデジタルスライス数になる
+	 * (アップサンプリング/補間)。逆に厚さが大きい場合は実スライスより少なくなる(ダウンサンプリング/平均化)。
 	 */
 	private double getThickSlabSlicesPerDigitalStep() {
 		if (!isThickSlabEnabled()) {
 			return 1.0;
 		}
-		return Math.max(1.0, thickSlabThicknessMm / getRepresentativeSpacingZ());
+		double slices = thickSlabThicknessMm / getRepresentativeSpacingZ();
+		return slices > 0 ? slices : 1.0;
 	}
 
 	/**
@@ -3898,8 +3945,21 @@ public class Praparat extends JPanel {
 		if (!isThickSlabEnabled()) {
 			return digitalZ;
 		}
+		return (int) Math.round(digitalZToFractionalOriginalZ(digitalZ));
+	}
+
+	/**
+	 * デジタルスライス位置(0-based)を、対応する実Z位置の「連続値(小数)」中心へ変換する。
+	 * digitalZToOriginalZ()は表示コンポーネント(slides)の選択に使う整数版だが、アップサンプリング
+	 * (厚さ&lt;ネイティブ間隔)では複数のデジタル位置が同じ整数の実Zに丸め込まれるため、
+	 * computeThickSlabProcessor()には必ずこちらの連続値を渡し、本当に異なる補間結果を得る。
+	 */
+	private double digitalZToFractionalOriginalZ(int digitalZ) {
+		if (!isThickSlabEnabled()) {
+			return digitalZ;
+		}
 		double slicesPerStep = getThickSlabSlicesPerDigitalStep();
-		int z = (int) Math.round((digitalZ + 0.5) * slicesPerStep);
+		double z = (digitalZ + 0.5) * slicesPerStep;
 		return Math.max(0, Math.min(nSlices - 1, z));
 	}
 
@@ -3936,6 +3996,7 @@ public class Praparat extends JPanel {
 		}
 		thickSlabThicknessMm = newThickness;
 		thickSlabCache.clear();
+		renderedDigitalZByNativeIndex.clear();
 		// 既存のoriginalImageは「無印デコード」or「古い厚さでの合成」のままなので、
 		// 表示中・先読み済みのスライドを全て未実体化状態に戻して再構築させる。
 		for (SlideGlass sg : slides.values()) {
@@ -3971,40 +4032,31 @@ public class Praparat extends JPanel {
 	 * 結果として端では実効厚さが半分になる)。
 	 * 近傍の探索は常にclampされたZ添字の直接計算のみを用い、周回(% capacity)は使わない。
 	 */
-	private ImageProcessor computeThickSlabProcessor(int index) {
-		int[] zct = calcZCTArrayFromIndex(index);
-		int z = zct[0];
-		int c = zct[1];
-		int t = zct[2];
-
-		SlideGlass centerSg = slides.get(index);
-		if (centerSg == null || centerSg.getDicomImage() == null) {
-			return null;
-		}
-		double spacingZ = centerSg.getPixelSpacingZ();
+	/**
+	 * Thick Slabが実際に束ねる実Zの範囲(連続値, [0]=zStartF, [1]=zEndF)を、中心Zとスライス間隔から計算する。
+	 * computeThickSlabProcessor()(合成画像の生成、サブサンプル位置の計算に連続値が必要)と、
+	 * 表示すべきROIの判定(getVisibleRoisForThickSlab、整数の実Zインデックスがあれば十分)の
+	 * 両方から共有して使う、唯一の範囲計算ロジック。クランプのみ(周回・パディング/ミラーはしない)。
+	 */
+	private double[] computeThickSlabZRange(double z, double spacingZ) {
 		if (spacingZ <= 0) {
 			spacingZ = 1.0;
 		}
 		double halfSlices = (thickSlabThicknessMm / 2.0) / spacingZ;
-
-		// ★ クランプのみ。周回(% capacity)もパディング/ミラーも行わない。
 		double zStartF = Math.max(0, z - halfSlices);
 		double zEndF = Math.min(nSlices - 1, z + halfSlices);
+		return new double[] { zStartF, zEndF };
+	}
 
-		int zLo = (int) Math.floor(zStartF);
-		int zHi = (int) Math.ceil(zEndF);
+	/**
+	 * 指定したZ範囲([zLo, zHi], inclusive)の実スライスの生ピクセル値を、そのままZ方向に積んだ
+	 * float[w*h*depth]ボリュームを構築する(z*w*h + y*w + x 順)。リサンプリングはしない(各スライス
+	 * 自身の解像度・値をそのまま使う)。キャリブレーション値には変換しない理由は呼び出し元と同じ
+	 * (既存のWindow/Levelパイプラインは生のストア値基準のため)。
+	 */
+	private float[] loadRawZVolume(int zLo, int zHi, int c, int t, int w, int h) {
 		int depth = zHi - zLo + 1;
-
-		// 中心スライス自身のピクセルを確実にロードしてW/Hを確定する
-		DicomImage centerDcm = centerSg.getDicomImage();
-		centerDcm.ensurePixelDataLoaded();
-		int w = centerDcm.getWidth();
-		int h = centerDcm.getHeight();
-		if (w <= 0 || h <= 0) {
-			return null;
-		}
-
-		float[] volume = new float[w * h * depth]; // z*w*h + y*w + x 順
+		float[] volume = new float[w * h * depth];
 		for (int zi = zLo; zi <= zHi; zi++) {
 			SlideGlass neighborSg = slides.get(calcZctIndex(new int[] { zi, c, t }));
 			if (neighborSg == null || neighborSg.getDicomImage() == null) {
@@ -4017,22 +4069,84 @@ public class Praparat extends JPanel {
 			if (ip == null) {
 				continue;
 			}
-			// ★ 修正: 生のストア値のまま平均化する(キャリブレーション済み値には変換しない)。
-			// 既存のウィンドウィング/表示パイプラインは「生のストア値 + 別途Calibrationで変換」を
-			// 前提としており(ImageJの標準的な設計: 表示レンジは生値ベース、Calibrationは数値表示用)、
-			// ここで先にHU等へ変換すると合成画像のスケールが既存のWindow/Level(生値基準)と
-			// 食い違い、表示レンジが実際のデータ範囲から外れて画面が真っ黒になる。
-			// (RescaleSlope/Interceptがスライス間で異なるケースは稀かつ既存コードベース全体で
-			// 未対応のため、本機能でも生値の単純平均とする)
 			int base = (zi - zLo) * w * h;
 			int size = w * h;
 			for (int p = 0; p < size; p++) {
 				volume[base + p] = ip.getf(p);
 			}
 		}
+		return volume;
+	}
 
-		// CurvedReformatter.projectBand と同型: N点等間隔サンプル -> 平均
-		int n = Math.max(2, Math.min(9, (int) Math.round(zEndF - zStartF) + 1));
+	/**
+	 * @param nativeIndex centerSg(中心スライス: 校正・ピクセル間隔・W/H・近傍取得の基準として使う、
+	 *                    slidesの実ZCTキー)を選ぶための整数インデックス。digitalZToOriginalZ()の結果を渡す。
+	 * @param digitalZ    実際に表示しようとしているデジタルZ位置。サブサンプリングの中心には、
+	 *                    nativeIndexから逆算したzではなく、こちらから得る連続値(小数)を必ず使う
+	 *                    (アップサンプリング時、複数のdigitalZが同じnativeIndexに丸め込まれるため、
+	 *                    連続値を使わないと全て同じ結果になってしまう)。
+	 *
+	 *                    ★ サンプル数(平均化するか否か)は「ネイティブ間隔との比較」ではなく、
+	 *                    「等方ボクセル化のステップ幅(面内ピクセル間隔基準)と要求厚さの比較」で決める。
+	 *                    MPRが面内解像度に合わせてZ方向を等方再構成するのと同じ考え方で、要求厚さの
+	 *                    範囲をそのステップ幅で割った点数だけTrilinear補間でサンプリングし平均する。
+	 *                    例: 等方ステップ0.5mm・要求厚さ3mmなら6点を平均する(ネイティブ間隔が
+	 *                    それより厚く「薄くする」操作であっても、平均が必要なケースは普通にある)。
+	 *                    要求厚さが等方ステップ以下になる端では自然に1点(平均なしの直接補間)に収束する。
+	 */
+	private ImageProcessor computeThickSlabProcessor(int nativeIndex, int digitalZ) {
+		int[] zct = calcZCTArrayFromIndex(nativeIndex);
+		int c = zct[1];
+		int t = zct[2];
+		double z = digitalZToFractionalOriginalZ(digitalZ);
+
+		SlideGlass centerSg = slides.get(nativeIndex);
+		if (centerSg == null || centerSg.getDicomImage() == null) {
+			return null;
+		}
+		double spacingZ = centerSg.getPixelSpacingZ();
+		if (spacingZ <= 0) {
+			spacingZ = 1.0;
+		}
+
+		// 中心スライス自身のピクセルを確実にロードしてW/Hを確定する
+		DicomImage centerDcm = centerSg.getDicomImage();
+		centerDcm.ensurePixelDataLoaded();
+		int w = centerDcm.getWidth();
+		int h = centerDcm.getHeight();
+		if (w <= 0 || h <= 0) {
+			return null;
+		}
+
+		double[] zRange = computeThickSlabZRange(z, spacingZ);
+		double zStartF = zRange[0];
+		double zEndF = zRange[1];
+		int zLo = (int) Math.floor(zStartF);
+		int zHi = (int) Math.ceil(zEndF);
+		int depth = zHi - zLo + 1;
+
+		// ★ 修正: 生のストア値のまま平均化する(キャリブレーション済み値には変換しない)。
+		// 既存のウィンドウィング/表示パイプラインは「生のストア値 + 別途Calibrationで変換」を
+		// 前提としており(ImageJの標準的な設計: 表示レンジは生値ベース、Calibrationは数値表示用)、
+		// ここで先にHU等へ変換すると合成画像のスケールが既存のWindow/Level(生値基準)と
+		// 食い違い、表示レンジが実際のデータ範囲から外れて画面が真っ黒になる。
+		// (RescaleSlope/Interceptがスライス間で異なるケースは稀かつ既存コードベース全体で
+		// 未対応のため、本機能でも生値の単純平均とする)
+		float[] volume = loadRawZVolume(zLo, zHi, c, t, w, h);
+
+		// ★ 等方ボクセル化のステップ幅(mm): MPRの慣習に合わせ、面内(X/Y)ピクセル間隔のうち
+		// 細かい方を使う。これがZ方向の「実効解像度」になる。
+		double pixelSpacingX = centerSg.getPixelSpacingX();
+		double pixelSpacingY = centerSg.getPixelSpacingY();
+		double isotropicStepMm = Math.min(pixelSpacingX > 0 ? pixelSpacingX : 1.0,
+				pixelSpacingY > 0 ? pixelSpacingY : 1.0);
+
+		double rangeMm = (zEndF - zStartF) * spacingZ; // 実際にサンプリングする範囲(mm、ネイティブ間隔換算)
+		// ★ 範囲(mm)を等方ステップ幅(mm)で割ったビン数だけサンプリングする
+		// (例: 等方0.5mm・範囲3mmなら6点。端点を含むN+1点ではなく、各ビンの中心を1点サンプリングする方式)
+		int n = Math.max(1, Math.min(64, (int) Math.round(rangeMm / isotropicStepMm)));
+		double binWidthZ = (zEndF - zStartF) / n; // ネイティブ間隔換算(zStartF/zEndFと同じ単位)
+
 		float[] result = new float[w * h];
 		int size = w * h;
 		for (int p = 0; p < size; p++) {
@@ -4040,10 +4154,12 @@ public class Praparat extends JPanel {
 			int y = p / w;
 			double sum = 0;
 			for (int k = 0; k < n; k++) {
-				double zSample = zStartF + (zEndF - zStartF) * k / (n - 1);
+				double zSample = zStartF + binWidthZ * (k + 0.5); // 各ビンの中心
 				double zLocal = zSample - zLo;
 				// ★ RadiomicsJは範囲外で無条件に0を返すため、自前で安全クランプしてから渡す
-				zLocal = Math.min(Math.max(zLocal, 0), depth - 1 - 1e-6);
+				// (z==depth-1自体は境界判定上許容されるため、depth=1の縮退ケースでも0除外にならないよう
+				// epsilonは引かない)
+				zLocal = Math.min(Math.max(zLocal, 0), depth - 1);
 				sum += io.github.tatsunidas.radiomics.main.Utils.TrilinearInterpolation(volume, w, h, depth, x, y,
 						zLocal);
 			}
@@ -4051,6 +4167,59 @@ public class Praparat extends JPanel {
 		}
 
 		return new FloatProcessor(w, h, result);
+	}
+
+	/**
+	 * Thick Slab有効時、現在表示中のSlideGlass(合成画像)の上に、どの実スライスのROIを
+	 * 表示すべきかを判定する。ROIは非表示にせず、「そのデジタルスライスが束ねている実スライス
+	 * 範囲に属するROIだけを表示する」という方針(ユーザー指定)。
+	 * Thick Slab無効時は、そのSlideGlass自身のROIセットをそのまま返す(既存仕様)。
+	 * CanvasGlass#drawRoi()の描画専用に使う想定で、selectedRois/hit-test/編集系には影響しない
+	 * (それらは引き続きsg自身のroiSetを直接見る、既存の仕組みのまま)。
+	 */
+	public List<RoiObj> getVisibleRoisForThickSlab(SlideGlass currentSg) {
+		if (currentSg == null) {
+			return java.util.Collections.emptyList();
+		}
+		if (!isThickSlabEnabled()) {
+			return currentSg.getRois();
+		}
+		int nativeIndex = -1;
+		for (java.util.Map.Entry<Integer, SlideGlass> e : slides.entrySet()) {
+			if (e.getValue() == currentSg) {
+				nativeIndex = e.getKey();
+				break;
+			}
+		}
+		if (nativeIndex < 0) {
+			return currentSg.getRois();
+		}
+		int[] zct = calcZCTArrayFromIndex(nativeIndex);
+		int c = zct[1];
+		int t = zct[2];
+		// ★ このSlideGlassに実際に焼き込まれているデジタル位置を優先する(prefetchされた近傍スライドは
+		// currentSliceZCTと一致しないことがあるため)。記録が無ければ現在地から逆算してフォールバックする。
+		Integer renderedDigitalZ = renderedDigitalZByNativeIndex.get(nativeIndex);
+		int digitalZ = (renderedDigitalZ != null) ? renderedDigitalZ
+				: (nativeIndex == currentSliceZCT ? currentDigitalSliceZ : originalZToDigitalZ(zct[0]));
+		double z = digitalZToFractionalOriginalZ(digitalZ);
+		double spacingZ = currentSg.getPixelSpacingZ();
+		double[] zRange = computeThickSlabZRange(z, spacingZ);
+		int zLo = (int) Math.floor(zRange[0]);
+		int zHi = (int) Math.ceil(zRange[1]);
+
+		List<RoiObj> visible = new ArrayList<>();
+		for (int zi = zLo; zi <= zHi; zi++) {
+			SlideGlass neighborSg = slides.get(calcZctIndex(new int[] { zi, c, t }));
+			if (neighborSg == null) {
+				continue;
+			}
+			List<RoiObj> rois = neighborSg.getRois();
+			if (rois != null) {
+				visible.addAll(rois);
+			}
+		}
+		return visible;
 	}
 
 	/**
@@ -4181,19 +4350,42 @@ public class Praparat extends JPanel {
 		DicomImage dcmimg = sg.getDicomImage();
 		isMultiFrame = dcmimg.isMultiFrame();
 		isMultiFrame = isPDF == true ? true : isMultiFrame;
+
+		// ★ Thick Slab: 有効時はZ方向近傍を合成したキャッシュ済みプロセッサを使う。
+		// アップサンプリング(厚さ<ネイティブ間隔)では複数のデジタル位置が同じnativeIndex(=この
+		// SlideGlass)に丸め込まれるため、「originalImageがnullか」だけでは不十分。今回要求された
+		// デジタル位置と、最後にこのSlideGlassへ実体化したデジタル位置が一致しているかも確認し、
+		// 不一致なら強制的に未実体化扱いにして再構築させる。
+		boolean usedThickSlab = isThickSlabEnabled();
+		int expectedDigitalZ = -1;
+		int digitalCacheKey = -1;
+		if (usedThickSlab) {
+			int[] zct = calcZCTArrayFromIndex(index);
+			expectedDigitalZ = (index == currentSliceZCT) ? currentDigitalSliceZ : originalZToDigitalZ(zct[0]);
+			digitalCacheKey = calcDigitalZctIndex(expectedDigitalZ, zct[1], zct[2]);
+			Integer renderedDigitalZ = renderedDigitalZByNativeIndex.get(index);
+			if (sg.getOriginalImage() != null
+					&& (renderedDigitalZ == null || renderedDigitalZ.intValue() != expectedDigitalZ)) {
+				// ★ 同じSlideGlassが別のデジタル位置用に再利用される(アップサンプリング)場合、
+				// 古い合成画像が残っていても「実体化済み」と誤判定しないよう未実体化に戻す
+				sg.imageSpecimen.setOriginalImage(null);
+			}
+		}
+
 		if (sg.getOriginalImage() == null) {
 			// Praparat全体がファイルソースを持っているかで判定
 			boolean isFileBacked = (getImageFileLocations() != null && !getImageFileLocations().isEmpty());
 			int frame_pos = isMultiFrame ? (sg.getHeader().getInt(Tag.InstanceNumber, 1) - 1) : 0;
 			boolean isUnpackedMosaic = isMosaic(sg) && this.mode != ViewMode.Thumbnail;
-			// ★ Thick Slab: 有効時はZ方向近傍を合成したキャッシュ済みプロセッサを使う
-			boolean usedThickSlab = isThickSlabEnabled();
+			final int digitalZForCache = expectedDigitalZ;
+			final int cacheKey = digitalCacheKey;
 
 			// モザイク画像(fMRI)の場合はファイルからの再ロードを行わず、メモリのデータを直接使う
 			if (isFileBacked && !isUnpackedMosaic) {
 				// 1. ファイルからピクセルを読み込む
 				if (dcmimg.ensurePixelDataLoaded()) {
-					ImageProcessor ip = usedThickSlab ? thickSlabCache.computeIfAbsent(index, this::computeThickSlabProcessor)
+					ImageProcessor ip = usedThickSlab
+							? thickSlabCache.computeIfAbsent(cacheKey, k -> computeThickSlabProcessor(index, digitalZForCache))
 							: dcmimg.getImageProcessor(frame_pos);
 					if (ip == null) {
 						usedThickSlab = false;
@@ -4201,12 +4393,16 @@ public class Praparat extends JPanel {
 					}
 					ImagePlus im = new ImagePlus("" + index, ip);
 					sg.imageSpecimen.setOriginalImage(im);
+					if (usedThickSlab) {
+						renderedDigitalZByNativeIndex.put(index, digitalZForCache);
+					}
 				}
 			} else {
 				// ★ ImagePlusから生成され、パスはないがメモリ上に画像データがある場合、およびMosaicの処理
 				if (dcmimg != null) {
 					// ※ すでにメモリ上にあるピクセルデータを取得して表示に使う
-					ImageProcessor ip = usedThickSlab ? thickSlabCache.computeIfAbsent(index, this::computeThickSlabProcessor)
+					ImageProcessor ip = usedThickSlab
+							? thickSlabCache.computeIfAbsent(cacheKey, k -> computeThickSlabProcessor(index, digitalZForCache))
 							: dcmimg.getImageProcessor(frame_pos);
 					if (ip == null) {
 						usedThickSlab = false;
@@ -4215,6 +4411,9 @@ public class Praparat extends JPanel {
 					if (ip != null) {
 						ImagePlus im = new ImagePlus("" + index, ip);
 						sg.imageSpecimen.setOriginalImage(im);
+						if (usedThickSlab) {
+							renderedDigitalZByNativeIndex.put(index, digitalZForCache);
+						}
 					}
 				}
 			}
@@ -4771,6 +4970,19 @@ public class Praparat extends JPanel {
 			}
 
 			if (currentSliceZCT == sliceZctIndex) {
+				// ★ Thick Slabのアップサンプリング(厚さ<ネイティブ間隔)では、ネイティブIndexが
+				// 同じまま複数の異なるデジタル位置(=異なる合成結果)を要求されることがあるため、
+				// ネイティブIndex不変だけで早期returnしてはならない。realizeImage内部の
+				// ステイルネス判定(renderedDigitalZByNativeIndex)に再計算の要否を委ね、表示も更新する
+				// (これがないと、同じネイティブスライスに丸め込まれる間は画像が固まって見える)。
+				if (isThickSlabEnabled()) {
+					SlideGlass sameGlass = this.slides.get(currentSliceZCT);
+					if (sameGlass != null) {
+						realizeImage(currentSliceZCT, false, null, null, null, null, null);
+						sameGlass.updateDisplayImage();
+						sameGlass.repaint();
+					}
+				}
 				return;
 			}
 
@@ -4926,6 +5138,8 @@ public class Praparat extends JPanel {
 			currentT = t;
 			currentZ = z;
 			currentC = c;
+			// ★ Thick Slab: posは常に実ZCT空間の値なので、デジタル位置はここから逆算して同期する
+			currentDigitalSliceZ = originalZToDigitalZ(z);
 
 			// 各スライダーのUI表示を同期（値が変わればCineSliderがイベントを発火し、setImagePositionが呼ばれる）
 			boolean sliderUpdated = false;
@@ -5436,7 +5650,10 @@ public class Praparat extends JPanel {
 	 */
 	public void notifyDimensionChanged(String dimName, int value) {
 		if ("Slice".equals(dimName)) {
-			// ★ Thick Slab有効時、sliderはデジタルスライス位置を渡してくるため、実Z位置へ変換する
+			// ★ Thick Slab有効時、sliderはデジタルスライス位置を渡してくるため、実Z位置へ変換する。
+			// currentDigitalSliceZも必ず一緒に更新する(アップサンプリング時、複数のデジタル位置が
+			// 同じ実Zに丸め込まれるため、currentZだけでは「今どのデジタル位置を見ているか」が分からない)。
+			this.currentDigitalSliceZ = value;
 			this.currentZ = digitalZToOriginalZ(value);
 		} else if ("Channel".equals(dimName)) {
 			this.currentC = value;

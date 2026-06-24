@@ -3735,6 +3735,10 @@ public class DatabaseHandler {
 					"--dicomdir", dicomDirPath, "--ae-config", aeProp };
 			dcmqrscp.start(args);
 		}
+		// Windows only, best-effort: open the firewall for whatever port is actually
+		// configured here (the user can change it via PACSConnectionPrefs, so this must
+		// not be hardcoded to the 11112 default).
+		com.vis.core.util.FirewallConfigurator.ensureDicomPortOpen(currentPort);
 	}
 
 	/**

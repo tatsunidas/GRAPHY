@@ -1,0 +1,269 @@
+name: Release — Build & Publish Installers/ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Extract pom.xml version
+        id: get_version
+        run: |
+          VERSION=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches pom.xml version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          POM_VERSION="${{ steps.get_version.outputs.version }}"
+          if [ "$TAG_VERSION" != "$POM_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match pom.xml version ($POM_VERSION). Update pom.xml's <version> to match the tag before tagging." >&2
+            exit 1
+          fi
+          echo "Version check passed: $POM_VERSION"
+
+  build-windows:
+    needs: validate-version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.validate-version.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11 (build + runtime image)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Create runtime image with jlink
+        run: |
+          rm -rf jre-bins/windows
+          "$JAVA_HOME/bin/jlink" --module-path "$JAVA_HOME/jmods" --add-modules ALL-MODULE-PATH \
+            --output jre-bins/windows --no-header-files --no-man-pages --strip-debug --compress=2
+
+      - name: Build with Maven (also produces the ZIP distribution)
+        run: mvn -B clean package
+
+      - name: Prepare jpackage input directory
+        run: |
+          rm -rf jpkg-input
+          mkdir -p jpkg-input
+          cp "target/graphy-${VERSION}.jar" jpkg-input/
+          cp -r target/jars jpkg-input/jars
+          cp -r luts jpkg-input/luts
+          mkdir -p jpkg-input/lib/native_opencv jpkg-input/lib/native_cdrtools jpkg-input/lib/native_cuda
+          cp -r native/native_opencv/windows-x86-64 jpkg-input/lib/native_opencv/windows-x86-64
+          cp -r native/native_cdrtools/windows jpkg-input/lib/native_cdrtools/windows
+          cp -r native/native_cuda/windows-x86-64 jpkg-input/lib/native_cuda/windows-x86-64
+
+      - name: Set up JDK 21 (jpackage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run jpackage (.exe)
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type exe \
+            --name GRAPHY \
+            --app-version "$VERSION" \
+            --input jpkg-input \
+            --main-jar "graphy-${VERSION}.jar" \
+            --main-class com.vis.core.launcher.Launcher \
+            --runtime-image jre-bins/windows \
+            --vendor "Visionary Imaging Services, Inc." \
+            --win-dir-chooser --win-menu --win-shortcut \
+            --java-options "-Xms512m" \
+            --java-options "-Xmx9216m" \
+            --java-options "-Dj3d.allowNullGraphicsConfig=true" \
+            --java-options "-Djava.library.path=\$APPDIR/lib/native_opencv/windows-x86-64;\$APPDIR/lib/native_cdrtools/windows/win64;\$APPDIR/lib/native_cuda/windows-x86-64" \
+            --java-options "--add-exports java.base/java.lang=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.awt=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.java2d=ALL-UNNAMED" \
+            --java-options "--add-exports java.base/sun.security.action=ALL-UNNAMED" \
+            --java-options "--add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED" \
+            --java-options "--add-opens java.base/java.io=ALL-UNNAMED" \
+            --dest dist
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            target/GRAPHY-${{ env.VERSION }}-Windows.zip
+            dist/*.exe
+
+  build-linux:
+    needs: validate-version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11 (build + runtime image)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Create runtime image with jlink
+        run: |
+          rm -rf jre-bins/linux
+          "$JAVA_HOME/bin/jlink" --module-path "$JAVA_HOME/jmods" --add-modules ALL-MODULE-PATH \
+            --output jre-bins/linux --no-header-files --no-man-pages --strip-debug --compress=2
+
+      - name: Build with Maven (also produces the ZIP distribution)
+        run: mvn -B clean package
+
+      - name: Prepare jpackage input directory
+        run: |
+          rm -rf jpkg-input
+          mkdir -p jpkg-input
+          cp "target/graphy-${VERSION}.jar" jpkg-input/
+          cp -r target/jars jpkg-input/jars
+          cp -r luts jpkg-input/luts
+          mkdir -p jpkg-input/lib/native_opencv jpkg-input/lib/native_cdrtools jpkg-input/lib/native_cuda
+          cp -r native/native_opencv/linux-x86-64 jpkg-input/lib/native_opencv/linux-x86-64
+          cp -r native/native_cdrtools/linux jpkg-input/lib/native_cdrtools/linux
+          cp -r native/native_cuda/linux-x86-64 jpkg-input/lib/native_cuda/linux-x86-64
+
+      - name: Set up JDK 21 (jpackage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install deb packaging tools
+        run: sudo apt-get update -qq && sudo apt-get install -y fakeroot
+
+      - name: Run jpackage (.deb)
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type deb \
+            --name GRAPHY \
+            --app-version "$VERSION" \
+            --input jpkg-input \
+            --main-jar "graphy-${VERSION}.jar" \
+            --main-class com.vis.core.launcher.Launcher \
+            --runtime-image jre-bins/linux \
+            --vendor "Visionary Imaging Services, Inc." \
+            --linux-shortcut \
+            --java-options "-Xms512m" \
+            --java-options "-Xmx9216m" \
+            --java-options "-Dj3d.allowNullGraphicsConfig=true" \
+            --java-options "-Djava.library.path=\$APPDIR/lib/native_opencv/linux-x86-64:\$APPDIR/lib/native_cdrtools/linux:\$APPDIR/lib/native_cuda/linux-x86-64" \
+            --java-options "--add-exports java.base/java.lang=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.awt=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.java2d=ALL-UNNAMED" \
+            --java-options "--add-exports java.base/sun.security.action=ALL-UNNAMED" \
+            --java-options "--add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED" \
+            --java-options "--add-opens java.base/java.io=ALL-UNNAMED" \
+            --dest dist
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            target/GRAPHY-${{ env.VERSION }}-Ubuntu.zip
+            dist/*.deb
+
+  build-mac:
+    needs: validate-version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.validate-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11 (build + runtime image)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Create runtime image with jlink
+        run: |
+          rm -rf jre-bins/mac
+          "$JAVA_HOME/bin/jlink" --module-path "$JAVA_HOME/jmods" --add-modules ALL-MODULE-PATH \
+            --output jre-bins/mac --no-header-files --no-man-pages --strip-debug --compress=2
+
+      - name: Build with Maven (also produces the ZIP distribution)
+        run: mvn -B clean package
+
+      - name: Prepare jpackage input directory
+        run: |
+          rm -rf jpkg-input
+          mkdir -p jpkg-input
+          cp "target/graphy-${VERSION}.jar" jpkg-input/
+          cp -r target/jars jpkg-input/jars
+          cp -r luts jpkg-input/luts
+          mkdir -p jpkg-input/lib/native_opencv jpkg-input/lib/native_cdrtools
+          cp -r native/native_opencv/macosx-aarch64 jpkg-input/lib/native_opencv/macosx-aarch64
+          cp -r native/native_cdrtools/mac jpkg-input/lib/native_cdrtools/mac
+
+      - name: Set up JDK 21 (jpackage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run jpackage (.dmg)
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type dmg \
+            --name GRAPHY \
+            --app-version "$VERSION" \
+            --input jpkg-input \
+            --main-jar "graphy-${VERSION}.jar" \
+            --main-class com.vis.core.launcher.Launcher \
+            --runtime-image jre-bins/mac \
+            --vendor "Visionary Imaging Services, Inc." \
+            --java-options "-Xms512m" \
+            --java-options "-Xmx9216m" \
+            --java-options "-Dj3d.allowNullGraphicsConfig=true" \
+            --java-options "-Djava.library.path=\$APPDIR/lib/native_opencv/macosx-aarch64:\$APPDIR/lib/native_cdrtools/mac" \
+            --java-options "--add-exports java.base/java.lang=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.awt=ALL-UNNAMED" \
+            --java-options "--add-exports java.desktop/sun.java2d=ALL-UNNAMED" \
+            --java-options "--add-exports java.base/sun.security.action=ALL-UNNAMED" \
+            --java-options "--add-opens java.desktop/javax.imageio.stream=ALL-UNNAMED" \
+            --java-options "--add-opens java.base/java.io=ALL-UNNAMED" \
+            --dest dist
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            target/GRAPHY-${{ env.VERSION }}-Mac.zip
+            dist/*.dmg

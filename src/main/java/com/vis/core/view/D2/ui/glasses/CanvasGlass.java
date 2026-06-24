@@ -1306,8 +1306,12 @@ public class CanvasGlass extends javax.swing.JPanel {
 	}
 
 	private void drawRoi(Graphics g) {
-		for (int i = 0; i < roiset.size(); i++) {
-			RoiObj roiObj = roiset.get(i);
+		// ★ Thick Slab有効時は、このスライド自身のroisetだけでなく、合成に使われた実スライス範囲に
+		// 属する全ROIを描画対象にする(非表示にはせず、「実際にどのスライスに属するか」で判断する)。
+		// hit-test/選択/編集/保存などは引き続きsg自身のroisetのみを見る(描画専用の変更)。
+		java.util.List<RoiObj> drawTargets = (pp != null) ? pp.getVisibleRoisForThickSlab(sg) : roiset;
+		for (int i = 0; i < drawTargets.size(); i++) {
+			RoiObj roiObj = drawTargets.get(i);
 			if(roiObj !=null) roiObj.draw(g);
 		}
 		
