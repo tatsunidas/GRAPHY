@@ -52,6 +52,7 @@ import java.util.logging.Logger;
 
 import com.vis.core.log.Log;
 import com.vis.core.ui.function.DicomImporter;
+import com.vis.core.ui.function.ZipDicomImporter;
 import com.vis.core.util.Utils;
 import com.vis.dicom.DicomFileCollection;
 
@@ -121,11 +122,22 @@ public class TreeTableDropListener implements DropTargetListener{
 				}
 			}
 		}
-		if(!candidates.isEmpty()) {
-			File[] files = candidates.toArray(new File[candidates.size()]);
+		// ★ zipファイルは別経路(ZipDicomImporter)で処理する。通常のファイル/フォルダのDAD処理は変更しない。
+		ArrayList<File> zipCandidates = new ArrayList<>();
+		ArrayList<File> nonZipCandidates = new ArrayList<>();
+		for (File f : candidates) {
+			if (f.isFile() && f.getName().toLowerCase().endsWith(".zip")) {
+				zipCandidates.add(f);
+			} else {
+				nonZipCandidates.add(f);
+			}
+		}
+
+		if(!nonZipCandidates.isEmpty()) {
+			File[] files = nonZipCandidates.toArray(new File[nonZipCandidates.size()]);
 			DicomFileCollection collec = new DicomFileCollection(files);
 			collec.collectCandidates();
-			//boolean saveAsLink = false;//save as link is never using. 
+			//boolean saveAsLink = false;//save as link is never using.
 			if(collec.getNumOfTotalDcmFiles()>0) {
 				for (String willImportStudyUID : collec.getNoSubstituteStudyUIDList()) {
 					ArrayList<String> candidateList = collec.selectCandidateUsingStudyUID(willImportStudyUID);
@@ -133,6 +145,10 @@ public class TreeTableDropListener implements DropTargetListener{
 					importer.start();//use executor.(but this is also can use.)
 				}
 			}
+		}
+
+		if(!zipCandidates.isEmpty()) {
+			new ZipDicomImporter(zipCandidates).start();
 		}
 		dtde.dropComplete(true);
 	}

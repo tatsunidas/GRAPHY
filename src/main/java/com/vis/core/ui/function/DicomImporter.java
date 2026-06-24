@@ -212,7 +212,8 @@ public class DicomImporter implements Task, Runnable {
 				});
 			} catch (Exception e) {
 				Log.logger.severe("DicomImporter::perform():Unable to import file. Stoped import...\n"+e.getMessage());
-				return;
+				setStopped(true);
+				break;
 			}
 		} // while loop end
 		done();

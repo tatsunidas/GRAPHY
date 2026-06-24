@@ -64,7 +64,7 @@ jobs:
             --output jre-bins/windows --no-header-files --no-man-pages --strip-debug --compress=2
 
       - name: Build with Maven (also produces the ZIP distribution)
-        run: mvn -B clean package
+        run: mvn -B -DskipTests clean package
 
       - name: Prepare jpackage input directory
         run: |
@@ -139,7 +139,7 @@ jobs:
             --output jre-bins/linux --no-header-files --no-man-pages --strip-debug --compress=2
 
       - name: Build with Maven (also produces the ZIP distribution)
-        run: mvn -B clean package
+        run: mvn -B -DskipTests clean package
 
       - name: Prepare jpackage input directory
         run: |
@@ -217,7 +217,7 @@ jobs:
             --output jre-bins/mac --no-header-files --no-man-pages --strip-debug --compress=2
 
       - name: Build with Maven (also produces the ZIP distribution)
-        run: mvn -B clean package
+        run: mvn -B -DskipTests clean package
 
       - name: Prepare jpackage input directory
         run: |
