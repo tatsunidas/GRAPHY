@@ -267,7 +267,23 @@ public class MainScreenMenu extends JMenuBar{
 			}
 		});
 		mnSys.add(mntmSys);
-		
+
+		JMenuItem mntmMemoryMonitor = new JMenuItem("Memory Monitor");
+		mntmMemoryMonitor.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				try {
+					com.vis.core.util.MemoryMonitorLauncher.launch();
+				} catch (Exception e) {
+					Log.logger.warning("MainScreenMenu: failed to launch the OS memory monitor.\n" + e.getMessage());
+					JOptionPane.showMessageDialog((JFrame) WindowManager.getMainScreen(),
+							"Could not launch the OS memory monitor.\n" + e.getMessage(), "Memory Monitor",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
+		mnSys.add(mntmMemoryMonitor);
+
 		JMenu mnHelp = new JMenu("Help&Contact");
 		add(mnHelp);
 		JMenuItem mntmHelp = new JMenuItem("Requests");

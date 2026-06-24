@@ -239,10 +239,15 @@ jobs:
       - name: Run jpackage (.dmg)
         run: |
           mkdir -p dist
+          # ★ jpackageのMac dmgバンドラーはapp-versionの先頭(メジャー)が0だと
+          # 「The first number in an app-version cannot be zero or negative」で失敗する。
+          # GRAPHYの実バージョンは0.x.x運用なので、--app-versionにだけ先頭を1に置換した
+          # 値を渡す(ZIPファイル名・実際の表示バージョンには影響しない、jpackage向けの回避策)。
+          MAC_APP_VERSION=$(echo "$VERSION" | sed -E 's/^0+\./1./')
           jpackage \
             --type dmg \
             --name GRAPHY \
-            --app-version "$VERSION" \
+            --app-version "$MAC_APP_VERSION" \
             --input jpkg-input \
             --main-jar "graphy-${VERSION}.jar" \
             --main-class com.vis.core.launcher.Launcher \
