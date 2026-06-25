@@ -117,11 +117,13 @@ __device__ inline Vec3 jitteredLightDir(Vec3 lightDir, float angularRadius, Rng 
 	return normalize3(add(lightDir, offset));
 }
 
-__device__ inline bool intersectBox(Vec3 origin, Vec3 dir, float *tNear, float *tFar) {
+// 3D裁断（クリッピング）領域を考慮したボックス交差。clipMin/clipMax はローカル単位立方体
+// 空間 (-0.5〜0.5)。裁断OFF時/最大時は (-0.5, 0.5) が渡され、立方体全体＝裁断なしと等価。
+__device__ inline bool intersectBox(Vec3 origin, Vec3 dir, Vec3 clipMin, Vec3 clipMax, float *tNear, float *tFar) {
 	float invDirX = 1.0f / dir.x, invDirY = 1.0f / dir.y, invDirZ = 1.0f / dir.z;
-	float t1x = (-0.5f - origin.x) * invDirX, t2x = (0.5f - origin.x) * invDirX;
-	float t1y = (-0.5f - origin.y) * invDirY, t2y = (0.5f - origin.y) * invDirY;
-	float t1z = (-0.5f - origin.z) * invDirZ, t2z = (0.5f - origin.z) * invDirZ;
+	float t1x = (clipMin.x - origin.x) * invDirX, t2x = (clipMax.x - origin.x) * invDirX;
+	float t1y = (clipMin.y - origin.y) * invDirY, t2y = (clipMax.y - origin.y) * invDirY;
+	float t1z = (clipMin.z - origin.z) * invDirZ, t2z = (clipMax.z - origin.z) * invDirZ;
 
 	float tMinX = fminf(t1x, t2x), tMaxX = fmaxf(t1x, t2x);
 	float tMinY = fminf(t1y, t2y), tMaxY = fmaxf(t1y, t2y);
@@ -153,10 +155,11 @@ __device__ inline float sampleAlpha(cudaTextureObject_t volumeTex, cudaTextureOb
 }
 
 __device__ inline float shadowTransmittance(cudaTextureObject_t volumeTex, cudaTextureObject_t lutTex, Vec3 origin,
-		Vec3 lightDir, float angularRadius, float uMin, float uMax, float uWinCenter, float uWinWidth, Rng *rng) {
+		Vec3 lightDir, float angularRadius, float uMin, float uMax, float uWinCenter, float uWinWidth,
+		Vec3 clipMin, Vec3 clipMax, Rng *rng) {
 	Vec3 jLightDir = jitteredLightDir(lightDir, angularRadius, rng);
 	float tNear, tFar;
-	if (!intersectBox(origin, jLightDir, &tNear, &tFar)) {
+	if (!intersectBox(origin, jLightDir, clipMin, clipMax, &tNear, &tFar)) {
 		return 1.0f;
 	}
 	tNear = fmaxf(tNear, 0.0f);
@@ -179,13 +182,14 @@ __device__ inline float shadowTransmittance(cudaTextureObject_t volumeTex, cudaT
 
 __device__ inline Vec3 tracePath(cudaTextureObject_t volumeTex, cudaTextureObject_t lutTex, Vec3 rayOrigin,
 		Vec3 rayDir, Vec3 lightDir, float lightIntensity, float ambientIntensity, float anisotropy,
-		float lightAngularRadius, float uMin, float uMax, float uWinCenter, float uWinWidth, Rng *rng) {
+		float lightAngularRadius, float uMin, float uMax, float uWinCenter, float uWinWidth,
+		Vec3 clipMin, Vec3 clipMax, Rng *rng) {
 	Vec3 radiance = vec3(0.0f, 0.0f, 0.0f);
 	Vec3 throughput = vec3(1.0f, 1.0f, 1.0f);
 
 	for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
 		float tNear, tFar;
-		if (!intersectBox(rayOrigin, rayDir, &tNear, &tFar)) {
+		if (!intersectBox(rayOrigin, rayDir, clipMin, clipMax, &tNear, &tFar)) {
 			break;
 		}
 		tNear = fmaxf(tNear, 0.0f);
@@ -217,7 +221,7 @@ __device__ inline Vec3 tracePath(cudaTextureObject_t volumeTex, cudaTextureObjec
 		float cosTheta = dot3(rayDir, lightDir);
 		float phase = phaseHG(cosTheta, anisotropy);
 		float visibility = shadowTransmittance(volumeTex, lutTex, pos, lightDir, lightAngularRadius, uMin, uMax,
-				uWinCenter, uWinWidth, rng);
+				uWinCenter, uWinWidth, clipMin, clipMax, rng);
 		Vec3 direct = mulf(hitAlbedo, lightIntensity * visibility * phase * 4.0f * PI + ambientIntensity);
 		radiance = add(radiance, mulv(throughput, direct));
 
@@ -255,7 +259,8 @@ extern "C" __global__ void pathTraceKernel(cudaTextureObject_t volumeTex, cudaTe
 		cudaSurfaceObject_t accumSurf, int width, int height, const float *invMvp, float camX, float camY,
 		float camZ, float uMin, float uMax, float uWinCenter, float uWinWidth, float lightDirX, float lightDirY,
 		float lightDirZ, float lightIntensity, float ambientIntensity, float anisotropy, float lightAngularRadius,
-		int samplesPerFrame, unsigned int frameSeed) {
+		int samplesPerFrame, unsigned int frameSeed,
+		float clipMinX, float clipMinY, float clipMinZ, float clipMaxX, float clipMaxY, float clipMaxZ) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	if (x >= width || y >= height) {
@@ -269,6 +274,8 @@ extern "C" __global__ void pathTraceKernel(cudaTextureObject_t volumeTex, cudaTe
 	Vec3 nearPoint = unprojectNear(invMvp, ndcX, ndcY);
 	Vec3 primaryDir = normalize3(sub(nearPoint, camPos));
 	Vec3 lightDir = vec3(lightDirX, lightDirY, lightDirZ);
+	Vec3 clipMin = vec3(clipMinX, clipMinY, clipMinZ);
+	Vec3 clipMax = vec3(clipMaxX, clipMaxY, clipMaxZ);
 
 	unsigned int pixelSeed = (unsigned int) x * 1973u + (unsigned int) y * 9277u + frameSeed * 26699u;
 
@@ -278,7 +285,7 @@ extern "C" __global__ void pathTraceKernel(cudaTextureObject_t volumeTex, cudaTe
 		Rng rng;
 		rng.state = pixelSeed ^ ((unsigned int) s * 374761393u);
 		Vec3 sample = tracePath(volumeTex, lutTex, camPos, primaryDir, lightDir, lightIntensity, ambientIntensity,
-				anisotropy, lightAngularRadius, uMin, uMax, uWinCenter, uWinWidth, &rng);
+				anisotropy, lightAngularRadius, uMin, uMax, uWinCenter, uWinWidth, clipMin, clipMax, &rng);
 		accumulated = add(accumulated, sample);
 	}
 	accumulated = mulf(accumulated, 1.0f / (float) samples);

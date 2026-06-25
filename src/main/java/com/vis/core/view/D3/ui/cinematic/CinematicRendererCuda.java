@@ -315,15 +315,26 @@ public class CinematicRendererCuda implements CinematicRenderer {
 		java.nio.FloatBuffer pAmbient = stack.floats(params.ambientIntensity);
 		java.nio.FloatBuffer pAnisotropy = stack.floats(params.scatteringAnisotropy);
 		java.nio.FloatBuffer pAngular = stack.floats(params.lightAngularRadius);
-		IntBuffer pSamples = stack.ints(Math.max(1, params.samplesPerFrame));
-		IntBuffer pSeed = stack.ints(frameSeed);
+			IntBuffer pSamples = stack.ints(Math.max(1, params.samplesPerFrame));
+			IntBuffer pSeed = stack.ints(frameSeed);
 
-		PointerBuffer kernelParams = stack.mallocPointer(22);
-		kernelParams.put(0, pVolumeTex).put(1, pLutTex).put(2, pAccumSurf).put(3, pWidth).put(4, pHeight)
-				.put(5, pInvMvpPtr).put(6, pCamX).put(7, pCamY).put(8, pCamZ).put(9, pUMin).put(10, pUMax)
-				.put(11, pWinCenter).put(12, pWinWidth).put(13, pLightDirX).put(14, pLightDirY).put(15, pLightDirZ)
-				.put(16, pLightIntensity).put(17, pAmbient).put(18, pAnisotropy).put(19, pAngular).put(20, pSamples)
-				.put(21, pSeed);
+			// 3D裁断領域（VolumeRendererが保持する実効値。裁断OFF時は -0.5〜0.5 が入っている）
+			float[] clipMin = volumeSource.getEffectiveClipMin();
+			float[] clipMax = volumeSource.getEffectiveClipMax();
+			java.nio.FloatBuffer pClipMinX = stack.floats(clipMin[0]);
+			java.nio.FloatBuffer pClipMinY = stack.floats(clipMin[1]);
+			java.nio.FloatBuffer pClipMinZ = stack.floats(clipMin[2]);
+			java.nio.FloatBuffer pClipMaxX = stack.floats(clipMax[0]);
+			java.nio.FloatBuffer pClipMaxY = stack.floats(clipMax[1]);
+			java.nio.FloatBuffer pClipMaxZ = stack.floats(clipMax[2]);
+
+			PointerBuffer kernelParams = stack.mallocPointer(28);
+			kernelParams.put(0, pVolumeTex).put(1, pLutTex).put(2, pAccumSurf).put(3, pWidth).put(4, pHeight)
+					.put(5, pInvMvpPtr).put(6, pCamX).put(7, pCamY).put(8, pCamZ).put(9, pUMin).put(10, pUMax)
+					.put(11, pWinCenter).put(12, pWinWidth).put(13, pLightDirX).put(14, pLightDirY).put(15, pLightDirZ)
+					.put(16, pLightIntensity).put(17, pAmbient).put(18, pAnisotropy).put(19, pAngular).put(20, pSamples)
+					.put(21, pSeed).put(22, pClipMinX).put(23, pClipMinY).put(24, pClipMinZ)
+					.put(25, pClipMaxX).put(26, pClipMaxY).put(27, pClipMaxZ);
 
 		int gridX = (accumWidth + BLOCK_SIZE - 1) / BLOCK_SIZE;
 		int gridY = (accumHeight + BLOCK_SIZE - 1) / BLOCK_SIZE;

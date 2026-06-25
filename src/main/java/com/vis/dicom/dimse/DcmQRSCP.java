@@ -131,6 +131,8 @@ public class DcmQRSCP implements DicomServer{
 	protected final Device device;
 	protected final ApplicationEntity ae;
 	protected final Connection conn = new Connection();
+	/** TLS有効時に平文listenerとは別ポートで待ち受ける第2の接続(相互TLS)。無効時はnull。 */
+	protected Connection tlsConn;
 
 	private File storageDir;
 	private File dicomDir;
@@ -1246,6 +1248,36 @@ public class DcmQRSCP implements DicomServer{
 		device.unbindConnections();
 	}
 	
+	/**
+	 * DIMSE TLSが有効なら、平文listener(conn)とは別ポートにTLS専用の第2 listener(tlsConn)を
+	 * 同じDevice/ApplicationEntityへ追加する。bindConnections()が平文+TLSの両方を張る。
+	 * TLS分の設定に失敗しても平文listenerは生かす(DICOM受信全体を止めない)。
+	 */
+	private void configureTlsListener() {
+		try {
+			com.vis.dicom.tls.DicomTlsConfig tls = DatabaseHandler.getInstance().getDimseTlsConfig();
+			if (tls == null || !tls.isUsable()) {
+				return; // TLS無効、または鍵/truststore未設定 → 平文listenerのみ
+			}
+			tlsConn = new Connection();
+			// 平文listenerと同じバインドホストで、TLS専用ポートを使う
+			String bindHost = conn.getHostname();
+			if (bindHost != null && !bindHost.isEmpty()) {
+				tlsConn.setHostname(bindHost);
+			}
+			tlsConn.setPort(tls.getTlsPort());
+			tls.applyTlsToConnection(tlsConn, tls.getCiphers(), /* needClientAuth(相互TLS) */ true);
+			tls.applyKeyMaterialToDevice(device);
+			device.addConnection(tlsConn);
+			ae.addConnection(tlsConn);
+			Log.logger.info("DIMSE TLS listener を有効化しました (TLS port=" + tls.getTlsPort() + ")。");
+		} catch (Throwable t) {
+			Log.logger.log(java.util.logging.Level.WARNING,
+					"DIMSE TLS listener の設定に失敗しました。平文listenerのみで継続します。", t);
+			tlsConn = null;
+		}
+	}
+
 	public boolean start(String[] args) {
 		try {
 			CommandLine cl = parseComandLine(args);
@@ -1262,6 +1294,7 @@ public class DcmQRSCP implements DicomServer{
 			configureDelayCFind(this, cl);
 			configureDelayCStore(this, cl);
 			configureRemoteConnections(this, cl);
+			configureTlsListener();
 			ExecutorService executorService = Executors.newCachedThreadPool();
 			ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 			device.setScheduledExecutor(scheduledExecutorService);

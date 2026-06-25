@@ -9,5 +9,6 @@ create table servers(
 	wadocontext varchar(100),
 	wadoport integer,
 	wadoprotocol varchar(100),
-	retrievets varchar(255)
+	retrievets varchar(255),
+	tls_enabled boolean default false
 	)

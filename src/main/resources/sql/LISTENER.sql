@@ -7,5 +7,19 @@ create table listener (
 	storagelocation varchar(1024),
 	dicomweb_enabled boolean default false,
 	dicomweb_port integer,
-	dicomweb_contextpath varchar(255) default '/dicomweb'
+	dicomweb_contextpath varchar(255) default '/dicomweb',
+	dicomweb_https_enabled boolean default false,
+	dicomweb_keystore_path varchar(512),
+	dicomweb_keystore_password varchar(255),
+	dicomweb_auth_enabled boolean default false,
+	dicomweb_username varchar(255),
+	dicomweb_password_hash varchar(64),
+	dimse_tls_enabled boolean default false,
+	dimse_tls_port integer,
+	dimse_keystore_path varchar(512),
+	dimse_keystore_password varchar(255),
+	dimse_truststore_path varchar(512),
+	dimse_truststore_password varchar(255),
+	dimse_tls_protocols varchar(255) default 'TLSv1.2,TLSv1.3',
+	dimse_tls_ciphers varchar(512) default 'TLS_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA'
 	)

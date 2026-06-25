@@ -15,8 +15,21 @@ uniform sampler3D roiTex;
 uniform bool uShowRoi;
 uniform vec4 uRoiColors[32];
 
+// 3D裁断（クリッピング）領域。ローカル単位立方体空間の境界(各成分 -0.5〜0.5)。
+// 断面表示ではテクスチャ座標(0〜1)に +0.5 して比較し、領域外フラグメントを破棄する。
+// 裁断OFF時/最大時は (-0.5, 0.5) が渡され、立方体全体＝裁断なしと等価になる。
+uniform vec3 uClipMin;
+uniform vec3 uClipMax;
+
 void main() {
 	vec3 sampleCoord = vTexCoord;
+
+    // 裁断領域外の断面ピクセルは描画しない
+    vec3 clipLo = uClipMin + 0.5;
+    vec3 clipHi = uClipMax + 0.5;
+    if (any(lessThan(sampleCoord, clipLo)) || any(greaterThan(sampleCoord, clipHi))) {
+        discard;
+    }
     // 座標の反転 (Z軸も volume.frag と同様に反転)
     // vec3 sampleCoord = vec3(1.0 - vTexCoord.x, 1.0 - vTexCoord.y, 1.0 - vTexCoord.z);
     

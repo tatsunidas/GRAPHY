@@ -9,6 +9,8 @@ nav:
   - はじめに: index.md
   - データベース: database.md
   - 入出力データ: io.md
+  - DICOMweb (QIDO-RS/WADO-RS/STOW-RS): dicomweb.md
+  - DICOM通信のTLS暗号化: dimse-tls.md
   - データベースウィンドウ（MainScreen）: main-screen.md
   - 2Dビューワ: viewer2d.md
   - 3Dビューワ: viewer3d.md
@@ -23,8 +25,6 @@ theme:
   logo: images/logo.png
   favicon: images/logo.png
   features:
-    - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.top

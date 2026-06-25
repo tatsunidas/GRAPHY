@@ -135,6 +135,24 @@ public class GLCanvas extends AWTGLCanvas {
 	// 編集対象のデータ参照
 	private VolumeData currentVolumeData;
 
+	// ==========================================================
+	// 3D裁断（クリッピング）バウンディングボックス
+	// ローカル単位立方体空間 [-0.5, 0.5]^3。最大(全体)のとき裁断なしと等価。
+	// clip3DEnabled が false でも clipMin/clipMax は保持し、再度Onにすると同じ領域から編集を続けられる。
+	// ==========================================================
+	private boolean clip3DEnabled = false;
+	private final org.joml.Vector3f clipMin = new org.joml.Vector3f(-0.5f, -0.5f, -0.5f);
+	private final org.joml.Vector3f clipMax = new org.joml.Vector3f(0.5f, 0.5f, 0.5f);
+	private ClipBoxRenderer clipBoxRenderer; // initGL()で生成
+
+	// クリップボックスのマウス操作状態
+	private int clipDragFace = -1; // ドラッグ中の面ID(0..5)、無ければ -1
+	private boolean clipDragTranslate = false; // Shift+ドラッグで全体平行移動中か
+	private org.joml.Vector3f clipDragStartHit = null; // 平行移動: ドラッグ開始時の平面交点
+	private org.joml.Vector3f clipDragStartMin = null; // 平行移動: ドラッグ開始時のclipMin
+	private org.joml.Vector3f clipDragStartMax = null; // 平行移動: ドラッグ開始時のclipMax
+	private org.joml.Vector3f clipDragStartCenter = null; // 平行移動: 固定された平面通過点(開始時のボックス中心)
+
 	// 中心線解析（CenterlineAnalysisDialog）のグラフ・オーバーレイ表示
 	private CenterlineGraphRenderer centerlineGraphRenderer;
 	private com.vis.core.centerline.CenterlineGraph currentCenterlineGraph;
@@ -243,6 +261,9 @@ public class GLCanvas extends AWTGLCanvas {
 		cutLineRenderer = new CutLineRenderer();
 		cutLineRenderer.init();
 
+		clipBoxRenderer = new ClipBoxRenderer();
+		clipBoxRenderer.init();
+
 		endoPathRenderer = new EndoPathRenderer();
 		endoPathRenderer.init();
 
@@ -285,6 +306,9 @@ public class GLCanvas extends AWTGLCanvas {
 							lastX = e.getX();
 							lastY = e.getY();
 						}
+					} else if (clip3DEnabled && !endoscopyMode && tryBeginClipDrag(e)) {
+						// ★ 3D裁断モード中: バウンディングボックスの面/全体をマウスで操作開始
+						// (ヒットしなかった場合は tryBeginClipDrag が false を返し、下のカメラ回転に落ちる)
 					} else {
 						// 左クリック: カメラ回転開始
 						lastX = e.getX();
@@ -302,7 +326,16 @@ public class GLCanvas extends AWTGLCanvas {
 
 			@Override
 			public void mouseReleased(java.awt.event.MouseEvent e) {
-				if (isCuttingMode) {
+				if (clipDragFace >= 0 || clipDragTranslate) {
+					// ★ クリップボックス操作の終了
+					clipDragFace = -1;
+					clipDragTranslate = false;
+					clipDragStartHit = null;
+					clipDragStartMin = null;
+					clipDragStartMax = null;
+					clipDragStartCenter = null;
+					repaint();
+				} else if (isCuttingMode) {
 					// ★ カット実行
 					performCut();
 					isCuttingMode = false;
@@ -328,7 +361,24 @@ public class GLCanvas extends AWTGLCanvas {
 		this.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
 			@Override
 			public void mouseDragged(java.awt.event.MouseEvent e) {
-				if (isCuttingMode) {
+				if (clipDragFace >= 0) {
+					// ★ 面ドラッグ: その面を軸方向へ移動して領域をリサイズ
+					float c = ClipBoxInteractor.dragFaceCoord(lastMvp, e.getX(), e.getY(), getWidth(), getHeight(),
+							clipDragFace, clipMin, clipMax);
+					if (Float.isFinite(c)) {
+						applyClipFaceCoord(clipDragFace, c);
+						repaint();
+					}
+				} else if (clipDragTranslate) {
+					// ★ Shift+ドラッグ: ボックス全体を平行移動（開始時のボックス中心を通る固定平面上で計算）
+					org.joml.Vector3f hit = ClipBoxInteractor.computeTranslatePlaneHit(lastMvp, e.getX(), e.getY(),
+							getWidth(), getHeight(), clipDragStartCenter);
+					if (hit != null && clipDragStartHit != null) {
+						org.joml.Vector3f delta = new org.joml.Vector3f(hit).sub(clipDragStartHit);
+						applyClipTranslate(delta);
+						repaint();
+					}
+				} else if (isCuttingMode) {
 					// ★ 線を記録して描画
 					currentPath.add(e.getPoint());
 					repaint(); // paintComponentを呼んで線を書かせる
@@ -945,7 +995,10 @@ public class GLCanvas extends AWTGLCanvas {
 		sb.append(cinematicParams.lightIntensity).append(',');
 		sb.append(cinematicParams.ambientIntensity).append(',');
 		sb.append(cinematicParams.scatteringAnisotropy).append(',');
-		sb.append(cinematicParams.lightAngularRadius);
+		sb.append(cinematicParams.lightAngularRadius).append(',');
+		// 3D裁断領域が変わったら蓄積をリセットする（裁断は領域に基づき常に適用されるため領域のみでよい）
+		sb.append(clipMin.x).append(',').append(clipMin.y).append(',').append(clipMin.z).append(',');
+		sb.append(clipMax.x).append(',').append(clipMax.y).append(',').append(clipMax.z);
 		// uExposure is intentionally excluded: it's a post-process multiplier applied in the
 		// present pass only, so changing it doesn't invalidate already-accumulated radiance.
 		return sb.toString();
@@ -1009,6 +1062,109 @@ public class GLCanvas extends AWTGLCanvas {
 		}
 	}
 	
+	// ==========================================================
+	// 3D裁断（クリッピング）バウンディングボックス: 公開API・操作ヘルパー
+	// ==========================================================
+
+	/**
+	 * 3D裁断ボックスの表示・編集を切り替える。これは「ボックスの表示とマウス操作」だけを制御し、
+	 * 裁断の適用自体とは独立している。Offにしても設定済みの裁断領域(clipMin/clipMax)は維持され、
+	 * 全表示モードで適用され続ける。再度Onにすると同じ領域から編集を続けられる。
+	 * 裁断を解除したい場合は {@link #resetClipBox()}（領域を立方体全体に戻す）を使う。
+	 */
+	public void setClip3DEnabled(boolean enabled) {
+		this.clip3DEnabled = enabled;
+		if (!enabled) {
+			clipDragFace = -1;
+			clipDragTranslate = false;
+		}
+		// 裁断の適用は領域に基づき常に有効なので、Cinematicの蓄積はチェック切替では変化しない（リセット不要）。
+		repaint();
+	}
+
+	public boolean isClip3DEnabled() {
+		return clip3DEnabled;
+	}
+
+	/** 裁断領域を立方体全体（最大＝裁断なし相当）に戻す。 */
+	public void resetClipBox() {
+		clipMin.set(-0.5f);
+		clipMax.set(0.5f);
+		cinematicResetRequested = true;
+		repaint();
+	}
+
+	/**
+	 * 3D裁断モード中の左ボタン押下を解釈し、バウンディングボックスの操作を開始する。
+	 * Shift押下時は（ボックスにヒットしていれば）全体平行移動、通常時は面ドラッグ（リサイズ）。
+	 * どの面にもヒットしなければ false を返し、呼び出し側は通常のカメラ回転にフォールバックする。
+	 */
+	private boolean tryBeginClipDrag(java.awt.event.MouseEvent e) {
+		if (currentVolumeData == null)
+			return false;
+		int mx = e.getX(), my = e.getY();
+		int w = getWidth(), h = getHeight();
+
+		int face = ClipBoxInteractor.pickFace(lastMvp, mx, my, w, h, clipMin, clipMax);
+		if (face < 0)
+			return false;
+
+		if (e.isShiftDown()) {
+			// 全体平行移動
+			org.joml.Vector3f center = new org.joml.Vector3f(clipMin).add(clipMax).mul(0.5f);
+			org.joml.Vector3f hit = ClipBoxInteractor.computeTranslatePlaneHit(lastMvp, mx, my, w, h, center);
+			if (hit == null)
+				return false;
+			clipDragTranslate = true;
+			clipDragStartHit = hit;
+			clipDragStartCenter = center;
+			clipDragStartMin = new org.joml.Vector3f(clipMin);
+			clipDragStartMax = new org.joml.Vector3f(clipMax);
+		} else {
+			// 面ドラッグ（リサイズ）
+			clipDragFace = face;
+		}
+		return true;
+	}
+
+	/** 面ドラッグで求めた軸座標を、対応する clipMin/clipMax の成分へ反映する。 */
+	private void applyClipFaceCoord(int faceId, float coord) {
+		int axis = faceId / 2;
+		boolean isMax = (faceId % 2) == 1;
+		org.joml.Vector3f tgt = isMax ? clipMax : clipMin;
+		if (axis == 0)
+			tgt.x = coord;
+		else if (axis == 1)
+			tgt.y = coord;
+		else
+			tgt.z = coord;
+	}
+
+	/** 全体平行移動: 開始時スナップショットに移動量を加え、立方体[-0.5,0.5]内に収まるようシフトをクランプ（サイズ維持）。 */
+	private void applyClipTranslate(org.joml.Vector3f delta) {
+		if (clipDragStartMin == null || clipDragStartMax == null)
+			return;
+		float[] mn = { clipDragStartMin.x + delta.x, clipDragStartMin.y + delta.y, clipDragStartMin.z + delta.z };
+		float[] mx = { clipDragStartMax.x + delta.x, clipDragStartMax.y + delta.y, clipDragStartMax.z + delta.z };
+		for (int a = 0; a < 3; a++) {
+			float lo = mn[a], hi = mx[a];
+			if (lo < -0.5f) {
+				float s = -0.5f - lo;
+				lo += s;
+				hi += s;
+			}
+			if (hi > 0.5f) {
+				float s = 0.5f - hi;
+				lo += s;
+				hi += s;
+			}
+			mn[a] = lo;
+			mx[a] = hi;
+		}
+		clipMin.set(mn[0], mn[1], mn[2]);
+		clipMax.set(mx[0], mx[1], mx[2]);
+	}
+
 	public void setOnRoiLoadedCallback(Runnable callback) {
 	    this.onRoiLoadedCallback = callback;
 	}
@@ -1321,6 +1477,13 @@ public class GLCanvas extends AWTGLCanvas {
 		org.joml.Vector3f camPosLocal = new org.joml.Vector3f();
 		modelViewInv.getTranslation(camPosLocal);
 
+		// ★3D裁断領域を全レンダラへ反映（VR/MIPはvolume.frag、Orthoはslice.frag、CinematicはvolumeSource経由）。
+		// 裁断は領域(clipMin/clipMax)に基づき「常に」適用する。チェックボックス(clip3DEnabled)はボックスの
+		// 表示・編集の切替のみを担い、裁断の適用とは独立。領域が立方体全体(-0.5〜0.5)のときは裁断なしと等価で、
+		// 解除は「Reset Clip Box」で領域を全体に戻すことで行う。これにより、チェックを外しても・他の表示モードに
+		// 切り替えても、設定した裁断領域が維持される。
+		volumeRenderer.setClipBox(clipMin, clipMax, true);
+
 		if (isCinematicMode && cinematicRenderer != null) {
 			cinematicRenderer.resize(physW, physH);
 			String fingerprint = cinematicFingerprint(mvp);
@@ -1471,6 +1634,11 @@ public class GLCanvas extends AWTGLCanvas {
 		// ★4.1: 内視鏡モード中のみ、ミニ方位インジケーター（ワールドの上方向）を表示
 		if (endoscopyMode && endoOrientationIndicator != null) {
 			endoOrientationIndicator.render(view, physW, physH);
+		}
+
+		// ★3D裁断モード中はバウンディングボックスを描画（境界面は半透明、辺は白、操作中の面はハイライト）
+		if (clip3DEnabled && clipBoxRenderer != null) {
+			clipBoxRenderer.render(mvp, clipMin, clipMax, clipDragFace);
 		}
 
 		// ★カット中の輪郭線を最前面に描画（論理ピクセル基準。MouseEventの座標系と一致させる）

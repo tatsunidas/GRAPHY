@@ -83,6 +83,7 @@ import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import javax.swing.JTextField;
 import javax.swing.text.NumberFormatter;
 import javax.swing.JScrollPane;
 
@@ -107,7 +108,7 @@ public class PACSConnectionPrefs extends JPanel {
 
 	private DefaultTableModel model;
 	public String[] dicomNetworkNodeTableHeader = new String[] { "Nickname", "AE title", "Host(IP address)",
-			"Port(TCP/IP)", "Ciphers", "Ready" };
+			"Port(TCP/IP)", "Ciphers", "TLS", "Ready" };
 	private PACSConnectionPrefs thisPanel = this;
 
 	public PACSConnectionPrefs() {
@@ -228,9 +229,10 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_horizontalStrut_2.gridy = 3;
 		nodes.add(horizontalStrut_2, gbc_horizontalStrut_2);
 
-		JPanel northPanel = new JPanel(new java.awt.GridLayout(2, 1));
+		JPanel northPanel = new JPanel(new java.awt.GridLayout(3, 1));
 		northPanel.add(buildDCMQRSCPSettingPanel());
 		northPanel.add(buildDicomWebSettingPanel());
+		northPanel.add(buildDimseTlsSettingPanel());
 		add(northPanel, BorderLayout.NORTH);
 		add(nodes, BorderLayout.CENTER);
 	}
@@ -245,25 +247,44 @@ public class PACSConnectionPrefs extends JPanel {
 		
 		for (int i = 0; i < tableData.size(); i++) {
 			DicomCommunicationNode nodeInfo = tableData.get(i);
-			Object[] row = new Object[] { 
+			// ★ TLSノードのReady(C-ECHO)確認も相互TLSで行う。
+			boolean ready;
+			com.vis.dicom.tls.DicomTlsConfig.requestScuTls(nodeInfo.isTlsEnabled(), nodeInfo.cipherListToString());
+			try {
+				ready = new EchoImpl(null).echo(
+						listenerInfo[0],
+						listenerInfo[1],
+						listenerInfo[2],
+						nodeInfo.getAETitle(),
+						nodeInfo.getHostName(),
+						String.valueOf(nodeInfo.getPort()));
+			} finally {
+				com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+			}
+			Object[] row = new Object[] {
 					nodeInfo.getNickname(),
 					nodeInfo.getAETitle(), // aet
 					nodeInfo.getHostName(), // host
 					String.valueOf(nodeInfo.getPort()), // port
 					nodeInfo.cipherListToString(), // ciphers
-					new EchoImpl(null).echo(
-							listenerInfo[0],
-							listenerInfo[1],
-							listenerInfo[2], 
-							nodeInfo.getAETitle(), 
-							nodeInfo.getHostName(), 
-							String.valueOf(nodeInfo.getPort())
-							)// connection established
+					Boolean.valueOf(nodeInfo.isTlsEnabled()), // TLS (checkbox)
+					ready // Ready(connection established)
 			};
 			tblObj[i] = row;
 		}
 
-		model = new DefaultTableModel(tblObj, dicomNetworkNodeTableHeader);
+		// TLS列はBoolean=チェックボックスとして表示・編集できるようにする。
+		// (Ready列は専用のEchoButtonRenderer/Editorが描画するためBoolean化しない)
+		model = new DefaultTableModel(tblObj, dicomNetworkNodeTableHeader) {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public Class<?> getColumnClass(int columnIndex) {
+				if ("TLS".equals(getColumnName(columnIndex))) {
+					return Boolean.class;
+				}
+				return String.class;
+			}
+		};
 		/* ChangeListener */
 		model.addTableModelListener(new TableModelListener() {
 			@Override
@@ -349,6 +370,14 @@ public class PACSConnectionPrefs extends JPanel {
 					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
 					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
 					node.setCipherFromStringSequence(cip_new);
+					db.updateServer(node.getNodeMaterials(), serverName);
+				} else if (colType.equals("TLS")) {
+					String serverName = (String) model.getValueAt(row, name_col);
+					Object val = model.getValueAt(row, col);
+					boolean tls_new = (val instanceof Boolean) ? (Boolean) val : Boolean.parseBoolean(String.valueOf(val));
+					HashMap<String, Object> nodeMaterials = db.getServerInfo(serverName);
+					DicomCommunicationNode node = new DicomCommunicationNode(nodeMaterials);
+					node.setTlsEnabled(tls_new);
 					db.updateServer(node.getNodeMaterials(), serverName);
 				}
 				constructTableModel(table);
@@ -505,25 +534,46 @@ public class PACSConnectionPrefs extends JPanel {
 		boolean currentEnabled = false;
 		String currentPort = "";
 		String currentContextPath = "/dicomweb";
+		boolean currentHttpsEnabled = false;
+		String currentKeystorePath = "";
+		String currentKeystorePassword = "";
+		boolean currentAuthEnabled = false;
+		String currentAuthUsername = "";
 		if (db != null) {
 			String[] webDetails = db.getDicomWebListenerDetails();
 			if (webDetails != null) {
 				currentEnabled = Boolean.parseBoolean(webDetails[0]);
 				currentPort = webDetails[1];
 				currentContextPath = webDetails[2];
+				if (webDetails.length > 3) currentHttpsEnabled = Boolean.parseBoolean(webDetails[3]);
+				if (webDetails.length > 4 && webDetails[4] != null) currentKeystorePath = webDetails[4];
+				if (webDetails.length > 5 && webDetails[5] != null) currentKeystorePassword = webDetails[5];
+				if (webDetails.length > 6) currentAuthEnabled = Boolean.parseBoolean(webDetails[6]);
+				if (webDetails.length > 7 && webDetails[7] != null) currentAuthUsername = webDetails[7];
 			}
 		}
 
+		String scheme = currentHttpsEnabled ? "https" : "http";
+		String authStatus = currentAuthEnabled ? ", Basic認証: ON (user=" + currentAuthUsername + ")" : ", Basic認証: OFF";
 		JPanel currentInfo = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		currentInfo.add(new JLabel("Current DICOMweb: ENABLED=" + currentEnabled + ", PORT=" + currentPort
-				+ ", PATH=" + currentContextPath, JLabel.LEFT));
+		currentInfo.add(new JLabel("Current DICOMweb: ENABLED=" + currentEnabled + ", " + scheme + " PORT="
+				+ currentPort + ", PATH=" + currentContextPath + authStatus, JLabel.LEFT));
 		base.add(currentInfo, BorderLayout.NORTH);
 
-		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		JCheckBox enabledCheck = new JCheckBox("Enable DICOMweb server (QIDO-RS/WADO-RS/STOW-RS)", currentEnabled);
-		p.add(enabledCheck);
+		JPanel p = new JPanel();
+		p.setLayout(new java.awt.GridBagLayout());
+		java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
+		gc.anchor = java.awt.GridBagConstraints.WEST;
+		gc.insets = new java.awt.Insets(2, 4, 2, 4);
 
-		p.add(new JLabel("Port"));
+		// Row 0: enable checkbox + port
+		gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 1;
+		JCheckBox enabledCheck = new JCheckBox("Enable DICOMweb (QIDO-RS/WADO-RS/STOW-RS)", currentEnabled);
+		p.add(enabledCheck, gc);
+
+		gc.gridx = 1;
+		p.add(new JLabel("Port:"), gc);
+
 		NumberFormat webPortFormat = NumberFormat.getIntegerInstance();
 		webPortFormat.setGroupingUsed(false);
 		NumberFormatter webPortFormatter = new NumberFormatter(webPortFormat);
@@ -537,11 +587,74 @@ public class PACSConnectionPrefs extends JPanel {
 		if (currentPort != null && !currentPort.isEmpty() && !"0".equals(currentPort)) {
 			webPortField.setValue(Integer.valueOf(currentPort));
 		}
-		p.add(webPortField);
+		gc.gridx = 2;
+		p.add(webPortField, gc);
 
+		// Row 1: HTTPS checkbox
+		gc.gridx = 0; gc.gridy = 1; gc.gridwidth = 3;
+		JCheckBox httpsCheck = new JCheckBox("Use HTTPS (TLS) — requires a JKS keystore", currentHttpsEnabled);
+		p.add(httpsCheck, gc);
+
+		// Row 2: keytool hint
+		gc.gridy = 2;
+		JLabel hint = new JLabel(
+				"<html><font size='2' color='gray'>Generate: keytool -genkeypair -alias graphy -keyalg RSA -keysize 2048 "
+				+ "-validity 3650 -keystore graphy-keystore.jks -storepass &lt;pass&gt; -keypass &lt;pass&gt;</font></html>");
+		p.add(hint, gc);
+
+		// Row 3: keystore path
+		gc.gridwidth = 1; gc.gridy = 3; gc.gridx = 0;
+		p.add(new JLabel("Keystore path:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField keystorePathField = new JTextField(currentKeystorePath, 30);
+		p.add(keystorePathField, gc);
+		gc.gridx = 3; gc.gridwidth = 1;
+		JButton browseBtn = new JButton("Browse…");
+		browseBtn.addActionListener(ev -> {
+			javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+			fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("JKS Keystore (*.jks)", "jks"));
+			if (fc.showOpenDialog(base) == javax.swing.JFileChooser.APPROVE_OPTION) {
+				keystorePathField.setText(fc.getSelectedFile().getAbsolutePath());
+			}
+		});
+		p.add(browseBtn, gc);
+
+		// Row 4: keystore password
+		gc.gridx = 0; gc.gridy = 4; gc.gridwidth = 1;
+		p.add(new JLabel("Keystore password:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		javax.swing.JPasswordField keystorePassField = new javax.swing.JPasswordField(currentKeystorePassword, 20);
+		p.add(keystorePassField, gc);
+
+		// Row 5: Basic認証 セパレータ
+		gc.gridx = 0; gc.gridy = 5; gc.gridwidth = 4;
+		p.add(new JLabel("─── Basic 認証 ───"), gc);
+
+		// Row 6: auth enable checkbox
+		gc.gridy = 6; gc.gridwidth = 4;
+		JCheckBox authCheck = new JCheckBox("Basic認証を有効にする (HTTPSと組み合わせて使用することを推奨)", currentAuthEnabled);
+		p.add(authCheck, gc);
+
+		// Row 7: username
+		gc.gridy = 7; gc.gridwidth = 1; gc.gridx = 0;
+		p.add(new JLabel("ユーザー名:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField authUsernameField = new JTextField(currentAuthUsername, 20);
+		p.add(authUsernameField, gc);
+
+		// Row 8: password (new or change)
+		gc.gridx = 0; gc.gridy = 8; gc.gridwidth = 1;
+		p.add(new JLabel("パスワード:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		javax.swing.JPasswordField authPassField = new javax.swing.JPasswordField(20);
+		p.add(authPassField, gc);
+		gc.gridx = 3; gc.gridwidth = 1;
+		p.add(new JLabel("<html><font size='2' color='gray'>変更しない場合は空欄のまま</font></html>"), gc);
+
+		// Row 9: update button
+		gc.gridx = 0; gc.gridy = 9; gc.gridwidth = 4;
 		JButton updateWeb = new JButton("Update DICOMweb Settings");
-		updateWeb.setToolTipText(
-				"DIMSEのPortとは別の番号にしてください。HTTP(暗号化なし)で公開されるため、信頼できるネットワークでのみ有効化してください。");
+		updateWeb.setToolTipText("DIMSEのPortとは別の番号を使用してください。変更後はGRAPHYの再起動が必要です。");
 		updateWeb.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -560,15 +673,51 @@ public class PACSConnectionPrefs extends JPanel {
 							Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
 					return;
 				}
+				boolean useHttps = httpsCheck.isSelected();
+				String ksPath = keystorePathField.getText().trim();
+				String ksPass = new String(keystorePassField.getPassword());
+				if (useHttps && ksPath.isEmpty()) {
+					JOptionPane.showMessageDialog(null,
+							"HTTPSを有効にする場合はキーストアのパスを指定してください。",
+							Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
+					return;
+				}
+				boolean useAuth = authCheck.isSelected();
+				String authUser = authUsernameField.getText().trim();
+				if (useAuth && authUser.isEmpty()) {
+					JOptionPane.showMessageDialog(null,
+							"Basic認証を有効にする場合はユーザー名を入力してください。",
+							Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
+					return;
+				}
+				// パスワードが入力されていれば SHA-256 ハッシュに変換、空欄なら既存のハッシュを保持
+				String newPlainPass = new String(authPassField.getPassword());
+				String passwordHashToSave;
+				if (!newPlainPass.isEmpty()) {
+					try {
+						passwordHashToSave = com.vis.dicom.web.DicomWebServer.hashPassword(newPlainPass);
+					} catch (Exception ex) {
+						Log.logger.log(Level.SEVERE, "パスワードのハッシュ計算に失敗しました。", ex);
+						JOptionPane.showMessageDialog(null, "パスワードのハッシュ計算に失敗しました。",
+								Resources.i18n("dialog.title.error"), JOptionPane.ERROR_MESSAGE);
+						return;
+					}
+				} else {
+					// 空欄の場合は DB の既存ハッシュを引き継ぐ
+					DatabaseHandler dbCurrent = DatabaseHandler.getInstance();
+					String[] existing = (dbCurrent != null) ? dbCurrent.getDicomWebListenerDetails() : null;
+					passwordHashToSave = (existing != null && existing.length > 8) ? existing[8] : null;
+				}
 				DatabaseHandler db2 = DatabaseHandler.getInstance();
 				try {
-					db2.updateDicomWebListener(enabled, port, "/dicomweb");
+					db2.updateDicomWebListener(enabled, port, "/dicomweb", useHttps, ksPath, ksPass,
+							useAuth, authUser, passwordHashToSave);
 				} catch (Exception e1) {
 					Log.logger.log(Level.SEVERE, e1.getMessage());
 				}
 				if (ms != null) {
 					try {
-						ApplicationFacade.readyToClose(Level.SEVERE/* Force closing */,
+						ApplicationFacade.readyToClose(Level.SEVERE,
 								"DICOMweb settings was updated. GRAPHY need to restart.");
 					} catch (Throwable e1) {
 						e1.printStackTrace();
@@ -576,7 +725,188 @@ public class PACSConnectionPrefs extends JPanel {
 				}
 			}
 		});
-		p.add(updateWeb);
+		p.add(updateWeb, gc);
+
+		base.add(p, BorderLayout.CENTER);
+		return base;
+	}
+
+	/**
+	 * 自局のDICOM DIMSE TLS(相互TLS)設定パネル。平文listenerとは別ポートでTLS listenerを
+	 * 起動するための鍵(keystore)・信頼(truststore)・ポート・暗号スイートを設定する。
+	 * 既存のDICOMwebパネルと同じパターン(設定→DB更新→再起動を促す)。
+	 */
+	private JPanel buildDimseTlsSettingPanel() {
+		JPanel base = new JPanel();
+		base.setLayout(new BorderLayout());
+		base.setBorder(BorderFactory.createEtchedBorder());
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		com.vis.dicom.tls.DicomTlsConfig cfg = (db != null) ? db.getDimseTlsConfig() : null;
+		boolean curEnabled = cfg != null && cfg.isEnabled();
+		int curPort = cfg != null ? cfg.getTlsPort() : com.vis.dicom.tls.DicomTlsConfig.DEFAULT_TLS_PORT;
+		String curKsPath = cfg != null && cfg.getKeystorePath() != null ? cfg.getKeystorePath() : "";
+		String curKsPass = cfg != null && cfg.getKeystorePassword() != null ? cfg.getKeystorePassword() : "";
+		String curTsPath = cfg != null && cfg.getTruststorePath() != null ? cfg.getTruststorePath() : "";
+		String curTsPass = cfg != null && cfg.getTruststorePassword() != null ? cfg.getTruststorePassword() : "";
+		String curProtocols = cfg != null ? String.join(",", cfg.getProtocols())
+				: String.join(",", com.vis.dicom.tls.DicomTlsConfig.DEFAULT_PROTOCOLS);
+		String curCiphers = cfg != null ? String.join(",", cfg.getCiphers())
+				: com.vis.dicom.tls.DicomTlsConfig.DEFAULT_CIPHERS_STRING;
+
+		JPanel currentInfo = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		currentInfo.add(new JLabel("Current DIMSE TLS (mutual): ENABLED=" + curEnabled + ", TLS PORT=" + curPort,
+				JLabel.LEFT));
+		base.add(currentInfo, BorderLayout.NORTH);
+
+		JPanel p = new JPanel();
+		p.setLayout(new java.awt.GridBagLayout());
+		java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
+		gc.anchor = java.awt.GridBagConstraints.WEST;
+		gc.insets = new java.awt.Insets(2, 4, 2, 4);
+
+		// Row 0: enable + TLS port
+		gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 1;
+		JCheckBox enabledCheck = new JCheckBox("Enable DIMSE TLS (mutual) — 平文listenerとは別ポートで待ち受け", curEnabled);
+		p.add(enabledCheck, gc);
+		gc.gridx = 1;
+		p.add(new JLabel("TLS Port:"), gc);
+		NumberFormat tlsPortFormat = NumberFormat.getIntegerInstance();
+		tlsPortFormat.setGroupingUsed(false);
+		NumberFormatter tlsPortFormatter = new NumberFormatter(tlsPortFormat);
+		tlsPortFormatter.setValueClass(Integer.class);
+		tlsPortFormatter.setMinimum(0);
+		tlsPortFormatter.setMaximum(65535);
+		tlsPortFormatter.setAllowsInvalid(false);
+		tlsPortFormatter.setCommitsOnValidEdit(true);
+		JFormattedTextField tlsPortField = new JFormattedTextField(tlsPortFormatter);
+		tlsPortField.setColumns(5);
+		tlsPortField.setValue(Integer.valueOf(curPort));
+		gc.gridx = 2;
+		p.add(tlsPortField, gc);
+
+		// Row 1: keytool hint
+		gc.gridx = 0; gc.gridy = 1; gc.gridwidth = 4;
+		p.add(new JLabel("<html><font size='2' color='gray'>"
+				+ "keystore生成: keytool -genkeypair -alias graphy -keyalg RSA -keysize 2048 -validity 3650 "
+				+ "-keystore graphy-keystore.jks -storepass &lt;pass&gt; -keypass &lt;pass&gt;<br>"
+				+ "相手証明書をtruststoreへ: keytool -importcert -alias peer -file peer.cer "
+				+ "-keystore graphy-truststore.jks -storepass &lt;pass&gt;</font></html>"), gc);
+
+		// Row 2: keystore path + browse
+		gc.gridwidth = 1; gc.gridy = 2; gc.gridx = 0;
+		p.add(new JLabel("Keystore path:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField ksPathField = new JTextField(curKsPath, 30);
+		p.add(ksPathField, gc);
+		gc.gridx = 3; gc.gridwidth = 1;
+		JButton ksBrowse = new JButton("Browse…");
+		ksBrowse.addActionListener(ev -> {
+			javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+			fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("JKS Keystore (*.jks)", "jks"));
+			if (fc.showOpenDialog(base) == javax.swing.JFileChooser.APPROVE_OPTION) {
+				ksPathField.setText(fc.getSelectedFile().getAbsolutePath());
+			}
+		});
+		p.add(ksBrowse, gc);
+
+		// Row 3: keystore password
+		gc.gridx = 0; gc.gridy = 3; gc.gridwidth = 1;
+		p.add(new JLabel("Keystore password:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		javax.swing.JPasswordField ksPassField = new javax.swing.JPasswordField(curKsPass, 20);
+		p.add(ksPassField, gc);
+
+		// Row 4: truststore path + browse
+		gc.gridx = 0; gc.gridy = 4; gc.gridwidth = 1;
+		p.add(new JLabel("Truststore path:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField tsPathField = new JTextField(curTsPath, 30);
+		p.add(tsPathField, gc);
+		gc.gridx = 3; gc.gridwidth = 1;
+		JButton tsBrowse = new JButton("Browse…");
+		tsBrowse.addActionListener(ev -> {
+			javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+			fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("JKS Truststore (*.jks)", "jks"));
+			if (fc.showOpenDialog(base) == javax.swing.JFileChooser.APPROVE_OPTION) {
+				tsPathField.setText(fc.getSelectedFile().getAbsolutePath());
+			}
+		});
+		p.add(tsBrowse, gc);
+
+		// Row 5: truststore password
+		gc.gridx = 0; gc.gridy = 5; gc.gridwidth = 1;
+		p.add(new JLabel("Truststore password:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		javax.swing.JPasswordField tsPassField = new javax.swing.JPasswordField(curTsPass, 20);
+		p.add(tsPassField, gc);
+
+		// Row 6: protocols
+		gc.gridx = 0; gc.gridy = 6; gc.gridwidth = 1;
+		p.add(new JLabel("TLS protocols:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField protocolsField = new JTextField(curProtocols, 30);
+		p.add(protocolsField, gc);
+
+		// Row 7: ciphers
+		gc.gridx = 0; gc.gridy = 7; gc.gridwidth = 1;
+		p.add(new JLabel("Cipher suites:"), gc);
+		gc.gridx = 1; gc.gridwidth = 2;
+		JTextField ciphersField = new JTextField(curCiphers, 30);
+		p.add(ciphersField, gc);
+
+		// Row 8: update button
+		gc.gridx = 0; gc.gridy = 8; gc.gridwidth = 4;
+		JButton updateTls = new JButton("Update DIMSE TLS Settings");
+		updateTls.setToolTipText("平文のDIMSE Portとは別の番号を使用してください。変更後はGRAPHYの再起動が必要です。");
+		updateTls.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				MainScreen ms = WindowManager.getMainScreen();
+				int res = JOptionPane.showConfirmDialog(ms, Resources.i18n("PACSConnectionPrefs.confirm.shutdown"),
+						Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION,
+						JOptionPane.QUESTION_MESSAGE);
+				if (res != JOptionPane.OK_OPTION) {
+					return;
+				}
+				boolean enabled = enabledCheck.isSelected();
+				Object portValue = tlsPortField.getValue();
+				int port = (portValue instanceof Number) ? ((Number) portValue).intValue() : 0;
+				String ksPath = ksPathField.getText().trim();
+				String ksPass = new String(ksPassField.getPassword());
+				String tsPath = tsPathField.getText().trim();
+				String tsPass = new String(tsPassField.getPassword());
+				if (enabled) {
+					if (port <= 0) {
+						JOptionPane.showMessageDialog(null, "Please set a TLS port number when enabling DIMSE TLS.",
+								Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
+						return;
+					}
+					if (ksPath.isEmpty() || tsPath.isEmpty()) {
+						JOptionPane.showMessageDialog(null,
+								"相互TLSにはkeystore(自局の鍵)とtruststore(相手の証明書)の両方が必要です。",
+								Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
+						return;
+					}
+				}
+				DatabaseHandler db2 = DatabaseHandler.getInstance();
+				try {
+					db2.updateDimseTlsConfig(enabled, port, ksPath, ksPass, tsPath, tsPass,
+							protocolsField.getText().trim(), ciphersField.getText().trim());
+				} catch (Exception e1) {
+					Log.logger.log(Level.SEVERE, e1.getMessage());
+				}
+				if (ms != null) {
+					try {
+						ApplicationFacade.readyToClose(Level.SEVERE,
+								"DIMSE TLS settings was updated. GRAPHY need to restart.");
+					} catch (Throwable e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+		p.add(updateTls, gc);
 
 		base.add(p, BorderLayout.CENTER);
 		return base;

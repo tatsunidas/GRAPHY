@@ -5,6 +5,7 @@ import javax.swing.*;
 import ij.ImagePlus;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
+import com.vis.configuration.Resources;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.glasses.WwWlState;
@@ -22,6 +23,10 @@ public class WwWlAdjusterDialog extends JDialog {
     private JComboBox<String> channelChoice;
     private JPanel channelPanel;
     private JButton autoBtn, resetBtn;
+
+    // Direct numeric input of WW/WL on the calibrated (physical) brightness scale
+    private JTextField wlInput, wwInput;
+    private JButton setBtn;
 
     private static final int SLIDER_MAX = 1000;
     private boolean isUpdatingUI = false;
@@ -44,7 +49,7 @@ public class WwWlAdjusterDialog extends JDialog {
     }
 
     private WwWlAdjusterDialog(Window owner) {
-        super(owner, "Window / Level & Color Balance", ModalityType.MODELESS);
+        super(owner, Resources.i18n("WwWlAdjusterDialog.title.default"), ModalityType.MODELESS);
         initComponents();
         setupListeners();
         setResizable(false);
@@ -57,10 +62,10 @@ public class WwWlAdjusterDialog extends JDialog {
         SlideGlass sg = praparat.getCurrentSlide();
         if (sg != null && sg.isRGB()) {
             channelPanel.setVisible(true);
-            setTitle("Color Balance Adjuster");
+            setTitle(Resources.i18n("WwWlAdjusterDialog.title.colorBalance"));
         } else {
             channelPanel.setVisible(false);
-            setTitle("Window / Level Adjuster");
+            setTitle(Resources.i18n("WwWlAdjusterDialog.title.windowLevel"));
             currentChannel = -1;
         }
         // ★追加: 画像が切り替わった時にスライダーの絶対的な可動域を計算する
@@ -113,15 +118,19 @@ public class WwWlAdjusterDialog extends JDialog {
         c.fill = GridBagConstraints.HORIZONTAL; 
 
         channelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        channelPanel.add(new JLabel("Channel: "));
-        channelChoice = new JComboBox<>(new String[]{"All", "Red", "Green", "Blue"});
+        channelPanel.add(new JLabel(Resources.i18n("WwWlAdjusterDialog.label.channel")));
+        channelChoice = new JComboBox<>(new String[]{
+                Resources.i18n("WwWlAdjusterDialog.channel.all"),
+                Resources.i18n("WwWlAdjusterDialog.channel.red"),
+                Resources.i18n("WwWlAdjusterDialog.channel.green"),
+                Resources.i18n("WwWlAdjusterDialog.channel.blue")});
         channelPanel.add(channelChoice);
         c.gridy = y++;
         add(channelPanel, c);
 
         c.gridy = y++;
         JPanel wlTextPanel = new JPanel(new BorderLayout());
-        wlTextPanel.add(new JLabel("Window Center (Level):"), BorderLayout.WEST);
+        wlTextPanel.add(new JLabel(Resources.i18n("WwWlAdjusterDialog.label.windowCenter")), BorderLayout.WEST);
         wlValueLabel = new JLabel("0.0", JLabel.RIGHT);
         wlTextPanel.add(wlValueLabel, BorderLayout.EAST);
         add(wlTextPanel, c);
@@ -132,7 +141,7 @@ public class WwWlAdjusterDialog extends JDialog {
 
         c.gridy = y++;
         JPanel wwTextPanel = new JPanel(new BorderLayout());
-        wwTextPanel.add(new JLabel("Window Width:"), BorderLayout.WEST);
+        wwTextPanel.add(new JLabel(Resources.i18n("WwWlAdjusterDialog.label.windowWidth")), BorderLayout.WEST);
         wwValueLabel = new JLabel("0.0", JLabel.RIGHT);
         wwTextPanel.add(wwValueLabel, BorderLayout.EAST);
         add(wwTextPanel, c);
@@ -141,9 +150,22 @@ public class WwWlAdjusterDialog extends JDialog {
         c.gridy = y++;
         add(wwSlider, c);
 
+        // Direct numeric input row: enter WW/WL on the calibrated brightness scale and apply with Set
+        JPanel directInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        directInputPanel.add(new JLabel(Resources.i18n("WwWlAdjusterDialog.label.wl")));
+        wlInput = new JTextField(7);
+        directInputPanel.add(wlInput);
+        directInputPanel.add(new JLabel(Resources.i18n("WwWlAdjusterDialog.label.ww")));
+        wwInput = new JTextField(7);
+        directInputPanel.add(wwInput);
+        setBtn = new JButton(Resources.i18n("WwWlAdjusterDialog.button.set"));
+        directInputPanel.add(setBtn);
+        c.gridy = y++;
+        add(directInputPanel, c);
+
         JPanel btnPanel = new JPanel(new GridLayout(1, 2, 8, 0));
-        autoBtn = new JButton("Auto");
-        resetBtn = new JButton("Reset");
+        autoBtn = new JButton(Resources.i18n("WwWlAdjusterDialog.button.auto"));
+        resetBtn = new JButton(Resources.i18n("WwWlAdjusterDialog.button.reset"));
         btnPanel.add(autoBtn);
         btnPanel.add(resetBtn);
 
@@ -186,6 +208,9 @@ public class WwWlAdjusterDialog extends JDialog {
 
             wlValueLabel.setText(String.format("%.1f", physCenter));
             wwValueLabel.setText(String.format("%.1f", Math.abs(physWidth)));
+            // Keep the direct-input fields in sync while dragging the sliders
+            wlInput.setText(String.format("%.1f", physCenter));
+            wwInput.setText(String.format("%.1f", Math.abs(physWidth)));
 
             currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel, min, max);
             
@@ -233,6 +258,58 @@ public class WwWlAdjusterDialog extends JDialog {
                 updateUIFromModel();
             }
         });
+
+        setBtn.addActionListener(e -> applyDirectInput());
+
+        // Allow pressing Enter inside either input field to apply
+        java.awt.event.ActionListener enterToApply = e -> applyDirectInput();
+        wlInput.addActionListener(enterToApply);
+        wwInput.addActionListener(enterToApply);
+    }
+
+    /**
+     * Apply the WW/WL typed directly by the user. The input is interpreted on the
+     * calibrated (physical) brightness scale and converted back to raw pixel values
+     * before being applied to the model, so it matches the values shown in the labels.
+     */
+    private void applyDirectInput() {
+        if (currentPraparat == null) return;
+        SlideGlass sg = currentPraparat.getCurrentSlide();
+        if (sg == null || sg.getOriginalImage() == null) return;
+
+        double wl, ww;
+        try {
+            wl = Double.parseDouble(wlInput.getText().trim());
+            ww = Double.parseDouble(wwInput.getText().trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this,
+                    Resources.i18n("WwWlAdjusterDialog.error.invalidInput"),
+                    Resources.i18n("dialog.title.inputWarning"),
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Window width must be positive to avoid a zero/negative display range
+        if (ww < 1.0) ww = 1.0;
+
+        // Derive the calibrated min/max from center (WL) and width (WW)
+        double physMin = wl - (ww / 2.0);
+        double physMax = wl + (ww / 2.0);
+
+        // Convert calibrated values back to raw pixel values for the model
+        ij.measure.Calibration cal = sg.getOriginalCalibration();
+        double rawMin = (cal != null && cal.calibrated()) ? cal.getRawValue(physMin) : physMin;
+        double rawMax = (cal != null && cal.calibrated()) ? cal.getRawValue(physMax) : physMax;
+
+        // A negative-slope calibration (e.g. inverted LUT mapping) can flip the order
+        if (rawMax < rawMin) {
+            double tmp = rawMin;
+            rawMin = rawMax;
+            rawMax = tmp;
+        }
+
+        currentPraparat.updateSliderContrast(currentPraparat.getCurrentSlidePos(), currentChannel, rawMin, rawMax);
+        updateUIFromModel();
     }
 
  // 1. getTargetStatistics メソッドを、引数でチャンネルを受け取れるようにオーバーロードします。
@@ -303,6 +380,9 @@ public class WwWlAdjusterDialog extends JDialog {
 
         wlValueLabel.setText(String.format("%.1f", physCenter));
         wwValueLabel.setText(String.format("%.1f", Math.abs(physWidth)));
+        // Prefill the direct-input fields with the current calibrated WW/WL
+        wlInput.setText(String.format("%.1f", physCenter));
+        wwInput.setText(String.format("%.1f", Math.abs(physWidth)));
 
         contrastPlot.setHistogramData(imp, stats, currentMin, currentMax);
 

@@ -221,6 +221,19 @@ public class CanvasGlass extends javax.swing.JPanel {
 			//For MPR.
 			return;
 		}
+		// In segmentation edit mode, a drawn 2D ROI is a transient stroke that will be
+		// baked into the active mask on mouse-up. Keep it in the set for live drawing
+		// feedback, but do NOT persist it to the DB or register it in the ROI manager.
+		if (pp != null && pp.isSegmentationEditing()
+				&& !(newRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D)
+				&& !(newRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D)) {
+			synchronized (roiset) {
+				if (!isExistsInRoiSet(newRoi)) {
+					roiset.add(newRoi);
+				}
+			}
+			return;
+		}
 		synchronized(roiset) {
 			if (isExistsInRoiSet(newRoi)) {
 				HashMap<RoiDBKey, String> uids = newRoi.getUIDs();
@@ -263,6 +276,62 @@ public class CanvasGlass extends javax.swing.JPanel {
 			if (!this.roiset.contains(roi)) {
 				this.roiset.add(roi);
 			}
+		}
+	}
+
+	/**
+	 * Roi2Mask: rasterizes a drawn 2D ROI and merges it into the active segmentation
+	 * mask at the current slice. erase=true removes from the mask, otherwise adds.
+	 */
+	void bakeRoiIntoActiveSegmentation(RoiObj roi, boolean erase) {
+		if (pp == null) {
+			return;
+		}
+		com.vis.core.view.D3.roi.FreeFormRoi3D active = pp.getActiveSegmentation();
+		if (active == null || roi == null) {
+			return;
+		}
+		com.vis.core.view.D2.roi.ShapeRoi shape = toShapeRoi(roi);
+		if (shape == null) {
+			return;
+		}
+		// Inject the current slice as the edit context, then paint into the mask.
+		active.setSlideGlass(sg, false);
+		active.editWithBrush(shape, !erase);
+		// Persist the updated mask and refresh the manager.
+		insertOrUpdateRoi4DB(active);
+		RoiObjManager rom = RoiObjManager.getInstance();
+		if (rom != null) {
+			rom.updateState();
+		}
+		if (sg != null) {
+			sg.saveUndoState();
+		}
+	}
+
+	/**
+	 * Converts a drawn 2D ROI to a filled ShapeRoi in image-pixel coordinates.
+	 * Line-type ROIs are thickened to an area first; returns null if not convertible.
+	 */
+	private com.vis.core.view.D2.roi.ShapeRoi toShapeRoi(RoiObj roi) {
+		if (roi == null) {
+			return null;
+		}
+		if (roi instanceof com.vis.core.view.D2.roi.ShapeRoi) {
+			return (com.vis.core.view.D2.roi.ShapeRoi) roi;
+		}
+		RoiObj area = roi;
+		if (roi.isLine()) {
+			RoiObj converted = RoiObj.convertLineToArea(roi);
+			if (converted != null) {
+				area = converted;
+			}
+		}
+		try {
+			return new com.vis.core.view.D2.roi.ShapeRoi(area);
+		} catch (Exception e) {
+			Log.logger.warning("toShapeRoi failed: " + e);
+			return null;
 		}
 	}
 
@@ -1048,6 +1117,19 @@ public class CanvasGlass extends javax.swing.JPanel {
 			currentRoi.handleMouseUp(emr.getX(), emr.getY());
 			//作成終了時
 			if(currentRoi.getState() != RoiObj.CONSTRUCTING) {
+				// Segmentation edit: bake the just-drawn 2D shape into the active mask
+				// (Roi2Mask) instead of persisting a standalone 2D ROI. Alt = erase.
+				if (pp != null && pp.isSegmentationEditing()
+						&& !(currentRoi instanceof com.vis.core.view.D3.roi.FreeFormRoi3D)
+						&& !(currentRoi instanceof com.vis.core.view.D3.roi.SphereRoi3D)) {
+					bakeRoiIntoActiveSegmentation(currentRoi, emr.isAltDown());
+					synchronized (roiset) {
+						roiset.remove(currentRoi);
+					}
+					currentRoi = null;
+					repaint();
+					return;
+				}
 				String shape_3d_type = currentRoi.getProperty(RoiMetaContextKey.Shape_3D_Type.name());
 				if (shape_3d_type != null) {
 					if (com.vis.core.view.D3.roi.SphereRoi3D.Shape_3D_Type.equals(shape_3d_type)

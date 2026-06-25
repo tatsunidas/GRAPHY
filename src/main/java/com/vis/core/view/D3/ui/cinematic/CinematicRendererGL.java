@@ -125,6 +125,12 @@ public class CinematicRendererGL implements CinematicRenderer {
 		glUniform1f(glGetUniformLocation(pathTraceProgram, "uWinCenter"), volumeSource.getWindowCenter());
 		glUniform1f(glGetUniformLocation(pathTraceProgram, "uWinWidth"), volumeSource.getWindowWidth());
 
+		// 3D裁断領域（VolumeRendererが保持する実効値。裁断OFF時は -0.5〜0.5 が入っている）
+		float[] clipMin = volumeSource.getEffectiveClipMin();
+		float[] clipMax = volumeSource.getEffectiveClipMax();
+		glUniform3f(glGetUniformLocation(pathTraceProgram, "uClipMin"), clipMin[0], clipMin[1], clipMin[2]);
+		glUniform3f(glGetUniformLocation(pathTraceProgram, "uClipMax"), clipMax[0], clipMax[1], clipMax[2]);
+
 		float[] lightDir = lightDirectionFromAngles(params.lightAzimuth, params.lightElevation);
 		glUniform3f(glGetUniformLocation(pathTraceProgram, "uLightDir"), lightDir[0], lightDir[1], lightDir[2]);
 		glUniform1f(glGetUniformLocation(pathTraceProgram, "uLightIntensity"), params.lightIntensity);

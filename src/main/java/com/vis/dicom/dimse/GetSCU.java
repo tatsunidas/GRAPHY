@@ -338,8 +338,8 @@ public class GetSCU {
 			CLIUtils.configureConnect(main.remote, main.rq, cl);
 			CLIUtils.configureBind(main.conn, main.ae, cl);
 			CLIUtils.configure(main.conn, cl);
-			main.remote.setTlsProtocols(main.conn.getTlsProtocols());
-			main.remote.setTlsCipherSuites(main.conn.getTlsCipherSuites());
+			// ★ 接続先ノードが「Use TLS」なら、自局のkeystore/truststoreと暗号スイートを適用(なければ平文)
+			com.vis.dicom.tls.DicomTlsConfig.applyScuTlsIfRequested(main.device, main.conn, main.remote);
 			configureServiceClass(main, cl);
 			configureKeys(main, cl);
 			main.setPriority(CLIUtils.priorityOf(cl));

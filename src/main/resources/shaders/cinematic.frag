@@ -36,14 +36,19 @@ uniform float uLightAngularRadius; // area-light cone half-angle (radians) the s
 uniform int uSamplesPerFrame;
 uniform uint uFrameSeed;
 
+// 3D裁断（クリッピング）領域。volume.fragと同じ規約（ローカル単位立方体 -0.5〜0.5）。
+// 裁断OFF時/最大時は (-0.5, 0.5) が渡され、立方体全体＝裁断なしと等価になる。
+uniform vec3 uClipMin;
+uniform vec3 uClipMax;
+
 const int PRIMARY_STEPS = 128;
 const int SHADOW_STEPS = 48;
 const int MAX_BOUNCES = 4;
 const float PI = 3.14159265359;
 
 bool intersectBox(vec3 origin, vec3 dir, out float tNear, out float tFar) {
-    vec3 boxMin = vec3(-0.5);
-    vec3 boxMax = vec3(0.5);
+    vec3 boxMin = uClipMin;
+    vec3 boxMax = uClipMax;
     vec3 invDir = 1.0 / dir;
     vec3 t1v = (boxMin - origin) * invDir;
     vec3 t2v = (boxMax - origin) * invDir;

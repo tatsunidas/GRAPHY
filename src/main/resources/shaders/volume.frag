@@ -21,9 +21,14 @@ uniform vec4 uRoiColors[32]; // 32個のカラーパレット配列
 uniform bool uIsEmbedded;
 uniform vec3 uSlicePos;
 
+// 3D裁断（クリッピング）領域。ローカル単位立方体空間の境界(各成分 -0.5〜0.5)。
+// 裁断OFF時/最大時は (-0.5, 0.5) が渡され、立方体全体＝裁断なしと等価になる。
+uniform vec3 uClipMin;
+uniform vec3 uClipMax;
+
 bool intersectBox(vec3 origin, vec3 dir, out float tNear, out float tFar) {
-    vec3 boxMin = vec3(-0.5);
-    vec3 boxMax = vec3(0.5);
+    vec3 boxMin = uClipMin;
+    vec3 boxMax = uClipMax;
     vec3 invDir = 1.0 / dir;
     vec3 tMin = (boxMin - origin) * invDir;
     vec3 tMax = (boxMax - origin) * invDir;

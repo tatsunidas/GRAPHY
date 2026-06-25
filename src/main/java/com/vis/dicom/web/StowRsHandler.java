@@ -131,13 +131,20 @@ public class StowRsHandler implements HttpHandler {
 				destDir.mkdirs();
 			}
 			File dest = new File(destDir, sopUID + ".dcm");
-			Files.move(received.toPath(), dest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			// 同一 SOPInstanceUID のファイルが既に保存済みなら上書きしない。
+			// REPLACE_EXISTING で移動してから重複チェックで弾くと既存ファイルが消えるため、
+			// ファイル存在確認を先に行い、冪等な成功として扱う。
+			if (dest.exists()) {
+				succeeded.add(new String[] { sopClassUID, sopUID });
+				return;
+			}
+			Files.move(received.toPath(), dest.toPath());
 
 			boolean ok = db.writeDatasetInfo(dataset, dest.getAbsolutePath());
 			if (ok) {
 				succeeded.add(new String[] { sopClassUID, sopUID });
 			} else {
-				// dedup or insert failure: don't leave an orphaned duplicate file on disk
+				// DB書き込み失敗: 孤立ファイルを残さないよう削除(既存ファイルではないので安全)
 				dest.delete();
 				failed.add(sopUID);
 			}

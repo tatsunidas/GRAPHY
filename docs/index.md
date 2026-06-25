@@ -14,6 +14,7 @@ Java で実装されており、Windows・Linux・macOS（実験的）で動作�
 |---|---|
 | データベース | 組み込み Apache Derby による患者/スタディ/シリーズ管理 |
 | DICOM 通信 | DIMSE (C-STORE/C-FIND/C-MOVE/C-GET) による送受信 |
+| DICOMweb | QIDO-RS / WADO-RS / STOW-RS による HTTP/REST 通信（HTTPS 対応） |
 | 2D ビューワ | マルチフレーム表示、WW/WL 調整、各種 ROI 計測 |
 | 3D ビューワ | OpenGL 3.3 によるボリュームレンダリング・メッシュ表示 |
 | MPR | Axial/Sagittal/Coronal の同時表示 |

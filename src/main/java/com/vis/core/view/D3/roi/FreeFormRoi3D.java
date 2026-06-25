@@ -133,6 +133,11 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 				}
 			}
 		}
+		// Restore the persisted per-object display color so draw() uses it after reload.
+		java.awt.Color segColor = parseSegmentColor();
+		if (segColor != null) {
+			setStrokeColor(segColor);
+		}
 	}
 
 	private void persistVolumeMetadata() {
@@ -162,7 +167,69 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 	public int[] getDimensions() {
 		return new int[] { dimX, dimY, dimZ };
 	}
-	
+
+	// ========== Segmentation object attributes ==========
+	// These are persisted as ROI properties (unlike the transient strokeColor field),
+	// so an object's identity (segment number), display color and name survive a
+	// DB save/reload and a DICOM SEG round-trip.
+
+	/** Marks this 3D ROI as an editable segmentation object. */
+	public void setSegmentation(boolean isSeg) {
+		setProperty(RoiMetaContextKey.Is_Segmentation.name(), Boolean.toString(isSeg));
+	}
+
+	public boolean isSegmentation() {
+		return "true".equalsIgnoreCase(getProperty(RoiMetaContextKey.Is_Segmentation.name()));
+	}
+
+	/** 1-based segment identity used when exporting to DICOM SEG. -1 if unset. */
+	public void setSegmentNumber(int number) {
+		setProperty(RoiMetaContextKey.Segment_Number.name(), Integer.toString(number));
+	}
+
+	public int getSegmentNumber() {
+		String s = getProperty(RoiMetaContextKey.Segment_Number.name());
+		if (s == null || s.trim().isEmpty()) {
+			return -1;
+		}
+		try {
+			return Integer.parseInt(s.trim());
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/** Per-object display color. Also applied to strokeColor so draw() picks it up. */
+	public void setSegmentColor(java.awt.Color c) {
+		if (c == null) {
+			return;
+		}
+		setProperty(RoiMetaContextKey.Segment_Color.name(), c.getRed() + "," + c.getGreen() + "," + c.getBlue());
+		setStrokeColor(c);
+	}
+
+	public java.awt.Color getSegmentColor() {
+		java.awt.Color c = parseSegmentColor();
+		return c != null ? c : getStrokeColor();
+	}
+
+	private java.awt.Color parseSegmentColor() {
+		String s = getProperty(RoiMetaContextKey.Segment_Color.name());
+		if (s == null || s.trim().isEmpty()) {
+			return null;
+		}
+		try {
+			String[] p = s.split(",");
+			if (p.length == 3) {
+				return new java.awt.Color(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()),
+						Integer.parseInt(p[2].trim()));
+			}
+		} catch (Exception e) {
+			com.vis.core.log.Log.logger.warning("Failed to parse Segment_Color: " + s);
+		}
+		return null;
+	}
+
 	private SlideGlass getActiveSlideContext() {
         if (slide == null) return null;
         Praparat pp = slide.getPraparat();

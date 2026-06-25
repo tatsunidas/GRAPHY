@@ -35,6 +35,7 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 	private JTextField hostText;
 	private JTextField portText;
 	private JTextField cipherText;
+	private javax.swing.JCheckBox useTlsCheck;
 	private PACSConnectionPrefs pacsPrefPanel;
 	private JTextField nicknameField;
 
@@ -162,10 +163,31 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 		gbc_textField1.gridy = 5;
 		getContentPane().add(cipherText, gbc_textField1);
 		cipherText.setColumns(10);
+
+		// Use TLS チェックボックス(このリモートノードへの接続にDIMSE TLS=相互TLSを使うか)
+		JLabel lblUseTls = new JLabel("Use TLS");
+		lblUseTls.setToolTipText("ONにすると、このノードへの接続(C-ECHO/C-STORE/C-FIND/C-MOVE/C-GET)を"
+				+ "相互TLSで行います。設定→PACS接続でkeystore/truststoreの設定が必要です。"
+				+ "Ciphersが空の場合はグローバルのデフォルト暗号スイートを使います。");
+		GridBagConstraints gbc_lblUseTls = new GridBagConstraints();
+		gbc_lblUseTls.anchor = GridBagConstraints.WEST;
+		gbc_lblUseTls.insets = new Insets(0, 0, 5, 5);
+		gbc_lblUseTls.gridx = 1;
+		gbc_lblUseTls.gridy = 6;
+		getContentPane().add(lblUseTls, gbc_lblUseTls);
+
+		useTlsCheck = new javax.swing.JCheckBox();
+		GridBagConstraints gbc_useTls = new GridBagConstraints();
+		gbc_useTls.anchor = GridBagConstraints.WEST;
+		gbc_useTls.insets = new Insets(0, 0, 5, 0);
+		gbc_useTls.gridx = 3;
+		gbc_useTls.gridy = 6;
+		getContentPane().add(useTlsCheck, gbc_useTls);
+
 		GridBagConstraints gbc_btnNewButton = new GridBagConstraints();
 		gbc_btnNewButton.anchor = GridBagConstraints.EAST;
 		gbc_btnNewButton.gridx = 3;
-		gbc_btnNewButton.gridy = 6;
+		gbc_btnNewButton.gridy = 7;
 		getContentPane().add(btnNewButton, gbc_btnNewButton);
 		
 		pack();
@@ -197,19 +219,30 @@ public class AddDicomCommunicationNodeWin extends JFrame {
 			return;
 		}
 		
-		if(checkCFINDCapability(aet, Host, Port)==false) {
+		String CipherSeq = cipherText.getText().trim();
+		boolean useTls = useTlsCheck.isSelected();
+
+		// ★ 追加前の接続確認(C-FIND)も、このノードがTLSなら相互TLSで行う。
+		boolean cfindOk;
+		com.vis.dicom.tls.DicomTlsConfig.requestScuTls(useTls, CipherSeq);
+		try {
+			cfindOk = checkCFINDCapability(aet, Host, Port);
+		} finally {
+			com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+		}
+		if(cfindOk==false) {
 			String msg = "GRAPHY cannnot add this remote node.\n";
 			msg += "reason why ? maybe...\n";
 			msg += "- remote node is offline or sleeping or stopped ?\n";
 			msg += "- remote node does not support C-Find ?\n";
-			msg += "- remote node does not recognized graphy ae title ?";
+			msg += "- remote node does not recognized graphy ae title ?\n";
+			msg += "- (TLS) keystore/truststore not configured, or peer cert not trusted ?";
 			Log.logger.info(msg);
 			return;
 		}
-		
-		String CipherSeq = cipherText.getText().trim();
+
 //		DicomCommunicationNode node = new DicomCommunicationNode(nickname,aet, Host, portNum, CipherSeq);
-		db.insertServer(nickname,aet, Host, Integer.valueOf(Port), CipherSeq, null,null,-1,null,null);
+		db.insertServer(nickname,aet, Host, Integer.valueOf(Port), CipherSeq, null,null,-1,null,null, useTls);
 		
 		DBUtils.updateAEProperties(aet, Host, Port, CipherSeq);
 		

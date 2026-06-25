@@ -89,6 +89,13 @@ public class VolumeRenderer {
 	
 	private int sliceShowRoiLoc, sliceRoiColorsLoc, sliceRoiTexLoc;
 	private boolean orthoShowRoi = true; // 断面表示時にROIを重ねるかどうかのフラグ
+
+	// 3D裁断（クリッピング）領域。ローカル単位立方体空間 [-0.5, 0.5]^3。
+	// enabled=false、または min=(-0.5) / max=(0.5)(最大)のときは裁断なし=全体表示と等価。
+	// GLCanvas側が保持する状態を毎フレーム setClipBox() で同期し、各シェーダへ送る。
+	private final float[] clipMin = { -0.5f, -0.5f, -0.5f };
+	private final float[] clipMax = { 0.5f, 0.5f, 0.5f };
+	private boolean clipEnabled = false;
 	
 	public void init() {
 		compileShaders();
@@ -341,6 +348,41 @@ public class VolumeRenderer {
 		this.orthoShowRoi = show;
 	}
 
+	/**
+	 * 3D裁断領域を設定する。{@code enabled} が false のとき、または領域が立方体全体
+	 * (-0.5〜0.5) のときは、シェーダへは全体 (-0.5〜0.5) を渡して裁断なしと等価にする。
+	 * Cinematicレンダラはここに保持した値をゲッタ経由で参照する。
+	 */
+	public void setClipBox(org.joml.Vector3f min, org.joml.Vector3f max, boolean enabled) {
+		this.clipEnabled = enabled;
+		if (enabled) {
+			clipMin[0] = min.x; clipMin[1] = min.y; clipMin[2] = min.z;
+			clipMax[0] = max.x; clipMax[1] = max.y; clipMax[2] = max.z;
+		} else {
+			clipMin[0] = clipMin[1] = clipMin[2] = -0.5f;
+			clipMax[0] = clipMax[1] = clipMax[2] = 0.5f;
+		}
+	}
+
+	public boolean isClipEnabled() {
+		return clipEnabled;
+	}
+
+	/** 現在シェーダへ送る実効クリップ下限（裁断OFF時は -0.5）。Cinematicレンダラ用。 */
+	public float[] getEffectiveClipMin() {
+		return clipMin;
+	}
+
+	/** 現在シェーダへ送る実効クリップ上限（裁断OFF時は 0.5）。Cinematicレンダラ用。 */
+	public float[] getEffectiveClipMax() {
+		return clipMax;
+	}
+
+	private void uploadClipUniforms(int program) {
+		glUniform3f(glGetUniformLocation(program, "uClipMin"), clipMin[0], clipMin[1], clipMin[2]);
+		glUniform3f(glGetUniformLocation(program, "uClipMax"), clipMax[0], clipMax[1], clipMax[2]);
+	}
+
 	public void loadLut(File lutFile) {
 		try {
 			IndexColorModel cm = LutLoader.open(lutFile.getAbsolutePath());
@@ -420,6 +462,9 @@ public class VolumeRenderer {
 		
 		glUniform1i(glGetUniformLocation(shaderProgram, "uIsEmbedded"), isEmbedded ? 1 : 0);
 		glUniform3f(glGetUniformLocation(shaderProgram, "uSlicePos"), sX - 0.5f, sY - 0.5f, sZ - 0.5f);
+
+		// 3D裁断領域をレイマーチのボックス範囲としてシェーダへ送る
+		uploadClipUniforms(shaderProgram);
 		
 		// =======================================================
 		// UIから設定された状態（表示/非表示フラグ）をシェーダーへ転送
@@ -491,6 +536,9 @@ public class VolumeRenderer {
 		glUniform1f(sliceWinWidthLoc, windowWidth);
 		glUniform1f(glGetUniformLocation(sliceShaderProgram, "uMin"), normalizedMin);
 		glUniform1f(glGetUniformLocation(sliceShaderProgram, "uMax"), normalizedMax);
+
+		// 3D裁断領域（断面側はテクスチャ座標で領域外を破棄する）
+		uploadClipUniforms(sliceShaderProgram);
 
 		glBindVertexArray(sliceVaoId);
 

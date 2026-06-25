@@ -42,9 +42,15 @@ public class DimseUtilities {
 			return false;
 		}
 		String[] listenerInfo = db.getListenerDetails();
-		boolean res = new EchoImpl(null).echo(listenerInfo[0], listenerInfo[1], listenerInfo[2],
-				dest.getAETitle(), dest.getHostName(), String.valueOf(dest.getPort()));// connection established
-		return res;
+		// ★ 接続先ノードが「Use TLS」なら、下層のStoreSCU.echoへTLS要求を伝搬する。
+		com.vis.dicom.tls.DicomTlsConfig.requestScuTls(dest.isTlsEnabled(), dest.getCipher());
+		try {
+			boolean res = new EchoImpl(null).echo(listenerInfo[0], listenerInfo[1], listenerInfo[2],
+					dest.getAETitle(), dest.getHostName(), String.valueOf(dest.getPort()));// connection established
+			return res;
+		} finally {
+			com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+		}
 	}
 	
 	/**
@@ -66,6 +72,21 @@ public class DimseUtilities {
 		Connection remoteConn = new Connection();
 		remoteConn.setHostname(dest.getHostName());
 		remoteConn.setPort(dest.getPort());
+
+		// ★ 接続先ノードが「Use TLS」なら、自局のkeystore/truststoreと暗号スイートを
+		// device/ローカルconn/remoteConnへ適用する(相互TLS)。
+		if (dest.isTlsEnabled()) {
+			com.vis.dicom.tls.DicomTlsConfig cfg = DatabaseHandler.getInstance().getDimseTlsConfig();
+			if (cfg != null) {
+				String[] ciphers = com.vis.dicom.tls.DicomTlsConfig.splitList(dest.getCipher());
+				if (ciphers.length == 0) {
+					ciphers = cfg.getCiphers();
+				}
+				cfg.applyKeyMaterialToDevice(device);
+				cfg.applyTlsToConnection(conn, ciphers, false);
+				cfg.applyTlsToConnection(remoteConn, ciphers, false);
+			}
+		}
 
 		AAssociateRQ rq = new AAssociateRQ();
 		rq.setCalledAET(dest.getAETitle());

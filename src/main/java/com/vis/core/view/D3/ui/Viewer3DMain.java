@@ -71,6 +71,7 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton; // 追加
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -264,7 +265,10 @@ public class Viewer3DMain extends JFrame {
 		setJMenuBar(menuBar);
 
 		// 4. ボタンパネルの作成（右側）
-		JPanel controlPanel = new JPanel(new GridBagLayout());
+		// ★ScrollableControlPanelを使い、JScrollPViewportの「幅」に常に追従させる。
+		// これにより内部コンポーネント（幅300pxのROI/メッシュ一覧など）がビューポート幅に
+		// 合わせて縮み、横スクロールバー無しでも右端が潰れず全部見えるようになる。
+		JPanel controlPanel = new ScrollableControlPanel(new GridBagLayout());
 		controlPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // パネル全体の余白
 		// controlPanel.setPreferredSize(new Dimension(320, 800)); // 扱いやすい幅を確保
 
@@ -450,6 +454,42 @@ public class Viewer3DMain extends JFrame {
 		// ---------------------------------------------------------
 
 		// 区切り線 1
+		controlPanel.add(new javax.swing.JSeparator(), gbc);
+		gbc.gridy++;
+
+		// ---------------------------------------------------------
+		// 3D裁断（クリッピング）: どの表示モードでも有効。
+		// チェックはバウンディングボックスの表示・編集の切替のみ。裁断の適用は領域に基づき常に有効で、
+		// チェックを外しても・モードを切り替えても維持される。解除は「Reset Clip Box」。
+		// ---------------------------------------------------------
+		controlPanel.add(new JLabel("3D Clipping", SwingConstants.LEFT), gbc);
+		gbc.gridy++;
+
+		JCheckBox chkClip3D = new JCheckBox("Edit Clip Box", false);
+		chkClip3D.setToolTipText(
+				"<html>バウンディングボックスの表示・編集のOn/Off。<br>"
+				+ "・面をドラッグ: その面を動かして裁断領域をリサイズ<br>"
+				+ "・Shift+ドラッグ: ボックス全体を平行移動<br>"
+				+ "・ボックス外をドラッグ: 通常どおりカメラ回転<br>"
+				+ "<b>裁断（クリップ）は設定した領域に基づき常に適用され、チェックを外しても・他の表示モードに<br>"
+				+ "切り替えても維持されます。</b>裁断を解除するには「Reset Clip Box」で領域を全体に戻してください。</html>");
+		chkClip3D.addActionListener(e -> {
+			if (canvas != null)
+				canvas.setClip3DEnabled(chkClip3D.isSelected());
+		});
+		controlPanel.add(chkClip3D, gbc);
+		gbc.gridy++;
+
+		JButton btnResetClip = new JButton("Reset Clip Box");
+		btnResetClip.setToolTipText("裁断領域を立方体全体（裁断なし相当）に戻す");
+		btnResetClip.addActionListener(e -> {
+			if (canvas != null)
+				canvas.resetClipBox();
+		});
+		controlPanel.add(btnResetClip, gbc);
+		gbc.gridy++;
+
+		// 区切り線
 		controlPanel.add(new javax.swing.JSeparator(), gbc);
 		gbc.gridy++;
 
@@ -980,8 +1020,8 @@ public class Viewer3DMain extends JFrame {
 		// ★ここから修正: controlPanelを直接addせず、JScrollPaneでラップする
 		// ==========================================================
 		JScrollPane mainControlScroll = new JScrollPane(controlPanel);
-		mainControlScroll.setPreferredSize(new Dimension(340, 0)); // 幅を指定、高さはBorderLayoutにお任せ
-		mainControlScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); // 横スクロールバーは出さない
+		mainControlScroll.setPreferredSize(new Dimension(360, 0)); // 幅を指定、高さはBorderLayoutにお任せ
+		mainControlScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); // 横スクロールバーは出さない（幅追従で潰れない）
 		mainControlScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED); // 縦は必要に応じて出す
 		mainControlScroll.setBorder(BorderFactory.createEmptyBorder()); // 余分な枠線を消してスッキリさせる
 		mainControlScroll.getVerticalScrollBar().setUnitIncrement(16); // ★重要: マウスホイールでのスクロール速度を快適にする
@@ -1233,5 +1273,43 @@ public class Viewer3DMain extends JFrame {
 		}
 		meshListPanel.revalidate();
 		meshListPanel.repaint();
+	}
+
+	/**
+	 * JScrollPaneのビューポート「幅」に常に追従するJPanel。横方向は決してビューポートより広く
+	 * ならない（=横スクロール不要、右端のコンポーネントが潰れず全部見える）。縦方向は通常どおり
+	 * 必要に応じてスクロールさせる。コントロールパネルの右端が見切れる問題への対策。
+	 */
+	private static class ScrollableControlPanel extends JPanel implements Scrollable {
+		private static final long serialVersionUID = 1L;
+
+		ScrollableControlPanel(java.awt.LayoutManager layout) {
+			super(layout);
+		}
+
+		@Override
+		public Dimension getPreferredScrollableViewportSize() {
+			return getPreferredSize();
+		}
+
+		@Override
+		public int getScrollableUnitIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
+			return 16;
+		}
+
+		@Override
+		public int getScrollableBlockIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
+			return orientation == SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width;
+		}
+
+		@Override
+		public boolean getScrollableTracksViewportWidth() {
+			return true; // 幅はビューポートに追従（横スクロールさせない＝右端が潰れない）
+		}
+
+		@Override
+		public boolean getScrollableTracksViewportHeight() {
+			return false; // 高さは必要に応じて縦スクロール
+		}
 	}
 }

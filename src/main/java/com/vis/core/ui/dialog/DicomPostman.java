@@ -341,14 +341,20 @@ public class DicomPostman extends JDialog implements Runnable{
 		String remoteHost = remote.getHostName();
 		int remotePort = remote.getPort();
 		String listener[] = db.getListenerDetails();
-		String args[] = { 
+		String args[] = {
 				"-b",
 				listener[0] + "@" + listener[1] + ":" + listener[2],//should do test !!
-				"-c", 
-				remoteAET + "@" + remoteHost + ":" + remotePort, 
+				"-c",
+				remoteAET + "@" + remoteHost + ":" + remotePort,
 				path2img
 		};
-		StoreSCU.main(args);
+		// ★ 接続先ノードが「Use TLS」なら、下層のStoreSCU.mainへTLS要求を伝搬する。
+		com.vis.dicom.tls.DicomTlsConfig.requestScuTls(remote.isTlsEnabled(), remote.getCipher());
+		try {
+			StoreSCU.main(args);
+		} finally {
+			com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+		}
 	}
 	
 	private void performSend() {

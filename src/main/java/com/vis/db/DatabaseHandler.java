@@ -341,12 +341,20 @@ public class DatabaseHandler {
 	 *
 	 * @throws SQLException テーブルの作成に失敗した場合
 	 */
+	/**
+	 * 管理対象テーブルのSQL定義リソース一覧(新規DB作成とスキーマ自動マイグレーションで共有する
+	 * 単一の真実)。FKの依存順(PATIENT→STUDY→SERIES→IMAGE/ROI)で並べてある。新しいテーブルを
+	 * 追加するときはここに足すこと。
+	 */
+	private static final List<Resources> SCHEMA_TABLE_RESOURCES = Arrays.asList(
+			Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
+			Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
+			Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
+			Resources.SQL_ROI);
+
 	private void createTables() throws SQLException {
-		// 1. 実行したいSQLリソースをリストにまとめる
-		List<Resources> sqlResources = Arrays.asList(Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
-				Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
-				Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
-				Resources.SQL_ROI);
+		// 1. 実行したいSQLリソースをリストにまとめる(自動マイグレーションと同じ一覧を使う)
+		List<Resources> sqlResources = SCHEMA_TABLE_RESOURCES;
 
 		try (Connection conn = openConnection(); Statement statement = conn.createStatement();) {
 			SQLReader reader = new SQLReader(); // SQLReaderは一度だけインスタンス化する
@@ -370,31 +378,170 @@ public class DatabaseHandler {
 	}
 
 	/**
-	 * 既存DB(createTables()は新規DB作成時にしか走らない)にDICOMweb用の列が無ければ追加する、
-	 * 冪等なマイグレーション。新規DBでもLISTENER.sql側に既に列があるため、ここはno-opになる
-	 * (DatabaseMetaData上に列が見つかるため)。Derbyには「列が無ければ追加」という構文が無いため、
-	 * メタデータで存在確認してから個別にALTER TABLEする。
+	 * 汎用・冪等のスキーマ自動マイグレーション。
+	 *
+	 * {@link #SCHEMA_TABLE_RESOURCES}に列挙した各テーブルについて、SQL定義ファイル
+	 * (sql/*.sql)が宣言している列のうち、実DBにまだ存在しない列を自動で
+	 * {@code ALTER TABLE ... ADD COLUMN}する。これにより、今後スキーマに「列を追加するだけ」
+	 * の変更が入った場合は、SQLファイルを編集するだけで(マイグレーション用のJavaコードを
+	 * 書き足さなくても)既存DBへ自動反映される。
+	 *
+	 * 対象は「ALTERで安全に追加できる単純な列」のみ。主キー/IDENTITY/外部キー/UNIQUE/
+	 * NOT NULL(デフォルト無し)等は、ALTER ADD COLUMNで安全に足せない、またはテーブル再構築が
+	 * 必要なため対象外とし、不足していてもスキップしてWARNINGログを出す(従来通り個別の
+	 * マイグレーションで対応する)。列の削除・リネーム・型変更・データ移送も対象外。
+	 *
+	 * 新規DB({@link #createTables()}直後)は全列が既に存在するため実質no-opになる。
 	 */
-	private void migrateListenerTableIfNeeded() {
+	private void migrateSchemaAddMissingColumns() {
+		SQLReader reader = new SQLReader();
+		for (Resources resource : SCHEMA_TABLE_RESOURCES) {
+			try {
+				List<String> queries = reader.createQueries(resource.tempFile());
+				if (queries == null || queries.isEmpty()) {
+					continue;
+				}
+				String createSql = queries.get(0);
+				String tableName = parseTableName(createSql);
+				if (tableName == null) {
+					continue;
+				}
+				addMissingColumnsForTable(tableName, parseColumnDefs(createSql));
+			} catch (Exception e) {
+				logger.log(Level.WARNING,
+						"スキーマ自動マイグレーション中にエラーが発生しました(" + resource.name() + ")。スキップして継続します。", e);
+			}
+		}
+	}
+
+	/**
+	 * 1テーブル分の不足列を追加する。トランザクションはcloseの前に必ずcommit/rollbackで閉じる
+	 * (openConnection()はautoCommit=false。閉じずにcloseするとDerbyがERROR 25001を投げる)。
+	 *
+	 * @param tableName 対象テーブル名
+	 * @param columns   SQL定義から抽出した列情報の配列リスト({@link #parseColumnDefs(String)}の戻り値)
+	 */
+	private void addMissingColumnsForTable(String tableName, List<String[]> columns) {
 		try (Connection conn = openConnection()) {
-			DatabaseMetaData meta = conn.getMetaData();
-			boolean hasColumn;
-			try (ResultSet rs = meta.getColumns(null, null, "LISTENER", "DICOMWEB_ENABLED")) {
-				hasColumn = rs.next();
-			}
-			if (hasColumn) {
-				return;
-			}
-			try (Statement st = conn.createStatement()) {
-				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_enabled boolean default false");
-				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_port integer");
-				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_contextpath varchar(255) default '/dicomweb'");
+			try {
+				DatabaseMetaData meta = conn.getMetaData();
+				Set<String> existing = new HashSet<>();
+				try (ResultSet rs = meta.getColumns(null, null, tableName.toUpperCase(), null)) {
+					while (rs.next()) {
+						existing.add(rs.getString("COLUMN_NAME").toUpperCase());
+					}
+				}
+				if (existing.isEmpty()) {
+					// テーブル自体が存在しない(列が1件も無い)場合は何もしない。
+					// 存在しないテーブルにALTERをかけて誤爆するのを防ぐ。
+					conn.commit();
+					return;
+				}
+				for (String[] col : columns) {
+					String name = col[0];
+					String def = col[1];
+					boolean simple = "simple".equals(col[2]);
+					if (existing.contains(name.toUpperCase())) {
+						continue; // 既に存在する
+					}
+					if (!simple) {
+						logger.warning("テーブル " + tableName + " の列 '" + name + "' がDBに存在しませんが、"
+								+ "主キー/IDENTITY/外部キー/UNIQUE/NOT NULL等のため自動追加できません。"
+								+ "必要なら個別のマイグレーションを実装してください。");
+						continue;
+					}
+					try (Statement st = conn.createStatement()) {
+						st.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + def);
+						logger.info("スキーマ自動マイグレーション: " + tableName + " に列を追加しました -> " + def);
+					}
+				}
 				conn.commit();
-				logger.info("LISTENERテーブルにDICOMweb用の列を追加しました(既存DBのマイグレーション)。");
+			} catch (SQLException e) {
+				conn.rollback();
+				throw e;
 			}
 		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "LISTENERテーブルのDICOMweb列マイグレーションに失敗しました。", e);
+			logger.log(Level.SEVERE, "テーブル " + tableName + " の列自動追加に失敗しました。", e);
 		}
+	}
+
+	/**
+	 * "create table NAME (...)" からテーブル名を取り出す。見つからなければnull。
+	 */
+	private String parseTableName(String createSql) {
+		java.util.regex.Matcher m = java.util.regex.Pattern
+				.compile("(?is)create\\s+table\\s+([A-Za-z_][A-Za-z0-9_]*)").matcher(createSql);
+		return m.find() ? m.group(1) : null;
+	}
+
+	/**
+	 * "create table NAME ( 列定義..., 制約句... )" の本体から、実際の列だけを抽出する。
+	 * 戻り値の各要素は {列名, ADD COLUMN用の完全な列定義文字列, "simple" または "complex"}。
+	 * foreign key / primary key / constraint / unique / check の table-levelな制約句は除外する。
+	 * "complex"(主キー/IDENTITY/参照/UNIQUE/NOT NULLデフォルト無し)は自動追加の対象外を表す。
+	 */
+	private List<String[]> parseColumnDefs(String createSql) {
+		List<String[]> result = new ArrayList<>();
+		int open = createSql.indexOf('(');
+		int close = createSql.lastIndexOf(')');
+		if (open < 0 || close < 0 || close <= open) {
+			return result;
+		}
+		String body = createSql.substring(open + 1, close);
+		// カッコの深さ0かつシングルクォート外のカンマだけで分割する。
+		// IDENTITY(Start with 1, Increment by 1) のようなカッコ内や、
+		// DEFAULT 'TLS_RSA_WITH_AES_128_CBC_SHA,TLS_AES_128_GCM_SHA256' のような
+		// 文字列リテラル内のカンマで列を割らないための対処。
+		List<String> items = new ArrayList<>();
+		int depth = 0, start = 0;
+		boolean inQuote = false;
+		for (int i = 0; i < body.length(); i++) {
+			char c = body.charAt(i);
+			if (c == '\'' && !inQuote) {
+				inQuote = true;
+			} else if (c == '\'' && inQuote) {
+				// '' はエスケープされたシングルクォート
+				if (i + 1 < body.length() && body.charAt(i + 1) == '\'') {
+					i++;
+				} else {
+					inQuote = false;
+				}
+			} else if (!inQuote) {
+				if (c == '(') {
+					depth++;
+				} else if (c == ')') {
+					depth--;
+				} else if (c == ',' && depth == 0) {
+					items.add(body.substring(start, i));
+					start = i + 1;
+				}
+			}
+		}
+		items.add(body.substring(start));
+		for (String raw : items) {
+			String item = raw.trim();
+			if (item.isEmpty()) {
+				continue;
+			}
+			String lower = item.toLowerCase();
+			// table-levelの制約句は列ではないので除外
+			if (lower.startsWith("foreign key") || lower.startsWith("foreign ")
+					|| lower.startsWith("primary key") || lower.startsWith("constraint")
+					|| lower.startsWith("unique") || lower.startsWith("check")) {
+				continue;
+			}
+			String[] parts = item.split("\\s+", 2);
+			if (parts.length < 2) {
+				continue; // 列名+型が無いものはスキップ
+			}
+			String name = parts[0].replace("\"", "");
+			boolean complex = lower.contains("primary key") || lower.contains("generated")
+					|| lower.contains("identity") || lower.contains("references")
+					|| lower.contains(" unique") || lower.contains("constraint")
+					|| (lower.contains("not null") && !lower.contains("default"));
+			result.add(new String[] { name, item, complex ? "complex" : "simple" });
+		}
+		return result;
 	}
 
 	/**
@@ -933,6 +1080,7 @@ public class DatabaseHandler {
 							? serverInfo.getString("wadoprotocol")
 							: "";
 					String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets") : "";
+					boolean tlsEnabled = serverInfo.getBoolean("tls_enabled");
 					nodeMaterials.put("logicalname", logicalname);
 					nodeMaterials.put("aetitle", aetitle);
 					nodeMaterials.put("hostname", hostname);
@@ -943,6 +1091,7 @@ public class DatabaseHandler {
 					nodeMaterials.put("wadoport", wadoport);
 					nodeMaterials.put("wadoprotocol", wadoprotocol);
 					nodeMaterials.put("retrievets", retTS);
+					nodeMaterials.put("tls_enabled", tlsEnabled);
 					serverMaterialsList.add(nodeMaterials);
 				}
 			}
@@ -2099,6 +2248,7 @@ public class DatabaseHandler {
 							? serverInfo.getString("wadoprotocol")
 							: "";
 					String retTS = serverInfo.getString("retrievets") != null ? serverInfo.getString("retrievets") : "";
+					boolean tlsEnabled = serverInfo.getBoolean("tls_enabled");
 					nodeMaterials.put("logicalname", logicalname);
 					nodeMaterials.put("aetitle", aetitle);
 					nodeMaterials.put("hostname", hostname);
@@ -2109,6 +2259,7 @@ public class DatabaseHandler {
 					nodeMaterials.put("wadoport", wadoport);
 					nodeMaterials.put("wadoprotocol", wadoprotocol);
 					nodeMaterials.put("retrievets", retTS);
+					nodeMaterials.put("tls_enabled", tlsEnabled);
 				}
 			}
 			conn.commit();
@@ -2689,7 +2840,14 @@ public class DatabaseHandler {
 	 */
 	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers,
 			String retrievetype, String wadocontext, int wadoport, String wadoprotocol, String retrievets) {
-		String statement = "INSERT INTO SERVERS (pk,logicalname,aetitle,hostname,port,ciphers,retrievetype,wadocontext,wadoport,wadoprotocol,retrievets) VALUES (default,?,?,?,?,?,?,?,?,?,?)";
+		insertServer(nickname, aet, hostname, port, ciphers, retrievetype, wadocontext, wadoport, wadoprotocol,
+				retrievets, false);
+	}
+
+	public void insertServer(String nickname, String aet, String hostname, int port, String ciphers,
+			String retrievetype, String wadocontext, int wadoport, String wadoprotocol, String retrievets,
+			boolean tlsEnabled) {
+		String statement = "INSERT INTO SERVERS (pk,logicalname,aetitle,hostname,port,ciphers,retrievetype,wadocontext,wadoport,wadoprotocol,retrievets,tls_enabled) VALUES (default,?,?,?,?,?,?,?,?,?,?,?)";
 		try (Connection conn = openConnection();
 				PreparedStatement insertStmt = conn.prepareStatement(statement, Statement.RETURN_GENERATED_KEYS);) {
 			insertStmt.setString(1, nickname);
@@ -2702,6 +2860,7 @@ public class DatabaseHandler {
 			insertStmt.setInt(8, wadoport);// WadoPort
 			insertStmt.setString(9, wadoprotocol);// WadoProtocol()
 			insertStmt.setString(10, retrievets);// RetrieveTransferSyntax()
+			insertStmt.setBoolean(11, tlsEnabled);// Use TLS for this remote node
 			insertStmt.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -2845,12 +3004,15 @@ public class DatabaseHandler {
 		ArrayList<HashMap<String, String>> result = new ArrayList<>();
 		try (Connection conn = openConnection();) {
 			ResultSet matchingInfo = conn.createStatement().executeQuery(
+					// NULL 列に UPPER()/LIKE を直接適用すると SQL3 値論理で UNKNOWN になり行が除外される。
+					// date 型は CAST で文字列化し、nullable 列は COALESCE でデフォルト '' を補う。
 					"select * from patient inner join study on patient.PatientID=study.PatientID where upper(patient.PatientID) like '"
-							+ patientID + "' and upper(patient.PatientName) like '" + patientName
-							+ "' and patient.PatientBirthDate like '" + dob
-							+ "' and upper(study.AccessionNumber) like '" + accNo + "' and study.StudyDate like '"
-							+ studyDate + "' and upper(study.StudyDescription) like '" + studyDesc
-							+ "' and upper(study.ModalitiesInStudy) like '" + modality + "'");
+							+ patientID + "' and COALESCE(upper(patient.PatientName), '') like '" + patientName
+							+ "' and COALESCE(CAST(patient.PatientBirthDate AS CHAR(10)), '') like '" + dob
+							+ "' and COALESCE(upper(study.AccessionNumber), '') like '" + accNo
+							+ "' and COALESCE(CAST(study.StudyDate AS CHAR(10)), '') like '" + studyDate
+							+ "' and COALESCE(upper(study.StudyDescription), '') like '" + studyDesc
+							+ "' and COALESCE(upper(study.ModalitiesInStudy), '') like '" + modality + "'");
 			while (matchingInfo.next()) {
 				// ★ 修正: 行ごとに新しいMapを作る(以前はループ外の1個のMapを使い回しており、
 				// 複数件マッチすると全件が同じ参照=最後の行のコピーになるバグがあった)
@@ -3616,8 +3778,9 @@ public class DatabaseHandler {
 				return false;
 			}
 		}
-		// ★ 既存DBにDICOMweb用の列が無ければ追加する(新規DBは既にLISTENER.sqlに列があるためno-op)
-		migrateListenerTableIfNeeded();
+		// ★ 既存DBに、SQL定義に有ってDBに無い列を自動追加する(汎用・冪等。新規DBは全列が既に
+		// あるため実質no-op)。今後の「列追加だけ」の変更はsql/*.sqlを編集するだけで反映される。
+		migrateSchemaAddMissingColumns();
 
 		try {
 			initDicomServer();
@@ -3643,7 +3806,41 @@ public class DatabaseHandler {
 		}
 		return true;
 	}
-	
+
+	/**
+	 * Test-only initialization. Skips loadLocalDBLocation() and initDicomServer()
+	 * so tests can use an isolated temporary directory without polluting ~/.GRAPHY
+	 * or trying to bind a DICOM port.
+	 *
+	 * @param dbDir directory for the embedded Derby database
+	 * @return true if the database was successfully initialized
+	 */
+	public boolean startupForTest(String dbDir) {
+		this.dbdir = dbDir;
+		System.setProperty("derby.system.home", dbDir);
+		try {
+			initDataSource(dbDir, true);
+		} catch (Throwable e) {
+			logger.severe("startupForTest: initDataSource failed: " + e.getMessage());
+			return false;
+		}
+		boolean dbExists = checkDBExists();
+		if (!dbExists) {
+			try {
+				createTables();
+				insertDefaultListenerDetails();
+				insertDefaultPresets();
+				insertDefaultLocales();
+				insertDefaultTextAnnotationList();
+			} catch (SQLException e) {
+				logger.severe("startupForTest: createTables failed: " + e.getMessage());
+				return false;
+			}
+		}
+		migrateSchemaAddMissingColumns();
+		return true;
+	}
+
 	/**
      * Writes the DicomImage objects in memory to a temporary directory, sends them to the DB, and automatically cleans up afterwards.
      * * @param dcmImages A map of DicomImages generated by GDicomTools.imagePlusToDcm, etc.
@@ -3820,7 +4017,14 @@ public class DatabaseHandler {
 			int webPort = Integer.parseInt(webDetails[1]);
 			if (webPort > 0) {
 				try {
-					dicomWebServer = new com.vis.dicom.web.DicomWebServer(webPort, webDetails[2]);
+					boolean httpsEnabled = webDetails.length > 3 && Boolean.parseBoolean(webDetails[3]);
+					String ksPath    = webDetails.length > 4 ? webDetails[4] : null;
+					String ksPass    = webDetails.length > 5 ? webDetails[5] : null;
+					boolean authEnabled  = webDetails.length > 6 && Boolean.parseBoolean(webDetails[6]);
+					String authUser  = webDetails.length > 7 ? webDetails[7] : null;
+					String authHash  = webDetails.length > 8 ? webDetails[8] : null;
+					dicomWebServer = new com.vis.dicom.web.DicomWebServer(webPort, webDetails[2],
+							httpsEnabled, ksPath, ksPass, authEnabled, authUser, authHash);
 					dicomWebServer.start();
 					com.vis.core.util.FirewallConfigurator.ensureDicomPortOpen(String.valueOf(webPort));
 				} catch (IOException e) {
@@ -4058,19 +4262,33 @@ public class DatabaseHandler {
 	 *
 	 * @return [enabled("true"/"false"), port, contextPath]。取得失敗時はnull。
 	 */
+	/**
+	 * DICOMweb設定を返す。配列インデックス:
+	 * [0]=enabled, [1]=port, [2]=contextPath,
+	 * [3]=httpsEnabled, [4]=keystorePath, [5]=keystorePassword,
+	 * [6]=authEnabled, [7]=username, [8]=passwordHash(SHA-256 hex)
+	 */
 	public String[] getDicomWebListenerDetails() {
-		String statement = "SELECT dicomweb_enabled, dicomweb_port, dicomweb_contextpath FROM LISTENER";
+		String statement = "SELECT dicomweb_enabled, dicomweb_port, dicomweb_contextpath,"
+				+ " dicomweb_https_enabled, dicomweb_keystore_path, dicomweb_keystore_password,"
+				+ " dicomweb_auth_enabled, dicomweb_username, dicomweb_password_hash FROM LISTENER";
 		String[] detail = null;
 		try (Connection conn = openConnection();
 				PreparedStatement ps = conn.prepareStatement(statement);
 				ResultSet rs = ps.executeQuery();) {
 			if (rs.next()) {
-				detail = new String[3];
+				detail = new String[9];
 				detail[0] = String.valueOf(rs.getBoolean("dicomweb_enabled"));
 				int port = rs.getInt("dicomweb_port");
 				detail[1] = rs.wasNull() ? "0" : String.valueOf(port);
 				String contextPath = rs.getString("dicomweb_contextpath");
 				detail[2] = contextPath != null ? contextPath : "/dicomweb";
+				detail[3] = String.valueOf(rs.getBoolean("dicomweb_https_enabled"));
+				detail[4] = rs.getString("dicomweb_keystore_path");
+				detail[5] = rs.getString("dicomweb_keystore_password");
+				detail[6] = String.valueOf(rs.getBoolean("dicomweb_auth_enabled"));
+				detail[7] = rs.getString("dicomweb_username");
+				detail[8] = rs.getString("dicomweb_password_hash");
 			}
 			conn.commit();
 		} catch (SQLException ex) {
@@ -4082,16 +4300,32 @@ public class DatabaseHandler {
 	/**
 	 * GRAPHY自身のローカルDICOMwebサーバー設定を更新する。
 	 *
-	 * @param enabled     trueならDICOMwebサーバーを起動する
-	 * @param port        DICOMwebサーバーのポート(DIMSEのportとは別)
-	 * @param contextPath 例: "/dicomweb"
+	 * @param enabled          trueならDICOMwebサーバーを起動する
+	 * @param port             DICOMwebサーバーのポート(DIMSEのportとは別)
+	 * @param contextPath      例: "/dicomweb"
+	 * @param httpsEnabled     trueならTLS(HTTPS)で起動する
+	 * @param keystorePath     JKSキーストアのファイルパス(httpsEnabled=falseなら無視)
+	 * @param keystorePassword キーストアのパスワード
+	 * @param authEnabled      trueならBasic認証を要求する
+	 * @param username         Basic認証のユーザー名
+	 * @param passwordHash     パスワードのSHA-256 hexハッシュ(変更しない場合は既存の値をそのまま渡す)
 	 */
-	public void updateDicomWebListener(boolean enabled, int port, String contextPath) throws SQLException {
-		String sql = "UPDATE listener SET dicomweb_enabled = ?, dicomweb_port = ?, dicomweb_contextpath = ?";
+	public void updateDicomWebListener(boolean enabled, int port, String contextPath,
+			boolean httpsEnabled, String keystorePath, String keystorePassword,
+			boolean authEnabled, String username, String passwordHash) throws SQLException {
+		String sql = "UPDATE listener SET dicomweb_enabled = ?, dicomweb_port = ?, dicomweb_contextpath = ?,"
+				+ " dicomweb_https_enabled = ?, dicomweb_keystore_path = ?, dicomweb_keystore_password = ?,"
+				+ " dicomweb_auth_enabled = ?, dicomweb_username = ?, dicomweb_password_hash = ?";
 		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 			pstmt.setBoolean(1, enabled);
 			pstmt.setInt(2, port);
 			pstmt.setString(3, contextPath);
+			pstmt.setBoolean(4, httpsEnabled);
+			pstmt.setString(5, keystorePath);
+			pstmt.setString(6, keystorePassword);
+			pstmt.setBoolean(7, authEnabled);
+			pstmt.setString(8, username);
+			pstmt.setString(9, passwordHash);
 			int affectedRows = pstmt.executeUpdate();
 			if (affectedRows == 0) {
 				throw new SQLException("listenerテーブルの更新対象レコードが見つかりませんでした。");
@@ -4100,6 +4334,78 @@ public class DatabaseHandler {
 			logger.fine("listenerテーブルのDICOMweb設定を正常に更新しました。");
 		} catch (SQLException e) {
 			logger.log(Level.SEVERE, "listenerテーブルのDICOMweb設定更新中にエラーが発生しました。", e);
+			throw e;
+		}
+	}
+
+	/**
+	 * GRAPHY自局のDICOM DIMSE TLS設定(相互TLS用の鍵・証明書)をLISTENERテーブルから読み出す。
+	 * 取得失敗・行が無い場合はnullを返す。
+	 */
+	public com.vis.dicom.tls.DicomTlsConfig getDimseTlsConfig() {
+		String statement = "SELECT dimse_tls_enabled, dimse_tls_port, dimse_keystore_path, dimse_keystore_password,"
+				+ " dimse_truststore_path, dimse_truststore_password, dimse_tls_protocols, dimse_tls_ciphers FROM LISTENER";
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(statement);
+				ResultSet rs = ps.executeQuery();) {
+			com.vis.dicom.tls.DicomTlsConfig cfg = null;
+			if (rs.next()) {
+				cfg = new com.vis.dicom.tls.DicomTlsConfig();
+				cfg.setEnabled(rs.getBoolean("dimse_tls_enabled"));
+				int tlsPort = rs.getInt("dimse_tls_port");
+				cfg.setTlsPort(rs.wasNull() ? com.vis.dicom.tls.DicomTlsConfig.DEFAULT_TLS_PORT : tlsPort);
+				cfg.setKeystorePath(rs.getString("dimse_keystore_path"));
+				cfg.setKeystorePassword(rs.getString("dimse_keystore_password"));
+				cfg.setTruststorePath(rs.getString("dimse_truststore_path"));
+				cfg.setTruststorePassword(rs.getString("dimse_truststore_password"));
+				String protocols = rs.getString("dimse_tls_protocols");
+				cfg.setProtocols(com.vis.dicom.tls.DicomTlsConfig.splitList(protocols));
+				String ciphers = rs.getString("dimse_tls_ciphers");
+				cfg.setCiphers(com.vis.dicom.tls.DicomTlsConfig.splitList(ciphers));
+			}
+			conn.commit();
+			return cfg;
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * GRAPHY自局のDICOM DIMSE TLS設定を更新する。
+	 *
+	 * @param enabled            trueなら別ポートのTLS listenerを起動する(平文listenerは従来通り並存)
+	 * @param tlsPort            TLS listenerのポート(平文のportとは別)
+	 * @param keystorePath       自局の鍵+証明書のJKS keystoreパス
+	 * @param keystorePassword   keystoreのパスワード
+	 * @param truststorePath     信頼する相手の証明書を格納したJKS truststoreパス
+	 * @param truststorePassword truststoreのパスワード
+	 * @param protocolsCsv       TLSプロトコル(カンマ区切り。例 "TLSv1.2,TLSv1.3")
+	 * @param ciphersCsv         暗号スイート(カンマ区切り)
+	 */
+	public void updateDimseTlsConfig(boolean enabled, int tlsPort, String keystorePath, String keystorePassword,
+			String truststorePath, String truststorePassword, String protocolsCsv, String ciphersCsv)
+			throws SQLException {
+		String sql = "UPDATE listener SET dimse_tls_enabled = ?, dimse_tls_port = ?, dimse_keystore_path = ?,"
+				+ " dimse_keystore_password = ?, dimse_truststore_path = ?, dimse_truststore_password = ?,"
+				+ " dimse_tls_protocols = ?, dimse_tls_ciphers = ?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+			pstmt.setBoolean(1, enabled);
+			pstmt.setInt(2, tlsPort);
+			pstmt.setString(3, keystorePath);
+			pstmt.setString(4, keystorePassword);
+			pstmt.setString(5, truststorePath);
+			pstmt.setString(6, truststorePassword);
+			pstmt.setString(7, protocolsCsv);
+			pstmt.setString(8, ciphersCsv);
+			int affectedRows = pstmt.executeUpdate();
+			if (affectedRows == 0) {
+				throw new SQLException("listenerテーブルの更新対象レコードが見つかりませんでした。");
+			}
+			conn.commit();
+			logger.fine("listenerテーブルのDIMSE TLS設定を正常に更新しました。");
+		} catch (SQLException e) {
+			logger.log(Level.SEVERE, "listenerテーブルのDIMSE TLS設定更新中にエラーが発生しました。", e);
 			throw e;
 		}
 	}
@@ -4224,25 +4530,46 @@ public class DatabaseHandler {
 		}
 	}
 
+	/**
+	 * SERVERS(リモートノード)の1行を更新する。引数mapのキーは
+	 * {@code DicomCommunicationNode.getNodeMaterials()}に揃える
+	 * (logicalname/aetitle/hostname/port/ciphers/retrievetype/wadocontext/wadoport/
+	 *  wadoprotocol/retrievets/tls_enabled)。
+	 *
+	 * 以前は文字列連結でSQLを組み、(1)`ciphers`と`tls_enabled`を更新対象に含めておらず、
+	 * (2)キーも"nickname"/"aet"という存在しない名前を読んでいた(=logicalname/aetitleが
+	 * 'null'で潰れる)バグがあった。PreparedStatement化して両方修正する。
+	 */
 	public boolean updateServer(HashMap<String, Object> newServerModelMaterial, String prevNickName) {
 		boolean duplicate = false;
-		try (Connection conn = openConnection();) {
-			conn.createStatement()
-					.executeUpdate("update servers set logicalname='" + newServerModelMaterial.get("nickname")
-							+ "',aetitle='" + newServerModelMaterial.get("aet") + "',hostname='"
-							+ newServerModelMaterial.get("hostname") + "',port=" + newServerModelMaterial.get("port")
-							+ ",retrievetype='" + newServerModelMaterial.get("retrievetype") + "',wadocontext='"
-							+ newServerModelMaterial.get("wadocontext") + "',wadoport="
-							+ newServerModelMaterial.get("wadoport") + ",wadoprotocol='"
-							+ newServerModelMaterial.get("wadoprotocol") + "',retrievets='"
-							+ newServerModelMaterial.get("retrievets") + "' where pk="
-							+ getCommunicationServerPk(prevNickName));
+		String sql = "update servers set logicalname=?, aetitle=?, hostname=?, port=?, ciphers=?,"
+				+ " retrievetype=?, wadocontext=?, wadoport=?, wadoprotocol=?, retrievets=?, tls_enabled=?"
+				+ " where pk=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, asString(newServerModelMaterial.get("logicalname")));
+			ps.setString(2, asString(newServerModelMaterial.get("aetitle")));
+			ps.setString(3, asString(newServerModelMaterial.get("hostname")));
+			ps.setObject(4, newServerModelMaterial.get("port"), java.sql.Types.INTEGER);
+			ps.setString(5, asString(newServerModelMaterial.get("ciphers")));
+			ps.setString(6, asString(newServerModelMaterial.get("retrievetype")));
+			ps.setString(7, asString(newServerModelMaterial.get("wadocontext")));
+			ps.setObject(8, newServerModelMaterial.get("wadoport"), java.sql.Types.INTEGER);
+			ps.setString(9, asString(newServerModelMaterial.get("wadoprotocol")));
+			ps.setString(10, asString(newServerModelMaterial.get("retrievets")));
+			Object tls = newServerModelMaterial.get("tls_enabled");
+			ps.setBoolean(11, (tls instanceof Boolean) ? (Boolean) tls : false);
+			ps.setInt(12, getCommunicationServerPk(prevNickName));
+			ps.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 			duplicate = true;// fail safe
 		}
 		return duplicate;
+	}
+
+	private static String asString(Object o) {
+		return o == null ? null : o.toString();
 	}
 
 	public void updateStudy(String studyUid) {

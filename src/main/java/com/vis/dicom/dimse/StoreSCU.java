@@ -243,8 +243,9 @@ public class StoreSCU {
 			CLIUtils.configureConnect(main.remote, main.rq, cl);
 			CLIUtils.configureBind(conn, ae, cl);
 			CLIUtils.configure(conn, cl);
-			main.remote.setTlsProtocols(conn.getTlsProtocols());
-			main.remote.setTlsCipherSuites(conn.getTlsCipherSuites());
+			// ★ 接続先ノードが「Use TLS」なら、自局のkeystore/truststoreと暗号スイートを
+			// device/ローカルconn/main.remoteへ適用する(要求が無ければ何もしない=平文)。
+			com.vis.dicom.tls.DicomTlsConfig.applyScuTlsIfRequested(device, conn, main.remote);
 			configureRelatedSOPClass(main, cl);
 			main.setAttributes(new Attributes());
 			CLIUtils.addAttributes(main.attrs, cl.getOptionValues("s"));
@@ -317,8 +318,9 @@ public class StoreSCU {
 			CLIUtils.configureConnect(main.remote, main.rq, cl);
 			CLIUtils.configureBind(conn, ae, cl);
 			CLIUtils.configure(conn, cl);
-			main.remote.setTlsProtocols(conn.getTlsProtocols());
-			main.remote.setTlsCipherSuites(conn.getTlsCipherSuites());
+			// ★ 接続先ノードが「Use TLS」なら、自局のkeystore/truststoreと暗号スイートを
+			// device/ローカルconn/main.remoteへ適用する(要求が無ければ何もしない=平文)。
+			com.vis.dicom.tls.DicomTlsConfig.applyScuTlsIfRequested(device, conn, main.remote);
 			configureRelatedSOPClass(main, cl);
 			main.setAttributes(new Attributes());
 			CLIUtils.addAttributes(main.attrs, cl.getOptionValues("s"));
@@ -514,8 +516,9 @@ public class StoreSCU {
 			CLIUtils.configureConnect(main.remote, main.rq, cl);
 			CLIUtils.configureBind(conn, ae, cl);
 			CLIUtils.configure(conn, cl);
-			main.remote.setTlsProtocols(conn.getTlsProtocols());
-			main.remote.setTlsCipherSuites(conn.getTlsCipherSuites());
+			// ★ 接続先ノードが「Use TLS」なら、自局のkeystore/truststoreと暗号スイートを
+			// device/ローカルconn/main.remoteへ適用する(要求が無ければ何もしない=平文)。
+			com.vis.dicom.tls.DicomTlsConfig.applyScuTlsIfRequested(device, conn, main.remote);
 			configureRelatedSOPClass(main, cl);
 			main.setAttributes(new Attributes());
 			CLIUtils.addAttributes(main.attrs, cl.getOptionValues("s"));

@@ -236,7 +236,14 @@ public class QueryRetrieve implements Task, Runnable {
 			connectArgs.add("--fuzzy");
 		}
 
-		boolean isConnected = activeScu.openConnection(connectArgs.toArray(new String[0]));
+		// ★ 接続先ノードが「Use TLS」なら、FindSCU.openConnectionがTLSで張るよう要求を伝搬する。
+		com.vis.dicom.tls.DicomTlsConfig.requestScuTls(dest.isTlsEnabled(), dest.getCipher());
+		boolean isConnected;
+		try {
+			isConnected = activeScu.openConnection(connectArgs.toArray(new String[0]));
+		} finally {
+			com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+		}
 		if (!isConnected) {
 			Log.logger.severe("Failed to open association for query.");
 			return emptyRoot();
@@ -1026,7 +1033,13 @@ public class QueryRetrieve implements Task, Runnable {
               "--directory", tempRetriveDir.getAbsolutePath()};
 		 */
 		
-		com.vis.dicom.dimse.GetSCU.main(args);
+		// ★ 接続先ノードが「Use TLS」なら、下層のGetSCU.mainへTLS要求を伝搬する。
+		com.vis.dicom.tls.DicomTlsConfig.requestScuTls(remote.isTlsEnabled(), remote.getCipher());
+		try {
+			com.vis.dicom.dimse.GetSCU.main(args);
+		} finally {
+			com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+		}
 		return tempRetriveDir;
 	}
 	
@@ -1104,7 +1117,13 @@ public class QueryRetrieve implements Task, Runnable {
 
 			// 4. GetSCU実行（ダウンロード）
 			String[] args = argsList.toArray(new String[0]);
-			com.vis.dicom.dimse.GetSCU.main(args);
+			// ★ 接続先ノードが「Use TLS」なら、下層のGetSCU.mainへTLS要求を伝搬する。
+			com.vis.dicom.tls.DicomTlsConfig.requestScuTls(remote.isTlsEnabled(), remote.getCipher());
+			try {
+				com.vis.dicom.dimse.GetSCU.main(args);
+			} finally {
+				com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
+			}
 
 			// 5. ローカルDBへの取り込み（Store）
 			if (tempRetrieveDir.exists()) {
@@ -1174,12 +1193,16 @@ public class QueryRetrieve implements Task, Runnable {
         }
 
         // ---- MoveSCUの実行 ----
+        // ★ 接続先ノードが「Use TLS」なら、下層のMoveSCU.mainへTLS要求を伝搬する。
+        com.vis.dicom.tls.DicomTlsConfig.requestScuTls(remote.isTlsEnabled(), remote.getCipher());
         try {
             com.vis.dicom.dimse.MoveSCU.main(args);
         } catch (Exception e) {
             System.err.println("MoveSCUの実行中にエラーが発生しました。");
             e.printStackTrace();
             throw e;
+        } finally {
+            com.vis.dicom.tls.DicomTlsConfig.clearScuTls();
         }
 	}
 	

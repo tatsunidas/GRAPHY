@@ -45,12 +45,15 @@ import java.util.ArrayList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.ApplicationFacade;
 import com.vis.core.log.Log;
 import com.vis.core.plugin.PlugInCompiler;
 import com.vis.core.plugin.PluginShelf;
 import com.vis.core.ui.dialog.HelpDialog;
+import com.vis.core.ui.dialog.PopUpMessage;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.db.DatabaseHandler;
 
@@ -106,6 +109,15 @@ public class ViewerMenu extends JMenuBar {
 					return;
 				}
 				ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+				// The adjuster only makes sense for a selected Praparat. If none is
+				// selected, tell the user how to select one (Shift + left-click).
+				if (selectedPraps == null || selectedPraps.isEmpty()) {
+					PopUpMessage.showDialog(own,
+							Resources.i18n("dialog.title.information"),
+							Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+							JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+					return;
+				}
 				for(Praparat pp : selectedPraps) {
 					try {
 						WwWlAdjusterDialog.showDialog(pp, own);
@@ -118,6 +130,59 @@ public class ViewerMenu extends JMenuBar {
 			}
 		});
 		mnImage.add(mntmWWWL);
+
+		// Representative WW/WL presets. The submenu is rebuilt every time it is
+		// opened so it always reflects the latest values from graphy.properties.
+		JMenu mnPreset = new JMenu(Resources.i18n("ViewerMenu.menu.presets"));
+		populatePresetMenu(mnPreset);
+		mnPreset.addMenuListener(new javax.swing.event.MenuListener() {
+			@Override
+			public void menuSelected(javax.swing.event.MenuEvent e) {
+				populatePresetMenu(mnPreset);
+			}
+			@Override
+			public void menuDeselected(javax.swing.event.MenuEvent e) {}
+			@Override
+			public void menuCanceled(javax.swing.event.MenuEvent e) {}
+		});
+		mnImage.add(mnPreset);
+
+		// Series sorting (InstanceNumber / spatial Z-axis, each reversible).
+		// Rebuilt on open so spatial items can be disabled for MPEG video series.
+		JMenu mnSort = new JMenu(Resources.i18n("ViewerMenu.menu.sort"));
+		populateSortMenu(mnSort);
+		mnSort.addMenuListener(new javax.swing.event.MenuListener() {
+			@Override
+			public void menuSelected(javax.swing.event.MenuEvent e) {
+				populateSortMenu(mnSort);
+			}
+			@Override
+			public void menuDeselected(javax.swing.event.MenuEvent e) {}
+			@Override
+			public void menuCanceled(javax.swing.event.MenuEvent e) {}
+		});
+		mnImage.add(mnSort);
+
+		// Segmentation: minimal entry to create and edit a binary mask object.
+		// (The full manager UI lives in RoiObjManager.)
+		JMenu mnSeg = new JMenu(Resources.i18n("ViewerMenu.menu.segmentation"));
+		JMenuItem segNew = new JMenuItem(Resources.i18n("ViewerMenu.seg.new"));
+		segNew.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newSegmentationOnSelected();
+			}
+		});
+		JMenuItem segStop = new JMenuItem(Resources.i18n("ViewerMenu.seg.stop"));
+		segStop.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				stopSegmentationOnSelected();
+			}
+		});
+		mnSeg.add(segNew);
+		mnSeg.add(segStop);
+		mnImage.add(mnSeg);
 
 		JMenuItem mntmCurvedMpr = new JMenuItem("Curved MPR...");
 		mntmCurvedMpr.addActionListener(new ActionListener() {
@@ -261,7 +326,183 @@ public class ViewerMenu extends JMenuBar {
 //		});
 //		mnPrefs.add(mntmSettings);
 	}
-	
+
+	/**
+	 * (Re)builds the WW/WL preset submenu from graphy.properties. Each preset item
+	 * applies the preset to the selected Praparat; the last item opens the editor.
+	 */
+	private void populatePresetMenu(JMenu mnPreset) {
+		mnPreset.removeAll();
+		for (final WwWlPresets.WwWlPreset preset : WwWlPresets.loadPresets()) {
+			JMenuItem item = new JMenuItem(preset.toString());
+			item.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					applyPresetToSelected(preset);
+				}
+			});
+			mnPreset.add(item);
+		}
+		mnPreset.addSeparator();
+		JMenuItem editItem = new JMenuItem(Resources.i18n("ViewerMenu.preset.edit"));
+		editItem.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				WwWlPresets.showDialog(Viewer2DScreen.getInstance());
+			}
+		});
+		mnPreset.add(editItem);
+	}
+
+	/**
+	 * Applies the given preset to the first selected Praparat. If none is selected,
+	 * tells the user how to select one (Shift + left-click).
+	 */
+	private void applyPresetToSelected(WwWlPresets.WwWlPreset preset) {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
+			return;
+		}
+		ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+		if (selectedPraps == null || selectedPraps.isEmpty()) {
+			PopUpMessage.showDialog(own,
+					Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		for (Praparat pp : selectedPraps) {
+			try {
+				WwWlPresets.applyPreset(pp, preset);
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			// do just first pp.
+			break;
+		}
+	}
+
+	/**
+	 * (Re)builds the series Sort submenu. Spatial (Z-axis) items are disabled for
+	 * MPEG video series, which have no IPP and support only InstanceNumber order.
+	 */
+	private void populateSortMenu(JMenu mnSort) {
+		mnSort.removeAll();
+
+		// Decide whether spatial sort is applicable based on the selected Praparat.
+		boolean spatialEnabled = true;
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own != null) {
+			ArrayList<Praparat> sel = own.getSelectedPraps();
+			if (sel != null && !sel.isEmpty() && sel.get(0).isMpegVideoSeries()) {
+				spatialEnabled = false;
+			}
+		}
+
+		addSortItem(mnSort, Resources.i18n("ViewerMenu.sort.instanceAsc"),
+				Praparat.SeriesSortMode.INSTANCE_ASC, true);
+		addSortItem(mnSort, Resources.i18n("ViewerMenu.sort.instanceDesc"),
+				Praparat.SeriesSortMode.INSTANCE_DESC, true);
+		mnSort.addSeparator();
+		addSortItem(mnSort, Resources.i18n("ViewerMenu.sort.positionAsc"),
+				Praparat.SeriesSortMode.SPATIAL_Z_ASC, spatialEnabled);
+		addSortItem(mnSort, Resources.i18n("ViewerMenu.sort.positionDesc"),
+				Praparat.SeriesSortMode.SPATIAL_Z_DESC, spatialEnabled);
+	}
+
+	private void addSortItem(JMenu mnSort, String label, final Praparat.SeriesSortMode mode, boolean enabled) {
+		JMenuItem item = new JMenuItem(label);
+		item.setEnabled(enabled);
+		item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				applySortToSelected(mode);
+			}
+		});
+		mnSort.add(item);
+	}
+
+	/**
+	 * Applies the chosen sort mode to the first selected Praparat. If none is
+	 * selected, tells the user how to select one (Shift + left-click).
+	 */
+	private void applySortToSelected(Praparat.SeriesSortMode mode) {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
+			return;
+		}
+		ArrayList<Praparat> selectedPraps = own.getSelectedPraps();
+		if (selectedPraps == null || selectedPraps.isEmpty()) {
+			PopUpMessage.showDialog(own,
+					Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		for (Praparat pp : selectedPraps) {
+			try {
+				pp.applySortMode(mode);
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			// do just first pp.
+			break;
+		}
+	}
+
+	/**
+	 * Creates a new segmentation object on the selected Praparat and enters edit
+	 * mode (drawing tools then paint into its mask; hold Alt to erase).
+	 */
+	private void newSegmentationOnSelected() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
+			return;
+		}
+		ArrayList<Praparat> sel = own.getSelectedPraps();
+		if (sel == null || sel.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		Praparat pp = sel.get(0);
+		String name = JOptionPane.showInputDialog(own,
+				Resources.i18n("ViewerMenu.seg.namePrompt"),
+				Resources.i18n("ViewerMenu.menu.segmentation"), JOptionPane.PLAIN_MESSAGE);
+		if (name == null) {
+			return; // cancelled
+		}
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = com.vis.core.view.D3.roi.SegmentationManager
+				.createSegmentation(pp, name);
+		if (seg == null) {
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.error"),
+					Resources.i18n("ViewerMenu.seg.createFailed"),
+					JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+			return;
+		}
+		pp.setActiveSegmentation(seg);
+		PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+				Resources.i18n("ViewerMenu.seg.editingStarted"),
+				JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	/** Leaves segmentation edit mode on the selected Praparat. */
+	private void stopSegmentationOnSelected() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			return;
+		}
+		ArrayList<Praparat> sel = own.getSelectedPraps();
+		if (sel == null || sel.isEmpty()) {
+			return;
+		}
+		sel.get(0).setActiveSegmentation(null);
+	}
+
 	public void addPluginMenuItem(JMenuItem pluginMenuItem) {
 		this.pluginMenu.add(pluginMenuItem);
 	}

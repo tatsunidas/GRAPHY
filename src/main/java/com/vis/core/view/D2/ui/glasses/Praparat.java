@@ -264,6 +264,10 @@ public class Praparat extends JPanel {
 	// 3D ROI管理リスト
 	private List<RoiObj> roi3DList = new java.util.concurrent.CopyOnWriteArrayList<>();
 
+	// Segmentation edit target. When non-null, drawing tools paint into this mask
+	// (Roi2Mask) instead of creating standalone 2D ROIs.
+	private volatile com.vis.core.view.D3.roi.FreeFormRoi3D activeSegmentation;
+
 	private ReferenceLineMPR refLineMPR;
 
 	private List<String> pathToImages = null;
@@ -287,6 +291,22 @@ public class Praparat extends JPanel {
 	private int currentC = 0;// channel, 0-based
 	private int currentZ = 0;// slice position, 0-based
 	private int currentT = 0;// time frame, 0-based
+
+	/**
+	 * Series sort mode. Controls ONLY the ordering of the Z axis (which spatial
+	 * slice group becomes z=0..N-1). The dimensional decomposition (nC/nZ/nT) and
+	 * the per-image C/T assignment are unchanged, so ZCT index management, IPP
+	 * grouping and (IPP-anchored) 3D ROIs stay consistent across re-sorts.
+	 *
+	 * SPATIAL_Z_* orders by IPP projected onto the slice normal (current default).
+	 * INSTANCE_*  orders by each Z-group's representative (min) InstanceNumber.
+	 * Held per-Praparat for the session only (not persisted).
+	 */
+	public enum SeriesSortMode {
+		SPATIAL_Z_ASC, SPATIAL_Z_DESC, INSTANCE_ASC, INSTANCE_DESC
+	}
+
+	private SeriesSortMode currentSortMode = SeriesSortMode.SPATIAL_Z_ASC;
 
 	/*
 	 * 順序は保証しない
@@ -648,6 +668,38 @@ public class Praparat extends JPanel {
 	public void removeRoi3D(RoiObj roi3D) {
 		if (roi3D != null) {
 			roi3DList.remove(roi3D);
+			if (roi3D == activeSegmentation) {
+				activeSegmentation = null;
+			}
+		}
+	}
+
+	// ========== Segmentation editing ==========
+
+	public com.vis.core.view.D3.roi.FreeFormRoi3D getActiveSegmentation() {
+		return activeSegmentation;
+	}
+
+	/** True while a segmentation object is the active paint target. */
+	public boolean isSegmentationEditing() {
+		return activeSegmentation != null;
+	}
+
+	/**
+	 * Enters segmentation edit mode targeting the given object (null to exit).
+	 * The object is also marked selected so the Brush tool — which edits the
+	 * currently selected 3D ROI — paints into the same mask; other 3D ROIs are
+	 * deselected to keep a single edit target.
+	 */
+	public void setActiveSegmentation(com.vis.core.view.D3.roi.FreeFormRoi3D seg) {
+		this.activeSegmentation = seg;
+		if (roi3DList != null) {
+			for (RoiObj r : roi3DList) {
+				r.setSelectedState(r == seg);
+			}
+		}
+		if (seg != null) {
+			setCurrentRoi(seg);
 		}
 	}
 
@@ -895,11 +947,16 @@ public class Praparat extends JPanel {
 		// ★ 追加: IOPが異なる（回転している）場合は、Z座標でのグループ化を諦め、連番で並べる
 		if (!isIopConsistent) {
 			Log.logger.info("Inconsistent IOP detected. Treating as standard sequential slices (e.g., Rotating MIP).");
+			// No spatial axis here, so both SPATIAL_* and INSTANCE_* fall back to
+			// InstanceNumber order; only the chosen direction (asc/desc) is honored.
 			slideList.sort((sg1, sg2) -> {
 				int inst1 = sg1.getHeader().getInt(Tag.InstanceNumber, 0);
 				int inst2 = sg2.getHeader().getInt(Tag.InstanceNumber, 0);
 				return Integer.compare(inst1, inst2);
 			});
+			if (isReverseSort()) {
+				java.util.Collections.reverse(slideList);
+			}
 			slides.clear();
 			for (int i = 0; i < slideList.size(); i++) {
 				slides.put(i, slideList.get(i));
@@ -1060,6 +1117,11 @@ public class Praparat extends JPanel {
 			}
 		}
 		final Map<String, Integer> resolvedChannelKeyToIndex = channelKeyToIndex;
+
+		// ★ Z軸の並び順をソートモードで決める。ここまでで sliceGroups は pos(法線射影)の
+		// 昇順に並んでいる(=SPATIAL_Z_ASC)。グルーピング(=同一断面のC/Tまとめ)はそのままに、
+		// Zグループの「順序」だけを差し替えるので、次元分解・IPPグルーピング・3D ROI整合性は不変。
+		applySortModeToSliceGroups(sliceGroups);
 
 		// 5. 1Dマップ（slides）への再マッピング
 		slides.clear();
@@ -1895,6 +1957,220 @@ public class Praparat extends JPanel {
 			}
 		}
 		return new int[] { -1, -1, -1 };
+	}
+
+	// ==========================================================
+	// Series sorting (InstanceNumber / spatial-Z, each reversible)
+	// ==========================================================
+
+	public SeriesSortMode getSortMode() {
+		return currentSortMode;
+	}
+
+	/**
+	 * True for MPEG-encapsulated video series, where slices have no IPP and only
+	 * InstanceNumber ordering (asc/desc) is meaningful for sorting.
+	 */
+	public boolean isMpegVideoSeries() {
+		return isMpegVideoSeries;
+	}
+
+	/** True when the current sort mode requests descending (reverse) order. */
+	private boolean isReverseSort() {
+		return currentSortMode == SeriesSortMode.SPATIAL_Z_DESC
+				|| currentSortMode == SeriesSortMode.INSTANCE_DESC;
+	}
+
+	/** True when the current sort mode orders the Z axis by InstanceNumber. */
+	private boolean isInstanceSort() {
+		return currentSortMode == SeriesSortMode.INSTANCE_ASC
+				|| currentSortMode == SeriesSortMode.INSTANCE_DESC;
+	}
+
+	/**
+	 * Reorders the Z-slice groups (each group = one cross-section, holding its
+	 * C/T images) according to {@link #currentSortMode}. The incoming list is in
+	 * ascending spatial order (pos along the slice normal). Only the ORDER of the
+	 * groups changes here; their contents (C/T assignment) are untouched.
+	 */
+	private void applySortModeToSliceGroups(List<List<SlideGlass>> sliceGroups) {
+		if (sliceGroups == null || sliceGroups.size() < 2) {
+			return;
+		}
+		if (isInstanceSort()) {
+			// Order Z by each group's representative (minimum) InstanceNumber.
+			sliceGroups.sort((g1, g2) -> Integer.compare(minInstanceNumber(g1), minInstanceNumber(g2)));
+		}
+		// SPATIAL_*: list is already ascending pos; INSTANCE_*: now ascending instance.
+		if (isReverseSort()) {
+			java.util.Collections.reverse(sliceGroups);
+		}
+	}
+
+	private static int minInstanceNumber(List<SlideGlass> group) {
+		int min = Integer.MAX_VALUE;
+		for (SlideGlass sg : group) {
+			int inst = sg.getHeader().getInt(Tag.InstanceNumber, Integer.MAX_VALUE);
+			if (inst < min) {
+				min = inst;
+			}
+		}
+		return min;
+	}
+
+	/**
+	 * Applies a new series sort mode and re-indexes the already-loaded slides
+	 * in place (no file reload). Keeps WW/WL, the currently viewed slice, ROIs
+	 * and 3D ROIs consistent with the new Z order.
+	 */
+	public void applySortMode(SeriesSortMode mode) {
+		if (mode == null || mode == currentSortMode) {
+			return;
+		}
+		this.currentSortMode = mode;
+		resortSlides();
+	}
+
+	/**
+	 * Re-runs the dimensional organization over the existing SlideGlasses using
+	 * {@link #currentSortMode}, then repairs every index-keyed piece of state so
+	 * the view stays consistent.
+	 */
+	private void resortSlides() {
+		if (slides == null || slides.isEmpty()) {
+			return;
+		}
+
+		// MPEG video has no IPP; only InstanceNumber ordering is meaningful there.
+		if (isMpegVideoSeries) {
+			resortMpegFrames();
+			return;
+		}
+
+		// Remember the currently displayed slice so we can restore it afterwards.
+		SlideGlass currentSg = (currentSliceZCT >= 0) ? slides.get(currentSliceZCT) : null;
+		String currentSop = (currentSg != null) ? currentSg.getSOPInstanceUID() : null;
+
+		// Snapshot per-SlideGlass WW/WL (keyed by old index) so windows follow the
+		// image, not the index, after re-indexing. wwWlStorage is index-keyed.
+		java.util.IdentityHashMap<SlideGlass, WwWlState> wwBySlide = new java.util.IdentityHashMap<>();
+		for (Entry<Integer, WwWlState> e : wwWlStorage.entrySet()) {
+			SlideGlass sg = slides.get(e.getKey());
+			if (sg != null) {
+				wwBySlide.put(sg, e.getValue());
+			}
+		}
+
+		// Rebuild a stable slide list (sorted by current key) and re-organize.
+		List<Integer> keys = new ArrayList<>(slides.keySet());
+		java.util.Collections.sort(keys);
+		List<SlideGlass> slideList = new ArrayList<>();
+		for (Integer k : keys) {
+			SlideGlass sg = slides.get(k);
+			if (sg != null) {
+				slideList.add(sg);
+			}
+		}
+		organizeMultiDimensionalSlides(slideList); // honors currentSortMode, rebuilds slides
+
+		// Re-key WW/WL so each SlideGlass keeps its window after re-indexing.
+		wwWlStorage.clear();
+		for (Entry<Integer, SlideGlass> e : slides.entrySet()) {
+			WwWlState st = wwBySlide.get(e.getValue());
+			if (st != null) {
+				wwWlStorage.put(e.getKey(), st);
+			}
+		}
+
+		// Z order changed -> Thick Slab's digital-Z mapping/caches are invalid.
+		thickSlabCache.clear();
+		renderedDigitalZByNativeIndex.clear();
+		currentDigitalSliceZ = 0;
+		thickSlabThicknessMm = 0.0;
+		if (thickSlabSpinner != null) {
+			thickSlabSpinner.setValue("Original");
+		}
+
+		// 2D ROIs ride on their SlideGlass (display is unaffected), but their stored
+		// Position/Dim_Z became stale; refresh so a later DB save/reload is correct.
+		// 3D ROIs (Sphere/FreeForm) are Praparat-level and IPP-anchored: no remap needed.
+		refreshRoi2DPositions();
+
+		// Rebuild sliders for the (possibly identical) dimensions and restore the slice.
+		updateSlidersVisibility();
+		int targetIndex = (currentSop != null) ? getSlidePosition(currentSop) : -1;
+		if (targetIndex < 0) {
+			targetIndex = 0;
+		}
+		currentSliceZCT = -1; // force a full re-realize against the new map
+		if (slider != null) {
+			setImagePositionUsingSlider(targetIndex);
+		} else {
+			setImagePosition(targetIndex);
+		}
+		callBackLocalizer();
+	}
+
+	/**
+	 * MPEG video re-sort: only InstanceNumber asc/desc is supported (no IPP/Z
+	 * axis). Reorders the lazy frame source and resets to the first frame.
+	 */
+	private void resortMpegFrames() {
+		if (mpegFrameSource == null || mpegFrameSource.isEmpty()) {
+			return;
+		}
+		mpegFrameSource.sort((a, b) -> Integer.compare(a.getHeader().getInt(Tag.InstanceNumber, 0),
+				b.getHeader().getInt(Tag.InstanceNumber, 0)));
+		if (isReverseSort()) {
+			java.util.Collections.reverse(mpegFrameSource);
+		}
+		// Drop lazily realized frames; they will be regenerated on demand in new order.
+		slides.clear();
+		wwWlStorage.clear();
+		thickSlabCache.clear();
+		renderedDigitalZByNativeIndex.clear();
+		currentDigitalSliceZ = 0;
+		ensureSlideGlassAt(0);
+		currentSliceZCT = -1;
+		updateSlidersVisibility();
+		setImagePositionUsingSlider(0);
+	}
+
+	/**
+	 * Refreshes the stored Position/Dim_Z/Dim_C/Dim_T of every 2D ROI to match the
+	 * new linear index of its SlideGlass. Global ROIs (Dim_Z == -1) and 3D-managed
+	 * ROIs are left untouched. Updates in-memory props only (no DB write).
+	 */
+	private void refreshRoi2DPositions() {
+		if (slides == null) {
+			return;
+		}
+		for (Entry<Integer, SlideGlass> e : slides.entrySet()) {
+			SlideGlass sg = e.getValue();
+			if (sg == null) {
+				continue;
+			}
+			CanvasGlass cg = (CanvasGlass) sg.getGlassAt(SlideGlass.ROI_CANVAS_LAYER);
+			if (cg == null || cg.getRoiSet() == null) {
+				continue;
+			}
+			int[] zct = calcZCTArrayFromIndex(e.getKey());
+			for (RoiObj r : cg.getRoiSet()) {
+				// 3D-managed ROIs are not held in per-slide roiSets, but guard anyway.
+				if (r instanceof com.vis.core.view.D3.roi.SphereRoi3D
+						|| r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) {
+					continue;
+				}
+				// Leave global (all-slice) ROIs alone.
+				if ("-1".equals(r.getProperty(RoiMetaContextKey.Dim_Z.name()))) {
+					continue;
+				}
+				r.setProperty(RoiDBKey.Position.name(), String.valueOf(e.getKey() + 1));
+				r.setProperty(RoiMetaContextKey.Dim_Z.name(), String.valueOf(zct[0]));
+				r.setProperty(RoiMetaContextKey.Dim_C.name(), String.valueOf(zct[1]));
+				r.setProperty(RoiMetaContextKey.Dim_T.name(), String.valueOf(zct[2]));
+			}
+		}
 	}
 
 	public int[] calcZCTArrayFromIndex(int index/* zct */) {

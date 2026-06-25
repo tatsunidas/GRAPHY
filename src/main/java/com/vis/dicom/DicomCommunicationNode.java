@@ -60,7 +60,8 @@ public class DicomCommunicationNode {
     private String wadoContextPath = "";
     private String wadoProtocol = "";
     private String retrieveTransferSyntax = "";
-    
+    private boolean tlsEnabled;// このリモートノードへの接続にDIMSE TLS(相互TLS)を使うか
+
     public DicomCommunicationNode(HashMap<String,Object> nodeMaterials) {
 		this.nickname = (String)nodeMaterials.get("logicalname");
 		this.aeTitle = (String)nodeMaterials.get("aetitle");
@@ -70,6 +71,8 @@ public class DicomCommunicationNode {
 		}
 		this.port = (Integer)nodeMaterials.get("port");
 		cipherStringToList((String)nodeMaterials.get("ciphers"));// set this.ciphers
+		Object tls = nodeMaterials.get("tls_enabled");
+		this.tlsEnabled = (tls instanceof Boolean) ? (Boolean) tls : false;
 		this.retrieveType = (String)nodeMaterials.get("retrievetype");
 		this.wadoContextPath = (String)nodeMaterials.get("wadocontext");
 		this.wadoPort = (Integer)nodeMaterials.get("wadoport");
@@ -131,13 +134,24 @@ public class DicomCommunicationNode {
 		nodeMaterials.put("aetitle", aeTitle);
 		nodeMaterials.put("hostname", hostName);
 		nodeMaterials.put("port", port);
-		nodeMaterials.put("ciphers", ciphers);
+		// ★ cipherはString(カンマ区切り)で入れる。HashMapコンストラクタ側は(String)castで
+		// 読むため、ArrayListを入れると往復で ClassCastException になる(修正)。
+		nodeMaterials.put("ciphers", cipherListToString());
 		nodeMaterials.put("retrievetype", retrieveType);
 		nodeMaterials.put("wadocontext", wadoContextPath);
 		nodeMaterials.put("wadoport", wadoPort);
 		nodeMaterials.put("wadoprotocol", wadoProtocol);
 		nodeMaterials.put("retrievets", retrieveTransferSyntax);
+		nodeMaterials.put("tls_enabled", tlsEnabled);
 		return nodeMaterials;
+	}
+
+	public boolean isTlsEnabled() {
+		return tlsEnabled;
+	}
+
+	public void setTlsEnabled(boolean tlsEnabled) {
+		this.tlsEnabled = tlsEnabled;
 	}
     
     /*

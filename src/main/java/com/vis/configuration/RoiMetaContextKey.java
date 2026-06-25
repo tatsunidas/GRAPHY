@@ -19,5 +19,9 @@ public enum RoiMetaContextKey {
 	Shape_3D_FREEFORM,
 	Sphere_Center_IPP,
 	Sphere_Radius_mm,
+	// Segmentation object attributes (a FreeFormRoi3D used as an editable mask/segment).
+	Is_Segmentation,// "true" when this 3D ROI is an editable segmentation object
+	Segment_Number,// 1-based segment identity used when exporting to DICOM SEG
+	Segment_Color,// display color as "r,g,b" (persisted per object, unlike transient strokeColor)
 	;
 }

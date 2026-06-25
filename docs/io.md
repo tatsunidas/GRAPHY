@@ -125,6 +125,21 @@ GRAPHY は起動中に SCP として動作し、他の DICOM 機器からの送�
 
 ---
 
+## DICOMweb ネットワーク通信（QIDO-RS / WADO-RS / STOW-RS）
+
+GRAPHY は DIMSE に加え、HTTP/REST ベースの **DICOMweb** サービスもサポートします。
+外部システムや Web ブラウザベースのビューワとの連携に適しています。
+
+| サービス | 説明 |
+|---|---|
+| QIDO-RS | HTTP GET でスタディ・シリーズ・インスタンスを検索（DICOM JSON レスポンス） |
+| WADO-RS | HTTP GET で DICOM ファイルを取得（multipart/related） |
+| STOW-RS | HTTP POST で DICOM ファイルを GRAPHY へ保存 |
+
+設定・使用方法の詳細は **[DICOMweb](dicomweb.md)** を参照してください。
+
+---
+
 <!-- new-page -->
 
 ## 匿名化

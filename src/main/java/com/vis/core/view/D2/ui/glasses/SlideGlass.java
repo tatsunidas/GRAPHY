@@ -483,8 +483,19 @@ public class SlideGlass extends JLayeredPane {
         RoiObj newRoi = new RoiConverter().convert2RoiObj(ijRoi);
 
         if (newRoi != null) {
+            // Segmentation edit: bake the wand region into the active mask (Roi2Mask)
+            // instead of creating a standalone 2D ROI.
+            if (pp != null && pp.isSegmentationEditing()) {
+                CanvasGlass cg = (CanvasGlass) getGlassAt(ROI_CANVAS_LAYER);
+                if (cg != null) {
+                    cg.bakeRoiIntoActiveSegmentation(newRoi, false);
+                }
+                repaintCanvasGlass();
+                return;
+            }
+
             // クリックした場所の既存ROIを更新するかどうかの判定
-            
+
             if (clickedRoi != null && clickedRoi.isArea()) {
                 newRoi.copyAttributes(clickedRoi);
                 HashMap<RoiDBKey, String> uids = clickedRoi.getUIDs();

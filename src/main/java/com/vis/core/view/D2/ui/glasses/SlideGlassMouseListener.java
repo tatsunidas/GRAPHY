@@ -133,7 +133,8 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		ghostTimer.setRepeats(true);
 		
 		// SlideGlassMouseListener.java のコンストラクタ内
-
+		// DropTarget は DnD のためにディスプレイが必要（headless 環境ではスキップ）
+		if (!java.awt.GraphicsEnvironment.isHeadless()) {
 		new java.awt.dnd.DropTarget(slide, java.awt.dnd.DnDConstants.ACTION_COPY_OR_MOVE, new java.awt.dnd.DropTargetAdapter() {
 		    @Override
 		    public void dragEnter(java.awt.dnd.DropTargetDragEvent dtde) {
@@ -184,6 +185,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		        }
 		    }
 		});
+		} // end if (!isHeadless)
 	}
 
 	@Override
