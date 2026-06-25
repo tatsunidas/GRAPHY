@@ -79,6 +79,7 @@ public enum Resources {
 	CutIcon("icon/outline_content_cut_black_48dp.png"),
 	RadiomicsJIcon("icon/RadiomicsJ_icon.png"),
 	SlicerIcon("icon/slicer.png"),
+	ImageJIcon("icon/imagej_logo_icon_248030.png"),
 	
 	
 	//pref

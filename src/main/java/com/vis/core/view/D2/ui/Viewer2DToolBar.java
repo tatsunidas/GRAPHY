@@ -1041,8 +1041,7 @@ public class Viewer2DToolBar extends JToolBar {
 		map.put("slicer", Resources.SlicerIcon);
 		map.put("viewer3d", Resources.MenuBarViewer3DIcon);
 		map.put("mpr", Resources.MenuBarMPRWindowIcon);
-		// ★暫定でRadiomicsJIconを流用（専用アイコン未用意のため、後で差し替え可能）
-		map.put("imagej", Resources.RadiomicsJIcon);
+		map.put("imagej", Resources.ImageJIcon);
 //		map.put("radiomics", Resources.RadiomicsJIcon);
 		return map;
 	}

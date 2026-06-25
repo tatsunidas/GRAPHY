@@ -84,6 +84,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Generate .ico app icon
+        run: |
+          pip install --quiet pillow
+          python -c "from PIL import Image; img = Image.open('src/main/resources/icon/app_icon.png'); img.save('app_icon.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+
       - name: Run jpackage (.exe)
         run: |
           mkdir -p dist
@@ -96,6 +101,7 @@ jobs:
             --main-class com.vis.core.launcher.Launcher \
             --runtime-image jre-bins/windows \
             --vendor "Visionary Imaging Services, Inc." \
+            --icon app_icon.ico \
             --win-dir-chooser --win-menu --win-shortcut \
             --java-options "-Xms512m" \
             --java-options "-Xmx9216m" \
@@ -174,6 +180,7 @@ jobs:
             --main-class com.vis.core.launcher.Launcher \
             --runtime-image jre-bins/linux \
             --vendor "Visionary Imaging Services, Inc." \
+            --icon src/main/resources/icon/app_icon.png \
             --linux-shortcut \
             --java-options "-Xms512m" \
             --java-options "-Xmx9216m" \
@@ -236,6 +243,23 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Generate .icns app icon
+        run: |
+          rm -rf app_icon.iconset
+          mkdir app_icon.iconset
+          SRC=src/main/resources/icon/app_icon.png
+          sips -z 16 16     "$SRC" --out app_icon.iconset/icon_16x16.png
+          sips -z 32 32     "$SRC" --out app_icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     "$SRC" --out app_icon.iconset/icon_32x32.png
+          sips -z 64 64     "$SRC" --out app_icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   "$SRC" --out app_icon.iconset/icon_128x128.png
+          sips -z 256 256   "$SRC" --out app_icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   "$SRC" --out app_icon.iconset/icon_256x256.png
+          sips -z 512 512   "$SRC" --out app_icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   "$SRC" --out app_icon.iconset/icon_512x512.png
+          sips -z 1024 1024 "$SRC" --out app_icon.iconset/icon_512x512@2x.png
+          iconutil -c icns app_icon.iconset -o app_icon.icns
+
       - name: Run jpackage (.dmg)
         run: |
           mkdir -p dist
@@ -253,6 +277,7 @@ jobs:
             --main-class com.vis.core.launcher.Launcher \
             --runtime-image jre-bins/mac \
             --vendor "Visionary Imaging Services, Inc." \
+            --icon app_icon.icns \
             --java-options "-Xms512m" \
             --java-options "-Xmx9216m" \
             --java-options "-Dj3d.allowNullGraphicsConfig=true" \

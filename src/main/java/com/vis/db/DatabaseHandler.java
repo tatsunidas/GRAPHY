@@ -148,6 +148,8 @@ public class DatabaseHandler {
 
 	// dcmqrscp
 	private DicomServer dcmqrscp;
+	// DICOMweb (QIDO-RS/WADO-RS/STOW-RS) サーバー。DIMSEのdcmqrscpとはポート・プロトコルが別。
+	private com.vis.dicom.web.DicomWebServer dicomWebServer;
 	public final String defaultAET = "GRAPHY";
 	public final String defaultHost = "localhost";
 	public final String defaultPort = "4891";// for dimse,
@@ -364,6 +366,34 @@ public class DatabaseHandler {
 			logger.log(Level.SEVERE, "テーブル作成中にSQLエラーが発生しました。トランザクションはロールバックされます。", e);
 			// 呼び出し元に失敗を伝えるために、例外をスローする
 			throw e;
+		}
+	}
+
+	/**
+	 * 既存DB(createTables()は新規DB作成時にしか走らない)にDICOMweb用の列が無ければ追加する、
+	 * 冪等なマイグレーション。新規DBでもLISTENER.sql側に既に列があるため、ここはno-opになる
+	 * (DatabaseMetaData上に列が見つかるため)。Derbyには「列が無ければ追加」という構文が無いため、
+	 * メタデータで存在確認してから個別にALTER TABLEする。
+	 */
+	private void migrateListenerTableIfNeeded() {
+		try (Connection conn = openConnection()) {
+			DatabaseMetaData meta = conn.getMetaData();
+			boolean hasColumn;
+			try (ResultSet rs = meta.getColumns(null, null, "LISTENER", "DICOMWEB_ENABLED")) {
+				hasColumn = rs.next();
+			}
+			if (hasColumn) {
+				return;
+			}
+			try (Statement st = conn.createStatement()) {
+				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_enabled boolean default false");
+				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_port integer");
+				st.executeUpdate("ALTER TABLE LISTENER ADD COLUMN dicomweb_contextpath varchar(255) default '/dicomweb'");
+				conn.commit();
+				logger.info("LISTENERテーブルにDICOMweb用の列を追加しました(既存DBのマイグレーション)。");
+			}
+		} catch (SQLException e) {
+			logger.log(Level.SEVERE, "LISTENERテーブルのDICOMweb列マイグレーションに失敗しました。", e);
 		}
 	}
 
@@ -674,6 +704,31 @@ public class DatabaseHandler {
 			} else {
 				return map;
 			}
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return null;
+	}
+
+	/**
+	 * StudyInstanceUIDだけからPatientIDを引く小さなヘルパー。
+	 * getSeriesInfoByUIDs/getImagesInfoByUIDs/getImageInstanceInfoはPatientIDを
+	 * 等価条件で要求する(LIKEではなく=なので、未知/nullでは絶対にマッチしない)ため、
+	 * URL上にStudyInstanceUIDしか無いDICOMweb(QIDO-RS/WADO-RS)のスタディ配下エンドポイントは、
+	 * まずこれでPatientIDを解決してから既存メソッドに渡す。
+	 */
+	public String getPatientIDByStudyUID(String studyIUID) {
+		String statement = "SELECT PatientID FROM STUDY WHERE StudyInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(statement)) {
+			pstmt.setString(1, studyIUID);
+			try (ResultSet rs = pstmt.executeQuery()) {
+				if (rs.next()) {
+					String patID = rs.getString("PatientID");
+					conn.commit();
+					return patID;
+				}
+			}
+			conn.commit();
 		} catch (SQLException ex) {
 			logger.severe(ex.getMessage());
 		}
@@ -2788,7 +2843,6 @@ public class DatabaseHandler {
 	public ArrayList<HashMap<String, String>> listStudies(String patientName, String patientID, String dob,
 			String accNo, String studyDate, String studyDesc, String modality) {
 		ArrayList<HashMap<String, String>> result = new ArrayList<>();
-		HashMap<String, String> matchingStudies = new HashMap<String, String>();
 		try (Connection conn = openConnection();) {
 			ResultSet matchingInfo = conn.createStatement().executeQuery(
 					"select * from patient inner join study on patient.PatientID=study.PatientID where upper(patient.PatientID) like '"
@@ -2798,6 +2852,10 @@ public class DatabaseHandler {
 							+ studyDate + "' and upper(study.StudyDescription) like '" + studyDesc
 							+ "' and upper(study.ModalitiesInStudy) like '" + modality + "'");
 			while (matchingInfo.next()) {
+				// ★ 修正: 行ごとに新しいMapを作る(以前はループ外の1個のMapを使い回しており、
+				// 複数件マッチすると全件が同じ参照=最後の行のコピーになるバグがあった)
+				HashMap<String, String> matchingStudies = new HashMap<String, String>();
+				matchingStudies.put("PatientID", matchingInfo.getString("PatientID"));
 				matchingStudies.put("PatientName", matchingInfo.getString("PatientName")); // Bug fix: key was "PatientID"
 				matchingStudies.put("PatientBirthDate", matchingInfo.getString("PatientBirthDate"));
 				matchingStudies.put("AccessionNumber", matchingInfo.getString("AccessionNumber"));
@@ -3510,9 +3568,18 @@ public class DatabaseHandler {
 					logger.log(Level.SEVERE, "dcmqrscp サービスの停止中にエラーが発生しました。", stopEx);
 				}
 			}
+			if (dicomWebServer != null) {
+				try {
+					dicomWebServer.stop();
+					logger.info("DICOMwebサーバーを停止しました。");
+				} catch (Exception stopEx) {
+					logger.log(Level.SEVERE, "DICOMwebサーバーの停止中にエラーが発生しました。", stopEx);
+				}
+			}
 			// データベース参照を解放
 			derby = null;
 			dcmqrscp = null;
+			dicomWebServer = null;
 		}
 	}
 
@@ -3549,6 +3616,8 @@ public class DatabaseHandler {
 				return false;
 			}
 		}
+		// ★ 既存DBにDICOMweb用の列が無ければ追加する(新規DBは既にLISTENER.sqlに列があるためno-op)
+		migrateListenerTableIfNeeded();
 
 		try {
 			initDicomServer();
@@ -3739,6 +3808,31 @@ public class DatabaseHandler {
 		// configured here (the user can change it via PACSConnectionPrefs, so this must
 		// not be hardcoded to the 11112 default).
 		com.vis.core.util.FirewallConfigurator.ensureDicomPortOpen(currentPort);
+
+		// ★ DICOMweb(QIDO-RS/WADO-RS/STOW-RS)サーバー。DIMSEとは別ポート、明示的な有効化が必要(既定は無効)。
+		if (dicomWebServer != null) {
+			dicomWebServer.stop();
+			dicomWebServer = null;
+		}
+		String[] webDetails = getDicomWebListenerDetails();
+		boolean webEnabled = webDetails != null && Boolean.parseBoolean(webDetails[0]);
+		if (webEnabled) {
+			int webPort = Integer.parseInt(webDetails[1]);
+			if (webPort > 0) {
+				try {
+					dicomWebServer = new com.vis.dicom.web.DicomWebServer(webPort, webDetails[2]);
+					dicomWebServer.start();
+					com.vis.core.util.FirewallConfigurator.ensureDicomPortOpen(String.valueOf(webPort));
+				} catch (IOException e) {
+					logger.log(Level.SEVERE, "DICOMwebサーバーの起動に失敗しました(port=" + webPort + ")。", e);
+					dicomWebServer = null;
+				}
+			} else {
+				logger.info("DICOMwebサーバーは無効化されています(ポート未設定)。");
+			}
+		} else {
+			logger.fine("DICOMwebサーバーは設定で無効化されています(dicomweb_enabled=false)。");
+		}
 	}
 
 	/**
@@ -3954,6 +4048,58 @@ public class DatabaseHandler {
 		} catch (SQLException e) {
 			// 6. エラーをログに記録し、例外を再スローして呼び出し元に通知
 			logger.log(Level.SEVERE, "listenerテーブルの更新中にエラーが発生しました。", e);
+			throw e;
+		}
+	}
+
+	/**
+	 * GRAPHY自身のローカルDICOMweb(QIDO/WADO/STOW)サーバー設定を取得する。
+	 * SERVERSテーブルのwadocontext/wadoport/wadoprotocol(リモートサーバー用、未使用)とは無関係。
+	 *
+	 * @return [enabled("true"/"false"), port, contextPath]。取得失敗時はnull。
+	 */
+	public String[] getDicomWebListenerDetails() {
+		String statement = "SELECT dicomweb_enabled, dicomweb_port, dicomweb_contextpath FROM LISTENER";
+		String[] detail = null;
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(statement);
+				ResultSet rs = ps.executeQuery();) {
+			if (rs.next()) {
+				detail = new String[3];
+				detail[0] = String.valueOf(rs.getBoolean("dicomweb_enabled"));
+				int port = rs.getInt("dicomweb_port");
+				detail[1] = rs.wasNull() ? "0" : String.valueOf(port);
+				String contextPath = rs.getString("dicomweb_contextpath");
+				detail[2] = contextPath != null ? contextPath : "/dicomweb";
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return detail;
+	}
+
+	/**
+	 * GRAPHY自身のローカルDICOMwebサーバー設定を更新する。
+	 *
+	 * @param enabled     trueならDICOMwebサーバーを起動する
+	 * @param port        DICOMwebサーバーのポート(DIMSEのportとは別)
+	 * @param contextPath 例: "/dicomweb"
+	 */
+	public void updateDicomWebListener(boolean enabled, int port, String contextPath) throws SQLException {
+		String sql = "UPDATE listener SET dicomweb_enabled = ?, dicomweb_port = ?, dicomweb_contextpath = ?";
+		try (Connection conn = openConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+			pstmt.setBoolean(1, enabled);
+			pstmt.setInt(2, port);
+			pstmt.setString(3, contextPath);
+			int affectedRows = pstmt.executeUpdate();
+			if (affectedRows == 0) {
+				throw new SQLException("listenerテーブルの更新対象レコードが見つかりませんでした。");
+			}
+			conn.commit();
+			logger.fine("listenerテーブルのDICOMweb設定を正常に更新しました。");
+		} catch (SQLException e) {
+			logger.log(Level.SEVERE, "listenerテーブルのDICOMweb設定更新中にエラーが発生しました。", e);
 			throw e;
 		}
 	}

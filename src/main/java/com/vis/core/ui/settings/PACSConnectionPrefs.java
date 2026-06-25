@@ -60,6 +60,7 @@ import javax.swing.JOptionPane;
 
 import java.awt.GridBagConstraints;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFormattedTextField;
 
 import java.awt.Insets;
@@ -227,7 +228,10 @@ public class PACSConnectionPrefs extends JPanel {
 		gbc_horizontalStrut_2.gridy = 3;
 		nodes.add(horizontalStrut_2, gbc_horizontalStrut_2);
 
-		add(buildDCMQRSCPSettingPanel(),BorderLayout.NORTH);
+		JPanel northPanel = new JPanel(new java.awt.GridLayout(2, 1));
+		northPanel.add(buildDCMQRSCPSettingPanel());
+		northPanel.add(buildDicomWebSettingPanel());
+		add(northPanel, BorderLayout.NORTH);
 		add(nodes, BorderLayout.CENTER);
 	}
 
@@ -484,7 +488,97 @@ public class PACSConnectionPrefs extends JPanel {
 		p.add(update);
 		
 		base.add(p, BorderLayout.CENTER);
-		
+
+		return base;
+	}
+
+	/**
+	 * DICOMweb(QIDO-RS/WADO-RS/STOW-RS)サーバーの有効化/ポート設定。
+	 * 既存の「Update Listener」と同じパターン(検証→DB更新→アプリ再起動を促す)に合わせる。
+	 */
+	private JPanel buildDicomWebSettingPanel() {
+		JPanel base = new JPanel();
+		base.setLayout(new BorderLayout());
+		base.setBorder(BorderFactory.createEtchedBorder());
+
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		boolean currentEnabled = false;
+		String currentPort = "";
+		String currentContextPath = "/dicomweb";
+		if (db != null) {
+			String[] webDetails = db.getDicomWebListenerDetails();
+			if (webDetails != null) {
+				currentEnabled = Boolean.parseBoolean(webDetails[0]);
+				currentPort = webDetails[1];
+				currentContextPath = webDetails[2];
+			}
+		}
+
+		JPanel currentInfo = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		currentInfo.add(new JLabel("Current DICOMweb: ENABLED=" + currentEnabled + ", PORT=" + currentPort
+				+ ", PATH=" + currentContextPath, JLabel.LEFT));
+		base.add(currentInfo, BorderLayout.NORTH);
+
+		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		JCheckBox enabledCheck = new JCheckBox("Enable DICOMweb server (QIDO-RS/WADO-RS/STOW-RS)", currentEnabled);
+		p.add(enabledCheck);
+
+		p.add(new JLabel("Port"));
+		NumberFormat webPortFormat = NumberFormat.getIntegerInstance();
+		webPortFormat.setGroupingUsed(false);
+		NumberFormatter webPortFormatter = new NumberFormatter(webPortFormat);
+		webPortFormatter.setValueClass(Integer.class);
+		webPortFormatter.setMinimum(0);
+		webPortFormatter.setMaximum(65535);
+		webPortFormatter.setAllowsInvalid(false);
+		webPortFormatter.setCommitsOnValidEdit(true);
+		JFormattedTextField webPortField = new JFormattedTextField(webPortFormatter);
+		webPortField.setColumns(5);
+		if (currentPort != null && !currentPort.isEmpty() && !"0".equals(currentPort)) {
+			webPortField.setValue(Integer.valueOf(currentPort));
+		}
+		p.add(webPortField);
+
+		JButton updateWeb = new JButton("Update DICOMweb Settings");
+		updateWeb.setToolTipText(
+				"DIMSEのPortとは別の番号にしてください。HTTP(暗号化なし)で公開されるため、信頼できるネットワークでのみ有効化してください。");
+		updateWeb.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				MainScreen ms = WindowManager.getMainScreen();
+				int res = JOptionPane.showConfirmDialog(ms, Resources.i18n("PACSConnectionPrefs.confirm.shutdown"),
+						Resources.i18n("dialog.title.confirm"), JOptionPane.OK_CANCEL_OPTION,
+						JOptionPane.QUESTION_MESSAGE);
+				if (res != JOptionPane.OK_OPTION) {
+					return;
+				}
+				boolean enabled = enabledCheck.isSelected();
+				Object portValue = webPortField.getValue();
+				int port = (portValue instanceof Number) ? ((Number) portValue).intValue() : 0;
+				if (enabled && port <= 0) {
+					JOptionPane.showMessageDialog(null, "Please set a port number when enabling DICOMweb.",
+							Resources.i18n("dialog.title.inputWarning"), JOptionPane.WARNING_MESSAGE);
+					return;
+				}
+				DatabaseHandler db2 = DatabaseHandler.getInstance();
+				try {
+					db2.updateDicomWebListener(enabled, port, "/dicomweb");
+				} catch (Exception e1) {
+					Log.logger.log(Level.SEVERE, e1.getMessage());
+				}
+				if (ms != null) {
+					try {
+						ApplicationFacade.readyToClose(Level.SEVERE/* Force closing */,
+								"DICOMweb settings was updated. GRAPHY need to restart.");
+					} catch (Throwable e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+		p.add(updateWeb);
+
+		base.add(p, BorderLayout.CENTER);
 		return base;
 	}
 

@@ -283,8 +283,12 @@ public class ViewerMenu extends JMenuBar {
 			return;
 		}
 		this.pluginMenu.removeAll();//init menuItems
+		
+		/**
+		 * remove from v0.0.18
+		 */
 		//First, add compile menu
-		addCompileItem();
+//		addCompileItem();
 		
 		PluginShelf pluginShelf = ApplicationFacade.pluginShelf;
 		java.util.HashMap<String,String> plugins = pluginShelf.getLoadedPluginNames();
