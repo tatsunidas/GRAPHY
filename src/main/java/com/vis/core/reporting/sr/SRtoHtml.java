@@ -1,0 +1,190 @@
+package com.vis.core.reporting.sr;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Code;
+import org.dcm4che3.data.Sequence;
+import org.dcm4che3.data.Tag;
+
+import com.vis.core.reporting.KeyImageRef;
+
+/**
+ * Renders any SR-family dataset (free-text SR, RDSR, KO, ...) to HTML by walking
+ * the {@link ContentItem} tree. Modality-agnostic — RDSR needs no special casing.
+ * <p>
+ * IMAGE content items are emitted as {@code graphy://image/...} anchors so the
+ * viewer can perform object retrieval; the study/series for each referenced SOP
+ * is resolved from the SR's Evidence Sequences.
+ *
+ * @author tatsunidas
+ */
+public final class SRtoHtml {
+
+	private SRtoHtml() {
+	}
+
+	/** @return the document title (root concept meaning), or a sensible default. */
+	public static String documentTitle(Attributes sr) {
+		Attributes cn = sr.getNestedDataset(Tag.ConceptNameCodeSequence);
+		if (cn != null) {
+			String m = cn.getString(Tag.CodeMeaning);
+			if (m != null && !m.isEmpty()) {
+				return m;
+			}
+		}
+		return "Structured Report";
+	}
+
+	public static String toHtml(Attributes sr) {
+		Map<String, String[]> evidence = buildEvidenceMap(sr);
+		ContentItem root = SRReader.read(sr);
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("<html><head><meta charset=\"UTF-8\"></head>");
+		sb.append("<body style=\"font-family:sans-serif;font-size:12px;color:#202020;\">");
+
+		// header
+		sb.append("<h2 style=\"margin-bottom:2px;\">").append(HtmlText.escape(documentTitle(sr))).append("</h2>");
+		sb.append("<table style=\"font-size:11px;color:#505050;\">");
+		row(sb, "Patient", sr.getString(Tag.PatientName));
+		row(sb, "Patient ID", sr.getString(Tag.PatientID));
+		row(sb, "Study Date", sr.getString(Tag.StudyDate));
+		row(sb, "Modality", sr.getString(Tag.Modality));
+		row(sb, "Completion", sr.getString(Tag.CompletionFlag));
+		row(sb, "Verification", sr.getString(Tag.VerificationFlag));
+		sb.append("</table><hr>");
+
+		// content tree (skip the root container's own concept; render its children)
+		for (ContentItem child : root.getChildren()) {
+			renderItem(sb, child, evidence, 0);
+		}
+
+		sb.append("</body></html>");
+		return sb.toString();
+	}
+
+	private static void renderItem(StringBuilder sb, ContentItem ci, Map<String, String[]> evidence, int depth) {
+		String vt = ci.getValueType() == null ? "" : ci.getValueType();
+		String label = ci.conceptMeaning();
+
+		switch (vt) {
+		case "CONTAINER":
+			if (!label.isEmpty()) {
+				sb.append("<h3 style=\"margin:8px 0 2px 0;\">").append(HtmlText.escape(label)).append("</h3>");
+			}
+			break;
+		case "TEXT":
+			sb.append("<p style=\"margin:2px 0;\">");
+			if (!label.isEmpty()) {
+				sb.append("<b>").append(HtmlText.escape(label)).append(": </b>");
+			}
+			sb.append(HtmlText.escapeMultiline(ci.getTextValue()));
+			sb.append("</p>");
+			break;
+		case "NUM":
+			sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append(": </b>")
+					.append(HtmlText.escape(ci.getNumericValue()));
+			if (ci.getUnit() != null && ci.getUnit().getCodeMeaning() != null) {
+				sb.append(' ').append(HtmlText.escape(ci.getUnit().getCodeMeaning()));
+			}
+			sb.append("</p>");
+			break;
+		case "CODE":
+			sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append(": </b>")
+					.append(HtmlText.escape(ci.getCode() == null ? "" : ci.getCode().getCodeMeaning())).append("</p>");
+			break;
+		case "DATETIME":
+		case "DATE":
+		case "TIME":
+			sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append(": </b>")
+					.append(HtmlText.escape(ci.getDateTime())).append("</p>");
+			break;
+		case "PNAME":
+			sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append(": </b>")
+					.append(HtmlText.escape(ci.getPersonName())).append("</p>");
+			break;
+		case "UIDREF":
+			sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append(": </b>")
+					.append(HtmlText.escape(ci.getUidRef())).append("</p>");
+			break;
+		case "IMAGE":
+		case "COMPOSITE":
+			renderImage(sb, ci, evidence, label);
+			break;
+		default:
+			if (!label.isEmpty()) {
+				sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append("</b></p>");
+			}
+			break;
+		}
+
+		// children, slightly indented
+		if (!ci.getChildren().isEmpty()) {
+			sb.append("<div style=\"margin-left:14px;\">");
+			for (ContentItem child : ci.getChildren()) {
+				renderItem(sb, child, evidence, depth + 1);
+			}
+			sb.append("</div>");
+		}
+	}
+
+	private static void renderImage(StringBuilder sb, ContentItem ci, Map<String, String[]> evidence, String label) {
+		String sop = ci.getRefSopInstanceUID();
+		String study = "";
+		String series = "";
+		if (sop != null && evidence.containsKey(sop)) {
+			String[] ss = evidence.get(sop);
+			study = ss[0] == null ? "" : ss[0];
+			series = ss[1] == null ? "" : ss[1];
+		}
+		KeyImageRef ref = new KeyImageRef(study, series, sop, ci.getRefSopClassUID(),
+				label.isEmpty() ? "Key image" : label);
+		String text = label.isEmpty() ? "Key image" : label;
+		sb.append("<p style=\"margin:2px 0;\">🖼 <a href=\"").append(ref.toHref()).append("\">")
+				.append(HtmlText.escape(text)).append("</a></p>");
+	}
+
+	private static void row(StringBuilder sb, String key, String value) {
+		if (value == null || value.isEmpty()) {
+			return;
+		}
+		sb.append("<tr><td><b>").append(HtmlText.escape(key)).append("</b></td><td>&nbsp;")
+				.append(HtmlText.escape(value)).append("</td></tr>");
+	}
+
+	/** sopInstanceUID -&gt; [studyUID, seriesUID] from the SR Evidence Sequences. */
+	private static Map<String, String[]> buildEvidenceMap(Attributes sr) {
+		Map<String, String[]> map = new HashMap<>();
+		collectEvidence(sr.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence), map);
+		collectEvidence(sr.getSequence(Tag.PertinentOtherEvidenceSequence), map);
+		return map;
+	}
+
+	private static void collectEvidence(Sequence studies, Map<String, String[]> map) {
+		if (studies == null) {
+			return;
+		}
+		for (Attributes studyItem : studies) {
+			String studyUID = studyItem.getString(Tag.StudyInstanceUID);
+			Sequence seriesSeq = studyItem.getSequence(Tag.ReferencedSeriesSequence);
+			if (seriesSeq == null) {
+				continue;
+			}
+			for (Attributes seriesItem : seriesSeq) {
+				String seriesUID = seriesItem.getString(Tag.SeriesInstanceUID);
+				Sequence sopSeq = seriesItem.getSequence(Tag.ReferencedSOPSequence);
+				if (sopSeq == null) {
+					continue;
+				}
+				for (Attributes sopItem : sopSeq) {
+					String sop = sopItem.getString(Tag.ReferencedSOPInstanceUID);
+					if (sop != null) {
+						map.put(sop, new String[] { studyUID, seriesUID });
+					}
+				}
+			}
+		}
+	}
+}

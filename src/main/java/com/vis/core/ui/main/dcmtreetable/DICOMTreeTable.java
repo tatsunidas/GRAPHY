@@ -106,6 +106,17 @@ public class DICOMTreeTable extends JTreeTable implements Autoscroll {
 		getColumn(DICOMTreeTableModel.ArchivedCol).setCellRenderer(acr);
 		getColumn(DICOMTreeTableModel.ArchivedCol).setCellEditor(ace);
 
+		// Study-level Report column: icon marker (clicks handled in TreeTableMouseListener).
+		// Placed right after the Archived column for visibility.
+		getColumn(DICOMTreeTableModel.ReportCol).setCellRenderer(new ReportCellRenderer());
+		getColumn(DICOMTreeTableModel.ReportCol).setPreferredWidth(48);
+		getColumn(DICOMTreeTableModel.ReportCol).setMaxWidth(80);
+		try {
+			getColumnModel().moveColumn(getColumnPosition(DICOMTreeTableModel.ReportCol), 2);
+		} catch (Exception ignore) {
+			// keep default (last) position if the move is not possible
+		}
+
 		getTree().setCellRenderer(new TreeIconCellRenderer());
 		setRootVisible(false);
 		setShowGrid(true);

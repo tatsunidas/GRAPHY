@@ -725,6 +725,13 @@ public class SlideGlass extends JLayeredPane {
 
         roi3d.initFromProperties(); // デコード展開
 
+        // Mark the Wand-3D result as a segmentation object (number/color) so it lists,
+        // overlays and exports to DICOM SEG like a normal segment.
+        int wandSegNum = com.vis.core.view.D3.roi.SegmentationManager.nextSegmentNumber(pp);
+        roi3d.setSegmentation(true);
+        roi3d.setSegmentNumber(wandSegNum);
+        roi3d.setSegmentColor(com.vis.core.view.D3.roi.SegmentationManager.defaultColor(wandSegNum));
+
         // 6. 構築完了した 3D ROI を Praparat および データベースへ永続化登録
         pp.addRoi3D(roi3d);
         

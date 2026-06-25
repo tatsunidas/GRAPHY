@@ -44,6 +44,7 @@ import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Window;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.event.WindowStateListener;
@@ -82,7 +83,7 @@ import com.vis.db.DatabaseHandler;
  * @author tatsunidas
  *
  */
-public class Viewer2DScreen extends JFrame implements WindowListener, WindowStateListener{
+public class Viewer2DScreen extends JFrame implements WindowListener, WindowStateListener, ImageViewerContext{
 
 	private static final long serialVersionUID = 7624168171524035750L;
 	private static final Viewer2DScreen viewerWin = new Viewer2DScreen();
@@ -474,6 +475,24 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 	 * Build praparat using particular images with specified sopUIDs
 	 */
 	public void loadImagesOnStage(String patID, String studyUID, String seriesUID, String[] sopUIDs, String refUID) {
+		// SR-family objects (SR, RDSR, KO, ...) have no pixel data and must never be built as
+		// a Praparat in the image viewer. This is the single terminal builder every open path
+		// (tree double-click, drag-drop, remote retrieve) converges on, so a STUDY that mixes
+		// images and reports simply skips the report series here and shows the images — reports
+		// are NOT auto-opened. Opening a report is an explicit user action (double-clicking the
+		// report series/image itself -> TreeTableMouseListener.routeSrNode, the BirdsEye document
+		// thumbnail, or the report list UI).
+		if (sopUIDs != null && sopUIDs.length > 0) {
+			String sopClassUID = db.getValueFromImage("SOPClassUID", patID, studyUID, seriesUID, sopUIDs[0]);
+			boolean isSr = com.vis.core.reporting.sr.SopClassUtil.isSrFamily(sopClassUID);
+			if (!isSr && sopClassUID == null) {
+				String modality = db.getValueFromSeries("Modality", patID, studyUID, seriesUID);
+				isSr = com.vis.core.reporting.sr.SopClassUtil.isSrModality(modality);
+			}
+			if (isSr) {
+				return; // skip report series; do not render as image, do not auto-open the report
+			}
+		}
 		HashMap<String, String> patInfo = db.getPatientInfo(patID);
 		if (!sdm.existsInDock(patID)) {
 			StageView stage = new StageView(patInfo);
@@ -517,8 +536,20 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		return stageInAction;
 	}
 
+	@Override
 	public int getCurrentToolType() {
 		return toolBar.getCurrentToolType();
+	}
+
+	/** {@link ImageViewerContext}: the active tab's selected Praparats. */
+	@Override
+	public ArrayList<Praparat> getActionTargetPraparats() {
+		return getSelectedPraps();
+	}
+
+	@Override
+	public Window getOwnerWindow() {
+		return this;
 	}
 	
 	/**

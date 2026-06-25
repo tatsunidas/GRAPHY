@@ -78,6 +78,9 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JColorChooser;
+import javax.swing.JSlider;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -229,7 +232,7 @@ public class RoiObjManager extends JFrame
 	private void setUp() {
 		setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 		setIconImage(Resources.RoiObjManagerWinIcon.loadIconFromResource().getImage());
-		setSize(650, 300);
+		setSize(700, 360);
 		setLayout(new BorderLayout());
 		setLocationRelativeTo(Viewer2DScreen.getInstance());
 		/*
@@ -268,6 +271,215 @@ public class RoiObjManager extends JFrame
 		addMainFeatures();
 		addPopupMenu();
 		add(funcPanel, BorderLayout.EAST);
+
+		// Segmentation controls (overlay display + per-object management).
+		add(buildSegmentationPanel(), BorderLayout.SOUTH);
+	}
+
+	// ==========================================================
+	// Segmentation controls (Phase 3)
+	// ==========================================================
+
+	private JPanel buildSegmentationPanel() {
+		JPanel panel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 2));
+		panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Resources.i18n("RoiObjManager.seg.title")));
+
+		// Global overlay display controls (shared by all segmentation objects).
+		JCheckBox fillToggle = new JCheckBox(Resources.i18n("RoiObjManager.seg.fill"),
+				com.vis.core.view.D3.roi.FreeFormRoi3D.isFillOverlay());
+		fillToggle.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				com.vis.core.view.D3.roi.FreeFormRoi3D.setFillOverlay(fillToggle.isSelected());
+				repaintSegmentationViews();
+			}
+		});
+		panel.add(fillToggle);
+
+		panel.add(new JLabel(Resources.i18n("RoiObjManager.seg.opacity")));
+		JSlider opacity = new JSlider(0, 100,
+				Math.round(com.vis.core.view.D3.roi.FreeFormRoi3D.getOverlayOpacity() * 100f));
+		opacity.setPreferredSize(new Dimension(110, 22));
+		opacity.addChangeListener(e -> {
+			com.vis.core.view.D3.roi.FreeFormRoi3D.setOverlayOpacity(opacity.getValue() / 100f);
+			repaintSegmentationViews();
+		});
+		panel.add(opacity);
+
+		// Per-segment management.
+		JButton newSeg = new JButton(Resources.i18n("RoiObjManager.seg.new"));
+		newSeg.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				onNewSegment();
+			}
+		});
+		panel.add(newSeg);
+
+		JButton activeBtn = new JButton(Resources.i18n("RoiObjManager.seg.setActive"));
+		activeBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				onSetActiveSegment();
+			}
+		});
+		panel.add(activeBtn);
+
+		JButton colorBtn = new JButton(Resources.i18n("RoiObjManager.seg.color"));
+		colorBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				onColorSegment();
+			}
+		});
+		panel.add(colorBtn);
+
+		JCheckBox visibleBox = new JCheckBox(Resources.i18n("RoiObjManager.seg.visible"), true);
+		visibleBox.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				onToggleVisible(visibleBox.isSelected());
+			}
+		});
+		panel.add(visibleBox);
+
+		return panel;
+	}
+
+	/** The segmentation object selected in the list, or null. */
+	private com.vis.core.view.D3.roi.FreeFormRoi3D getSelectedSegmentation() {
+		String rid = list.getSelectedValue();
+		if (rid == null) {
+			return null;
+		}
+		RoiObj r = selectedRois.get(rid);
+		return (r instanceof com.vis.core.view.D3.roi.FreeFormRoi3D) ? (com.vis.core.view.D3.roi.FreeFormRoi3D) r : null;
+	}
+
+	/** Resolves a target Praparat: the selected segment's series, else the 2D viewer selection. */
+	private com.vis.core.view.D2.ui.glasses.Praparat resolvePraparat() {
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = getSelectedSegmentation();
+		if (seg != null && seg.getSlideGlass() != null) {
+			return seg.getSlideGlass().getPraparat();
+		}
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own != null) {
+			ArrayList<com.vis.core.view.D2.ui.glasses.Praparat> sel = own.getSelectedPraps();
+			if (sel != null && !sel.isEmpty()) {
+				return sel.get(0);
+			}
+		}
+		return null;
+	}
+
+	private void persistSegment(com.vis.core.view.D3.roi.FreeFormRoi3D seg) {
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null && seg != null) {
+			try {
+				db.insertRoi(seg.readContext());
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+	}
+
+	private void onNewSegment() {
+		com.vis.core.view.D2.ui.glasses.Praparat pp = resolvePraparat();
+		if (pp == null) {
+			PopUpMessage.showDialog(this, Resources.i18n("RoiObjManager.seg.title"),
+					Resources.i18n("RoiObjManager.seg.selectSeries"), JOptionPane.OK_OPTION,
+					JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		String name = JOptionPane.showInputDialog(this, Resources.i18n("RoiObjManager.seg.namePrompt"),
+				Resources.i18n("RoiObjManager.seg.title"), JOptionPane.PLAIN_MESSAGE);
+		if (name == null) {
+			return;
+		}
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = com.vis.core.view.D3.roi.SegmentationManager
+				.createSegmentation(pp, name);
+		if (seg == null) {
+			PopUpMessage.showDialog(this, Resources.i18n("RoiObjManager.seg.title"),
+					Resources.i18n("RoiObjManager.seg.createFailed"), JOptionPane.OK_OPTION,
+					JOptionPane.ERROR_MESSAGE);
+			return;
+		}
+		pp.setActiveSegmentation(seg);
+		persistSegment(seg);
+		updateState();
+		repaintSegmentationViews();
+	}
+
+	private void onSetActiveSegment() {
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = getSelectedSegmentation();
+		if (seg == null) {
+			PopUpMessage.showDialog(this, Resources.i18n("RoiObjManager.seg.title"),
+					Resources.i18n("RoiObjManager.seg.selectSeg"), JOptionPane.OK_OPTION,
+					JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		com.vis.core.view.D2.ui.glasses.Praparat pp = (seg.getSlideGlass() != null)
+				? seg.getSlideGlass().getPraparat() : null;
+		if (pp == null) {
+			return;
+		}
+		pp.setActiveSegmentation(seg);
+		repaintSegmentationViews();
+		PopUpMessage.showDialog(this, Resources.i18n("RoiObjManager.seg.title"),
+				Resources.i18n("RoiObjManager.seg.nowActive"), JOptionPane.OK_OPTION,
+				JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	private void onColorSegment() {
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = getSelectedSegmentation();
+		if (seg == null) {
+			PopUpMessage.showDialog(this, Resources.i18n("RoiObjManager.seg.title"),
+					Resources.i18n("RoiObjManager.seg.selectSeg"), JOptionPane.OK_OPTION,
+					JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		Color c = JColorChooser.showDialog(this, Resources.i18n("RoiObjManager.seg.color"), seg.getSegmentColor());
+		if (c == null) {
+			return;
+		}
+		seg.setSegmentColor(c);
+		persistSegment(seg);
+		repaintSegmentationViews();
+	}
+
+	private void onToggleVisible(boolean visible) {
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = getSelectedSegmentation();
+		if (seg == null) {
+			return;
+		}
+		seg.setHidden(!visible);
+		repaintSegmentationViews();
+	}
+
+	/** Repaints the canvases of the relevant series so overlay changes show immediately. */
+	private void repaintSegmentationViews() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own != null) {
+			ArrayList<com.vis.core.view.D2.ui.glasses.Praparat> sel = own.getSelectedPraps();
+			if (sel != null) {
+				for (com.vis.core.view.D2.ui.glasses.Praparat pp : sel) {
+					com.vis.core.view.D2.ui.glasses.SlideGlass cur = pp.getCurrentSlide();
+					if (cur != null) {
+						cur.repaintCanvasGlass();
+					}
+				}
+			}
+		}
+		com.vis.core.view.D3.roi.FreeFormRoi3D seg = getSelectedSegmentation();
+		if (seg != null && seg.getSlideGlass() != null) {
+			com.vis.core.view.D2.ui.glasses.Praparat pp = seg.getSlideGlass().getPraparat();
+			if (pp != null) {
+				com.vis.core.view.D2.ui.glasses.SlideGlass cur = pp.getCurrentSlide();
+				if (cur != null) {
+					cur.repaintCanvasGlass();
+				}
+			}
+		}
 	}
 
 	public static RoiObjManager getInstance() {

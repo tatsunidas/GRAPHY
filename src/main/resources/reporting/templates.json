@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ct-chest-normal",
+    "name": "CT 胸部 - 異常所見なし",
+    "category": "CT",
+    "body": "<p>両肺野に明らかな結節影・浸潤影を認めません。縦隔・肺門リンパ節腫大なし。胸水貯留なし。</p>"
+  },
+  {
+    "id": "ct-abdomen-normal",
+    "name": "CT 腹部 - 異常所見なし",
+    "category": "CT",
+    "body": "<p>肝・胆・膵・脾・両腎に明らかな異常を認めません。腹水貯留なし。有意なリンパ節腫大なし。</p>"
+  },
+  {
+    "id": "impression",
+    "name": "診断（インプレッション）",
+    "category": "共通",
+    "body": "<p><b>診断:</b></p><ul><li></li></ul>"
+  },
+  {
+    "id": "comparison",
+    "name": "比較（前回検査）",
+    "category": "共通",
+    "body": "<p><b>比較:</b> 前回 yyyy/mm/dd の検査と比較。</p>"
+  },
+  {
+    "id": "followup",
+    "name": "経過観察の推奨",
+    "category": "共通",
+    "body": "<p>経過観察を推奨します。臨床所見と併せてご判断ください。</p>"
+  }
+]

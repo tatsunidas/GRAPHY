@@ -61,13 +61,17 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.Resources;
 import com.vis.core.log.Log;
+import com.vis.core.reporting.ReportService;
 import com.vis.core.ui.MissingIcon;
 import com.vis.core.view.D2.ui.glasses.Praparat;
 import com.vis.core.view.D2.ui.glasses.SlideGlass;
 import com.vis.core.view.D2.ui.glasses.Praparat.ViewMode;
+import com.vis.core.reporting.sr.SopClassUtil;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.Tag;
+import com.vis.dicom.UID;
 
 /**
  * @author tatsunidas
@@ -364,15 +368,24 @@ public class BirdsEyeView extends JPanel{
 			
 			ArrayList<String> sopUidsInSeries = db.getInstanceUidList(patId, studyUid, series);
 			Praparat th = null;
-			
-			if(sopUidsInSeries != null && sopUidsInSeries.size() > 0) {
+
+			// Non-image document series (SR/RDSR/KO, RT plan/struct/record, PR, REG, ...) carry
+			// no pixel data and must not be built as an image thumbnail Praparat (it would divide
+			// by zero in calcImageSize2FitComponent). They are shown as a labeled "<date> <type>"
+			// thumbnail with a mouse action (double-click) instead.
+			final String firstSop = (sopUidsInSeries != null && !sopUidsInSeries.isEmpty())
+					? sopUidsInSeries.get(0) : null;
+			final DocSeriesInfo doc = firstSop == null ? null
+					: classifyDocSeries(patId, studyUid, series, firstSop);
+
+			if(firstSop != null && doc == null) {
 				th = new Praparat(ViewMode.Thumbnail);
 				String[] sopUids = sopUidsInSeries.toArray(new String[sopUidsInSeries.size()]);
-				th.loadSeries(patId, studyUid, series, sopUids); 
+				th.loadSeries(patId, studyUid, series, sopUids);
 				th.setTextVisible(false);
 				th.setAnnotationVisible(false);
 				th.doSingleGridLayout();
-				
+
 				// ★ 修正 3：現在選択されているシリーズなら、ここで実体を確保しておく！
 				if(series.equals(currentSeriesUID)) {
 					targetThumbnail = th;
@@ -382,9 +395,14 @@ public class BirdsEyeView extends JPanel{
 			final Praparat finalTh = th;
 			javax.swing.SwingUtilities.invokeLater(() -> {
 				if (myTaskId == renderTaskId.get()) {
-					addSeries(finalTh);
-					if(series.equals(currentSeriesUID)) {
-						seriesListView.highlightSelectedThumbnail(currentSeriesUID);
+					if (doc != null) {
+						seriesListView.addDocumentSeries(series, doc.labelHtml,
+								docMouseAction(patId, studyUid, series, firstSop, doc.srFamily, doc.typeLabel));
+					} else {
+						addSeries(finalTh);
+						if(series.equals(currentSeriesUID)) {
+							seriesListView.highlightSelectedThumbnail(currentSeriesUID);
+						}
 					}
 				}
 			});
@@ -487,6 +505,103 @@ public class BirdsEyeView extends JPanel{
 		seriesListView.highlightSelectedThumbnail(currentSeriesUID);
 	}
 	
+	/** Descriptor for a non-image document series shown as a labeled thumbnail. */
+	private static class DocSeriesInfo {
+		final String typeLabel; // e.g. "Report", "RDSR", "KO", "RTPLAN"
+		final boolean srFamily; // true => openable in the SR HTML viewer
+		final String labelHtml; // "<date><br><type>" for the JLabel
+
+		DocSeriesInfo(String typeLabel, boolean srFamily, String labelHtml) {
+			this.typeLabel = typeLabel;
+			this.srFamily = srFamily;
+			this.labelHtml = labelHtml;
+		}
+	}
+
+	/**
+	 * Classify a series as a non-image document (SR/RDSR/KO, RT plan/struct/record, PR, REG).
+	 * Detected by the first instance's SOP Class UID, falling back to the series Modality.
+	 *
+	 * @return a descriptor, or {@code null} for a normal (renderable image) series.
+	 */
+	private DocSeriesInfo classifyDocSeries(String patId, String studyUid, String series, String firstSop) {
+		String sopClass = db.getValueFromImage("SOPClassUID", patId, studyUid, series, firstSop);
+		String modality = db.getValueFromSeries("Modality", patId, studyUid, series);
+		String type = null;
+		boolean srFamily = false;
+		if (SopClassUtil.isSrFamily(sopClass)) {
+			srFamily = true;
+			if (UID.XRayRadiationDoseSRStorage.uid().equals(sopClass)
+					|| UID.RadiopharmaceuticalRadiationDoseSRStorage.uid().equals(sopClass)) {
+				type = "RDSR";
+			} else if (UID.KeyObjectSelectionDocumentStorage.uid().equals(sopClass)) {
+				type = "KO";
+			} else {
+				type = "Report";
+			}
+		} else if (sopClass == null && SopClassUtil.isSrModality(modality)) {
+			srFamily = true;
+			type = "Report";
+		} else if (modality != null) {
+			switch (modality.trim().toUpperCase()) {
+			case "RTPLAN":
+			case "RTSTRUCT":
+			case "RTRECORD":
+			case "PR":
+			case "REG":
+				type = modality.trim().toUpperCase();
+				break;
+			default:
+				type = null;
+			}
+		}
+		if (type == null) {
+			return null; // normal renderable image series
+		}
+		String date = db.getValueFromSeries("SeriesDate", patId, studyUid, series);
+		if (date == null || date.isEmpty()) {
+			date = db.getValueFromStudy("StudyDate", patId, studyUid);
+		}
+		return new DocSeriesInfo(type, srFamily, buildDocLabelHtml(date, type));
+	}
+
+	private static String buildDocLabelHtml(String date, String type) {
+		String d = (date == null) ? "" : date.replace('-', '/').trim();
+		StringBuilder sb = new StringBuilder("<html><div style='text-align:center;'>");
+		if (!d.isEmpty()) {
+			sb.append(escapeHtml(d)).append("<br>");
+		}
+		sb.append("<b>").append(escapeHtml(type)).append("</b></div></html>");
+		return sb.toString();
+	}
+
+	private static String escapeHtml(String s) {
+		return s == null ? "" : s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	/**
+	 * Mouse action attached to a document thumbnail JLabel: double-click opens an SR-family
+	 * document in the SR HTML viewer; other document types show an informational message.
+	 */
+	private java.awt.event.MouseListener docMouseAction(String patId, String studyUid, String series,
+			String firstSop, boolean srFamily, String type) {
+		return new java.awt.event.MouseAdapter() {
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e) {
+				if (e.getClickCount() != 2) {
+					return;
+				}
+				if (srFamily) {
+					new ReportService().openSr(patId, studyUid, series, firstSop);
+				} else {
+					javax.swing.JOptionPane.showMessageDialog(BirdsEyeView.this,
+							java.text.MessageFormat.format(
+									Resources.i18n("Reporting.birdseye.previewNotAvailable"), type));
+				}
+			}
+		};
+	}
+
 	public void highlightSelectedImages(ArrayList<String> selectedSopUIDsInItsSeriesOnTreeTable) {
 		if(selectedSopUIDsInItsSeriesOnTreeTable == null || selectedSopUIDsInItsSeriesOnTreeTable.size() == 0) {
 			return;
@@ -606,6 +721,24 @@ public class BirdsEyeView extends JPanel{
 			}else {
 				seriesListPanel.add(praparat);
 			}
+		}
+
+		/**
+		 * Add a labeled thumbnail for a non-image document series (SR/RDSR/KO, RT plan, ...).
+		 * The label shows "&lt;date&gt; &lt;type&gt;" and carries the given mouse action.
+		 */
+		void addDocumentSeries(String seriesUID, String labelHtml, java.awt.event.MouseListener action) {
+			JLabel l = new JLabel(labelHtml, javax.swing.SwingConstants.CENTER);
+			l.setName(seriesUID);
+			l.setPreferredSize(new Dimension(Praparat.ThumbnailSize, Praparat.ThumbnailSize));
+			l.setOpaque(true);
+			l.setBackground(new Color(245, 245, 235));
+			l.setBorder(javax.swing.BorderFactory.createLineBorder(new Color(150, 150, 150)));
+			l.setCursor(new Cursor(Cursor.HAND_CURSOR));
+			if (action != null) {
+				l.addMouseListener(action);
+			}
+			seriesListPanel.add(l);
 		}
 		
 		void removeAllThumbnails() {

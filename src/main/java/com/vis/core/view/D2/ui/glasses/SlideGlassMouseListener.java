@@ -151,7 +151,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		            dtde.acceptDrag(java.awt.dnd.DnDConstants.ACTION_COPY);
 		            if (prapManager != null) {
 		                Point p = dtde.getLocation();
-		                Point panelPoint = javax.swing.SwingUtilities.convertPoint(slide, p, (java.awt.Component) prapManager);
+		                if (!prapManager.isShowing()) { return; } Point panelPoint = javax.swing.SwingUtilities.convertPoint(slide, p, (java.awt.Component) prapManager);
 		                prapManager.updateInsertionIndex(panelPoint);
 		                prapManager.repaint(); // ★ 修正：再描画を呼び出して赤い線を更新させる
 		            }
@@ -173,7 +173,7 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		            dtde.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
 		            try {
 		                if (prapManager != null) {
-		                    prapManager.performReorder();
+		                    if (prapManager.isShowing()) { prapManager.performReorder(); }
 		                    prapManager.clearDragState(); // ★ 修正：ドロップ完了後に状態リセット
 		                }
 		                dtde.dropComplete(true);
@@ -205,10 +205,11 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				else if (SlideGlassKeyListener.isKeyPressed(KeyEvent.VK_T))
 					targetDim = "Time";
 
-				ArrayList<Praparat> syncingPraps = (prapManager != null) ? prapManager.getSelectingPraparats() : null;
+				ArrayList<Praparat> syncingPraps = (prapManager != null) ? prapManager.getSyncTargets(pp) : null;
 
-				// ★ 修正：自身が「選択状態」であり、かつ複数のPraparatが選択されている場合は同期モード
-				if (syncingPraps != null && syncingPraps.size() > 1 && pp.isSelected()) {
+				// 同期モード: 比較Viewはペア(同じ行)単位で自動同期、通常Viewerは複数選択時のみ
+				if (syncingPraps != null && syncingPraps.size() > 1
+						&& (pp.isSelected() || (prapManager != null && prapManager.isSyncGroupActive()))) {
 					// 1. まず操作されたソース自身を移動させる
 					pp.stepDimension(targetDim, step);
 
@@ -345,6 +346,20 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 		if (viewerToolType == Viewer2DToolBar.Windowing) {
 			if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
 				pp.adjustContrastFromMouseAction(x, y);
+				// WW/WL pair-sync (comparison: lock the series pair; main viewer: selected)
+				ArrayList<Praparat> wlTargets = (prapManager != null) ? prapManager.getSyncTargets(pp) : null;
+				if (wlTargets != null && wlTargets.size() > 1
+						&& (pp.isSelected() || (prapManager != null && prapManager.isSyncGroupActive()))) {
+					SlideGlass src = pp.getCurrentSlide();
+					double[] mm = (src != null) ? src.getCurrentWindowMinMax() : null;
+					if (mm != null) {
+						for (Praparat t : wlTargets) {
+							if (t != pp) {
+								t.adjustContrastByMinMax(mm[0], mm[1]);
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -369,6 +384,20 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 							sg.panningFlag = true;
 							sg.setDisplayOrigin(syncOrigin); // 絶対座標で上書き
 						}
+					}
+				}
+			}
+			// Pan pair-sync (comparison: lock the series pair; main viewer: selected)
+			ArrayList<Praparat> panTargets = (prapManager != null) ? prapManager.getSyncTargets(pp) : null;
+			if (panTargets != null && panTargets.size() > 1
+					&& (pp.isSelected() || (prapManager != null && prapManager.isSyncGroupActive()))) {
+				Point panOrigin = slide.getDisplayImageOriginXY();
+				for (Praparat t : panTargets) {
+					if (t == pp) continue;
+					SlideGlass tsg = t.getCurrentSlide();
+					if (tsg != null) {
+						tsg.panningFlag = true;
+						tsg.setDisplayOrigin(panOrigin);
 					}
 				}
 			}
@@ -691,8 +720,34 @@ public class SlideGlassMouseListener implements MouseListener, MouseMotionListen
 				if (sg != null) sg.zoom(currentMag, zoomUp);
 			}
 		}
-		
+
+		// Zoom sync: comparison View locks the series pair (same row) together;
+		// main viewer syncs across the currently selected Praparats.
+		ArrayList<Praparat> zoomTargets = (prapManager != null) ? prapManager.getSyncTargets(pp) : null;
+		if (zoomTargets != null && zoomTargets.size() > 1
+				&& (pp.isSelected() || (prapManager != null && prapManager.isSyncGroupActive()))) {
+			for (Praparat t : zoomTargets) {
+				if (t != pp) {
+					applyZoomTo(t, currentMag, zoomUp);
+				}
+			}
+		}
+
 		this.slide.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+	}
+
+	/** Applies a magnification to a Praparat's current slide (or all slides when it is process-series). */
+	private void applyZoomTo(Praparat target, double mag, boolean zoomUp) {
+		if (!target.isProcessSeries()) {
+			SlideGlass sg = target.getCurrentSlide();
+			if (sg != null) sg.zoom(mag, zoomUp);
+		} else {
+			ConcurrentHashMap<Integer, SlideGlass> slides = target.getAllSlides();
+			for (Integer key : slides.keySet()) {
+				SlideGlass sg = slides.get(key);
+				if (sg != null) sg.zoom(mag, zoomUp);
+			}
+		}
 	}
 	
 //	private void startGhostDrag() {

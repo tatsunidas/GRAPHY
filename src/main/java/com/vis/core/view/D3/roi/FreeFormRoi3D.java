@@ -15,7 +15,9 @@ import ij.process.ByteProcessor;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
+import java.awt.image.BufferedImage;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -168,6 +170,42 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 		return new int[] { dimX, dimY, dimZ };
 	}
 
+	/**
+	 * Populates the mask of volume-slice k from a byte plane (non-zero = inside),
+	 * row-major dimX*dimY. Used by the SEG reader to rebuild an editable mask.
+	 */
+	public void setSliceMaskFromBytes(int k, byte[] mask255) {
+		if (!isInitialized() || mask255 == null) {
+			return;
+		}
+		long[] m = newEmptyMask();
+		for (int j = 0; j < dimY; j++) {
+			int base = j * dimX;
+			for (int i = 0; i < dimX; i++) {
+				if (base + i < mask255.length && mask255[base + i] != 0) {
+					setBit(m, i, j, true);
+				}
+			}
+		}
+		if (isEmptyMask(m)) {
+			maskStack.remove(k);
+		} else {
+			maskStack.put(k, m);
+		}
+	}
+
+	/** Sorted volume-Z indices that actually carry mask content (used by the SEG writer). */
+	public java.util.List<Integer> getOccupiedSliceIndices() {
+		java.util.List<Integer> keys = new java.util.ArrayList<>();
+		for (java.util.Map.Entry<Integer, long[]> e : maskStack.entrySet()) {
+			if (e.getValue() != null && !isEmptyMask(e.getValue())) {
+				keys.add(e.getKey());
+			}
+		}
+		java.util.Collections.sort(keys);
+		return keys;
+	}
+
 	// ========== Segmentation object attributes ==========
 	// These are persisted as ROI properties (unlike the transient strokeColor field),
 	// so an object's identity (segment number), display color and name survive a
@@ -211,6 +249,37 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 	public java.awt.Color getSegmentColor() {
 		java.awt.Color c = parseSegmentColor();
 		return c != null ? c : getStrokeColor();
+	}
+
+	// Overlay render mode shared by all segmentation objects (toggled from the manager UI).
+	private static boolean fillOverlay = true; // true: translucent fill + outline, false: outline only
+	private static float overlayOpacity = 0.4f; // 0..1 fill alpha
+
+	public static void setFillOverlay(boolean fill) {
+		fillOverlay = fill;
+	}
+
+	public static boolean isFillOverlay() {
+		return fillOverlay;
+	}
+
+	public static void setOverlayOpacity(float opacity) {
+		overlayOpacity = Math.max(0f, Math.min(1f, opacity));
+	}
+
+	public static float getOverlayOpacity() {
+		return overlayOpacity;
+	}
+
+	// Per-object visibility (transient; toggled from the manager UI).
+	private transient boolean hidden = false;
+
+	public void setHidden(boolean h) {
+		this.hidden = h;
+	}
+
+	public boolean isHidden() {
+		return hidden;
 	}
 
 	private java.awt.Color parseSegmentColor() {
@@ -593,6 +662,8 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
 
 	@Override
     public void draw(Graphics g) {
+        if (hidden)
+            return;
         SlideGlass contextSg = getActiveSlideContext();
         if (contextSg == null || g == null || !isInitialized())
             return;
@@ -619,17 +690,21 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
         if (tf == null)
             return;
 
-        // 状態別カラー
+        // State-dependent color: highlight when active/selected, else the segment color.
         Color drawColor;
         if (isActiveOverlayRoi() || getState() == MOVING) {
             drawColor = Color.CYAN;
         } else if (isSelected()) {
             drawColor = Color.MAGENTA;
         } else {
-            drawColor = getStrokeColor() != null ? getStrokeColor() : RoiObj.getColor();
+            drawColor = getSegmentColor() != null ? getSegmentColor() : RoiObj.getColor();
         }
 
         Graphics2D g2 = (Graphics2D) g;
+        // Filled translucent overlay (drawn under the crisp outline below).
+        if (fillOverlay) {
+            drawFilledOverlay(g2, mask, tf, drawColor);
+        }
         g2.setColor(drawColor);
         g2.setStroke(new BasicStroke(1.0f));
 
@@ -672,6 +747,74 @@ public class FreeFormRoi3D extends RoiObj implements Editable3D, RoiObj3D {
                 drawHandle(g, b.x + b.width / 2, b.y + b.height);
                 drawHandle(g, b.x + b.width, b.y + b.height);
             }
+        }
+    }
+
+    /**
+     * Renders the mask of the current slice as a translucent color fill. The mask's
+     * occupied voxel bounding box is rasterized into a small ARGB image and drawn
+     * through the volume->image affine, so it scales/rotates with the slice and the
+     * canvas zoom (the Graphics is already in image space).
+     */
+    private void drawFilledOverlay(Graphics2D g2, long[] mask, double[] tf, Color color) {
+        // 1. Occupied-voxel bounding box.
+        int minI = Integer.MAX_VALUE, minJ = Integer.MAX_VALUE, maxI = -1, maxJ = -1;
+        for (int j = 0; j < dimY; j++) {
+            int rowOff = j * rowStride;
+            for (int iw = 0; iw < rowStride; iw++) {
+                long word = mask[rowOff + iw];
+                if (word == 0) continue;
+                long ww = word;
+                while (ww != 0) {
+                    int i = (iw << 6) | Long.numberOfTrailingZeros(ww);
+                    if (i < dimX) {
+                        if (i < minI) minI = i;
+                        if (i > maxI) maxI = i;
+                        if (j < minJ) minJ = j;
+                        if (j > maxJ) maxJ = j;
+                    }
+                    ww &= ww - 1;
+                }
+            }
+        }
+        if (maxI < 0) return; // empty
+
+        int w = maxI - minI + 1;
+        int h = maxJ - minJ + 1;
+        int alpha = Math.round(overlayOpacity * 255f);
+        int argb = (alpha << 24) | (color.getRGB() & 0x00FFFFFF);
+
+        // 2. Rasterize set bits into the ARGB tile.
+        int[] pix = new int[w * h];
+        for (int j = minJ; j <= maxJ; j++) {
+            int rowOff = j * rowStride;
+            int bj = j - minJ;
+            for (int iw = 0; iw < rowStride; iw++) {
+                long word = mask[rowOff + iw];
+                if (word == 0) continue;
+                long ww = word;
+                while (ww != 0) {
+                    int i = (iw << 6) | Long.numberOfTrailingZeros(ww);
+                    if (i >= minI && i <= maxI && i < dimX) {
+                        pix[bj * w + (i - minI)] = argb;
+                    }
+                    ww &= ww - 1;
+                }
+            }
+        }
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        img.setRGB(0, 0, w, h, pix, 0, w);
+
+        // 3. Tile pixel (bi,bj) maps to volume (minI+bi, minJ+bj) -> image coords via tf.
+        double a00 = tf[0], a01 = tf[1], tx = tf[2];
+        double a10 = tf[3], a11 = tf[4], ty = tf[5];
+        AffineTransform at = new AffineTransform(a00, a10, a01, a11,
+                a00 * minI + a01 * minJ + tx, a10 * minI + a11 * minJ + ty);
+        Object oldInterp = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(img, at, null);
+        if (oldInterp != null) {
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp);
         }
     }
 

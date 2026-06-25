@@ -560,6 +560,36 @@ public class Eyepiece extends JPanel{
 		}
 		return praps;
 	}
+
+	/**
+	 * Optional coordinator that lets slice-sync span several Eyepieces (used by the
+	 * Comparison View). Null in the regular 2D viewer.
+	 */
+	private PraparatSyncGroup syncGroup;
+
+	public void setSyncGroup(PraparatSyncGroup syncGroup) {
+		this.syncGroup = syncGroup;
+	}
+
+	/** True when a multi-Eyepiece coordinator drives sync (i.e. the Comparison View). */
+	public boolean isSyncGroupActive() {
+		return syncGroup != null;
+	}
+
+	/**
+	 * Praparats to synchronize when scrolling/zooming {@code source}. Defers to a
+	 * {@link PraparatSyncGroup} (multi-Eyepiece pair sync) when present, otherwise
+	 * this Eyepiece's own selected Praparats.
+	 */
+	public ArrayList<Praparat> getSyncTargets(Praparat source) {
+		if (syncGroup != null) {
+			ArrayList<Praparat> targets = syncGroup.getSyncTargets(source);
+			if (targets != null) {
+				return targets;
+			}
+		}
+		return getSelectingPraparats();
+	}
 	
 	public List<Praparat> getAllPraparat(){
 		List<PraparatContext> pCons = getAllPraparatContext();

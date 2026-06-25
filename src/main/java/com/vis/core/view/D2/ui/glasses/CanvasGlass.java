@@ -311,28 +311,10 @@ public class CanvasGlass extends javax.swing.JPanel {
 
 	/**
 	 * Converts a drawn 2D ROI to a filled ShapeRoi in image-pixel coordinates.
-	 * Line-type ROIs are thickened to an area first; returns null if not convertible.
+	 * Delegates to the shared converter (handles area, line and point ROIs).
 	 */
 	private com.vis.core.view.D2.roi.ShapeRoi toShapeRoi(RoiObj roi) {
-		if (roi == null) {
-			return null;
-		}
-		if (roi instanceof com.vis.core.view.D2.roi.ShapeRoi) {
-			return (com.vis.core.view.D2.roi.ShapeRoi) roi;
-		}
-		RoiObj area = roi;
-		if (roi.isLine()) {
-			RoiObj converted = RoiObj.convertLineToArea(roi);
-			if (converted != null) {
-				area = converted;
-			}
-		}
-		try {
-			return new com.vis.core.view.D2.roi.ShapeRoi(area);
-		} catch (Exception e) {
-			Log.logger.warning("toShapeRoi failed: " + e);
-			return null;
-		}
+		return com.vis.core.view.D3.roi.SegmentationManager.toShapeRoi(roi);
 	}
 
 	/**

@@ -82,6 +82,7 @@ import java.nio.file.Paths;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.vis.configuration.ConfigInfo;
+import com.vis.configuration.ReportDBKey;
 import com.vis.configuration.RoiDBKey;
 import com.vis.configuration.Resources;
 
@@ -350,7 +351,7 @@ public class DatabaseHandler {
 			Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
 			Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
 			Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
-			Resources.SQL_ROI);
+			Resources.SQL_ROI, Resources.SQL_REPORT);
 
 	private void createTables() throws SQLException {
 		// 1. 実行したいSQLリソースをリストにまとめる(自動マイグレーションと同じ一覧を使う)
@@ -406,6 +407,10 @@ public class DatabaseHandler {
 				if (tableName == null) {
 					continue;
 				}
+				// 既存DBに対して、SQL定義に有ってDBに無い「テーブルそのもの」をまず作成する。
+				// これにより SCHEMA_TABLE_RESOURCES に新テーブルを1つ追加するだけで、新規DB・
+				// 既存DBの双方に反映される(列追加だけでなくテーブル追加もカバーする)。
+				createTableIfMissing(tableName, createSql);
 				addMissingColumnsForTable(tableName, parseColumnDefs(createSql));
 			} catch (Exception e) {
 				logger.log(Level.WARNING,
@@ -421,6 +426,38 @@ public class DatabaseHandler {
 	 * @param tableName 対象テーブル名
 	 * @param columns   SQL定義から抽出した列情報の配列リスト({@link #parseColumnDefs(String)}の戻り値)
 	 */
+	/**
+	 * テーブルが存在しない場合のみ、完全なCREATE TABLE文を実行して新規作成する(冪等)。
+	 * 既に存在する場合は何もしない。列追加マイグレーションの前段として呼ばれる。
+	 *
+	 * @param tableName 対象テーブル名
+	 * @param createSql sql/*.sql の完全なCREATE TABLE文
+	 */
+	private void createTableIfMissing(String tableName, String createSql) {
+		try (Connection conn = openConnection()) {
+			try {
+				boolean exists;
+				DatabaseMetaData meta = conn.getMetaData();
+				try (ResultSet rs = meta.getTables(null, null, tableName.toUpperCase(),
+						new String[] { "TABLE" })) {
+					exists = rs.next();
+				}
+				if (!exists) {
+					try (Statement st = conn.createStatement()) {
+						st.executeUpdate(createSql);
+						logger.info("スキーマ自動マイグレーション: 新規テーブル " + tableName + " を作成しました。");
+					}
+				}
+				conn.commit();
+			} catch (SQLException e) {
+				conn.rollback();
+				throw e;
+			}
+		} catch (SQLException e) {
+			logger.log(Level.SEVERE, "テーブル " + tableName + " の自動作成に失敗しました。", e);
+		}
+	}
+
 	private void addMissingColumnsForTable(String tableName, List<String[]> columns) {
 		try (Connection conn = openConnection()) {
 			try {
@@ -2719,7 +2756,10 @@ public class DatabaseHandler {
 				byteArrayShape = bbS.array();
 			}
 
-			String sql = "insert into roi values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+			String sql = "insert into roi(RoiID,Name,RoiType,OriginX,OriginY,Width,Height,PointX,PointY,Shape,"
+					+ "InstanceNo,RoiGroup,RoiLabel,ObjectType,Organ,Description,StudyDate,CrossSection,"
+					+ "RoiMetaProperties,PatientID,StudyInstanceUID,SeriesInstanceUID,SOPInstanceUID)"
+					+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 			try (Connection conn = openConnection(); PreparedStatement insertStmt = conn.prepareStatement(sql);) {
 				insertStmt.setString(1, roiId);
 				insertStmt.setString(2, name);
@@ -3205,6 +3245,310 @@ public class DatabaseHandler {
 			logger.severe(ex.getMessage());
 		}
 		return set;
+	}
+
+	// ==================================================================================
+	// REPORT (radiology reporting) ----------------------------------------------------
+	// A report's editable rich text (HTML) is the source of truth and lives here in the
+	// REPORT table. The DICOM SR is a derived artifact generated on finalize. Mirrors the
+	// ROI persistence pattern. DatabaseHandler stays decoupled from com.vis.core.reporting:
+	// BodyHtml and KeyImageRefs are passed as plain String (HTML / Gson JSON).
+	// ==================================================================================
+
+	/**
+	 * Insert a new report, or update it if the ReportID already exists.
+	 *
+	 * @param ctx context map keyed by {@link ReportDBKey} names.
+	 */
+	public synchronized void insertReport(HashMap<String, Object> ctx) {
+		String reportId = (String) ctx.get(ReportDBKey.ReportID.name());
+		if (reportId == null) {
+			logger.severe("DatabaseHandler - insertReport: ReportID must be non-null.");
+			return;
+		}
+		if (checkRecordExists("report", "ReportID", reportId)) {
+			updateReport(ctx);
+			return;
+		}
+		String sql = "insert into report(ReportID,Title,Status,ReportType,Author,BodyHtml,KeyImageRefs,"
+				+ "SrSopInstanceUID,StudyDate,CreatedDateTime,ModifiedDateTime,PatientID,StudyInstanceUID,SeriesInstanceUID)"
+				+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, reportId);
+			ps.setString(2, (String) ctx.get(ReportDBKey.Title.name()));
+			ps.setString(3, (String) ctx.get(ReportDBKey.Status.name()));
+			ps.setString(4, (String) ctx.get(ReportDBKey.ReportType.name()));
+			ps.setString(5, (String) ctx.get(ReportDBKey.Author.name()));
+			ps.setString(6, (String) ctx.get(ReportDBKey.BodyHtml.name()));
+			ps.setString(7, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
+			ps.setString(8, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
+			ps.setDate(9, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
+					: DateUtils.toSQLDateObj((String) ctx.get(ReportDBKey.StudyDate.name())));
+			ps.setTimestamp(10, toSQLTimestamp(ctx.get(ReportDBKey.CreatedDateTime.name())));
+			ps.setTimestamp(11, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
+			ps.setString(12, (String) ctx.get(ReportDBKey.PatientID.name()));
+			ps.setString(13, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
+			ps.setString(14, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - Unable to save report\n" + ex.getMessage());
+		}
+	}
+
+	public synchronized void updateReport(HashMap<String, Object> ctx) {
+		String reportId = (String) ctx.get(ReportDBKey.ReportID.name());
+		if (reportId == null) {
+			return;
+		}
+		String sql = "update report set Title=?,Status=?,ReportType=?,Author=?,BodyHtml=?,KeyImageRefs=?,"
+				+ "SrSopInstanceUID=?,StudyDate=?,ModifiedDateTime=?,PatientID=?,StudyInstanceUID=?,SeriesInstanceUID=?"
+				+ " where ReportID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, (String) ctx.get(ReportDBKey.Title.name()));
+			ps.setString(2, (String) ctx.get(ReportDBKey.Status.name()));
+			ps.setString(3, (String) ctx.get(ReportDBKey.ReportType.name()));
+			ps.setString(4, (String) ctx.get(ReportDBKey.Author.name()));
+			ps.setString(5, (String) ctx.get(ReportDBKey.BodyHtml.name()));
+			ps.setString(6, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
+			ps.setString(7, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
+			ps.setDate(8, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
+					: DateUtils.toSQLDateObj((String) ctx.get(ReportDBKey.StudyDate.name())));
+			ps.setTimestamp(9, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
+			ps.setString(10, (String) ctx.get(ReportDBKey.PatientID.name()));
+			ps.setString(11, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
+			ps.setString(12, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
+			ps.setString(13, reportId);
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - Unable to update report\n" + ex.getMessage());
+		}
+	}
+
+	public void deleteReport(String reportId) {
+		if (reportId == null) {
+			return;
+		}
+		String sql = "delete from report where ReportID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, reportId);
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - Unable to delete report\n" + ex.getMessage());
+		}
+	}
+
+	public HashMap<String, Object> loadReportContext(String reportId) {
+		String sql = "SELECT * FROM REPORT WHERE ReportID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, reportId);
+			try (ResultSet rset = ps.executeQuery()) {
+				if (rset.next()) {
+					HashMap<String, Object> ctx = parseReportRow(rset);
+					conn.commit();
+					return ctx;
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return null;
+	}
+
+	public ArrayList<HashMap<String, Object>> loadReportContextFromStudy(String pid, String studyUid) {
+		ArrayList<HashMap<String, Object>> set = new ArrayList<>();
+		String sql = "SELECT * FROM REPORT WHERE PatientID=? AND StudyInstanceUID=? ORDER BY ModifiedDateTime DESC";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, pid);
+			ps.setString(2, studyUid);
+			try (ResultSet rset = ps.executeQuery()) {
+				while (rset.next()) {
+					set.add(parseReportRow(rset));
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return set;
+	}
+
+	public ArrayList<HashMap<String, Object>> loadReportContextFromPatient(String pid) {
+		if (pid == null) {
+			return null;
+		}
+		ArrayList<HashMap<String, Object>> set = new ArrayList<>();
+		String sql = "SELECT * FROM REPORT WHERE PatientID=? ORDER BY ModifiedDateTime DESC";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, pid);
+			try (ResultSet rset = ps.executeQuery()) {
+				while (rset.next()) {
+					set.add(parseReportRow(rset));
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return set.isEmpty() ? null : set;
+	}
+
+	private HashMap<String, Object> parseReportRow(ResultSet rset) throws SQLException {
+		HashMap<String, Object> ctx = new HashMap<>();
+		ctx.put(ReportDBKey.ReportID.name(), rset.getString("ReportID"));
+		ctx.put(ReportDBKey.Title.name(), rset.getString("Title"));
+		ctx.put(ReportDBKey.Status.name(), rset.getString("Status"));
+		ctx.put(ReportDBKey.ReportType.name(), rset.getString("ReportType"));
+		ctx.put(ReportDBKey.Author.name(), rset.getString("Author"));
+		ctx.put(ReportDBKey.BodyHtml.name(), rset.getString("BodyHtml"));
+		ctx.put(ReportDBKey.KeyImageRefs.name(), rset.getString("KeyImageRefs"));
+		ctx.put(ReportDBKey.SrSopInstanceUID.name(), rset.getString("SrSopInstanceUID"));
+		java.sql.Date sd = rset.getDate("StudyDate");
+		ctx.put(ReportDBKey.StudyDate.name(), sd == null ? null : new SimpleDateFormat("yyyy/MM/dd").format(sd));
+		Timestamp ct = rset.getTimestamp("CreatedDateTime");
+		ctx.put(ReportDBKey.CreatedDateTime.name(), ct == null ? null : ct.getTime());
+		Timestamp mt = rset.getTimestamp("ModifiedDateTime");
+		ctx.put(ReportDBKey.ModifiedDateTime.name(), mt == null ? null : mt.getTime());
+		ctx.put(ReportDBKey.PatientID.name(), rset.getString("PatientID"));
+		ctx.put(ReportDBKey.StudyInstanceUID.name(), rset.getString("StudyInstanceUID"));
+		ctx.put(ReportDBKey.SeriesInstanceUID.name(), rset.getString("SeriesInstanceUID"));
+		return ctx;
+	}
+
+	/** Accepts a Long (epoch millis), java.util.Date, or java.sql.Timestamp; null-safe. */
+	private static Timestamp toSQLTimestamp(Object value) {
+		if (value == null) {
+			return null;
+		}
+		if (value instanceof Timestamp) {
+			return (Timestamp) value;
+		}
+		if (value instanceof Long) {
+			return new Timestamp((Long) value);
+		}
+		if (value instanceof java.util.Date) {
+			return new Timestamp(((java.util.Date) value).getTime());
+		}
+		return null;
+	}
+
+	/**
+	 * SOP Class UID of one (the first) instance of a series. Lets callers detect SR-family
+	 * (report) series without loading the whole series.
+	 */
+	public String getFirstSopClassUIDInSeries(String patID, String studyUID, String seriesUID) {
+		String sql = "SELECT SOPClassUID FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SeriesInstanceUID=? "
+				+ "FETCH FIRST 1 ROW ONLY";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, patID);
+			ps.setString(2, studyUID);
+			ps.setString(3, seriesUID);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					String v = rs.getString(1);
+					conn.commit();
+					return v;
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return null;
+	}
+
+	/**
+	 * List the SR-family (report) instances in a study: imported SR/RDSR/KO and finalized
+	 * GRAPHY reports. Each entry has keys SOPInstanceUID, SeriesInstanceUID, SOPClassUID.
+	 */
+	public ArrayList<HashMap<String, String>> getReportInstancesInStudy(String patID, String studyUID) {
+		ArrayList<HashMap<String, String>> out = new ArrayList<>();
+		java.util.Set<String> uids = com.vis.core.reporting.sr.SopClassUtil.srFamilyUids();
+		if (uids.isEmpty()) {
+			return out;
+		}
+		StringBuilder in = new StringBuilder();
+		for (int i = 0; i < uids.size(); i++) {
+			in.append(i == 0 ? "?" : ",?");
+		}
+		String sql = "SELECT SOPInstanceUID, SeriesInstanceUID, SOPClassUID FROM IMAGE "
+				+ "WHERE PatientID=? AND StudyInstanceUID=? AND SOPClassUID IN (" + in + ")";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
+			ps.setString(1, patID);
+			ps.setString(2, studyUID);
+			int idx = 3;
+			for (String u : uids) {
+				ps.setString(idx++, u);
+			}
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					HashMap<String, String> m = new HashMap<>();
+					m.put("SOPInstanceUID", rs.getString("SOPInstanceUID"));
+					m.put("SeriesInstanceUID", rs.getString("SeriesInstanceUID"));
+					m.put("SOPClassUID", rs.getString("SOPClassUID"));
+					out.add(m);
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		return out;
+	}
+
+	/**
+	 * Per-study report counts for the tree's Report column.
+	 *
+	 * @return {@code [draftCount, reportInstanceCount]} where draftCount = unfinalized GRAPHY
+	 *         reports (REPORT rows with Status DRAFT) and reportInstanceCount = SR-family
+	 *         instances in the study (imported SR/RDSR/KO + finalized GRAPHY reports). The two
+	 *         are disjoint (a draft has no SR instance yet), so their sum is the total item count.
+	 */
+	public int[] getStudyReportCounts(String patID, String studyUID) {
+		int draftCount = 0;
+		int reportInstanceCount = 0;
+		String sqlDraft = "SELECT COUNT(*) FROM REPORT WHERE PatientID=? AND StudyInstanceUID=? AND Status='DRAFT'";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sqlDraft);) {
+			ps.setString(1, patID);
+			ps.setString(2, studyUID);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					draftCount = rs.getInt(1);
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe(ex.getMessage());
+		}
+		java.util.Set<String> uids = com.vis.core.reporting.sr.SopClassUtil.srFamilyUids();
+		if (!uids.isEmpty()) {
+			StringBuilder in = new StringBuilder();
+			for (int i = 0; i < uids.size(); i++) {
+				in.append(i == 0 ? "?" : ",?");
+			}
+			String sqlSr = "SELECT COUNT(*) FROM IMAGE WHERE PatientID=? AND StudyInstanceUID=? AND SOPClassUID IN ("
+					+ in + ")";
+			try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sqlSr);) {
+				ps.setString(1, patID);
+				ps.setString(2, studyUID);
+				int idx = 3;
+				for (String u : uids) {
+					ps.setString(idx++, u);
+				}
+				try (ResultSet rs = ps.executeQuery()) {
+					if (rs.next()) {
+						reportInstanceCount = rs.getInt(1);
+					}
+				}
+				conn.commit();
+			} catch (SQLException ex) {
+				logger.severe(ex.getMessage());
+			}
+		}
+		return new int[] { draftCount, reportInstanceCount };
 	}
 
 	public HashMap<String, Object> loadSeriesNodeMaterial(ResultSet seriesInfo, HashMap<String, Object> studyMaterial) {

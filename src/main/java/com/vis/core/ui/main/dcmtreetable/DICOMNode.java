@@ -68,6 +68,9 @@ public class DICOMNode extends DefaultMutableTreeNode{
 	public static final String StudyInstanceUID= "StudyInstanceUID";
 	public static final String SeriesInstanceUID= "SeriesInstanceUID";
 	public static final String SOPInstanceUID= "SOPInstanceUID";
+	// Report column state (STUDY level): "none" | "draft" | "report"; ReportCount = total items.
+	public static final String ReportState= "ReportState";
+	public static final String ReportCount= "ReportCount";
 	
 	/**
 	 * check DICOMTableModel.java columnName

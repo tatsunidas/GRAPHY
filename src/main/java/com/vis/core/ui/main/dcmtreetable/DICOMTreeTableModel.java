@@ -50,8 +50,9 @@ import javax.swing.tree.DefaultMutableTreeNode;
 public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 	
 	private static final long serialVersionUID = -4830975177975801077L;
-	public static final String DatasetsCol = "Datasets"; 
-	public static final String ArchivedCol = "Archived"; 
+	public static final String DatasetsCol = "Datasets";
+	public static final String ArchivedCol = "Archived";
+	public static final String ReportCol = "Report";
 
 	/*
 	 * LEVEL
@@ -78,7 +79,7 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 	static final public String[] columnNames = { DatasetsCol, ArchivedCol, DICOMNode.PatientName, DICOMNode.PatientID, DICOMNode.StudyDate,
 			DICOMNode.SeriesDate, DICOMNode.StudyTime, DICOMNode.AcquisitionTime, "StudyDesc", "SeriesDesc", DICOMNode.Modality, DICOMNode.Sex, DICOMNode.BirthDate,
 			DICOMNode.Age, DICOMNode.Institution, DICOMNode.ModelName, "SeriesNo", "AcquisitionNo", "InstanceNo", "NumOfSeries",
-			"NumOfInstances" };
+			"NumOfInstances", ReportCol };
 	
 	/**
 	 * if TreeTableModel.class was set, it's column is handle editable(do something) column in TreeTableCellEditor, else ignored.
@@ -90,7 +91,7 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 	static protected Class<?>[] columnTypes = { TreeTableModel.class/*tree icon*/, TreeTableModel.class/*Archived*/, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
 			String.class, String.class, String.class, String.class, String.class, String.class, String.class,
-			String.class, String.class, String.class };
+			String.class, String.class, String.class, String.class/*Report*/ };
 
 	public boolean isQR = false;
 
@@ -179,6 +180,8 @@ public class DICOMTreeTableModel extends AbstractTreeTableModel/*tree model*/ {
 			return ((DICOMNode) node).getData(DICOMNode.NumOfSeries);
 		case 20:// numOfInstances
 			return ((DICOMNode) node).getData(DICOMNode.NumOfInstances);
+		case 21:// Report (rendered by ReportCellRenderer; value unused)
+			return null;
 		default:
 			break;
 		}

@@ -121,6 +121,7 @@ public enum Resources {
 	SQL_IMAGE("sql/IMAGE.sql"),
 	SQL_PRESET("sql/PRESETS.sql"),
 	SQL_ROI("sql/ROI.sql"),
+	SQL_REPORT("sql/REPORT.sql"),
 	SQL_SERVERS("sql/SERVERS.sql"),//previous name is SERVERS.sql
 	SQL_TEXTANNOTATION("sql/TEXTANNOTATION.sql"),
 	SQL_THEME("sql/THEME.sql"),

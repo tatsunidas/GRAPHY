@@ -45,11 +45,16 @@ import java.util.ArrayList;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.reporting.ReportService;
+import com.vis.core.reporting.sr.SopClassUtil;
+import com.vis.core.reporting.ui.ReportListPanel;
 import com.vis.core.task.Task;
 import com.vis.core.ui.qr.QueryRetrieve;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
+import com.vis.db.DatabaseHandler;
 
 /**
  * 
@@ -99,6 +104,11 @@ public class TreeTableMouseListener implements MouseListener{
 				if(target == null) {
 					return;
 				}
+				// Click on the Report column -> open the study's report list (skip Bird's eye).
+				if(col == treeTable.getColumnPosition(DICOMTreeTableModel.ReportCol)) {
+					openReportListPopup(target);
+					return;
+				}
 				if(arc_col == col) {
 					Task t = treeTable.getTaskTypeImportAt(target);
 					if(t != null) {
@@ -123,6 +133,10 @@ public class TreeTableMouseListener implements MouseListener{
 			if (treeTable.getColumnClass(columnIndex) == TreeTableModel.class) {
 				return;
 			}
+			// The Report column handles its own (single) click; ignore double-clicks on it.
+			if (columnIndex == treeTable.getColumnPosition(DICOMTreeTableModel.ReportCol)) {
+				return;
+			}
 			int row = treeTable.rowAtPoint(e.getPoint());
 //			int row = treeTable.getTree().getClosestRowForLocation(e.getX(), e.getY());//same result
 			DICOMNode node = treeTable.nodeForRow(row);
@@ -135,6 +149,11 @@ public class TreeTableMouseListener implements MouseListener{
 			if(!isRemote) {
 				try {
 					WindowManager.getMainScreen().setCursor(new Cursor(Cursor.WAIT_CURSOR));
+					// SR-family objects (SR/RDSR/KO) open in the SR HTML viewer, not the image
+					// viewer — do not launch the empty 2D viewer for them.
+					if (routeSrNode(node)) {
+						return;
+					}
 					ArrayList<DICOMNode> clicked = new ArrayList<>();
 					clicked.add(node);
 					viewer.loadImagesOnStage(clicked);
@@ -182,6 +201,80 @@ public class TreeTableMouseListener implements MouseListener{
 				}
 			}
 		}
+	}
+
+	/**
+	 * If the double-clicked node is an SR-family document (SR/RDSR/KO), open it in the
+	 * SR HTML viewer and report that it was handled (so the caller skips the image viewer).
+	 * Only IMAGE and SERIES level nodes are short-circuited here; a STUDY/PATIENT node may
+	 * mix images and SR, and the per-series guard in
+	 * {@link Viewer2DScreen#loadImagesOnStage(String, String, String, String[], String)}
+	 * routes the SR series within it.
+	 *
+	 * @return true if the node was an SR object and has been routed to the SR viewer.
+	 */
+	private boolean routeSrNode(DICOMNode node) {
+		if (isRemote || node == null) {
+			return false;
+		}
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db == null) {
+			return false;
+		}
+		int level = node.getLevel();
+		String patID = node.getData(DICOMNode.PatientID);
+		String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+		if (level == DICOMNode.IMAGE) {
+			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+			String sopUID = node.getData(DICOMNode.SOPInstanceUID);
+			if (SopClassUtil.isSrFamily(db.getValueFromImage("SOPClassUID", patID, studyUID, seriesUID, sopUID))) {
+				new ReportService().openSr(patID, studyUID, seriesUID, sopUID);
+				return true;
+			}
+		} else if (level == DICOMNode.SERIES) {
+			String seriesUID = node.getData(DICOMNode.SeriesInstanceUID);
+			ArrayList<String> sops = db.getInstanceUidList(patID, studyUID, seriesUID);
+			if (sops == null || sops.isEmpty()) {
+				return false;
+			}
+			String sop0 = sops.get(0);
+			String cls = db.getValueFromImage("SOPClassUID", patID, studyUID, seriesUID, sop0);
+			boolean sr = SopClassUtil.isSrFamily(cls);
+			if (!sr && cls == null) {
+				sr = SopClassUtil.isSrModality(db.getValueFromSeries("Modality", patID, studyUID, seriesUID));
+			}
+			if (sr) {
+				new ReportService().openSr(patID, studyUID, seriesUID, sop0);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Open the report list for the clicked study (the Report column marker). Does nothing for
+	 * non-study rows or studies that have no reports.
+	 */
+	private void openReportListPopup(DICOMNode node) {
+		if (node == null || node.getLevel() != DICOMNode.STUDY) {
+			return;
+		}
+		String state = node.getData(DICOMNode.ReportState);
+		if (state == null || "none".equals(state)) {
+			return;
+		}
+		String patID = node.getData(DICOMNode.PatientID);
+		String studyUID = node.getData(DICOMNode.StudyInstanceUID);
+		String studyDate = node.getData(DICOMNode.StudyDate);
+		ReportListPanel panel = new ReportListPanel();
+		panel.setContext(patID, studyUID, studyDate);
+		java.awt.Window owner = WindowManager.getMainScreen();
+		javax.swing.JDialog d = new javax.swing.JDialog(owner,
+				Resources.i18n("Reporting.window.reports.title"), java.awt.Dialog.ModalityType.MODELESS);
+		d.setContentPane(panel);
+		d.setSize(700, 460);
+		d.setLocationRelativeTo(owner);
+		d.setVisible(true);
 	}
 
 	@Override

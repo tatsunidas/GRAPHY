@@ -230,7 +230,14 @@ public class ImageSpecimenGlass extends JPanel{
 		int angle = sg.getRotateAngle();
 		int original_width = (angle % 180 == 0) ? orgCols : orgRows;
 		int original_height = (angle % 180 == 0) ? orgRows : orgCols;
-		
+
+		// Guard against pixel-less objects (e.g. an SR/RDSR/KO with 0x0 dimensions) and any
+		// not-yet-loaded slide — dividing by a zero original dimension below would throw
+		// ArithmeticException on the EDT during paint.
+		if (original_width < 1 || original_height < 1) {
+			return null;
+		}
+
 		// first, adjust new component size
 		int new_width = bound_width;
 		// scale height to maintain aspect ratio

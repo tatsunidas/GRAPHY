@@ -7,11 +7,24 @@ import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import com.vis.core.log.Log;
+import com.vis.core.reporting.sr.SopClassUtil;
 import com.vis.db.DatabaseHandler;
 
 public class DICOMNodeBuilder {
-	
+
 	static final DatabaseHandler db = DatabaseHandler.getInstance();
+
+	/**
+	 * @return true if the series is an SR-family report (SR/RDSR/KO) and must not be shown as
+	 *         a SERIES row in the tree (reports are surfaced via the study-level Report column).
+	 *         Detected by Modality first (cheap), then by the first instance's SOP Class UID.
+	 */
+	private static boolean isReportSeries(String patID, String studyUID, String seriesUID, String modality) {
+		if (SopClassUtil.isSrModality(modality)) {
+			return true;
+		}
+		return SopClassUtil.isSrFamily(db.getFirstSopClassUIDInSeries(patID, studyUID, seriesUID));
+	}
 
 	public DICOMNodeBuilder() {}
 	
@@ -32,11 +45,17 @@ public class DICOMNodeBuilder {
 			String patID = (String) studyInfo.get("PatientID");
 			HashMap<String,String> patInfo = db.getPatientInfo(patID);
 			DICOMNode studyNode = buildStudyNode(patInfo, studyInfoString);
+			String studyUID = studyInfoString.get("StudyInstanceUID");
 			for(int i=0;i<studyMaterialNode.getChildCount();i++) {//series loop
 				DefaultMutableTreeNode seriesMaterialNode = (DefaultMutableTreeNode) studyMaterialNode.getChildAt(i);
 				@SuppressWarnings("unchecked")
 				HashMap<String,Object> seriesInfo = (HashMap<String, Object>) seriesMaterialNode.getUserObject();
 				HashMap<String,String> seriesInfoString = convertObjectToStringInMap(seriesInfo);
+				// Hide SR-family report series; they are surfaced via the study Report column.
+				if(isReportSeries(patID, studyUID, seriesInfoString.get("SeriesInstanceUID"),
+						seriesInfoString.get("Modality"))) {
+					continue;
+				}
 				DICOMNode seriesNode = buildSeriesNode(patID, seriesInfoString);
 				for(int j=0;j<seriesMaterialNode.getChildCount();j++) {//image loop
 					DefaultMutableTreeNode imageMaterialNode = (DefaultMutableTreeNode) seriesMaterialNode.getChildAt(j);
@@ -82,12 +101,19 @@ public class DICOMNodeBuilder {
 				return null;
 			}
 			for(HashMap<String,String> seriesInfo:seriesInfoList) {
+				// Hide SR-family report series; they are surfaced via the study Report column.
+				if(isReportSeries(patID, studyUID, seriesInfo.get("SeriesInstanceUID"),
+						seriesInfo.get("Modality"))) {
+					continue;
+				}
 				DICOMNode seriesNode = buildConnectedNodeRelatedSeries(patID,seriesInfo);
 				if(seriesNode != null) {
 					studyNode.addChild(seriesNode);
 				}
 			}
-			if(studyNode.getChildCount() == 0) {
+			// A study with only reports (no image series) is still shown so its Report column
+			// is reachable; otherwise an empty study is dropped.
+			if(studyNode.getChildCount() == 0 && "none".equals(studyNode.getData(DICOMNode.ReportState))) {
 				return null;
 			}
 		}else {
@@ -162,6 +188,15 @@ public class DICOMNodeBuilder {
 				null, // seriesUID, IMPORTANT set to null
 				null, // sopUID, IMPORTANT set to null
 				null);
+		// Report column state (draft / report / none) + total count for this study.
+		String pid = patInfo.get("PatientID");
+		String suid = studyInfo.get("StudyInstanceUID");
+		int[] counts = db.getStudyReportCounts(pid, suid);
+		int draft = counts[0];
+		int reports = counts[1];
+		String state = reports > 0 ? "report" : (draft > 0 ? "draft" : "none");
+		studyNode.setData(DICOMNode.ReportState, state);
+		studyNode.setData(DICOMNode.ReportCount, String.valueOf(draft + reports));
 		return studyNode;
 	}
 

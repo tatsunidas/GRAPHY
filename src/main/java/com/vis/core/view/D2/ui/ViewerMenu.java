@@ -67,6 +67,10 @@ public class ViewerMenu extends JMenuBar {
 	
 	JMenu pluginMenu;
 
+	// Praparat currently in segmentation edit mode, so "Stop editing" works even if
+	// the series is no longer the toolbar selection by the time it is clicked.
+	private Praparat segmentationEditingPraparat;
+
 	public ViewerMenu() {
 		setLayout(new FlowLayout(FlowLayout.LEADING));
 		setMenu();
@@ -180,8 +184,44 @@ public class ViewerMenu extends JMenuBar {
 				stopSegmentationOnSelected();
 			}
 		});
+		JMenuItem segImport = new JMenuItem(Resources.i18n("ViewerMenu.seg.import"));
+		segImport.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				importRoisToSegmentationOnSelected();
+			}
+		});
+		JMenuItem segSave = new JMenuItem(Resources.i18n("ViewerMenu.seg.saveSeg"));
+		segSave.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				saveSegmentationAsSegOnSelected();
+			}
+		});
+		JMenuItem segImportSeg = new JMenuItem(Resources.i18n("ViewerMenu.seg.importSeg"));
+		segImportSeg.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				importSegFromFile();
+			}
+		});
 		mnSeg.add(segNew);
+		mnSeg.add(segImport);
+		mnSeg.add(segSave);
+		mnSeg.add(segImportSeg);
 		mnSeg.add(segStop);
+		// Fail-safe: enable/disable items by the current session state each time it opens,
+		// enforcing the New -> edit -> Stop bracket.
+		mnSeg.addMenuListener(new javax.swing.event.MenuListener() {
+			@Override
+			public void menuSelected(javax.swing.event.MenuEvent e) {
+				updateSegmentationMenuState(segNew, segImport, segSave, segImportSeg, segStop);
+			}
+			@Override
+			public void menuDeselected(javax.swing.event.MenuEvent e) {}
+			@Override
+			public void menuCanceled(javax.swing.event.MenuEvent e) {}
+		});
 		mnImage.add(mnSeg);
 
 		JMenuItem mntmCurvedMpr = new JMenuItem("Curved MPR...");
@@ -231,6 +271,77 @@ public class ViewerMenu extends JMenuBar {
 			}
 		});
 		mnProcess.add(mntmHistogram);
+
+		JMenu mnReport = new JMenu(Resources.i18n("Reporting.menu"));
+		add(mnReport);
+		JMenuItem mntmNewReport = new JMenuItem(Resources.i18n("Reporting.menu.new"));
+		mntmNewReport.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if (own == null) {
+					return;
+				}
+				ArrayList<Praparat> sel = own.getSelectedPraps();
+				if (sel == null || sel.isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("ViewerMenu.info.noPraparatSelected"));
+					return;
+				}
+				Object[] uids = sel.get(0).getUIDs();
+				com.vis.core.reporting.ui.ReportEditorDialog.showNew(own, (String) uids[0], (String) uids[1], null,
+						null);
+			}
+		});
+		mnReport.add(mntmNewReport);
+
+		JMenuItem mntmReports = new JMenuItem(Resources.i18n("Reporting.menu.reports"));
+		mntmReports.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if (own == null) {
+					return;
+				}
+				ArrayList<Praparat> sel = own.getSelectedPraps();
+				if (sel == null || sel.isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("ViewerMenu.info.noPraparatSelected"));
+					return;
+				}
+				Object[] uids = sel.get(0).getUIDs();
+				com.vis.core.reporting.ui.ReportListPanel panel = new com.vis.core.reporting.ui.ReportListPanel();
+				panel.setContext((String) uids[0], (String) uids[1], null);
+				javax.swing.JDialog d = new javax.swing.JDialog(own,
+						Resources.i18n("Reporting.window.reports.title"), false);
+				d.setContentPane(panel);
+				d.setSize(680, 440);
+				d.setLocationRelativeTo(own);
+				d.setVisible(true);
+			}
+		});
+		mnReport.add(mntmReports);
+
+		JMenu mnView = new JMenu(Resources.i18n("MainScreenMenu.menu.view"));
+		add(mnView);
+		JMenuItem mntmCompare = new JMenuItem(Resources.i18n("MainScreenMenu.view.compare"));
+		mntmCompare.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if (own == null) {
+					return;
+				}
+				java.util.List<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> contexts = null;
+				StageDockManager sdm = own.getStageDockManager();
+				if (sdm != null) {
+					StageView active = sdm.getStage(own.getStageIDInAction());
+					if (active != null && active.getEyepiece() != null) {
+						contexts = active.getEyepiece().getAllPraparatContext();
+					}
+				}
+				ComparisonScreen.getInstance().launch(ComparisonScreen.studiesFromPraparats(contexts));
+			}
+		});
+		mnView.add(mntmCompare);
 
 		pluginMenu = new JMenu("Plugins");
 		add(pluginMenu);
@@ -485,22 +596,323 @@ public class ViewerMenu extends JMenuBar {
 			return;
 		}
 		pp.setActiveSegmentation(seg);
+		segmentationEditingPraparat = pp;
 		PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
 				Resources.i18n("ViewerMenu.seg.editingStarted"),
 				JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 	}
 
-	/** Leaves segmentation edit mode on the selected Praparat. */
-	private void stopSegmentationOnSelected() {
+	/**
+	 * Roi2Mask: imports the currently selected 2D/3D ROIs of the selected Praparat
+	 * into its active segmentation (creating one if none is active). The source ROIs
+	 * are left intact.
+	 */
+	private void importRoisToSegmentationOnSelected() {
 		Viewer2DScreen own = Viewer2DScreen.getInstance();
 		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
 			return;
 		}
 		ArrayList<Praparat> sel = own.getSelectedPraps();
 		if (sel == null || sel.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		sel.get(0).setActiveSegmentation(null);
+		Praparat pp = sel.get(0);
+		// Selected 2D ROIs (across slices) plus any selected 3D ROIs.
+		java.util.List<com.vis.core.view.D2.roi.RoiObj> selectedRois = new ArrayList<>(pp.getSelectedRois());
+		if (pp.getRoi3DList() != null) {
+			for (com.vis.core.view.D2.roi.RoiObj r : pp.getRoi3DList()) {
+				if (r != null && r.isSelected() && !selectedRois.contains(r)) {
+					selectedRois.add(r);
+				}
+			}
+		}
+		if (selectedRois.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+					Resources.i18n("ViewerMenu.seg.selectRoisFirst"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		com.vis.core.view.D3.roi.FreeFormRoi3D target = pp.getActiveSegmentation();
+		if (target == null) {
+			String name = JOptionPane.showInputDialog(own,
+					Resources.i18n("ViewerMenu.seg.namePrompt"),
+					Resources.i18n("ViewerMenu.menu.segmentation"), JOptionPane.PLAIN_MESSAGE);
+			if (name == null) {
+				return;
+			}
+			target = com.vis.core.view.D3.roi.SegmentationManager.createSegmentation(pp, name);
+			if (target == null) {
+				PopUpMessage.showDialog(own, Resources.i18n("dialog.title.error"),
+						Resources.i18n("ViewerMenu.seg.createFailed"),
+						JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+			pp.setActiveSegmentation(target);
+			segmentationEditingPraparat = pp;
+		}
+		com.vis.core.view.D3.roi.SegmentationManager.importRoisIntoSegmentation(pp, selectedRois, target, null);
+		// Persist the updated mask.
+		DatabaseHandler db = DatabaseHandler.getInstance();
+		if (db != null) {
+			try {
+				db.insertRoi(target.readContext());
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+		com.vis.core.view.D2.ui.glasses.SlideGlass cur = pp.getCurrentSlide();
+		if (cur != null) {
+			cur.repaintCanvasGlass();
+		}
+		PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+				String.format(Resources.i18n("ViewerMenu.seg.imported"), selectedRois.size()),
+				JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	/**
+	 * Writes all segmentation objects of the selected Praparat as a single
+	 * multi-segment DICOM SEG series and ingests it into the database.
+	 */
+	private void saveSegmentationAsSegOnSelected() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
+			return;
+		}
+		ArrayList<Praparat> sel = own.getSelectedPraps();
+		if (sel == null || sel.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		Praparat pp = sel.get(0);
+		java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> segs = com.vis.core.view.D3.roi.SegmentationManager
+				.getSegmentations(pp);
+		if (segs.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+					Resources.i18n("ViewerMenu.seg.noSegToSave"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		try {
+			com.vis.dicom.DicomObject seg = com.vis.dicom.seg.SegWriter.build(pp, segs);
+			if (seg == null) {
+				PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+						Resources.i18n("ViewerMenu.seg.noSegToSave"),
+						JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				return;
+			}
+			String patID = seg.getString(0x00100020);
+			String studyUID = seg.getString(0x0020000D);
+			String seriesUID = seg.getString(0x0020000E);
+			String sopUID = seg.getString(0x00080018);
+			java.io.File tmp = java.io.File.createTempFile("graphy_seg_", ".dcm");
+			if (!com.vis.dicom.seg.SegWriter.writeToFile(seg, tmp.getAbsolutePath())) {
+				tmp.delete();
+				PopUpMessage.showDialog(own, Resources.i18n("dialog.title.error"),
+						Resources.i18n("ViewerMenu.seg.saveFailed"),
+						JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+			// Ingest the SEG file into the local DB (deletes the temp file afterward).
+			com.vis.dicom.dimse.DimseUtilities.store(tmp.getAbsolutePath(), true);
+
+			// Refresh the HOME tree table so the new SEG series appears in the database.
+			com.vis.core.ui.main.MainScreen main = com.vis.core.facade.WindowManager.getMainScreen();
+			if (main != null) {
+				main.loadLocalStudiesBySearchKey();
+			}
+
+			// Load and show the saved SEG in the 2D viewer (works even while still editing).
+			// The SEG is anchored to the reference slice grid, so it loads as a regular
+			// (slices x channels) series.
+			try {
+				own.loadImagesOnStage(patID, studyUID, seriesUID,
+						(sopUID != null ? new String[] { sopUID } : null), null);
+				own.setVisible(true);
+				own.toFront();
+			} catch (Exception ex2) {
+				ex2.printStackTrace();
+			}
+
+			PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+					Resources.i18n("ViewerMenu.seg.savedSeg"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.error"),
+					Resources.i18n("ViewerMenu.seg.saveFailed"),
+					JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+		}
+	}
+
+	/**
+	 * Mask2Roi from DICOM: reads a BINARY SEG file and attaches its segments to the
+	 * selected reference Praparat as editable FreeFormRoi3D objects.
+	 */
+	private void importSegFromFile() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		if (own == null) {
+			Log.logger.info("Ouch, viewer is null...");
+			return;
+		}
+		ArrayList<Praparat> sel = own.getSelectedPraps();
+		if (sel == null || sel.isEmpty()) {
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.information"),
+					Resources.i18n("ViewerMenu.info.noPraparatSelected"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		Praparat pp = sel.get(0);
+		javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+		if (fc.showOpenDialog(own) != javax.swing.JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+		java.io.File file = fc.getSelectedFile();
+		try {
+			com.vis.dicom.DicomReader reader = com.vis.dicom.DicomReader
+					.newDicomReader(com.vis.dicom.DICOMBackend.getCurrent());
+			reader.read(file.getAbsolutePath(), true);
+
+			// (A) Frame-of-reference check: warn if the SEG belongs to a different study/
+			// region than the selected series (0020,0052 = FrameOfReferenceUID).
+			com.vis.core.view.D2.ui.glasses.SlideGlass refSg = pp.getFirstNoEmptySlide();
+			String refFoR = (refSg != null && refSg.getHeader() != null)
+					? refSg.getHeader().getString(0x00200052) : null;
+			String segFoR = reader.getHeader().getString(0x00200052);
+			if (refFoR != null && segFoR != null && !refFoR.equals(segFoR)) {
+				int res = JOptionPane.showConfirmDialog(own,
+						Resources.i18n("ViewerMenu.seg.importForMismatch"),
+						Resources.i18n("ViewerMenu.menu.segmentation"),
+						JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+				if (res != JOptionPane.YES_OPTION) {
+					return;
+				}
+			}
+
+			java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> all = com.vis.dicom.seg.SegReader
+					.read(reader.getHeader());
+			if (all.isEmpty()) {
+				PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+						Resources.i18n("ViewerMenu.seg.importSegNone"),
+						JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				return;
+			}
+
+			// (A) Keep only segments that physically overlap the selected series
+			// (tolerates slice thickness / gap / FOV differences via nearest-slice mapping).
+			java.util.List<double[]> refIpps = com.vis.core.view.D3.roi.SegmentationManager.referenceSliceIpps(pp);
+			java.util.List<com.vis.core.view.D3.roi.FreeFormRoi3D> kept = new ArrayList<>();
+			int skipped = 0;
+			for (com.vis.core.view.D3.roi.FreeFormRoi3D s : all) {
+				if (refIpps.isEmpty() || com.vis.core.view.D3.roi.SegmentationManager.overlapsReference(s, refIpps)) {
+					kept.add(s);
+				} else {
+					skipped++;
+				}
+			}
+			if (kept.isEmpty()) {
+				PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+						Resources.i18n("ViewerMenu.seg.importNoOverlap"),
+						JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+				return;
+			}
+
+			DatabaseHandler db = DatabaseHandler.getInstance();
+			for (com.vis.core.view.D3.roi.FreeFormRoi3D s : kept) {
+				pp.addRoi3D(s);
+				if (db != null) {
+					try {
+						db.insertRoi(s.readContext());
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+				}
+			}
+			com.vis.core.view.D2.ui.glasses.SlideGlass cur = pp.getCurrentSlide();
+			if (cur != null) {
+				cur.repaintCanvasGlass();
+			}
+			String msg = (skipped > 0)
+					? String.format(Resources.i18n("ViewerMenu.seg.importedWithSkip"), kept.size(), skipped)
+					: String.format(Resources.i18n("ViewerMenu.seg.importSegDone"), kept.size());
+			PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"), msg,
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			PopUpMessage.showDialog(own, Resources.i18n("dialog.title.error"),
+					Resources.i18n("ViewerMenu.seg.importSegFailed"),
+					JOptionPane.OK_OPTION, JOptionPane.ERROR_MESSAGE);
+		}
+	}
+
+	/** Leaves segmentation edit mode and confirms to the user. */
+	private void stopSegmentationOnSelected() {
+		Viewer2DScreen own = Viewer2DScreen.getInstance();
+		// Prefer the tracked editing Praparat; fall back to the current selection.
+		Praparat pp = segmentationEditingPraparat;
+		if ((pp == null || !pp.isSegmentationEditing()) && own != null) {
+			ArrayList<Praparat> sel = own.getSelectedPraps();
+			if (sel != null && !sel.isEmpty() && sel.get(0).isSegmentationEditing()) {
+				pp = sel.get(0);
+			}
+		}
+		if (pp == null || !pp.isSegmentationEditing()) {
+			PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+					Resources.i18n("ViewerMenu.seg.notEditing"),
+					JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		pp.setActiveSegmentation(null);
+		segmentationEditingPraparat = null;
+		// Repaint so the de-selected mask is redrawn in its normal (segment) color.
+		com.vis.core.view.D2.ui.glasses.SlideGlass cur = pp.getCurrentSlide();
+		if (cur != null) {
+			cur.repaintCanvasGlass();
+		}
+		PopUpMessage.showDialog(own, Resources.i18n("ViewerMenu.menu.segmentation"),
+				Resources.i18n("ViewerMenu.seg.editingStopped"),
+				JOptionPane.OK_OPTION, JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	/**
+	 * Fail-safe enable/disable for the segmentation menu, enforcing the editing
+	 * bracket on the selected Praparat:
+	 * <ul>
+	 * <li>New / Import DICOM SEG: only when a series is selected and NOT editing.</li>
+	 * <li>Save: only when not editing and segmentations exist (finish editing first).</li>
+	 * <li>Roi2Mask import / Stop editing: only while editing (active mask required).</li>
+	 * </ul>
+	 */
+	private void updateSegmentationMenuState(JMenuItem newItem, JMenuItem importRois, JMenuItem save,
+			JMenuItem importSeg, JMenuItem stop) {
+		Praparat pp = null;
+		try {
+			Viewer2DScreen own = Viewer2DScreen.getInstance();
+			if (own != null) {
+				ArrayList<Praparat> sel = own.getSelectedPraps();
+				if (sel != null && !sel.isEmpty()) {
+					pp = sel.get(0);
+				}
+			}
+		} catch (Exception e) {
+			pp = null;
+		}
+		boolean hasPp = pp != null;
+		boolean editing = hasPp && pp.isSegmentationEditing();
+		boolean hasSegs = hasPp && !com.vis.core.view.D3.roi.SegmentationManager.getSegmentations(pp).isEmpty();
+
+		newItem.setEnabled(hasPp && !editing);
+		importSeg.setEnabled(hasPp && !editing);
+		importRois.setEnabled(editing);
+		// Save is allowed even while editing (no need to press Stop first).
+		save.setEnabled(hasPp && hasSegs);
+		stop.setEnabled(editing);
 	}
 
 	public void addPluginMenuItem(JMenuItem pluginMenuItem) {

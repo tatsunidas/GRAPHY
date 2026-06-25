@@ -247,6 +247,20 @@ public class MainScreenMenu extends JMenuBar{
 		});
 		dbMenu.add(mntmPatientEdit);
 		
+		JMenu mnView = new JMenu(Resources.i18n("MainScreenMenu.menu.view"));
+		add(mnView);
+		JMenuItem mntmCompare = new JMenuItem(Resources.i18n("MainScreenMenu.view.compare"));
+		mntmCompare.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				MainScreen main = WindowManager.getMainScreen();
+				ArrayList<DICOMNode> selected = (main == null) ? null : main.getSelectedNode();
+				com.vis.core.view.D2.ui.ComparisonScreen.getInstance()
+						.launch(com.vis.core.view.D2.ui.ComparisonScreen.studiesFromNodes(selected));
+			}
+		});
+		mnView.add(mntmCompare);
+
 		JMenu mnSys = new JMenu("System");
 		add(mnSys);
 		JMenuItem mntmSys = new JMenuItem("Show Log");
