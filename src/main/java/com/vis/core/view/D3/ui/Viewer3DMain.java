@@ -271,41 +271,144 @@ public class Viewer3DMain extends JFrame {
                 () -> lblCinematicBackend.setText("GPU: " + canvas.getCinematicBackendName()));
 
         controlPanel.add(new JLabel("Light Azimuth"), gbc);   gbc.gridy++;
-        JSlider sliderLightAzimuth  = new JSlider(0, 360, 45);  controlPanel.add(sliderLightAzimuth,  gbc); gbc.gridy++;
+        JSlider sliderLightAzimuth  = new JSlider(0, 360, 45);
+        sliderLightAzimuth.setToolTipText(
+                "<html>光源の水平方向の角度（度）。<br>"
+                + "0 = 正面、90 = 右、180 = 背面、270 = 左。</html>");
+        controlPanel.add(sliderLightAzimuth,  gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Light Elevation"), gbc); gbc.gridy++;
-        JSlider sliderLightElevation= new JSlider(-90, 90, 60); controlPanel.add(sliderLightElevation, gbc); gbc.gridy++;
+        JSlider sliderLightElevation= new JSlider(-90, 90, 60);
+        sliderLightElevation.setToolTipText(
+                "<html>光源の仰角（度）。<br>"
+                + "0 = 水平照射、90 = 真上から照射。<br>"
+                + "マイナスにすると下から照射。</html>");
+        controlPanel.add(sliderLightElevation, gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Light Intensity"), gbc); gbc.gridy++;
-        JSlider sliderLightIntensity= new JSlider(0, 400, 150); controlPanel.add(sliderLightIntensity, gbc); gbc.gridy++;
+        JSlider sliderLightIntensity= new JSlider(0, 400, 150);
+        sliderLightIntensity.setToolTipText(
+                "<html>光源の強さ（0〜4.0）。<br>"
+                + "大きいほど明るく陰影が強くなる。<br>"
+                + "Exposure と組み合わせて全体輝度を調整する。</html>");
+        controlPanel.add(sliderLightIntensity, gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Ambient Intensity"), gbc); gbc.gridy++;
-        JSlider sliderAmbient       = new JSlider(0, 100, 25);  controlPanel.add(sliderAmbient,        gbc); gbc.gridy++;
+        JSlider sliderAmbient       = new JSlider(0, 100, 25);
+        sliderAmbient.setToolTipText(
+                "<html>環境光（間接光）の強さ（0〜1.0）。<br>"
+                + "増やすと影の中も明るくなりフラットな印象になる。<br>"
+                + "0 にすると影が完全に黒くなる。</html>");
+        controlPanel.add(sliderAmbient,        gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Shadow Softness"), gbc); gbc.gridy++;
-        JSlider sliderShadowSoftness= new JSlider(0, 30, 8);    controlPanel.add(sliderShadowSoftness, gbc); gbc.gridy++;
+        JSlider sliderShadowSoftness= new JSlider(0, 30, 8);
+        sliderShadowSoftness.setToolTipText(
+                "<html>影の柔らかさ（光源の見かけ上の半角度、度）。<br>"
+                + "0 = 点光源（硬い影）、大きいほどペナンブラが広がりソフトな影になる。<br>"
+                + "蓄積フレーム数が増えるほど滑らかに収束する。</html>");
+        controlPanel.add(sliderShadowSoftness, gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Exposure"), gbc);        gbc.gridy++;
-        JSlider sliderExposure      = new JSlider(10, 400, 150); controlPanel.add(sliderExposure,      gbc); gbc.gridy++;
+        JSlider sliderExposure      = new JSlider(10, 400, 150);
+        sliderExposure.setToolTipText(
+                "<html>トーンマッピング前の輝度スケール（0.1〜4.0）。<br>"
+                + "全体が明るすぎる・暗すぎる場合に調整する。<br>"
+                + "Light Intensity と違い、蓄積バッファをリセットせずに即時反映される。</html>");
+        controlPanel.add(sliderExposure,      gbc); gbc.gridy++;
+
         controlPanel.add(new JLabel("Samples / Frame"), gbc); gbc.gridy++;
         JSlider sliderSamples       = new JSlider(1, 16, 1);
+        sliderSamples.setToolTipText(
+                "<html>1フレームあたりのパストレーシングサンプル数。<br>"
+                + "多いほど高品質だが描画が重くなる。<br>"
+                + "静止中は自動的にフレームが蓄積されてノイズが減少する。<br>"
+                + "カメラを動かすと蓄積がリセットされる。</html>");
         sliderSamples.setMajorTickSpacing(5); sliderSamples.setMinorTickSpacing(1);
         sliderSamples.setPaintTicks(true);    sliderSamples.setPaintLabels(true);
         controlPanel.add(sliderSamples, gbc); gbc.gridy++;
 
+        // ── PBR material parameters ───────────────────────────────────────
+        controlPanel.add(new JLabel("── Material ──", SwingConstants.LEFT), gbc); gbc.gridy++;
+
+        controlPanel.add(new JLabel("Roughness  (0=Glossy / 100=Matte)"), gbc); gbc.gridy++;
+        JSlider sliderRoughness = new JSlider(0, 100, 50);
+        sliderRoughness.setToolTipText(
+                "<html><b>表面の粗さ（GGX Roughness）</b><br>"
+                + "0 = 完全な鏡面反射（ガラス・金属のような光沢）<br>"
+                + "100 = 完全な拡散反射（石膏・マットな骨）<br>"
+                + "<br>"
+                + "骨: 70〜90、軟部組織: 40〜60、皮膚: 20〜40 が目安。</html>");
+        controlPanel.add(sliderRoughness, gbc); gbc.gridy++;
+
+        controlPanel.add(new JLabel("Specular"), gbc); gbc.gridy++;
+        JSlider sliderSpecular = new JSlider(0, 100, 50);
+        sliderSpecular.setToolTipText(
+                "<html><b>鏡面反射成分の強さ</b><br>"
+                + "非金属（誘電体）素材の基本反射率 F0 = 0.04 × Specular を調整する。<br>"
+                + "Roughness が低い（ツヤがある）ほど効果が大きくなる。<br>"
+                + "Metallic が 1.0 の場合はアルベド色が F0 に使われる。</html>");
+        controlPanel.add(sliderSpecular, gbc); gbc.gridy++;
+
+        controlPanel.add(new JLabel("Clearcoat"), gbc); gbc.gridy++;
+        JSlider sliderClearcoat = new JSlider(0, 100, 0);
+        sliderClearcoat.setToolTipText(
+                "<html><b>クリアコート層の強さ</b><br>"
+                + "基材（Roughness / Specular で設定した素材）の上に<br>"
+                + "薄い透明の鏡面コート層を追加する。<br>"
+                + "皮膚・膜・ぬれた表面のような光沢を表現する。<br>"
+                + "0 = コートなし、100 = 最大コート。</html>");
+        controlPanel.add(sliderClearcoat, gbc); gbc.gridy++;
+
+        controlPanel.add(new JLabel("Clearcoat Roughness"), gbc); gbc.gridy++;
+        JSlider sliderClearcoatRoughness = new JSlider(0, 100, 5);
+        sliderClearcoatRoughness.setToolTipText(
+                "<html><b>クリアコート層の粗さ</b><br>"
+                + "0 に近いほど鋭い点状ハイライト（鏡面）になる。<br>"
+                + "大きくするとハイライトが広がり曇ったコートになる。<br>"
+                + "既定値 5（= 0.05）が皮膚・骨の表面光沢として自然。</html>");
+        controlPanel.add(sliderClearcoatRoughness, gbc); gbc.gridy++;
+
+        controlPanel.add(new JLabel("Surface Sensitivity"), gbc); gbc.gridy++;
+        JSlider sliderGradThreshold = new JSlider(1, 100, 15);
+        sliderGradThreshold.setToolTipText(
+                "<html><b>サーフェス検出の感度（グラディエント閾値）</b><br>"
+                + "不透明度グラディエントがこの値以上の点を<br>"
+                + "組織境界面と判定し、BRDFシェーディングを適用する。<br>"
+                + "<br>"
+                + "値が大きい（50〜）: ほぼ HG ボリューム散乱のまま（変化が出にくい）<br>"
+                + "値が小さい（10〜20）: 組織境界に BRDF が適用される ← 推奨範囲<br>"
+                + "値が極小（1〜5）: 内部もBRDF化して不自然になる</html>");
+        controlPanel.add(sliderGradThreshold, gbc); gbc.gridy++;
+
         Runnable applyCinematicParams = () -> {
             com.vis.core.view.D3.ui.cinematic.CinematicParams p = canvas.getCinematicParams();
-            p.lightAzimuth         = (float) Math.toRadians(sliderLightAzimuth.getValue());
-            p.lightElevation       = (float) Math.toRadians(sliderLightElevation.getValue());
-            p.lightIntensity       = sliderLightIntensity.getValue() / 100.0f;
-            p.ambientIntensity     = sliderAmbient.getValue() / 100.0f;
-            p.lightAngularRadius   = (float) Math.toRadians(sliderShadowSoftness.getValue());
-            p.exposure             = sliderExposure.getValue() / 100.0f;
-            p.samplesPerFrame      = sliderSamples.getValue();
+            p.lightAzimuth              = (float) Math.toRadians(sliderLightAzimuth.getValue());
+            p.lightElevation            = (float) Math.toRadians(sliderLightElevation.getValue());
+            p.lightIntensity            = sliderLightIntensity.getValue() / 100.0f;
+            p.ambientIntensity          = sliderAmbient.getValue() / 100.0f;
+            p.lightAngularRadius        = (float) Math.toRadians(sliderShadowSoftness.getValue());
+            p.exposure                  = sliderExposure.getValue() / 100.0f;
+            p.samplesPerFrame           = sliderSamples.getValue();
+            p.roughness                 = sliderRoughness.getValue() / 100.0f;
+            p.specular                  = sliderSpecular.getValue() / 100.0f;
+            p.clearcoat                 = sliderClearcoat.getValue() / 100.0f;
+            p.clearcoatRoughness        = sliderClearcoatRoughness.getValue() / 100.0f;
+            p.surfaceGradientThreshold  = sliderGradThreshold.getValue() / 100.0f;
             canvas.invalidateCinematicAccumulation();
         };
-        sliderLightAzimuth  .addChangeListener(e -> applyCinematicParams.run());
-        sliderLightElevation.addChangeListener(e -> applyCinematicParams.run());
-        sliderLightIntensity.addChangeListener(e -> applyCinematicParams.run());
-        sliderAmbient       .addChangeListener(e -> applyCinematicParams.run());
-        sliderShadowSoftness.addChangeListener(e -> applyCinematicParams.run());
-        sliderExposure      .addChangeListener(e -> applyCinematicParams.run());
-        sliderSamples       .addChangeListener(e -> applyCinematicParams.run());
+        sliderLightAzimuth       .addChangeListener(e -> applyCinematicParams.run());
+        sliderLightElevation     .addChangeListener(e -> applyCinematicParams.run());
+        sliderLightIntensity     .addChangeListener(e -> applyCinematicParams.run());
+        sliderAmbient            .addChangeListener(e -> applyCinematicParams.run());
+        sliderShadowSoftness     .addChangeListener(e -> applyCinematicParams.run());
+        sliderExposure           .addChangeListener(e -> applyCinematicParams.run());
+        sliderSamples            .addChangeListener(e -> applyCinematicParams.run());
+        sliderRoughness          .addChangeListener(e -> applyCinematicParams.run());
+        sliderSpecular           .addChangeListener(e -> applyCinematicParams.run());
+        sliderClearcoat          .addChangeListener(e -> applyCinematicParams.run());
+        sliderClearcoatRoughness .addChangeListener(e -> applyCinematicParams.run());
+        sliderGradThreshold      .addChangeListener(e -> applyCinematicParams.run());
 
         controlPanel.add(new javax.swing.JSeparator(), gbc); gbc.gridy++;
 
