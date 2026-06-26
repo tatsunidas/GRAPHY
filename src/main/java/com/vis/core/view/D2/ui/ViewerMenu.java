@@ -302,23 +302,80 @@ public class ViewerMenu extends JMenuBar {
 				if (own == null) {
 					return;
 				}
-				ArrayList<Praparat> sel = own.getSelectedPraps();
-				if (sel == null || sel.isEmpty()) {
-					JOptionPane.showMessageDialog(own, Resources.i18n("ViewerMenu.info.noPraparatSelected"));
+				// Reports are study-scoped: list every study currently OPEN in the viewer
+				// (no Praparat selection required).
+				java.util.List<String[]> studies = collectOpenStudies(own);
+				if (studies.isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("Reporting.list.noStudyOpen"));
 					return;
 				}
-				Object[] uids = sel.get(0).getUIDs();
 				com.vis.core.reporting.ui.ReportListPanel panel = new com.vis.core.reporting.ui.ReportListPanel();
-				panel.setContext((String) uids[0], (String) uids[1], null);
+				panel.setStudies(studies);
 				javax.swing.JDialog d = new javax.swing.JDialog(own,
 						Resources.i18n("Reporting.window.reports.title"), false);
 				d.setContentPane(panel);
-				d.setSize(680, 440);
+				d.setSize(760, 440);
 				d.setLocationRelativeTo(own);
 				d.setVisible(true);
 			}
 		});
 		mnReport.add(mntmReports);
+
+		JMenuItem mntmExportMeas = new JMenuItem(Resources.i18n("Reporting.menu.exportMeasurements"));
+		mntmExportMeas.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				Viewer2DScreen own = Viewer2DScreen.getInstance();
+				if (own == null) {
+					return;
+				}
+				ArrayList<Praparat> sel = own.getSelectedPraps();
+				if (sel == null || sel.isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("ViewerMenu.info.noPraparatSelected"));
+					return;
+				}
+				// extract on the EDT (reads live ROI/image state), then store off the EDT
+				final com.vis.core.reporting.measurement.MeasurementReport report = com.vis.core.reporting.measurement.MeasurementExtractor
+						.fromPraparat(sel.get(0), null);
+				if (report.getGroups().isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("Reporting.measurements.none"));
+					return;
+				}
+				new javax.swing.SwingWorker<String, Void>() {
+					@Override
+					protected String doInBackground() {
+						return new com.vis.core.reporting.ReportService().finalizeMeasurementsAsSR(report);
+					}
+
+					@Override
+					protected void done() {
+						String sopUID = null;
+						try {
+							sopUID = get();
+						} catch (Exception ex) {
+							Log.logger.warning("Export measurements as SR failed: " + ex.getMessage());
+						}
+						if (sopUID != null) {
+							// Re-stamp the tree Report column: ReportState is computed only at
+							// tree-build time, so rebuild the local studies tree to reflect the new SR.
+							com.vis.core.ui.main.MainScreen ms = com.vis.core.ui.main.MainScreen.getInstance();
+							if (ms != null) {
+								try {
+									ms.loadLocalStudiesBySearchKey();
+								} catch (Exception ex) {
+									Log.logger.warning("Tree refresh after measurement SR export failed: "
+											+ ex.getMessage());
+								}
+							}
+						}
+						JOptionPane.showMessageDialog(own,
+								Resources.i18n(sopUID != null ? "Reporting.measurements.done"
+										: "Reporting.measurements.failed"));
+					}
+				}.execute();
+			}
+		});
+		mnReport.add(mntmExportMeas);
 
 		JMenu mnView = new JMenu(Resources.i18n("MainScreenMenu.menu.view"));
 		add(mnView);
@@ -963,5 +1020,39 @@ public class ViewerMenu extends JMenuBar {
 			});
 			pluginMenu.add(pluginItem);
 		}
+	}
+
+	/**
+	 * The distinct studies currently open across all stages of the 2D viewer, as
+	 * {@code {patID, studyUID, studyDate(null)}} rows. Reports are study-scoped, so the
+	 * Reports list targets these regardless of which Praparat (if any) is selected.
+	 */
+	private static java.util.List<String[]> collectOpenStudies(Viewer2DScreen own) {
+		java.util.LinkedHashMap<String, String[]> distinct = new java.util.LinkedHashMap<>();
+		StageDockManager sdm = own.getStageDockManager();
+		if (sdm != null) {
+			String[] patients = sdm.getAllPatientList();
+			if (patients != null) {
+				for (String pid : patients) {
+					StageView sv = sdm.getStage(pid);
+					if (sv == null || sv.getEyepiece() == null) {
+						continue;
+					}
+					java.util.List<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> ctxs = sv
+							.getEyepiece().getAllPraparatContext();
+					if (ctxs == null) {
+						continue;
+					}
+					for (com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext ctx : ctxs) {
+						Object[] u = ctx.getContextUIDs();
+						if (u == null || u[1] == null) {
+							continue;
+						}
+						distinct.putIfAbsent(u[0] + "|" + u[1], new String[] { (String) u[0], (String) u[1], null });
+					}
+				}
+			}
+		}
+		return new java.util.ArrayList<>(distinct.values());
 	}
 }

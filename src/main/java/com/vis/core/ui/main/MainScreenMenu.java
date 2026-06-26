@@ -261,6 +261,40 @@ public class MainScreenMenu extends JMenuBar{
 		});
 		mnView.add(mntmCompare);
 
+		JMenu mnReport = new JMenu(Resources.i18n("Reporting.menu"));
+		add(mnReport);
+		JMenuItem mntmManageReports = new JMenuItem(Resources.i18n("Reporting.menu.manage"));
+		mntmManageReports.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				MainScreen main = WindowManager.getMainScreen();
+				ArrayList<DICOMNode> selected = (main == null) ? null : main.getSelectedNode();
+				String patID = null;
+				if (selected != null) {
+					for (DICOMNode n : selected) {
+						String p = n.getData(DICOMNode.PatientID);
+						if (p != null) {
+							patID = p;
+							break;
+						}
+					}
+				}
+				if (patID == null) {
+					JOptionPane.showMessageDialog(main, Resources.i18n("Reporting.list.selectPatient"));
+					return;
+				}
+				com.vis.core.reporting.ui.ReportListPanel panel = new com.vis.core.reporting.ui.ReportListPanel();
+				panel.setPatientContext(patID);
+				javax.swing.JDialog d = new javax.swing.JDialog(main, Resources.i18n("Reporting.window.manage.title"),
+						false);
+				d.setContentPane(panel);
+				d.setSize(820, 480);
+				d.setLocationRelativeTo(main);
+				d.setVisible(true);
+			}
+		});
+		mnReport.add(mntmManageReports);
+
 		JMenu mnSys = new JMenu("System");
 		add(mnSys);
 		JMenuItem mntmSys = new JMenuItem("Show Log");

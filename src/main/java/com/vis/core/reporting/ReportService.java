@@ -114,6 +114,28 @@ public class ReportService {
 		db.deleteReport(reportId);
 	}
 
+	/**
+	 * Delete an imported / derived SR instance (e.g. a measurement SR, RDSR, KO) from
+	 * the local store. Removes the IMAGE row, its file, and any now-empty
+	 * series/study directory+record (see {@link DatabaseHandler#deleteInstance}).
+	 * Unlike {@link #deleteReport(String)} this acts on a stored DICOM object, not a
+	 * REPORT row. Runs synchronous I/O — call off the EDT.
+	 *
+	 * @return {@code true} if the instance is no longer present after the call.
+	 */
+	public boolean deleteImportedSr(String patID, String studyUID, String seriesUID, String sopUID) {
+		if (patID == null || studyUID == null || seriesUID == null || sopUID == null) {
+			return false;
+		}
+		try {
+			db.deleteInstance(patID, studyUID, seriesUID, sopUID);
+			return db.getFileLocation(studyUID, seriesUID, sopUID) == null;
+		} catch (Exception e) {
+			logger.severe("ReportService - deleteImportedSr failed: " + e.getMessage());
+			return false;
+		}
+	}
+
 	// ---- finalize as DICOM SR ------------------------------------------------
 
 	/**

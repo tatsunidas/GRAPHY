@@ -192,6 +192,10 @@ public class DICOMNode extends DefaultMutableTreeNode{
 		map.put(StudyInstanceUID, studyUID);
 		map.put(SeriesInstanceUID, seriesUID);
 		map.put(SOPInstanceUID, sopInstaceUID);
+		// Report column state (STUDY level). Pre-seed the keys so setData() accepts them
+		// (setData rejects keys absent from the map); buildStudyNode stamps real values.
+		map.put(ReportState, null);
+		map.put(ReportCount, null);
 	}
 	
 	public String getData(String key) {
