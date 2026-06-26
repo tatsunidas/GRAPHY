@@ -140,6 +140,13 @@ public class CinematicRendererGL implements CinematicRenderer {
 		glUniform1i(glGetUniformLocation(pathTraceProgram, "uSamplesPerFrame"), Math.max(1, params.samplesPerFrame));
 		glUniform1ui(glGetUniformLocation(pathTraceProgram, "uFrameSeed"), frameSeed);
 
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uRoughness"), params.roughness);
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uSpecular"), params.specular);
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uMetallic"), params.metallic);
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uClearcoat"), params.clearcoat);
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uClearcoatRoughness"), params.clearcoatRoughness);
+		glUniform1f(glGetUniformLocation(pathTraceProgram, "uSurfaceGradientThreshold"), params.surfaceGradientThreshold);
+
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			glUniformMatrix4fv(glGetUniformLocation(pathTraceProgram, "mvp"), false, mvp.get(stack.mallocFloat(16)));
 		}

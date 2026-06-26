@@ -44,6 +44,29 @@ public class CinematicParams {
 	 */
 	public int transferFunctionGeneration = 0;
 
+	// --- PBR material parameters ---
+
+	/** Surface roughness: 0 = mirror/glossy, 1 = fully matte/diffuse (GGX alpha = roughness^2). */
+	public float roughness = 0.5f;
+
+	/** Base specular reflectance weight for dielectrics (scales F0 = 0.04 * specular). */
+	public float specular = 0.5f;
+
+	/** Metallic factor: 0 = dielectric (colored diffuse + white specular), 1 = metallic (albedo-tinted specular). */
+	public float metallic = 0.0f;
+
+	/** Clearcoat layer strength (0..1). Adds a thin, smooth dielectric coat on top of the base material. */
+	public float clearcoat = 0.0f;
+
+	/** Roughness of the clearcoat layer (0 = mirror-like, ~0.05 = realistic skin/bone gloss). */
+	public float clearcoatRoughness = 0.05f;
+
+	/**
+	 * Opacity-gradient magnitude threshold that switches from volumetric HG scattering to surface BRDF shading.
+	 * Values >= threshold are treated as tissue-boundary surfaces; lower values stay in volume-scatter mode.
+	 */
+	public float surfaceGradientThreshold = 0.15f;
+
 	public CinematicParams copy() {
 		CinematicParams c = new CinematicParams();
 		c.lightAzimuth = lightAzimuth;
@@ -55,6 +78,12 @@ public class CinematicParams {
 		c.exposure = exposure;
 		c.samplesPerFrame = samplesPerFrame;
 		c.transferFunctionGeneration = transferFunctionGeneration;
+		c.roughness = roughness;
+		c.specular = specular;
+		c.metallic = metallic;
+		c.clearcoat = clearcoat;
+		c.clearcoatRoughness = clearcoatRoughness;
+		c.surfaceGradientThreshold = surfaceGradientThreshold;
 		return c;
 	}
 }
