@@ -182,8 +182,19 @@ public class GLCanvas extends AWTGLCanvas {
 		FLOAT_3D,
 		EMBEDDED_3D // ★新規追加: 埋め込みモード
 	}
+
+	public enum MeasurementMode { NONE, DISTANCE, LINE_3D }
 	
 	private OrthoRoiMode orthoRoiMode = OrthoRoiMode.SLICE_2D;
+
+	// ==========================================================
+	// 3D計測モード
+	// ==========================================================
+	private MeasurementMode measureMode = MeasurementMode.NONE;
+	private final java.util.List<org.joml.Vector3f> measureRenderPts = new java.util.ArrayList<>();
+	private final java.util.List<org.joml.Vector3f> measureMmPts     = new java.util.ArrayList<>();
+	private MeasurementOverlayRenderer measureOverlayRenderer;
+	private Runnable onMeasurementUpdateCallback;
 
 	// 仮想内視鏡（フライスルー）モード
 	private boolean endoscopyMode = false;
@@ -306,6 +317,9 @@ public class GLCanvas extends AWTGLCanvas {
 							lastX = e.getX();
 							lastY = e.getY();
 						}
+					} else if (measureMode != MeasurementMode.NONE && !endoscopyMode && !endoPathEditMode) {
+						// ★ 3D計測モード: メッシュ上の点をピックして計測ポイントを追加
+						performMeasurementClick(e.getX(), e.getY());
 					} else if (clip3DEnabled && !endoscopyMode && tryBeginClipDrag(e)) {
 						// ★ 3D裁断モード中: バウンディングボックスの面/全体をマウスで操作開始
 						// (ヒットしなかった場合は tryBeginClipDrag が false を返し、下のカメラ回転に落ちる)
@@ -468,11 +482,131 @@ public class GLCanvas extends AWTGLCanvas {
 		
 		meshRenderer = new MeshRenderer();
 		meshRenderer.init();
+
+		measureOverlayRenderer = new MeasurementOverlayRenderer();
+		measureOverlayRenderer.init();
 	}
 	
 	public void setAutoSwapBuffer(boolean auto) {
         this.autoSwapBuffer = auto;
     }
+
+	// ==========================================================
+	// 個別メッシュ表示制御
+	// ==========================================================
+	public void setMeshVisibleByName(String name, boolean visible) {
+		MeshGLResource res = glMeshMap.get(name);
+		if (res != null) {
+			res.visible = visible;
+			repaint();
+		}
+	}
+
+	// ==========================================================
+	// 3D計測: 公開API
+	// ==========================================================
+	public void setMeasurementMode(MeasurementMode mode) {
+		this.measureMode = mode;
+		repaint();
+	}
+
+	public MeasurementMode getMeasurementMode() { return measureMode; }
+
+	public java.util.List<org.joml.Vector3f> getMeasureRenderPoints() {
+		return java.util.Collections.unmodifiableList(measureRenderPts);
+	}
+
+	public java.util.List<org.joml.Vector3f> getMeasureMmPoints() {
+		return java.util.Collections.unmodifiableList(measureMmPts);
+	}
+
+	public void clearMeasurements() {
+		if (!measureRenderPts.isEmpty()) {
+			undoManager.addCommand(
+				new Measurement3DLineCommands.ClearCommand(measureRenderPts, measureMmPts));
+		}
+		if (onMeasurementUpdateCallback != null)
+			SwingUtilities.invokeLater(() -> onMeasurementUpdateCallback.run());
+		repaint();
+	}
+
+	public void setOnMeasurementUpdateCallback(Runnable cb) {
+		this.onMeasurementUpdateCallback = cb;
+	}
+
+	// ==========================================================
+	// 3D計測: 内部処理
+	// ==========================================================
+	private void performMeasurementClick(int mx, int my) {
+		// アクティブなレンダリング済みメッシュでレイ交差判定
+		MeshGLResource activeRes = (activeMeshName != null) ? glMeshMap.get(activeMeshName) : null;
+		if (activeRes == null || activeRes.meshData == null) {
+			// アクティブメッシュがなければ最初の可視メッシュを使う
+			for (java.util.Map.Entry<String, MeshGLResource> e : glMeshMap.entrySet()) {
+				if (e.getValue().visible && e.getValue().meshData != null) {
+					activeRes = e.getValue();
+					break;
+				}
+			}
+		}
+		if (activeRes == null) return;
+
+		float[] hit = com.vis.core.view.D3.util.RayMeshIntersector.intersect(
+				activeRes.meshData, lastMvp, mx, my, getWidth(), getHeight());
+		if (hit == null) return;
+
+		org.joml.Vector3f renderPt = new org.joml.Vector3f(hit[0], hit[1], hit[2]);
+		org.joml.Vector3f mmPt     = renderToMm(renderPt);
+
+		if (measureMode == MeasurementMode.DISTANCE && measureRenderPts.size() >= 2) {
+			// 3点目のクリックで既存ペアをクリアして新たに開始
+			undoManager.addCommand(
+				new Measurement3DLineCommands.ClearCommand(measureRenderPts, measureMmPts));
+		}
+
+		undoManager.addCommand(
+			new Measurement3DLineCommands.AddPointCommand(measureRenderPts, measureMmPts, renderPt, mmPt));
+
+		if (onMeasurementUpdateCallback != null)
+			SwingUtilities.invokeLater(() -> onMeasurementUpdateCallback.run());
+		repaint();
+	}
+
+	private org.joml.Vector3f renderToMm(org.joml.Vector3f r) {
+		if (currentVolumeData == null) return new org.joml.Vector3f(r);
+		VolumeData vol = currentVolumeData;
+		float physX = vol.width  * (float) vol.pixelSpacingX;
+		float physY = vol.height * (float) vol.pixelSpacingY;
+		float physZ = vol.depth  * (float) vol.sliceThickness;
+		float halfSpX = (float) vol.pixelSpacingX  * 0.5f;
+		float halfSpY = (float) vol.pixelSpacingY  * 0.5f;
+		float halfSpZ = (float) vol.sliceThickness * 0.5f;
+		return new org.joml.Vector3f(
+			r.x * physX + physX * 0.5f - halfSpX,
+			r.y * physY + physY * 0.5f - halfSpY,
+			r.z * physZ + physZ * 0.5f - halfSpZ
+		);
+	}
+
+	private java.awt.Point projectToScreen(org.joml.Vector3f renderPt,
+			org.joml.Matrix4f mvp, int w, int h) {
+		org.joml.Vector4f clip = mvp.transform(new org.joml.Vector4f(renderPt, 1.0f));
+		if (Math.abs(clip.w) < 1e-6f) return null;
+		float ndcX = clip.x / clip.w;
+		float ndcY = clip.y / clip.w;
+		if (ndcX < -1 || ndcX > 1 || ndcY < -1 || ndcY > 1) return null;
+		int sx = (int) ((ndcX + 1.0f) * 0.5f * w);
+		int sy = (int) ((1.0f - ndcY) * 0.5f * h);
+		return new java.awt.Point(sx, sy);
+	}
+
+	private void drawTextWithShadow(java.awt.Graphics2D g2d, String text,
+			int x, int y, java.awt.Color fg, java.awt.Color shadow) {
+		g2d.setColor(shadow);
+		g2d.drawString(text, x + 1, y + 1);
+		g2d.setColor(fg);
+		g2d.drawString(text, x, y);
+	}
 
 	public void setVolumeData(VolumeData vol) {
 		this.currentVolumeData = vol;
@@ -1303,6 +1437,49 @@ public class GLCanvas extends AWTGLCanvas {
 	}
 	
 	public void drawOverlay(Graphics g) {
+		// ★ 3D計測ラベル（Java2Dオーバーレイ）
+		if (measureMode != MeasurementMode.NONE && measureMmPts.size() >= 1) {
+			java.awt.Graphics2D g2d = (java.awt.Graphics2D) g.create();
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+					java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+			g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+					java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+			g2d.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 12));
+
+			int cw = getWidth(), ch = getHeight();
+
+			// セグメントラベル（区間ごとの距離）
+			for (int i = 1; i < measureMmPts.size(); i++) {
+				float dist = measureMmPts.get(i - 1).distance(measureMmPts.get(i));
+				org.joml.Vector3f mid = new org.joml.Vector3f(measureRenderPts.get(i - 1))
+						.add(measureRenderPts.get(i)).mul(0.5f);
+				java.awt.Point sp = projectToScreen(mid, lastMvp, cw, ch);
+				if (sp != null) {
+					String label = String.format("%.1f mm", dist);
+					drawTextWithShadow(g2d, label, sp.x + 6, sp.y - 4,
+							java.awt.Color.YELLOW, java.awt.Color.BLACK);
+				}
+			}
+
+			// 合計ラベル（LINE_3D で 2 点以上あるとき、または DISTANCE）
+			if (measureMmPts.size() >= 2) {
+				double total = 0;
+				for (int i = 1; i < measureMmPts.size(); i++) {
+					total += measureMmPts.get(i - 1).distance(measureMmPts.get(i));
+				}
+				org.joml.Vector3f last = measureRenderPts.get(measureRenderPts.size() - 1);
+				java.awt.Point sp = projectToScreen(last, lastMvp, cw, ch);
+				if (sp != null) {
+					String label = (measureMode == MeasurementMode.LINE_3D && measureMmPts.size() > 2)
+							? String.format("Total: %.1f mm", total)
+							: String.format("%.1f mm", total);
+					drawTextWithShadow(g2d, label, sp.x + 10, sp.y + 14,
+							java.awt.Color.WHITE, java.awt.Color.BLACK);
+				}
+			}
+			g2d.dispose();
+		}
+
 		// ★カット輪郭線はpaintGL()内でGL描画するため、ここでは描画しない
 		// (Timerからrender()を直接呼ぶ構成のため、Graphics2Dでの描画はpaint()経由でしか効かず
 		//  次のTimer Tickで即座に上書きされてしまい表示されなかった)
@@ -1639,6 +1816,11 @@ public class GLCanvas extends AWTGLCanvas {
 		// ★3D裁断モード中はバウンディングボックスを描画（境界面は半透明、辺は白、操作中の面はハイライト）
 		if (clip3DEnabled && clipBoxRenderer != null) {
 			clipBoxRenderer.render(mvp, clipMin, clipMax, clipDragFace);
+		}
+
+		// ★計測オーバーレイ（最前面に描画）
+		if (measureMode != MeasurementMode.NONE && measureOverlayRenderer != null && !measureRenderPts.isEmpty()) {
+			measureOverlayRenderer.render(mvp, measureRenderPts);
 		}
 
 		// ★カット中の輪郭線を最前面に描画（論理ピクセル基準。MouseEventの座標系と一致させる）

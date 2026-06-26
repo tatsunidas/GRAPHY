@@ -1,169 +1,136 @@
 package com.vis.core.view.D3.util;
 
-import com.vis.core.log.Log;
 import com.vis.core.view.D3.ui.MeshData;
+import com.vis.core.view.D3.ui.MeshMeasureResult;
 
+/**
+ * Computes geometric statistics (surface area, volume, principal diameters)
+ * for a MeshData whose vertices are in mm (i.e. the raw mesh before AlignMesh).
+ */
 public class MeshAnalyzer {
 
-    /**
-	 * メッシュの体積を計算して返します。 頂点の座標系が mm であれば、戻り値は mm^3 になります。
-	 * 
-	 * // 1. 実寸サイズ (mm空間) でメッシュを生成 MeshData generatedMesh =
-	 * convertRoiGroupToMesh(targetRois);
-	 * 
-	 * // 2. alignMeshToVolume()で正規化される「前」に実寸の体積 (mm^3) を計算する！ double volumeMm3 =
-	 * MeshAnalyzer.calculateVolume(generatedMesh); double volumeCc = volumeMm3 /
-	 * 1000.0; // cc (mL) に変換 Log.logger.info("Volume: " + volumeCc + " cc");
-	 * 
-	 * // 3. 描画用に -0.5〜0.5 空間に座標を縮小・マッピング alignMeshToVolume(generatedMesh,
-	 * canvas.getVolumeData());
-	 * 
-	 */
-	public static double calculateVolume(MeshData mesh) {
-        if (mesh == null || mesh.vertices == null || mesh.indices == null) {
-            return 0.0;
+    public static MeshMeasureResult analyze(MeshData rawMesh) {
+        MeshMeasureResult r = new MeshMeasureResult();
+        if (rawMesh == null || rawMesh.vertices == null || rawMesh.indices == null
+                || rawMesh.indices.length < 3) {
+            return r;
         }
-
-        float[] v = mesh.vertices;
-        int[] idx = mesh.indices;
-        
-        validateMeshScale(v);
-        
-        // 浮動小数点誤差を防ぐため、合計値の計算には必ず double を使用します
-        double totalVolume = 0.0;
-
-        for (int i = 0; i < idx.length; i += 3) {
-            // 3つの頂点の配列インデックス（1つの頂点はx,y,zの3要素を持つため3倍する）
-            int i1 = idx[i] * 3;
-            int i2 = idx[i + 1] * 3;
-            int i3 = idx[i + 2] * 3;
-
-            // 頂点1 (v1)
-            double v1x = v[i1], v1y = v[i1 + 1], v1z = v[i1 + 2];
-            // 頂点2 (v2)
-            double v2x = v[i2], v2y = v[i2 + 1], v2z = v[i2 + 2];
-            // 頂点3 (v3)
-            double v3x = v[i3], v3y = v[i3 + 1], v3z = v[i3 + 2];
-
-            // v2 と v3 の外積 (Cross Product: v2 x v3)
-            double cx = (v2y * v3z) - (v2z * v3y);
-            double cy = (v2z * v3x) - (v2x * v3z);
-            double cz = (v2x * v3y) - (v2y * v3x);
-
-            // v1 と外積結果の内積 (Dot Product: v1 ・ (v2 x v3))
-            double dotProduct = (v1x * cx) + (v1y * cy) + (v1z * cz);
-
-            totalVolume += dotProduct;
-        }
-
-        // 最後に6で割り、絶対値をとる
-        return Math.abs(totalVolume) / 6.0;
+        r.surfaceAreaMm2 = computeSurfaceArea(rawMesh);
+        r.volumeMm3      = computeVolume(rawMesh);
+        double[] d = computePrincipalDiameters(rawMesh);
+        r.longDiameterMm  = d[0];
+        r.midDiameterMm   = d[1];
+        r.shortDiameterMm = d[2];
+        return r;
     }
 
-	/**
-     * メッシュの表面積を計算します。
-     * 各三角形の面積（2つの辺の外積の長さの半分）を合計します。
-     * 座標系が mm の場合、戻り値は mm^2 になります。
-     *
-     * @param mesh 計算対象のMeshData
-     * @return 表面積
-     */
-    public static double calculateSurfaceArea(MeshData mesh) {
-        if (mesh == null || mesh.vertices == null || mesh.indices == null) {
-            return 0.0;
-        }
-
+    // -------------------------------------------------------
+    // Surface area: sum of triangle areas
+    // -------------------------------------------------------
+    private static double computeSurfaceArea(MeshData mesh) {
         float[] v = mesh.vertices;
-        int[] idx = mesh.indices;
-        double totalArea = 0.0;
-        
-        validateMeshScale(v);
-
+        int[]  idx = mesh.indices;
+        double area = 0.0;
         for (int i = 0; i < idx.length; i += 3) {
-            int i1 = idx[i] * 3;
-            int i2 = idx[i + 1] * 3;
-            int i3 = idx[i + 2] * 3;
+            int i0 = idx[i]*3, i1 = idx[i+1]*3, i2 = idx[i+2]*3;
+            double ax = v[i1]-v[i0], ay = v[i1+1]-v[i0+1], az = v[i1+2]-v[i0+2];
+            double bx = v[i2]-v[i0], by = v[i2+1]-v[i0+1], bz = v[i2+2]-v[i0+2];
+            double cx = ay*bz - az*by, cy = az*bx - ax*bz, cz = ax*by - ay*bx;
+            area += Math.sqrt(cx*cx + cy*cy + cz*cz) * 0.5;
+        }
+        return area;
+    }
 
-            // 2つの辺のベクトルを作成 (v2 - v1) と (v3 - v1)
-            double edge1x = v[i2] - v[i1];
-            double edge1y = v[i2 + 1] - v[i1 + 1];
-            double edge1z = v[i2 + 2] - v[i1 + 2];
+    // -------------------------------------------------------
+    // Volume: signed-tetrahedron decomposition (divergence theorem)
+    // -------------------------------------------------------
+    private static double computeVolume(MeshData mesh) {
+        float[] v = mesh.vertices;
+        int[]  idx = mesh.indices;
+        double vol = 0.0;
+        for (int i = 0; i < idx.length; i += 3) {
+            int i0 = idx[i]*3, i1 = idx[i+1]*3, i2 = idx[i+2]*3;
+            double v0x=v[i0], v0y=v[i0+1], v0z=v[i0+2];
+            double v1x=v[i1], v1y=v[i1+1], v1z=v[i1+2];
+            double v2x=v[i2], v2y=v[i2+1], v2z=v[i2+2];
+            vol += v0x*(v1y*v2z - v1z*v2y)
+                 + v1x*(v2y*v0z - v2z*v0y)
+                 + v2x*(v0y*v1z - v0z*v1y);
+        }
+        return Math.abs(vol) / 6.0;
+    }
 
-            double edge2x = v[i3] - v[i1];
-            double edge2y = v[i3 + 1] - v[i1 + 1];
-            double edge2z = v[i3 + 2] - v[i1 + 2];
+    // -------------------------------------------------------
+    // PCA via classical Jacobi sweeps on the 3x3 covariance matrix.
+    // Returns [longDiam, midDiam, shortDiam] in mm.
+    // -------------------------------------------------------
+    private static double[] computePrincipalDiameters(MeshData mesh) {
+        float[] v = mesh.vertices;
+        int n = v.length / 3;
+        if (n < 2) return new double[]{0, 0, 0};
 
-            // 外積 (Cross Product)
-            double cx = (edge1y * edge2z) - (edge1z * edge2y);
-            double cy = (edge1z * edge2x) - (edge1x * edge2z);
-            double cz = (edge1x * edge2y) - (edge1y * edge2x);
+        double cx=0, cy=0, cz=0;
+        for (int i = 0; i < v.length; i+=3) { cx+=v[i]; cy+=v[i+1]; cz+=v[i+2]; }
+        cx/=n; cy/=n; cz/=n;
 
-            // 外積の長さ（ベクトルのノルム）の半分が三角形の面積
-            double area = Math.sqrt((cx * cx) + (cy * cy) + (cz * cz)) / 2.0;
-            totalArea += area;
+        double mxx=0,myy=0,mzz=0,mxy=0,mxz=0,myz=0;
+        for (int i = 0; i < v.length; i+=3) {
+            double dx=v[i]-cx, dy=v[i+1]-cy, dz=v[i+2]-cz;
+            mxx+=dx*dx; myy+=dy*dy; mzz+=dz*dz;
+            mxy+=dx*dy; mxz+=dx*dz; myz+=dy*dz;
+        }
+        mxx/=n; myy/=n; mzz/=n; mxy/=n; mxz/=n; myz/=n;
+
+        double[][] A = {{mxx,mxy,mxz},{mxy,myy,myz},{mxz,myz,mzz}};
+        double[][] V = {{1,0,0},{0,1,0},{0,0,1}};
+
+        for (int sweep = 0; sweep < 60; sweep++) {
+            double offDiag = Math.abs(A[0][1]) + Math.abs(A[0][2]) + Math.abs(A[1][2]);
+            if (offDiag < 1e-14) break;
+            for (int p = 0; p < 3; p++) {
+                for (int q = p+1; q < 3; q++) {
+                    double apq = A[p][q];
+                    if (Math.abs(apq) < 1e-15) continue;
+                    double theta = (A[q][q] - A[p][p]) / (2.0 * apq);
+                    double t = (theta == 0.0) ? 1.0
+                             : Math.signum(theta) / (Math.abs(theta) + Math.sqrt(1.0 + theta*theta));
+                    double c = 1.0 / Math.sqrt(1.0 + t*t);
+                    double s = t * c;
+                    jacobiRotate(A, V, p, q, c, s);
+                }
+            }
         }
 
-        return totalArea;
+        double[] diams = new double[3];
+        for (int k = 0; k < 3; k++) {
+            double ax=V[0][k], ay=V[1][k], az=V[2][k];
+            double minP=Double.MAX_VALUE, maxP=-Double.MAX_VALUE;
+            for (int i = 0; i < v.length; i+=3) {
+                double p = (v[i]-cx)*ax + (v[i+1]-cy)*ay + (v[i+2]-cz)*az;
+                if (p < minP) minP=p;
+                if (p > maxP) maxP=p;
+            }
+            diams[k] = maxP - minP;
+        }
+        java.util.Arrays.sort(diams);
+        return new double[]{diams[2], diams[1], diams[0]};
     }
-    
-    public static double[] calculateMeshVolumeAndSurfaceArea(com.vis.core.view.D3.ui.MeshData mesh) {
-		float[] v = mesh.vertices;
-		int[] ind = mesh.indices;
-		double volume = 0.0;
-		double surfaceArea = 0.0;
-		
-		validateMeshScale(v);
 
-		// 3つの頂点(三角形)ごとに処理
-		for (int i = 0; i < ind.length; i += 3) {
-			int i1 = ind[i] * 3;
-			int i2 = ind[i + 1] * 3;
-			int i3 = ind[i + 2] * 3;
-
-			// GRAPHYのMarchingCubesは既に物理座標(mm)になっている
-			double x1 = v[i1], y1 = v[i1 + 1], z1 = v[i1 + 2];
-			double x2 = v[i2], y2 = v[i2 + 1], z2 = v[i2 + 2];
-			double x3 = v[i3], y3 = v[i3 + 1], z3 = v[i3 + 2];
-
-			// 1. ダイバージェンス定理による四面体の符号付き体積の計算
-			volume += (x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1);
-
-			// 2. クロス積による三角形の面積の計算
-			double v1x = x2 - x1, v1y = y2 - y1, v1z = z2 - z1;
-			double v2x = x3 - x1, v2y = y3 - y1, v2z = z3 - z1;
-			double cx = v1y * v2z - v1z * v2y;
-			double cy = v1z * v2x - v1x * v2z;
-			double cz = v1x * v2y - v1y * v2x;
-			surfaceArea += Math.sqrt(cx * cx + cy * cy + cz * cz);
-		}
-
-		return new double[] { Math.abs(volume) / 6.0, surfaceArea / 2.0 };
-	}
-    
-	// ==========================================================
-	// ★ 追加：フェイルセーフのためのスケール検証メソッド
-	// ==========================================================
-	private static void validateMeshScale(float[] vertices) {
-		if (vertices == null || vertices.length == 0)
-			return;
-
-		float maxAbs = 0.0f;
-		// 頂点座標の最大絶対値をチェック
-		for (float v : vertices) {
-			float abs = Math.abs(v);
-			if (abs > maxAbs) {
-				maxAbs = abs;
-			}
-		}
-
-		// alignMeshToVolume を通過したメッシュは、必ず -1.0 〜 1.0 の空間に収まります。
-		// 一方、実寸(mm)の医療画像メッシュであれば、数mm〜数百mmの座標を持つはずです。
-		if (maxAbs <= 1.5f) {
-			Log.logger.severe("【フェイルセーフ発動】メッシュ座標の最大値が極端に小さいです (Max: " + maxAbs + ")");
-			Log.logger.severe("原因: alignMeshToVolume 適用後のメッシュが計算に渡されています。");
-
-			// サイレントバグを防ぐため、明確な例外を投げて処理を停止させる（Fail Fast）
-			throw new IllegalStateException("体積・面積計算は、alignMeshToVolume で縮小される【前】のメッシュで行ってください。");
-		}
-	}
+    private static void jacobiRotate(double[][] A, double[][] V,
+                                     int p, int q, double c, double s) {
+        double App=A[p][p], Aqq=A[q][q], Apq=A[p][q];
+        A[p][p] = c*c*App - 2*s*c*Apq + s*s*Aqq;
+        A[q][q] = s*s*App + 2*s*c*Apq + c*c*Aqq;
+        A[p][q] = A[q][p] = 0.0;
+        for (int r = 0; r < 3; r++) {
+            if (r != p && r != q) {
+                double Arp=A[r][p], Arq=A[r][q];
+                A[r][p]=A[p][r]= c*Arp - s*Arq;
+                A[r][q]=A[q][r]= s*Arp + c*Arq;
+            }
+            double Vrp=V[r][p], Vrq=V[r][q];
+            V[r][p]= c*Vrp - s*Vrq;
+            V[r][q]= s*Vrp + c*Vrq;
+        }
+    }
 }
