@@ -31,6 +31,9 @@ public class ContentItem {
 	private String personName; // PNAME
 	private String refSopClassUID; // IMAGE / COMPOSITE
 	private String refSopInstanceUID; // IMAGE / COMPOSITE
+	private String graphicType; // SCOORD / SCOORD3D Graphic Type
+	private float[] graphicData; // SCOORD / SCOORD3D Graphic Data
+	private String referencedFrameOfReferenceUID; // SCOORD3D
 
 	private final List<ContentItem> children = new ArrayList<>();
 
@@ -128,6 +131,30 @@ public class ContentItem {
 
 	public void setRefSopInstanceUID(String refSopInstanceUID) {
 		this.refSopInstanceUID = refSopInstanceUID;
+	}
+
+	public String getGraphicType() {
+		return graphicType;
+	}
+
+	public void setGraphicType(String graphicType) {
+		this.graphicType = graphicType;
+	}
+
+	public float[] getGraphicData() {
+		return graphicData;
+	}
+
+	public void setGraphicData(float[] graphicData) {
+		this.graphicData = graphicData;
+	}
+
+	public String getReferencedFrameOfReferenceUID() {
+		return referencedFrameOfReferenceUID;
+	}
+
+	public void setReferencedFrameOfReferenceUID(String referencedFrameOfReferenceUID) {
+		this.referencedFrameOfReferenceUID = referencedFrameOfReferenceUID;
 	}
 
 	public List<ContentItem> getChildren() {

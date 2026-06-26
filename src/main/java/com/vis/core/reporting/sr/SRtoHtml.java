@@ -113,6 +113,10 @@ public final class SRtoHtml {
 		case "COMPOSITE":
 			renderImage(sb, ci, evidence, label);
 			break;
+		case "SCOORD":
+		case "SCOORD3D":
+			renderScoord(sb, ci);
+			break;
 		default:
 			if (!label.isEmpty()) {
 				sb.append("<p style=\"margin:2px 0;\"><b>").append(HtmlText.escape(label)).append("</b></p>");
@@ -144,6 +148,23 @@ public final class SRtoHtml {
 		String text = label.isEmpty() ? "Key image" : label;
 		sb.append("<p style=\"margin:2px 0;\">🖼 <a href=\"").append(ref.toHref()).append("\">")
 				.append(HtmlText.escape(text)).append("</a></p>");
+	}
+
+	/** Render a spatial coordinate (SCOORD / SCOORD3D) as a compact descriptive line. */
+	private static void renderScoord(StringBuilder sb, ContentItem ci) {
+		boolean is3d = "SCOORD3D".equals(ci.getValueType());
+		float[] data = ci.getGraphicData();
+		int per = is3d ? 3 : 2;
+		int points = data == null ? 0 : data.length / per;
+		String gt = ci.getGraphicType() == null ? "" : ci.getGraphicType();
+		sb.append("<p style=\"margin:2px 0;color:#707070;font-size:11px;\">")
+				.append(is3d ? "◳ 3D region " : "▭ region ")
+				.append(HtmlText.escape(gt)).append(" (").append(points).append(points == 1 ? " point" : " points")
+				.append(")");
+		if (is3d && ci.getReferencedFrameOfReferenceUID() != null) {
+			sb.append(" · FoR ").append(HtmlText.escape(ci.getReferencedFrameOfReferenceUID()));
+		}
+		sb.append("</p>");
 	}
 
 	private static void row(StringBuilder sb, String key, String value) {

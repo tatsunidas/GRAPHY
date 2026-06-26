@@ -10,7 +10,6 @@ import org.dcm4che3.data.VR;
 
 import com.vis.core.reporting.KeyImageRef;
 import com.vis.core.reporting.ReportDocument;
-import com.vis.dicom.UIDUtils;
 
 /**
  * Builds a DICOM Comprehensive SR ({@code Attributes} tree) from a
@@ -27,59 +26,16 @@ import com.vis.dicom.UIDUtils;
 public class SRWriter {
 
 	/**
-	 * Tags copied from the reference instance to keep patient/study identity.
-	 * MUST be in ascending tag order — {@code Attributes.addSelected(other, int...)}
-	 * walks the selection assuming it is sorted.
-	 */
-	private static final int[] INHERIT_TAGS = {
-			Tag.SpecificCharacterSet, // 0008,0005
-			Tag.StudyDate, // 0008,0020
-			Tag.StudyTime, // 0008,0030
-			Tag.AccessionNumber, // 0008,0050
-			Tag.ReferringPhysicianName, // 0008,0090
-			Tag.PatientName, // 0010,0010
-			Tag.PatientID, // 0010,0020
-			Tag.IssuerOfPatientID, // 0010,0021
-			Tag.PatientBirthDate, // 0010,0030
-			Tag.PatientSex, // 0010,0040
-			Tag.StudyInstanceUID, // 0020,000D
-			Tag.StudyID // 0020,0010
-	};
-
-	/**
 	 * @param ref a reference instance's dataset from the same study (for patient/study identity).
 	 * @param doc the report to serialize.
 	 * @return a complete SR dataset ready to be written and stored.
 	 */
 	public Attributes build(Attributes ref, ReportDocument doc) {
 		Attributes sr = new Attributes();
-		if (ref != null) {
-			sr.addSelected(ref, INHERIT_TAGS);
-		}
+		SrCommon.inheritIdentity(sr, ref);
 
-		Date now = new Date();
 		String sopClassUID = doc.getType().getSrSopClass().uid();
-		String sopInstanceUID = UIDUtils.createUID();
-		String seriesInstanceUID = UIDUtils.createUID();
-
-		// SR Document Series module
-		sr.setString(Tag.Modality, VR.CS, "SR");
-		sr.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
-		sr.setString(Tag.SeriesNumber, VR.IS, "901");
-		sr.setDate(Tag.SeriesDate, VR.DA, now);
-		sr.setDate(Tag.SeriesTime, VR.TM, now);
-		sr.setString(Tag.Manufacturer, VR.LO, "GRAPHY");
-
-		// SOP Common / General module
-		sr.setString(Tag.SOPClassUID, VR.UI, sopClassUID);
-		sr.setString(Tag.SOPInstanceUID, VR.UI, sopInstanceUID);
-		sr.setString(Tag.InstanceNumber, VR.IS, "1");
-
-		// SR Document General module
-		sr.setDate(Tag.ContentDate, VR.DA, now);
-		sr.setDate(Tag.ContentTime, VR.TM, now);
-		sr.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
-		sr.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+		SrCommon.fillSrHeader(sr, sopClassUID, new Date(), "901");
 
 		// SR Document Content module (root container)
 		sr.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -174,7 +130,6 @@ public class SRWriter {
 	}
 
 	private static void setConceptName(Attributes item, Code code) {
-		Sequence seq = item.newSequence(Tag.ConceptNameCodeSequence, 1);
-		seq.add(code.toItem());
+		SrCommon.setConceptName(item, code);
 	}
 }

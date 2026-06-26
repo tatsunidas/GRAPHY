@@ -83,6 +83,15 @@ public final class SRReader {
 			}
 			break;
 		}
+		case "SCOORD":
+			ci.setGraphicType(item.getString(Tag.GraphicType));
+			ci.setGraphicData(item.getFloats(Tag.GraphicData));
+			break;
+		case "SCOORD3D":
+			ci.setGraphicType(item.getString(Tag.GraphicType));
+			ci.setGraphicData(item.getFloats(Tag.GraphicData));
+			ci.setReferencedFrameOfReferenceUID(item.getString(Tag.ReferencedFrameOfReferenceUID));
+			break;
 		default:
 			break;
 		}

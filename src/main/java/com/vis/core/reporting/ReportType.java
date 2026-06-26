@@ -16,7 +16,15 @@ public enum ReportType {
 	 * General free-text report. Exported as Comprehensive SR so that key images
 	 * ({@code IMAGE} content items) and (future) spatial coordinates can be embedded.
 	 */
-	GENERAL(UID.ComprehensiveSRStorage);
+	GENERAL(UID.ComprehensiveSRStorage),
+
+	/**
+	 * TID 1500 structured measurement report. Exported as Comprehensive 3D SR so it
+	 * can carry both 2D ({@code SCOORD}) and 3D ({@code SCOORD3D}) spatial
+	 * coordinates; the writer ({@code Tid1500Writer}) downgrades to plain
+	 * Comprehensive SR when no 3D geometry is present.
+	 */
+	MEASUREMENT(UID.Comprehensive3DSRStorage);
 
 	private final UID srSopClass;
 

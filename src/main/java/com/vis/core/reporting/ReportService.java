@@ -137,15 +137,7 @@ public class ReportService {
 			String sopUID = sr.getString(org.dcm4che3.data.Tag.SOPInstanceUID);
 			String seriesUID = sr.getString(org.dcm4che3.data.Tag.SeriesInstanceUID);
 
-			File tmpDir = Files.createTempDirectory("graphy-sr").toFile();
-			String dest = new File(tmpDir, sopUID).getAbsolutePath();
-			DicomWriter writer = DicomWriter.newDicomWriter(DICOMBackend.getCurrent());
-			writer.write(new DicomObjectChe(sr), UID.ExplicitVRLittleEndian.uid(), dest);
-			String written = dest.endsWith(".dcm") ? dest : dest + ".dcm";
-
-			// store into GRAPHY (copies file into the managed store and registers it in the DB),
-			// deleting the temp source afterwards.
-			DimseUtilities.store(written, true);
+			storeSr(sr, sopUID);
 
 			doc.setSrSopInstanceUID(sopUID);
 			doc.setSeriesUID(seriesUID);
@@ -157,6 +149,52 @@ public class ReportService {
 			logger.severe("ReportService - finalizeAsSR failed: " + e.getMessage());
 			return null;
 		}
+	}
+
+	/**
+	 * Build a DICOM TID 1500 measurement SR from live measurements and register it
+	 * into the GRAPHY store/DB. Unlike {@link #finalizeAsSR(ReportDocument)} there is
+	 * no editable HTML draft — a measurement SR is a derived structured artifact, so
+	 * no REPORT row is created; it surfaces as a view-only SR in the study (see
+	 * {@link #listImportedSrInStudy}). Runs synchronous I/O — call off the EDT.
+	 *
+	 * @return the new SR SOP Instance UID, or {@code null} on failure.
+	 */
+	public String finalizeMeasurementsAsSR(
+			com.vis.core.reporting.measurement.MeasurementReport report) {
+		if (report == null || report.getGroups().isEmpty()) {
+			logger.warning("ReportService - finalizeMeasurementsAsSR: empty report");
+			return null;
+		}
+		Attributes ref = loadReferenceInstance(report.getStudyUID());
+		if (ref == null) {
+			logger.severe("ReportService - finalizeMeasurementsAsSR: no reference instance in study "
+					+ report.getStudyUID());
+			return null;
+		}
+		try {
+			Attributes sr = new com.vis.core.reporting.sr.Tid1500Writer().build(ref, report);
+			String sopUID = sr.getString(org.dcm4che3.data.Tag.SOPInstanceUID);
+			storeSr(sr, sopUID);
+			logger.info("ReportService - measurements finalized as SR: " + sopUID);
+			return sopUID;
+		} catch (Exception e) {
+			logger.severe("ReportService - finalizeMeasurementsAsSR failed: " + e.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * Write an SR dataset to a temp file and store it into the GRAPHY managed store
+	 * (registering it in the DB like any received instance), deleting the temp source.
+	 */
+	private void storeSr(Attributes sr, String sopUID) throws Exception {
+		File tmpDir = Files.createTempDirectory("graphy-sr").toFile();
+		String dest = new File(tmpDir, sopUID).getAbsolutePath();
+		DicomWriter writer = DicomWriter.newDicomWriter(DICOMBackend.getCurrent());
+		writer.write(new DicomObjectChe(sr), UID.ExplicitVRLittleEndian.uid(), dest);
+		String written = dest.endsWith(".dcm") ? dest : dest + ".dcm";
+		DimseUtilities.store(written, true);
 	}
 
 	private Attributes loadReferenceInstance(String studyUID) {
