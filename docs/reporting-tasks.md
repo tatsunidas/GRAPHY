@@ -44,7 +44,7 @@
 |---|--------|------|
 | TD-1 | HTML→プレーンテキスト変換精度 | ✅ 一部対応 |
 | TD-2 | テンプレートのDB管理化 | ✅ 完了 |
-| TD-3 | StudyDate型の統一 | ⬜ 別PR |
+| TD-3 | StudyDate型の統一 | ✅ 書式統一（下記） / ⬜ LocalDate全面移行は別PR |
 | TD-4 | PATIENTモードのインポートSR表示 | ✅ 完了 |
 
 ---
@@ -94,8 +94,17 @@
 
 ---
 
+### TD-3: StudyDate 書式統一（2026-06-27）
+- 不統一の実態: DBの DATE 列を `getString` で読むと Derby が `yyyy-MM-dd` を返しツリーは `2026-01-01` 表示、レポート/ROIは `yyyy/MM/dd`、SR HTML は生 `yyyyMMdd`、SlideGlass は不正時 `0000/00/00` を返していた。
+- 対応: 正準表示書式を **`yyyy/MM/dd`** に定め、`DateUtils.toDisplayDate(String)` / `toDisplayDate(java.util.Date)` を**唯一の整形口**として新設（スレッドセーフな `DateTimeFormatter`、null/不正は `""`）。**境界で正規化**:
+  - `DatabaseHandler` Study/Series/Search 読取3か所（DATE列 getString）→ toDisplayDate
+  - `DatabaseHandler` ROI/Report/OrderedByDate 整形3か所（非スレッドセーフ `SimpleDateFormat` を撤去）→ toDisplayDate
+  - `SlideGlass.getStudyDate()`（`0000/00/00` フォールバック廃止）、`SRtoHtml`、QR `constructStudyNode`（リモートツリー表示）
+- 効果: ローカル/リモートのツリー・レポート一覧・ROI・SR HTML がすべて `yyyy/MM/dd` で一致。テスト `DateUtilsDisplayDateTest`（3件）。DBは元々 SQL `DATE` 型・書込みは `toSQLDateObj` が任意書式を吸収するため変更不要。
+- 残: 内部型の `String → java.time.LocalDate` 全面移行は影響範囲が広く別PR推奨（書式不整合は上記で解消済みのため優先度低）。
+
 ## 残タスク（保留）
 
 | # | タスク | 理由 |
 |---|--------|------|
-| TD-3 | StudyDate型の統一 | String→LocalDate移行は既存コードへの影響範囲が広く、別PR推奨。 |
+| TD-3b | StudyDate 内部型の LocalDate 化 | 書式統一は完了。型移行は既存コードへの影響範囲が広く別PR推奨。 |

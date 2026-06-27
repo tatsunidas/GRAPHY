@@ -41,6 +41,7 @@ public class ReportDocument {
 	private String bodyHtml = ""; // report body; format determined by bodyFormat
 	private String bodyFormat = "md"; // "md" (Markdown, default) or "html" (legacy)
 	private List<KeyImageRef> keyImages = new ArrayList<>();
+	private List<ReportParticipant> participants = new ArrayList<>();
 	private String srSopInstanceUID; // set on finalize
 	private String koSopInstanceUID; // set on finalize when key images exist
 	private String koSeriesInstanceUID;
@@ -52,6 +53,8 @@ public class ReportDocument {
 
 	private static final Gson GSON = new Gson();
 	private static final Type KEYIMG_LIST_TYPE = new TypeToken<ArrayList<KeyImageRef>>() {
+	}.getType();
+	private static final Type PARTICIPANT_LIST_TYPE = new TypeToken<ArrayList<ReportParticipant>>() {
 	}.getType();
 
 	/**
@@ -101,6 +104,7 @@ public class ReportDocument {
 
 	/** Serialize to the DatabaseHandler context map. */
 	public HashMap<String, Object> readContext() {
+		syncAuthorFromParticipants();
 		HashMap<String, Object> ctx = new HashMap<>();
 		ctx.put(ReportDBKey.ReportID.name(), reportId);
 		ctx.put(ReportDBKey.Title.name(), title);
@@ -112,6 +116,8 @@ public class ReportDocument {
 		ctx.put(ReportDBKey.BodyHtml.name(), bodyHtml);
 		ctx.put(ReportDBKey.BodyFormat.name(), bodyFormat == null ? "md" : bodyFormat);
 		ctx.put(ReportDBKey.KeyImageRefs.name(), keyImages == null ? null : GSON.toJson(keyImages, KEYIMG_LIST_TYPE));
+		ctx.put(ReportDBKey.Participants.name(),
+				(participants == null || participants.isEmpty()) ? null : GSON.toJson(participants, PARTICIPANT_LIST_TYPE));
 		ctx.put(ReportDBKey.SrSopInstanceUID.name(), srSopInstanceUID);
 		ctx.put(ReportDBKey.KoSopInstanceUID.name(), koSopInstanceUID);
 		ctx.put(ReportDBKey.KoSeriesInstanceUID.name(), koSeriesInstanceUID);
@@ -154,6 +160,11 @@ public class ReportDocument {
 		if (json != null && !json.isEmpty()) {
 			List<KeyImageRef> refs = GSON.fromJson(json, KEYIMG_LIST_TYPE);
 			d.keyImages = refs == null ? new ArrayList<>() : refs;
+		}
+		String pjson = (String) ctx.get(ReportDBKey.Participants.name());
+		if (pjson != null && !pjson.isEmpty()) {
+			List<ReportParticipant> ps = GSON.fromJson(pjson, PARTICIPANT_LIST_TYPE);
+			d.participants = ps == null ? new ArrayList<>() : ps;
 		}
 		d.srSopInstanceUID = (String) ctx.get(ReportDBKey.SrSopInstanceUID.name());
 		d.koSopInstanceUID = (String) ctx.get(ReportDBKey.KoSopInstanceUID.name());
@@ -299,6 +310,63 @@ public class ReportDocument {
 	public void addKeyImage(KeyImageRef ref) {
 		if (ref != null) {
 			this.keyImages.add(ref);
+		}
+	}
+
+	// participants (role / participation-type) ---------------------------------
+
+	public List<ReportParticipant> getParticipants() {
+		return participants;
+	}
+
+	public void setParticipants(List<ReportParticipant> participants) {
+		this.participants = participants == null ? new ArrayList<>() : participants;
+	}
+
+	public void addParticipant(ReportParticipant p) {
+		if (p != null) {
+			this.participants.add(p);
+		}
+	}
+
+	/** First participant of the given participation type, or {@code null}. */
+	public ReportParticipant getParticipant(ParticipationType type) {
+		if (participants != null) {
+			for (ReportParticipant p : participants) {
+				if (p.getParticipation() == type) {
+					return p;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** The designated verifier (sign-off) participant, or {@code null}. */
+	public ReportParticipant getVerifier() {
+		return getParticipant(ParticipationType.VERIFIER);
+	}
+
+	/**
+	 * Participants for SR export. Falls back to synthesising a single AUTHOR from
+	 * the legacy {@link #author} field when no participants are recorded, so
+	 * pre-upgrade reports still carry an author attribution. Never {@code null}.
+	 */
+	public List<ReportParticipant> getParticipantsForSr() {
+		if (participants != null && !participants.isEmpty()) {
+			return participants;
+		}
+		List<ReportParticipant> out = new ArrayList<>();
+		if (author != null && !author.trim().isEmpty()) {
+			out.add(new ReportParticipant(author, null, ParticipationType.AUTHOR));
+		}
+		return out;
+	}
+
+	/** Keep the legacy {@link #author} column populated from the primary AUTHOR participant. */
+	private void syncAuthorFromParticipants() {
+		ReportParticipant a = getParticipant(ParticipationType.AUTHOR);
+		if (a != null && a.hasName()) {
+			this.author = a.getName();
 		}
 	}
 

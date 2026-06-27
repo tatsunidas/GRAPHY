@@ -54,10 +54,13 @@ public class SRWriter {
 		SrCommon.inheritIdentity(sr, ref);
 
 		String sopClassUID = doc.getType().getSrSopClass().uid();
-		SrCommon.fillSrHeader(sr, sopClassUID, new Date(), "901");
+		Date now = new Date();
+		SrCommon.fillSrHeader(sr, sopClassUID, now, "901");
 
-		// P2-1: Verification Observer Sequence (0040,A073)
-		SrCommon.setVerificationObserver(sr, doc.getAuthor());
+		// Author / Verifier / Enterer / Reviewer observer & participant sequences,
+		// each with its job role (Organizational Role Code Sequence). VERIFIER sets
+		// VerificationFlag=VERIFIED.
+		SrCommon.addObservers(sr, doc.getParticipantsForSr(), now);
 
 		// P1-7: Predecessor Documents Sequence for addendum (0040,A380)
 		if (doc.getPredecessorSrSopUID() != null && !doc.getPredecessorSrSopUID().isEmpty()) {

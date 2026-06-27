@@ -123,6 +123,7 @@ public enum Resources {
 	SQL_ROI("sql/ROI.sql"),
 	SQL_REPORT("sql/REPORT.sql"),
 	SQL_REPORT_TEMPLATE("sql/REPORT_TEMPLATE.sql"),
+	SQL_STAFF("sql/STAFF.sql"),
 	SQL_SERVERS("sql/SERVERS.sql"),//previous name is SERVERS.sql
 	SQL_TEXTANNOTATION("sql/TEXTANNOTATION.sql"),
 	SQL_THEME("sql/THEME.sql"),

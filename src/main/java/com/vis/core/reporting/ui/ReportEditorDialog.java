@@ -32,6 +32,7 @@ import com.vis.core.log.Log;
 import com.vis.core.reporting.KeyImageRef;
 import com.vis.core.reporting.ReportDocument;
 import com.vis.core.reporting.ReportService;
+import com.vis.core.reporting.ReportType;
 import com.vis.core.reporting.template.ReportTemplate;
 import com.vis.core.reporting.template.ReportTemplateStore;
 import com.vis.core.view.D2.ui.Viewer2DScreen;
@@ -72,6 +73,8 @@ public class ReportEditorDialog extends JDialog {
     private final JTextField referringField    = new JTextField(20);
     private final JTextField clinicalHistField = new JTextField(30);
     private final JLabel statusLabel           = new JLabel();
+    private final JComboBox<ReportType> typeCombo = new JComboBox<>();
+    private final ParticipantsPanel participantsPanel = new ParticipantsPanel();
     private final MarkdownEditorPanel mdEditor = new MarkdownEditorPanel();
     private final KeyImageGridPanel keyImageGrid = new KeyImageGridPanel();
     private boolean lockedByMe = false;
@@ -83,6 +86,7 @@ public class ReportEditorDialog extends JDialog {
     public static ReportEditorDialog showNew(Window owner,
             String patID, String studyUID, String studyDate, String author) {
         ReportDocument d = ReportDocument.newDraft(patID, studyUID, studyDate, author);
+        d.setType(ReportType.IMAGING_DIAGNOSTIC);
         d.setBodyFormat("md");
         ReportEditorDialog dlg = new ReportEditorDialog(owner, d);
         dlg.mdEditor.setText(buildInitialBody());
@@ -164,10 +168,16 @@ public class ReportEditorDialog extends JDialog {
         content.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
         content.add(buildPatientInfoPanel(), BorderLayout.NORTH);
 
-        // Editor area: meta panel + markdown editor
+        // Editor area: (meta panel + participants) above the markdown editor
+        JPanel north = new JPanel();
+        north.setLayout(new javax.swing.BoxLayout(north, javax.swing.BoxLayout.Y_AXIS));
+        north.add(buildMetaPanel());
+        participantsPanel.setChangeNotifier(mdEditor::markDirty);
+        north.add(participantsPanel);
+
         JPanel editorPanel = new JPanel(new BorderLayout(0, 4));
-        editorPanel.add(buildMetaPanel(), BorderLayout.NORTH);
-        editorPanel.add(mdEditor,         BorderLayout.CENTER);
+        editorPanel.add(north,    BorderLayout.NORTH);
+        editorPanel.add(mdEditor, BorderLayout.CENTER);
 
         // Vertical split: markdown editor (top) + key image grid (bottom)
         javax.swing.JSplitPane split = new javax.swing.JSplitPane(
@@ -281,7 +291,35 @@ public class ReportEditorDialog extends JDialog {
         tmplPanel.add(manageTmpl);
         p.add(tmplPanel, fc);
 
+        // Row 2: Report type — determines the verification policy (who may sign off)
+        lc.gridx = 0; lc.gridy = 2;
+        p.add(new JLabel(Resources.i18n("Reporting.editor.field.type")), lc);
+        fc.gridx = 1; fc.gridy = 2; fc.weightx = 0;
+        populateTypeCombo();
+        typeCombo.setPreferredSize(new Dimension(180, 24));
+        p.add(typeCombo, fc);
+
         return p;
+    }
+
+    /** Fill the report-type combo with selectable types (plus the doc's current type if legacy). */
+    private void populateTypeCombo() {
+        typeCombo.removeAllItems();
+        typeCombo.addItem(ReportType.IMAGING_DIAGNOSTIC);
+        typeCombo.addItem(ReportType.TECHNOLOGIST);
+        ReportType cur = doc.getType();
+        if (cur != null && cur != ReportType.IMAGING_DIAGNOSTIC && cur != ReportType.TECHNOLOGIST) {
+            typeCombo.addItem(cur); // legacy GENERAL / MEASUREMENT — keep visible
+        }
+        typeCombo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                    int index, boolean isSelected, boolean cellHasFocus) {
+                String text = value instanceof ReportType ? Resources.i18n(((ReportType) value).i18nKey()) : "";
+                return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus);
+            }
+        });
     }
 
     private JPanel buildButtonBar() {
@@ -355,10 +393,14 @@ public class ReportEditorDialog extends JDialog {
         authorField.setText(nz(doc.getAuthor()));
         referringField.setText(nz(doc.getReferringPhysician()));
         clinicalHistField.setText(nz(doc.getClinicalHistory()));
+        if (doc.getType() != null) {
+            typeCombo.setSelectedItem(doc.getType());
+        }
+        participantsPanel.setParticipants(doc.getParticipantsForSr());
         mdEditor.setText(nz(doc.getBodyHtml()));
-        mdEditor.markClean();
         keyImageGrid.loadRows(doc.getKeyImages());
         refreshStatus();
+        mdEditor.markClean();
     }
 
     private void applyToDoc() {
@@ -366,6 +408,11 @@ public class ReportEditorDialog extends JDialog {
         doc.setAuthor(authorField.getText().trim());
         doc.setReferringPhysician(referringField.getText().trim());
         doc.setClinicalHistory(clinicalHistField.getText().trim());
+        ReportType selectedType = (ReportType) typeCombo.getSelectedItem();
+        if (selectedType != null) {
+            doc.setType(selectedType);
+        }
+        doc.setParticipants(participantsPanel.getParticipants());
         doc.setBodyHtml(mdEditor.getText());
         doc.setBodyFormat("md");
         doc.setKeyImages(keyImageGrid.getKeyImageRefs());
@@ -375,7 +422,8 @@ public class ReportEditorDialog extends JDialog {
         return !titleField.getText().trim().equals(nz(doc.getTitle()))
             || !authorField.getText().trim().equals(nz(doc.getAuthor()))
             || !referringField.getText().trim().equals(nz(doc.getReferringPhysician()))
-            || !clinicalHistField.getText().trim().equals(nz(doc.getClinicalHistory()));
+            || !clinicalHistField.getText().trim().equals(nz(doc.getClinicalHistory()))
+            || typeCombo.getSelectedItem() != doc.getType();
     }
 
     // ---- Actions -------------------------------------------------------------
@@ -393,6 +441,15 @@ public class ReportEditorDialog extends JDialog {
         normalizeInlineKeyImages();
         applyToDoc();
         service.saveDraft(doc);
+        // Verification policy gate: e.g. imaging-diagnostic reports need a physician
+        // verifier, technologist reports a technologist. The draft is already saved.
+        String gate = service.checkVerifiable(doc);
+        if (gate != null) {
+            if (onSaved != null) onSaved.run();
+            JOptionPane.showMessageDialog(this, Resources.i18n(gate),
+                    Resources.i18n("dialog.title.information"), JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         final ReportEditorDialog self = this;
         new SwingWorker<String, Void>() {
             @Override

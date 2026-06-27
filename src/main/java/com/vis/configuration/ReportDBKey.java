@@ -24,6 +24,7 @@ public enum ReportDBKey {
 	BodyHtml, // report body (Markdown or HTML); see BodyFormat
 	BodyFormat, // "md" (default) or "html" for legacy records
 	KeyImageRefs, // JSON (Gson) of List<KeyImageRef>
+	Participants, // JSON (Gson) of List<ReportParticipant> (role / participation type)
 	SrSopInstanceUID, // filled on finalize-as-SR (nullable)
 	StudyDate,
 	CreatedDateTime, // epoch millis (Long)

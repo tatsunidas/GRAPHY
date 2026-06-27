@@ -24,5 +24,6 @@ create table report (
 	foreign key(StudyInstanceUID) references Study(StudyInstanceUID),
 	SeriesInstanceUID varchar(255),
 	KoSopInstanceUID varchar(255),
-	KoSeriesInstanceUID varchar(255)
+	KoSeriesInstanceUID varchar(255),
+	Participants clob
 	)

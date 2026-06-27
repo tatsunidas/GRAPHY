@@ -351,7 +351,7 @@ public class DatabaseHandler {
 			Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
 			Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
 			Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
-			Resources.SQL_ROI, Resources.SQL_REPORT, Resources.SQL_REPORT_TEMPLATE);
+			Resources.SQL_ROI, Resources.SQL_REPORT, Resources.SQL_REPORT_TEMPLATE, Resources.SQL_STAFF);
 
 	private void createTables() throws SQLException {
 		// 1. 実行したいSQLリソースをリストにまとめる(自動マイグレーションと同じ一覧を使う)
@@ -928,7 +928,7 @@ public class DatabaseHandler {
 //			while(rset.next()) {
 			if (rset.next()) {// return first data only.
 				map.put("StudyInstanceUID", studyIUID);
-				map.put("StudyDate", rset.getString("StudyDate"));
+				map.put("StudyDate", DateUtils.toDisplayDate(rset.getString("StudyDate")));
 				map.put("StudyTime", rset.getString("StudyTime"));
 				map.put("AccessionNumber", rset.getString("AccessionNumber"));
 				map.put("ReferringPhysicianName", rset.getString("ReferringPhysicianName"));
@@ -2321,7 +2321,7 @@ public class DatabaseHandler {
 				if (rset.next()) {
 					map.put("PatientID", patID);
 					map.put("PatientAge", rset.getString("PatientAge"));// age is study level, not pat level.
-					map.put("StudyDate", rset.getString("StudyDate"));
+					map.put("StudyDate", DateUtils.toDisplayDate(rset.getString("StudyDate")));
 					map.put("StudyTime", rset.getString("StudyTime"));
 					map.put("StudyID", rset.getString("StudyID"));
 					map.put("StudyDescription", rset.getString("StudyDescription"));
@@ -3061,7 +3061,7 @@ public class DatabaseHandler {
 				matchingStudies.put("PatientName", matchingInfo.getString("PatientName")); // Bug fix: key was "PatientID"
 				matchingStudies.put("PatientBirthDate", matchingInfo.getString("PatientBirthDate"));
 				matchingStudies.put("AccessionNumber", matchingInfo.getString("AccessionNumber"));
-				matchingStudies.put("StudyDate", matchingInfo.getString("StudyDate"));
+				matchingStudies.put("StudyDate", DateUtils.toDisplayDate(matchingInfo.getString("StudyDate")));
 				matchingStudies.put("StudyTime", matchingInfo.getString("StudyTime"));
 				matchingStudies.put("StudyDescription", matchingInfo.getString("StudyDescription"));
 				matchingStudies.put("ModalitiesInStudy", matchingInfo.getString("ModalitiesInStudy"));
@@ -3142,7 +3142,7 @@ public class DatabaseHandler {
 		roiCon.put("Description", rset.getString("Description"));
 		java.sql.Date sd = rset.getDate(RoiDBKey.StudyDate.name());
 		if (sd != null) {
-			roiCon.put(RoiDBKey.StudyDate.name(), new SimpleDateFormat("yyyy/MM/dd").format(sd));
+			roiCon.put(RoiDBKey.StudyDate.name(), DateUtils.toDisplayDate(sd));
 		} else {
 			roiCon.put(RoiDBKey.StudyDate.name(), null);
 		}
@@ -3273,8 +3273,8 @@ public class DatabaseHandler {
 		String sql = "insert into report(ReportID,Title,Status,ReportType,Author,ReferringPhysician,ClinicalHistory,"
 				+ "BodyHtml,BodyFormat,KeyImageRefs,SrSopInstanceUID,StudyDate,CreatedDateTime,ModifiedDateTime,"
 				+ "PredecessorReportId,PredecessorSrSopUID,PredecessorSeriesUID,"
-				+ "PatientID,StudyInstanceUID,SeriesInstanceUID,KoSopInstanceUID,KoSeriesInstanceUID)"
-				+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+				+ "PatientID,StudyInstanceUID,SeriesInstanceUID,KoSopInstanceUID,KoSeriesInstanceUID,Participants)"
+				+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
 			ps.setString(1, reportId);
 			ps.setString(2, (String) ctx.get(ReportDBKey.Title.name()));
@@ -3299,6 +3299,7 @@ public class DatabaseHandler {
 			ps.setString(20, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
 			ps.setString(21, (String) ctx.get(ReportDBKey.KoSopInstanceUID.name()));
 			ps.setString(22, (String) ctx.get(ReportDBKey.KoSeriesInstanceUID.name()));
+			ps.setString(23, (String) ctx.get(ReportDBKey.Participants.name()));
 			ps.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3314,7 +3315,7 @@ public class DatabaseHandler {
 		String sql = "update report set Title=?,Status=?,ReportType=?,Author=?,ReferringPhysician=?,"
 				+ "ClinicalHistory=?,BodyHtml=?,BodyFormat=?,KeyImageRefs=?,SrSopInstanceUID=?,"
 				+ "StudyDate=?,ModifiedDateTime=?,PredecessorReportId=?,PredecessorSrSopUID=?,PredecessorSeriesUID=?,"
-				+ "PatientID=?,StudyInstanceUID=?,SeriesInstanceUID=?,KoSopInstanceUID=?,KoSeriesInstanceUID=?"
+				+ "PatientID=?,StudyInstanceUID=?,SeriesInstanceUID=?,KoSopInstanceUID=?,KoSeriesInstanceUID=?,Participants=?"
 				+ " where ReportID=?";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
 			ps.setString(1, (String) ctx.get(ReportDBKey.Title.name()));
@@ -3338,7 +3339,8 @@ public class DatabaseHandler {
 			ps.setString(18, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
 			ps.setString(19, (String) ctx.get(ReportDBKey.KoSopInstanceUID.name()));
 			ps.setString(20, (String) ctx.get(ReportDBKey.KoSeriesInstanceUID.name()));
-			ps.setString(21, reportId);
+			ps.setString(21, (String) ctx.get(ReportDBKey.Participants.name()));
+			ps.setString(22, reportId);
 			ps.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3542,6 +3544,84 @@ public class DatabaseHandler {
 		return false;
 	}
 
+	// ---- STAFF directory CRUD (reporting roles upgrade) ----------------------
+
+	/** Upsert a staff member row. Creates or replaces by StaffID. */
+	public synchronized void upsertStaff(String id, String name, String role, String organization, String department) {
+		if (id == null) return;
+		boolean exists = checkRecordExists("staff", "StaffID", id);
+		long now = System.currentTimeMillis();
+		if (exists) {
+			String sql = "UPDATE STAFF SET Name=?, Role=?, Organization=?, Department=?, ModifiedDateTime=? WHERE StaffID=?";
+			try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+				ps.setString(1, name);
+				ps.setString(2, role);
+				ps.setString(3, organization);
+				ps.setString(4, department);
+				ps.setTimestamp(5, new Timestamp(now));
+				ps.setString(6, id);
+				ps.executeUpdate();
+				conn.commit();
+			} catch (SQLException ex) {
+				logger.warning("DatabaseHandler - upsertStaff update failed: " + ex.getMessage());
+			}
+		} else {
+			String sql = "INSERT INTO STAFF(StaffID,Name,Role,Organization,Department,CreatedDateTime,ModifiedDateTime) VALUES(?,?,?,?,?,?,?)";
+			try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+				ps.setString(1, id);
+				ps.setString(2, name);
+				ps.setString(3, role);
+				ps.setString(4, organization);
+				ps.setString(5, department);
+				ps.setTimestamp(6, new Timestamp(now));
+				ps.setTimestamp(7, new Timestamp(now));
+				ps.executeUpdate();
+				conn.commit();
+			} catch (SQLException ex) {
+				logger.warning("DatabaseHandler - upsertStaff insert failed: " + ex.getMessage());
+			}
+		}
+	}
+
+	/** Delete a staff member by ID. */
+	public synchronized void deleteStaff(String id) {
+		if (id == null) return;
+		String sql = "DELETE FROM STAFF WHERE StaffID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, id);
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - deleteStaff failed: " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Load all staff members from the DB.
+	 * @return list of {id, name, role, organization, department} arrays, ordered by Name.
+	 */
+	public ArrayList<String[]> loadAllStaff() {
+		ArrayList<String[]> out = new ArrayList<>();
+		String sql = "SELECT StaffID, Name, Role, Organization, Department FROM STAFF ORDER BY Name";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					out.add(new String[]{
+						rs.getString("StaffID"),
+						rs.getString("Name"),
+						rs.getString("Role"),
+						rs.getString("Organization"),
+						rs.getString("Department")
+					});
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - loadAllStaff failed: " + ex.getMessage());
+		}
+		return out;
+	}
+
 	public HashMap<String, Object> loadReportContext(String reportId) {
 		String sql = "SELECT * FROM REPORT WHERE ReportID=?";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
@@ -3612,7 +3692,7 @@ public class DatabaseHandler {
 		ctx.put(ReportDBKey.KeyImageRefs.name(), rset.getString("KeyImageRefs"));
 		ctx.put(ReportDBKey.SrSopInstanceUID.name(), rset.getString("SrSopInstanceUID"));
 		java.sql.Date sd = rset.getDate("StudyDate");
-		ctx.put(ReportDBKey.StudyDate.name(), sd == null ? null : new SimpleDateFormat("yyyy/MM/dd").format(sd));
+		ctx.put(ReportDBKey.StudyDate.name(), sd == null ? null : DateUtils.toDisplayDate(sd));
 		Timestamp ct = rset.getTimestamp("CreatedDateTime");
 		ctx.put(ReportDBKey.CreatedDateTime.name(), ct == null ? null : ct.getTime());
 		Timestamp mt = rset.getTimestamp("ModifiedDateTime");
@@ -3625,6 +3705,7 @@ public class DatabaseHandler {
 		ctx.put(ReportDBKey.SeriesInstanceUID.name(), rset.getString("SeriesInstanceUID"));
 		ctx.put(ReportDBKey.KoSopInstanceUID.name(), safeGetString(rset, "KoSopInstanceUID"));
 		ctx.put(ReportDBKey.KoSeriesInstanceUID.name(), safeGetString(rset, "KoSeriesInstanceUID"));
+		ctx.put(ReportDBKey.Participants.name(), safeGetString(rset, "Participants"));
 		return ctx;
 	}
 
@@ -3716,7 +3797,7 @@ public class DatabaseHandler {
 				while (rs.next()) {
 					String suid = rs.getString("StudyInstanceUID");
 					java.sql.Date sd = rs.getDate("StudyDate");
-					String sdate = sd == null ? null : new SimpleDateFormat("yyyy/MM/dd").format(sd);
+					String sdate = sd == null ? null : DateUtils.toDisplayDate(sd);
 					out.add(new String[]{suid, sdate});
 				}
 			}

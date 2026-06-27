@@ -565,6 +565,44 @@ public class DateUtils {
         if (date == null) return null;
         return new SimpleDateFormat(DICOM_TIME_FORMAT).format(date);
     }
+
+    /** 画面・モデル層で統一して用いる日付の正準書式 (yyyy/MM/dd)。 */
+    public static final String DISPLAY_DATE_FORMAT = "yyyy/MM/dd";
+    private static final java.time.format.DateTimeFormatter DISPLAY_DATE_FMT =
+            java.time.format.DateTimeFormatter.ofPattern(DISPLAY_DATE_FORMAT);
+    private static final java.time.format.DateTimeFormatter DICOM_DATE_FMT =
+            java.time.format.DateTimeFormatter.ofPattern(DICOM_DATE_FORMAT);
+
+    /**
+     * 任意表現の日付文字列（DICOM {@code yyyyMMdd} / SQL・ISO {@code yyyy-MM-dd} /
+     * 表示用 {@code yyyy/MM/dd} / 先頭が日付の日時文字列）を、画面・モデル層で統一して
+     * 用いる正準書式 {@code yyyy/MM/dd} に正規化します。
+     * <p>null・空・不正値（例: {@code "0000/00/00"}）は {@code ""} を返します
+     * （誤った日付を表示しないため）。スレッドセーフ。
+     */
+    public static String toDisplayDate(String raw) {
+        if (raw == null) return "";
+        String digits = raw.trim().replace("/", "").replace("-", "");
+        if (digits.length() > 8) digits = digits.substring(0, 8); // yyyyMMddHHmmss 等を許容
+        if (digits.length() != 8) return "";
+        for (int i = 0; i < 8; i++) {
+            if (!Character.isDigit(digits.charAt(i))) return "";
+        }
+        try {
+            return java.time.LocalDate.parse(digits, DICOM_DATE_FMT).format(DISPLAY_DATE_FMT);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * {@link java.util.Date}（{@link java.sql.Date} を含む）を正準書式 {@code yyyy/MM/dd}
+     * に整形します。null は {@code ""}。スレッドセーフ。
+     */
+    public static String toDisplayDate(java.util.Date date) {
+        if (date == null) return "";
+        return new java.sql.Date(date.getTime()).toLocalDate().format(DISPLAY_DATE_FMT);
+    }
     
     /**
      * DICOM Date文字列 (DA: yyyyMMdd) のみを Dateオブジェクトに変換します。(時刻は 00:00:00 になります)

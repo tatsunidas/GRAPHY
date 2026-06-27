@@ -50,8 +50,6 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -1087,22 +1085,9 @@ public class SlideGlass extends JLayeredPane {
 	}
 
 	public String getStudyDate() {
-		String rawDate = (header != null) ? header.getString(Tag.Study​Date) : null;
-		// 値が取得できない、またはDICOM標準の8桁に満たない場合のガード
-		if (rawDate == null || rawDate.length() < 8) {
-			return "0000/00/00"; // または "NO_DATE" など
-		}
-		try {
-			// DICOM形式 (yyyyMMdd) を LocalDate にパース
-			DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-			LocalDate date = LocalDate.parse(rawDate.substring(0, 8), inputFormatter);
-
-			// yyyy/MM/dd 形式に変換
-			return date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-		} catch (Exception e) {
-			// パースエラー（不正な日付文字列など）の場合
-			return "0000/00/00";
-		}
+		// DICOM raw (yyyyMMdd) を画面・モデル統一の正準書式 yyyy/MM/dd へ正規化。
+		// 取得不可・不正値は "" を返す（旧実装の "0000/00/00" を廃止）。
+		return com.vis.core.util.DateUtils.toDisplayDate(header != null ? header.getString(Tag.Study​Date) : null);
 	}
 
 	public void initComponents(Praparat pp, DicomImage dcmImg/* single frame */) {

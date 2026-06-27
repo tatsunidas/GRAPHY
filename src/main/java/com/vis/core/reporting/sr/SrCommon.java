@@ -1,6 +1,7 @@
 package com.vis.core.reporting.sr;
 
 import java.util.Date;
+import java.util.List;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Code;
@@ -8,6 +9,9 @@ import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 
+import com.vis.core.reporting.ParticipationType;
+import com.vis.core.reporting.ReportParticipant;
+import com.vis.core.reporting.StaffRole;
 import com.vis.dicom.UIDUtils;
 
 /**
@@ -79,22 +83,120 @@ final class SrCommon {
 		sr.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
 	}
 
+	// --- DICOM tags for observer / participant attribution -----------------------
+	private static final int TAG_VERIFYING_OBSERVER_SEQ = 0x0040A073;
+	private static final int TAG_VERIFYING_ORGANIZATION = 0x0040A027;
+	private static final int TAG_VERIFICATION_DATETIME = 0x0040A030;
+	private static final int TAG_VERIFYING_OBSERVER_NAME = 0x0040A075;
+	private static final int TAG_AUTHOR_OBSERVER_SEQ = 0x0040A078;
+	private static final int TAG_PARTICIPANT_SEQ = 0x0040A07A;
+	private static final int TAG_PARTICIPATION_TYPE = 0x0040A080;
+	private static final int TAG_PARTICIPATION_DATETIME = 0x0040A082;
+	private static final int TAG_OBSERVER_TYPE = 0x0040A084;
+	private static final int TAG_PERSON_NAME = 0x0040A123;
+	private static final int TAG_ORGANIZATIONAL_ROLE_CODE_SEQ = 0x0044010A;
+
 	/**
-	 * Add Verification Observer Sequence (0040,A073) to an SR dataset. Records who
-	 * produced the report so the DICOM header carries an author attribution even
-	 * before the report is formally verified by a radiologist.
+	 * Write the participants of a report into the SR header sequences, capturing
+	 * <em>both</em> how each person is involved (participation type) and their job
+	 * (organizational role, CID 7452):
+	 * <ul>
+	 *   <li>AUTHOR  → Author Observer Sequence (0040,A078)</li>
+	 *   <li>VERIFIER → Verifying Observer Sequence (0040,A073); also sets
+	 *       {@code VerificationFlag=VERIFIED}</li>
+	 *   <li>ENTERER → Participant Sequence (0040,A07A) with Participation Type {@code ENT}</li>
+	 *   <li>REVIEWER → Participant Sequence (0040,A07A) with Participation Type {@code ATTEST}</li>
+	 * </ul>
+	 * Each author/participant item carries Observer Type {@code PSN}, Person Name,
+	 * Institution Name and an Organizational Role Code Sequence (0044,010A) for the
+	 * job role.
 	 */
-	static void setVerificationObserver(Attributes sr, String observerName) {
-		if (observerName == null || observerName.isEmpty()) {
+	static void addObservers(Attributes sr, List<ReportParticipant> participants, Date now) {
+		if (participants == null || participants.isEmpty()) {
 			return;
 		}
-		// (0040,A073) Verification Observer Sequence
-		Sequence seq = sr.newSequence(0x0040A073, 1);
-		Attributes obs = new Attributes();
-		obs.setString(0x0040A075, VR.PN, observerName); // Verification Observer Name
-		obs.setString(0x0040A084, VR.CS, "PSN");         // Observer Type = Person
-		obs.setString(Tag.InstitutionName, VR.LO, "GRAPHY");
-		seq.add(obs);
+		Sequence authorSeq = null;
+		Sequence verifySeq = null;
+		Sequence partSeq = null;
+		boolean verified = false;
+
+		for (ReportParticipant p : participants) {
+			if (p == null || !p.hasName()) {
+				continue;
+			}
+			ParticipationType type = p.getParticipation();
+			if (type == ParticipationType.AUTHOR) {
+				if (authorSeq == null) {
+					authorSeq = sr.newSequence(TAG_AUTHOR_OBSERVER_SEQ, 1);
+				}
+				authorSeq.add(personObserverItem(p));
+			} else if (type == ParticipationType.VERIFIER) {
+				if (verifySeq == null) {
+					verifySeq = sr.newSequence(TAG_VERIFYING_OBSERVER_SEQ, 1);
+				}
+				verifySeq.add(verifyingObserverItem(p, now));
+				verified = true;
+			} else { // ENTERER / REVIEWER → Participant Sequence
+				if (partSeq == null) {
+					partSeq = sr.newSequence(TAG_PARTICIPANT_SEQ, 1);
+				}
+				partSeq.add(participantItem(p, now));
+			}
+		}
+		if (verified) {
+			sr.setString(Tag.VerificationFlag, VR.CS, "VERIFIED");
+		}
+	}
+
+	/** Author Observer Sequence item: Observer Type / Person Name / Institution / Role. */
+	private static Attributes personObserverItem(ReportParticipant p) {
+		Attributes item = new Attributes();
+		item.setString(TAG_OBSERVER_TYPE, VR.CS, "PSN");
+		item.setString(TAG_PERSON_NAME, VR.PN, p.getName());
+		item.setString(Tag.InstitutionName, VR.LO, institutionOf(p));
+		setOrganizationalRole(item, p.getRole());
+		return item;
+	}
+
+	/** Verifying Observer Sequence item: name / datetime / organization. */
+	private static Attributes verifyingObserverItem(ReportParticipant p, Date now) {
+		Attributes item = new Attributes();
+		item.setString(TAG_VERIFYING_OBSERVER_NAME, VR.PN, p.getName());
+		item.setDate(TAG_VERIFICATION_DATETIME, VR.DT,
+				p.getDateTimeMillis() > 0 ? new Date(p.getDateTimeMillis()) : now);
+		item.setString(TAG_VERIFYING_ORGANIZATION, VR.LO, institutionOf(p));
+		// The verifier's job role is also recorded for traceability, even though the
+		// Verifying Observer Sequence item has no standard role-code attribute.
+		setOrganizationalRole(item, p.getRole());
+		return item;
+	}
+
+	/** Participant Sequence item (ENTERER/REVIEWER): participation type + person + role. */
+	private static Attributes participantItem(ReportParticipant p, Date now) {
+		Attributes item = new Attributes();
+		String term = p.getParticipation() == null ? null : p.getParticipation().participantTerm();
+		item.setString(TAG_PARTICIPATION_TYPE, VR.CS, term == null ? "ENT" : term);
+		item.setDate(TAG_PARTICIPATION_DATETIME, VR.DT,
+				p.getDateTimeMillis() > 0 ? new Date(p.getDateTimeMillis()) : now);
+		item.setString(TAG_OBSERVER_TYPE, VR.CS, "PSN");
+		item.setString(TAG_PERSON_NAME, VR.PN, p.getName());
+		item.setString(Tag.InstitutionName, VR.LO, institutionOf(p));
+		setOrganizationalRole(item, p.getRole());
+		return item;
+	}
+
+	/** Organizational Role Code Sequence (0044,010A) carrying the job role (CID 7452). */
+	private static void setOrganizationalRole(Attributes item, StaffRole role) {
+		if (role == null) {
+			return;
+		}
+		Sequence seq = item.newSequence(TAG_ORGANIZATIONAL_ROLE_CODE_SEQ, 1);
+		seq.add(new Code(role.codeValue(), role.codeScheme(), null, role.codeMeaning()).toItem());
+	}
+
+	private static String institutionOf(ReportParticipant p) {
+		return (p.getOrganization() != null && !p.getOrganization().trim().isEmpty())
+				? p.getOrganization() : "GRAPHY";
 	}
 
 	/** Set an item's Concept Name Code Sequence (0040,A043). */

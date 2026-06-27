@@ -50,11 +50,14 @@ public final class SRtoHtml {
 		sb.append("<table style=\"font-size:11px;color:#505050;\">");
 		row(sb, "Patient", sr.getString(Tag.PatientName));
 		row(sb, "Patient ID", sr.getString(Tag.PatientID));
-		row(sb, "Study Date", sr.getString(Tag.StudyDate));
+		row(sb, "Study Date", com.vis.core.util.DateUtils.toDisplayDate(sr.getString(Tag.StudyDate)));
 		row(sb, "Modality", sr.getString(Tag.Modality));
 		row(sb, "Completion", sr.getString(Tag.CompletionFlag));
 		row(sb, "Verification", sr.getString(Tag.VerificationFlag));
-		sb.append("</table><hr>");
+		sb.append("</table>");
+
+		appendParticipants(sb, sr);
+		sb.append("<hr>");
 
 		// content tree (skip the root container's own concept; render its children)
 		for (ContentItem child : root.getChildren()) {
@@ -165,6 +168,80 @@ public final class SRtoHtml {
 			sb.append(" · FoR ").append(HtmlText.escape(ci.getReferencedFrameOfReferenceUID()));
 		}
 		sb.append("</p>");
+	}
+
+	// --- observers / participants attribution -----------------------------------
+	private static final int TAG_VERIFYING_OBSERVER_SEQ = 0x0040A073;
+	private static final int TAG_VERIFICATION_DATETIME = 0x0040A030;
+	private static final int TAG_VERIFYING_OBSERVER_NAME = 0x0040A075;
+	private static final int TAG_AUTHOR_OBSERVER_SEQ = 0x0040A078;
+	private static final int TAG_PARTICIPANT_SEQ = 0x0040A07A;
+	private static final int TAG_PARTICIPATION_TYPE = 0x0040A080;
+	private static final int TAG_PERSON_NAME = 0x0040A123;
+	private static final int TAG_ORGANIZATIONAL_ROLE_CODE_SEQ = 0x0044010A;
+
+	/**
+	 * Render the report's people — who authored / verified / entered / reviewed it,
+	 * and each one's job role — from the SR header observer/participant sequences.
+	 */
+	private static void appendParticipants(StringBuilder sb, Attributes sr) {
+		StringBuilder rows = new StringBuilder();
+		// Author Observer Sequence
+		Sequence authors = sr.getSequence(TAG_AUTHOR_OBSERVER_SEQ);
+		if (authors != null) {
+			for (Attributes a : authors) {
+				participantRow(rows, "Author", a.getString(TAG_PERSON_NAME), roleMeaning(a), null);
+			}
+		}
+		// Verifying Observer Sequence
+		Sequence verifiers = sr.getSequence(TAG_VERIFYING_OBSERVER_SEQ);
+		if (verifiers != null) {
+			for (Attributes v : verifiers) {
+				participantRow(rows, "Verifier", v.getString(TAG_VERIFYING_OBSERVER_NAME),
+						roleMeaning(v), v.getString(TAG_VERIFICATION_DATETIME));
+			}
+		}
+		// Participant Sequence (enterers / reviewers)
+		Sequence participants = sr.getSequence(TAG_PARTICIPANT_SEQ);
+		if (participants != null) {
+			for (Attributes p : participants) {
+				participantRow(rows, participationLabel(p.getString(TAG_PARTICIPATION_TYPE)),
+						p.getString(TAG_PERSON_NAME), roleMeaning(p), null);
+			}
+		}
+		if (rows.length() == 0) {
+			return;
+		}
+		sb.append("<table style=\"font-size:11px;color:#404040;border-collapse:collapse;margin-top:4px;\">");
+		sb.append("<tr style=\"color:#808080;\"><td><b>&nbsp;</b></td><td><b>Name</b></td>")
+				.append("<td><b>&nbsp;Role&nbsp;</b></td><td><b>&nbsp;Date</b></td></tr>");
+		sb.append(rows);
+		sb.append("</table>");
+	}
+
+	private static void participantRow(StringBuilder sb, String kind, String name, String role, String dateTime) {
+		if (name == null || name.isEmpty()) {
+			return;
+		}
+		sb.append("<tr><td><b>").append(HtmlText.escape(kind)).append("</b></td>")
+				.append("<td>&nbsp;").append(HtmlText.escape(name.replace('^', ' '))).append("</td>")
+				.append("<td>&nbsp;").append(HtmlText.escape(role == null ? "" : role)).append("&nbsp;</td>")
+				.append("<td>&nbsp;").append(HtmlText.escape(dateTime == null ? "" : dateTime)).append("</td></tr>");
+	}
+
+	private static String roleMeaning(Attributes item) {
+		Attributes roleItem = item.getNestedDataset(TAG_ORGANIZATIONAL_ROLE_CODE_SEQ);
+		return roleItem == null ? null : roleItem.getString(Tag.CodeMeaning);
+	}
+
+	private static String participationLabel(String term) {
+		if ("ENT".equals(term)) {
+			return "Enterer";
+		}
+		if ("ATTEST".equals(term)) {
+			return "Reviewer";
+		}
+		return term == null ? "Participant" : term;
 	}
 
 	private static void row(StringBuilder sb, String key, String value) {

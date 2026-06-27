@@ -764,7 +764,7 @@ public class QueryRetrieve implements Task, Runnable {
 				DICOMNode.STUDY, 
 				studyResp.getString(Tag.PatientName, ""), // pname,
 				studyResp.getString(Tag.PatientID, ""), // pid,
-				studyResp.getString(Tag.StudyDate, ""), // studyDate,
+				com.vis.core.util.DateUtils.toDisplayDate(studyResp.getString(Tag.StudyDate, "")), // studyDate,
 				"", // seriesDate,
 				studyResp.getString(Tag.StudyTime, ""), // studyTime,
 				"", // acquisitiontime,

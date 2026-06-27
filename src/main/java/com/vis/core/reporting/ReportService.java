@@ -209,8 +209,40 @@ public class ReportService {
 	 *
 	 * @return the new SR SOP Instance UID, or {@code null} on failure.
 	 */
+	/**
+	 * Verification-policy gate for finalizing a report (GRAPHY has no login, so the
+	 * gate is evaluated against the role of the participant designated as VERIFIER).
+	 * Imaging-diagnostic reports require a physician verifier; technologist reports
+	 * require a radiologic technologist (or physician); other types have no gate.
+	 *
+	 * @return {@code null} when the report may be finalized, otherwise an i18n key
+	 *         describing why it may not.
+	 */
+	public String checkVerifiable(ReportDocument doc) {
+		if (doc == null) {
+			return "Reporting.verify.noReport";
+		}
+		ReportType type = doc.getType();
+		if (type == null || !type.requiresQualifiedVerifier()) {
+			return null; // no restriction
+		}
+		ReportParticipant v = doc.getVerifier();
+		if (v == null || !v.hasName()) {
+			return "Reporting.verify.needVerifier";
+		}
+		if (!type.canVerify(v.getRole())) {
+			return "Reporting.verify.roleNotAllowed";
+		}
+		return null;
+	}
+
 	public String finalizeAsSR(ReportDocument doc) {
 		if (doc == null) {
+			return null;
+		}
+		String gate = checkVerifiable(doc);
+		if (gate != null) {
+			logger.warning("ReportService - finalizeAsSR blocked by verification policy: " + gate);
 			return null;
 		}
 		Attributes ref = loadReferenceInstance(doc.getStudyUID());

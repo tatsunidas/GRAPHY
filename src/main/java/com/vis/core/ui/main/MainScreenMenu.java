@@ -286,6 +286,15 @@ public class MainScreenMenu extends JMenuBar{
 		});
 		mnReport.add(mntmManageReports);
 
+		JMenuItem mntmStaff = new JMenuItem(Resources.i18n("Reporting.menu.staff"));
+		mntmStaff.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				com.vis.core.reporting.ui.StaffManagerDialog.show(WindowManager.getMainScreen());
+			}
+		});
+		mnReport.add(mntmStaff);
+
 		JMenu mnSys = new JMenu("System");
 		add(mnSys);
 		JMenuItem mntmSys = new JMenuItem("Show Log");

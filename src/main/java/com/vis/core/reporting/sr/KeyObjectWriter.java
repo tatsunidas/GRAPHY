@@ -52,8 +52,8 @@ public class KeyObjectWriter {
         SrCommon.setConceptName(ko, SRCodes.KEY_IMAGE); // (113000, DCM, "Of Interest")
         ko.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
 
-        // Optional: verification observer (author attribution)
-        SrCommon.setVerificationObserver(ko, doc.getAuthor());
+        // Author / verifier / participant attribution (with job roles)
+        SrCommon.addObservers(ko, doc.getParticipantsForSr(), new Date());
 
         // IMAGE content items
         Sequence content = ko.newSequence(Tag.ContentSequence, keyImages.size());
