@@ -193,7 +193,11 @@ public class DcmQRSCP implements DicomServer{
 					if (dbWriteSuccess) {
 						LOG.info("DB-WROTE successfully: " + dest.getAbsolutePath() + "\n" + as);
 					} else {
-						LOG.warning("DB-WRITE failed for: " + dest.getAbsolutePath() + "\n" + as);
+						// 索引に載らない孤児ファイルを残さない: 例外を投げ、外側catchでファイル削除＋SCUへ失敗応答。
+						// これにより送信側に再送を促し、ディスクとDBの不整合を防ぐ。
+						LOG.warning("DB-WRITE failed; failing C-STORE and removing orphan: " + dest.getAbsolutePath() + "\n" + as);
+						throw new DicomServiceException(Status.ProcessingFailure,
+								"Failed to index stored instance in database");
 					}
 				} else {
 					if (addDicomDirRecords(as, attrs, fmi, file)) {
@@ -475,7 +479,8 @@ public class DcmQRSCP implements DicomServer{
 	private File getDestinationFile(Attributes attrs) {
 		File file = new File(storageDir, filePathFormat.format(attrs));
 		while (file.exists())
-			file = new File(file.getParentFile(), TagUtils.toHexString(new Random().nextInt()));
+			file = new File(file.getParentFile(),
+					TagUtils.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextInt()));
 		return file;
 	}
 
@@ -885,8 +890,9 @@ public class DcmQRSCP implements DicomServer{
 					Connection remote = new Connection();
 					remote.setHostname((String)entry.get("hostname"));
 					remote.setPort((int)entry.get("port"));
-					if(entry.get("ciphers") != null || !entry.get("ciphers").equals("")) {
-						remote.setTlsCipherSuites(((String)entry.get("ciphers")).split(":"));
+					String ciphers = (String) entry.get("ciphers");
+					if (ciphers != null && !ciphers.isEmpty()) {
+						remote.setTlsCipherSuites(ciphers.split(":"));
 					}
 					main.addRemoteConnection(aet, remote);
 				} catch (Exception e) {
@@ -998,75 +1004,50 @@ public class DcmQRSCP implements DicomServer{
 	public List<InstanceLocator> calculateMatchesFromDB(Attributes keys) throws DicomServiceException {
 		try {
 			DatabaseHandler db = DatabaseHandler.getInstance();
-			List<String> patIDs = new ArrayList<>();
-			List<String> studyIUIDs = new ArrayList<>();
-			List<String> seriesIUIDs = new ArrayList<>();
-			List<String> sopIUIDs = new ArrayList<>();
-			
 			List<InstanceLocator> result = new ArrayList<InstanceLocator>();
-			
-			if(keys.getStrings(Tag.PatientID) != null && keys.getStrings(Tag.PatientID).length!=0) {
-				patIDs = new ArrayList<>(Arrays.asList(keys.getStrings(Tag.PatientID)));
-			}
-			if(keys.getStrings(Tag.StudyInstanceUID) != null && keys.getStrings(Tag.StudyInstanceUID).length!=0) {
-				studyIUIDs = new ArrayList<>(Arrays.asList(keys.getStrings(Tag.StudyInstanceUID)));
-			}
-			if(keys.getStrings(Tag.SeriesInstanceUID) != null && keys.getStrings(Tag.SeriesInstanceUID).length !=0) {
-				seriesIUIDs = new ArrayList<>(Arrays.asList(keys.getStrings(Tag.SeriesInstanceUID)));
-			}
-			if(keys.getStrings(Tag.SOPInstanceUID) != null && keys.getStrings(Tag.SOPInstanceUID).length !=0) {
-				sopIUIDs = new ArrayList<>(Arrays.asList(keys.getStrings(Tag.SOPInstanceUID)));
-			}
-			
-			String patID = null;
-			String studyIUID = null;
-			String seriesIUID = null;
-			String sopIUID = null;
-			
-			do {// patient loop
-				if (patIDs.size() != 0) {
-					patID = patIDs.iterator().next();
-				}
-				do {// study loop
-					if (studyIUIDs.size() != 0) {
-						studyIUID = studyIUIDs.iterator().next();
-					}
-					do {// series loop
-						if (seriesIUIDs.size() != 0) {
-							seriesIUID = seriesIUIDs.iterator().next();
-						}
-						do {// instance loop
-							if (sopIUIDs.size() != 0) {
-								sopIUID = sopIUIDs.iterator().next();
-							}
-							ArrayList<HashMap<String, String>> recordInfo = db.getImageInstanceInfo(patID, studyIUID,
-									seriesIUID, sopIUID);
-							if(recordInfo != null) {
+
+			// 各レベルの検索フィルタ。指定が無ければ [null]（=ワイルドカード）1要素にする。
+			// getStrings はタグごとに1回だけ呼ぶ。
+			List<String> patIDs = toFilter(keys.getStrings(Tag.PatientID));
+			List<String> studyIUIDs = toFilter(keys.getStrings(Tag.StudyInstanceUID));
+			List<String> seriesIUIDs = toFilter(keys.getStrings(Tag.SeriesInstanceUID));
+			List<String> sopIUIDs = toFilter(keys.getStrings(Tag.SOPInstanceUID));
+
+			// リストを破壊せず直積で評価する。多値キーが複数レベルに同時に来ても正しく、
+			// ArrayList の remove(0) による O(n^2) も発生しない。
+			for (String patID : patIDs) {
+				for (String studyIUID : studyIUIDs) {
+					for (String seriesIUID : seriesIUIDs) {
+						for (String sopIUID : sopIUIDs) {
+							ArrayList<HashMap<String, String>> recordInfo =
+									db.getImageInstanceInfo(patID, studyIUID, seriesIUID, sopIUID);
+							if (recordInfo != null) {
 								for (HashMap<String, String> info : recordInfo) {
 									result.add(new InstanceLocator(info.get("SOPClassUID"), info.get("SOPInstanceUID"),
 											info.get("TransferSyntaxUID"), info.get("URI")));
 								}
 							}
-							if (sopIUIDs.size() != 0) {
-								sopIUIDs.remove(0);
-							}
-						} while (sopIUIDs.iterator().hasNext());
-						if (seriesIUIDs.size() != 0) {
-							seriesIUIDs.remove(0);
 						}
-					} while (seriesIUIDs.iterator().hasNext());
-					if (studyIUIDs.size() != 0) {
-						studyIUIDs.remove(0);
 					}
-				} while (studyIUIDs.iterator().hasNext());
-				if (patIDs.size() != 0) {
-					patIDs.remove(0);
 				}
-			} while (patIDs.iterator().hasNext());
+			}
 			return result;
 		} catch (Exception e) {
 			throw new DicomServiceException(Status.UnableToCalculateNumberOfMatches, e);
 		}
+	}
+
+	/** keys.getStrings の結果を検索フィルタへ変換。null/空なら [null]（=ワイルドカード）1要素を返す。 */
+	private static List<String> toFilter(String[] values) {
+		List<String> list = new ArrayList<String>();
+		if (values == null || values.length == 0) {
+			list.add(null);
+		} else {
+			for (String v : values) {
+				list.add(v);
+			}
+		}
+		return list;
 	}
 
 	public Attributes calculateStorageCommitmentResultFromDcmDir(String calledAET, Attributes actionInfo)
