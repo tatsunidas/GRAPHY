@@ -29,6 +29,8 @@ target/
 # IntelliJ IDEA
 .idea/
 *.iml
+# VS Code（個別設定。起動引数の正本は src/main/scripts/run.sh）
+.vscode/
 
 # Clause Code
 .claude/
