@@ -1,6 +1,7 @@
 package com.vis.core.reporting.ui;
 
 import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.awt.Window;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -10,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -54,6 +57,7 @@ public class ReportListPanel extends JPanel {
 	private final DefaultTableModel model;
 	private final JTable table;
 	private List<Entry> entries;
+	private JComboBox<String> statusFilter;
 
 	private Mode mode = Mode.SINGLE;
 	private String patID; // SINGLE / PATIENT
@@ -116,8 +120,57 @@ public class ReportListPanel extends JPanel {
 		table = new JTable(model);
 		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-		add(buildToolbar(), BorderLayout.NORTH);
+		JPanel top = new JPanel(new BorderLayout());
+		top.add(buildToolbar(),  BorderLayout.NORTH);
+		top.add(buildFilter(),   BorderLayout.SOUTH);
+		add(top, BorderLayout.NORTH);
 		add(new JScrollPane(table), BorderLayout.CENTER);
+	}
+
+	private JPanel buildFilter() {
+		JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+		p.add(new JLabel(Resources.i18n("Reporting.list.filter.status")));
+		statusFilter = new JComboBox<>(new String[]{
+			Resources.i18n("Reporting.list.filter.all"),
+			Resources.i18n("Reporting.list.filter.draft"),
+			Resources.i18n("Reporting.list.filter.final")
+		});
+		statusFilter.addActionListener(e -> applyFilter());
+		p.add(statusFilter);
+		return p;
+	}
+
+	private void applyFilter() {
+		if (entries == null) return;
+		String sel = (String) statusFilter.getSelectedItem();
+		String all   = Resources.i18n("Reporting.list.filter.all");
+		String draft = Resources.i18n("Reporting.list.filter.draft");
+		model.setRowCount(0);
+		for (int i = 0; i < entries.size(); i++) {
+			Entry e = entries.get(i);
+			if (!all.equals(sel)) {
+				if (e.isGraphy()) {
+					boolean isDraft = e.doc.getStatus() == ReportDocument.Status.DRAFT;
+					if (draft.equals(sel) && !isDraft) continue;
+					if (!draft.equals(sel) &&  isDraft) continue;
+				} else {
+					// imported SRs count as FINAL
+					if (draft.equals(sel)) continue;
+				}
+			}
+			// Re-add the row
+			if (e.isGraphy()) {
+				String when = e.doc.getModifiedMillis() > 0
+						? fmt.format(new Date(e.doc.getModifiedMillis())) : "";
+				model.addRow(new Object[]{ nz(e.doc.getStudyDate()), when,
+					e.doc.getTitle() == null ? "" : e.doc.getTitle(),
+					e.doc.getStatus(), e.doc.getAuthor() == null ? "" : e.doc.getAuthor() });
+			} else {
+				String title = "[" + (e.impType == null ? "SR" : e.impType) + "]";
+				model.addRow(new Object[]{ nz(e.studyDate), "", title,
+					Resources.i18n("Reporting.list.imported"), "" });
+			}
+		}
 	}
 
 	private JToolBar buildToolbar() {
@@ -165,59 +218,79 @@ public class ReportListPanel extends JPanel {
 	}
 
 	public void reload() {
-		model.setRowCount(0);
+		// Rebuild entries list (full, unfiltered)
 		entries = new ArrayList<>();
 		switch (mode) {
 		case PATIENT:
 			if (patID != null) {
+				// GRAPHY-authored reports (all studies)
 				for (ReportDocument d : service.listReportsForPatient(patID)) {
-					addReportRow(d);
+					entries.add(new Entry(d, d.getPatientID(), d.getStudyUID(), d.getStudyDate()));
+				}
+				// Imported / derived SRs from every study of this patient (TD-4)
+				for (String[] study : service.listStudiesForPatient(patID)) {
+					String suid  = study[0];
+					String sdate = study.length > 1 ? study[1] : null;
+					for (String[] sr : service.listImportedSrInStudy(patID, suid)) {
+						entries.add(new Entry(sr[0], sr[1], sr[2], patID, suid, sdate));
+					}
 				}
 			}
 			break;
 		case MULTI:
 			if (studies != null) {
 				for (String[] s : studies) {
-					loadStudy(s[0], s[1], s.length > 2 ? s[2] : null);
+					collectStudy(s[0], s[1], s.length > 2 ? s[2] : null);
 				}
 			}
 			break;
 		case SINGLE:
 		default:
-			loadStudy(patID, studyUID, studyDate);
+			collectStudy(patID, studyUID, studyDate);
 			break;
 		}
+		// Apply filter to refresh table rows
+		model.setRowCount(0);
+		applyFilter();
 	}
 
-	/** Append a study's GRAPHY reports + imported SR instances. */
-	private void loadStudy(String pid, String suid, String sdate) {
-		if (pid == null || suid == null) {
-			return;
-		}
+	private void collectStudy(String pid, String suid, String sdate) {
+		if (pid == null || suid == null) return;
 		for (ReportDocument d : service.listReports(pid, suid)) {
-			addReportRow(d);
+			entries.add(new Entry(d, d.getPatientID(), d.getStudyUID(), d.getStudyDate()));
 		}
-		String imported = Resources.i18n("Reporting.list.imported");
 		for (String[] sr : service.listImportedSrInStudy(pid, suid)) {
 			entries.add(new Entry(sr[0], sr[1], sr[2], pid, suid, sdate));
-			String title = "[" + (sr[2] == null ? "SR" : sr[2]) + "]";
-			model.addRow(new Object[] { nz(sdate), "", title, imported, "" });
 		}
 	}
 
-	private void addReportRow(ReportDocument d) {
-		entries.add(new Entry(d, d.getPatientID(), d.getStudyUID(), d.getStudyDate()));
-		String when = d.getModifiedMillis() > 0 ? fmt.format(new Date(d.getModifiedMillis())) : "";
-		model.addRow(new Object[] { nz(d.getStudyDate()), when, d.getTitle() == null ? "" : d.getTitle(),
-				d.getStatus(), d.getAuthor() == null ? "" : d.getAuthor() });
+
+	/** Visible entries after filter (parallel to table rows). */
+	private List<Entry> visibleEntries() {
+		if (entries == null) return new ArrayList<>();
+		String sel  = statusFilter != null ? (String) statusFilter.getSelectedItem() : null;
+		String all   = Resources.i18n("Reporting.list.filter.all");
+		String draft = Resources.i18n("Reporting.list.filter.draft");
+		if (sel == null || all.equals(sel)) return new ArrayList<>(entries);
+		List<Entry> out = new ArrayList<>();
+		for (Entry e : entries) {
+			if (e.isGraphy()) {
+				boolean isDraft = e.doc.getStatus() == ReportDocument.Status.DRAFT;
+				if (draft.equals(sel) && !isDraft) continue;
+				if (!draft.equals(sel) &&  isDraft) continue;
+			} else {
+				if (draft.equals(sel)) continue;
+			}
+			out.add(e);
+		}
+		return out;
 	}
 
 	private Entry selected() {
 		int row = table.getSelectedRow();
-		if (row < 0 || entries == null || row >= entries.size()) {
-			return null;
-		}
-		return entries.get(row);
+		List<Entry> vis = visibleEntries();
+		if (row < 0 || row >= vis.size()) return null;
+		return vis.get(row);
 	}
 
 	private Window owner() {
@@ -279,11 +352,11 @@ public class ReportListPanel extends JPanel {
 			return;
 		}
 		ReportDocument d = e.doc;
-		if (d.getStatus() == ReportDocument.Status.FINAL && d.getSrSopInstanceUID() != null) {
-			service.openSr(e.patID, e.studyUID, d.getSeriesUID(), d.getSrSopInstanceUID());
-		} else {
-			SRHtmlViewerWindow.showSr(d.getTitle(), d.getBodyHtml(), e.patID);
-		}
+		// Always render from ReportDocument to preserve Markdown layout and encoding.
+		// (The DICOM SR path uses TextContentRenderer which strips Markdown to plain text.)
+		String keyImageHtml = KeyImageGridPanel.generateHtmlFromRefs(d.getKeyImages());
+		String html = MarkdownEditorPanel.buildHtml(d.getBodyHtml(), d.isMarkdown(), keyImageHtml);
+		SRHtmlViewerWindow.showSr(d.getTitle(), html, e.patID);
 	}
 
 	private void deleteSelected() {
@@ -299,6 +372,15 @@ public class ReportListPanel extends JPanel {
 				afterDelete();
 			}
 			return;
+		}
+		// KO linked to a GRAPHY report must not be deleted independently
+		if ("KO".equals(e.impType)) {
+			com.vis.core.reporting.ReportDocument linked = service.findReportByKoSopUID(e.impSopUID);
+			if (linked != null) {
+				JOptionPane.showMessageDialog(this, Resources.i18n("Reporting.list.koLinkedToReport"),
+						Resources.i18n("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
+				return;
+			}
 		}
 		// imported / derived SR -> delete the DICOM object from the local store
 		int ans = JOptionPane.showConfirmDialog(this, Resources.i18n("Reporting.list.confirmDeleteSr"),

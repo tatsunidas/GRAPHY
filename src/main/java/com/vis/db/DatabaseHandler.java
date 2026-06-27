@@ -351,7 +351,7 @@ public class DatabaseHandler {
 			Resources.SQL_PATIENT, Resources.SQL_STUDY, Resources.SQL_SERIES,
 			Resources.SQL_IMAGE, Resources.SQL_LISTENER, Resources.SQL_SERVERS, Resources.SQL_THEME,
 			Resources.SQL_PRESET, Resources.SQL_LOCALE, Resources.SQL_MISCELLANEOUS, Resources.SQL_TEXTANNOTATION,
-			Resources.SQL_ROI, Resources.SQL_REPORT);
+			Resources.SQL_ROI, Resources.SQL_REPORT, Resources.SQL_REPORT_TEMPLATE);
 
 	private void createTables() throws SQLException {
 		// 1. 実行したいSQLリソースをリストにまとめる(自動マイグレーションと同じ一覧を使う)
@@ -3270,25 +3270,35 @@ public class DatabaseHandler {
 			updateReport(ctx);
 			return;
 		}
-		String sql = "insert into report(ReportID,Title,Status,ReportType,Author,BodyHtml,KeyImageRefs,"
-				+ "SrSopInstanceUID,StudyDate,CreatedDateTime,ModifiedDateTime,PatientID,StudyInstanceUID,SeriesInstanceUID)"
-				+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+		String sql = "insert into report(ReportID,Title,Status,ReportType,Author,ReferringPhysician,ClinicalHistory,"
+				+ "BodyHtml,BodyFormat,KeyImageRefs,SrSopInstanceUID,StudyDate,CreatedDateTime,ModifiedDateTime,"
+				+ "PredecessorReportId,PredecessorSrSopUID,PredecessorSeriesUID,"
+				+ "PatientID,StudyInstanceUID,SeriesInstanceUID,KoSopInstanceUID,KoSeriesInstanceUID)"
+				+ " values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
 			ps.setString(1, reportId);
 			ps.setString(2, (String) ctx.get(ReportDBKey.Title.name()));
 			ps.setString(3, (String) ctx.get(ReportDBKey.Status.name()));
 			ps.setString(4, (String) ctx.get(ReportDBKey.ReportType.name()));
 			ps.setString(5, (String) ctx.get(ReportDBKey.Author.name()));
-			ps.setString(6, (String) ctx.get(ReportDBKey.BodyHtml.name()));
-			ps.setString(7, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
-			ps.setString(8, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
-			ps.setDate(9, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
+			ps.setString(6, (String) ctx.get(ReportDBKey.ReferringPhysician.name()));
+			ps.setString(7, (String) ctx.get(ReportDBKey.ClinicalHistory.name()));
+			ps.setString(8, (String) ctx.get(ReportDBKey.BodyHtml.name()));
+			ps.setString(9, (String) ctx.get(ReportDBKey.BodyFormat.name()));
+			ps.setString(10, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
+			ps.setString(11, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
+			ps.setDate(12, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
 					: DateUtils.toSQLDateObj((String) ctx.get(ReportDBKey.StudyDate.name())));
-			ps.setTimestamp(10, toSQLTimestamp(ctx.get(ReportDBKey.CreatedDateTime.name())));
-			ps.setTimestamp(11, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
-			ps.setString(12, (String) ctx.get(ReportDBKey.PatientID.name()));
-			ps.setString(13, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
-			ps.setString(14, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
+			ps.setTimestamp(13, toSQLTimestamp(ctx.get(ReportDBKey.CreatedDateTime.name())));
+			ps.setTimestamp(14, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
+			ps.setString(15, (String) ctx.get(ReportDBKey.PredecessorReportId.name()));
+			ps.setString(16, (String) ctx.get(ReportDBKey.PredecessorSrSopUID.name()));
+			ps.setString(17, (String) ctx.get(ReportDBKey.PredecessorSeriesUID.name()));
+			ps.setString(18, (String) ctx.get(ReportDBKey.PatientID.name()));
+			ps.setString(19, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
+			ps.setString(20, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
+			ps.setString(21, (String) ctx.get(ReportDBKey.KoSopInstanceUID.name()));
+			ps.setString(22, (String) ctx.get(ReportDBKey.KoSeriesInstanceUID.name()));
 			ps.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3301,24 +3311,34 @@ public class DatabaseHandler {
 		if (reportId == null) {
 			return;
 		}
-		String sql = "update report set Title=?,Status=?,ReportType=?,Author=?,BodyHtml=?,KeyImageRefs=?,"
-				+ "SrSopInstanceUID=?,StudyDate=?,ModifiedDateTime=?,PatientID=?,StudyInstanceUID=?,SeriesInstanceUID=?"
+		String sql = "update report set Title=?,Status=?,ReportType=?,Author=?,ReferringPhysician=?,"
+				+ "ClinicalHistory=?,BodyHtml=?,BodyFormat=?,KeyImageRefs=?,SrSopInstanceUID=?,"
+				+ "StudyDate=?,ModifiedDateTime=?,PredecessorReportId=?,PredecessorSrSopUID=?,PredecessorSeriesUID=?,"
+				+ "PatientID=?,StudyInstanceUID=?,SeriesInstanceUID=?,KoSopInstanceUID=?,KoSeriesInstanceUID=?"
 				+ " where ReportID=?";
 		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql);) {
 			ps.setString(1, (String) ctx.get(ReportDBKey.Title.name()));
 			ps.setString(2, (String) ctx.get(ReportDBKey.Status.name()));
 			ps.setString(3, (String) ctx.get(ReportDBKey.ReportType.name()));
 			ps.setString(4, (String) ctx.get(ReportDBKey.Author.name()));
-			ps.setString(5, (String) ctx.get(ReportDBKey.BodyHtml.name()));
-			ps.setString(6, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
-			ps.setString(7, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
-			ps.setDate(8, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
+			ps.setString(5, (String) ctx.get(ReportDBKey.ReferringPhysician.name()));
+			ps.setString(6, (String) ctx.get(ReportDBKey.ClinicalHistory.name()));
+			ps.setString(7, (String) ctx.get(ReportDBKey.BodyHtml.name()));
+			ps.setString(8, (String) ctx.get(ReportDBKey.BodyFormat.name()));
+			ps.setString(9, (String) ctx.get(ReportDBKey.KeyImageRefs.name()));
+			ps.setString(10, (String) ctx.get(ReportDBKey.SrSopInstanceUID.name()));
+			ps.setDate(11, ctx.get(ReportDBKey.StudyDate.name()) == null ? null
 					: DateUtils.toSQLDateObj((String) ctx.get(ReportDBKey.StudyDate.name())));
-			ps.setTimestamp(9, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
-			ps.setString(10, (String) ctx.get(ReportDBKey.PatientID.name()));
-			ps.setString(11, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
-			ps.setString(12, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
-			ps.setString(13, reportId);
+			ps.setTimestamp(12, toSQLTimestamp(ctx.get(ReportDBKey.ModifiedDateTime.name())));
+			ps.setString(13, (String) ctx.get(ReportDBKey.PredecessorReportId.name()));
+			ps.setString(14, (String) ctx.get(ReportDBKey.PredecessorSrSopUID.name()));
+			ps.setString(15, (String) ctx.get(ReportDBKey.PredecessorSeriesUID.name()));
+			ps.setString(16, (String) ctx.get(ReportDBKey.PatientID.name()));
+			ps.setString(17, (String) ctx.get(ReportDBKey.StudyInstanceUID.name()));
+			ps.setString(18, (String) ctx.get(ReportDBKey.SeriesInstanceUID.name()));
+			ps.setString(19, (String) ctx.get(ReportDBKey.KoSopInstanceUID.name()));
+			ps.setString(20, (String) ctx.get(ReportDBKey.KoSeriesInstanceUID.name()));
+			ps.setString(21, reportId);
 			ps.executeUpdate();
 			conn.commit();
 		} catch (SQLException ex) {
@@ -3338,6 +3358,188 @@ public class DatabaseHandler {
 		} catch (SQLException ex) {
 			logger.severe("DatabaseHandler - Unable to delete report\n" + ex.getMessage());
 		}
+	}
+
+	/**
+	 * Try to acquire an edit lock on a report. Sets LockedBy/LockedAt only when the
+	 * row is currently unlocked (LockedBy IS NULL). Returns true if the lock was
+	 * acquired, false if someone else holds it.
+	 */
+	public synchronized boolean tryLockReport(String reportId, String user) {
+		if (reportId == null || user == null) {
+			return false;
+		}
+		String sel = "SELECT LockedBy FROM REPORT WHERE ReportID=?";
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(sel)) {
+			ps.setString(1, reportId);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					String holder = safeGetString(rs, "LockedBy");
+					if (holder != null && !holder.isEmpty() && !holder.equals(user)) {
+						conn.commit();
+						return false; // held by someone else
+					}
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - tryLockReport select failed: " + ex.getMessage());
+			return false;
+		}
+		String upd = "UPDATE REPORT SET LockedBy=?, LockedAt=? WHERE ReportID=?";
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(upd)) {
+			ps.setString(1, user);
+			ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+			ps.setString(3, reportId);
+			ps.executeUpdate();
+			conn.commit();
+			return true;
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - tryLockReport update failed: " + ex.getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Release the edit lock on a report (only if owned by the given user, or force=true).
+	 */
+	public synchronized void unlockReport(String reportId, String user) {
+		if (reportId == null) {
+			return;
+		}
+		String sql = "UPDATE REPORT SET LockedBy=NULL, LockedAt=NULL WHERE ReportID=?"
+				+ (user != null ? " AND (LockedBy=? OR LockedBy IS NULL)" : "");
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, reportId);
+			if (user != null) {
+				ps.setString(2, user);
+			}
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - unlockReport failed: " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Returns the current lock holder, or null if unlocked.
+	 */
+	public String getReportLockHolder(String reportId) {
+		if (reportId == null) {
+			return null;
+		}
+		String sql = "SELECT LockedBy FROM REPORT WHERE ReportID=?";
+		try (Connection conn = openConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, reportId);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					String holder = safeGetString(rs, "LockedBy");
+					conn.commit();
+					return (holder == null || holder.isEmpty()) ? null : holder;
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - getReportLockHolder failed: " + ex.getMessage());
+		}
+		return null;
+	}
+
+	// ---- REPORT_TEMPLATE CRUD (TD-2) -----------------------------------------
+
+	/** Upsert a user template row. Creates or replaces by TemplateID. */
+	public synchronized void upsertTemplate(String id, String name, String category, String body) {
+		if (id == null) return;
+		boolean exists = checkRecordExists("report_template", "TemplateID", id);
+		long now = System.currentTimeMillis();
+		if (exists) {
+			String sql = "UPDATE REPORT_TEMPLATE SET Name=?, Category=?, Body=?, ModifiedDateTime=? WHERE TemplateID=?";
+			try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+				ps.setString(1, name);
+				ps.setString(2, category);
+				ps.setString(3, body);
+				ps.setTimestamp(4, new Timestamp(now));
+				ps.setString(5, id);
+				ps.executeUpdate();
+				conn.commit();
+			} catch (SQLException ex) {
+				logger.warning("DatabaseHandler - upsertTemplate update failed: " + ex.getMessage());
+			}
+		} else {
+			String sql = "INSERT INTO REPORT_TEMPLATE(TemplateID,Name,Category,Body,CreatedDateTime,ModifiedDateTime) VALUES(?,?,?,?,?,?)";
+			try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+				ps.setString(1, id);
+				ps.setString(2, name);
+				ps.setString(3, category);
+				ps.setString(4, body);
+				ps.setTimestamp(5, new Timestamp(now));
+				ps.setTimestamp(6, new Timestamp(now));
+				ps.executeUpdate();
+				conn.commit();
+			} catch (SQLException ex) {
+				logger.warning("DatabaseHandler - upsertTemplate insert failed: " + ex.getMessage());
+			}
+		}
+	}
+
+	/** Delete a user template by ID. */
+	public synchronized void deleteTemplate(String id) {
+		if (id == null) return;
+		String sql = "DELETE FROM REPORT_TEMPLATE WHERE TemplateID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, id);
+			ps.executeUpdate();
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - deleteTemplate failed: " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Load all user templates from the DB.
+	 * @return list of {id, name, category, body} arrays, ordered by Name.
+	 */
+	public ArrayList<String[]> loadAllTemplates() {
+		ArrayList<String[]> out = new ArrayList<>();
+		String sql = "SELECT TemplateID, Name, Category, Body FROM REPORT_TEMPLATE ORDER BY Name";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					out.add(new String[]{
+						rs.getString("TemplateID"),
+						rs.getString("Name"),
+						rs.getString("Category"),
+						rs.getString("Body")
+					});
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - loadAllTemplates failed: " + ex.getMessage());
+		}
+		return out;
+	}
+
+	/** True if the REPORT_TEMPLATE table has at least one row. */
+	public boolean hasTemplates() {
+		String sql = "SELECT COUNT(*) FROM REPORT_TEMPLATE";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					int count = rs.getInt(1);
+					conn.commit();
+					return count > 0;
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - hasTemplates failed: " + ex.getMessage());
+		}
+		return false;
 	}
 
 	public HashMap<String, Object> loadReportContext(String reportId) {
@@ -3403,7 +3605,10 @@ public class DatabaseHandler {
 		ctx.put(ReportDBKey.Status.name(), rset.getString("Status"));
 		ctx.put(ReportDBKey.ReportType.name(), rset.getString("ReportType"));
 		ctx.put(ReportDBKey.Author.name(), rset.getString("Author"));
+		ctx.put(ReportDBKey.ReferringPhysician.name(), safeGetString(rset, "ReferringPhysician"));
+		ctx.put(ReportDBKey.ClinicalHistory.name(), safeGetString(rset, "ClinicalHistory"));
 		ctx.put(ReportDBKey.BodyHtml.name(), rset.getString("BodyHtml"));
+		ctx.put(ReportDBKey.BodyFormat.name(), safeGetString(rset, "BodyFormat"));
 		ctx.put(ReportDBKey.KeyImageRefs.name(), rset.getString("KeyImageRefs"));
 		ctx.put(ReportDBKey.SrSopInstanceUID.name(), rset.getString("SrSopInstanceUID"));
 		java.sql.Date sd = rset.getDate("StudyDate");
@@ -3412,10 +3617,43 @@ public class DatabaseHandler {
 		ctx.put(ReportDBKey.CreatedDateTime.name(), ct == null ? null : ct.getTime());
 		Timestamp mt = rset.getTimestamp("ModifiedDateTime");
 		ctx.put(ReportDBKey.ModifiedDateTime.name(), mt == null ? null : mt.getTime());
+		ctx.put(ReportDBKey.PredecessorReportId.name(), safeGetString(rset, "PredecessorReportId"));
+		ctx.put(ReportDBKey.PredecessorSrSopUID.name(), safeGetString(rset, "PredecessorSrSopUID"));
+		ctx.put(ReportDBKey.PredecessorSeriesUID.name(), safeGetString(rset, "PredecessorSeriesUID"));
 		ctx.put(ReportDBKey.PatientID.name(), rset.getString("PatientID"));
 		ctx.put(ReportDBKey.StudyInstanceUID.name(), rset.getString("StudyInstanceUID"));
 		ctx.put(ReportDBKey.SeriesInstanceUID.name(), rset.getString("SeriesInstanceUID"));
+		ctx.put(ReportDBKey.KoSopInstanceUID.name(), safeGetString(rset, "KoSopInstanceUID"));
+		ctx.put(ReportDBKey.KoSeriesInstanceUID.name(), safeGetString(rset, "KoSeriesInstanceUID"));
 		return ctx;
+	}
+
+	public HashMap<String, Object> findReportContextByKoSopUID(String koSopUID) {
+		if (koSopUID == null) return null;
+		String sql = "SELECT * FROM REPORT WHERE KoSopInstanceUID=?";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, koSopUID);
+			try (ResultSet rset = ps.executeQuery()) {
+				if (rset.next()) {
+					HashMap<String, Object> ctx = parseReportRow(rset);
+					conn.commit();
+					return ctx;
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.severe("DatabaseHandler - findReportContextByKoSopUID failed: " + ex.getMessage());
+		}
+		return null;
+	}
+
+	/** Column-not-found safe getString — returns null instead of throwing when a column was added via migration. */
+	private static String safeGetString(ResultSet rset, String column) {
+		try {
+			return rset.getString(column);
+		} catch (SQLException ex) {
+			return null;
+		}
 	}
 
 	/** Accepts a Long (epoch millis), java.util.Date, or java.sql.Timestamp; null-safe. */
@@ -3464,6 +3702,31 @@ public class DatabaseHandler {
 	 * List the SR-family (report) instances in a study: imported SR/RDSR/KO and finalized
 	 * GRAPHY reports. Each entry has keys SOPInstanceUID, SeriesInstanceUID, SOPClassUID.
 	 */
+	/**
+	 * Returns all studies for a patient as a list of {studyUID, studyDate} pairs,
+	 * ordered by StudyDate descending. Used to enumerate imported SRs in PATIENT mode.
+	 */
+	public ArrayList<String[]> getStudyUIDsForPatient(String patID) {
+		ArrayList<String[]> out = new ArrayList<>();
+		if (patID == null) return out;
+		String sql = "SELECT StudyInstanceUID, StudyDate FROM STUDY WHERE PatientID=? ORDER BY StudyDate DESC";
+		try (Connection conn = openConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, patID);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					String suid = rs.getString("StudyInstanceUID");
+					java.sql.Date sd = rs.getDate("StudyDate");
+					String sdate = sd == null ? null : new SimpleDateFormat("yyyy/MM/dd").format(sd);
+					out.add(new String[]{suid, sdate});
+				}
+			}
+			conn.commit();
+		} catch (SQLException ex) {
+			logger.warning("DatabaseHandler - getStudyUIDsForPatient failed: " + ex.getMessage());
+		}
+		return out;
+	}
+
 	public ArrayList<HashMap<String, String>> getReportInstancesInStudy(String patID, String studyUID) {
 		ArrayList<HashMap<String, String>> out = new ArrayList<>();
 		java.util.Set<String> uids = com.vis.core.reporting.sr.SopClassUtil.srFamilyUids();

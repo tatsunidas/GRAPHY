@@ -282,14 +282,14 @@ public class ViewerMenu extends JMenuBar {
 				if (own == null) {
 					return;
 				}
-				ArrayList<Praparat> sel = own.getSelectedPraps();
-				if (sel == null || sel.isEmpty()) {
-					JOptionPane.showMessageDialog(own, Resources.i18n("ViewerMenu.info.noPraparatSelected"));
+				// Use the currently active study tab — no Praparat selection required.
+				java.util.List<String[]> studies = collectActiveTabStudies(own);
+				if (studies.isEmpty()) {
+					JOptionPane.showMessageDialog(own, Resources.i18n("Reporting.list.noStudyOpen"));
 					return;
 				}
-				Object[] uids = sel.get(0).getUIDs();
-				com.vis.core.reporting.ui.ReportEditorDialog.showNew(own, (String) uids[0], (String) uids[1], null,
-						null);
+				String[] study = studies.get(0);
+				com.vis.core.reporting.ui.ReportEditorDialog.showNew(own, study[0], study[1], null, null);
 			}
 		});
 		mnReport.add(mntmNewReport);
@@ -1020,6 +1020,34 @@ public class ViewerMenu extends JMenuBar {
 			});
 			pluginMenu.add(pluginItem);
 		}
+	}
+
+	/**
+	 * Returns the distinct studies open in the currently active (selected) patient tab.
+	 * Each element is {@code {patID, studyUID, null}}.
+	 */
+	private static java.util.List<String[]> collectActiveTabStudies(Viewer2DScreen own) {
+		java.util.LinkedHashMap<String, String[]> distinct = new java.util.LinkedHashMap<>();
+		StageDockManager sdm = own.getStageDockManager();
+		if (sdm != null) {
+			int idx = sdm.getCurrentTabIndex();
+			if (idx >= 0) {
+				StageView sv = sdm.getStageAt(idx);
+				if (sv != null && sv.getEyepiece() != null) {
+					java.util.List<com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext> ctxs =
+							sv.getEyepiece().getAllPraparatContext();
+					if (ctxs != null) {
+						for (com.vis.core.view.D2.ui.glasses.PraparatShelf.PraparatContext ctx : ctxs) {
+							Object[] u = ctx.getContextUIDs();
+							if (u == null || u[1] == null) continue;
+							distinct.putIfAbsent((String) u[0] + "|" + (String) u[1],
+									new String[] { (String) u[0], (String) u[1], null });
+						}
+					}
+				}
+			}
+		}
+		return new java.util.ArrayList<>(distinct.values());
 	}
 
 	/**

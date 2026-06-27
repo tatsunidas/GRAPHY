@@ -146,7 +146,7 @@ public final class SRtoHtml {
 		KeyImageRef ref = new KeyImageRef(study, series, sop, ci.getRefSopClassUID(),
 				label.isEmpty() ? "Key image" : label);
 		String text = label.isEmpty() ? "Key image" : label;
-		sb.append("<p style=\"margin:2px 0;\">🖼 <a href=\"").append(ref.toHref()).append("\">")
+		sb.append("<p style=\"margin:2px 0;\"><a href=\"").append(ref.toHref()).append("\">")
 				.append(HtmlText.escape(text)).append("</a></p>");
 	}
 

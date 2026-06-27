@@ -279,18 +279,9 @@ public class MainScreenMenu extends JMenuBar{
 						}
 					}
 				}
-				if (patID == null) {
-					JOptionPane.showMessageDialog(main, Resources.i18n("Reporting.list.selectPatient"));
-					return;
-				}
-				com.vis.core.reporting.ui.ReportListPanel panel = new com.vis.core.reporting.ui.ReportListPanel();
-				panel.setPatientContext(patID);
-				javax.swing.JDialog d = new javax.swing.JDialog(main, Resources.i18n("Reporting.window.manage.title"),
-						false);
-				d.setContentPane(panel);
-				d.setSize(820, 480);
-				d.setLocationRelativeTo(main);
-				d.setVisible(true);
+				com.vis.core.reporting.ui.ReportManagerDialog dlg =
+						new com.vis.core.reporting.ui.ReportManagerDialog(main, patID);
+				dlg.setVisible(true);
 			}
 		});
 		mnReport.add(mntmManageReports);

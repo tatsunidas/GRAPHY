@@ -10,6 +10,8 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
+import java.util.concurrent.ExecutionException;
+
 import javax.swing.JButton;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
@@ -17,6 +19,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.html.HTMLEditorKit;
 
@@ -55,8 +58,9 @@ public class SRHtmlViewerWindow extends JFrame {
 
 		editor = new JEditorPane();
 		editor.setEditable(false);
-		editor.setContentType("text/html");
+		// Install the kit first, then set content-type so charset is respected.
 		editor.setEditorKit(new HTMLEditorKit());
+		editor.setContentType("text/html; charset=UTF-8");
 		editor.addHyperlinkListener(this::onHyperlink);
 
 		JToolBar bar = new JToolBar();
@@ -64,6 +68,9 @@ public class SRHtmlViewerWindow extends JFrame {
 		JButton browser = new JButton(Resources.i18n("Reporting.action.openInBrowser"));
 		browser.addActionListener(e -> openInBrowser());
 		bar.add(browser);
+		JButton print = new JButton(Resources.i18n("Reporting.action.print"));
+		print.addActionListener(e -> printReport());
+		bar.add(print);
 
 		JPanel content = new JPanel(new BorderLayout());
 		content.add(bar, BorderLayout.NORTH);
@@ -82,8 +89,33 @@ public class SRHtmlViewerWindow extends JFrame {
 
 	public void setHtml(String html) {
 		this.currentHtml = html == null ? "" : html;
+		// Prevent the HTML parser from re-interpreting <meta charset> and switching
+		// away from the UTF-8 we specified in setContentType().
+		editor.getDocument().putProperty("IgnoreCharsetDirective", Boolean.TRUE);
 		editor.setText(currentHtml);
 		editor.setCaretPosition(0);
+
+		// キー画像リンクをサムネイルに差し替える（バックグラウンド）
+		if (KeyImageHtmlInjector.hasKeyImages(currentHtml)) {
+			final String baseHtml = currentHtml;
+			new SwingWorker<String, Void>() {
+				@Override
+				protected String doInBackground() {
+					return KeyImageHtmlInjector.inject(baseHtml);
+				}
+				@Override
+				protected void done() {
+					try {
+						String enriched = get();
+						if (enriched != null && !enriched.equals(baseHtml)) {
+							currentHtml = enriched;
+							editor.setText(enriched);
+							editor.setCaretPosition(0);
+						}
+					} catch (InterruptedException | ExecutionException ignore) {}
+				}
+			}.execute();
+		}
 	}
 
 	private void onHyperlink(HyperlinkEvent e) {
@@ -102,7 +134,10 @@ public class SRHtmlViewerWindow extends JFrame {
 		}
 	}
 
-	/** Object retrieval: load the referenced instance into the 2D image viewer. */
+	/**
+	 * Load the full series referenced by {@code ref} into the 2D viewer and navigate
+	 * to the specific slice that matches {@code ref.getSopUID()}.
+	 */
 	private void retrieve(KeyImageRef ref) {
 		if (ref.getSopUID() == null || ref.getStudyUID() == null || ref.getStudyUID().isEmpty()
 				|| ref.getSeriesUID() == null || ref.getSeriesUID().isEmpty()) {
@@ -120,8 +155,15 @@ public class SRHtmlViewerWindow extends JFrame {
 		if (refUID == null) {
 			refUID = "";
 		}
-		viewer.loadImagesOnStage(patID, ref.getStudyUID(), ref.getSeriesUID(), new String[] { ref.getSopUID() },
-				refUID);
+		viewer.loadSeriesAndNavigate(patID, ref.getStudyUID(), ref.getSeriesUID(), ref.getSopUID(), refUID);
+	}
+
+	private void printReport() {
+		try {
+			editor.print(null, null, true, null, null, true);
+		} catch (Exception ex) {
+			Log.logger.warning("SRHtmlViewerWindow - print failed: " + ex.getMessage());
+		}
 	}
 
 	private void openInBrowser() {

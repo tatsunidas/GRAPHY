@@ -504,6 +504,50 @@ public class Viewer2DScreen extends JFrame implements WindowListener, WindowStat
 		}
 	}
 	
+	/**
+	 * Load the complete series into the 2D viewer and navigate to the specified SOP instance.
+	 * <p>
+	 * If the series is already displayed in the viewer (for any set of instances), navigation
+	 * is performed on the first matching {@link Praparat} without reloading. If the series has
+	 * not been loaded yet, all instances in the series are fetched from the database and
+	 * displayed, then the slice slider is moved to the target SOP.
+	 * </p>
+	 * Must be called on the EDT.
+	 *
+	 * @param patID     patient ID
+	 * @param studyUID  Study Instance UID
+	 * @param seriesUID Series Instance UID
+	 * @param sopUID    target SOP Instance UID to navigate to
+	 * @param refUID    Frame of Reference UID (may be null/empty)
+	 */
+	public void loadSeriesAndNavigate(String patID, String studyUID, String seriesUID,
+			String sopUID, String refUID) {
+		// Try to find an already-loaded praparat for this series (any subset of SOPs)
+		if (sdm.existsInDock(patID)) {
+			StageView sv = sdm.getStage(patID);
+			if (sv != null) {
+				List<Praparat> praps = sv.getEyepiece().getPraparatAmbiguously(patID, studyUID, seriesUID);
+				if (praps != null && !praps.isEmpty()) {
+					if (sopUID != null) {
+						praps.get(0).navigateToSop(sopUID);
+					}
+					return;
+				}
+			}
+		}
+		// Series not loaded yet: load full series then navigate
+		loadImagesOnStage(patID, studyUID, seriesUID, null, refUID);
+		if (sopUID != null && sdm.existsInDock(patID)) {
+			StageView sv = sdm.getStage(patID);
+			if (sv != null) {
+				List<Praparat> praps = sv.getEyepiece().getPraparatAmbiguously(patID, studyUID, seriesUID);
+				if (praps != null && !praps.isEmpty()) {
+					praps.get(0).navigateToSop(sopUID);
+				}
+			}
+		}
+	}
+
 	public StageView getStageViewAt(String patID) {
 		StageView sv = sdm.getStage(patID);
 		return sv;

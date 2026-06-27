@@ -15,11 +15,13 @@ import com.vis.core.reporting.sr.SRWriter;
 import com.vis.core.reporting.ui.SRHtmlViewerWindow;
 import com.vis.db.DatabaseHandler;
 import com.vis.dicom.DICOMBackend;
+import com.vis.dicom.DicomCommunicationNode;
 import com.vis.dicom.DicomWriter;
 import com.vis.dicom.UID;
 import com.vis.dicom.dcm4cheImpl.DicomObjectChe;
 import com.vis.dicom.dcm4cheImpl.DicomReaderChe;
 import com.vis.dicom.dimse.DimseUtilities;
+import com.vis.dicom.dimse.StoreSCU;
 
 /**
  * Single orchestration seam for the reporting feature. UI and menus call only
@@ -91,6 +93,15 @@ public class ReportService {
 	 *
 	 * @return list of {@code [seriesUID, sopUID, typeLabel]} rows.
 	 */
+	/**
+	 * Returns all study UIDs (and their dates) for the given patient, as
+	 * {@code String[]{studyUID, studyDate}}. Used by PATIENT mode to enumerate
+	 * imported SRs across all studies.
+	 */
+	public List<String[]> listStudiesForPatient(String patID) {
+		return db.getStudyUIDsForPatient(patID);
+	}
+
 	public List<String[]> listImportedSrInStudy(String patID, String studyUID) {
 		List<String[]> out = new ArrayList<>();
 		java.util.Set<String> exclude = new java.util.HashSet<>();
@@ -111,7 +122,60 @@ public class ReportService {
 	}
 
 	public void deleteReport(String reportId) {
+		ReportDocument doc = loadReport(reportId);
 		db.deleteReport(reportId);
+		if (doc == null) return;
+		// Cascade-delete the finalized SR DICOM object (otherwise it re-surfaces
+		// as an "imported" SR after the REPORT row is gone).
+		if (doc.getSrSopInstanceUID() != null) {
+			deleteImportedSr(doc.getPatientID(), doc.getStudyUID(),
+					doc.getSeriesUID(), doc.getSrSopInstanceUID());
+		}
+		// Cascade-delete the associated KO.
+		if (doc.getKoSopInstanceUID() != null) {
+			deleteImportedSr(doc.getPatientID(), doc.getStudyUID(),
+					doc.getKoSeriesInstanceUID(), doc.getKoSopInstanceUID());
+		}
+	}
+
+	public ReportDocument findReportByKoSopUID(String koSopUID) {
+		HashMap<String, Object> ctx = db.findReportContextByKoSopUID(koSopUID);
+		return ctx == null ? null : ReportDocument.fromContext(ctx);
+	}
+
+	/**
+	 * Create an addendum draft from a finalized report. The returned document is
+	 * pre-filled with the predecessor's metadata and a reference to its SR SOP UID.
+	 * Call {@link #saveDraft(ReportDocument)} then open in the editor.
+	 */
+	public ReportDocument createAddendum(String predecessorReportId, String author) {
+		ReportDocument original = loadReport(predecessorReportId);
+		if (original == null) {
+			return null;
+		}
+		ReportDocument addendum = ReportDocument.newAddendum(original, author);
+		saveDraft(addendum);
+		return addendum;
+	}
+
+	// ---- report locking (P2-2) -----------------------------------------------
+
+	/**
+	 * Attempt to acquire an exclusive editor lock for {@code user}. Returns true if
+	 * the lock was granted, false if held by someone else.
+	 */
+	public boolean tryLock(String reportId, String user) {
+		return db.tryLockReport(reportId, user);
+	}
+
+	/** Release the lock held by {@code user}. No-op if already unlocked. */
+	public void unlock(String reportId, String user) {
+		db.unlockReport(reportId, user);
+	}
+
+	/** Returns the current lock holder, or null if unlocked. */
+	public String getLockHolder(String reportId) {
+		return db.getReportLockHolder(reportId);
 	}
 
 	/**
@@ -160,6 +224,23 @@ public class ReportService {
 			String seriesUID = sr.getString(org.dcm4che3.data.Tag.SeriesInstanceUID);
 
 			storeSr(sr, sopUID);
+
+			// P2-8: generate a KO object when key images are present
+			if (doc.getKeyImages() != null && !doc.getKeyImages().isEmpty()) {
+				try {
+					Attributes ko = new com.vis.core.reporting.sr.KeyObjectWriter().build(ref, doc);
+					if (ko != null) {
+						String koSopUID = ko.getString(org.dcm4che3.data.Tag.SOPInstanceUID);
+						String koSeriesUID = ko.getString(org.dcm4che3.data.Tag.SeriesInstanceUID);
+						storeSr(ko, koSopUID);
+						doc.setKoSopInstanceUID(koSopUID);
+						doc.setKoSeriesInstanceUID(koSeriesUID);
+						logger.info("ReportService - KO generated: " + koSopUID);
+					}
+				} catch (Exception koEx) {
+					logger.warning("ReportService - KO generation failed (SR still saved): " + koEx.getMessage());
+				}
+			}
 
 			doc.setSrSopInstanceUID(sopUID);
 			doc.setSeriesUID(seriesUID);
@@ -234,6 +315,40 @@ public class ReportService {
 			}
 		}
 		return null;
+	}
+
+	// ---- C-STORE to remote PACS (P1-5) ----------------------------------------
+
+	/**
+	 * Send a finalized SR to a remote PACS node via C-STORE. The SR file is looked
+	 * up from the local store using the studyUID / seriesUID / sopUID triple.
+	 * Runs synchronous network I/O — call off the EDT.
+	 *
+	 * @param dest the remote PACS node to send to.
+	 * @param studyUID study UID of the SR.
+	 * @param seriesUID series UID of the SR.
+	 * @param sopUID SOP Instance UID of the SR.
+	 * @return true on success, false on failure.
+	 */
+	public boolean sendSrToRemote(DicomCommunicationNode dest,
+			String studyUID, String seriesUID, String sopUID) {
+		if (dest == null || studyUID == null || seriesUID == null || sopUID == null) {
+			return false;
+		}
+		String path = db.getFileLocation(studyUID, seriesUID, sopUID);
+		if (path == null) {
+			logger.warning("ReportService - sendSrToRemote: file not found for sop " + sopUID);
+			return false;
+		}
+		try {
+			String cParam = dest.getAETitle() + "@" + dest.getHostName() + ":" + dest.getPort();
+			StoreSCU.main(new String[] { "-c", cParam, path });
+			logger.info("ReportService - sendSrToRemote: sent " + sopUID + " to " + cParam);
+			return true;
+		} catch (Exception ex) {
+			logger.severe("ReportService - sendSrToRemote failed: " + ex.getMessage());
+			return false;
+		}
 	}
 
 	// ---- SR / RDSR viewing ---------------------------------------------------

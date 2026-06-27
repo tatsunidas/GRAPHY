@@ -24,6 +24,9 @@ public class KeyImageRef {
 	private String sopClassUID; // optional, for SR Referenced SOP Sequence
 	private int frame = -1; // optional 1-based frame number, -1 = none
 	private String label; // human readable text shown in the report
+	private String annotation = ""; // user-editable annotation shown in key-image grid
+	private float windowCenter = 0f; // display W/L captured at insert time (0 = not set)
+	private float windowWidth  = 0f;
 
 	public KeyImageRef() {
 	}
@@ -142,4 +145,23 @@ public class KeyImageRef {
 	public void setLabel(String label) {
 		this.label = label;
 	}
+
+	public String getAnnotation() {
+		return annotation == null ? "" : annotation;
+	}
+
+	public void setAnnotation(String annotation) {
+		this.annotation = annotation == null ? "" : annotation;
+	}
+
+	/** Window center captured from the 2D viewer at key-image insert time; 0 = not set. */
+	public float getWindowCenter() { return windowCenter; }
+	public void  setWindowCenter(float wc) { this.windowCenter = wc; }
+
+	/** Window width captured from the 2D viewer at key-image insert time; 0 = not set. */
+	public float getWindowWidth() { return windowWidth; }
+	public void  setWindowWidth(float ww) { this.windowWidth = ww; }
+
+	/** True when a non-trivial window was captured at insert time. */
+	public boolean hasWindow() { return windowWidth > 0f; }
 }

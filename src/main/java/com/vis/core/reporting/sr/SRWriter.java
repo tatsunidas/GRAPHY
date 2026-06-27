@@ -8,6 +8,15 @@ import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 
+import java.util.Arrays;
+import java.util.List;
+
+import org.commonmark.Extension;
+import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
+import org.commonmark.ext.gfm.tables.TablesExtension;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.text.TextContentRenderer;
+
 import com.vis.core.reporting.KeyImageRef;
 import com.vis.core.reporting.ReportDocument;
 
@@ -25,6 +34,16 @@ import com.vis.core.reporting.ReportDocument;
  */
 public class SRWriter {
 
+	private static final Parser MD_PARSER;
+	private static final TextContentRenderer MD_TEXT;
+
+	static {
+		List<Extension> exts = Arrays.asList(
+				TablesExtension.create(), StrikethroughExtension.create());
+		MD_PARSER = Parser.builder().extensions(exts).build();
+		MD_TEXT   = TextContentRenderer.builder().extensions(exts).build();
+	}
+
 	/**
 	 * @param ref a reference instance's dataset from the same study (for patient/study identity).
 	 * @param doc the report to serialize.
@@ -36,6 +55,14 @@ public class SRWriter {
 
 		String sopClassUID = doc.getType().getSrSopClass().uid();
 		SrCommon.fillSrHeader(sr, sopClassUID, new Date(), "901");
+
+		// P2-1: Verification Observer Sequence (0040,A073)
+		SrCommon.setVerificationObserver(sr, doc.getAuthor());
+
+		// P1-7: Predecessor Documents Sequence for addendum (0040,A380)
+		if (doc.getPredecessorSrSopUID() != null && !doc.getPredecessorSrSopUID().isEmpty()) {
+			addPredecessorDocuments(sr, doc);
+		}
 
 		// SR Document Content module (root container)
 		sr.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -49,8 +76,10 @@ public class SRWriter {
 			content.add(textItem(new Code("121060", "DCM", null, "History"), doc.getTitle()));
 		}
 
-		// Findings: the plain-text rendering of the report body.
-		String body = HtmlText.toPlainText(doc.getBodyHtml());
+		// Findings: convert body to plain text (Markdown or legacy HTML).
+		String body = doc.isMarkdown()
+				? MD_TEXT.render(MD_PARSER.parse(doc.getBodyHtml() == null ? "" : doc.getBodyHtml()))
+				: HtmlText.toPlainText(doc.getBodyHtml());
 		content.add(textItem(SRCodes.FINDINGS, body));
 
 		// Key images as IMAGE content items.
@@ -127,6 +156,27 @@ public class SRWriter {
 			seriesSeq.add(seriesItem);
 		}
 		evidence.add(studyItem);
+	}
+
+	/** Build PredecessorDocumentsSequence (0040,A380) for addendum SRs. */
+	private void addPredecessorDocuments(Attributes sr, ReportDocument doc) {
+		// (0040,A380) Predecessor Documents Sequence
+		Sequence predSeq = sr.newSequence(0x0040A380, 1);
+		Attributes predItem = new Attributes();
+		predItem.setString(Tag.StudyInstanceUID, VR.UI, doc.getStudyUID());
+		Sequence refSeries = predItem.newSequence(Tag.ReferencedSeriesSequence, 1);
+		Attributes seriesItem = new Attributes();
+		if (doc.getPredecessorSeriesUID() != null) {
+			seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, doc.getPredecessorSeriesUID());
+		}
+		Sequence refSop = seriesItem.newSequence(Tag.ReferencedSOPSequence, 1);
+		Attributes sopItem = new Attributes();
+		// Comprehensive SR SOP class as default; could be improved by reading from DB
+		sopItem.setString(Tag.ReferencedSOPClassUID, VR.UI, "1.2.840.10008.5.1.4.1.1.88.33");
+		sopItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, doc.getPredecessorSrSopUID());
+		refSop.add(sopItem);
+		refSeries.add(seriesItem);
+		predSeq.add(predItem);
 	}
 
 	private static void setConceptName(Attributes item, Code code) {

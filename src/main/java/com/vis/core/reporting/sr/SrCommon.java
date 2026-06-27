@@ -56,6 +56,9 @@ final class SrCommon {
 	 * @param seriesNumber series number string (e.g. "901").
 	 */
 	static void fillSrHeader(Attributes sr, String sopClassUID, Date now, String seriesNumber) {
+		// Ensure Japanese and other non-ASCII text is written as UTF-8.
+		sr.setString(Tag.SpecificCharacterSet, VR.CS, "ISO_IR 192");
+
 		// SR Document Series module
 		sr.setString(Tag.Modality, VR.CS, "SR");
 		sr.setString(Tag.SeriesInstanceUID, VR.UI, UIDUtils.createUID());
@@ -74,6 +77,24 @@ final class SrCommon {
 		sr.setDate(Tag.ContentTime, VR.TM, now);
 		sr.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
 		sr.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+	}
+
+	/**
+	 * Add Verification Observer Sequence (0040,A073) to an SR dataset. Records who
+	 * produced the report so the DICOM header carries an author attribution even
+	 * before the report is formally verified by a radiologist.
+	 */
+	static void setVerificationObserver(Attributes sr, String observerName) {
+		if (observerName == null || observerName.isEmpty()) {
+			return;
+		}
+		// (0040,A073) Verification Observer Sequence
+		Sequence seq = sr.newSequence(0x0040A073, 1);
+		Attributes obs = new Attributes();
+		obs.setString(0x0040A075, VR.PN, observerName); // Verification Observer Name
+		obs.setString(0x0040A084, VR.CS, "PSN");         // Observer Type = Person
+		obs.setString(Tag.InstitutionName, VR.LO, "GRAPHY");
+		seq.add(obs);
 	}
 
 	/** Set an item's Concept Name Code Sequence (0040,A043). */

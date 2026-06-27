@@ -16,18 +16,28 @@ package com.vis.configuration;
 public enum ReportDBKey {
 	ReportID,
 	Title,
-	Status, // DRAFT, FINAL
+	Status, // DRAFT, FINAL, ADDENDUM
 	ReportType, // see com.vis.core.reporting.ReportType
 	Author,
-	BodyHtml, // editable rich text (HTML), source of truth
+	ReferringPhysician,
+	ClinicalHistory,
+	BodyHtml, // report body (Markdown or HTML); see BodyFormat
+	BodyFormat, // "md" (default) or "html" for legacy records
 	KeyImageRefs, // JSON (Gson) of List<KeyImageRef>
 	SrSopInstanceUID, // filled on finalize-as-SR (nullable)
 	StudyDate,
 	CreatedDateTime, // epoch millis (Long)
 	ModifiedDateTime, // epoch millis (Long)
+	PredecessorReportId, // nullable; set on addendum
+	PredecessorSrSopUID, // nullable; SOP UID of predecessor SR for addendum
+	PredecessorSeriesUID, // nullable; series UID of predecessor SR for addendum
+	LockedBy, // nullable; user who has the report open for editing
+	LockedAt, // nullable; when the lock was acquired (epoch millis)
 	PatientID,
 	StudyInstanceUID,
-	SeriesInstanceUID
+	SeriesInstanceUID,
+	KoSopInstanceUID,      // SOP UID of the KO object linked to this report (set on finalize)
+	KoSeriesInstanceUID    // series UID of the linked KO object
 	;
 
 	public static boolean checkPropertyKey(String key) {

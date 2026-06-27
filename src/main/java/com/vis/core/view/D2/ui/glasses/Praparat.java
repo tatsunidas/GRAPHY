@@ -2206,6 +2206,21 @@ public class Praparat extends JPanel {
 		return -1;
 	}
 
+	/**
+	 * Navigate the slice slider to the frame that contains the given SOP Instance UID.
+	 * If the UID is not found in the loaded slides this method does nothing.
+	 * Must be called on the EDT (delegates to {@link CineSlider#setPosition(int)}).
+	 */
+	public void navigateToSop(String targetSopUID) {
+		if (targetSopUID == null || slider == null) return;
+		int pos = getSlidePosition(targetSopUID);
+		if (pos < 0) return;
+		int[] zct = calcZCTArrayFromIndex(pos);
+		if (zct[0] >= 0) {
+			slider.setPosition(zct[0]);
+		}
+	}
+
 	public Color getStudyColor() {
 		return this.studyColor;
 	}
