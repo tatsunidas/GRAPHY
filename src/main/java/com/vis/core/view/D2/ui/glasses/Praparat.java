@@ -3488,7 +3488,17 @@ public class Praparat extends JPanel {
 					}
 
 					// 5. 初回描画のトリガー（ここで初めて画像が描画される）
-					if (!isShowGridViewOn()) {
+					// FilmGrid非対応データ(MultiFrame/PDF/Multi-dimensional)では、
+					// 以前のシリーズから引き継いだ showGridViewOn=true が残っていても
+					// FilmGridは試みない（doFilmGridLayout内の警告ログが無意味に出るのを防ぐ）。
+					boolean filmGridCapable = !isMultiFrame() && !isMultiDimensional() && !isPDF();
+					if (mode == ViewMode.Normal) {
+						pvcp.getFilmGridBtn().setEnabled(filmGridCapable);
+					}
+					if (!isShowGridViewOn() || !filmGridCapable) {
+						if (isShowGridViewOn() && !filmGridCapable) {
+							gridViewOn(false);// keep toggle state in sync with the new series
+						}
 						doSingleGridLayout();
 					} else {
 						doFilmGridLayout(filmGridColumns);

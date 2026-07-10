@@ -1979,6 +1979,20 @@ public class RoiObjManager extends JFrame
 		if (pid == null || studyUID == null || seriesUID == null || sopUID == null) {
 			return -1;
 		}
+		// ★修正: MPEG動画等の多フレームDICOMは、1つのSOPInstance(=1ファイル)に全フレームが
+		// 含まれるため、SOPInstanceUIDは全フレームで同一になる。UIDだけで一致判定すると、
+		// 既に実体化済みの「別のフレーム」に誤って一致してしまう（多くの場合、常時実体化されて
+		// いる先頭フレーム＝スライド1）。ROIがInstanceNoを保持している場合は、UID一致に加えて
+		// InstanceNoの一致も必須にすることで、対象フレームを正しく一意に特定する。
+		Integer roiInstNo = null;
+		String roiInstNoString = roi.getProperty(RoiDBKey.InstanceNo.name());
+		if (roiInstNoString != null) {
+			try {
+				roiInstNo = Integer.parseInt(roiInstNoString);
+			} catch (NumberFormatException e) {
+				// do nothing, fall back to UID-only matching
+			}
+		}
 		ConcurrentHashMap<Integer, SlideGlass> slides = pp.getAllSlides();
 		for (Integer pos : slides.keySet()) {
 			boolean consistent = true;
@@ -1992,6 +2006,10 @@ public class RoiObjManager extends JFrame
 				consistent = false;
 			if (!UIDs[3].equals(sopUID))
 				consistent = false;
+			if (consistent && roiInstNo != null && sg.getInstanceNo() != null
+					&& sg.getInstanceNo().intValue() != roiInstNo.intValue()) {
+				consistent = false;
+			}
 			if (consistent) {
 				return pos;
 			}
@@ -2223,12 +2241,30 @@ public class RoiObjManager extends JFrame
 					 * Keys on the slide are not instance numbers, but numbers in reading order
 					 */
 					Set<Integer> keys = prap.getAllSlides().keySet();
+					SlideGlass matched = null;
 					for (Integer readingOrder : keys) {
 						SlideGlass s = prap.getAllSlides().get(readingOrder);
-						if (s.getInstanceNo() == instNo) {
-							roiObj.setSlideGlass(s, false);
-							s.addRoi(roiObj);
+						if (s.getInstanceNo() != null && s.getInstanceNo().intValue() == instNo) {
+							matched = s;
+							break;
 						}
+					}
+					if (matched == null) {
+						// ★修正: MPEG動画等は遅延生成のため、まだ訪れていないフレームはslidesに
+						// 存在しない。読み込み順(reading order)とInstanceNoは常に一致する
+						// (loadSeries時にInstanceNo昇順でソートしてindexを振っているため)ので、
+						// instNo-1を候補indexとしてrealizeImage()で実体化してから再確認する。
+						int candidateIndex = instNo - 1;
+						prap.realizeImage(candidateIndex);
+						SlideGlass candidate = prap.getAllSlides().get(candidateIndex);
+						if (candidate != null && candidate.getInstanceNo() != null
+								&& candidate.getInstanceNo().intValue() == instNo) {
+							matched = candidate;
+						}
+					}
+					if (matched != null) {
+						roiObj.setSlideGlass(matched, false);
+						matched.addRoi(roiObj);
 					}
 				} else {
 					// ★修正: GRAPHY独自のUID/InstanceNoを持たない"純正"のImageJ ROIの場合、
