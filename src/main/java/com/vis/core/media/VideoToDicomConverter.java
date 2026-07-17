@@ -80,9 +80,19 @@ public class VideoToDicomConverter {
 			// 任意のフレームに到達できるようにする(ジャンプのコストをO(全長)からO(GOPサイズ)に抑える)。
 			// 既にDICOM化済みの動画には遡って効果はなく、今後の取り込みにのみ適用される。
 			final int GOP_SIZE_FRAMES = 30;
-			java.util.List<ws.schild.jave.encode.EncodingArgument> currOptions = java.util.Collections.singletonList(
+			// ★ Bフレームを無効化する：
+			// libx264はデフォルトでBフレーム(bframes=3)を使うため、MP4内のサンプル物理順(decode順)と
+			// 実際の表示順(PTS順)が異なる。表示側(VideoReaderJCodec)はJCodecのFrameGrab.getNativeFrame()を
+			// 単純に連番で呼び出しておりdecode順のまま返す(PTS順への並べ替えを行わない)ため、
+			// Bフレームが存在すると中間フレームの表示順序が崩れる不具合が発生していた。
+			// -bf 0 でBフレームを禁止すればdecode順=表示順になり、確実にこの不具合を回避できる。
+			// (トレードオフ: 圧縮効率がわずかに下がりファイルサイズが増える。既存の変換済みDICOMには
+			// 遡って効果はなく、今後の取り込みにのみ適用される)
+			java.util.List<ws.schild.jave.encode.EncodingArgument> currOptions = java.util.Arrays.asList(
 					new ws.schild.jave.encode.ValueArgument(ws.schild.jave.encode.ArgType.OUTFILE, "-g",
-							ea -> java.util.Optional.of(String.valueOf(GOP_SIZE_FRAMES))));
+							ea -> java.util.Optional.of(String.valueOf(GOP_SIZE_FRAMES))),
+					new ws.schild.jave.encode.ValueArgument(ws.schild.jave.encode.ArgType.OUTFILE, "-bf",
+							ea -> java.util.Optional.of("0")));
 
 			ws.schild.jave.Encoder encoder = new ws.schild.jave.Encoder();
 			encoder.encode(java.util.Collections.singletonList(multimediaObject), tempMp4, encodingAttrs, new EncoderProgressListener() {

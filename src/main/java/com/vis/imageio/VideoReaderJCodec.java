@@ -171,6 +171,11 @@ class VideoReaderJCodec implements VideoReader{
 		 * 「続きから少し進めるだけ」にすることで、その場合のコストをO(1)〜O(差分)に抑える。
 		 * 後方アクセスや初回は従来通りseekToFramePreciseで再構築する（挙動は変えない）。
 		 */
+		// ★ 前方ジャンプをシークせず逐次デコードで続ける距離の上限。
+		// VideoToDicomConverterでのエンコード時GOPサイズ(30)の目安に対して余裕を持たせた値。
+		// これを超える距離の前方ジャンプは、逐次デコードよりシークの方が確実に速い。
+		private static final int MAX_FORWARD_CONTINUE_FRAMES = 60;
+
 		private FileChannelWrapper persistentChannel;
 		private FrameGrab persistentGrab;
 		private int lastDecodedFrame = -1; // 0-based. -1 = 未デコード
@@ -209,15 +214,21 @@ class VideoReaderJCodec implements VideoReader{
 				if (persistentGrab != null && target == lastDecodedFrame + 1) {
 					// ★ 直前のフレームの続き：シーク不要、1枚進めるだけ（高速パス）
 					pic = persistentGrab.getNativeFrame();
-				} else if (persistentGrab != null && target > lastDecodedFrame) {
-					// ★ 前方への範囲内ジャンプ：既存のデコーダ位置から差分だけ読み進める
+				} else if (persistentGrab != null && target > lastDecodedFrame
+						&& target - lastDecodedFrame <= MAX_FORWARD_CONTINUE_FRAMES) {
+					// ★ 前方への近傍ジャンプ：既存のデコーダ位置から差分だけ読み進める
 					// (フレーム0からの再デコードを避けられる)
 					for (int f = lastDecodedFrame + 1; f < target; f++) {
 						persistentGrab.getNativeFrame();
 					}
 					pic = persistentGrab.getNativeFrame();
 				} else {
-					// ★ 後方アクセス、または初回アクセス：再オープンしてシークする(従来通り)
+					// ★ 後方アクセス、初回アクセス、または遠方への前方ジャンプ(スライダーでの大きな
+					// ジャンプ等)：再オープンしてシークする。
+					// 前方の遠距離ジャンプを↑の分岐に含めてしまうと、間の全フレームを律儀に
+					// 逐次デコードすることになり、GOP構造を無視したO(距離)のコストになってしまう
+					// (スライダー操作が極端に重くなる原因だった)。距離がGOPサイズの目安を超えたら
+					// 後方ジャンプと同じくシークに切り替え、コストをO(GOPサイズ)に抑える。
 					closePersistent();
 					persistentChannel = NIOUtils.readableChannel(videoFile);
 					persistentGrab = FrameGrab.createFrameGrab(persistentChannel);
