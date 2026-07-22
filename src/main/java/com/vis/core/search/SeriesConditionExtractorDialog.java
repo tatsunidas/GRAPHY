@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -726,6 +727,11 @@ public class SeriesConditionExtractorDialog extends JDialog {
                 	/*
                 	 * Avoid overwrite csv
                 	 */
+                    // ★修正: 連番は「元フォルダ名順」で振り直す。
+                    // フォルダスキャンモードでは copiedUniqueFolders の順序が HashMap のハッシュ順に
+                    // 依存して非決定的になるため、リネーム前にフォルダ名で明示的にソートして順序を保証する。
+                    copiedUniqueFolders.sort(Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
+
                     File csvFile = getUniqueFile(destinationFolder, "mapping_table.csv");
                     try (PrintWriter csvWriter = new PrintWriter(new FileWriter(csvFile))) {
                         csvWriter.println("OriginalFolderName,SequentialFolderName");
