@@ -2647,7 +2647,43 @@ public class DatabaseHandler {
 		}
 	}
 
-	private void insertPatientInfo(DicomObject dataset) {
+	/**
+	 * Placeholder PatientID used when an incoming DICOM object carries no (or a blank)
+	 * PatientID (0010,0020). GRAPHY requires PatientID to be Non-Null because the PATIENT
+	 * table declares it {@code NOT NULL PRIMARY KEY}. Objects lacking a PatientID are
+	 * therefore imported under this single "NULL" bucket so they remain visible for later
+	 * manual triage/correction rather than being silently dropped.
+	 * <p>
+	 * NOTE: all PatientID-less objects collapse into this one patient record. This is
+	 * intentional (a quarantine bucket), not a per-object identity. If per-study separation
+	 * is ever desired, change this single point to substitute StudyInstanceUID instead.
+	 */
+	public static final String NULL_PATIENT_ID = "NULL";
+
+	/**
+	 * Normalize the mandatory PatientID (0010,0020) in-place. When absent or blank, the
+	 * literal {@link #NULL_PATIENT_ID} is substituted. PatientName (0010,0010) is left
+	 * untouched because the PATIENT schema allows it to be NULL.
+	 * <p>
+	 * This is the single source of truth for PatientID normalization on the import path;
+	 * both the DIMSE C-STORE path and the local DB-registration path funnel through here
+	 * (the C-STORE path additionally normalizes its dcm4che Attributes before building the
+	 * storage path, see {@code DcmQRSCP}).
+	 *
+	 * @param dataset the DICOM object about to be imported (mutated in place)
+	 */
+	public static void normalizePatientIdentity(DicomObject dataset) {
+		if (dataset == null) {
+			return;
+		}
+		final int TAG_PATIENT_ID = 0x00100020; // (0010,0020) PatientID; literal avoids the ZWSP in com.vis.dicom.Tag
+		String pid = dataset.getString(TAG_PATIENT_ID);
+		if (pid == null || pid.trim().isEmpty()) {
+			dataset.setString(TAG_PATIENT_ID, VR.LO, NULL_PATIENT_ID);
+		}
+	}
+
+	private void insertPatientInfo(DicomObject dataset) throws SQLException {
 		if (!(checkRecordExists("PATIENT", "PatientID", dataset.getString(Tag.Patient​ID)))) {
 			String sql = "insert into patient values(?,?,?,?)";
 			java.util.Date bod = dataset.getDate(Tag.Patient​Birth​Date);
@@ -2661,6 +2697,11 @@ public class DatabaseHandler {
 				conn.commit();
 			} catch (SQLException ex) {
 				logger.severe("DatabaseHandler - Unable to save patient information\n" + ex.getMessage());
+				// Propagate so writeDatasetInfo reports the failure instead of returning a
+				// false "success" (which previously let callers log "DB-WROTE successfully"
+				// even though the PATIENT row — and its dependent STUDY/SERIES/IMAGE rows —
+				// were never written).
+				throw ex;
 			}
 		}
 	}
@@ -5430,6 +5471,10 @@ public class DatabaseHandler {
 	}
 
 	public synchronized boolean writeDatasetInfo(DicomObject dataset, String filePath) {
+		// GRAPHY requires a Non-Null PatientID (PATIENT.PatientID is NOT NULL PRIMARY KEY).
+		// Substitute the "NULL" placeholder up-front so every downstream read (overwrite
+		// check, patient/study/series/image inserts) sees a consistent value.
+		normalizePatientIdentity(dataset);
 		boolean overWrite = overWriteSavedAsLinkRecord(dataset, saveAsLink/* false */);
 		if (!checkCanImport(dataset) && !overWrite) {
 			return false;

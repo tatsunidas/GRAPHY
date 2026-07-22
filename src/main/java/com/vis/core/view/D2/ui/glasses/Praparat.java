@@ -3597,6 +3597,12 @@ public class Praparat extends JPanel {
 			DicomReader reader = DicomReader.newDicomReader(be);
 			reader.read(path, false);
 			DicomObject dcmObj = reader.getHeader();
+			// Guard: skip files whose header failed to parse rather than NPE on the reads below.
+			if (dcmObj == null) {
+				System.out.println("Skip invalid/unreadable DICOM (no header): " + path);
+				sopUIDs[j++] = null;
+				continue;
+			}
 			if (pid == null) {
 				pid = dcmObj.getString(Tag.Patient​ID);
 				studyUID = dcmObj.getString(Tag.Study​Instance​UID);
@@ -3769,6 +3775,14 @@ public class Praparat extends JPanel {
 				DicomReader reader = DicomReader.newDicomReader(backend);
 				reader.read(path, false);
 				DicomObject header = reader.getHeader();
+				// Guard: reader.read() returns early (leaving header null) for a directory,
+				// a non-file, or an unparseable/non-DICOM file. Skip such entries gracefully
+				// instead of letting the NPE crash this background worker (which previously
+				// dropped the whole series via Future.get()).
+				if (header == null) {
+					System.out.println("Skip invalid/unreadable DICOM (no header): " + path);
+					return localList; // empty
+				}
 				DicomObject fmi = reader.getFileMetaInfomation();
 				String sopClassUID = header.getString(Tag.SOPClassUID, "");
 				UID tsUID = reader.checkTSUID();

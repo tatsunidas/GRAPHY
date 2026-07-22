@@ -181,6 +181,14 @@ public class DcmQRSCP implements DicomServer{
 				LOG.info("File stored temporarily: " + file.getAbsolutePath());
 				
 				Attributes attrs = parse(file);
+				// GRAPHY requires a Non-Null PatientID. Normalize BEFORE building the storage
+				// path so a missing PatientID lands under a stable "NULL" bucket instead of the
+				// literal string "null" (which {00100020,hash} would otherwise render), keeping
+				// the on-disk layout consistent with the DB row written by writeGraphyDB below.
+				String pid = attrs.getString(Tag.PatientID);
+				if (pid == null || pid.trim().isEmpty()) {
+					attrs.setString(Tag.PatientID, VR.LO, DatabaseHandler.NULL_PATIENT_ID);
+				}
 				File dest = getDestinationFile(attrs);
 				renameTo(as, file, dest);
 				file = dest;
