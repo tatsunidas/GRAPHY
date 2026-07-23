@@ -90,7 +90,7 @@ public class MainScreenToolBar extends JToolBar {
 	private enum Tool {
 		Import, Export, BrowseDB, BurnCD, ImportNoneDcm, Delete, Metadata, Send,
 		TagExtractor,
-		SeriesExporter,
+		SeriesExtractor,
 		Anonymizer,
 		Radiomics,
 		Viewer, Viewer3D, Settings;
@@ -142,7 +142,7 @@ public class MainScreenToolBar extends JToolBar {
 		map.put(Tool.Radiomics, Resources.RadiomicsJIcon.loadIconFromResource());
 		map.put(Tool.Anonymizer, Resources.MenuBarAnonymizer.loadIconFromResource());
 		map.put(Tool.TagExtractor, Resources.MenuBarTagExtractor.loadIconFromResource());
-		map.put(Tool.SeriesExporter, Resources.MenuBarConditionalSeriesExtractor.loadIconFromResource());//
+		map.put(Tool.SeriesExtractor, Resources.MenuBarConditionalSeriesExtractor.loadIconFromResource());//
 		map.put(Tool.Settings, Resources.MenuBarSettingsIcon.loadIconFromResource());
 		return map;
 	}
@@ -358,7 +358,7 @@ public class MainScreenToolBar extends JToolBar {
 		        dialog.setVisible(true);
 		    });
 		    break;
-		case SeriesExporter:
+		case SeriesExtractor:
 		    btn.addActionListener(e -> {
 		        SeriesConditionExtractorDialog dialog = new SeriesConditionExtractorDialog(WindowManager.getMainScreen());
 		        dialog.setVisible(true);

@@ -93,8 +93,6 @@ import com.vis.core.view.D3.ui.VolumeLoader;
 import com.vis.core.view.mpr.SimpleMPRViewer;
 
 /**
- * buttons design https://material.io/tools/icons/?style=outline
- * 
  * @author tatsunidas
  */
 @SuppressWarnings("serial")
