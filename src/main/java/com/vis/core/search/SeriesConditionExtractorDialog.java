@@ -940,10 +940,15 @@ public class SeriesConditionExtractorDialog extends JDialog {
             if (parentDir != null && parentDir.exists()) {
                 File[] children = parentDir.listFiles();
                 if (children != null) {
+                    // ★ header.getString() は末尾パディングを除去済みだが、
+                    // DicomUtilities.getSeriesInstanceUID() は生バイト(末尾\0を含む)を返すため、
+                    // 両辺を正規化してから比較しないと一致せず、フォルダが空になる。
+                    String targetSeriesUid = normalizeUid(seriesUid);
                     for (File f : children) {
                         if (f.isFile() && DicomUtilities.isDicomFile(f) && !DicomUtilities.isDICOMDIR(f)) {
                             // ★ seriesUidがnullの場合でもNPEにならないよう、Objects.equalsで比較する
-                            if (java.util.Objects.equals(seriesUid, DicomUtilities.getSeriesInstanceUID(f.getAbsolutePath()))) {
+                            if (java.util.Objects.equals(targetSeriesUid,
+                                    normalizeUid(DicomUtilities.getSeriesInstanceUID(f.getAbsolutePath())))) {
                                 files.add(f);
                             }
                         }
@@ -952,5 +957,11 @@ public class SeriesConditionExtractorDialog extends JDialog {
             }
         }
         return files;
+    }
+
+    // DICOM UIDの末尾パディング(ヌル文字)・空白を除去して比較用に正規化する。
+    private static String normalizeUid(String uid) {
+        if (uid == null) return null;
+        return uid.trim().replace("\0", "");
     }
 }
