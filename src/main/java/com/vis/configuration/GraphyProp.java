@@ -39,7 +39,14 @@ public enum GraphyProp {
 	FontSize,
 	TextFont,
 	
-	ColumnOrder;
+	ColumnOrder,
+
+	/**
+	 * 起動時の更新確認で「このバージョンをスキップ」を選んだときの、その版のバージョン文字列。
+	 * 空・未設定なら常に通知する。メニューからの手動確認では無視する（見たくて開いているため）。
+	 * @see com.vis.core.update.UpdateChecker
+	 */
+	SkipUpdateVersion;
 	
 	public static Color getColorFromName(String colorName, Color defaultColor) {
 		try {
