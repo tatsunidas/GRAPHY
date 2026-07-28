@@ -66,6 +66,7 @@ import com.vis.core.task.TaskManager;
 import com.vis.core.ui.LookAndFeels;
 import com.vis.core.ui.main.MainScreen;
 import com.vis.core.ui.settings.PreferencesWin;
+import com.vis.core.update.UpdateNotice;
 import com.vis.core.util.Platform;
 import com.vis.core.util.PropertiesUtil;
 import com.vis.core.util.Utils;
@@ -253,6 +254,9 @@ public class ApplicationFacade{
 			WindowManager.addWindow(mainScreen);
 			//add preferenceWin
 			WindowManager.addWindow(PreferencesWin.getInstance());
+			// 起動時の更新確認。取得はバックグラウンドで行い、新しい版があるときだけ知らせる
+			// （最新・取得失敗のときは黙る）。メイン画面を出してからでないとダイアログの親が無い。
+			UpdateNotice.checkOnStartup();
 		});
 		
 		String fontSize = PropertiesUtil.getPropValueFrom(ConfigInfo.GRAPHY_Props, GraphyProp.FontSize);

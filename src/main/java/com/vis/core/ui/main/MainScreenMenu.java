@@ -53,6 +53,7 @@ import com.vis.configuration.ConfigInfo;
 import com.vis.configuration.Resources;
 import com.vis.core.facade.WindowManager;
 import com.vis.core.log.Log;
+import com.vis.core.update.UpdateNotice;
 import com.vis.core.media.DicomToAviConverter;
 import com.vis.core.ui.dialog.DicomExporter;
 import com.vis.core.ui.dialog.DicomImporterDialog;
@@ -341,6 +342,17 @@ public class MainScreenMenu extends JMenuBar{
 				new HelpDialog();
 			}
 		});
-		mnHelp.add(mntmHelp);		
+		mnHelp.add(mntmHelp);
+
+		// 更新確認（通知のみ。ダウンロード・置き換えは行わない）。
+		// GRAPHY-Next 側の Help > 更新を確認 と同等の機能。
+		JMenuItem mntmCheckUpdate = new JMenuItem("Check for Updates");
+		mntmCheckUpdate.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				UpdateNotice.checkManually();
+			}
+		});
+		mnHelp.add(mntmCheckUpdate);
 	}
 }
